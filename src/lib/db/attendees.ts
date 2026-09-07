@@ -77,9 +77,11 @@ export async function deleteAttendee(id: string): Promise<void> {
 
 export async function purgeAttendeePersonalData(eventId: string): Promise<number> {
   const db = serviceClient();
-  const { data } = await db.from("attendees").select("id").eq("event_id", eventId);
+  const { data, error: selectError } = await db.from("attendees").select("id").eq("event_id", eventId);
+  if (selectError) throw selectError;
   for (const row of data ?? []) {
-    await db.from("attendees").update({ name: "Purged", email: null, phone: null, company: null, extra: {}, token: generateToken(), status: "purged", updated_at: new Date().toISOString() }).eq("id", row.id);
+    const { error } = await db.from("attendees").update({ name: "Purged", email: null, phone: null, company: null, extra: {}, token: generateToken(), status: "purged", updated_at: new Date().toISOString() }).eq("id", row.id);
+    if (error) throw error;
   }
   return data?.length ?? 0;
 }
