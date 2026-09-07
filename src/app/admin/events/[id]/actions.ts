@@ -184,7 +184,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
 export async function deleteAgendaItemAction(eventId: string, itemId: string) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
-  await deleteAgendaItem(itemId);
+  await deleteAgendaItem(itemId, eventId);
   revalidatePath(`/admin/events/${eventId}/agenda`);
 }
 
@@ -202,7 +202,7 @@ export async function addAnnouncementAction(eventId: string, formData: FormData)
 export async function deleteAnnouncementAction(eventId: string, annId: string) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
-  await deleteAnnouncement(annId);
+  await deleteAnnouncement(annId, eventId);
   revalidatePath(`/admin/events/${eventId}/announcements`);
 }
 
@@ -227,6 +227,6 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
 export async function deleteCheckpointAction(eventId: string, cpId: string) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
-  await deleteCheckpoint(cpId);
+  await deleteCheckpoint(cpId, eventId);
   revalidatePath(`/admin/events/${eventId}/checkpoints`);
 }

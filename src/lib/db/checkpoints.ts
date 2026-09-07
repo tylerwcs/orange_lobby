@@ -11,7 +11,7 @@ export async function createCheckpoint(event: Pick<Event, "id" | "org_id">, name
   const { error } = await serviceClient().from("checkpoints").insert({ org_id: event.org_id, event_id: event.id, name, sort_order });
   if (error) throw error;
 }
-export async function deleteCheckpoint(id: string) {
-  const { error } = await serviceClient().from("checkpoints").delete().eq("id", id);
+export async function deleteCheckpoint(id: string, eventId: string) {
+  const { error } = await serviceClient().from("checkpoints").delete().eq("id", id).eq("event_id", eventId);
   if (error) throw error;
 }

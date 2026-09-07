@@ -11,7 +11,7 @@ export async function createAgendaItem(event: Pick<Event, "id" | "org_id">, inpu
   const { error } = await serviceClient().from("agenda_items").insert({ org_id: event.org_id, event_id: event.id, ...input });
   if (error) throw error;
 }
-export async function deleteAgendaItem(id: string) {
-  const { error } = await serviceClient().from("agenda_items").delete().eq("id", id);
+export async function deleteAgendaItem(id: string, eventId: string) {
+  const { error } = await serviceClient().from("agenda_items").delete().eq("id", id).eq("event_id", eventId);
   if (error) throw error;
 }

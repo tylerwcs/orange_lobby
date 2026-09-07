@@ -11,7 +11,7 @@ export async function createAnnouncement(event: Pick<Event, "id" | "org_id">, in
   const { error } = await serviceClient().from("announcements").insert({ org_id: event.org_id, event_id: event.id, ...input });
   if (error) throw error;
 }
-export async function deleteAnnouncement(id: string) {
-  const { error } = await serviceClient().from("announcements").delete().eq("id", id);
+export async function deleteAnnouncement(id: string, eventId: string) {
+  const { error } = await serviceClient().from("announcements").delete().eq("id", id).eq("event_id", eventId);
   if (error) throw error;
 }
