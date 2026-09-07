@@ -27,7 +27,8 @@ npm run build
 
 ## Documentation
 
-- [Runbook](docs/runbook.md) — deployment, event management, registration, badges, onsite scanning, attendance export
+- [Runbook](docs/runbook.md)
+- [Dry-run verification](docs/dry-run-verification.md) — deployment, event management, registration, badges, onsite scanning, attendance export
 - [Spec](docs/superpowers/specs/2026-09-07-orange-lobby-pilot.md)
 - [Implementation plan](docs/superpowers/plans/2026-09-07-kom-pilot.md)
 
