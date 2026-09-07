@@ -4,7 +4,7 @@ const SAFE_URL = /^(https?:\/\/|mailto:|tel:)/i;
 export function sanitizeHtml(html: string): string {
   let s = html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "");
   s = s.replace(/<!--[\s\S]*?-->/g, "");
-  return s.replace(/<\/?([a-zA-Z0-9]+)([^>]*)>/g, (_m, tagRaw: string, attrs: string) => {
+  return s.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>/g, (_m, tagRaw: string, attrs: string) => {
     const tag = tagRaw.toLowerCase();
     if (!ALLOWED.has(tag)) return "";
     const closing = _m.startsWith("</");
