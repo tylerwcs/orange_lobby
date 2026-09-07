@@ -18,7 +18,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const [total, cps, counts] = await Promise.all([countAttendees(ev.id), listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id)]);
   return (
     <div className="space-y-6">
-      {sp.error && <div className="rounded border border-red-300 bg-red-50 p-3 text-red-700 text-sm">{decodeURIComponent(sp.error)}</div>}
+      {sp.error && <div className="rounded border border-red-300 bg-red-50 p-3 text-red-700 text-sm">{sp.error}</div>}
       {sp.purged && <div className="rounded border border-green-300 bg-green-50 p-3 text-green-700 text-sm">Personal data purged.</div>}
       <section className="rounded border bg-white p-4">
         <h2 className="mb-2 font-medium">Links</h2>
@@ -47,6 +47,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
           <a className="rounded border px-3 py-1" href={`/admin/events/${ev.id}/export/links.xlsx`}>Links (Excel)</a>
           <a className="rounded border px-3 py-1" href={`/admin/events/${ev.id}/export/attendance.xlsx`}>Attendance (Excel)</a>
         </div>
+        <p className="mt-2 text-xs text-gray-500">Links are generated for: {base}</p>
       </section>
       {ev.status === "archived" && (
         <form action={purgeEventAction.bind(null, ev.id)} className="rounded border border-red-300 bg-white p-4">

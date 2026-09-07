@@ -1,7 +1,7 @@
 "use server";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { findByToken, getAttendee, listAttendees, createAttendee } from "@/lib/db/attendees";
+import { findByToken, getAttendee, listAttendees, createAttendee, upsertByEmail, type AttendeeInput } from "@/lib/db/attendees";
 import { recordCheckin } from "@/lib/db/checkins";
 import { getCheckpoint } from "@/lib/db/checkpoints";
 import { extractToken, scanResultFields } from "@/lib/scan";
@@ -54,6 +54,11 @@ export async function walkInAction(eventId: string, checkpointId: string, formDa
   if (ev.status === "archived") return { status: "error", message: "Event is archived" };
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { status: "error", message: "Name required" };
-  const a = await createAttendee(ev, { name, email: String(formData.get("email") ?? "").trim() || null, phone: String(formData.get("phone") ?? "").trim() || null, company: String(formData.get("company") ?? "").trim() || null }, "walkin");
+  const field = (k: string) => String(formData.get(k) ?? "").trim() || undefined;
+  const email = field("email");
+  // Blank fields are omitted so an upsert onto an imported row never nulls what the masterlist had.
+  const input: AttendeeInput = { name, phone: field("phone"), company: field("company") };
+  // A walk-in whose email is already on the masterlist must update that row, not collide with it.
+  const a = email ? (await upsertByEmail(ev, { ...input, email }, "walkin")).attendee : await createAttendee(ev, input, "walkin");
   return doCheckin(ev, userId, checkpointId, a);
 }

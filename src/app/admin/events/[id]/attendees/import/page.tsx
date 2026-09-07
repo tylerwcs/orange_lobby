@@ -3,6 +3,9 @@ import { requireEvent } from "@/lib/db/events";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { importMasterlistAction } from "../../actions";
 
+// A few thousand masterlist rows can outrun the default serverless timeout.
+export const maxDuration = 60;
+
 export default async function ImportPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const { id } = await params;
   const { error } = await searchParams;

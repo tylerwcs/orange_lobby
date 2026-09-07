@@ -12,7 +12,7 @@ export function buildLinksWorkbook(rows: LinkRow[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Links");
   ws.addRow(["Name", "Email", "Company", "Category", "Table", "Seat", "Link"]);
-  for (const r of rows) ws.addRow([r.name, r.email, r.company, r.category, r.table_no, r.seat_no, undefined, r.link]);
+  for (const r of rows) ws.addRow([r.name, r.email, r.company, r.category, r.table_no, r.seat_no, r.link]);
   ws.columns?.forEach((c) => { c.width = 24; });
   return wb;
 }

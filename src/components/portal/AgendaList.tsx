@@ -8,7 +8,7 @@ export function AgendaList({ items }: { items: AgendaItem[] }) {
     <div className="space-y-6">
       {days.map((d) => (
         <section key={d.day}>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{new Date(d.day + "T00:00:00").toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "long" })}</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{new Date(d.day + "T00:00:00Z").toLocaleDateString("en-MY", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" })}</h2>
           <ul className="space-y-3">
             {d.items.map((i) => (
               <li key={i.id} className="rounded-lg border p-3">

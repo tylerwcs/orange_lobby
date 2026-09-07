@@ -22,6 +22,8 @@ export async function registerAction(slug: string, _prev: RegisterState, formDat
   const result = validateRegistration(values, event.registration_questions);
   if (!result.ok) return { errors: result.errors, values };
 
-  const { attendee } = await upsertByEmail(event, result.data, "registration");
+  // Omit blank phone/company so re-registering never nulls values the masterlist import supplied.
+  const { phone, company, ...rest } = result.data;
+  const { attendee } = await upsertByEmail(event, { ...rest, ...(phone ? { phone } : {}), ...(company ? { company } : {}) }, "registration");
   redirect(`/e/${slug}/register/done?t=${attendee.token}`);
 }

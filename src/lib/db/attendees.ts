@@ -2,6 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
+import { buildAttendeeSearchFilter, isSearchable } from "@/lib/search-filter";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -26,7 +27,7 @@ export async function getAttendee(id: string): Promise<Attendee | null> {
 
 export async function listAttendees(eventId: string, q?: string): Promise<Attendee[]> {
   let query = serviceClient().from("attendees").select("*").eq("event_id", eventId).order("name");
-  if (q && q.trim()) query = query.or(`name.ilike.%${q.trim()}%,email.ilike.%${q.trim()}%,company.ilike.%${q.trim()}%`);
+  if (q && isSearchable(q)) query = query.or(buildAttendeeSearchFilter(q));
   const { data, error } = await query.limit(2000);
   if (error) throw error;
   return data as Attendee[];
@@ -39,10 +40,30 @@ export async function countAttendees(eventId: string): Promise<number> {
 
 export async function createAttendee(event: Pick<Event, "id" | "org_id">, input: AttendeeInput, source: AttendeeSource): Promise<Attendee> {
   const { data, error } = await serviceClient().from("attendees")
-    .insert({ org_id: event.org_id, event_id: event.id, token: generateToken(), source, extra: {}, ...input, email: input.email?.toLowerCase() ?? null })
+    .insert({ org_id: event.org_id, event_id: event.id, token: generateToken(), source, extra: {}, ...input, email: input.email?.trim().toLowerCase() || null })
     .select("*").single();
   if (error) throw error;
   return data as Attendee;
+}
+
+const INSERT_CHUNK = 200;
+
+/** Bulk-inserts attendees (one round trip per 200 rows) and returns how many were inserted. */
+export async function createAttendees(event: Pick<Event, "id" | "org_id">, inputs: AttendeeInput[], source: AttendeeSource): Promise<number> {
+  if (inputs.length === 0) return 0;
+  const db = serviceClient();
+  const rows = inputs.map((input) => ({
+    org_id: event.org_id, event_id: event.id, token: generateToken(), source, extra: {},
+    ...input, email: input.email?.trim().toLowerCase() || null,
+  }));
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+    const chunk = rows.slice(i, i + INSERT_CHUNK);
+    const { error } = await db.from("attendees").insert(chunk);
+    if (error) throw error;
+    inserted += chunk.length;
+  }
+  return inserted;
 }
 
 export async function updateAttendee(id: string, patch: Partial<AttendeeInput>): Promise<void> {

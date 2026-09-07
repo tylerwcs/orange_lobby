@@ -2,7 +2,11 @@ function trimSlash(s: string) {
   return s.replace(/\/+$/, "");
 }
 export function appBaseUrl(): string {
-  return trimSlash(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000");
+  const configured = process.env.NEXT_PUBLIC_APP_URL;
+  if (configured) return trimSlash(configured);
+  // Silently falling back in production would mint QR codes and links pointing at localhost.
+  if (process.env.NODE_ENV === "production") throw new Error("NEXT_PUBLIC_APP_URL is not set");
+  return "http://localhost:3000";
 }
 export function genericLink(base: string, slug: string) {
   return `${trimSlash(base)}/e/${slug}`;

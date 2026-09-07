@@ -3,12 +3,13 @@ import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
+import { isValidToken } from "@/lib/tokens";
 
 export default async function Done({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ t?: string }> }) {
   const { slug } = await params;
   const { t } = await searchParams;
   const event = await getEventBySlug(slug);
-  if (!event || !t) notFound();
+  if (!event || !t || !isValidToken(t)) notFound();
   const attendee = await findByToken(event.id, t);
   if (!attendee) notFound();
   const link = attendeeLink(appBaseUrl(), slug, attendee.token);

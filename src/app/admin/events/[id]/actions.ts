@@ -7,13 +7,15 @@ import { slugify } from "@/lib/slug";
 import { parseQuestions } from "@/lib/registration";
 import type { EventStatus } from "@/lib/types";
 import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
-import { createAttendee, deleteAttendee, regenerateToken, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
+import { createAttendee, createAttendees, deleteAttendee, listAttendees, regenerateToken, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
 import { parseExtraJson } from "@/lib/attendee-extra";
 import type { Attendee } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint } from "@/lib/db/checkpoints";
 import { parseCategories } from "@/lib/agenda";
+import { localInputToIso } from "@/lib/time";
+import { mergeExtra } from "@/lib/attendee-merge";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -54,7 +56,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     primary_color: str(formData, "primary_color") ?? "#F97316",
     floor_plan_url: str(formData, "floor_plan_url"),
     registration_open: formData.get("registration_open") === "on",
-    registration_closes_at: str(formData, "registration_closes_at"),
+    registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
     registration_questions: questions,
     scan_extra_fields: extras,
   });
@@ -87,14 +89,31 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   try { parsed = await parseMasterlist(await file.arrayBuffer()); }
   catch (e) { redirect(`/admin/events/${eventId}/attendees/import?error=${encodeURIComponent((e as Error).message)}`); }
   if (!parsed) redirect(`/admin/events/${eventId}/attendees/import?error=Could+not+read+file`);
-  let inserted = 0, updated = 0;
+  // One read of the existing roster instead of a lookup per row; new rows go out in one bulk insert.
+  const existingByEmail = new Map((await listAttendees(ev.id)).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
+  const queued = new Map<string, AttendeeInput>();
+  const toInsert: AttendeeInput[] = [];
+  let updated = 0;
   for (const r of parsed.rows) {
     const input: AttendeeInput = { name: r.name, email: r.email, phone: r.phone, company: r.company, category: r.category, table_no: r.table_no, seat_no: r.seat_no, extra: r.extra };
-    if (input.email) {
-      const res = await upsertByEmail(ev, { ...input, email: input.email }, "import");
-      if (res.created) inserted++; else updated++;
-    } else { await createAttendee(ev, input, "import"); inserted++; }
+    const key = input.email?.trim().toLowerCase();
+    const existing = key ? existingByEmail.get(key) : undefined;
+    if (existing) {
+      await updateAttendee(existing.id, { ...input, extra: mergeExtra(existing.extra, input.extra) });
+      updated++;
+      continue;
+    }
+    const pending = key ? queued.get(key) : undefined;
+    if (pending) {
+      // A repeated email inside one file folds into the queued row; (event_id, lower(email)) is unique.
+      Object.assign(pending, input, { extra: mergeExtra(pending.extra ?? {}, input.extra) });
+      updated++;
+      continue;
+    }
+    toInsert.push(input);
+    if (key) queued.set(key, input);
   }
+  const inserted = await createAttendees(ev, toInsert, "import");
   const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(`/admin/events/${eventId}/attendees?imported=${inserted}&updated=${updated}&skipped=${encodeURIComponent(skipped)}`);
@@ -136,6 +155,7 @@ export async function updateAttendeeAction(eventId: string, attendeeId: string, 
   await requireEventAttendee(eventId, attendeeId);
   const result = attendeeInputFrom(formData);
   if (!result.ok) redirect(`/admin/events/${eventId}/attendees/${attendeeId}?error=${encodeURIComponent(result.error)}`);
+  if (!result.input.name) redirect(`/admin/events/${eventId}/attendees/${attendeeId}?error=Name+is+required`);
   await updateAttendee(attendeeId, result.input);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(`/admin/events/${eventId}/attendees/${attendeeId}?saved=1`);

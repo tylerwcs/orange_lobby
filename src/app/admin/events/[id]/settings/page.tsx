@@ -3,6 +3,7 @@ import { requireEvent } from "@/lib/db/events";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { updateSettingsAction } from "../actions";
+import { isoToLocalInput } from "@/lib/time";
 
 export default async function Settings({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
   const { id } = await params;
@@ -27,7 +28,7 @@ export default async function Settings({ params, searchParams }: { params: Promi
       <Field label="Floor plan image URL" name="floor_plan_url" defaultValue={ev.floor_plan_url} />
       <div className="md:col-span-2"><Field label="Description" name="description" textarea defaultValue={ev.description} /></div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="registration_open" defaultChecked={ev.registration_open} /> Registration open</label>
-      <Field label="Registration auto-closes at" name="registration_closes_at" type="datetime-local" defaultValue={ev.registration_closes_at?.slice(0, 16)} />
+      <Field label="Registration auto-closes at" name="registration_closes_at" type="datetime-local" defaultValue={isoToLocalInput(ev.registration_closes_at)} />
       <div className="md:col-span-2">
         <Field label="Registration questions (JSON)" name="registration_questions" textarea defaultValue={JSON.stringify(ev.registration_questions, null, 2)} />
       </div>

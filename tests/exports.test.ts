@@ -9,7 +9,7 @@ describe("exports", () => {
     const wb = buildLinksWorkbook([{ name: "A", email: "a@b.co", company: null, category: null, table_no: "1", seat_no: null, link: "https://x/e/s/a/t" }]);
     const ws = wb.getWorksheet("Links")!;
     expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Company", "Category", "Table", "Seat", "Link"]);
-    expect(ws.getRow(2).getCell(8).value).toBe("https://x/e/s/a/t");
+    expect(ws.getRow(2).getCell(7).value).toBe("https://x/e/s/a/t");
   });
   it("builds attendance workbook with per-checkpoint columns", () => {
     const attendees = [{ id: "a1", name: "Ann", email: "a@b.co", phone: null, company: null, category: "VIP", table_no: "1", seat_no: null, source: "import", extra: { Dietary: "Halal" } }] as never;

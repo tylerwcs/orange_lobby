@@ -165,6 +165,7 @@ Crew (auth):
 - `/scan/[eventId]` pick checkpoint, then camera scanner + name search + walk-in form.
 
 Draft events: every `/e/...` route renders "Coming soon" with the event banner.
+Exception: `/e/[slug]/register` ignores draft status so registration can open before the portal goes live.
 Archived events: `/e/...` read-only; `/scan` disabled; admin shows "Purge personal data".
 
 ## 6. Masterlist template (pilot)

@@ -15,6 +15,10 @@ export function PortalShell({ event, basePath, personal, children }: { event: Ev
           // eslint-disable-next-line @next/next/no-img-element
           <img src={event.banner_url} alt="" className="mb-6 w-full rounded-lg" />
         )}
+        {event.logo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={event.logo_url} alt="" className="mx-auto mb-4 h-10 w-auto" />
+        )}
         <h1 className="text-xl font-semibold">{event.name}</h1>
         <p className="mt-2 text-gray-600">Coming soon. Check back closer to the event.</p>
       </main>
@@ -25,6 +29,10 @@ export function PortalShell({ event, basePath, personal, children }: { event: Ev
       {event.banner_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={event.banner_url} alt="" className="w-full" />
+      )}
+      {event.logo_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={event.logo_url} alt="" className="mx-auto mt-4 h-10 w-auto" />
       )}
       <div className="p-4">{children}</div>
       <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around border-t bg-white py-2 text-xs">
