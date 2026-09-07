@@ -7,7 +7,7 @@ import { slugify } from "@/lib/slug";
 import { parseQuestions } from "@/lib/registration";
 import type { EventStatus } from "@/lib/types";
 import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
-import { createAttendee, deleteAttendee, regenerateToken, updateAttendee, upsertByEmail, getAttendee, type AttendeeInput } from "@/lib/db/attendees";
+import { createAttendee, deleteAttendee, regenerateToken, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
 import { parseExtraJson } from "@/lib/attendee-extra";
 import type { Attendee } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
@@ -229,4 +229,13 @@ export async function deleteCheckpointAction(eventId: string, cpId: string) {
   await requireEvent(eventId, orgId);
   await deleteCheckpoint(cpId, eventId);
   revalidatePath(`/admin/events/${eventId}/checkpoints`);
+}
+
+// ---- Archive / purge ----
+
+export async function purgeEventAction(eventId: string) {
+  const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
+  if (ev.status !== "archived") redirect(`/admin/events/${eventId}?error=Archive+the+event+first`);
+  await purgeAttendeePersonalData(eventId);
+  revalidatePath(`/admin/events/${eventId}`); redirect(`/admin/events/${eventId}?purged=1`);
 }
