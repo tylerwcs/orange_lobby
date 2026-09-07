@@ -9,10 +9,11 @@ export async function proxy(req: NextRequest) {
     {
       cookies: {
         getAll: () => req.cookies.getAll(),
-        setAll: (all) => {
+        setAll: (all, headers) => {
           all.forEach(({ name, value }) => req.cookies.set(name, value));
           res = NextResponse.next({ request: req });
           all.forEach(({ name, value, options }) => res.cookies.set(name, value, options));
+          Object.entries(headers).forEach(([name, value]) => res.headers.set(name, value));
         },
       },
     },
