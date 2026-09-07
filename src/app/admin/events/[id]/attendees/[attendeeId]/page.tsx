@@ -9,9 +9,9 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { updateAttendeeAction, regenerateTokenAction, deleteAttendeeAction } from "../../actions";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
-export default async function AttendeePage({ params, searchParams }: { params: Promise<{ id: string; attendeeId: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function AttendeePage({ params, searchParams }: { params: Promise<{ id: string; attendeeId: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
   const { id, attendeeId } = await params;
-  const { saved } = await searchParams;
+  const { saved, error } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const a = await getAttendee(attendeeId);
@@ -22,6 +22,7 @@ export default async function AttendeePage({ params, searchParams }: { params: P
     <div className="grid gap-6 md:grid-cols-3">
       <form action={updateAttendeeAction.bind(null, ev.id, a.id)} className="space-y-3 rounded border bg-white p-4 md:col-span-2">
         {saved && <p className="text-sm text-green-700">Saved.</p>}
+        {error && <p className="text-sm text-red-700">{error}</p>}
         <Field label="Name" name="name" defaultValue={a.name} /><Field label="Email" name="email" defaultValue={a.email} />
         <Field label="Phone" name="phone" defaultValue={a.phone} /><Field label="Company" name="company" defaultValue={a.company} />
         <Field label="Category" name="category" defaultValue={a.category} /><Field label="Table" name="table_no" defaultValue={a.table_no} />
