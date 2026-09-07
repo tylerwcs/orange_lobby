@@ -7,6 +7,11 @@ export async function listCheckpoints(eventId: string): Promise<Checkpoint[]> {
   if (error) throw error;
   return data as Checkpoint[];
 }
+export async function getCheckpoint(id: string, eventId: string): Promise<Checkpoint | null> {
+  const { data, error } = await serviceClient().from("checkpoints").select("*").eq("id", id).eq("event_id", eventId).maybeSingle();
+  if (error) throw error;
+  return data as Checkpoint | null;
+}
 export async function createCheckpoint(event: Pick<Event, "id" | "org_id">, name: string, sort_order: number) {
   const { error } = await serviceClient().from("checkpoints").insert({ org_id: event.org_id, event_id: event.id, name, sort_order });
   if (error) throw error;

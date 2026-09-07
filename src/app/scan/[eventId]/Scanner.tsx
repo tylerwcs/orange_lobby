@@ -13,6 +13,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
   const [busy, setBusy] = useState(false); const [showWalkIn, setShowWalkIn] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
+  const busyRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,6 +25,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
       const s = new Html5Qrcode("reader");
       scannerRef.current = s;
       s.start({ facingMode: "environment" }, { fps: 8, qrbox: 220 }, async (text) => {
+        if (busyRef.current) return;
         const now = Date.now();
         if (text === lastRef.current.text && now - lastRef.current.at < 3000) return;
         lastRef.current = { text, at: now };
@@ -35,10 +37,11 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
   }, []);
 
   async function handle(fn: () => Promise<ScanResult>) {
+    busyRef.current = true;
     setBusy(true);
     try { const r = await fn(); setResult(r); if (r.status === "ok") setCount((c) => c + 1); if (navigator.vibrate) navigator.vibrate(r.status === "ok" ? 100 : [80, 60, 80]); }
     catch (e) { setResult({ status: "error", message: String(e) }); }
-    finally { setBusy(false); setHits([]); setQ(""); setShowWalkIn(false); }
+    finally { busyRef.current = false; setBusy(false); setHits([]); setQ(""); setShowWalkIn(false); }
   }
 
   useEffect(() => {
