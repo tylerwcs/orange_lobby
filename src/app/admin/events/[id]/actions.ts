@@ -6,6 +6,8 @@ import { createEvent, requireEvent, updateEvent, setEventStatus } from "@/lib/db
 import { slugify } from "@/lib/slug";
 import { parseQuestions } from "@/lib/registration";
 import type { EventStatus } from "@/lib/types";
+import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
+import { createAttendee, deleteAttendee, regenerateToken, updateAttendee, upsertByEmail, getAttendee, type AttendeeInput } from "@/lib/db/attendees";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -59,4 +61,74 @@ export async function setStatusAction(eventId: string, status: EventStatus) {
   await requireEvent(eventId, orgId);
   await setEventStatus(eventId, status);
   revalidatePath(`/admin/events/${eventId}`);
+}
+
+// --- Attendees: masterlist import + admin CRUD ---
+
+export async function importMasterlistAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const file = formData.get("file");
+  if (!(file instanceof File)) redirect(`/admin/events/${eventId}/attendees/import?error=Choose+a+file`);
+  let parsed: MasterlistResult | null = null;
+  try { parsed = await parseMasterlist(await file.arrayBuffer()); }
+  catch (e) { redirect(`/admin/events/${eventId}/attendees/import?error=${encodeURIComponent((e as Error).message)}`); }
+  if (!parsed) redirect(`/admin/events/${eventId}/attendees/import?error=Could+not+read+file`);
+  let inserted = 0, updated = 0;
+  for (const r of parsed.rows) {
+    const input: AttendeeInput = { name: r.name, email: r.email, phone: r.phone, company: r.company, category: r.category, table_no: r.table_no, seat_no: r.seat_no, extra: r.extra };
+    if (input.email) {
+      const res = await upsertByEmail(ev, { ...input, email: input.email }, "import");
+      if (res.created) inserted++; else updated++;
+    } else { await createAttendee(ev, input, "import"); inserted++; }
+  }
+  const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
+  revalidatePath(`/admin/events/${eventId}/attendees`);
+  redirect(`/admin/events/${eventId}/attendees?imported=${inserted}&updated=${updated}&skipped=${encodeURIComponent(skipped)}`);
+}
+
+function attendeeInputFrom(formData: FormData) {
+  const extraRaw = str(formData, "extra") ?? "{}";
+  let extra: Record<string, string> = {};
+  try { extra = JSON.parse(extraRaw); } catch { /* ignore, keep {} */ }
+  return {
+    name: str(formData, "name") ?? "", email: str(formData, "email"), phone: str(formData, "phone"), company: str(formData, "company"),
+    category: str(formData, "category"), table_no: str(formData, "table_no"), seat_no: str(formData, "seat_no"), extra,
+  };
+}
+
+export async function addAttendeeAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const input = attendeeInputFrom(formData);
+  if (!input.name) redirect(`/admin/events/${eventId}/attendees?error=Name+required`);
+  const source = (str(formData, "source") ?? "walkin") as "walkin" | "import";
+  const a = input.email ? (await upsertByEmail(ev, { ...input, email: input.email }, source)).attendee : await createAttendee(ev, input, source);
+  revalidatePath(`/admin/events/${eventId}/attendees`);
+  redirect(`/admin/events/${eventId}/attendees/${a.id}`);
+}
+
+export async function updateAttendeeAction(eventId: string, attendeeId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  const a = await getAttendee(attendeeId);
+  if (!a || a.event_id !== eventId) redirect(`/admin/events/${eventId}/attendees`);
+  await updateAttendee(attendeeId, attendeeInputFrom(formData));
+  revalidatePath(`/admin/events/${eventId}/attendees`);
+  redirect(`/admin/events/${eventId}/attendees/${attendeeId}?saved=1`);
+}
+
+export async function regenerateTokenAction(eventId: string, attendeeId: string) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await regenerateToken(attendeeId);
+  revalidatePath(`/admin/events/${eventId}/attendees/${attendeeId}`);
+}
+
+export async function deleteAttendeeAction(eventId: string, attendeeId: string) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await deleteAttendee(attendeeId);
+  revalidatePath(`/admin/events/${eventId}/attendees`);
+  redirect(`/admin/events/${eventId}/attendees`);
 }
