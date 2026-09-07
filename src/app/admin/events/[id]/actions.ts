@@ -10,6 +10,10 @@ import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, deleteAttendee, regenerateToken, updateAttendee, upsertByEmail, getAttendee, type AttendeeInput } from "@/lib/db/attendees";
 import { parseExtraJson } from "@/lib/attendee-extra";
 import type { Attendee } from "@/lib/types";
+import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
+import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
+import { createCheckpoint, deleteCheckpoint } from "@/lib/db/checkpoints";
+import { parseCategories } from "@/lib/agenda";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -152,4 +156,77 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
   await deleteAttendee(attendeeId);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(`/admin/events/${eventId}/attendees`);
+}
+
+// ---- Agenda / announcements / info / checkpoints ----
+
+export async function addAgendaItemAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const day = str(formData, "day");
+  const starts_at = str(formData, "starts_at");
+  const title = str(formData, "title");
+  if (!day || !starts_at || !title) redirect(`/admin/events/${eventId}/agenda?error=Day,+start+time+and+title+are+required`);
+  await createAgendaItem(ev, {
+    day,
+    starts_at,
+    ends_at: str(formData, "ends_at"),
+    title,
+    description: str(formData, "description"),
+    location: str(formData, "location"),
+    categories: parseCategories(str(formData, "categories") ?? ""),
+    sort_order: Number(str(formData, "sort_order") ?? 0),
+  });
+  revalidatePath(`/admin/events/${eventId}/agenda`);
+  redirect(`/admin/events/${eventId}/agenda`);
+}
+
+export async function deleteAgendaItemAction(eventId: string, itemId: string) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await deleteAgendaItem(itemId);
+  revalidatePath(`/admin/events/${eventId}/agenda`);
+}
+
+export async function addAnnouncementAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const title = str(formData, "title");
+  const body = str(formData, "body");
+  if (!title || !body) redirect(`/admin/events/${eventId}/announcements?error=Title+and+body+required`);
+  await createAnnouncement(ev, { title, body, pinned: formData.get("pinned") === "on" });
+  revalidatePath(`/admin/events/${eventId}/announcements`);
+  redirect(`/admin/events/${eventId}/announcements`);
+}
+
+export async function deleteAnnouncementAction(eventId: string, annId: string) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await deleteAnnouncement(annId);
+  revalidatePath(`/admin/events/${eventId}/announcements`);
+}
+
+export async function saveInfoPageAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info", info_page_html: str(formData, "info_page_html") });
+  revalidatePath(`/admin/events/${eventId}/info`);
+  redirect(`/admin/events/${eventId}/info?saved=1`);
+}
+
+export async function addCheckpointAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const name = str(formData, "name");
+  if (!name) redirect(`/admin/events/${eventId}/checkpoints`);
+  await createCheckpoint(ev, name, Number(str(formData, "sort_order") ?? 0));
+  revalidatePath(`/admin/events/${eventId}/checkpoints`);
+  redirect(`/admin/events/${eventId}/checkpoints`);
+}
+
+export async function deleteCheckpointAction(eventId: string, cpId: string) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await deleteCheckpoint(cpId);
+  revalidatePath(`/admin/events/${eventId}/checkpoints`);
 }
