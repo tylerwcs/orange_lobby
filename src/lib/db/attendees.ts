@@ -1,6 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
+import { mergeExtra } from "@/lib/attendee-merge";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -14,7 +15,7 @@ export async function findByToken(eventId: string, token: string): Promise<Atten
 }
 
 export async function findByEmail(eventId: string, email: string): Promise<Attendee | null> {
-  const { data } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).ilike("email", email).maybeSingle();
+  const { data } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).eq("email", email.trim().toLowerCase()).maybeSingle();
   return (data as Attendee) ?? null;
 }
 
@@ -55,8 +56,9 @@ export async function updateAttendee(id: string, patch: Partial<AttendeeInput>):
 export async function upsertByEmail(event: Pick<Event, "id" | "org_id">, input: AttendeeInput & { email: string }, source: AttendeeSource) {
   const existing = await findByEmail(event.id, input.email);
   if (existing) {
-    await updateAttendee(existing.id, { ...input, extra: { ...existing.extra, ...(input.extra ?? {}) } });
-    return { attendee: { ...existing, ...input } as Attendee, created: false };
+    const extra = mergeExtra(existing.extra, input.extra);
+    await updateAttendee(existing.id, { ...input, extra });
+    return { attendee: { ...existing, ...input, email: input.email.toLowerCase(), extra } as Attendee, created: false };
   }
   return { attendee: await createAttendee(event, input, source), created: true };
 }
