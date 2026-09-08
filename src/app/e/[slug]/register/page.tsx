@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { RegisterForm } from "./RegisterForm";
+import { PortalHeader } from "@/components/portal/PortalHeader";
+import { Card } from "@/components/ui/Card";
+import { brandStyle } from "@/lib/brand";
 
 export default async function RegisterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -8,15 +11,15 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
   if (!event) notFound();
   const closed = !event.registration_open || (event.registration_closes_at && new Date(event.registration_closes_at) < new Date());
   return (
-    <main className="mx-auto max-w-md p-4" style={{ ["--brand" as string]: event.primary_color }}>
-      {event.banner_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={event.banner_url} alt="" className="mb-4 w-full rounded-lg" />
-      )}
-      <h1 className="mb-1 text-xl font-semibold">{event.name}</h1>
-      <p className="mb-6 text-sm text-gray-600">Registration</p>
-      {closed ? <p className="rounded bg-gray-100 p-4 text-sm">Registration is closed.</p>
-              : <RegisterForm slug={slug} questions={event.registration_questions} />}
-    </main>
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-canvas" style={brandStyle(event.primary_color) as React.CSSProperties}>
+      <PortalHeader event={event} />
+      <main className="flex-1 px-4 py-4">
+        <Card className="p-4">
+          <div className="mb-4 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Registration</div>
+          {closed ? <p className="text-sm text-muted">Registration is closed.</p>
+                  : <RegisterForm slug={slug} questions={event.registration_questions} />}
+        </Card>
+      </main>
+    </div>
   );
 }
