@@ -6,6 +6,7 @@ export type RegistrationQuestion = {
   type: "text" | "select";
   required: boolean;
   options?: string[];
+  description?: string;
 };
 
 export type Event = {

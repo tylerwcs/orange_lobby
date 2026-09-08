@@ -18,6 +18,7 @@ export function RegisterForm({ slug, questions }: { slug: string; questions: Reg
       {questions.map((q) => (
         <div key={q.key}>
           <label className="mb-1 block text-sm font-medium">{q.label}{q.required && " *"}</label>
+          {q.description && <p className="mb-2 text-xs text-gray-600">{q.description}</p>}
           {q.type === "select" ? (
             <select name={q.key} defaultValue={v[q.key] ?? ""} className={cls}>
               <option value="">Select…</option>

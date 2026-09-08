@@ -7,6 +7,11 @@ const qs = parseQuestions(JSON.stringify([
 ]));
 
 describe("parseQuestions", () => {
+  it("accepts an optional description", () => {
+    const qs = parseQuestions(JSON.stringify([{ key: "stay", label: "Stay?", type: "select", required: true, options: ["No", "Yes"], description: "50% covered by Ecopia" }]));
+    expect(qs[0].description).toBe("50% covered by Ecopia");
+    expect(parseQuestions(JSON.stringify([{ key: "n", label: "N", type: "text" }]))[0].description).toBeUndefined();
+  });
   it("rejects bad shapes with a message", () => {
     expect(() => parseQuestions("{")).toThrow(/JSON/);
     expect(() => parseQuestions(JSON.stringify([{ key: "x" }]))).toThrow(/label/);

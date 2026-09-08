@@ -11,6 +11,8 @@
 
 1. Admin → New event. Set slug (goes in every link; cannot change after badges print).
 2. Settings: dates, venue, banner URL, colour, registration questions JSON, open registration.
+   For the KOM, paste the contents of `docs/kom-registration-questions.json` into the questions box.
+   A question may carry a `description` shown under its label.
 3. Checkpoints: add "Day 1", "Day 2".
 4. Agenda, announcements, info page.
 5. Status → live when ready. Draft links show "Coming soon".

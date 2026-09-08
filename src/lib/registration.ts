@@ -7,6 +7,7 @@ const questionSchema = z.object({
   type: z.enum(["text", "select"]),
   required: z.boolean().default(false),
   options: z.array(z.string().min(1)).optional(),
+  description: z.string().optional(),
 }).refine((q) => q.type !== "select" || (q.options && q.options.length > 0), { message: "select questions need options" });
 
 export function parseQuestions(json: string): RegistrationQuestion[] {
