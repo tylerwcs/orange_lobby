@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 
-const tabs = ["", "settings", "attendees", "agenda", "announcements", "info", "checkpoints"];
+const tabs = ["", "settings", "modules", "attendees", "agenda", "announcements", "info", "checkpoints"];
 
 export default async function EventLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;

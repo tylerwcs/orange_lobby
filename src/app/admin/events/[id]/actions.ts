@@ -16,6 +16,8 @@ import { createCheckpoint, deleteCheckpoint } from "@/lib/db/checkpoints";
 import { parseCategories } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
+import { modulesFromForm } from "@/lib/modules-form";
+import type { EventModule } from "@/lib/modules";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -258,4 +260,18 @@ export async function purgeEventAction(eventId: string) {
   if (ev.status !== "archived") redirect(`/admin/events/${eventId}?error=Archive+the+event+first`);
   await purgeAttendeePersonalData(eventId);
   revalidatePath(`/admin/events/${eventId}`); redirect(`/admin/events/${eventId}?purged=1`);
+}
+
+// ---- Modules ----
+
+export async function updateModulesAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  let modules: EventModule[] | undefined;
+  try { modules = modulesFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; }); }
+  catch (e) { redirect(`/admin/events/${eventId}/modules?error=${encodeURIComponent((e as Error).message)}`); }
+  if (!modules) redirect(`/admin/events/${eventId}/modules?error=Unknown+error`);
+  await updateEvent(eventId, { modules });
+  revalidatePath(`/admin/events/${eventId}`);
+  redirect(`/admin/events/${eventId}/modules?saved=1`);
 }
