@@ -1,5 +1,5 @@
 import type { Announcement } from "@/lib/types";
-import { MY_TZ } from "@/lib/time";
+import { shortDateTime } from "@/lib/text";
 import { Pill } from "@/components/ui/Card";
 
 export function AnnouncementList({ items }: { items: Announcement[] }) {
@@ -9,7 +9,7 @@ export function AnnouncementList({ items }: { items: Announcement[] }) {
       {items.map((a) => (
         <div key={a.id} className={`rounded-[14px] border bg-surface p-3.5 ${a.pinned ? "border-brand" : "border-line"}`}>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-xs text-muted">{new Date(a.created_at).toLocaleString("en-MY", { timeZone: MY_TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+            <div className="text-xs text-muted">{shortDateTime(a.created_at)}</div>
             {a.pinned && <Pill>Pinned</Pill>}
           </div>
           <div className="mt-1 text-[15px] font-bold">{a.title}</div>

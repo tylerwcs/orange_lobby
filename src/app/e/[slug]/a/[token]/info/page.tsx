@@ -1,13 +1,14 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { ButtonLink } from "@/components/ui/Card";
+import { buttonClass } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/Icon";
 
 export default async function PersonalInfo({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
   const { event } = await loadPortalAttendee(slug, token);
   return (
-    <PortalShell event={event} basePath={`/e/${slug}/a/${token}`} personal current="">
+    <PortalShell event={event} basePath={`/e/${slug}/a/${token}`} personal>
       <h1 className="mb-3 text-xl font-extrabold">{event.info_page_title}</h1>
       <div className="mb-4 flex flex-col gap-3">
         {event.venue_name && (
@@ -16,7 +17,8 @@ export default async function PersonalInfo({ params }: { params: Promise<{ slug:
             {event.venue_address && <div className="mt-0.5 text-sm text-muted">{event.venue_address}</div>}
             {event.venue_map_url && (
               <div className="mt-2">
-                <ButtonLink href={event.venue_map_url} variant="secondary" icon="map">Open map</ButtonLink>
+                {/* Plain anchor: the map is an external site, so it needs target/rel. */}
+                <a href={event.venue_map_url} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}><Icon name="map" size={18} />Open map</a>
               </div>
             )}
           </div>

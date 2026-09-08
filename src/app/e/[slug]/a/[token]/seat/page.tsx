@@ -7,7 +7,7 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
   return (
-    <PortalShell event={event} basePath={basePath} personal current="">
+    <PortalShell event={event} basePath={basePath} personal>
       <h1 className="mb-3 text-xl font-extrabold">My seat</h1>
       {attendee.table_no ? (
         <div className="mb-4 rounded-[14px] bg-ink p-6 text-center text-white">

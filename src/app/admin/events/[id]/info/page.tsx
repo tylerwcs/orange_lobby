@@ -14,8 +14,8 @@ export default async function InfoAdmin({ params, searchParams }: { params: Prom
       {saved && <p className="text-sm text-green-700">Saved.</p>}
       <Field label="Page title" name="info_page_title" defaultValue={ev.info_page_title} />
       <label className="block text-sm"><span className="mb-1 block font-medium">Content (HTML: p, h2, h3, ul, li, a, img, strong, em, br)</span>
-        <span className="mb-1 block text-xs text-gray-600">Attribute values must use double quotes, e.g. &lt;a href=&quot;https://...&quot;&gt;</span>
-        <textarea name="info_page_html" rows={18} defaultValue={ev.info_page_html ?? ""} className="w-full rounded border p-2 font-mono text-xs" /></label>
+        <span className="mb-1 block text-xs text-muted">Attribute values must use double quotes, e.g. &lt;a href=&quot;https://...&quot;&gt;</span>
+        <textarea name="info_page_html" rows={18} defaultValue={ev.info_page_html ?? ""} className="w-full rounded-[var(--radius-control)] border border-line p-2 font-mono text-xs" /></label>
       <SubmitButton>Save</SubmitButton>
     </form>
   );

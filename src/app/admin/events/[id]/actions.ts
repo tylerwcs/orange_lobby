@@ -24,6 +24,9 @@ const str = (fd: FormData, k: string) => {
   return v === "" ? null : v;
 };
 
+/** The map URL is rendered as an href, so only http(s) is stored — never javascript: or data:. */
+const httpUrl = (v: string | null) => (v && /^https?:\/\//i.test(v) ? v : null);
+
 export async function createEventAction(formData: FormData) {
   const { orgId } = await requireAdmin();
   const name = str(formData, "name");
@@ -49,7 +52,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     ends_on: str(formData, "ends_on"),
     venue_name: str(formData, "venue_name"),
     venue_address: str(formData, "venue_address"),
-    venue_map_url: str(formData, "venue_map_url"),
+    venue_map_url: httpUrl(str(formData, "venue_map_url")),
     contact_name: str(formData, "contact_name"),
     contact_phone: str(formData, "contact_phone"),
     description: str(formData, "description"),

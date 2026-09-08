@@ -18,7 +18,7 @@ export default async function CheckpointsAdmin({ params }: { params: Promise<{ i
           <li key={c.id} className="flex justify-between p-3"><span>{c.name}</span>
             <form action={deleteCheckpointAction.bind(null, ev.id, c.id)}><ConfirmButton message="Delete checkpoint and its check-ins?">Delete</ConfirmButton></form></li>
         ))}
-        {cps.length === 0 && <li className="p-3 text-gray-500">No checkpoints. Add &quot;Day 1&quot; and &quot;Day 2&quot;.</li>}
+        {cps.length === 0 && <li className="p-3 text-muted">No checkpoints. Add &quot;Day 1&quot; and &quot;Day 2&quot;.</li>}
       </ul>
       <form action={addCheckpointAction.bind(null, ev.id)} className="space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4">
         <Field label="Name" name="name" placeholder="Day 1" /><Field label="Sort order" name="sort_order" type="number" defaultValue="0" />

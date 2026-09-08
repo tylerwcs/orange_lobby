@@ -23,8 +23,8 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
             {d.items.map((i) => (
               <li key={i.id} className="flex items-start justify-between py-2">
                 <div><span className="font-mono">{i.starts_at}{i.ends_at ? `–${i.ends_at}` : ""}</span> <strong>{i.title}</strong>
-                  {i.location && <span className="text-gray-500"> · {i.location}</span>}
-                  {i.categories && <span className="ml-2 rounded bg-gray-100 px-1 text-xs">{i.categories.join(", ")}</span>}</div>
+                  {i.location && <span className="text-muted"> · {i.location}</span>}
+                  {i.categories && <span className="ml-2 rounded bg-canvas px-1 text-xs">{i.categories.join(", ")}</span>}</div>
                 <form action={deleteAgendaItemAction.bind(null, ev.id, i.id)}><ConfirmButton message="Delete this session?">Delete</ConfirmButton></form>
               </li>
             ))}

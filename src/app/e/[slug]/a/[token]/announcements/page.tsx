@@ -7,7 +7,7 @@ export default async function PersonalNews({ params }: { params: Promise<{ slug:
   const { slug, token } = await params;
   const { event } = await loadPortalAttendee(slug, token);
   return (
-    <PortalShell event={event} basePath={`/e/${slug}/a/${token}`} personal current="">
+    <PortalShell event={event} basePath={`/e/${slug}/a/${token}`} personal>
       <h1 className="mb-3 text-xl font-extrabold">Announcements</h1>
       <AnnouncementList items={await listAnnouncements(event.id)} />
     </PortalShell>

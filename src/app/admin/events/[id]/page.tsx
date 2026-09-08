@@ -7,7 +7,8 @@ import { countAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Card, Stat, ButtonLink } from "@/components/ui/Card";
+import { Card, Stat, buttonClass } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/Icon";
 import { isoToLocalInput } from "@/lib/time";
 
 export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; purged?: string }> }) {
@@ -54,10 +55,11 @@ export default async function Overview({ params, searchParams }: { params: Promi
       </Card>
       <Card className="p-4">
         <h2 className="mb-2 font-bold">Exports</h2>
+        {/* Plain anchors, not `<Link>`: prefetching an export route would build the file on hover. */}
         <div className="flex flex-wrap gap-3">
-          <ButtonLink variant="secondary" icon="qr" href={`/admin/events/${ev.id}/export/qr.zip`}>QR codes (ZIP)</ButtonLink>
-          <ButtonLink variant="secondary" icon="link" href={`/admin/events/${ev.id}/export/links.xlsx`}>Links (Excel)</ButtonLink>
-          <ButtonLink variant="secondary" icon="file" href={`/admin/events/${ev.id}/export/attendance.xlsx`}>Attendance (Excel)</ButtonLink>
+          <a download href={`/admin/events/${ev.id}/export/qr.zip`} className={buttonClass("secondary")}><Icon name="qr" size={18} />QR codes (ZIP)</a>
+          <a download href={`/admin/events/${ev.id}/export/links.xlsx`} className={buttonClass("secondary")}><Icon name="link" size={18} />Links (Excel)</a>
+          <a download href={`/admin/events/${ev.id}/export/attendance.xlsx`} className={buttonClass("secondary")}><Icon name="file" size={18} />Attendance (Excel)</a>
         </div>
         <p className="mt-2 text-xs text-muted">Links are generated for: {base}</p>
       </Card>

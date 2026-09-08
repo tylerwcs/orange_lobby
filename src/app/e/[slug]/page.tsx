@@ -12,7 +12,8 @@ export default async function GenericHome({ params }: { params: Promise<{ slug: 
   const basePath = `/e/${slug}`;
   const { tiles, banner } = await loadHomeData(event, null, basePath);
   return (
-    <PortalShell event={event} basePath={basePath} personal={false} current="">
+    <PortalShell event={event} basePath={basePath} personal={false} current="" hero>
+      <h1 className="sr-only">{event.name}</h1>
       <div className="flex flex-col gap-3.5">
         {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
         <TileGrid tiles={tiles} />

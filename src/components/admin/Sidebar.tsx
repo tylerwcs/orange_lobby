@@ -8,17 +8,26 @@ import { groupsFor } from "./nav";
 export function Sidebar({ email, event }: { email: string; event?: { id: string; name: string; status: string } | null }) {
   const pathname = usePathname();
   const groups = groupsFor(event);
+  // The overview item is a prefix of every other item in its section, so it only
+  // lights up on an exact match; the rest also match their own sub-routes.
+  const root = event ? `/admin/events/${event.id}` : "/admin";
+  const isActive = (i: { href: string; external?: true }) =>
+    !i.external && (pathname === i.href || (i.href !== root && pathname.startsWith(`${i.href}/`)));
+  const itemClass = (active: boolean) =>
+    `flex min-h-10 items-center gap-2 rounded-[8px] px-2 text-sm ${active ? "bg-brand-soft font-bold text-brand-ink" : "font-semibold text-ink hover:bg-canvas"}`;
   return (
     <aside className="flex w-full flex-col gap-4 border-b border-line bg-surface p-4 md:min-h-screen md:w-64 md:border-b-0 md:border-r">
-      <Link href="/admin" className="flex items-center gap-2 font-extrabold"><span className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-brand text-xs text-white">OL</span> Orange Lobby</Link>
+      <Link href="/admin" className="flex items-center gap-2 font-extrabold"><span className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-brand text-xs text-ink">OL</span> Orange Lobby</Link>
       {event && <div className="rounded-[10px] bg-canvas p-3"><div className="truncate text-sm font-bold">{event.name}</div><div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{event.status}</div></div>}
       <nav className="flex gap-4 overflow-x-auto md:flex-col">
         {groups.map((g) => (
           <div key={g.title} className="flex shrink-0 flex-col gap-0.5">
             <div className="px-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{g.title}</div>
-            {g.items.map((i) => (
-              <Link key={i.href} href={i.href} className={`flex min-h-10 items-center gap-2 rounded-[8px] px-2 text-sm ${pathname === i.href ? "bg-brand-soft font-bold text-brand-ink" : "font-semibold text-ink hover:bg-canvas"}`}><Icon name={i.icon} size={18} />{i.label}</Link>
-            ))}
+            {g.items.map((i) => i.external
+              // A download route: `<Link>` would prefetch it and pull the file down on hover.
+              ? <a key={i.href} href={i.href} download className={itemClass(false)}><Icon name={i.icon} size={18} />{i.label}</a>
+              : <Link key={i.href} href={i.href} className={itemClass(isActive(i))}><Icon name={i.icon} size={18} />{i.label}</Link>
+            )}
           </div>
         ))}
       </nav>

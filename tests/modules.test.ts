@@ -43,6 +43,15 @@ describe("resolveTiles", () => {
     expect(tiles.map((t) => t.id)).toEqual(["link:qa"]);
     expect(tiles[0]).toMatchObject({ href: "https://app.sli.do/x", external: true, icon: "chat", subtitle: "Ask away" });
   });
+  it("drops a link tile whose url is not http(s), even if it bypassed parseModules", () => {
+    const tiles = resolveTiles({
+      event: { floor_plan_url: null, info_page_html: null, info_page_title: "Info", modules: [
+        { key: "link", id: "bad", enabled: true, label: "Tampered", url: "javascript:alert(1)", icon: "chat" },
+      ] },
+      personal: false, basePath: "/e/kom",
+    });
+    expect(tiles).toEqual([]);
+  });
   it("labels the info tile with the event's info title and says when seat is unconfirmed", () => {
     const tiles = resolveTiles({ event: { ...event, info_page_title: "Handbook" }, personal: true, basePath: "/p", attendee: { table_no: null, seat_no: null } });
     expect(tiles.find((t) => t.id === "info")?.label).toBe("Handbook");

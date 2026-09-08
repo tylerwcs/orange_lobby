@@ -2,8 +2,7 @@ import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
 import { isNow } from "@/lib/agenda";
 import { Pill } from "@/components/ui/Card";
-
-const dayLabel = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+import { shortDate } from "@/lib/text";
 
 export function AgendaList({ items, day, days, basePath, now }: { items: AgendaItem[]; day: string | null; days: string[]; basePath: string; now: { date: string; time: string } }) {
   if (!day) return <p className="text-sm text-muted">Agenda will be published soon.</p>;
@@ -13,7 +12,7 @@ export function AgendaList({ items, day, days, basePath, now }: { items: AgendaI
       {days.length > 1 && (
         <div className="flex gap-5 border-b border-line">
           {days.map((d) => (
-            <Link key={d} href={`${basePath}/agenda?day=${d}`} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-brand font-extrabold text-brand-ink" : "border-transparent font-semibold text-muted"}`}>{dayLabel(d)}</Link>
+            <Link key={d} href={`${basePath}/agenda?day=${d}`} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-brand font-extrabold text-brand-ink" : "border-transparent font-semibold text-muted"}`}>{shortDate(d)}</Link>
           ))}
         </div>
       )}

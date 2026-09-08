@@ -9,7 +9,7 @@ export function Mark({ event }: { event: HeaderEvent }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={event.logo_url} alt="" className="h-10 w-10 rounded-[10px] object-contain" />
   );
-  return <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-white">{initials(event.name)}</div>;
+  return <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-ink">{initials(event.name)}</div>;
 }
 
 export function PortalHeader({ event, href }: { event: HeaderEvent; href?: string }) {

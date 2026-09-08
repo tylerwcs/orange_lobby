@@ -33,7 +33,7 @@ export default async function AttendeePage({ params, searchParams }: { params: P
       <div className="space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qr} alt="QR" className="mx-auto w-40" />
-        <a href={link} className="block break-all text-xs text-orange-700">{link}</a>
+        <a href={link} className="block break-all text-xs text-brand-ink">{link}</a>
         <form action={regenerateTokenAction.bind(null, ev.id, a.id)}><ConfirmButton message="Regenerate link? The old QR stops working.">Regenerate link</ConfirmButton></form>
         <form action={deleteAttendeeAction.bind(null, ev.id, a.id)}><ConfirmButton message="Delete this attendee?" className="text-red-700">Delete</ConfirmButton></form>
       </div>

@@ -18,11 +18,11 @@ export default async function AnnouncementsAdmin({ params, searchParams }: { par
       <ul className="divide-y rounded-[var(--radius-card)] border border-line bg-surface text-sm">
         {list.map((a) => (
           <li key={a.id} className="flex justify-between p-3">
-            <div>{a.pinned && <span className="mr-2 rounded bg-orange-100 px-1 text-xs">Pinned</span>}<strong>{a.title}</strong><p className="text-gray-600">{a.body}</p></div>
+            <div>{a.pinned && <span className="mr-2 rounded bg-brand-soft text-brand-ink px-1 text-xs">Pinned</span>}<strong>{a.title}</strong><p className="text-muted">{a.body}</p></div>
             <form action={deleteAnnouncementAction.bind(null, ev.id, a.id)}><ConfirmButton message="Delete announcement?">Delete</ConfirmButton></form>
           </li>
         ))}
-        {list.length === 0 && <li className="p-3 text-gray-500">None yet.</li>}
+        {list.length === 0 && <li className="p-3 text-muted">None yet.</li>}
       </ul>
       <form action={addAnnouncementAction.bind(null, ev.id)} className="space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4">
         <Field label="Title" name="title" /><Field label="Body" name="body" textarea />

@@ -7,7 +7,7 @@ export default async function GenericNews({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const event = await loadPortalEvent(slug);
   return (
-    <PortalShell event={event} basePath={`/e/${slug}`} personal={false} current="">
+    <PortalShell event={event} basePath={`/e/${slug}`} personal={false}>
       <h1 className="mb-3 text-xl font-extrabold">Announcements</h1>
       <AnnouncementList items={await listAnnouncements(event.id)} />
     </PortalShell>

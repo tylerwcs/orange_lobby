@@ -1,7 +1,8 @@
 import { loadPortalEvent } from "@/lib/portal";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { ButtonLink } from "@/components/ui/Card";
+import { buttonClass } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/Icon";
 
 export default async function GenericInfo({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -16,7 +17,8 @@ export default async function GenericInfo({ params }: { params: Promise<{ slug: 
             {event.venue_address && <div className="mt-0.5 text-sm text-muted">{event.venue_address}</div>}
             {event.venue_map_url && (
               <div className="mt-2">
-                <ButtonLink href={event.venue_map_url} variant="secondary" icon="map">Open map</ButtonLink>
+                {/* Plain anchor: the map is an external site, so it needs target/rel. */}
+                <a href={event.venue_map_url} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}><Icon name="map" size={18} />Open map</a>
               </div>
             )}
           </div>

@@ -21,18 +21,18 @@ export default async function Attendees({ params, searchParams }: { params: Prom
       )}
       {sp.error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{sp.error}</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <form className="flex gap-2"><input name="q" defaultValue={sp.q} placeholder="Search name, email, company" className="rounded border p-2 text-sm" /><button className="rounded border px-3 text-sm">Search</button></form>
-        <span className="text-sm text-gray-600">{total} attendees</span>
-        <Link href={`/admin/events/${ev.id}/attendees/import`} className="ml-auto rounded bg-orange-600 px-3 py-2 text-sm text-white">Import masterlist</Link>
+        <form className="flex gap-2"><input name="q" defaultValue={sp.q} placeholder="Search name, email, company" className="rounded-[var(--radius-control)] border border-line p-2 text-sm" /><button className="rounded-[var(--radius-control)] border border-line px-3 text-sm">Search</button></form>
+        <span className="text-sm text-muted">{total} attendees</span>
+        <Link href={`/admin/events/${ev.id}/attendees/import`} className="ml-auto rounded bg-brand px-3 py-2 text-sm text-ink">Import masterlist</Link>
       </div>
       <table className="w-full rounded-[var(--radius-card)] border border-line bg-surface text-sm">
         <thead><tr className="text-left text-[11px] font-bold uppercase tracking-[0.08em] text-muted"><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Company</th><th className="p-2">Category</th><th className="p-2">Table</th><th className="p-2">Source</th></tr></thead>
         <tbody>
           {rows.map((a) => (
             <tr key={a.id} className="border-t border-line">
-              <td className="p-2"><Link className="text-orange-700" href={`/admin/events/${ev.id}/attendees/${a.id}`}>{a.name}</Link></td>
+              <td className="p-2"><Link className="text-brand-ink" href={`/admin/events/${ev.id}/attendees/${a.id}`}>{a.name}</Link></td>
               <td className="p-2">{a.email}</td><td className="p-2">{a.company}</td><td className="p-2">{a.category}</td>
-              <td className="p-2">{a.table_no}{a.seat_no ? ` / ${a.seat_no}` : ""}</td><td className="p-2 text-gray-500">{a.source}</td>
+              <td className="p-2">{a.table_no}{a.seat_no ? ` / ${a.seat_no}` : ""}</td><td className="p-2 text-muted">{a.source}</td>
             </tr>
           ))}
         </tbody>

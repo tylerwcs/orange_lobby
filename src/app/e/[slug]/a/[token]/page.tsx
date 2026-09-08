@@ -13,7 +13,8 @@ export default async function PersonalHome({ params }: { params: Promise<{ slug:
   const basePath = `/e/${slug}/a/${token}`;
   const { tiles, banner } = await loadHomeData(event, attendee, basePath);
   return (
-    <PortalShell event={event} basePath={basePath} personal current="">
+    <PortalShell event={event} basePath={basePath} personal current="" hero>
+      <h1 className="sr-only">{event.name}</h1>
       <div className="flex flex-col gap-3.5">
         <MeCard attendee={attendee} basePath={basePath} />
         {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}

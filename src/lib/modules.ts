@@ -74,7 +74,13 @@ export function resolveTiles(input: {
   const out: Tile[] = [];
   for (const m of modules) {
     if (!m.enabled) continue;
-    if (m.key === "link") { out.push({ id: `link:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.url, icon: m.icon, external: true }); continue; }
+    // Re-check the url here too: rows written before this rule, or edited around
+    // parseModules, must never render as a javascript:/data: tile.
+    if (m.key === "link") {
+      if (!SAFE_URL.test(m.url)) continue;
+      out.push({ id: `link:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.url, icon: m.icon, external: true });
+      continue;
+    }
     const label = m.label ?? (m.key === "info" ? event.info_page_title || DEFAULT_LABEL.info : DEFAULT_LABEL[m.key]);
     const icon = DEFAULT_ICON[m.key];
     switch (m.key) {
