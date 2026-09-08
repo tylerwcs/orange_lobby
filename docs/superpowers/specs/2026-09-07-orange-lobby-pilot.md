@@ -186,3 +186,19 @@ Sheet 1, header row exactly:
 - Scanner must work on iOS Safari and Android Chrome via camera (`html5-qrcode`).
 - All admin destructive actions (delete attendee, purge, regenerate token) confirm first.
 - Every export streams from the server; no client-side Excel building.
+
+## 8. Addendum (2026-09-08): portal redesign, Direction 2 "tile-grid lobby"
+
+Decided after the UX research in `docs/research/2026-09-08-event-app-ux-research.md` and the
+mockups at https://claude.ai/code/artifact/02e7153a-0be8-457c-8ea9-1e59c06bb6b4.
+
+| # | Decision | Choice |
+|---|----------|--------|
+| D26 | Portal home | Compact header (logo or initials mark, event name, dates · venue), the attendee's own card (name, department, table, QR shortcut) on personal links, one pinned/latest announcement banner, then a 2-column grid of **module tiles** the organiser switches on per event. Bottom bar: Home · Agenda · Me (personal) or Home · Agenda · Info (generic). |
+| D27 | Modules | `events.modules jsonb` holds an ordered list. Built-in modules: `agenda`, `seat` (personal only), `floor_plan` (needs `floor_plan_url`), `info` (needs `info_page_html`), `announcements`. Plus up to 4 **link tiles** (label, subtitle, URL, icon) for Q&A, feedback forms, documents, etc. without new features. Configured on a settings form, no drag-and-drop. |
+| D28 | Visual system | One system across portal, admin and scanner: Manrope type, neutral chrome (`#F4F5F7` canvas, white surfaces, `#111827` ink), the event's `primary_color` drives accents only, 16px card radius, 44px touch targets, light only. |
+| D29 | Me page | `/e/<slug>/a/<token>/me`: name, department, category, table/seat, the attendee's own QR (so a phone can be scanned when a badge is missing), event contact. |
+| D30 | Agenda | Day tabs (query param, server-rendered), "Now" highlight computed in `Asia/Kuala_Lumpur`, cards. No bookmarks in this round. |
+| D31 | Admin | Left sidebar grouped Setup · Content · Attendees · Onsite · Reports; dashboard with registration, check-in and export cards. Forms keep their current fields, restyled. |
+| D32 | Scanner | Same visual system; full-width colour result card; checkpoint picker as cards. Behaviour unchanged. |
+| D33 | Borrowed later | Floor plan with highlighted table (Direction 4) and "people at your table" (Direction 3, internal events only) come after the KOM. |
