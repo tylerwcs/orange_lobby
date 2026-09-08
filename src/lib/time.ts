@@ -42,3 +42,13 @@ export function isoToLocalInput(iso: string | null): string {
   for (const part of formatter.formatToParts(d)) p[part.type] = part.value;
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 }
+
+/**
+ * Returns the current wall-clock date and time in Kuala Lumpur, split as
+ * `YYYY-MM-DD` and `HH:MM` so it lines up with `AgendaItem.day`/`starts_at`.
+ */
+export function nowInKL(now: Date = new Date()): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: MY_TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
+  const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return { date: `${g("year")}-${g("month")}-${g("day")}`, time: `${g("hour")}:${g("minute")}` };
+}

@@ -1,3 +1,5 @@
+import type { EventModule } from "@/lib/modules";
+
 export type EventStatus = "draft" | "live" | "archived";
 
 export type RegistrationQuestion = {
@@ -33,6 +35,7 @@ export type Event = {
   registration_closes_at: string | null;
   registration_questions: RegistrationQuestion[];
   scan_extra_fields: string[];
+  modules: EventModule[];
 };
 
 export type AttendeeSource = "import" | "registration" | "walkin";

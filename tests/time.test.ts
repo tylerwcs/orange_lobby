@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MY_TZ, isoToLocalInput, localInputToIso } from "@/lib/time";
+import { MY_TZ, isoToLocalInput, localInputToIso, nowInKL } from "@/lib/time";
 
 describe("time", () => {
   it("uses the Malaysian timezone", () => {
@@ -22,5 +22,12 @@ describe("time", () => {
   it("returns an empty string for a missing instant", () => {
     expect(isoToLocalInput(null)).toBe("");
     expect(isoToLocalInput("not a date")).toBe("");
+  });
+});
+
+describe("nowInKL", () => {
+  it("converts an instant to a Kuala Lumpur date and HH:MM", () => {
+    expect(nowInKL(new Date("2026-09-30T02:05:00Z"))).toEqual({ date: "2026-09-30", time: "10:05" });
+    expect(nowInKL(new Date("2026-09-30T17:30:00Z"))).toEqual({ date: "2026-10-01", time: "01:30" });
   });
 });
