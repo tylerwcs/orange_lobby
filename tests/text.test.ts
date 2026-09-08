@@ -24,3 +24,12 @@ describe("text helpers", () => {
     expect(shortDateTime("2026-09-08T23:30:00Z")).toBe("9 Sep, 07:30");
   });
 });
+
+import { shortTime } from "@/lib/text";
+
+describe("shortTime", () => {
+  it("formats an instant as HH:MM in Kuala Lumpur", () => {
+    expect(shortTime("2026-09-30T01:05:00Z")).toBe("09:05");
+    expect(shortTime("not a date")).toBe("");
+  });
+});

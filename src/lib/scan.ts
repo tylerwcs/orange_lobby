@@ -20,3 +20,24 @@ export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields"
   }
   return out;
 }
+
+export type CameraProblem = { title: string; hint: string };
+
+/** Turns a getUserMedia / html5-qrcode failure into words a crew member can act on. */
+export function describeCameraError(e: unknown): CameraProblem {
+  const name = typeof e === "object" && e !== null && "name" in e ? String((e as { name: unknown }).name) : "";
+  const text = `${name} ${e instanceof Error ? e.message : typeof e === "string" ? e : ""}`;
+  if (/NotAllowedError|PermissionDenied|denied/i.test(text)) {
+    return { title: "Camera blocked", hint: "Allow camera access for this site in your browser's address-bar settings, then tap Retry. You can still search by name below." };
+  }
+  if (/NotFoundError|OverconstrainedError|DevicesNotFound/i.test(text)) {
+    return { title: "No camera found", hint: "Use a phone with a rear camera, or search by name below." };
+  }
+  if (/NotReadableError|TrackStartError|in use/i.test(text)) {
+    return { title: "Camera is in use", hint: "Close other apps using the camera, then tap Retry." };
+  }
+  if (/secure|https/i.test(text)) {
+    return { title: "Camera needs a secure connection", hint: "Open the scanner from the https address, not http." };
+  }
+  return { title: "Camera unavailable", hint: "Tap Retry, or search by name below." };
+}

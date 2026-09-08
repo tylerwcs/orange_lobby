@@ -40,3 +40,10 @@ export function shortDateTime(iso: string): string {
   const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   return `${Number(g("day"))} ${MONTHS[Number(g("month")) - 1]}, ${g("hour")}:${g("minute")}`;
 }
+
+/** An ISO instant as `"09:05"` in Malaysian time; empty string when unparseable. */
+export function shortTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", { timeZone: MY_TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+}

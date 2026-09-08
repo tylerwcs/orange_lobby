@@ -21,3 +21,19 @@ describe("scanResultFields", () => {
     ]);
   });
 });
+
+import { describeCameraError } from "@/lib/scan";
+
+describe("describeCameraError", () => {
+  it("explains permission denial with a recovery step", () => {
+    const d = describeCameraError(new DOMException("Permission denied", "NotAllowedError"));
+    expect(d.title).toBe("Camera blocked");
+    expect(d.hint).toMatch(/Allow camera/);
+  });
+  it("handles missing and busy cameras and unknown errors", () => {
+    expect(describeCameraError({ name: "NotFoundError" }).title).toBe("No camera found");
+    expect(describeCameraError({ name: "NotReadableError" }).title).toBe("Camera is in use");
+    expect(describeCameraError("Error getting userMedia, error = NotAllowedError: Permission denied").title).toBe("Camera blocked");
+    expect(describeCameraError(new Error("boom")).title).toBe("Camera unavailable");
+  });
+});

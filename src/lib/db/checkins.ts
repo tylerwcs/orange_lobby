@@ -23,3 +23,18 @@ export async function countCheckinsByCheckpoint(eventId: string): Promise<Record
   const rows = await listCheckinsForEvent(eventId);
   return rows.reduce<Record<string, number>>((acc, r) => { acc[r.checkpoint_id] = (acc[r.checkpoint_id] ?? 0) + 1; return acc; }, {});
 }
+
+/** Attendee ids already checked in at one checkpoint; used to label search hits. */
+export async function listCheckedInAttendeeIds(checkpointId: string): Promise<Set<string>> {
+  const { data, error } = await serviceClient().from("checkins").select("attendee_id").eq("checkpoint_id", checkpointId);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.attendee_id as string));
+}
+
+/** Removes one check-in (the scanner's Undo). Returns whether a row was deleted. */
+export async function deleteCheckin(eventId: string, checkpointId: string, attendeeId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("checkins").delete()
+    .eq("event_id", eventId).eq("checkpoint_id", checkpointId).eq("attendee_id", attendeeId).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
