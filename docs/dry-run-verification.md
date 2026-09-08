@@ -23,6 +23,15 @@ item is pass-or-block for badge printing on 24 Sep.
   announcements, info page. Generic portal hides "My seat". An invalid token shows the
   branded "This link isn't valid" page.
 
+## Redesign (Direction 2), verified 8 Sep 2026 on the local dev server
+
+- Portal home renders the attendee card, the pinned announcement banner and the module
+  tiles configured for the event; generic home hides the attendee card and seat tile.
+- Agenda day tabs switch by `?day=`; Me page shows the attendee's own QR; invalid
+  links show the branded page.
+- Admin, modules editor and scanner were reviewed in code but not opened in a browser
+  (login required); walk them in the dry run.
+
 ## Must verify
 
 1. **Print one badge before printing 100.** Open `<slug>-links.xlsx`, confirm the URL sits

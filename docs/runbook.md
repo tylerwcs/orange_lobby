@@ -13,9 +13,12 @@
 2. Settings: dates, venue, banner URL, colour, registration questions JSON, open registration.
    For the KOM, paste the contents of `docs/kom-registration-questions.json` into the questions box.
    A question may carry a `description` shown under its label.
-3. Checkpoints: add "Day 1", "Day 2".
-4. Agenda, announcements, info page.
-5. Status → live when ready. Draft links show "Coming soon".
+3. Modules: choose which tiles appear on the portal home (Agenda, My seat, Floor plan, Info,
+   Announcements) and add up to four link tiles, for example a Slido Q&A or a feedback form.
+   Tiles that need content (floor plan URL, info page text) stay hidden until it exists.
+4. Checkpoints: add "Day 1", "Day 2".
+5. Agenda, announcements, info page.
+6. Status → live when ready. Draft links show "Coming soon".
 
 ## Registration
 
