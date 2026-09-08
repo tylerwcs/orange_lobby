@@ -51,3 +51,14 @@ describe("endOf edge", () => {
     expect(nextSession([late], "2026-09-30", "23:59")).toBeNull();
   });
 });
+
+import { pickDay } from "@/lib/agenda";
+describe("pickDay", () => {
+  const days = ["2026-09-30", "2026-10-01"];
+  it("prefers the requested day, then today, then the first", () => {
+    expect(pickDay(days, "2026-10-01", "2026-09-30")).toBe("2026-10-01");
+    expect(pickDay(days, "2026-12-25", "2026-10-01")).toBe("2026-10-01");
+    expect(pickDay(days, undefined, "2026-01-01")).toBe("2026-09-30");
+    expect(pickDay([], undefined, "2026-01-01")).toBeNull();
+  });
+});

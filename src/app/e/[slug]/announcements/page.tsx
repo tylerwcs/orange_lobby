@@ -6,5 +6,10 @@ import { AnnouncementList } from "@/components/portal/AnnouncementList";
 export default async function GenericNews({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await loadPortalEvent(slug);
-  return <PortalShell event={event} basePath={`/e/${slug}`} personal={false}><AnnouncementList items={await listAnnouncements(event.id)} /></PortalShell>;
+  return (
+    <PortalShell event={event} basePath={`/e/${slug}`} personal={false} current="">
+      <h1 className="mb-3 text-xl font-extrabold">Announcements</h1>
+      <AnnouncementList items={await listAnnouncements(event.id)} />
+    </PortalShell>
+  );
 }

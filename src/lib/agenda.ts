@@ -38,3 +38,10 @@ export function nextSession(items: AgendaItem[], date: string, time: string): { 
   const next = sorted.find((i) => i.day > date || (i.day === date && i.starts_at > time));
   return next ? { item: next, status: "next" } : null;
 }
+
+export function pickDay(days: string[], requested: string | undefined, today: string): string | null {
+  if (days.length === 0) return null;
+  if (requested && days.includes(requested)) return requested;
+  if (days.includes(today)) return today;
+  return days[0];
+}

@@ -1,25 +1,40 @@
+import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
-import { groupByDay } from "@/lib/agenda";
+import { isNow } from "@/lib/agenda";
+import { Pill } from "@/components/ui/Card";
 
-export function AgendaList({ items }: { items: AgendaItem[] }) {
-  const days = groupByDay(items);
-  if (days.length === 0) return <p className="text-gray-500">Agenda will be published soon.</p>;
+const dayLabel = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+
+export function AgendaList({ items, day, days, basePath, now }: { items: AgendaItem[]; day: string | null; days: string[]; basePath: string; now: { date: string; time: string } }) {
+  if (!day) return <p className="text-sm text-muted">Agenda will be published soon.</p>;
+  const todays = items.filter((i) => i.day === day);
   return (
-    <div className="space-y-6">
-      {days.map((d) => (
-        <section key={d.day}>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{new Date(d.day + "T00:00:00Z").toLocaleDateString("en-MY", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" })}</h2>
-          <ul className="space-y-3">
-            {d.items.map((i) => (
-              <li key={i.id} className="rounded-lg border p-3">
-                <div className="text-xs text-gray-500">{i.starts_at}{i.ends_at ? ` – ${i.ends_at}` : ""}{i.location ? ` · ${i.location}` : ""}</div>
-                <div className="font-medium">{i.title}</div>
-                {i.description && <p className="mt-1 text-sm text-gray-600">{i.description}</p>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+    <div className="flex flex-col gap-3">
+      {days.length > 1 && (
+        <div className="flex gap-5 border-b border-line">
+          {days.map((d) => (
+            <Link key={d} href={`${basePath}/agenda?day=${d}`} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-brand font-extrabold text-brand-ink" : "border-transparent font-semibold text-muted"}`}>{dayLabel(d)}</Link>
+          ))}
+        </div>
+      )}
+      {todays.map((i) => {
+        const live = isNow(i, now.date, now.time);
+        return (
+          <div key={i.id} className={`flex gap-3 rounded-[14px] bg-surface p-3.5 ${live ? "border-2 border-brand" : "border border-line"}`}>
+            <div className="w-11 shrink-0">
+              <div className={`text-[13px] font-extrabold ${live ? "text-brand-ink" : "text-muted"}`}>{i.starts_at}</div>
+              {live ? <div className="text-[10px] font-extrabold tracking-[0.08em] text-brand-ink">NOW</div> : i.ends_at && <div className="text-[10px] text-muted">{i.ends_at}</div>}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[15px] font-bold">{i.title}</div>
+              {i.location && <div className="text-xs text-muted">{i.location}</div>}
+              {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted">{i.description}</p>}
+              {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Pill>{i.categories.join(", ")}</Pill></div>}
+            </div>
+          </div>
+        );
+      })}
+      {todays.length === 0 && <p className="text-sm text-muted">Nothing scheduled on this day.</p>}
     </div>
   );
 }
