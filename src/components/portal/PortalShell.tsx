@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Event } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { initials, formatDateRange } from "@/lib/text";
+import { brandStyle } from "@/lib/brand";
 
 type NavItem = { href: string; label: string; icon: IconName };
 const nav = (personal: boolean): NavItem[] => [
@@ -19,7 +20,7 @@ function Mark({ event }: { event: Event }) {
 }
 
 export function PortalShell({ event, basePath, personal, current = "", children }: { event: Event; basePath: string; personal: boolean; current?: "" | "/agenda" | "/me" | "/info"; children: React.ReactNode }) {
-  const style = { ["--brand" as string]: event.primary_color } as React.CSSProperties;
+  const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   if (event.status === "draft") {
     return (

@@ -4,6 +4,8 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { TileGrid } from "@/components/portal/TileGrid";
 
+export const dynamic = "force-dynamic";
+
 export default async function GenericHome({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await loadPortalEvent(slug);
