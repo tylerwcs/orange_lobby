@@ -7,6 +7,8 @@ import { countAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { Card, Stat, ButtonLink } from "@/components/ui/Card";
+import { isoToLocalInput } from "@/lib/time";
 
 export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; purged?: string }> }) {
   const { id } = await params;
@@ -16,45 +18,57 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const base = appBaseUrl();
   const statuses: EventStatus[] = ["draft", "live", "archived"];
   const [total, cps, counts] = await Promise.all([countAttendees(ev.id), listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id)]);
+  const registrationOpen = ev.registration_open && !(ev.registration_closes_at && new Date(ev.registration_closes_at) < new Date());
+  const registrationHint = ev.registration_closes_at ? `Closes ${isoToLocalInput(ev.registration_closes_at).replace("T", " ")}` : undefined;
   return (
     <div className="space-y-6">
-      {sp.error && <div className="rounded border border-red-300 bg-red-50 p-3 text-red-700 text-sm">{sp.error}</div>}
-      {sp.purged && <div className="rounded border border-green-300 bg-green-50 p-3 text-green-700 text-sm">Personal data purged.</div>}
-      <section className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-medium">Links</h2>
-        <p className="text-sm">Generic: <a className="text-orange-600" href={genericLink(base, ev.slug)}>{genericLink(base, ev.slug)}</a></p>
-        <p className="text-sm">Registration: <a className="text-orange-600" href={registrationLink(base, ev.slug)}>{registrationLink(base, ev.slug)}</a></p>
-      </section>
-      <section className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-medium">Status</h2>
+      {sp.error && <div className="rounded-[var(--radius-control)] border border-red-300 bg-red-50 p-3 text-sm text-red-700">{sp.error}</div>}
+      {sp.purged && <div className="rounded-[var(--radius-control)] border border-green-300 bg-green-50 p-3 text-sm text-green-700">Personal data purged.</div>}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Stat label="Attendees" value={total} />
+        {cps.map((c) => <Stat key={c.id} label={`${c.name} checked in`} value={counts[c.id] ?? 0} hint={`of ${total}`} />)}
+        <Stat label="Registration" value={registrationOpen ? "Open" : "Closed"} hint={registrationHint} />
+      </div>
+      <Card className="p-4">
+        <h2 className="mb-2 font-bold">Links</h2>
+        <div className="space-y-2">
+          <div>
+            <div className="text-xs text-muted">Generic</div>
+            <a className="block rounded-[var(--radius-control)] bg-canvas p-2 text-xs break-all font-mono text-brand-ink" href={genericLink(base, ev.slug)}>{genericLink(base, ev.slug)}</a>
+          </div>
+          <div>
+            <div className="text-xs text-muted">Registration</div>
+            <a className="block rounded-[var(--radius-control)] bg-canvas p-2 text-xs break-all font-mono text-brand-ink" href={registrationLink(base, ev.slug)}>{registrationLink(base, ev.slug)}</a>
+          </div>
+        </div>
+      </Card>
+      <Card className="p-4">
+        <h2 className="mb-2 font-bold">Status</h2>
         <div className="flex gap-2">
           {statuses.map((s) => (
             <form key={s} action={setStatusAction.bind(null, ev.id, s)}>
-              <button className={`rounded border px-3 py-1 text-sm ${ev.status === s ? "bg-orange-600 text-white" : ""}`}>{s}</button>
+              <button className={`rounded-[var(--radius-control)] border border-line px-3 py-1.5 text-sm font-bold ${ev.status === s ? "border-ink bg-ink text-white" : ""}`}>{s}</button>
             </form>
           ))}
         </div>
-      </section>
-      <section className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-medium">Counts</h2>
-        <p className="text-sm">Attendees: {total}</p>
-        {cps.map((c) => <p key={c.id} className="text-sm">{c.name}: {counts[c.id] ?? 0} checked in</p>)}
-      </section>
-      <section className="rounded border bg-white p-4">
-        <h2 className="mb-2 font-medium">Exports</h2>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <a className="rounded border px-3 py-1" href={`/admin/events/${ev.id}/export/qr.zip`}>QR codes (ZIP)</a>
-          <a className="rounded border px-3 py-1" href={`/admin/events/${ev.id}/export/links.xlsx`}>Links (Excel)</a>
-          <a className="rounded border px-3 py-1" href={`/admin/events/${ev.id}/export/attendance.xlsx`}>Attendance (Excel)</a>
+      </Card>
+      <Card className="p-4">
+        <h2 className="mb-2 font-bold">Exports</h2>
+        <div className="flex flex-wrap gap-3">
+          <ButtonLink variant="secondary" icon="qr" href={`/admin/events/${ev.id}/export/qr.zip`}>QR codes (ZIP)</ButtonLink>
+          <ButtonLink variant="secondary" icon="link" href={`/admin/events/${ev.id}/export/links.xlsx`}>Links (Excel)</ButtonLink>
+          <ButtonLink variant="secondary" icon="file" href={`/admin/events/${ev.id}/export/attendance.xlsx`}>Attendance (Excel)</ButtonLink>
         </div>
-        <p className="mt-2 text-xs text-gray-500">Links are generated for: {base}</p>
-      </section>
+        <p className="mt-2 text-xs text-muted">Links are generated for: {base}</p>
+      </Card>
       {ev.status === "archived" && (
-        <form action={purgeEventAction.bind(null, ev.id)} className="rounded border border-red-300 bg-white p-4">
-          <h2 className="mb-2 font-medium text-red-700">Purge personal data</h2>
-          <p className="mb-2 text-sm text-gray-600">Replaces names, emails, phones, companies and extra fields. Attendance counts are kept. Cannot be undone.</p>
-          <ConfirmButton message="Purge all attendee personal data for this event? This cannot be undone." className="text-red-700">Purge</ConfirmButton>
-        </form>
+        <Card className="p-4">
+          <form action={purgeEventAction.bind(null, ev.id)}>
+            <h2 className="mb-2 font-bold text-red-700">Purge personal data</h2>
+            <p className="mb-2 text-sm text-muted">Replaces names, emails, phones, companies and extra fields. Attendance counts are kept. Cannot be undone.</p>
+            <ConfirmButton message="Purge all attendee personal data for this event? This cannot be undone." className="text-red-700">Purge</ConfirmButton>
+          </form>
+        </Card>
       )}
     </div>
   );

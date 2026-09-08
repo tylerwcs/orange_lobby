@@ -11,7 +11,7 @@ export default async function Settings({ params, searchParams }: { params: Promi
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   return (
-    <form action={updateSettingsAction.bind(null, ev.id)} className="grid max-w-3xl gap-4 rounded border bg-white p-6 md:grid-cols-2">
+    <form action={updateSettingsAction.bind(null, ev.id)} className="grid max-w-3xl gap-4 rounded-[var(--radius-card)] border border-line bg-surface p-6 md:grid-cols-2">
       {saved && <p className="md:col-span-2 text-sm text-green-700">Saved.</p>}
       {error && <p className="md:col-span-2 text-sm text-red-700">{error}</p>}
       <Field label="Name" name="name" defaultValue={ev.name} />

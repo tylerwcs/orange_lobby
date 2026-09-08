@@ -20,7 +20,7 @@ export default async function AttendeePage({ params, searchParams }: { params: P
   const qr = await qrDataUrl(link);
   return (
     <div className="grid gap-6 md:grid-cols-3">
-      <form action={updateAttendeeAction.bind(null, ev.id, a.id)} className="space-y-3 rounded border bg-white p-4 md:col-span-2">
+      <form action={updateAttendeeAction.bind(null, ev.id, a.id)} className="space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 md:col-span-2">
         {saved && <p className="text-sm text-green-700">Saved.</p>}
         {error && <p className="text-sm text-red-700">{error}</p>}
         <Field label="Name" name="name" defaultValue={a.name} /><Field label="Email" name="email" defaultValue={a.email} />
@@ -30,7 +30,7 @@ export default async function AttendeePage({ params, searchParams }: { params: P
         <Field label="Extra (JSON)" name="extra" textarea defaultValue={JSON.stringify(a.extra, null, 2)} />
         <SubmitButton>Save</SubmitButton>
       </form>
-      <div className="space-y-3 rounded border bg-white p-4 text-center">
+      <div className="space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qr} alt="QR" className="mx-auto w-40" />
         <a href={link} className="block break-all text-xs text-orange-700">{link}</a>

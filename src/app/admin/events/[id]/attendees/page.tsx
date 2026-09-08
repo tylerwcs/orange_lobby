@@ -25,11 +25,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         <span className="text-sm text-gray-600">{total} attendees</span>
         <Link href={`/admin/events/${ev.id}/attendees/import`} className="ml-auto rounded bg-orange-600 px-3 py-2 text-sm text-white">Import masterlist</Link>
       </div>
-      <table className="w-full rounded border bg-white text-sm">
-        <thead><tr className="text-left"><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Company</th><th className="p-2">Category</th><th className="p-2">Table</th><th className="p-2">Source</th></tr></thead>
+      <table className="w-full rounded-[var(--radius-card)] border border-line bg-surface text-sm">
+        <thead><tr className="text-left text-[11px] font-bold uppercase tracking-[0.08em] text-muted"><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Company</th><th className="p-2">Category</th><th className="p-2">Table</th><th className="p-2">Source</th></tr></thead>
         <tbody>
           {rows.map((a) => (
-            <tr key={a.id} className="border-t">
+            <tr key={a.id} className="border-t border-line">
               <td className="p-2"><Link className="text-orange-700" href={`/admin/events/${ev.id}/attendees/${a.id}`}>{a.name}</Link></td>
               <td className="p-2">{a.email}</td><td className="p-2">{a.company}</td><td className="p-2">{a.category}</td>
               <td className="p-2">{a.table_no}{a.seat_no ? ` / ${a.seat_no}` : ""}</td><td className="p-2 text-gray-500">{a.source}</td>
@@ -37,7 +37,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           ))}
         </tbody>
       </table>
-      <details className="rounded border bg-white p-4">
+      <details className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
         <summary className="cursor-pointer font-medium">Add attendee</summary>
         <form action={addAttendeeAction.bind(null, ev.id)} className="mt-4 grid gap-3 md:grid-cols-3">
           <Field label="Name" name="name" /><Field label="Email" name="email" /><Field label="Phone" name="phone" />

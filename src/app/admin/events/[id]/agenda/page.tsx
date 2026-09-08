@@ -17,7 +17,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
     <div className="space-y-6">
       {error && <p className="text-sm text-red-700">{error}</p>}
       {days.map((d) => (
-        <section key={d.day} className="rounded border bg-white p-4">
+        <section key={d.day} className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
           <h2 className="mb-2 font-medium">{d.day}</h2>
           <ul className="divide-y text-sm">
             {d.items.map((i) => (
@@ -31,7 +31,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
           </ul>
         </section>
       ))}
-      <form action={addAgendaItemAction.bind(null, ev.id)} className="grid gap-3 rounded border bg-white p-4 md:grid-cols-3">
+      <form action={addAgendaItemAction.bind(null, ev.id)} className="grid gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 md:grid-cols-3">
         <h2 className="font-medium md:col-span-3">Add session</h2>
         <Field label="Day" name="day" type="date" defaultValue={ev.starts_on} /><Field label="Starts" name="starts_at" type="time" /><Field label="Ends" name="ends_at" type="time" />
         <Field label="Title" name="title" /><Field label="Location" name="location" /><Field label="Categories (comma separated, blank = everyone)" name="categories" />

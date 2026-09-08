@@ -5,7 +5,7 @@ export function SubmitButton({ children, className = "" }: { children: React.Rea
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending}
-      className={`rounded bg-orange-600 px-4 py-2 text-white disabled:opacity-50 ${className}`}>
+      className={`inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] bg-brand px-4 text-sm font-bold text-ink disabled:opacity-50 ${className}`}>
       {pending ? "Working…" : children}
     </button>
   );

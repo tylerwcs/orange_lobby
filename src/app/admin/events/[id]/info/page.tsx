@@ -10,7 +10,7 @@ export default async function InfoAdmin({ params, searchParams }: { params: Prom
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   return (
-    <form action={saveInfoPageAction.bind(null, ev.id)} className="max-w-3xl space-y-3 rounded border bg-white p-4">
+    <form action={saveInfoPageAction.bind(null, ev.id)} className="max-w-3xl space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4">
       {saved && <p className="text-sm text-green-700">Saved.</p>}
       <Field label="Page title" name="info_page_title" defaultValue={ev.info_page_title} />
       <label className="block text-sm"><span className="mb-1 block font-medium">Content (HTML: p, h2, h3, ul, li, a, img, strong, em, br)</span>

@@ -1,25 +1,39 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { listEvents } from "@/lib/db/events";
+import { countAttendees } from "@/lib/db/attendees";
+import { Sidebar } from "@/components/admin/Sidebar";
+import { Card, Pill, ButtonLink } from "@/components/ui/Card";
+import { formatDateRange } from "@/lib/text";
 
 export default async function AdminHome() {
-  const { orgId } = await requireAdmin();
+  const { orgId, email } = await requireAdmin();
   const events = await listEvents(orgId);
+  const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Events</h1>
-        <Link href="/admin/events/new" className="rounded bg-orange-600 px-4 py-2 text-white">New event</Link>
-      </div>
-      <ul className="divide-y rounded border bg-white">
-        {events.map((e) => (
-          <li key={e.id} className="flex items-center justify-between p-4">
-            <Link href={`/admin/events/${e.id}`} className="font-medium">{e.name}</Link>
-            <span className="text-xs uppercase text-gray-500">{e.status}</span>
-          </li>
-        ))}
-        {events.length === 0 && <li className="p-4 text-gray-500">No events yet.</li>}
-      </ul>
-    </div>
+    <>
+      <Sidebar email={email} />
+      <main className="flex-1 p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold">Events</h1>
+          <ButtonLink href="/admin/events/new" icon="star">New event</ButtonLink>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {events.map((e, i) => (
+            <Link key={e.id} href={`/admin/events/${e.id}`}>
+              <Card className="p-4">
+                <div className="font-extrabold">{e.name}</div>
+                <div className="mt-1 text-xs text-muted">{formatDateRange(e.starts_on, e.ends_on)}</div>
+                <div className="mt-3 flex items-center justify-between">
+                  <Pill tone={e.status === "live" ? "brand" : e.status === "archived" ? "ink" : "muted"}>{e.status}</Pill>
+                  <span className="text-xs text-muted">{counts[i]} attendees</span>
+                </div>
+              </Card>
+            </Link>
+          ))}
+          {events.length === 0 && <p className="text-muted">No events yet.</p>}
+        </div>
+      </main>
+    </>
   );
 }
