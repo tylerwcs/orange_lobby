@@ -29,8 +29,9 @@ item is pass-or-block for badge printing on 24 Sep.
   tiles configured for the event; generic home hides the attendee card and seat tile.
 - Agenda day tabs switch by `?day=`; Me page shows the attendee's own QR; invalid
   links show the branded page.
-- Admin, modules editor and scanner were reviewed in code but not opened in a browser
-  (login required); walk them in the dry run.
+- Admin, modules editor and scanner were opened in a signed-in browser on 9 Sep: settings
+  save round-trips the KOM questions, and the scanner's search, check-in, Undo and camera-error
+  states all behave. The live camera still needs a phone.
 
 ## Must verify
 
