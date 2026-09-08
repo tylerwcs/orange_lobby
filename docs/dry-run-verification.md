@@ -13,6 +13,16 @@ item is pass-or-block for badge printing on 24 Sep.
    exports in production without it, and the admin overview shows the resolved value
    under "Exports". Re-check after the DNS cutover and redeploy.
 
+## Already verified against the live database (8 Sep 2026, local dev server)
+
+- Registration submits, stores answers in `extra`, lowercases the email, and shows the
+  personal link and QR.
+- Re-registering with the same email (different case) returns the same link, updates the
+  name and answers, and keeps the phone and department when those boxes are left blank.
+- Personal portal: greeting, agenda with correct local date, seat fallback, empty
+  announcements, info page. Generic portal hides "My seat". An invalid token shows the
+  branded "This link isn't valid" page.
+
 ## Must verify
 
 1. **Print one badge before printing 100.** Open `<slug>-links.xlsx`, confirm the URL sits
