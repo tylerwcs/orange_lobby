@@ -23,7 +23,8 @@ export function parseCategories(csv: string): string[] | null {
 function endOf(i: AgendaItem): string {
   if (i.ends_at) return i.ends_at;
   const [h, m] = i.starts_at.split(":").map(Number);
-  return `${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  if (h + 1 > 23) return "23:59";
+  return `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 export function isNow(i: AgendaItem, date: string, time: string): boolean {

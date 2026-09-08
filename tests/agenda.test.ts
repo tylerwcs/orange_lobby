@@ -42,3 +42,12 @@ describe("nextSession", () => {
     expect(nextSession(items, "2026-10-01", "10:30")).toBeNull();
   });
 });
+
+describe("endOf edge", () => {
+  it("treats a 23:xx session without end as running until 23:59", () => {
+    const late = mk({ id: "z", day: "2026-09-30", starts_at: "23:30", ends_at: null });
+    expect(isNow(late, "2026-09-30", "23:45")).toBe(true);
+    expect(nextSession([late], "2026-09-30", "23:00")).toMatchObject({ item: { id: "z" }, status: "next" });
+    expect(nextSession([late], "2026-09-30", "23:59")).toBeNull();
+  });
+});
