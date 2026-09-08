@@ -12,7 +12,7 @@ export default async function PersonalInfo({ params }: { params: Promise<{ slug:
       <h1 className="mb-3 text-xl font-extrabold">{event.info_page_title}</h1>
       <div className="mb-4 flex flex-col gap-3">
         {event.venue_name && (
-          <div className="rounded-[14px] border border-line bg-surface p-3.5">
+          <div>
             <div className="text-[15px] font-bold">{event.venue_name}</div>
             {event.venue_address && <div className="mt-0.5 text-sm text-muted">{event.venue_address}</div>}
             {event.venue_map_url && (

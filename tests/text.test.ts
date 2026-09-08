@@ -33,3 +33,13 @@ describe("shortTime", () => {
     expect(shortTime("not a date")).toBe("");
   });
 });
+
+import { displayName } from "@/lib/text";
+
+describe("displayName", () => {
+  it("title-cases shouting names and leaves mixed case alone", () => {
+    expect(displayName("WONG CAI SHEN")).toBe("Wong Cai Shen");
+    expect(displayName("Aiman bin Rashid")).toBe("Aiman bin Rashid");
+    expect(displayName("  ")).toBe("");
+  });
+});

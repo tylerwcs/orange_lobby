@@ -10,7 +10,6 @@ export default async function EventLayout({ children, params }: { children: Reac
     <>
       <Sidebar email={email} event={{ id: ev.id, name: ev.name, status: ev.status }} />
       <main className="flex-1 p-6">
-        <h1 className="mb-4 text-2xl font-extrabold">{ev.name}</h1>
         {children}
       </main>
     </>

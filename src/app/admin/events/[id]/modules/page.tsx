@@ -6,6 +6,8 @@ import { Card, Button } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { updateModulesAction } from "../actions";
 
+export const metadata = { title: "Modules · Orange Lobby" };
+
 const NAMES: Record<(typeof BUILTIN_MODULES)[number], { label: string; help: string }> = {
   agenda: { label: "Agenda", help: "Programme by day. Subtitle shows the next session automatically." },
   seat: { label: "My seat", help: "Personal links only. Shows table and seat from the attendee record." },
@@ -23,6 +25,7 @@ export default async function ModulesPage({ params, searchParams }: { params: Pr
   const input = "w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-sm";
   return (
     <form action={updateModulesAction.bind(null, ev.id)} className="max-w-3xl space-y-4">
+      <h1 className="mb-4 text-2xl font-extrabold">Modules</h1>
       {saved && <p className="rounded-[var(--radius-control)] bg-green-50 p-3 text-sm text-green-800">Saved.</p>}
       {error && <p className="rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <Card className="divide-y divide-line">

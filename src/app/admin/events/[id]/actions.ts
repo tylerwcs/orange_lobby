@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createEvent, requireEvent, updateEvent, setEventStatus } from "@/lib/db/events";
 import { slugify } from "@/lib/slug";
-import { parseQuestions } from "@/lib/registration";
+import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
 import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, listAttendees, regenerateToken, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
@@ -41,7 +41,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   await requireEvent(eventId, orgId);
   let questions;
   try {
-    questions = parseQuestions(str(formData, "registration_questions") ?? "[]");
+    questions = questionsFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; });
   } catch (e) {
     redirect(`/admin/events/${eventId}/settings?error=${encodeURIComponent((e as Error).message)}`);
   }

@@ -22,7 +22,7 @@ export function AgendaList({ items, day, days, basePath, now }: { items: AgendaI
           <div key={i.id} className={`flex gap-3 rounded-[14px] bg-surface p-3.5 ${live ? "border-2 border-brand" : "border border-line"}`}>
             <div className="w-11 shrink-0">
               <div className={`text-[13px] font-extrabold ${live ? "text-brand-ink" : "text-muted"}`}>{i.starts_at}</div>
-              {live ? <div className="text-[10px] font-extrabold tracking-[0.08em] text-brand-ink">NOW</div> : i.ends_at && <div className="text-[10px] text-muted">{i.ends_at}</div>}
+              {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-brand-ink">NOW</div> : i.ends_at && <div className="text-[11px] text-muted">{i.ends_at}</div>}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[15px] font-bold">{i.title}</div>

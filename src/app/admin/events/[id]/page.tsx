@@ -11,6 +11,8 @@ import { Card, Stat, buttonClass } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { isoToLocalInput } from "@/lib/time";
 
+export const metadata = { title: "Overview · Orange Lobby" };
+
 export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; purged?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -23,6 +25,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const registrationHint = ev.registration_closes_at ? `Closes ${isoToLocalInput(ev.registration_closes_at).replace("T", " ")}` : undefined;
   return (
     <div className="space-y-6">
+      <h1 className="mb-4 text-2xl font-extrabold">Overview</h1>
       {sp.error && <div className="rounded-[var(--radius-control)] border border-red-300 bg-red-50 p-3 text-sm text-red-700">{sp.error}</div>}
       {sp.purged && <div className="rounded-[var(--radius-control)] border border-green-300 bg-green-50 p-3 text-sm text-green-700">Personal data purged.</div>}
       <div className="grid gap-4 md:grid-cols-3">

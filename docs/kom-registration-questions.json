@@ -1,21 +1,71 @@
 [
-  { "key": "nickname", "label": "Nickname", "type": "text", "required": false },
-  { "key": "gender", "label": "Gender", "type": "select", "required": true, "options": ["Male", "Female"] },
-  { "key": "shirt_size", "label": "Shirt Size", "type": "select", "required": true, "options": ["XS", "S", "M", "L", "XL", "2XL", "3XL"] },
-  { "key": "jacket_size", "label": "Jacket Size", "type": "select", "required": true, "options": ["XS", "S", "M", "L", "XL", "2XL", "3XL"] },
+  {
+    "key": "nickname",
+    "label": "Nickname",
+    "type": "text",
+    "required": false
+  },
+  {
+    "key": "gender",
+    "label": "Gender",
+    "type": "select",
+    "required": true,
+    "options": [
+      "Male",
+      "Female"
+    ]
+  },
+  {
+    "key": "shirt_size",
+    "label": "Shirt Size",
+    "type": "select",
+    "required": true,
+    "options": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "2XL",
+      "3XL"
+    ]
+  },
+  {
+    "key": "jacket_size",
+    "label": "Jacket Size",
+    "type": "select",
+    "required": true,
+    "options": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "2XL",
+      "3XL"
+    ]
+  },
   {
     "key": "stay_overnight",
     "label": "Would you like to stay overnight?",
     "type": "select",
     "required": true,
     "description": "50% of the accommodation cost will be covered by Ecopia, while the remaining 50% will be at your own expense. Twin room: if you do not name a room partner, we will pair you by gender.",
-    "options": ["No", "Yes – Single Room (RM150 per room)", "Yes – Twin Room (RM50 per person)"]
+    "options": [
+      "No",
+      "Yes – Single Room (RM150 per room)",
+      "Yes – Twin Room (RM50 per person)"
+    ]
   },
   {
     "key": "room_partner",
     "label": "Room Partner (for twin-room arrangement)",
     "type": "text",
     "required": false,
-    "description": "Leave blank if you chose a single room or would like us to pair you."
+    "description": "Name the colleague you would like to share with, or leave blank and we will pair you.",
+    "show_when": {
+      "key": "stay_overnight",
+      "includes": "Twin"
+    }
   }
 ]

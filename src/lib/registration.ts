@@ -8,11 +8,14 @@ const questionSchema = z.object({
   required: z.boolean().default(false),
   options: z.array(z.string().min(1)).optional(),
   description: z.string().optional(),
+  show_when: z.object({ key: z.string().min(1), includes: z.string().min(1) }).optional(),
 }).refine((q) => q.type !== "select" || (q.options && q.options.length > 0), { message: "select questions need options" });
 
-export function parseQuestions(json: string): RegistrationQuestion[] {
-  let raw: unknown;
-  try { raw = JSON.parse(json); } catch { throw new Error("Registration questions must be valid JSON"); }
+export function parseQuestions(input: string | unknown): RegistrationQuestion[] {
+  let raw: unknown = input;
+  if (typeof input === "string") {
+    try { raw = JSON.parse(input); } catch { throw new Error("Registration questions must be valid JSON"); }
+  }
   const res = z.array(questionSchema).safeParse(raw);
   if (!res.success) {
     const i = res.error.issues[0];
@@ -37,6 +40,8 @@ export function validateRegistration(input: Record<string, string>, questions: R
   const extra: Record<string, string> = {};
   for (const q of questions) {
     const v = get(q.key);
+    const shown = !q.show_when || get(q.show_when.key).toLowerCase().includes(q.show_when.includes.toLowerCase());
+    if (!shown) { extra[q.key] = ""; continue; }
     if (q.required && !v) errors[q.key] = `${q.label} is required`;
     else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = `Choose one of the listed options`;
     extra[q.key] = v;

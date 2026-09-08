@@ -9,6 +9,8 @@ export type RegistrationQuestion = {
   required: boolean;
   options?: string[];
   description?: string;
+  /** Show (and require) this question only when another answer contains a phrase. */
+  show_when?: { key: string; includes: string };
 };
 
 export type Event = {

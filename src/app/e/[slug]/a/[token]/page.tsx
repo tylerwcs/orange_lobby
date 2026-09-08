@@ -4,6 +4,7 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { MeCard } from "@/components/portal/MeCard";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { TileGrid } from "@/components/portal/TileGrid";
+import { NowCard } from "@/components/portal/NowCard";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,14 @@ export default async function PersonalHome({ params }: { params: Promise<{ slug:
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
-  const { tiles, banner } = await loadHomeData(event, attendee, basePath);
+  const { tiles, banner, next, today } = await loadHomeData(event, attendee, basePath);
   return (
     <PortalShell event={event} basePath={basePath} personal current="" hero>
       <h1 className="sr-only">{event.name}</h1>
       <div className="flex flex-col gap-3.5">
         <MeCard attendee={attendee} basePath={basePath} />
         {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
+        <NowCard next={next} href={`${basePath}/agenda`} today={today} />
         <TileGrid tiles={tiles} />
       </div>
     </PortalShell>

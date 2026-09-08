@@ -36,3 +36,19 @@ describe("validateRegistration", () => {
     if (r.ok) expect(r.data).toEqual({ name: "Ann", email: "ann@b.co", phone: "012", company: "Ecopia", extra: { tshirt: "M", remarks: "" } });
   });
 });
+
+describe("show_when", () => {
+  const qs2 = parseQuestions(JSON.stringify([
+    { key: "stay", label: "Stay?", type: "select", required: true, options: ["No", "Yes – Twin"] },
+    { key: "partner", label: "Partner", type: "text", required: true, show_when: { key: "stay", includes: "Twin" } },
+  ]));
+  it("parses show_when and only requires the dependent answer when the parent matches", () => {
+    expect(qs2[1].show_when).toEqual({ key: "stay", includes: "Twin" });
+    const hidden = validateRegistration({ name: "A", email: "a@b.co", stay: "No" }, qs2);
+    expect(hidden.ok).toBe(true);
+    if (hidden.ok) expect(hidden.data.extra.partner).toBe("");
+    const shown = validateRegistration({ name: "A", email: "a@b.co", stay: "Yes – Twin" }, qs2);
+    expect(shown.ok).toBe(false);
+    if (!shown.ok) expect(shown.errors.partner).toMatch(/required/);
+  });
+});

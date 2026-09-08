@@ -9,6 +9,8 @@ import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { Icon } from "@/components/ui/Icon";
 
+export const metadata = { title: "Attendees · Orange Lobby" };
+
 export default async function Attendees({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -20,6 +22,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   for (const c of checkins) inAt.set(c.attendee_id, [...(inAt.get(c.attendee_id) ?? []), cpName.get(c.checkpoint_id) ?? "?"]);
   return (
     <div className="space-y-6">
+      <h1 className="mb-4 text-2xl font-extrabold">Attendees</h1>
       {sp.imported !== undefined && (
         <p className="rounded bg-green-50 p-3 text-sm text-green-800">
           Imported {sp.imported}, updated {sp.updated}. {sp.skipped ? `Skipped: ${sp.skipped}` : ""}

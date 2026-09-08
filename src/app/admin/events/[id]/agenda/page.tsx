@@ -7,6 +7,8 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { addAgendaItemAction, deleteAgendaItemAction } from "../actions";
 
+export const metadata = { title: "Agenda · Orange Lobby" };
+
 export default async function AgendaAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const { id } = await params;
   const { error } = await searchParams;
@@ -15,6 +17,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
   const days = groupByDay(await listAgenda(ev.id));
   return (
     <div className="space-y-6">
+      <h1 className="mb-4 text-2xl font-extrabold">Agenda</h1>
       {error && <p className="text-sm text-red-700">{error}</p>}
       {days.map((d) => (
         <section key={d.day} className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
@@ -35,7 +38,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
         <h2 className="font-medium md:col-span-3">Add session</h2>
         <Field label="Day" name="day" type="date" defaultValue={ev.starts_on} /><Field label="Starts" name="starts_at" type="time" /><Field label="Ends" name="ends_at" type="time" />
         <Field label="Title" name="title" /><Field label="Location" name="location" /><Field label="Categories (comma separated, blank = everyone)" name="categories" />
-        <div className="md:col-span-2"><Field label="Description" name="description" textarea /></div><Field label="Sort order" name="sort_order" type="number" defaultValue="0" />
+        <div className="md:col-span-2"><Field label="Description" name="description" textarea /></div><Field label="Order among sessions at the same time (lower first)" name="sort_order" type="number" defaultValue="0" />
         <div className="md:col-span-3"><SubmitButton>Add</SubmitButton></div>
       </form>
     </div>

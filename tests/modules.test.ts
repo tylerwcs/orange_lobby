@@ -29,7 +29,7 @@ describe("resolveTiles", () => {
     expect(personal[1]).toMatchObject({ subtitle: "Table 12 · Seat 3", href: "/e/kom/a/tok/seat" });
     expect(personal[4].subtitle).toBe("Breakouts moved");
     const generic = resolveTiles({ event, personal: false, basePath: "/e/kom" });
-    expect(generic.map((t) => t.id)).toEqual(["agenda", "floor_plan", "info", "announcements"]);
+    expect(generic.map((t) => t.id)).toEqual(["agenda", "floor_plan", "info"]); // no announcements yet, so no empty tile
     expect(generic[0].subtitle).toBe("Programme");
   });
   it("hides floor plan and info when the event has none, honours disabled and links", () => {

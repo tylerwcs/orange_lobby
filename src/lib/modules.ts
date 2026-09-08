@@ -102,6 +102,7 @@ export function resolveTiles(input: {
         out.push({ id: "info", label, icon, external: false, href: `${basePath}/info`, subtitle: m.subtitle ?? "Everything you need to know" });
         break;
       case "announcements":
+        if (!latestAnnouncement && !m.subtitle) break; // an empty destination is not an option worth a tile
         out.push({ id: "announcements", label, icon, external: false, href: `${basePath}/announcements`, subtitle: m.subtitle ?? latestAnnouncement ?? "No announcements yet" });
         break;
     }

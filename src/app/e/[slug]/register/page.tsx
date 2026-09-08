@@ -16,7 +16,6 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
       <main className="flex-1 px-4 py-4">
         <h1 className="sr-only">Registration</h1>
         <Card className="p-4">
-          <div className="mb-4 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Registration</div>
           {closed ? <p className="text-sm text-muted">Registration is closed.</p>
                   : <RegisterForm slug={slug} questions={event.registration_questions} />}
         </Card>

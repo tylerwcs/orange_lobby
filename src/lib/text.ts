@@ -47,3 +47,11 @@ export function shortTime(iso: string): string {
   if (Number.isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("en-GB", { timeZone: MY_TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
 }
+
+/** A name as people expect to read it: "WONG CAI SHEN" becomes "Wong Cai Shen"; mixed case is left alone. */
+export function displayName(name: string): string {
+  const t = name.trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  if (t !== t.toUpperCase()) return t;
+  return t.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase());
+}
