@@ -14,7 +14,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
       <div className="flex flex-col gap-3.5">
         <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qr} alt="Your QR code" className="mx-auto w-52 rounded-[10px]" />
+          <img src={qr} alt="Your QR code" width={208} height={208} className="mx-auto h-52 w-52 rounded-[10px]" />
           <div className="mt-3 text-xl font-extrabold">{attendee.name}</div>
           {attendee.company && <div className="text-sm text-muted">{attendee.company}</div>}
           <div className="mt-3 flex flex-wrap justify-center gap-2">

@@ -21,7 +21,7 @@ export default async function NewEvent({ searchParams }: { searchParams: Promise
   return (
     <>
       <Sidebar email={email} />
-      <main className="min-w-0 flex-1 p-6 lg:p-8 2xl:p-10">
+      <main id="main" className="min-w-0 flex-1 p-6 lg:p-8 2xl:p-10">
         <h1 className="mb-6 text-2xl font-extrabold">New event</h1>
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
           <Card className="p-6">

@@ -11,6 +11,7 @@
   --brand: #F97316;
   --brand-ink: #C2410C;
   --brand-soft: #FFF1E7;
+  --danger: #DC2626;
   --radius-card: 16px;
   --radius-control: 10px;
 }
@@ -24,10 +25,43 @@
   --color-brand: var(--brand);
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
+  --color-danger: var(--danger);
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
   --font-sans: var(--font-manrope), "Segoe UI", system-ui, sans-serif;
 }
 
-html { background: var(--canvas); }
-body { color: var(--ink); font-family: var(--font-sans); -webkit-tap-highlight-color: transparent; }
+html { background: var(--canvas); scroll-behavior: smooth; }
+body {
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  accent-color: var(--brand);
+  caret-color: var(--brand-ink);
+}
+
+/* Browser surfaces carry the design too: selection, focus, and numerals. */
+::selection { background: var(--brand-soft); color: var(--ink); }
+
+/* One visible focus ring everywhere, drawn from the brand, never removed without a replacement. */
+:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+  /* Keep the focused control clear of sticky bars and the fixed bottom nav. */
+  scroll-margin-block: 96px;
+}
+[data-ring="inset"]:focus-visible { outline-offset: -3px; }
+
+/* Interactive elements: pointer cursor and no 300ms tap delay. Tailwind's preflight resets button cursors. */
+button, [role="button"], a, label:has(input[type="checkbox"]), summary, select { cursor: pointer; touch-action: manipulation; }
+button:disabled, [aria-disabled="true"] { cursor: not-allowed; }
+input, textarea { touch-action: manipulation; }
+
+/* Numbers that line up in tables, counters and times. */
+.tabular-nums, table, dl { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

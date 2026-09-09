@@ -38,7 +38,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         <span className="text-sm text-muted">{total} attendees</span>
         <Link href={`/admin/events/${ev.id}/attendees/import`} className="ml-auto inline-flex min-h-10 items-center rounded-[var(--radius-control)] bg-brand px-3 text-sm font-bold text-ink">Import masterlist</Link>
       </div>
-      <table className="w-full rounded-[var(--radius-card)] border border-line bg-surface text-sm">
+      <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface">
+      <table className="w-full min-w-[720px] text-sm">
         <thead><tr className="text-left text-[11px] font-bold uppercase tracking-[0.08em] text-muted"><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Company</th><th className="p-2">Category</th><th className="p-2">Table</th><th className="p-2">Checked in</th><th className="p-2">Source</th></tr></thead>
         <tbody>
           {rows.map((a) => (
@@ -50,8 +51,10 @@ export default async function Attendees({ params, searchParams }: { params: Prom
               <td className="p-2 text-muted">{a.source}</td>
             </tr>
           ))}
+          {rows.length === 0 && <tr className="border-t border-line"><td colSpan={7} className="p-6 text-center text-muted">{sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}</td></tr>}
         </tbody>
       </table>
+      </div>
       <details className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
         <summary className="cursor-pointer font-bold">Add an attendee by hand</summary>
         <form action={addAttendeeAction.bind(null, ev.id)} className="mt-4 grid gap-3 md:grid-cols-3">

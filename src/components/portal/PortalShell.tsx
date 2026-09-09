@@ -20,7 +20,7 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
 export function PortalShell({ event, basePath, personal, current = null, hero = false, children }: { event: Event; basePath: string; personal: boolean; current?: "" | "/agenda" | "/me" | "/info" | null; hero?: boolean; children: React.ReactNode }) {
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
-  const bannerClass = "mb-4 w-full rounded-[var(--radius-card)]";
+  const bannerClass = "mb-4 aspect-[3/1] w-full rounded-[var(--radius-card)] object-cover";
   if (event.status === "draft") {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6" style={style}>
@@ -37,7 +37,8 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-canvas" style={style}>
       <PortalHeader event={event} href={basePath || "/"} />
-      <main className="flex-1 px-4 pb-24 pt-4">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[var(--radius-control)] focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">Skip to content</a>
+      <main id="main" className="flex-1 px-4 pb-24 pt-4">
         {hero && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         {children}
       </main>

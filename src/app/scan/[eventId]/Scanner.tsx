@@ -128,6 +128,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
 
       <div className={`mt-3 rounded-[var(--radius-card)] p-4 ${tone}`} role="status" aria-live="polite">
         {!result && <p className="text-sm">Point the camera at a badge, or search by name below.</p>}
+        {result && <span className="sr-only">{count} of {total} checked in.</span>}
         {result && result.attendee && result.status !== "error" && result.status !== "notfound" && (
           <div>
             <div className="text-[11px] font-bold uppercase tracking-[0.08em] opacity-90">{headline}</div>

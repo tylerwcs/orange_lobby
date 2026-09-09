@@ -14,8 +14,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         {error && <p className="mb-4 rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <form action={signIn} className="space-y-4">
           <input type="hidden" name="next" value={next ?? "/admin"} />
-          <input name="email" type="email" required placeholder="Email" className="w-full min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm" />
-          <input name="password" type="password" required placeholder="Password" className="w-full min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm" />
+          <label className="block text-sm"><span className="mb-1 block font-bold">Email</span><input name="email" type="email" required autoComplete="email" inputMode="email" className="w-full min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm" /></label>
+          <label className="block text-sm"><span className="mb-1 block font-bold">Password</span><input name="password" type="password" required autoComplete="current-password" className="w-full min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm" /></label>
           <SubmitButton className="w-full">Sign in</SubmitButton>
         </form>
       </Card>

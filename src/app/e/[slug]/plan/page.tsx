@@ -11,7 +11,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
       {event.floor_plan_url ? (
         <div className="overflow-auto rounded-[var(--radius-card)] border border-line bg-surface p-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={event.floor_plan_url} alt="Floor plan" className="w-full" />
+          <img src={event.floor_plan_url} alt="Floor plan" loading="lazy" className="min-h-64 w-full" />
         </div>
       ) : (
         // A tile can be enabled before the plan image is uploaded; say so inside the

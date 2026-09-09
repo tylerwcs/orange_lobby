@@ -15,7 +15,7 @@ export default async function AdminHome() {
   return (
     <>
       <Sidebar email={email} />
-      <main className="min-w-0 flex-1 p-6 lg:p-8 2xl:p-10">
+      <main id="main" className="min-w-0 flex-1 p-6 lg:p-8 2xl:p-10">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-extrabold">Events</h1>
           <ButtonLink href="/admin/events/new" icon="star">New event</ButtonLink>

@@ -22,7 +22,7 @@ export function Pill({ children, tone = "brand" }: { children: React.ReactNode; 
 
 export type ButtonVariant = "primary" | "secondary" | "danger";
 type BtnProps = { children: React.ReactNode; variant?: ButtonVariant; className?: string; icon?: IconName };
-const btnBase = "inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-sm font-bold transition disabled:opacity-50";
+const btnBase = "inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-sm font-bold transition-colors duration-150 active:translate-y-px disabled:opacity-50 disabled:active:translate-y-0";
 const btnVariant = { primary: "bg-brand text-ink hover:brightness-95", secondary: "border border-line bg-surface text-ink hover:bg-canvas", danger: "border border-red-200 bg-surface text-red-700 hover:bg-red-50" };
 
 /** Button styling for the places that need a plain `<a>` — downloads and external links — so the class strings stay in one place. */
