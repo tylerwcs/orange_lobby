@@ -6,6 +6,8 @@ import { Sidebar } from "@/components/admin/Sidebar";
 import { Card, Pill, ButtonLink } from "@/components/ui/Card";
 import { formatDateRange } from "@/lib/text";
 
+export const metadata = { title: "Events · Orange Lobby" };
+
 export default async function AdminHome() {
   const { orgId, email } = await requireAdmin();
   const events = await listEvents(orgId);
