@@ -24,14 +24,16 @@ export default async function ModulesPage({ params, searchParams }: { params: Pr
   const links = mods.filter((m): m is LinkModule => m.key === "link");
   const input = "w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-sm";
   return (
-    <form action={updateModulesAction.bind(null, ev.id)} className="max-w-3xl space-y-4">
+    <form action={updateModulesAction.bind(null, ev.id)} className="space-y-4">
       <h1 className="mb-4 text-2xl font-extrabold">Modules</h1>
       {saved && <p className="rounded-[var(--radius-control)] bg-green-50 p-3 text-sm text-green-800">Saved.</p>}
       {error && <p className="rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      <div className="grid gap-4 items-start xl:grid-cols-2">
       <Card className="divide-y divide-line">
+        <div className="p-4"><div className="font-bold">Built-in tiles</div><div className="text-xs text-muted">Switch a tile off to hide it; give it a custom label or subtitle if the default reads wrong for this event.</div></div>
         {BUILTIN_MODULES.map((key) => { const m = builtin(key); return (
-          <div key={key} className="grid gap-3 p-4 md:grid-cols-[auto_1fr_1fr]">
-            <label className="flex min-w-48 items-start gap-3 text-sm">
+          <div key={key} className="grid gap-3 p-4 md:grid-cols-[minmax(12rem,1fr)_1fr_1fr]">
+            <label className="flex items-start gap-3 text-sm">
               <input type="checkbox" name={`mod_${key}_enabled`} defaultChecked={m?.enabled ?? true} className="mt-1 size-4 accent-[var(--brand)]" />
               <span><span className="block font-bold">{NAMES[key].label}</span><span className="block text-xs text-muted">{NAMES[key].help}</span></span>
             </label>
@@ -53,6 +55,7 @@ export default async function ModulesPage({ params, searchParams }: { params: Pr
           </div>
         ); })}
       </Card>
+      </div>
       <div className="flex items-center gap-3"><Button type="submit">Save modules</Button><span className="flex items-center gap-1 text-xs text-muted"><Icon name="info" size={14} /> Tiles appear on the portal home in this order.</span></div>
     </form>
   );

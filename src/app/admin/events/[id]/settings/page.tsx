@@ -28,12 +28,12 @@ export default async function Settings({ params, searchParams }: { params: Promi
   const ev = await requireEvent(id, orgId);
   const qs = ev.registration_questions;
   return (
-    <form action={updateSettingsAction.bind(null, ev.id)} className="max-w-5xl space-y-4">
+    <form action={updateSettingsAction.bind(null, ev.id)} className="space-y-4">
       <h1 className="text-2xl font-extrabold">Settings</h1>
       {saved && <p role="status" className="rounded-[var(--radius-control)] bg-green-50 p-3 text-sm text-green-800">Saved.</p>}
       {error && <p role="alert" className="rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Event">
           <Field label="Name" name="name" defaultValue={ev.name} />
           <Field label="Primary colour" name="primary_color" type="color" defaultValue={ev.primary_color} />
@@ -104,7 +104,7 @@ export default async function Settings({ params, searchParams }: { params: Promi
         </div>
       </Card>
 
-      <div className="sticky bottom-0 -mx-6 flex items-center gap-3 border-t border-line bg-surface/95 px-6 py-3 backdrop-blur">
+      <div className="sticky bottom-0 -mx-6 flex items-center gap-3 border-t border-line bg-surface/95 px-6 py-3 backdrop-blur lg:-mx-8 lg:px-8 2xl:-mx-10 2xl:px-10">
         <SubmitButton>Save settings</SubmitButton>
         <span className="text-xs text-muted">Changes apply to the portal immediately.</span>
       </div>

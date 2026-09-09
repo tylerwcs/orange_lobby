@@ -19,16 +19,16 @@ export default async function AttendeePage({ params, searchParams }: { params: P
   const link = attendeeLink(appBaseUrl(), ev.slug, a.token);
   const qr = await qrDataUrl(link);
   return (
-    <div className="grid gap-6 md:grid-cols-3">
-      <form action={updateAttendeeAction.bind(null, ev.id, a.id)} className="space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 md:col-span-2">
-        {saved && <p className="text-sm text-green-700">Saved.</p>}
-        {error && <p className="text-sm text-red-700">{error}</p>}
+    <div className="grid gap-6 items-start xl:grid-cols-[1fr_360px]">
+      <form action={updateAttendeeAction.bind(null, ev.id, a.id)} className="grid gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 md:grid-cols-2">
+        {saved && <p className="text-sm text-green-700 md:col-span-2">Saved.</p>}
+        {error && <p className="text-sm text-red-700 md:col-span-2">{error}</p>}
         <Field label="Name" name="name" defaultValue={a.name} /><Field label="Email" name="email" defaultValue={a.email} />
         <Field label="Phone" name="phone" defaultValue={a.phone} /><Field label="Company" name="company" defaultValue={a.company} />
         <Field label="Category" name="category" defaultValue={a.category} /><Field label="Table" name="table_no" defaultValue={a.table_no} />
         <Field label="Seat" name="seat_no" defaultValue={a.seat_no} />
-        <Field label="Extra (JSON)" name="extra" textarea defaultValue={JSON.stringify(a.extra, null, 2)} />
-        <SubmitButton>Save</SubmitButton>
+        <div className="md:col-span-2"><Field label="Extra (JSON)" name="extra" textarea defaultValue={JSON.stringify(a.extra, null, 2)} /></div>
+        <div className="md:col-span-2"><SubmitButton>Save</SubmitButton></div>
       </form>
       <div className="space-y-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
