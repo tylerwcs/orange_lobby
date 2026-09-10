@@ -5,11 +5,17 @@ import { setStatusAction, purgeEventAction } from "./actions";
 import type { EventStatus } from "@/lib/types";
 import { countAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, buttonClass } from "@/components/ui/Card";
-import { StatTile } from "@/components/ui/StatTile";
 import { Icon } from "@/components/ui/Icon";
+import { AdminHeader } from "@/components/admin/AdminHeader";
+import { CheckInPanel } from "@/components/admin/CheckInPanel";
+import { GlanceCard } from "@/components/admin/GlanceCard";
+import { RecentScans } from "@/components/admin/RecentScans";
+import { arrivalBuckets, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
+import { listCheckinsForEvent } from "@/lib/db/checkins";
+import { listAttendees } from "@/lib/db/attendees";
+import { nowInKL, isoToLocalInput } from "@/lib/time";
 
 export const metadata = { title: "Overview · Orange Lobby" };
 
@@ -20,18 +26,35 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const ev = await requireEvent(id, orgId);
   const base = appBaseUrl();
   const statuses: EventStatus[] = ["draft", "live", "archived"];
-  const [total, cps, counts] = await Promise.all([countAttendees(ev.id), listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id)]);
+  const [total, cps, checkins, attendees] = await Promise.all([
+    countAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id), listAttendees(ev.id),
+  ]);
+  const today = nowInKL().date;
+  const counts = countByCheckpoint(checkins);
+  const firstCp = cps[0]?.id;
+  const checkedIn = new Set(checkins.map((c) => c.attendee_id)).size;
+  const walkIns = attendees.filter((a) => a.source === "walkin").length;
+  const buckets = arrivalBuckets(checkins, { day: today, from: "08:00", to: "12:00", minutes: 15, checkpointId: firstCp });
+  const scans = recentScans(checkins, attendees, 8);
+  const cpNames = new Map(cps.map((c) => [c.id, c.name]));
   const registrationOpen = ev.registration_open && !(ev.registration_closes_at && new Date(ev.registration_closes_at) < new Date());
+  const registrationHint = ev.registration_closes_at ? `Closes ${isoToLocalInput(ev.registration_closes_at).replace("T", " ")}` : undefined;
   return (
     <div className="space-y-6">
-      <h1 className="mb-4 text-2xl font-extrabold">Overview</h1>
+      <AdminHeader
+        title="Overview"
+        subtitle={`${ev.name} · ${checkedIn} of ${total} checked in`}
+        actions={<a href={`/scan/${ev.id}`} className={buttonClass("primary")}><Icon name="scan" size={18} />Open scanner</a>}
+      />
       {sp.error && <div className="rounded-[var(--radius-control)] border border-red-300 bg-red-50 p-3 text-sm text-red-700">{sp.error}</div>}
       {sp.purged && <div className="rounded-[var(--radius-control)] border border-green-300 bg-green-50 p-3 text-sm text-green-700">Personal data purged.</div>}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Attendees" value={total} icon="users" />
-        {cps.map((c) => <StatTile key={c.id} label={`${c.name} checked in`} value={counts[c.id] ?? 0} icon="check" />)}
-        <StatTile label="Registration" value={registrationOpen ? "Open" : "Closed"} icon="clock" />
+      <div className="grid items-start gap-6 xl:grid-cols-[1.75fr_1fr]">
+        <CheckInPanel checkedIn={checkedIn} registered={total} buckets={buckets}
+          checkpoints={cps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))} />
+        <GlanceCard registered={total} checkedIn={checkedIn} walkIns={walkIns}
+          registrationOpen={registrationOpen} registrationHint={registrationHint} eventId={ev.id} />
       </div>
+      <RecentScans rows={scans} checkpointNames={cpNames} />
       <div className="grid gap-6 items-start xl:grid-cols-[3fr_2fr]">
       <div className="space-y-6">
       <Card className="p-4">
