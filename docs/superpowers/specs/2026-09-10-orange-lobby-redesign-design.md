@@ -79,11 +79,12 @@ Added:
 |---|---|---|
 | `--brand-strong` | `#C2410C` | primary button fill, white text (5.2:1) |
 | `--ok` | `#16A34A` | status dots, meter fills on light tints |
-| `--ok-strong` | `#15803D` | text on `--ok-soft`; any fill bearing white text |
+| `--ok-strong` | `#166534` | text on `--ok-soft`; any fill bearing white text |
 | `--ok-soft` | `#E7F6EC` | checked-in badges, stat tile ground |
 | `--warn` | `#B45309` | expected / duplicate-scan dots |
 | `--warn-soft` | `#FDF2E2` | expected badges |
 | `--danger-soft` | `#FDECEC` | destructive badges and banners |
+| `--danger-strong` | `#B91C1C` | text on `--danger-soft` |
 | `--tint-pink` | `#FBEFF6` | stat tile ground (with `#A03A78` ink) |
 | `--tint-sky` | `#E8F1FC` | stat tile ground (with `#1D4ED8` ink) |
 | `--tint-lilac` | `#EFEDFB` | category badges (with `#5B4BC4` ink) |

@@ -4,7 +4,7 @@ export type BadgeTone = (typeof BADGE_TONES)[number];
 const TONE: Record<BadgeTone, string> = {
   ok: "bg-ok-soft text-ok-strong",
   warn: "bg-warn-soft text-warn",
-  danger: "bg-danger-soft text-red-700",
+  danger: "bg-danger-soft text-danger-strong",
   brand: "bg-brand-soft text-brand-ink",
   neutral: "bg-tint-slate text-muted",
   ink: "bg-ink text-white",
