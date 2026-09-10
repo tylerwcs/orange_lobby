@@ -3,17 +3,30 @@
 
 :root {
   color-scheme: light;
-  --canvas: #F4F5F7;
+  --canvas: #F5F5F3;
   --surface: #FFFFFF;
   --ink: #111827;
   --muted: #4B5563;
   --line: #E5E7EB;
   --brand: #F97316;
   --brand-ink: #C2410C;
+  --brand-strong: #C2410C;
   --brand-soft: #FFF1E7;
   --danger: #DC2626;
-  --radius-card: 16px;
+  --danger-soft: #FDECEC;
+  --ok: #16A34A;
+  --ok-strong: #15803D;
+  --ok-soft: #E7F6EC;
+  --warn: #B45309;
+  --warn-soft: #FDF2E2;
+  --tint-pink: #FBEFF6;
+  --tint-sky: #E8F1FC;
+  --tint-lilac: #EFEDFB;
+  --tint-slate: #F1F2F4;
+  --radius-card: 18px;
   --radius-control: 10px;
+  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.05), 0 10px 26px -18px rgba(17, 24, 39, 0.35);
+  --shadow-bar: 0 1px 2px rgba(17, 24, 39, 0.04), 0 10px 24px -20px rgba(17, 24, 39, 0.5);
 }
 
 @theme inline {
@@ -26,6 +39,17 @@
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
   --color-danger: var(--danger);
+  --color-brand-strong: var(--brand-strong);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok: var(--ok);
+  --color-ok-strong: var(--ok-strong);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-tint-pink: var(--tint-pink);
+  --color-tint-sky: var(--tint-sky);
+  --color-tint-lilac: var(--tint-lilac);
+  --color-tint-slate: var(--tint-slate);
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
   --font-sans: var(--font-manrope), "Segoe UI", system-ui, sans-serif;
