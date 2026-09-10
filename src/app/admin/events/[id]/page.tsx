@@ -7,9 +7,9 @@ import { countAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Card, Stat, buttonClass } from "@/components/ui/Card";
+import { Card, buttonClass } from "@/components/ui/Card";
+import { StatTile } from "@/components/ui/StatTile";
 import { Icon } from "@/components/ui/Icon";
-import { isoToLocalInput } from "@/lib/time";
 
 export const metadata = { title: "Overview · Orange Lobby" };
 
@@ -22,16 +22,15 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const statuses: EventStatus[] = ["draft", "live", "archived"];
   const [total, cps, counts] = await Promise.all([countAttendees(ev.id), listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id)]);
   const registrationOpen = ev.registration_open && !(ev.registration_closes_at && new Date(ev.registration_closes_at) < new Date());
-  const registrationHint = ev.registration_closes_at ? `Closes ${isoToLocalInput(ev.registration_closes_at).replace("T", " ")}` : undefined;
   return (
     <div className="space-y-6">
       <h1 className="mb-4 text-2xl font-extrabold">Overview</h1>
       {sp.error && <div className="rounded-[var(--radius-control)] border border-red-300 bg-red-50 p-3 text-sm text-red-700">{sp.error}</div>}
       {sp.purged && <div className="rounded-[var(--radius-control)] border border-green-300 bg-green-50 p-3 text-sm text-green-700">Personal data purged.</div>}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Attendees" value={total} />
-        {cps.map((c) => <Stat key={c.id} label={`${c.name} checked in`} value={counts[c.id] ?? 0} hint={`of ${total}`} />)}
-        <Stat label="Registration" value={registrationOpen ? "Open" : "Closed"} hint={registrationHint} />
+        <StatTile label="Attendees" value={total} icon="users" />
+        {cps.map((c) => <StatTile key={c.id} label={`${c.name} checked in`} value={counts[c.id] ?? 0} icon="check" />)}
+        <StatTile label="Registration" value={registrationOpen ? "Open" : "Closed"} icon="clock" />
       </div>
       <div className="grid gap-6 items-start xl:grid-cols-[3fr_2fr]">
       <div className="space-y-6">

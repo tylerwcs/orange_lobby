@@ -5,7 +5,7 @@ import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { countAttendees } from "@/lib/db/attendees";
 import { Scanner } from "./Scanner";
 import { Icon } from "@/components/ui/Icon";
-import { Pill } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 
 export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string }> }) {
   const { eventId } = await params; const { cp } = await searchParams;
@@ -23,7 +23,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
               <a href={`/scan/${ev.id}?cp=${c.id}`} className="flex min-h-14 items-center gap-3 rounded-[var(--radius-card)] border border-line bg-surface px-4">
                 <Icon name="flag" size={20} className="text-brand-ink" />
                 <span className="flex-1 text-[15px] font-bold">{c.name}</span>
-                <Pill tone="muted">{counts[c.id] ?? 0}/{total}</Pill>
+                <Badge tone="neutral">{counts[c.id] ?? 0}/{total}</Badge>
                 <Icon name="chevron" size={18} className="text-muted" />
               </a>
             </li>

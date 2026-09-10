@@ -5,7 +5,8 @@ import { shortDateTime } from "@/lib/text";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Card, Pill } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { addAnnouncementAction, deleteAnnouncementAction } from "../actions";
 
 export const metadata = { title: "Announcements · Orange Lobby" };
@@ -32,7 +33,7 @@ export default async function AnnouncementsAdmin({ params, searchParams }: { par
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold">{a.title}</span>
-                    {a.pinned && <Pill>Pinned</Pill>}
+                    {a.pinned && <Badge tone="brand">Pinned</Badge>}
                     <span className="text-xs text-muted">{shortDateTime(a.created_at)}</span>
                   </div>
                   <p className="mt-1 whitespace-pre-line text-muted">{a.body}</p>

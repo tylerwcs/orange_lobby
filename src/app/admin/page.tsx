@@ -3,7 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { listEvents } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
 import { Sidebar } from "@/components/admin/Sidebar";
-import { Card, Pill, ButtonLink } from "@/components/ui/Card";
+import { Card, ButtonLink } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { formatDateRange } from "@/lib/text";
 
 export const metadata = { title: "Events · Orange Lobby" };
@@ -27,7 +28,7 @@ export default async function AdminHome() {
                 <div className="font-extrabold">{e.name}</div>
                 <div className="mt-1 text-xs text-muted">{formatDateRange(e.starts_on, e.ends_on)}</div>
                 <div className="mt-3 flex items-center justify-between">
-                  <Pill tone={e.status === "live" ? "brand" : e.status === "archived" ? "ink" : "muted"}>{e.status}</Pill>
+                  <Badge tone={e.status === "live" ? "brand" : e.status === "archived" ? "ink" : "neutral"}>{e.status}</Badge>
                   <span className="text-xs text-muted">{counts[i]} attendees</span>
                 </div>
               </Card>

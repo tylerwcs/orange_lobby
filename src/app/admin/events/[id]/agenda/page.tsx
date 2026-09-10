@@ -6,7 +6,8 @@ import { shortDate } from "@/lib/text";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Card, Pill } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { addAgendaItemAction, deleteAgendaItemAction } from "../actions";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
@@ -42,7 +43,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
                       <div className="min-w-0">
                         <div className="font-bold">{i.title}</div>
                         <div className="text-xs text-muted">{[i.location, i.description].filter(Boolean).join(" · ")}</div>
-                        {i.categories && i.categories.length > 0 && <div className="mt-1"><Pill>{i.categories.join(", ")}</Pill></div>}
+                        {i.categories && i.categories.length > 0 && <div className="mt-1"><Badge tone="brand">{i.categories.join(", ")}</Badge></div>}
                       </div>
                     </div>
                     <form action={deleteAgendaItemAction.bind(null, ev.id, i.id)}><ConfirmButton message={`Delete "${i.title}"?`}>Delete</ConfirmButton></form>

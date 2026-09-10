@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
 import { isNow } from "@/lib/agenda";
-import { Pill } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { shortDate } from "@/lib/text";
 
 export function AgendaList({ items, day, days, basePath, now }: { items: AgendaItem[]; day: string | null; days: string[]; basePath: string; now: { date: string; time: string } }) {
@@ -28,7 +28,7 @@ export function AgendaList({ items, day, days, basePath, now }: { items: AgendaI
               <div className="text-[15px] font-bold">{i.title}</div>
               {i.location && <div className="text-xs text-muted">{i.location}</div>}
               {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted">{i.description}</p>}
-              {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Pill>{i.categories.join(", ")}</Pill></div>}
+              {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Badge tone="brand">{i.categories.join(", ")}</Badge></div>}
             </div>
           </div>
         );

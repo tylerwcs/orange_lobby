@@ -2,7 +2,7 @@ import { loadPortalAttendee } from "@/lib/portal";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
-import { Pill } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 
 export default async function MePage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -18,8 +18,8 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
           <div className="mt-3 text-xl font-extrabold">{attendee.name}</div>
           {attendee.company && <div className="text-sm text-muted">{attendee.company}</div>}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            {attendee.category && <Pill tone="muted">{attendee.category}</Pill>}
-            {attendee.table_no && <Pill>Table {attendee.table_no}{attendee.seat_no ? ` · Seat ${attendee.seat_no}` : ""}</Pill>}
+            {attendee.category && <Badge tone="neutral">{attendee.category}</Badge>}
+            {attendee.table_no && <Badge tone="brand">Table {attendee.table_no}{attendee.seat_no ? ` · Seat ${attendee.seat_no}` : ""}</Badge>}
           </div>
           <p className="mt-3 text-xs text-muted">Show this at check-in if you do not have your badge.</p>
         </div>
