@@ -58,12 +58,35 @@ the app uses — it is what makes the contrast claims in this document trustwort
 Per-event brand colour is applied by `brandStyle()` on the portal shell; admin and scanner keep the default.
 
 ## Typography
-Manrope (next/font, weights 400–800). Nine-step scale, size/weight:
-11px/800 caps labels · 12px/500 meta · 13px/600 table cells · 15px/500 body · 17px/800 card titles ·
-20px/800 section headings · 24px/800 page titles · 30px/800 stat numbers · 52px/800 the check-in hero.
+Manrope (next/font, weights 400–800). Size/weight, corrected 2026-09-10 (R31) against the shipped code:
+11px/700 caps labels · 12px/500 meta · 13px table cells (inconsistent, see below) · 14px/400 body ·
+17px/700–800 card and secondary titles · 20px/800 section headings · 24px/800 page titles ·
+30px/800 stat numbers · 52px/800 the check-in hero.
 Numbers in tables, counters, times and stats use `tabular-nums` (`globals.css` applies it to `table`
 and `dl` automatically, plus a `.tabular-nums` utility for the rest). Rejected: Inter/Playfair (run 1)
 and Plus Jakarta Sans (run 2) to avoid churn.
+
+**Type-scale correction, 2026-09-10 (R31).** Three of the nine rows as first documented were copied
+from the plan and did not match the shipped code. Corrected here from source:
+- **Caps labels are 700, not 800.** Every `text-[11px] uppercase` label in the codebase (12 instances)
+  is `font-bold` (700); none is `font-extrabold` (800) — e.g. `AttendeeTable.tsx:75`, `Sidebar.tsx:36`,
+  `CheckInPanel.tsx:31`, `GlanceCard.tsx:19`, `RecentScans.tsx:18`, `Scanner.tsx:134`,
+  `BadgeCard.tsx:29,34`, `NowCard.tsx:14`. (`BadgeCard.tsx:15–16` is genuinely 800 — status pills, a
+  different role from caps labels.)
+- **There is no 15px/500 body step.** All seven `text-[15px]` occurrences in the codebase are
+  `font-bold` or `font-extrabold` (700/800) and are titles (e.g. `AgendaList.tsx:28`,
+  `AnnouncementList.tsx:15`, `TileGrid.tsx:9`, `scan/[eventId]/page.tsx:25`), not body copy. Actual
+  body text ships as `text-sm` (14px) at default weight (400).
+- **Table cells are not uniformly 13px/600.** The main attendee table (`AttendeeTable.tsx:73,96–104`)
+  is `text-sm` (14px) with no weight class on its `<td>`s — i.e. 14px/400. `RecentScans.tsx:26–30` is
+  13px/600 on the name and time cells but 13px/400 (no weight class) on the company and checkpoint
+  cells in the same row. There is no single weight that describes "table cells" in the shipped app.
+
+**Note — spec vs. shipped.** The redesign spec
+(`docs/superpowers/specs/2026-09-10-orange-lobby-redesign-design.md`, Global Constraints) specifies a
+slightly stronger scale than what shipped: 800-weight caps labels (shipped 700), a 15px/500 body step
+(shipped: 14px/400, no 15px body anywhere), and a uniform 13px/600 table-cell step (shipped:
+inconsistent, see above). Closing that gap is an open decision, not an oversight being hidden here.
 
 ## Spacing and shape
 4px base; 18px card radius (`--radius-card`, was 16px), 10px control radius (`--radius-control`),
@@ -87,6 +110,10 @@ progress bar, `ok | brand` tones), `SelectChip` (read-only toolbar-control face)
 `buttonClass` / `ButtonLink` (primary now `bg-brand-strong text-white`), `Icon` (inline SVG, 24px
 stroke grid — `bell`, `plus`, `filter`, `clock` added this redesign). `Stat` and `Pill` no longer
 exist; every former call site now uses `StatTile` or `Badge`.
+
+Two more shared components live outside `ui/` but are reused across pages the same way: `AdminHeader`
+(`src/components/admin/AdminHeader.tsx`, the title/subtitle/actions row every admin page renders) and
+`BadgeCard` (`src/components/portal/BadgeCard.tsx`, the portal's checked-in-status-and-table card).
 
 The admin sidebar (`Sidebar.tsx`) is a floating rounded card (`shadow-[var(--shadow-card)]`, no
 border) rather than the previous bordered rail: logo row, an event switcher, the nav groups, and a
