@@ -89,10 +89,10 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
     }
   }, [showWalkIn]);
 
-  const tone = result?.status === "ok" ? "bg-green-600 text-white"
-    : result?.status === "duplicate" ? "bg-amber-500 text-ink"
+  const tone = result?.status === "ok" ? "bg-ok-soft text-ok-strong"
+    : result?.status === "duplicate" ? "bg-warn-soft text-warn"
     : result?.status === "undone" ? "bg-ink text-white"
-    : result ? "bg-red-600 text-white"
+    : result ? "bg-danger-soft text-danger-strong"
     : "border border-line bg-surface text-muted";
   const headline = result?.status === "ok" ? "Checked in"
     : result?.status === "duplicate" ? `Already in since ${shortTime(result.earlier!.at)}`
@@ -131,16 +131,16 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
         {result && <span className="sr-only">{count} of {total} checked in.</span>}
         {result && result.attendee && result.status !== "error" && result.status !== "notfound" && (
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.08em] opacity-90">{headline}</div>
-            <div className="text-2xl font-extrabold leading-tight">{result.attendee.name}</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.08em]">{headline}</div>
+            <div className="text-[20px] font-extrabold leading-tight">{result.attendee.name}</div>
             {result.fields && (
               <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                {result.fields.filter((f) => f.value).map((f) => <div key={f.label}><dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">{f.label}</dt><dd className="font-bold">{f.value}</dd></div>)}
+                {result.fields.filter((f) => f.value).map((f) => <div key={f.label}><dt className="text-[11px] uppercase tracking-[0.08em]">{f.label}</dt><dd className="font-bold">{f.value}</dd></div>)}
               </dl>
             )}
             {result.status === "ok" && undoLeft > 0 && (
               <button type="button" disabled={busy} onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id))}
-                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-white/15 px-4 text-sm font-bold text-white">
+                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-ok-strong px-4 text-sm font-bold text-white">
                 Undo · {undoLeft}s
               </button>
             )}

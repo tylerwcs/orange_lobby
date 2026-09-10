@@ -9,7 +9,7 @@ export function NowCard({ next, href, today }: { next: { item: AgendaItem; statu
   const { item, status } = next;
   const when = item.day === today ? item.starts_at : `${shortDate(item.day)}, ${item.starts_at}`;
   return (
-    <Link href={`${href}?day=${item.day}${status === "now" ? "#now" : ""}`} className="flex items-center gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 active:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+    <Link href={`${href}?day=${item.day}${status === "now" ? "#now" : ""}`} className="flex items-center gap-3 rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-card)] p-4 active:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-brand-ink">
           {status === "now" && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-brand" />}

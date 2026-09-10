@@ -42,7 +42,7 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
         {hero && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         {children}
       </main>
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around border-t border-line bg-surface px-2 py-2" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around shadow-[var(--shadow-bar)] bg-surface px-2 py-2" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
         {nav(personal).map((n) => {
           const active = n.href === current;
           return (
