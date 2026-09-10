@@ -9,6 +9,7 @@ import type { EventStatus } from "@/lib/types";
 import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, listAttendees, regenerateToken, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
 import { parseExtraJson } from "@/lib/attendee-extra";
+import { parseIds } from "@/lib/bulk";
 import type { Attendee } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
@@ -181,6 +182,24 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
   await deleteAttendee(attendeeId);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(`/admin/events/${eventId}/attendees`);
+}
+
+export async function assignTableAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
+  const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
+  const table = String(formData.get("table_no") ?? "").trim();
+  for (const id of ids) await updateAttendee(id, { table_no: table || null });
+  revalidatePath(`/admin/events/${ev.id}/attendees`);
+}
+
+export async function clearTableAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
+  for (const id of parseIds(String(formData.get("ids") ?? ""), allowed)) await updateAttendee(id, { table_no: null });
+  revalidatePath(`/admin/events/${ev.id}/attendees`);
 }
 
 // ---- Agenda / announcements / info / checkpoints ----
