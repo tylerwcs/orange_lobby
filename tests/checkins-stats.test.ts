@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { arrivalBuckets, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
+import { arrivalBuckets, attendeeCheckins, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
 import type { Attendee, Checkin } from "@/lib/types";
 
 /** `scanned_at` is stored as an absolute instant; these are Malaysian wall-clock times (UTC+8). */
@@ -162,5 +162,39 @@ describe("countByCheckpoint", () => {
     const counts = countByCheckpoint(rows);
     expect(counts).toEqual({ cp1: 1 });
     expect("cp2" in counts).toBe(false);
+  });
+});
+
+describe("attendeeCheckins", () => {
+  it("returns an empty map when the attendee has never been scanned", () => {
+    expect(attendeeCheckins("a1", [])).toEqual({});
+    expect(attendeeCheckins("a1", [scan("c1", "2026-09-30T08:41:00+08:00", "a2", "cp1")])).toEqual({});
+  });
+
+  it("maps each checkpoint the attendee was scanned at to that scan time", () => {
+    const rows = [
+      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
+      scan("c2", "2026-09-30T18:31:00+08:00", "a1", "cp2"),
+    ];
+    expect(attendeeCheckins("a1", rows)).toEqual({
+      cp1: "2026-09-30T08:41:00+08:00",
+      cp2: "2026-09-30T18:31:00+08:00",
+    });
+  });
+
+  it("keeps the earliest scan when the same checkpoint has more than one", () => {
+    const rows = [
+      scan("c2", "2026-09-30T09:12:00+08:00", "a1", "cp1"),
+      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
+    ];
+    expect(attendeeCheckins("a1", rows)).toEqual({ cp1: "2026-09-30T08:41:00+08:00" });
+  });
+
+  it("ignores other attendees at the same checkpoint", () => {
+    const rows = [
+      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
+      scan("c2", "2026-09-30T08:42:00+08:00", "a2", "cp1"),
+    ];
+    expect(attendeeCheckins("a2", rows)).toEqual({ cp1: "2026-09-30T08:42:00+08:00" });
   });
 });

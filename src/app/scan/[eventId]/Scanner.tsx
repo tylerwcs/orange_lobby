@@ -30,6 +30,12 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
   const handle = useCallback(async (fn: () => Promise<ScanResult>) => {
     busyRef.current = true;
     setBusy(true);
+    // Drop the previous result before awaiting. On venue wifi a round trip can outlast
+    // the gap between two people at the door, and a stale "Checked in" left on screen
+    // reads as this scan's result — the crew waves the next person through on the last
+    // person's outcome, and nothing surfaces the mistake until the export is reconciled.
+    setResult(null);
+    setUndoLeft(0);
     try {
       const r = await fn();
       setResult(r);
@@ -89,11 +95,12 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
     }
   }, [showWalkIn]);
 
-  const tone = result?.status === "ok" ? "bg-ok-soft text-ok-strong"
+  const tone = busy ? "bg-tint-slate text-ink"
+    : result?.status === "ok" ? "bg-ok-soft text-ok-strong"
     : result?.status === "duplicate" ? "bg-warn-soft text-warn"
     : result?.status === "undone" ? "bg-ink text-white"
     : result ? "bg-danger-soft text-danger-strong"
-    : "border border-line bg-surface text-muted";
+    : "bg-surface text-muted shadow-[var(--shadow-card)]";
   const headline = result?.status === "ok" ? "Checked in"
     : result?.status === "duplicate" ? `Already in since ${shortTime(result.earlier!.at)}`
     : result?.status === "undone" ? "Check-in undone" : "";
@@ -127,7 +134,13 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
       </div>
 
       <div className={`mt-3 rounded-[var(--radius-card)] p-4 ${tone}`} role="status" aria-live="polite">
-        {!result && <p className="text-sm">Point the camera at a badge, or search by name below.</p>}
+        {busy && (
+          <div className="flex items-center gap-2.5">
+            <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink/25 border-t-ink" />
+            <span className="text-sm font-bold">Checking…</span>
+          </div>
+        )}
+        {!busy && !result && <p className="text-sm">Point the camera at a badge, or search by name below.</p>}
         {result && <span className="sr-only">{count} of {total} checked in.</span>}
         {result && result.attendee && result.status !== "error" && result.status !== "notfound" && (
           <div>

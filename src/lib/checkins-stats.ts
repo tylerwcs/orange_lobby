@@ -118,3 +118,19 @@ export function countByCheckpoint(checkins: Checkin[]): Record<string, number> {
   for (const c of checkins) counts[c.checkpoint_id] = (counts[c.checkpoint_id] ?? 0) + 1;
   return counts;
 }
+
+/**
+ * Where one attendee has been scanned: checkpoint id -> the earliest scan time there.
+ * A checkpoint they never reached is absent, so a caller can read presence directly.
+ * Backs the admin's per-checkpoint check-in state, including the reversal control —
+ * removing a check-in needs to name which checkpoint it is removing.
+ */
+export function attendeeCheckins(attendeeId: string, checkins: Checkin[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const c of checkins) {
+    if (c.attendee_id !== attendeeId) continue;
+    const seen = out[c.checkpoint_id];
+    if (seen === undefined || c.scanned_at < seen) out[c.checkpoint_id] = c.scanned_at;
+  }
+  return out;
+}

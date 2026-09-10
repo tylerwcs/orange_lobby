@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { appBaseUrl, genericLink, registrationLink } from "@/lib/links";
-import { setStatusAction, purgeEventAction } from "./actions";
+import { setStatusAction, purgeEventAction, removeCheckinAction } from "./actions";
 import type { EventStatus } from "@/lib/types";
 import { countAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
@@ -55,7 +55,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
         <GlanceCard registered={total} checkedIn={checkedIn} walkIns={walkIns}
           registrationOpen={registrationOpen} registrationHint={registrationHint} eventId={ev.id} />
       </div>
-      <RecentScans rows={scans} checkpointNames={cpNames} />
+      <RecentScans rows={scans} checkpointNames={cpNames} eventId={ev.id} removeCheckin={removeCheckinAction} />
       <div className="grid gap-6 items-start xl:grid-cols-[3fr_2fr]">
       <div className="space-y-6">
       <Card className="p-4">

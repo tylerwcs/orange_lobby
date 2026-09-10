@@ -14,6 +14,7 @@ import type { Attendee } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint } from "@/lib/db/checkpoints";
+import { deleteCheckin } from "@/lib/db/checkins";
 import { parseCategories } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
@@ -182,6 +183,22 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
   await deleteAttendee(attendeeId);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(`/admin/events/${eventId}/attendees`);
+}
+
+/**
+ * Reverses one check-in. Two badges in one hand is routine at a door, and until now the
+ * only way back was the scanner's six-second Undo — after that the attendance export,
+ * which is the deliverable, was uncorrectable. `deleteCheckin` filters on `event_id`, so
+ * a checkpoint id from another event deletes nothing rather than reaching across.
+ */
+export async function removeCheckinAction(eventId: string, checkpointId: string, attendeeId: string) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await requireEventAttendee(eventId, attendeeId);
+  await deleteCheckin(eventId, checkpointId, attendeeId);
+  revalidatePath(`/admin/events/${eventId}`);
+  revalidatePath(`/admin/events/${eventId}/attendees`);
+  revalidatePath(`/admin/events/${eventId}/attendees/${attendeeId}`);
 }
 
 export async function assignTableAction(eventId: string, formData: FormData) {
