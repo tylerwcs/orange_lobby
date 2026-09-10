@@ -5,7 +5,7 @@ export type Item = { href: string; label: string; icon: IconName; external?: tru
 export type Group = { title: string; items: Item[] };
 
 export function groupsFor(ev: { id: string } | null | undefined): Group[] {
-  if (!ev) return [{ title: "Events", items: [{ href: "/admin", label: "All events", icon: "layers" }] }];
+  if (!ev) return [{ title: "Events", items: [{ href: "/admin/events", label: "All events", icon: "layers" }] }];
   const b = `/admin/events/${ev.id}`;
   return [
     { title: "Setup", items: [{ href: b, label: "Overview", icon: "home" }, { href: `${b}/settings`, label: "Settings", icon: "settings" }, { href: `${b}/modules`, label: "Modules", icon: "grid" }] },
