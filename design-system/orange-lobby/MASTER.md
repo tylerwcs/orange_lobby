@@ -60,7 +60,7 @@ Per-event brand colour is applied by `brandStyle()` on the portal shell; admin a
 ## Typography
 Manrope (next/font, weights 400–800). Size/weight, corrected 2026-09-10 (R31) against the shipped code:
 11px/700 caps labels · 12px/500 meta · 13px table cells (inconsistent, see below) · 14px/400 body ·
-17px/700–800 card and secondary titles · 20px/800 section headings · 24px/800 page titles ·
+17px/800 card titles · 20px/800 section headings · 24px/800 page titles ·
 30px/800 stat numbers · 52px/800 the check-in hero.
 Numbers in tables, counters, times and stats use `tabular-nums` (`globals.css` applies it to `table`
 and `dl` automatically, plus a `.tabular-nums` utility for the rest). Rejected: Inter/Playfair (run 1)
