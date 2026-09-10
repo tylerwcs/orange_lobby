@@ -47,8 +47,9 @@ function readRootTokens(): Record<string, string> {
 const tokens = readRootTokens();
 const WHITE = "#FFFFFF";
 const MIN_RATIO = 4.5;
+const MIN_NON_TEXT = 3;
 
-function assertPair(textName: string, groundName: string, groundHex?: string) {
+function assertPair(textName: string, groundName: string, groundHex?: string, minRatio: number = MIN_RATIO) {
   const textHex = tokens[textName];
   const bgHex = groundHex ?? tokens[groundName];
   if (!textHex) throw new Error(`token --${textName} not found in :root`);
@@ -56,8 +57,12 @@ function assertPair(textName: string, groundName: string, groundHex?: string) {
   const ratio = contrastRatio(textHex, bgHex);
   expect(
     ratio,
-    `--${textName} (${textHex}) on --${groundName} (${bgHex}) is ${ratio.toFixed(2)}:1, below the required ${MIN_RATIO}:1`
-  ).toBeGreaterThanOrEqual(MIN_RATIO);
+    `--${textName} (${textHex}) on --${groundName} (${bgHex}) is ${ratio.toFixed(2)}:1, below the required ${minRatio}:1`
+  ).toBeGreaterThanOrEqual(minRatio);
+}
+
+function assertNonTextPair(textName: string, groundName: string, groundHex?: string) {
+  assertPair(textName, groundName, groundHex, MIN_NON_TEXT);
 }
 
 describe("token contrast (WCAG 2.x, sRGB)", () => {
@@ -78,4 +83,10 @@ describe("token contrast (WCAG 2.x, sRGB)", () => {
 
   it("white text on brand-strong fill meets 4.5:1", () => assertPair("brand-strong", "white", WHITE));
   it("white text on ok-strong fill meets 4.5:1", () => assertPair("ok-strong", "white", WHITE));
+});
+
+describe("non-text UI contrast (WCAG 2.x, sRGB, D43 3:1 tier)", () => {
+  it("brand-strong on surface meets 3:1 (arrivals chart bars)", () => assertNonTextPair("brand-strong", "surface"));
+  it("ok-strong on tint-slate meets 3:1 (Meter fill against its track)", () => assertNonTextPair("ok-strong", "tint-slate"));
+  it("ok on surface meets 3:1 (status dots)", () => assertNonTextPair("ok", "surface"));
 });

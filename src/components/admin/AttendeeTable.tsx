@@ -4,9 +4,22 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
-import type { Attendee } from "@/lib/types";
+import type { AttendeeSource } from "@/lib/types";
 
-export type AttendeeRow = Attendee & { checkedInAt: string | null };
+// Exactly the fields this table renders — never the full `Attendee` shape, which
+// carries `token` (the bearer credential for the attendee portal link), `phone`
+// and the free-form `extra` map. Those must never reach this client component.
+export type AttendeeRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  company: string | null;
+  category: string | null;
+  table_no: string | null;
+  seat_no: string | null;
+  source: AttendeeSource;
+  checkedInAt: string | null;
+};
 
 type TableAction = (formData: FormData) => void | Promise<void>;
 
@@ -43,6 +56,16 @@ export function AttendeeTable({
   clearTable: TableAction;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Bumped after every successful bulk submit so BulkBar remounts fresh — clearing
+  // both the selection (below) and its own `table` input, which would otherwise
+  // survive since BulkBar merely renders null while `selected` is empty.
+  const [bulkVersion, setBulkVersion] = useState(0);
+
+  const runBulk = (action: TableAction): TableAction => async (formData) => {
+    await action(formData);
+    setSelected(new Set());
+    setBulkVersion((v) => v + 1);
+  };
 
   const toggleOne = (id: string, checked: boolean) => {
     setSelected((prev) => {
@@ -63,11 +86,12 @@ export function AttendeeTable({
   return (
     <div className="space-y-3">
       <BulkBar
+        key={bulkVersion}
         eventId={eventId}
         ids={Array.from(selected)}
         onClear={() => setSelected(new Set())}
-        assignTable={assignTable}
-        clearTable={clearTable}
+        assignTable={runBulk(assignTable)}
+        clearTable={runBulk(clearTable)}
       />
       <div className="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-card)]">
         <table className="w-full min-w-[720px] text-sm">

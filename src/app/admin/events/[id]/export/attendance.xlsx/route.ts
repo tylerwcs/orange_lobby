@@ -12,8 +12,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const [attendees, cps, cis] = await Promise.all([listAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id)]);
   // The posted list decides which rows are exported, so it is validated against this event's
   // own attendees exactly as the bulk server actions do — an id from another event never widens the export.
-  const selectedIds = parseIds(new URL(req.url).searchParams.get("ids"), new Set(attendees.map((a) => a.id)));
-  const rows = selectedIds.length > 0 ? attendees.filter((a) => selectedIds.includes(a.id)) : attendees;
+  const idsParam = new URL(req.url).searchParams.get("ids");
+  const selectedIds = parseIds(idsParam, new Set(attendees.map((a) => a.id)));
+  // No `ids` param at all means "export everything" (unchanged full-roster behaviour). An
+  // `ids` param that matched nothing must export nothing, not silently fail open to everyone.
+  const rows = idsParam === null ? attendees : attendees.filter((a) => selectedIds.includes(a.id));
   const ids = Array.from(new Set(cis.map((c) => c.scanned_by).filter(Boolean))) as string[];
   const names: Record<string, string> = {};
   for (const uid of ids) { const { data } = await serviceClient().auth.admin.getUserById(uid); if (data.user?.email) names[uid] = data.user.email; }

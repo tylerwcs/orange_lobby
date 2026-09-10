@@ -3,9 +3,10 @@ import { Meter } from "@/components/ui/Meter";
 import type { ArrivalBucket } from "@/lib/checkins-stats";
 import type { Checkpoint } from "@/lib/types";
 
-export function CheckInPanel({ checkedIn, registered, buckets, checkpoints }: {
+export function CheckInPanel({ checkedIn, registered, buckets, checkpoints, checkpointName }: {
   checkedIn: number; registered: number; buckets: ArrivalBucket[];
   checkpoints: { checkpoint: Checkpoint; count: number }[];
+  checkpointName?: string;
 }) {
   const peak = Math.max(1, ...buckets.map((b) => b.count));
   const peakIndex = buckets.findIndex((b) => b.count === peak);
@@ -28,21 +29,27 @@ export function CheckInPanel({ checkedIn, registered, buckets, checkpoints }: {
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Arrivals per 15 minutes</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+          Arrivals per 15 minutes{checkpointName ? ` · ${checkpointName}` : ""}
+        </h3>
         {/* One series, so one hue and no legend; only the peak bucket is labelled. */}
-        <div className="flex h-[104px] items-end gap-3.5 pt-4">
-          {buckets.map((b, i) => (
-            <div key={b.label} className="flex flex-1 flex-col items-center">
-              {i === peakIndex && b.count > 0 && <div className="mb-1 text-xs font-extrabold tabular-nums">{b.count}</div>}
-              <div className="flex h-[68px] w-full items-end">
-                <div className="w-full rounded-t bg-brand" style={{ height: `${(b.count / peak) * 100}%` }} />
-              </div>
+        <div className="overflow-x-auto">
+          <div className="min-w-[720px]">
+            <div className="flex h-[104px] items-end gap-3.5 pt-4">
+              {buckets.map((b, i) => (
+                <div key={b.label} className="flex flex-1 flex-col items-center">
+                  {i === peakIndex && b.count > 0 && <div className="mb-1 text-xs font-extrabold tabular-nums">{b.count}</div>}
+                  <div className="flex h-[68px] w-full items-end">
+                    <div className="w-full rounded-t bg-brand-strong" style={{ height: `${(b.count / peak) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="h-px bg-line" />
-        <div className="flex gap-3.5">
-          {buckets.map((b) => <div key={b.label} className="flex-1 text-center text-[11px] font-semibold text-muted tabular-nums">{b.label}</div>)}
+            <div className="h-px bg-line" />
+            <div className="flex gap-3.5">
+              {buckets.map((b) => <div key={b.label} className="flex-1 text-center text-[11px] font-semibold text-muted tabular-nums">{b.label}</div>)}
+            </div>
+          </div>
         </div>
       </div>
 

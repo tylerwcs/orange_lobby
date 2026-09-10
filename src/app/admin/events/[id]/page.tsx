@@ -32,6 +32,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const today = nowInKL().date;
   const counts = countByCheckpoint(checkins);
   const firstCp = cps[0]?.id;
+  const firstCpName = cps[0]?.name;
   const checkedIn = new Set(checkins.map((c) => c.attendee_id)).size;
   const walkIns = attendees.filter((a) => a.source === "walkin").length;
   const buckets = arrivalBuckets(checkins, { day: today, from: "08:00", to: "12:00", minutes: 15, checkpointId: firstCp });
@@ -49,7 +50,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
       {sp.error && <div className="rounded-[var(--radius-control)] border border-red-300 bg-red-50 p-3 text-sm text-red-700">{sp.error}</div>}
       {sp.purged && <div className="rounded-[var(--radius-control)] border border-green-300 bg-green-50 p-3 text-sm text-green-700">Personal data purged.</div>}
       <div className="grid items-start gap-6 xl:grid-cols-[1.75fr_1fr]">
-        <CheckInPanel checkedIn={checkedIn} registered={total} buckets={buckets}
+        <CheckInPanel checkedIn={checkedIn} registered={total} buckets={buckets} checkpointName={firstCpName}
           checkpoints={cps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))} />
         <GlanceCard registered={total} checkedIn={checkedIn} walkIns={walkIns}
           registrationOpen={registrationOpen} registrationHint={registrationHint} eventId={ev.id} />

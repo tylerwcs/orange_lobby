@@ -67,7 +67,17 @@ export default async function Attendees({ params, searchParams }: { params: Prom
       <AttendeeTable
         key={`${page}:${sp.q ?? ""}`}
         eventId={ev.id}
-        rows={slice.map((a): AttendeeRow => ({ ...a, checkedInAt: earliestScan.get(a.id) ?? null }))}
+        rows={slice.map((a): AttendeeRow => ({
+          id: a.id,
+          name: a.name,
+          email: a.email,
+          company: a.company,
+          category: a.category,
+          table_no: a.table_no,
+          seat_no: a.seat_no,
+          source: a.source,
+          checkedInAt: earliestScan.get(a.id) ?? null,
+        }))}
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         assignTable={assignTableAction.bind(null, ev.id)}
         clearTable={clearTableAction.bind(null, ev.id)}

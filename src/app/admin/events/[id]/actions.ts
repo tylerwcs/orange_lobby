@@ -190,7 +190,8 @@ export async function assignTableAction(eventId: string, formData: FormData) {
   const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
   const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
   const table = String(formData.get("table_no") ?? "").trim();
-  for (const id of ids) await updateAttendee(id, { table_no: table || null });
+  if (!table) return; // Blank input under "Assign table" must not wipe table_no — "Clear table" owns that.
+  for (const id of ids) await updateAttendee(id, { table_no: table });
   revalidatePath(`/admin/events/${ev.id}/attendees`);
 }
 
