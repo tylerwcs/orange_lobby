@@ -15,7 +15,7 @@ export function Sidebar({ email, event }: { email: string; event?: { id: string;
   const isActive = (i: { href: string; external?: true }) =>
     !i.external && (pathname === i.href || (i.href !== root && pathname.startsWith(`${i.href}/`)));
   const itemClass = (active: boolean) =>
-    `flex min-h-10 items-center gap-2.5 rounded-[9px] px-2 text-sm ${active ? "bg-brand-soft font-extrabold text-brand-ink" : "font-bold text-ink hover:bg-canvas"}`;
+    `flex min-h-11 items-center gap-2.5 rounded-[9px] px-2 text-sm ${active ? "bg-brand-soft font-extrabold text-brand-ink" : "font-bold text-ink hover:bg-canvas"}`;
   return (
     <aside className="m-3 flex w-full flex-col gap-3.5 rounded-[var(--radius-card)] bg-surface p-4 shadow-[var(--shadow-card)] md:min-h-[calc(100vh-1.5rem)] md:w-64">
       <Link href="/admin" className="flex items-center gap-2.5 px-1 font-extrabold">
