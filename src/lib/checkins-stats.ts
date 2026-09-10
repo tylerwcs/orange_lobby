@@ -32,6 +32,10 @@ export function arrivalBuckets(
   const { day, minutes, checkpointId } = opts;
   const start = toMinutes(opts.from), end = toMinutes(opts.to);
   if (!(minutes > 0) || end <= start) return [];
+  // Deferred (Minor, not fixed here): when (to - from) isn't a whole multiple of
+  // `minutes`, the final bucket below still spans a full `minutes` width by label,
+  // but the exclusive `end` bound in the scan-assignment loop cuts off anything
+  // scanned past `to` — so that last bucket is narrower than its label implies.
   const buckets: ArrivalBucket[] = [];
   for (let t = start; t < end; t += minutes) buckets.push({ label: toLabel(t), count: 0 });
   for (const c of checkins) {
@@ -63,17 +67,28 @@ export type ScanRow = {
 };
 
 /**
+ * True when `a` is the row that should stand as "the original" between two rows
+ * for the same attendee + checkpoint. Primarily the earlier `scanned_at`; when
+ * that ties (same instant, e.g. a backfill import) `id` is the tiebreaker —
+ * arbitrary but total and stable, so the pick never depends on array order.
+ */
+function isOriginal(a: Checkin, b: Checkin): boolean {
+  if (a.scanned_at !== b.scanned_at) return a.scanned_at < b.scanned_at;
+  return a.id < b.id;
+}
+
+/**
  * Newest scans first, with the attendee joined. A scan is a duplicate when the same
  * attendee already has an earlier scan at the same checkpoint — the case the crew
  * needs to see rather than have silently succeed.
  */
 export function recentScans(checkins: Checkin[], attendees: Attendee[], limit: number): ScanRow[] {
   const byId = new Map(attendees.map((a) => [a.id, a]));
-  const earliestAt = new Map<string, string>();
+  const original = new Map<string, Checkin>();
   for (const c of checkins) {
     const key = `${c.attendee_id} ${c.checkpoint_id}`;
-    const seen = earliestAt.get(key);
-    if (seen === undefined || c.scanned_at < seen) earliestAt.set(key, c.scanned_at);
+    const best = original.get(key);
+    if (best === undefined || isOriginal(c, best)) original.set(key, c);
   }
   return [...checkins]
     .sort((a, b) => (a.scanned_at < b.scanned_at ? 1 : a.scanned_at > b.scanned_at ? -1 : 0))
@@ -88,7 +103,7 @@ export function recentScans(checkins: Checkin[], attendees: Attendee[], limit: n
         tableNo: a?.table_no ?? null,
         checkpointId: c.checkpoint_id,
         at: c.scanned_at,
-        duplicate: earliestAt.get(`${c.attendee_id} ${c.checkpoint_id}`) !== c.scanned_at,
+        duplicate: original.get(`${c.attendee_id} ${c.checkpoint_id}`)?.id !== c.id,
       };
     });
 }

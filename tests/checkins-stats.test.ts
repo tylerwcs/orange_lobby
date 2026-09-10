@@ -110,6 +110,22 @@ describe("recentScans", () => {
     expect(out.map((r) => [r.checkinId, r.duplicate])).toEqual([["c2", true], ["c1", false]]);
   });
 
+  it("breaks a scanned_at tie deterministically, independent of input order", () => {
+    const at = "2026-09-30T08:58:00+08:00";
+    const rows = [scan("c1", at, "a1", "cp1"), scan("c2", at, "a1", "cp1")];
+
+    const out = recentScans(rows, people, 10);
+    const flags = new Map(out.map((r) => [r.checkinId, r.duplicate]));
+    expect(flags.get("c1")).toBe(false);
+    expect(flags.get("c2")).toBe(true);
+
+    // Reversing the input order must not change which row is the original.
+    const reversed = recentScans([rows[1], rows[0]], people, 10);
+    const flagsReversed = new Map(reversed.map((r) => [r.checkinId, r.duplicate]));
+    expect(flagsReversed.get("c1")).toBe(false);
+    expect(flagsReversed.get("c2")).toBe(true);
+  });
+
   it("does not treat a second checkpoint as a duplicate", () => {
     const rows = [
       scan("c1", "2026-09-30T08:58:00+08:00", "a1", "cp1"),
