@@ -26,9 +26,10 @@ incrementally, in an order where every intermediate state is coherent (§9).
 - **D35** The work lands on `main` incrementally and is pilot scope. There is no tagged fallback
   build; the 26 Sep freeze applies to the redesign itself.
 - **D36** `/admin` becomes the live event's Overview — of the events with `status = "live"`, the one
-  with the latest `starts_on`, ties broken by `created_at` descending. With no live event it
-  redirects to `/admin/events`. The event list moves to `/admin/events`, reached from a switcher at
-  the top of the sidebar.
+  with the latest `starts_on`. `Event` does not carry `created_at`, so ties are broken by preserving
+  the order `listEvents` already returns (`created_at` descending) via a stable sort. With no live
+  event it redirects to `/admin/events`. The event list moves to `/admin/events`, reached from a
+  switcher at the top of the sidebar.
 - **D37** The Overview's dominant block is check-in and registration status. A table-occupancy
   ("floor") grid was drawn and rejected on 10 Sep: table occupancy is not what an organiser watches.
 - **D38** The attendee portal home is Direction A, "badge first": identity and checked-in state,
