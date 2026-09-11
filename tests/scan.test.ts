@@ -13,7 +13,7 @@ describe("extractToken", () => {
 
 describe("scanResultFields", () => {
   it("returns fixed fields then configured extras", () => {
-    const a = { name: "Ann", company: "Ecopia", category: "VIP", table_no: "3", seat_no: null, extra: { Dietary: "Halal" }, phone: "012" } as unknown as Attendee;
+    const a = { name: "Ann", company: "Ecopia", category: "VIP", table_no: "3", extra: { Dietary: "Halal" }, phone: "012" } as unknown as Attendee;
     const e = { scan_extra_fields: ["Dietary", "phone"] } as Event;
     expect(scanResultFields(a, e)).toEqual([
       { label: "Company", value: "Ecopia" }, { label: "Category", value: "VIP" }, { label: "Table", value: "3" },

@@ -4,8 +4,11 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, assignTableAction, clearTableAction, importMasterlistAction } from "../actions";
+import { addAttendeeAction, assignTableAction, clearTableAction, importMasterlistAction, markCheckedInAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
+import { listCheckpoints } from "@/lib/db/checkpoints";
+import { pickCheckpoint } from "@/lib/checkpoints";
+import { nowInKL } from "@/lib/time";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SearchInput } from "@/components/admin/SearchInput";
 import { Modal } from "@/components/admin/Modal";
@@ -26,7 +29,7 @@ const IMPORT_COLUMNS: [string, string][] = [
   ["Phone", "Kept as text, so leading zeros survive."],
   ["Company", "Shown to crew on the scan card."],
   ["Category", "Drives which agenda sessions the attendee sees."],
-  ["Table", "Shown on My seat."],
+  ["Table", "Shown to the attendee and on the crew scan card."],
   ["Seat", "Optional, shown next to the table."],
 ];
 
@@ -35,7 +38,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const sp = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [rows, total, checkins] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id)]);
+  const [rows, total, checkins, cps] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id), listCheckpoints(ev.id)]);
 
   // Hoisted single pass over `checkins` (same shape as `checkinStatus`, but scanned once
   // rather than once per row): a per-attendee earliest scan, so status/time lookup below is O(1).
@@ -45,6 +48,10 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     if (prev === undefined || c.scanned_at < prev) earliestScan.set(c.attendee_id, c.scanned_at);
   }
   const checkedInCount = earliestScan.size;
+
+  // Default the bulk check-in to a checkpoint on today, so the desk is not one wrong
+  // dropdown away from writing arrivals into yesterday's door.
+  const defaultCheckpointId = (pickCheckpoint(cps, nowInKL().date, undefined) ?? cps[0])?.id;
 
   const { slice, page, pages } = paginate(rows, Number(sp.page ?? 1), PAGE_SIZE);
   const pageHref = (p: number) => {
@@ -68,7 +75,6 @@ export default async function Attendees({ params, searchParams }: { params: Prom
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
                 <Field label="Phone" name="phone" /><Field label="Company" name="company" />
                 <Field label="Category" name="category" /><Field label="Table" name="table_no" />
-                <Field label="Seat" name="seat_no" />
                 <input type="hidden" name="source" value="import" />
                 <div className="md:col-span-2"><SubmitButton>Add attendee</SubmitButton></div>
               </form>
@@ -100,9 +106,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         </p>
       )}
       {sp.error && <p role="alert" className="rounded-[var(--radius-control)] bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{sp.error}</p>}
-      <div className="flex flex-wrap items-center gap-3">
-        <SearchInput initial={sp.q ?? ""} />
-      </div>
+      <SearchInput initial={sp.q ?? ""} matches={rows.length} total={total} />
       <AttendeeTable
         key={`${page}:${sp.q ?? ""}`}
         eventId={ev.id}
@@ -113,13 +117,15 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           company: a.company,
           category: a.category,
           table_no: a.table_no,
-          seat_no: a.seat_no,
           source: a.source,
           checkedInAt: earliestScan.get(a.id) ?? null,
         }))}
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         assignTable={assignTableAction.bind(null, ev.id)}
         clearTable={clearTableAction.bind(null, ev.id)}
+        markCheckedIn={markCheckedInAction.bind(null, ev.id)}
+        checkpoints={cps}
+        defaultCheckpointId={defaultCheckpointId}
       />
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
         <span className="tabular-nums">Showing {from}–{to} of {rows.length}</span>

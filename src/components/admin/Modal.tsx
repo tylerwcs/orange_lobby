@@ -34,7 +34,10 @@ export function Modal({ title, hint, trigger, icon, variant = "secondary", child
         // A click that lands on the dialog element itself is a click on the backdrop;
         // anything inside the panel hits a child and is left alone.
         onClick={(e) => { if (e.target === ref.current) close(); }}
-        className="w-[min(92vw,720px)] rounded-[var(--radius-card)] bg-surface p-0 text-ink shadow-[var(--shadow-card)] backdrop:bg-ink/40"
+        // `m-auto` is load-bearing: a dialog centres itself through the user-agent's
+        // `margin: auto`, and Tailwind's preflight zeroes margin on every element, which
+        // pins the panel to the top-left corner.
+        className="m-auto w-[min(92vw,720px)] rounded-[var(--radius-card)] bg-surface p-0 text-ink shadow-[var(--shadow-card)] backdrop:bg-ink/40"
       >
         <div className="flex items-start gap-4 border-b border-line p-5">
           <div className="min-w-0 flex-1">

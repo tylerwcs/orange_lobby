@@ -14,7 +14,7 @@ import type { Attendee } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
-import { deleteCheckin } from "@/lib/db/checkins";
+import { deleteCheckin, recordCheckins } from "@/lib/db/checkins";
 import { parseCategories } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
@@ -102,7 +102,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const toInsert: AttendeeInput[] = [];
   let updated = 0;
   for (const r of parsed.rows) {
-    const input: AttendeeInput = { name: r.name, email: r.email, phone: r.phone, company: r.company, category: r.category, table_no: r.table_no, seat_no: r.seat_no, extra: r.extra };
+    const input: AttendeeInput = { name: r.name, email: r.email, phone: r.phone, company: r.company, category: r.category, table_no: r.table_no, extra: r.extra };
     const key = input.email?.trim().toLowerCase();
     const existing = key ? existingByEmail.get(key) : undefined;
     if (existing) {
@@ -133,7 +133,7 @@ type AttendeeFormResult =
 function buildAttendeeInput(formData: FormData, extra: Record<string, string>) {
   return {
     name: str(formData, "name") ?? "", email: str(formData, "email"), phone: str(formData, "phone"), company: str(formData, "company"),
-    category: str(formData, "category"), table_no: str(formData, "table_no"), seat_no: str(formData, "seat_no"), extra,
+    category: str(formData, "category"), table_no: str(formData, "table_no"), extra,
   };
 }
 
@@ -199,6 +199,24 @@ export async function removeCheckinAction(eventId: string, checkpointId: string,
   revalidatePath(`/admin/events/${eventId}`);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   revalidatePath(`/admin/events/${eventId}/attendees/${attendeeId}`);
+}
+
+/**
+ * Checks a selection in at one checkpoint, for the desk that registers a group off one
+ * clipboard. The checkpoint is validated against this event, so a posted id cannot write
+ * a check-in into somebody else's door.
+ */
+export async function markCheckedInAction(eventId: string, formData: FormData) {
+  const { orgId, userId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const checkpointId = String(formData.get("checkpoint_id") ?? "");
+  const onEvent = (await listCheckpoints(ev.id)).some((c) => c.id === checkpointId);
+  if (!onEvent) redirect(`/admin/events/${ev.id}/attendees?error=Pick+a+checkpoint+first`);
+  const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
+  const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
+  await recordCheckins(ev, checkpointId, ids, userId);
+  revalidatePath(`/admin/events/${ev.id}/attendees`);
+  revalidatePath(`/admin/events/${ev.id}`);
 }
 
 export async function assignTableAction(eventId: string, formData: FormData) {

@@ -18,7 +18,7 @@ export default async function GenericHome({ params }: { params: Promise<{ slug: 
       <div className="flex flex-col gap-3.5">
         <div className="rounded-[var(--radius-card)] bg-surface p-4 shadow-[var(--shadow-card)]">
           <div className="text-[15px] font-extrabold">Open your own badge link</div>
-          <p className="mt-1 text-sm text-muted">Scan the QR code on your badge to see your table, seat and check-in status.</p>
+          <p className="mt-1 text-sm text-muted">Scan the QR code on your badge to see your table and check-in status.</p>
         </div>
         {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
         <NowCard next={next} href={`${basePath}/agenda`} today={today} />

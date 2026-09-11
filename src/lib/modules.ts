@@ -65,7 +65,7 @@ export type Tile = { id: string; label: string; subtitle: string; href: string; 
 export function resolveTiles(input: {
   event: Pick<Event, "floor_plan_url" | "info_page_html" | "info_page_title" | "modules">;
   personal: boolean; basePath: string;
-  attendee?: Pick<Attendee, "table_no" | "seat_no"> | null;
+  attendee?: Pick<Attendee, "table_no"> | null;
   next?: { item: AgendaItem; status: "now" | "next" } | null;
   latestAnnouncement?: string | null;
 }): Tile[] {
@@ -91,7 +91,7 @@ export function resolveTiles(input: {
       case "seat":
         if (!personal) break;
         out.push({ id: "seat", label, icon, external: false, href: `${basePath}/seat`,
-          subtitle: m.subtitle ?? (attendee?.table_no ? `Table ${attendee.table_no}${attendee.seat_no ? ` · Seat ${attendee.seat_no}` : ""}` : "To be confirmed") });
+          subtitle: m.subtitle ?? (attendee?.table_no ? `Table ${attendee.table_no}` : "To be confirmed") });
         break;
       case "floor_plan":
         if (!event.floor_plan_url) break;

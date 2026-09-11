@@ -7,7 +7,7 @@ import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
   name: string; email?: string | null; phone?: string | null; company?: string | null;
-  category?: string | null; table_no?: string | null; seat_no?: string | null; extra?: Record<string, string>;
+  category?: string | null; table_no?: string | null; extra?: Record<string, string>;
 };
 
 export async function findByToken(eventId: string, token: string): Promise<Attendee | null> {

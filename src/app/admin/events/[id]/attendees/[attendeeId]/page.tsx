@@ -36,7 +36,6 @@ export default async function AttendeePage({ params, searchParams }: { params: P
         <Field label="Name" name="name" defaultValue={a.name} /><Field label="Email" name="email" defaultValue={a.email} />
         <Field label="Phone" name="phone" defaultValue={a.phone} /><Field label="Company" name="company" defaultValue={a.company} />
         <Field label="Category" name="category" defaultValue={a.category} /><Field label="Table" name="table_no" defaultValue={a.table_no} />
-        <Field label="Seat" name="seat_no" defaultValue={a.seat_no} />
         <div className="md:col-span-2"><Field label="Extra (JSON)" name="extra" textarea defaultValue={JSON.stringify(a.extra, null, 2)} /></div>
         <div className="md:col-span-2"><SubmitButton>Save</SubmitButton></div>
       </form>

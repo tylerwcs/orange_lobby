@@ -5,7 +5,7 @@ export type MasterlistRow = { row: number } & AttendeeInput & { email: string | 
 export type MasterlistResult = { rows: MasterlistRow[]; skipped: { row: number; reason: string }[]; extraColumns: string[] };
 
 const TEMPLATE: Record<string, keyof AttendeeInput> = {
-  name: "name", email: "email", phone: "phone", company: "company", category: "category", table: "table_no", seat: "seat_no",
+  name: "name", email: "email", phone: "phone", company: "company", category: "category", table: "table_no",
 };
 
 function cellText(v: ExcelJS.CellValue): string {
@@ -47,7 +47,7 @@ export async function parseMasterlist(buffer: ArrayBuffer | Buffer): Promise<Mas
     for (const h of extraColumns) extra[h] = values[h] ?? "";
     rows.push({
       row: r, name, email: pick("email")?.toLowerCase() ?? null, phone: pick("phone"), company: pick("company"),
-      category: pick("category"), table_no: pick("table"), seat_no: pick("seat"), extra,
+      category: pick("category"), table_no: pick("table"), extra,
     });
   }
   return { rows, skipped, extraColumns };

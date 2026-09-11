@@ -13,6 +13,20 @@ export async function recordCheckin(event: Pick<Event, "id" | "org_id">, checkpo
   throw error;
 }
 
+/**
+ * Checks several attendees in at once. `ignoreDuplicates` matters: the unique constraint
+ * on (checkpoint_id, attendee_id) would otherwise fail the whole batch because one person
+ * in the selection had already been scanned.
+ */
+export async function recordCheckins(event: Pick<Event, "id" | "org_id">, checkpointId: string, attendeeIds: string[], userId: string | null) {
+  if (attendeeIds.length === 0) return;
+  const rows = attendeeIds.map((attendee_id) => ({
+    org_id: event.org_id, event_id: event.id, checkpoint_id: checkpointId, attendee_id, scanned_by: userId,
+  }));
+  const { error } = await serviceClient().from("checkins").upsert(rows, { onConflict: "checkpoint_id,attendee_id", ignoreDuplicates: true });
+  if (error) throw error;
+}
+
 export async function listCheckinsForEvent(eventId: string): Promise<Checkin[]> {
   const { data, error } = await serviceClient().from("checkins").select("*").eq("event_id", eventId);
   if (error) throw error;

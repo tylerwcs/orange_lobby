@@ -59,7 +59,7 @@ describe("arrivalBuckets", () => {
 
 const attendee = (id: string, name: string, over: Partial<Attendee> = {}): Attendee => ({
   id, org_id: "o1", event_id: "e1", token: `t-${id}`, name, email: null, phone: null,
-  company: "Ecopia Events", category: null, table_no: "12", seat_no: null, extra: {},
+  company: "Ecopia Events", category: null, table_no: "12", extra: {},
   source: "import", status: "active", ...over,
 });
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
-import type { AttendeeSource } from "@/lib/types";
+import type { AttendeeSource, Checkpoint } from "@/lib/types";
 
 // Exactly the fields this table renders — never the full `Attendee` shape, which
 // carries `token` (the bearer credential for the attendee portal link), `phone`
@@ -16,7 +16,6 @@ export type AttendeeRow = {
   company: string | null;
   category: string | null;
   table_no: string | null;
-  seat_no: string | null;
   source: AttendeeSource;
   checkedInAt: string | null;
 };
@@ -48,12 +47,18 @@ export function AttendeeTable({
   emptyMessage,
   assignTable,
   clearTable,
+  markCheckedIn,
+  checkpoints,
+  defaultCheckpointId,
 }: {
   eventId: string;
   rows: AttendeeRow[];
   emptyMessage: string;
   assignTable: TableAction;
   clearTable: TableAction;
+  markCheckedIn: TableAction;
+  checkpoints: Checkpoint[];
+  defaultCheckpointId?: string;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Bumped after every successful bulk submit so BulkBar remounts fresh — clearing
@@ -92,6 +97,9 @@ export function AttendeeTable({
         onClear={() => setSelected(new Set())}
         assignTable={runBulk(assignTable)}
         clearTable={runBulk(clearTable)}
+        markCheckedIn={runBulk(markCheckedIn)}
+        checkpoints={checkpoints}
+        defaultCheckpointId={defaultCheckpointId}
       />
       <div className="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-card)]">
         <table className="w-full min-w-[720px] text-sm">
@@ -119,7 +127,7 @@ export function AttendeeTable({
                 </td>
                 <td className="p-2"><Link className="text-brand-ink" href={`/admin/events/${eventId}/attendees/${a.id}`}>{a.name}</Link></td>
                 <td className="p-2">{a.email}</td><td className="p-2">{a.company}</td><td className="p-2">{a.category}</td>
-                <td className="p-2">{a.table_no}{a.seat_no ? ` / ${a.seat_no}` : ""}</td>
+                <td className="p-2">{a.table_no}</td>
                 <td className="p-2">
                   {a.checkedInAt
                     ? <Badge tone="ok" dot>In {isoToLocalInput(a.checkedInAt).split("T")[1]}</Badge>

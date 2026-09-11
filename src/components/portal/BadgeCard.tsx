@@ -29,12 +29,6 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan }: {
               <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-300">Table</div>
               <div className="text-3xl font-extrabold leading-none text-brand tabular-nums">{attendee.table_no}</div>
             </div>
-            {attendee.seat_no && (
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-gray-300">Seat</div>
-                <div className="text-3xl font-extrabold leading-none tabular-nums">{attendee.seat_no}</div>
-              </div>
-            )}
             {floorPlan && (
               <Link href={`${basePath}/plan`} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/10 px-3.5 text-[13px] font-bold">
                 <Icon name="map" size={16} />Floor plan

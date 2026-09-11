@@ -53,7 +53,6 @@ export type Attendee = {
   company: string | null;
   category: string | null;
   table_no: string | null;
-  seat_no: string | null;
   extra: Record<string, string>;
   source: AttendeeSource;
   status: string;

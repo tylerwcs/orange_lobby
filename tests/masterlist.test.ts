@@ -18,9 +18,11 @@ describe("parseMasterlist", () => {
       ["Bob", null, null, null, null, null, null, null],
     ]);
     const r = await parseMasterlist(buf);
-    expect(r.extraColumns).toEqual(["Dietary"]);
+    expect(r.extraColumns).toEqual(["Seat", "Dietary"]);
     expect(r.rows).toHaveLength(2);
-    expect(r.rows[0]).toEqual({ row: 2, name: "Ann Tan", email: "ann@x.com", phone: "60123", company: "Ecopia", category: "VIP", table_no: "12", seat_no: "3", extra: { Dietary: "Halal" } });
+    // Seat is no longer a field of its own, so the column lands in `extra` like any
+    // other header the importer does not recognise.
+    expect(r.rows[0]).toEqual({ row: 2, name: "Ann Tan", email: "ann@x.com", phone: "60123", company: "Ecopia", category: "VIP", table_no: "12", extra: { Dietary: "Halal", Seat: "3" } });
     expect(r.rows[1].email).toBeNull();
     expect(r.skipped).toEqual([{ row: 3, reason: "Name is blank" }]);
   });

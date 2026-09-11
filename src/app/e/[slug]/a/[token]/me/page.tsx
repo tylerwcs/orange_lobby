@@ -19,7 +19,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
           {attendee.company && <div className="text-sm text-muted">{attendee.company}</div>}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {attendee.category && <Badge tone="neutral">{attendee.category}</Badge>}
-            {attendee.table_no && <Badge tone="brand">Table {attendee.table_no}{attendee.seat_no ? ` · Seat ${attendee.seat_no}` : ""}</Badge>}
+            {attendee.table_no && <Badge tone="brand">Table {attendee.table_no}</Badge>}
           </div>
           <p className="mt-3 text-xs text-muted">Show this at check-in if you do not have your badge.</p>
         </div>

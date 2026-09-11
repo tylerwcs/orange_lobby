@@ -18,9 +18,10 @@ export function ArrivalsPanel({ buckets, registered, checkpoints, chartLabel, em
   const peakIndex = buckets.findIndex((b) => b.count === peak);
   return (
     <Card className="flex flex-col gap-4 p-5">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3">
         <h2 className="text-[17px] font-extrabold">Arrivals</h2>
-        {controls && <div className="ml-auto flex flex-wrap items-center gap-2">{controls}</div>}
+        {/* Stacked, not inline: the pickers are full-width selects in a 340px column. */}
+        {controls}
       </div>
 
       <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{chartLabel}</p>

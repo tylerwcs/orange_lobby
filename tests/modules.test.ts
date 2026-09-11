@@ -23,10 +23,10 @@ describe("parseModules", () => {
 describe("resolveTiles", () => {
   const event = { floor_plan_url: "https://x/plan.png", info_page_html: "<p>hi</p>", info_page_title: "Info", modules: defaultModules() };
   it("shows seat only on personal links and fills subtitles", () => {
-    const personal = resolveTiles({ event, personal: true, basePath: "/e/kom/a/tok", attendee: { table_no: "12", seat_no: "3" }, next: { item: item({}), status: "next" }, latestAnnouncement: "Breakouts moved" });
+    const personal = resolveTiles({ event, personal: true, basePath: "/e/kom/a/tok", attendee: { table_no: "12" }, next: { item: item({}), status: "next" }, latestAnnouncement: "Breakouts moved" });
     expect(personal.map((t) => t.id)).toEqual(["agenda", "seat", "floor_plan", "info", "announcements"]);
     expect(personal[0].subtitle).toBe("Next: 10:30 Year in Review");
-    expect(personal[1]).toMatchObject({ subtitle: "Table 12 · Seat 3", href: "/e/kom/a/tok/seat" });
+    expect(personal[1]).toMatchObject({ subtitle: "Table 12", href: "/e/kom/a/tok/seat" });
     expect(personal[4].subtitle).toBe("Breakouts moved");
     const generic = resolveTiles({ event, personal: false, basePath: "/e/kom" });
     expect(generic.map((t) => t.id)).toEqual(["agenda", "floor_plan", "info"]); // no announcements yet, so no empty tile
@@ -38,7 +38,7 @@ describe("resolveTiles", () => {
         { key: "agenda", enabled: false }, { key: "floor_plan", enabled: true }, { key: "info", enabled: true },
         { key: "link", id: "qa", enabled: true, label: "Q&A", subtitle: "Ask away", url: "https://app.sli.do/x", icon: "chat" },
       ] },
-      personal: true, basePath: "/e/kom/a/tok", attendee: { table_no: null, seat_no: null },
+      personal: true, basePath: "/e/kom/a/tok", attendee: { table_no: null },
     });
     expect(tiles.map((t) => t.id)).toEqual(["link:qa"]);
     expect(tiles[0]).toMatchObject({ href: "https://app.sli.do/x", external: true, icon: "chat", subtitle: "Ask away" });
@@ -53,7 +53,7 @@ describe("resolveTiles", () => {
     expect(tiles).toEqual([]);
   });
   it("labels the info tile with the event's info title and says when seat is unconfirmed", () => {
-    const tiles = resolveTiles({ event: { ...event, info_page_title: "Handbook" }, personal: true, basePath: "/p", attendee: { table_no: null, seat_no: null } });
+    const tiles = resolveTiles({ event: { ...event, info_page_title: "Handbook" }, personal: true, basePath: "/p", attendee: { table_no: null } });
     expect(tiles.find((t) => t.id === "info")?.label).toBe("Handbook");
     expect(tiles.find((t) => t.id === "seat")?.subtitle).toBe("To be confirmed");
   });

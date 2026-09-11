@@ -10,7 +10,7 @@ export const metadata = { title: "Modules · Orange Lobby" };
 
 const NAMES: Record<(typeof BUILTIN_MODULES)[number], { label: string; help: string }> = {
   agenda: { label: "Agenda", help: "Programme by day. Subtitle shows the next session automatically." },
-  seat: { label: "My seat", help: "Personal links only. Shows table and seat from the attendee record." },
+  seat: { label: "My seat", help: "Personal links only. Shows the attendee’s table from their record." },
   floor_plan: { label: "Floor plan", help: "Shown only when the event has a floor plan image URL." },
   info: { label: "Info page", help: "Shown only when the info page has content. Label defaults to the page title." },
   announcements: { label: "Announcements", help: "Subtitle shows the latest announcement." },

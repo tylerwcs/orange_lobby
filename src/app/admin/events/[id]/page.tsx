@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { countAttendees, listAttendees } from "@/lib/db/attendees";
@@ -11,6 +10,7 @@ import { SummaryCard } from "@/components/admin/SummaryCard";
 import { ArrivalsPanel } from "@/components/admin/ArrivalsPanel";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
+import { ArrivalsFilter } from "@/components/admin/ArrivalsFilter";
 import { arrivalBuckets, arrivalWindow, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
 import { nowInKL, eventDays } from "@/lib/time";
 import { checkpointsByDay, dayOptions, pickCheckpoint } from "@/lib/checkpoints";
@@ -55,15 +55,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
 
   const at = cpName ? ` · ${cpName}` : "";
   const on = days.length > 1 ? ` · ${shortDate(day)}` : "";
-  const chipHref = (next: { day?: string; cp?: string }) => {
-    const p = new URLSearchParams();
-    p.set("day", next.day ?? day);
-    const cp = next.cp ?? cpId;
-    if (cp) p.set("cp", cp);
-    return `/admin/events/${ev.id}?${p.toString()}`;
-  };
-  const chip = (active: boolean) =>
-    `inline-flex min-h-11 items-center rounded-[var(--radius-control)] px-3.5 text-xs font-bold ${active ? "bg-ink text-white" : "bg-canvas text-ink hover:brightness-95"}`;
+  const dayLabels = Object.fromEntries(days.map((d) => [d, shortDate(d)]));
 
   return (
     <div className="space-y-6">
@@ -87,22 +79,14 @@ export default async function Overview({ params, searchParams }: { params: Promi
               ? `No checkpoint on ${shortDate(day)}. Add one in Settings.`
               : `No arrivals yet${cpName ? ` at ${cpName}` : ""} on ${shortDate(day)}.`}
             controls={(days.length > 1 || dayCps.length > 1) && (
-              <>
-                {days.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Day">
-                    {days.map((d) => (
-                      <Link key={d} href={chipHref({ day: d })} aria-current={d === day ? "true" : undefined} className={chip(d === day)}>{shortDate(d)}</Link>
-                    ))}
-                  </div>
-                )}
-                {dayCps.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-1.5 border-l border-line pl-2" role="group" aria-label="Checkpoint">
-                    {dayCps.map((c) => (
-                      <Link key={c.id} href={chipHref({ day, cp: c.id })} aria-current={c.id === cpId ? "true" : undefined} className={chip(c.id === cpId)}>{c.name}</Link>
-                    ))}
-                  </div>
-                )}
-              </>
+              <ArrivalsFilter
+                eventId={ev.id}
+                days={days}
+                dayLabels={dayLabels}
+                day={day}
+                checkpoints={dayCps}
+                checkpointId={cpId}
+              />
             )}
           />
         </div>
