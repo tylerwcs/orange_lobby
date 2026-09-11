@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
@@ -33,10 +34,11 @@ export async function listAttendees(eventId: string, q?: string): Promise<Attend
   return data as Attendee[];
 }
 
-export async function countAttendees(eventId: string): Promise<number> {
+/** Memoised per request — read by both the page and the summary boundary inside it. */
+export const countAttendees = cache(async (eventId: string): Promise<number> => {
   const { count } = await serviceClient().from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
   return count ?? 0;
-}
+});
 
 export async function createAttendee(event: Pick<Event, "id" | "org_id">, input: AttendeeInput, source: AttendeeSource): Promise<Attendee> {
   const { data, error } = await serviceClient().from("attendees")

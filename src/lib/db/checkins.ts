@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { serviceClient } from "@/lib/supabase/service";
 import type { Checkin, Event } from "@/lib/types";
 
@@ -27,11 +28,16 @@ export async function recordCheckins(event: Pick<Event, "id" | "org_id">, checkp
   if (error) throw error;
 }
 
-export async function listCheckinsForEvent(eventId: string): Promise<Checkin[]> {
+/**
+ * Memoised per request: the Overview reads this once for the page and again inside the
+ * summary's own Suspense boundary, and those must not be two round trips. `cache` is
+ * per-render, so it never serves a stale list to the next refresh.
+ */
+export const listCheckinsForEvent = cache(async (eventId: string): Promise<Checkin[]> => {
   const { data, error } = await serviceClient().from("checkins").select("*").eq("event_id", eventId);
   if (error) throw error;
   return data as Checkin[];
-}
+});
 
 export async function countCheckinsByCheckpoint(eventId: string): Promise<Record<string, number>> {
   const rows = await listCheckinsForEvent(eventId);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { attendeeCheckins, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
+import { attendeeCheckins, checkedInCount, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
 import type { Attendee, Checkin } from "@/lib/types";
 
 /** `scanned_at` is stored as an absolute instant; these are Malaysian wall-clock times (UTC+8). */
@@ -149,3 +149,35 @@ describe("attendeeCheckins", () => {
   });
 });
 
+describe("checkedInCount", () => {
+  const rows = [
+    scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
+    scan("c2", "2026-09-30T18:31:00+08:00", "a1", "cp2"),
+    scan("c3", "2026-09-30T08:52:00+08:00", "a2", "cp1"),
+    scan("c4", "2026-09-30T19:02:00+08:00", "a3", "cp2"),
+  ];
+
+  it("counts nobody when there are no scans", () => {
+    expect(checkedInCount([])).toBe(0);
+    expect(checkedInCount([], "cp1")).toBe(0);
+  });
+
+  it("counts people, not scans, when counting across every checkpoint", () => {
+    // a1 was scanned at registration and again at dinner: one person in the room, not two.
+    expect(checkedInCount(rows)).toBe(3);
+  });
+
+  it("counts only the named checkpoint", () => {
+    expect(checkedInCount(rows, "cp1")).toBe(2);
+    expect(checkedInCount(rows, "cp2")).toBe(2);
+  });
+
+  it("counts nobody at a checkpoint with no scans", () => {
+    expect(checkedInCount(rows, "cp-none")).toBe(0);
+  });
+
+  it("treats null and undefined as every checkpoint, not as one that does not exist", () => {
+    expect(checkedInCount(rows, null)).toBe(3);
+    expect(checkedInCount(rows, undefined)).toBe(3);
+  });
+});

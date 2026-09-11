@@ -12,6 +12,14 @@ Run `npm run dev`, sign in, and work through these.
 ## Admin — Overview (`/admin`)
 
 - [ ] `/admin` lands on the live event's Overview, not the event list. With no live event it lands on `/admin/events`.
+- [ ] **The Summary card names what it counts.** With "Any checkpoint" it reads "Across every checkpoint";
+      pick one and both the card's caption and the page heading say so. The two numbers must never disagree.
+- [ ] Changing the checkpoint shows a **skeleton in that card only** — the rest of the dashboard must not blank.
+      Confirm the card does not resize as the real numbers land.
+- [ ] The choice survives the 15-second auto-refresh. If the card silently reverts to "Any checkpoint" while
+      you watch it, the URL is not holding the selection.
+- [ ] A checkpoint scanned at twice by the same person counts them **once** across all checkpoints. Someone at
+      registration and again at dinner is one person in the room.
 - [ ] The Check-in card lists **every checkpoint on every day**, dated when the event runs longer than one day.
       There is no day or checkpoint filter any more — if one is missing from the card, it is missing.
 - [ ] With zero check-ins: the hero reads `0 of N`, no meter is broken, Recent scans shows its empty sentence.
@@ -159,6 +167,6 @@ measure 44px; `scrollWidth === innerWidth` (no horizontal overflow); zero consol
 fallback card renders; per-event `primary_color` flows through `brandStyle()`. Separately, `/login`'s submit
 button computes to `rgb(194, 65, 12)` on white text at 44px.
 
-Automated: 252 tests pass, lint clean, production build clean. `tests/contrast.test.ts` parses the live
+Automated: 257 tests pass, lint clean, production build clean. `tests/contrast.test.ts` parses the live
 `:root` from `globals.css` and enforces 4.5:1 on text pairs and 3:1 on non-text indicators, so a token edit
 that breaks contrast fails the suite rather than shipping.

@@ -60,6 +60,22 @@ export function recentScans(checkins: Checkin[], attendees: Attendee[], limit: n
 }
 
 /**
+ * How many distinct attendees are in — either anywhere, or at one named checkpoint.
+ *
+ * Counting rows would do for a single checkpoint, since (checkpoint_id, attendee_id) is
+ * unique, but not across all of them: someone scanned at registration and again at dinner
+ * is one person in the room, not two.
+ */
+export function checkedInCount(checkins: Checkin[], checkpointId?: string | null): number {
+  const seen = new Set<string>();
+  for (const c of checkins) {
+    if (checkpointId && c.checkpoint_id !== checkpointId) continue;
+    seen.add(c.attendee_id);
+  }
+  return seen.size;
+}
+
+/**
  * Check-ins per checkpoint, over rows already fetched. A checkpoint with no scans is
  * simply absent rather than present as 0 — callers that want a full checkpoint list
  * with zeros should read this with `?? 0` against their own checkpoint set.
