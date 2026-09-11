@@ -138,7 +138,9 @@ export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailDat
           </section>
         )}
 
-        <SubmitButton>Save changes</SubmitButton>
+        <div className="flex justify-end">
+          <SubmitButton variant="ok">Save changes</SubmitButton>
+        </div>
       </form>
 
       {/* Its own form, below the save: a form cannot nest, and this should not sit a

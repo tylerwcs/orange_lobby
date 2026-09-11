@@ -5,10 +5,13 @@ export function Card({ children, className = "" }: { children: React.ReactNode; 
   return <div className={`rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-card)] ${className}`}>{children}</div>;
 }
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+/** `ok` is for a confirming save — the fill is `--ok-strong`, which the contrast suite
+ *  already holds at 4.5:1 against white text. `--ok` itself is a 3:1 indicator colour
+ *  and would fail as a button fill. */
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ok";
 type BtnProps = { children: React.ReactNode; variant?: ButtonVariant; className?: string; icon?: IconName };
 const btnBase = "inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-sm font-bold transition-colors duration-150 active:translate-y-px disabled:opacity-50 disabled:active:translate-y-0";
-const btnVariant = { primary: "bg-brand-strong text-white hover:brightness-110", secondary: "border border-line bg-surface text-ink hover:bg-canvas", danger: "bg-danger-soft text-red-700 hover:brightness-95" };
+const btnVariant = { primary: "bg-brand-strong text-white hover:brightness-110", secondary: "border border-line bg-surface text-ink hover:bg-canvas", danger: "bg-danger-soft text-red-700 hover:brightness-95", ok: "bg-ok-strong text-white hover:brightness-125" };
 
 /** Button styling for the places that need a plain `<a>` — downloads and external links — so the class strings stay in one place. */
 export function buttonClass(variant: ButtonVariant = "primary"): string {
