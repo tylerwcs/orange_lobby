@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, assignTableAction, clearTableAction, importMasterlistAction, markCheckedInAction } from "../actions";
+import { addAttendeeAction, addAttendeeFieldAction, assignTableAction, clearTableAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { pickCheckpoint } from "@/lib/checkpoints";
@@ -13,6 +14,9 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SearchInput } from "@/components/admin/SearchInput";
 import { Modal } from "@/components/admin/Modal";
 import { AttendeeTable, type AttendeeRow } from "@/components/admin/AttendeeTable";
+import { AddColumnForm } from "@/components/admin/AddColumnForm";
+import { FieldInputs } from "@/components/admin/FieldInputs";
+import { allColumns, columnsCookieName, hiddenFromCookie } from "@/lib/columns";
 import { buttonClass } from "@/components/ui/Card";
 import { paginate } from "@/lib/paginate";
 
@@ -30,7 +34,7 @@ const IMPORT_COLUMNS: [string, string][] = [
   ["Company", "Shown to crew on the scan card."],
   ["Category", "Drives which agenda sessions the attendee sees."],
   ["Table", "Shown to the attendee and on the crew scan card."],
-  ["Seat", "Optional, shown next to the table."],
+  ["Anything else", "Kept under its own header. Add a column of the same name to edit it in the app."],
 ];
 
 export default async function Attendees({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
@@ -38,7 +42,12 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const sp = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [rows, total, checkins, cps] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id), listCheckpoints(ev.id)]);
+  const [rows, total, checkins, cps, jar] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id), listCheckpoints(ev.id), cookies()]);
+
+  // Which columns this browser has hidden. Read on the server so the first paint is
+  // already right, rather than rendering everything and pulling columns back out.
+  const columns = allColumns(ev.attendee_fields);
+  const hidden = hiddenFromCookie(jar.get(columnsCookieName(ev.id))?.value, columns);
 
   // Hoisted single pass over `checkins` (same shape as `checkinStatus`, but scanned once
   // rather than once per row): a per-attendee earliest scan, so status/time lookup below is O(1).
@@ -75,6 +84,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
                 <Field label="Phone" name="phone" /><Field label="Company" name="company" />
                 <Field label="Category" name="category" /><Field label="Table" name="table_no" />
+                <FieldInputs fields={ev.attendee_fields} />
                 <input type="hidden" name="source" value="import" />
                 <div className="md:col-span-2"><SubmitButton>Add attendee</SubmitButton></div>
               </form>
@@ -119,7 +129,15 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           table_no: a.table_no,
           source: a.source,
           checkedInAt: earliestScan.get(a.id) ?? null,
+          // Only the defined columns cross to the client: an unmapped header an import
+          // left in `extra` has no column to land in and stays on the server.
+          values: Object.fromEntries(ev.attendee_fields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
         }))}
+        columns={columns}
+        initialHidden={hidden}
+        renameColumn={renameAttendeeFieldAction.bind(null, ev.id)}
+        deleteColumn={deleteAttendeeFieldAction.bind(null, ev.id)}
+        addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} />}
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         assignTable={assignTableAction.bind(null, ev.id)}
         clearTable={clearTableAction.bind(null, ev.id)}

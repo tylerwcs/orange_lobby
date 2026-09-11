@@ -44,6 +44,45 @@ Run `npm run dev`, sign in, and work through these.
 - [ ] Export selected downloads a workbook containing only the selected rows.
 - [ ] The "Add attendee" header link lands on a visible form, not a collapsed one.
 
+## Admin — the attendee panel and your own columns (added 2026-09-11)
+
+Nothing below has been run: the whole surface is behind `requireAdmin()`.
+
+- [ ] Clicking an attendee's name opens the panel as a **dialog over the list**, and the address bar shows
+      `/attendees/<id>`. Escape, the close button and the backdrop all close it and take the URL back.
+- [ ] **Pasting that URL into a fresh tab renders the full page instead**, with the same content. That split is
+      the whole point of the intercepted route; if the modal appears on a hard load, the interception is wrong.
+- [ ] Save inside the dialog keeps you in the dialog and shows "Saved." Delete closes it and returns to the list.
+- [ ] **Copy link** puts the personal URL on the clipboard. On an insecure origin it falls back to a prompt box
+      rather than failing silently — worth seeing once.
+- [ ] **Download QR** saves a PNG named after the attendee. It is an `<a download>` on a data URL; confirm the
+      browser saves rather than navigating.
+- [ ] **New link** invalidates the old QR. Check the previously copied link now 404s.
+- [ ] Add a column of each type — Text, Number, Date, Choice — and confirm each renders the right input in the
+      panel and the right value in the table.
+- [ ] **A Choice column offers exactly its choices, plus a blank.** A value stored before the choices changed
+      still shows in the dropdown rather than vanishing on the next save.
+- [ ] Hide a column from its header menu, reload, and confirm it is still hidden. Clear cookies and confirm
+      every column comes back. The preference is a per-browser cookie, so it does not follow you to another
+      machine and does not change what anyone else sees.
+- [ ] **Rename a column and export.** The attendance sheet must carry the new label with the old values under it.
+- [ ] **Delete a column, then add it back under the same name.** The values must come back — the definition is
+      what gets deleted, never the data. If they do not, that is a real bug.
+- [ ] **Import a masterlist whose header matches one of your columns** (e.g. a "Dietary" column and a Dietary
+      header). The values must land in that column, not in a second near-identical one beside it.
+- [ ] Import a masterlist with a header matching nothing. It is kept, appears in the export, and is **not**
+      editable in the app until you add a column of that name.
+- [ ] The Add attendee and Import masterlist dialogs now close themselves when their action finishes. Confirm
+      neither is left hanging open over its own success banner.
+
+### Not built, and deliberately
+
+- **Sorting from the column menu.** The mockup showed Sort A→Z; it is not implemented. Sorting has to happen on
+  the server to be correct across 50-row pages, and that is a bigger change than the freeze has room for.
+- **Reordering columns.** They appear in the order they were added, built-ins first.
+- **Per-column required/validation rules.** A Number column refuses non-numbers by blanking them; nothing else
+  is enforced.
+
 ## Scanner (`/scan/[eventId]`)
 
 - [ ] **Read the result banner at arm's length in a dim room.** It is now a light tint rather than the old solid
@@ -77,6 +116,6 @@ measure 44px; `scrollWidth === innerWidth` (no horizontal overflow); zero consol
 fallback card renders; per-event `primary_color` flows through `brandStyle()`. Separately, `/login`'s submit
 button computes to `rgb(194, 65, 12)` on white text at 44px.
 
-Automated: 149 tests pass, lint clean, production build clean. `tests/contrast.test.ts` parses the live
+Automated: 214 tests pass, lint clean, production build clean. `tests/contrast.test.ts` parses the live
 `:root` from `globals.css` and enforces 4.5:1 on text pairs and 3:1 on non-text indicators, so a token edit
 that breaks contrast fails the suite rather than shipping.

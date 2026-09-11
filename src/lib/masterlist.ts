@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type { AttendeeInput } from "@/lib/db/attendees";
+import type { AttendeeField } from "@/lib/attendee-fields";
 
 export type MasterlistRow = { row: number } & AttendeeInput & { email: string | null; extra: Record<string, string> };
 export type MasterlistResult = { rows: MasterlistRow[]; skipped: { row: number; reason: string }[]; extraColumns: string[] };
@@ -19,7 +20,17 @@ function cellText(v: ExcelJS.CellValue): string {
   return String(v).trim();
 }
 
-export async function parseMasterlist(buffer: ArrayBuffer | Buffer): Promise<MasterlistResult> {
+/**
+ * Where each non-template header stores its value. A header that names one of the event's
+ * own columns stores under that column's key, so importing "Dietary" fills the Dietary
+ * column instead of sitting beside it under a near-identical name. Everything else keeps
+ * its own header, which is what makes an unplanned column survive a round trip.
+ */
+export function extraKeyFor(header: string, fields: AttendeeField[]): string {
+  return fields.find((f) => f.label.toLowerCase() === header.toLowerCase())?.key ?? header;
+}
+
+export async function parseMasterlist(buffer: ArrayBuffer | Buffer, fields: AttendeeField[] = []): Promise<MasterlistResult> {
   const wb = new ExcelJS.Workbook();
   // exceljs's own (unexported) Buffer type is structurally an ArrayBuffer and doesn't
   // match Node's Buffer from newer @types/node, even though this is exactly what it expects at runtime.
@@ -44,7 +55,7 @@ export async function parseMasterlist(buffer: ArrayBuffer | Buffer): Promise<Mas
     if (!name) { skipped.push({ row: r, reason: "Name is blank" }); continue; }
     const pick = (key: string) => { const i = lower.indexOf(key); return i >= 0 && values[headers[i]] ? values[headers[i]] : null; };
     const extra: Record<string, string> = {};
-    for (const h of extraColumns) extra[h] = values[h] ?? "";
+    for (const h of extraColumns) extra[extraKeyFor(h, fields)] = values[h] ?? "";
     rows.push({
       row: r, name, email: pick("email")?.toLowerCase() ?? null, phone: pick("phone"), company: pick("company"),
       category: pick("category"), table_no: pick("table"), extra,

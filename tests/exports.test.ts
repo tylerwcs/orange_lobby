@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { safeFileName, buildLinksWorkbook, buildAttendanceWorkbook } from "@/lib/exports";
+import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns } from "@/lib/exports";
+import { safeFileName } from "@/lib/filenames";
+import type { AttendeeField } from "@/lib/attendee-fields";
 
 describe("exports", () => {
   it("makes safe unique png names", () => {
@@ -19,5 +21,27 @@ describe("exports", () => {
     expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Phone", "Company", "Category", "Table", "Source", "Dietary", "Day 1 checked in", "Day 1 time", "Day 1 scanned by", "Day 2 checked in", "Day 2 time", "Day 2 scanned by"]);
     const r = ws.getRow(2).values as unknown[];
     expect(r[9]).toBe("Yes"); expect(r[11]).toBe("crew@ecopia"); expect(r[12]).toBe("No");
+  });
+
+  it("leads with the event's own columns under their labels, then anything else in extra", () => {
+    const fields: AttendeeField[] = [{ key: "room_no", label: "Room number", type: "text" }];
+    const attendees = [{ extra: { Seat: "3", room_no: "12A" } }];
+    expect(attendanceExtraColumns(attendees, fields)).toEqual([
+      { key: "room_no", label: "Room number" },
+      { key: "Seat", label: "Seat" },
+    ]);
+  });
+
+  it("carries a defined column even when nobody has filled it in yet", () => {
+    const fields: AttendeeField[] = [{ key: "flight", label: "Flight", type: "text" }];
+    expect(attendanceExtraColumns([{ extra: {} }], fields)).toEqual([{ key: "flight", label: "Flight" }]);
+  });
+
+  it("writes a renamed column under its new label without losing the values", () => {
+    const fields: AttendeeField[] = [{ key: "room_no", label: "Room number", type: "text" }];
+    const attendees = [{ id: "a1", name: "Ann", email: null, phone: null, company: null, category: null, table_no: null, source: "import", extra: { room_no: "12A" } }] as never;
+    const ws = buildAttendanceWorkbook(attendees, [] as never, [] as never, {}, fields).getWorksheet("Attendance")!;
+    expect(ws.getRow(1).getCell(8).value).toBe("Room number");
+    expect(ws.getRow(2).getCell(8).value).toBe("12A");
   });
 });

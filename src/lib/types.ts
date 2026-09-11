@@ -1,4 +1,5 @@
 import type { EventModule } from "@/lib/modules";
+import type { AttendeeField } from "@/lib/attendee-fields";
 
 export type EventStatus = "draft" | "live" | "archived";
 
@@ -36,6 +37,8 @@ export type Event = {
   registration_open: boolean;
   registration_closes_at: string | null;
   registration_questions: RegistrationQuestion[];
+  /** Organiser-defined columns on the attendee table; values live in `Attendee.extra`. */
+  attendee_fields: AttendeeField[];
   scan_extra_fields: string[];
   modules: EventModule[];
 };

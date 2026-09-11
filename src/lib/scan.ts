@@ -8,15 +8,19 @@ export function extractToken(scanned: string): string | null {
   return m && isValidToken(m[1]) ? m[1] : null;
 }
 
-export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields">) {
+export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields" | "attendee_fields">) {
   const out = [
     { label: "Company", value: a.company ?? "" }, { label: "Category", value: a.category ?? "" },
     { label: "Table", value: a.table_no ?? "" },
   ];
   for (const key of e.scan_extra_fields) {
     const direct = (a as unknown as Record<string, unknown>)[key];
-    const value = typeof direct === "string" ? direct : a.extra[key] ?? "";
-    out.push({ label: key, value });
+    if (typeof direct === "string") { out.push({ label: key, value: direct }); continue; }
+    // A configured name may be a raw `extra` key from an import, or the label of one of
+    // the event's own columns — whose storage key is the slug, not the label the
+    // organiser typed. Try the key first, then match a defined column by name.
+    const field = (e.attendee_fields ?? []).find((f) => f.label.toLowerCase() === key.toLowerCase());
+    out.push({ label: field?.label ?? key, value: a.extra[key] ?? (field ? a.extra[field.key] ?? "" : "") });
   }
   return out;
 }

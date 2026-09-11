@@ -8,9 +8,9 @@ import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
 import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, listAttendees, regenerateToken, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
-import { parseExtraJson } from "@/lib/attendee-extra";
+import { addField, renameField, removeField, fieldValuesFromForm } from "@/lib/attendee-fields";
 import { parseIds } from "@/lib/bulk";
-import type { Attendee } from "@/lib/types";
+import type { Attendee, Event } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
@@ -93,7 +93,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const file = formData.get("file");
   if (!(file instanceof File)) redirect(`/admin/events/${eventId}/attendees?error=Choose+a+file`);
   let parsed: MasterlistResult | null = null;
-  try { parsed = await parseMasterlist(await file.arrayBuffer()); }
+  try { parsed = await parseMasterlist(await file.arrayBuffer(), ev.attendee_fields); }
   catch (e) { redirect(`/admin/events/${eventId}/attendees?error=${encodeURIComponent((e as Error).message)}`); }
   if (!parsed) redirect(`/admin/events/${eventId}/attendees?error=Could+not+read+file`);
   // One read of the existing roster instead of a lookup per row; new rows go out in one bulk insert.
@@ -126,29 +126,28 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   redirect(`/admin/events/${eventId}/attendees?imported=${inserted}&updated=${updated}&skipped=${encodeURIComponent(skipped)}`);
 }
 
-type AttendeeFormResult =
-  | { ok: true; input: ReturnType<typeof buildAttendeeInput> }
-  | { ok: false; error: string };
-
-function buildAttendeeInput(formData: FormData, extra: Record<string, string>) {
+/**
+ * Builds an attendee patch from a form, folding this event's custom columns into `extra`.
+ *
+ * The posted values are merged onto what is already stored rather than replacing it, so
+ * a column the form did not render — including anything an imported masterlist left
+ * under its own header — survives the save.
+ */
+function attendeeInputFrom(ev: Event, formData: FormData, existingExtra: Record<string, string> = {}) {
+  const values = fieldValuesFromForm(ev.attendee_fields, (k) => {
+    const v = formData.get(k);
+    return typeof v === "string" ? v : null;
+  });
   return {
     name: str(formData, "name") ?? "", email: str(formData, "email"), phone: str(formData, "phone"), company: str(formData, "company"),
-    category: str(formData, "category"), table_no: str(formData, "table_no"), extra,
+    category: str(formData, "category"), table_no: str(formData, "table_no"), extra: mergeExtra(existingExtra, values),
   };
-}
-
-function attendeeInputFrom(formData: FormData): AttendeeFormResult {
-  const parsed = parseExtraJson(str(formData, "extra"));
-  if (!parsed.ok) return { ok: false, error: parsed.error };
-  return { ok: true, input: buildAttendeeInput(formData, parsed.extra) };
 }
 
 export async function addAttendeeAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  const result = attendeeInputFrom(formData);
-  if (!result.ok) redirect(`/admin/events/${eventId}/attendees?error=${encodeURIComponent(result.error)}`);
-  const { input } = result;
+  const input = attendeeInputFrom(ev, formData);
   if (!input.name) redirect(`/admin/events/${eventId}/attendees?error=Name+required`);
   const source = (str(formData, "source") ?? "walkin") as "walkin" | "import";
   const a = input.email ? (await upsertByEmail(ev, { ...input, email: input.email }, source)).attendee : await createAttendee(ev, input, source);
@@ -158,12 +157,11 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
 
 export async function updateAttendeeAction(eventId: string, attendeeId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
-  await requireEventAttendee(eventId, attendeeId);
-  const result = attendeeInputFrom(formData);
-  if (!result.ok) redirect(`/admin/events/${eventId}/attendees/${attendeeId}?error=${encodeURIComponent(result.error)}`);
-  if (!result.input.name) redirect(`/admin/events/${eventId}/attendees/${attendeeId}?error=Name+is+required`);
-  await updateAttendee(attendeeId, result.input);
+  const ev = await requireEvent(eventId, orgId);
+  const existing = await requireEventAttendee(eventId, attendeeId);
+  const input = attendeeInputFrom(ev, formData, existing.extra);
+  if (!input.name) redirect(`/admin/events/${eventId}/attendees/${attendeeId}?error=Name+is+required`);
+  await updateAttendee(attendeeId, input);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(`/admin/events/${eventId}/attendees/${attendeeId}?saved=1`);
 }
@@ -236,6 +234,46 @@ export async function clearTableAction(eventId: string, formData: FormData) {
   const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
   for (const id of parseIds(String(formData.get("ids") ?? ""), allowed)) await updateAttendee(id, { table_no: null });
   revalidatePath(`/admin/events/${ev.id}/attendees`);
+}
+
+// ---- Attendee columns ----
+//
+// The organiser's own columns on the attendee table. Definitions live on the event; the
+// values live in each attendee's `extra`, so none of this touches the attendees table.
+
+const columnsBack = (eventId: string) => `/admin/events/${eventId}/attendees`;
+
+export async function addAttendeeFieldAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const result = addField(ev.attendee_fields, {
+    label: String(formData.get("label") ?? ""),
+    type: String(formData.get("type") ?? "text"),
+    options: String(formData.get("options") ?? ""),
+  });
+  if (!result.ok) redirect(`${columnsBack(eventId)}?error=${encodeURIComponent(result.error)}`);
+  await updateEvent(eventId, { attendee_fields: result.fields });
+  revalidatePath(columnsBack(eventId));
+  redirect(columnsBack(eventId));
+}
+
+export async function renameAttendeeFieldAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const result = renameField(ev.attendee_fields, String(formData.get("key") ?? ""), String(formData.get("label") ?? ""));
+  if (!result.ok) redirect(`${columnsBack(eventId)}?error=${encodeURIComponent(result.error)}`);
+  await updateEvent(eventId, { attendee_fields: result.fields });
+  revalidatePath(columnsBack(eventId));
+  redirect(columnsBack(eventId));
+}
+
+/** Drops the definition only. Every attendee keeps the value, so re-adding the column restores it. */
+export async function deleteAttendeeFieldAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  await updateEvent(eventId, { attendee_fields: removeField(ev.attendee_fields, String(formData.get("key") ?? "")) });
+  revalidatePath(columnsBack(eventId));
+  redirect(columnsBack(eventId));
 }
 
 // ---- Agenda / announcements / info / checkpoints ----

@@ -20,6 +20,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const ids = Array.from(new Set(cis.map((c) => c.scanned_by).filter(Boolean))) as string[];
   const names: Record<string, string> = {};
   for (const uid of ids) { const { data } = await serviceClient().auth.admin.getUserById(uid); if (data.user?.email) names[uid] = data.user.email; }
-  const buf = await buildAttendanceWorkbook(rows, cps, cis, names).xlsx.writeBuffer();
+  const buf = await buildAttendanceWorkbook(rows, cps, cis, names, ev.attendee_fields).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${ev.slug}-attendance.xlsx"` } });
 }

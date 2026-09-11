@@ -4,7 +4,7 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees } from "@/lib/db/attendees";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrPngBuffer } from "@/lib/qr";
-import { safeFileName } from "@/lib/exports";
+import { safeFileName } from "@/lib/filenames";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);

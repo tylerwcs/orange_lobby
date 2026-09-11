@@ -1,0 +1,12 @@
+-- Columns an organiser adds to the attendee table after registration has closed:
+-- room number, flight, dietary note — whatever a given event turns out to need.
+--
+-- Only the definitions live here. The values stay in `attendees.extra`, keyed by the
+-- field's `key`, so adding or deleting a column never touches the attendees table and
+-- never needs a migration of its own. It also means deleting a column is reversible:
+-- the definition goes, the values stay, and re-adding the same name brings them back.
+--
+-- Shape (validated in src/lib/attendee-fields.ts, not by the database):
+--   [{ "key": "room_no", "label": "Room no", "type": "text" },
+--    { "key": "dietary", "label": "Dietary", "type": "select", "options": ["Halal", "Vegetarian"] }]
+alter table events add column attendee_fields jsonb not null default '[]'::jsonb;

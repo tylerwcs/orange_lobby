@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
-import { parseMasterlist } from "@/lib/masterlist";
+import { parseMasterlist, extraKeyFor } from "@/lib/masterlist";
+import type { AttendeeField } from "@/lib/attendee-fields";
 
 async function book(rows: (string | number | null)[][]) {
   const wb = new ExcelJS.Workbook();
@@ -26,6 +27,19 @@ describe("parseMasterlist", () => {
     expect(r.rows[1].email).toBeNull();
     expect(r.skipped).toEqual([{ row: 3, reason: "Name is blank" }]);
   });
+  it("files a header that names one of the event's columns under that column's key", async () => {
+    const fields: AttendeeField[] = [{ key: "dietary", label: "Dietary", type: "text" }];
+    const buf = await book([["Name", "dietary", "Seat"], ["Ann", "Halal", "3"]]);
+    const r = await parseMasterlist(buf, fields);
+    // Matched case-insensitively against the label, so the import fills the column the
+    // organiser already made rather than creating a near-duplicate beside it.
+    expect(r.rows[0].extra).toEqual({ dietary: "Halal", Seat: "3" });
+  });
+
+  it("leaves headers alone when the event has no columns of its own", () => {
+    expect(extraKeyFor("Dietary", [])).toBe("Dietary");
+  });
+
   it("rejects a sheet without a Name header", async () => {
     await expect(parseMasterlist(await book([["Fullname"], ["x"]]))).rejects.toThrow(/Name/);
   });

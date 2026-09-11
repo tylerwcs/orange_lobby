@@ -20,6 +20,18 @@ describe("scanResultFields", () => {
       { label: "Dietary", value: "Halal" }, { label: "phone", value: "012" },
     ]);
   });
+
+  it("finds a defined column named by its label, whose storage key is the slug", () => {
+    const a = { name: "Ann", company: null, category: null, table_no: null, extra: { room_no: "12A" } } as unknown as Attendee;
+    const e = { scan_extra_fields: ["Room no"], attendee_fields: [{ key: "room_no", label: "Room no", type: "text" }] } as Event;
+    expect(scanResultFields(a, e).at(-1)).toEqual({ label: "Room no", value: "12A" });
+  });
+
+  it("leaves a configured name that matches nothing as a blank row rather than dropping it", () => {
+    const a = { name: "Ann", company: null, category: null, table_no: null, extra: {} } as unknown as Attendee;
+    const e = { scan_extra_fields: ["Nothing"], attendee_fields: [] } as unknown as Event;
+    expect(scanResultFields(a, e).at(-1)).toEqual({ label: "Nothing", value: "" });
+  });
 });
 
 import { describeCameraError } from "@/lib/scan";

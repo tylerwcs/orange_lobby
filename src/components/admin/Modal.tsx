@@ -1,5 +1,6 @@
 "use client";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { buttonClass, type ButtonVariant } from "@/components/ui/Card";
 
@@ -9,8 +10,10 @@ import { buttonClass, type ButtonVariant } from "@/components/ui/Card";
  * the platform rather than from a hand-rolled imitation.
  *
  * Children are rendered by the server parent, so the forms inside stay server components
- * posting to server actions. Those actions redirect on success, which navigates the page
- * and takes the dialog with it — there is no "close on success" to wire up.
+ * posting to server actions. Those actions redirect on success — but the redirect usually
+ * lands back inside the same page component, so the dialog is not unmounted by it. The
+ * URL is therefore what closes it: when the address changes, the task that opened this
+ * dialog is over.
  */
 export function Modal({ title, hint, trigger, icon, variant = "secondary", children }: {
   title: string;
@@ -22,6 +25,14 @@ export function Modal({ title, hint, trigger, icon, variant = "secondary", child
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const close = () => ref.current?.close();
+
+  const url = `${usePathname()}?${useSearchParams().toString()}`;
+  const openedAt = useRef<string | null>(null);
+  useEffect(() => {
+    if (openedAt.current === null || openedAt.current === url) { openedAt.current = url; return; }
+    openedAt.current = url;
+    close();
+  }, [url]);
 
   return (
     <>
