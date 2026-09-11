@@ -1,10 +1,9 @@
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 
-/** The scope caption, the three figures and the meter — everything that changes with the checkpoint. */
+/** The three figures and the meter — everything that changes with the checkpoint. */
 export function SummaryStatsSkeleton() {
   return (
     <div role="status" aria-busy="true" aria-label="Counting" className="space-y-3">
-      <Skeleton className="h-3 w-40" />
       {[0, 1, 2].map((i) => <Skeleton key={i} className="h-11 w-full" />)}
       <Skeleton className="h-2.5 w-full" />
       <Skeleton className="h-3 w-32" />

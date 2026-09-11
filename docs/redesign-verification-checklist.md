@@ -62,7 +62,11 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
       *(Verified 2026-09-11 in a browser.)*
 - [x] Pasting that URL into a fresh tab opens the **same dialog over the same list**. *(Verified.)*
 - [x] **Save inside the dialog closes it**, returns to the list, and raises a toast naming the attendee.
-      *(Verified.)* Delete is the same path but has not been run — it destroys a row, so it is yours to try.
+      *(Verified.)*
+- [x] **Delete asks first, then closes the dialog and toasts.** *(Verified on a throwaway attendee: the confirm
+      reads "Delete <name>? Their check-ins go with them.", the row leaves the table and the count drops.)*
+- [x] Adding an attendee opens **their** panel over the list, with a toast. Submitting the form with the name
+      blank raises a red toast instead of adding anyone. *(Verified.)*
 - [ ] **Every other admin action toasts too** — settings, modules, the info page, adding a session, posting an
       announcement, adding or deleting a checkpoint, importing a masterlist, adding / renaming / deleting a
       column. No page should still render a green or red banner above its heading.

@@ -12,8 +12,9 @@ export type CheckpointOption = { id: string; label: string };
  * horizontal band. The progress meter lives here too, so the check-in figure is stated
  * once on the page rather than twice in two treatments.
  *
- * The scope line is load-bearing: "34 of 43" never said 34 of what — through the door, at
- * dinner, or anyone scanned anywhere.
+ * The picker is load-bearing, not decoration: "34 of 43" never said 34 of what — through
+ * the door, at dinner, or anyone scanned anywhere. It names the scope for the figures
+ * under it, and for the meter's label, which a screen reader reaches without it.
  *
  * The pending state is the component's own, not a Suspense boundary. A boundary never
  * showed: the page awaits its data before it reaches the boundary, so by the time anything
@@ -68,9 +69,8 @@ export function SummaryCard({ eventId, options, checkpointId, checkedIn, registe
           a stale caption over fresh numbers would be worse than a moment of nothing. */}
       {pending ? <div className="mt-3"><SummaryStatsSkeleton /></div> : (
         <>
-          <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
-            {scope ? `At ${scope}` : "Across every checkpoint"}
-          </p>
+          {/* No caption naming the checkpoint: the picker directly above already says it,
+              and reading the same words twice in two type sizes is not emphasis. */}
           <dl className="mt-1">
             {rows.map((r, i) => (
               <div key={r.label} className={`flex items-baseline justify-between py-3 ${i < rows.length - 1 ? "border-b border-line" : ""}`}>
