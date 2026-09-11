@@ -141,12 +141,26 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
 
 ## Scanner (`/scan/[eventId]`)
 
-- [ ] **Read the result banner at arm's length in a dim room.** It is now a light tint rather than the old solid
-      saturated fill — the honest consequence of deciding against dark mode plus the contrast rule. If it is
-      not legible under ballroom lighting, that is a real finding and worth reopening the dark-mode decision.
-- [ ] A successful scan, a duplicate scan and a camera error each render their own state.
-- [ ] Undo still appears and works within its window.
-- [ ] The result is still announced to a screen reader.
+Everything below except the camera itself was run on 2026-09-11, at 375px, against the live event. The camera
+could not be: the Browser pane has no device. **Nothing here replaces one real pass with a phone and a badge.**
+
+- [ ] **Scan a real badge.** This is the one path no amount of desk testing covers — the camera, the decode, and
+      the wake time between two people at the door.
+- [ ] **Read the result banner at arm's length in a dim room.** It is a light tint rather than a solid saturated
+      fill — the honest consequence of deciding against dark mode plus the contrast rule. If it is not legible
+      under ballroom lighting, that is a real finding and worth reopening the dark-mode decision.
+- [x] The checkpoint chooser lists every checkpoint grouped by day, each with its live count. *(Verified.)*
+- [x] A successful check-in, a duplicate and a camera error each render their own state. *(Verified: green
+      "Checked in" with the attendee's company, category and table; amber "Already in since 19:12" with no Undo
+      offered, which is right — undoing a duplicate would remove the original; and "Camera blocked" with a Retry
+      and a working search fallback.)*
+- [x] The count in the header moves with each check-in and back again on undo. *(Verified: 26 → 27 → 26.)*
+- [x] Undo appears and works within its window. *(Verified — and the window is genuinely short: two automated
+      round trips were enough to miss it. Worth deciding whether six seconds is long enough for a crew member
+      who has just realised they scanned the wrong badge.)*
+- [x] The result is announced to a screen reader — the live region carries "27 of 43 checked in." *(Verified.)*
+- [x] Searching by name shows "Check in" or "Already in" per attendee, and a no-match line that no longer
+      points at the walk-in button. 44px targets, no horizontal overflow at 375px. *(Verified.)*
 - [ ] There is **no walk-in control** on the scanner any more. Someone who is not on the list is added from
       Attendees → Add attendee, then scanned. Check that the "not on the list" message points somewhere useful
       rather than at a button that no longer exists.
