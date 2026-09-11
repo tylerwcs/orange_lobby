@@ -16,7 +16,7 @@ import { Modal } from "@/components/admin/Modal";
 import { AttendeeTable, type AttendeeRow } from "@/components/admin/AttendeeTable";
 import { AddColumnForm } from "@/components/admin/AddColumnForm";
 import { FieldInputs } from "@/components/admin/FieldInputs";
-import { allColumns, bulkFields, columnsCookieName, hiddenFromCookie } from "@/lib/columns";
+import { allColumns, bulkFields, columnsCookieName, parseTablePrefs, tableCookieName } from "@/lib/columns";
 import { eventFields, fieldsFromQuestions, unclaimedKeys } from "@/lib/attendee-fields";
 import { buttonClass } from "@/components/ui/Card";
 import { paginate } from "@/lib/paginate";
@@ -52,7 +52,9 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const registrationFields = fieldsFromQuestions(ev.registration_questions);
   const allFields = eventFields(ev.registration_questions, ev.attendee_fields);
   const columns = allColumns(registrationFields, ev.attendee_fields);
-  const hidden = hiddenFromCookie(jar.get(columnsCookieName(ev.id))?.value, columns);
+  // The older cookie only held hidden columns; reading it as a fallback means an organiser
+  // who had already tuned their table does not lose that when ordering ships.
+  const prefs = parseTablePrefs(jar.get(tableCookieName(ev.id))?.value, columns, jar.get(columnsCookieName(ev.id))?.value);
 
   // What the "add a column" dialog offers. Counted across the whole roster, not the
   // current search — a suggestion that changes as you type would be a lie.
@@ -149,7 +151,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           values: Object.fromEntries(allFields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
         }))}
         columns={columns}
-        initialHidden={hidden}
+        initialPrefs={prefs}
         renameColumn={renameAttendeeFieldAction.bind(null, ev.id)}
         deleteColumn={deleteAttendeeFieldAction.bind(null, ev.id)}
         addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} suggestions={suggestions} />}

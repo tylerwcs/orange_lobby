@@ -76,6 +76,19 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
       panel and the right value in the table.
 - [ ] **A Choice column offers exactly its choices, plus a blank.** A value stored before the choices changed
       still shows in the dropdown rather than vanishing on the next save.
+- [ ] **Drag a column header** onto another and it takes that position. The same move is in the menu as Move
+      left / Move right, which is the keyboard route — check both, and check they agree.
+- [ ] **Drag a header's right edge** to resize. It must resize, not reorder: the handle sets `draggable={false}`
+      precisely so the header's own drag does not fire instead.
+- [ ] Reload after reordering and resizing. The layout must come back, and come back on the **first paint** —
+      no flash of the default arrangement.
+- [ ] **Reset layout** clears order, widths and hidden columns together, and the button disappears once there
+      is nothing to reset.
+- [ ] **Scroll inside an open header menu** — it must stay open. Scrolling the page behind it must close it.
+      That asymmetry is the whole fix; a menu that dismissed itself as you reached for the bottom of the list
+      was the bug.
+- [ ] Open the menu on a header near the bottom of the window: it should flip above rather than run off-screen,
+      and scroll inside itself when the column list is long.
 - [ ] Hide a column from its header menu, reload, and confirm it is still hidden. Clear cookies and confirm
       every column comes back. The preference is a per-browser cookie, so it does not follow you to another
       machine and does not change what anyone else sees.

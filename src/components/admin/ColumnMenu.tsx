@@ -5,21 +5,25 @@ import type { ColumnDef } from "@/lib/columns";
 
 type Action = (formData: FormData) => void | Promise<void>;
 
-const item = "flex w-full min-h-11 items-center gap-2.5 rounded-[8px] px-2.5 text-left text-sm font-semibold text-ink transition-colors duration-150 hover:bg-canvas";
+const item = "flex w-full min-h-11 items-center gap-2.5 rounded-[8px] px-2.5 text-left text-sm font-semibold text-ink transition-colors duration-150 hover:bg-canvas disabled:opacity-40 disabled:hover:bg-transparent";
 
 /**
- * The menu behind every column header: hide this one, choose which others to show,
- * rename or delete one of the organiser's own columns, or add another.
+ * The menu behind every column header: move it, hide it, choose which others to show,
+ * rename or delete one of the organiser's own, or add another.
  *
  * The panel is `fixed` rather than absolutely placed inside the header cell, because the
  * table scrolls horizontally in its own `overflow` container — an absolutely positioned
  * panel would be clipped by it.
  */
-export function ColumnMenu({ column, columns, hidden, onToggle, onAddColumn, renameColumn, deleteColumn }: {
+export function ColumnMenu({ column, columns, hidden, canMoveLeft, canMoveRight, onMove, onToggle, onResetWidth, onAddColumn, renameColumn, deleteColumn }: {
   column: ColumnDef;
   columns: ColumnDef[];
   hidden: Set<string>;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  onMove: (key: string, direction: -1 | 1) => void;
   onToggle: (key: string, visible: boolean) => void;
+  onResetWidth: (key: string) => void;
   onAddColumn: () => void;
   renameColumn: Action;
   deleteColumn: Action;
@@ -30,7 +34,7 @@ export function ColumnMenu({ column, columns, hidden, onToggle, onAddColumn, ren
   // being switched off by hand — and the form is never unmounted mid-submit.
   const [renamingFrom, setRenamingFrom] = useState<string | null>(null);
   const renaming = renamingFrom !== null && renamingFrom === column.label;
-  const [spot, setSpot] = useState({ left: 0, top: 0 });
+  const [spot, setSpot] = useState({ left: 0, top: 0, maxHeight: 400 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -39,8 +43,17 @@ export function ColumnMenu({ column, columns, hidden, onToggle, onAddColumn, ren
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
     const r = buttonRef.current.getBoundingClientRect();
-    // Keep the panel on screen when the header sits near the right edge.
-    setSpot({ left: Math.max(8, Math.min(r.left, window.innerWidth - 288)), top: r.bottom + 6 });
+    const below = window.innerHeight - r.bottom - 16;
+    const above = r.top - 16;
+    // The column list can be long. Open downwards when there is room, upwards when there
+    // is more of it there, and cap the panel either way so it scrolls inside itself
+    // rather than running off the bottom of the window.
+    const flip = below < 260 && above > below;
+    setSpot({
+      left: Math.max(8, Math.min(r.left, window.innerWidth - 288)),
+      top: flip ? Math.max(8, r.top - Math.min(above, 520) - 6) : r.bottom + 6,
+      maxHeight: Math.max(200, Math.min(flip ? above : below, 520)),
+    });
   }, [open]);
 
   useEffect(() => {
@@ -50,20 +63,23 @@ export function ColumnMenu({ column, columns, hidden, onToggle, onAddColumn, ren
       close();
       buttonRef.current?.focus();
     };
+    const inPanel = (target: EventTarget | null) => panelRef.current?.contains(target as Node) ?? false;
     const onPointer = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current?.contains(t) || buttonRef.current?.contains(t)) return;
+      if (inPanel(e.target) || buttonRef.current?.contains(e.target as Node)) return;
       close();
     };
-    // Scrolling moves the header out from under a fixed panel, so the panel goes with it.
+    // Scrolling the page moves the header out from under a fixed panel, so the panel goes
+    // with it — but scrolling *inside* the panel is how you reach the bottom of a long
+    // column list, and must not dismiss the thing you are reading.
+    const onScroll = (e: Event) => { if (!inPanel(e.target)) close(); };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", close);
     return () => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointer);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);
@@ -73,23 +89,34 @@ export function ColumnMenu({ column, columns, hidden, onToggle, onAddColumn, ren
       <button
         ref={buttonRef} type="button" aria-expanded={open} aria-haspopup="true"
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex min-h-11 items-center gap-1.5 rounded-[8px] px-1.5 text-[11px] font-bold uppercase tracking-[0.08em] transition-colors duration-150 hover:bg-canvas ${open ? "text-brand-ink" : "text-muted"}`}
+        className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-[8px] px-1.5 text-left text-[11px] font-bold uppercase tracking-[0.08em] transition-colors duration-150 hover:bg-canvas ${open ? "text-brand-ink" : "text-muted"}`}
       >
-        {column.label}
-        <Icon name="chevron" size={12} className="rotate-90" />
+        <span className="truncate">{column.label}</span>
+        <Icon name="chevron" size={12} className="shrink-0 rotate-90" />
       </button>
 
       {open && (
         <div
           ref={panelRef} role="group" aria-label={`${column.label} column options`}
-          style={{ left: spot.left, top: spot.top }}
-          className="fixed z-50 w-70 rounded-[14px] border border-line bg-surface p-2 text-ink shadow-[var(--shadow-card)]"
+          style={{ left: spot.left, top: spot.top, maxHeight: spot.maxHeight }}
+          className="fixed z-50 w-70 overflow-y-auto overscroll-contain rounded-[14px] border border-line bg-surface p-2 text-ink shadow-[var(--shadow-card)]"
         >
           <p className="px-2.5 pt-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">{column.label}</p>
           {column.source === "registration" && (
             <p className="px-2.5 pb-1.5 text-xs text-muted">Asked on the registration form. Edit the question under Settings.</p>
           )}
 
+          {/* Dragging a header is quicker, but it is a pointer gesture no keyboard can
+              perform, so the same move lives here too. */}
+          <button type="button" className={item} disabled={!canMoveLeft} onClick={() => { onMove(column.key, -1); close(); }}>
+            <Icon name="chevron" size={16} className="rotate-180 text-muted" />Move left
+          </button>
+          <button type="button" className={item} disabled={!canMoveRight} onClick={() => { onMove(column.key, 1); close(); }}>
+            <Icon name="chevron" size={16} className="text-muted" />Move right
+          </button>
+          <button type="button" className={item} onClick={() => { onResetWidth(column.key); close(); }}>
+            <Icon name="filter" size={16} className="text-muted" />Reset width
+          </button>
           <button type="button" className={item} onClick={() => { onToggle(column.key, false); close(); }}>
             <Icon name="close" size={16} className="text-muted" />Hide this column
           </button>
@@ -131,7 +158,7 @@ export function ColumnMenu({ column, columns, hidden, onToggle, onAddColumn, ren
                 type="checkbox" checked={!hidden.has(c.key)} onChange={(e) => onToggle(c.key, e.target.checked)}
                 className="h-4 w-4 shrink-0"
               />
-              {c.label}
+              <span className="min-w-0 flex-1">{c.label}</span>
             </label>
           ))}
 

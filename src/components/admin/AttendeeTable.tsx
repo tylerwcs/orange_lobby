@@ -6,7 +6,11 @@ import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
 import { Icon } from "@/components/ui/Icon";
-import { columnsCookieName, hiddenToCookie, type ColumnDef } from "@/lib/columns";
+import { moveItem } from "@/lib/reorder";
+import {
+  columnWidth, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns,
+  SELECT_COLUMN_WIDTH, serialiseTablePrefs, tableCookieName, type ColumnDef, type TablePrefs,
+} from "@/lib/columns";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AttendeeSource, Checkpoint } from "@/lib/types";
 
@@ -62,11 +66,35 @@ function cell(a: AttendeeRow, key: string) {
   }
 }
 
+/**
+ * Writing the layout back out. Lives outside the component because it touches
+ * `document` — a browser API, not React state — and the compiler is right to insist that
+ * a render-phase closure not reach for one.
+ */
+function persistPrefs(eventId: string, prefs: TablePrefs) {
+  document.cookie = `${tableCookieName(eventId)}=${serialiseTablePrefs(prefs)}; path=/; max-age=31536000; samesite=lax`;
+}
+
+/**
+ * The grab strip on a column's right edge. `draggable={false}` matters: without it the
+ * header's own reorder drag starts the moment you try to resize, and the column jumps
+ * somewhere else instead of getting wider.
+ */
+function ResizeHandle({ onPointerDown, label }: { onPointerDown: (e: React.PointerEvent<HTMLSpanElement>) => void; label: string }) {
+  return (
+    <span
+      role="separator" aria-orientation="vertical" aria-label={`Resize ${label} column`}
+      draggable={false} onPointerDown={onPointerDown} onDragStart={(e) => e.preventDefault()}
+      className="absolute right-0 top-0 z-10 h-full w-2 cursor-col-resize touch-none select-none border-r-2 border-transparent hover:border-brand"
+    />
+  );
+}
+
 export function AttendeeTable({
   eventId,
   rows,
   columns,
-  initialHidden,
+  initialPrefs,
   emptyMessage,
   setColumn,
   markCheckedIn,
@@ -80,7 +108,7 @@ export function AttendeeTable({
   eventId: string;
   rows: AttendeeRow[];
   columns: ColumnDef[];
-  initialHidden: string[];
+  initialPrefs: TablePrefs;
   emptyMessage: string;
   setColumn: TableAction;
   markCheckedIn: TableAction;
@@ -93,13 +121,92 @@ export function AttendeeTable({
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Bumped after every successful bulk submit so BulkBar remounts fresh — clearing
-  // both the selection (below) and its own `table` input, which would otherwise
-  // survive since BulkBar merely renders null while `selected` is empty.
+  // both the selection (below) and its own inputs, which would otherwise survive since
+  // BulkBar merely renders null while `selected` is empty.
   const [bulkVersion, setBulkVersion] = useState(0);
   // Seeded from the cookie on the server, so the first paint already has the right
-  // columns and nothing flashes in and back out on hydration.
-  const [hidden, setHidden] = useState<Set<string>>(() => new Set(initialHidden));
+  // columns at the right widths and nothing flashes in and back out on hydration.
+  const [prefs, setPrefs] = useState<TablePrefs>(initialPrefs);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
   const addRef = useRef<HTMLDialogElement>(null);
+
+  // A per-browser preference, not shared state: one organiser's layout must not rearrange
+  // the table for the crew member next to them.
+  const save = (next: TablePrefs) => {
+    setPrefs(next);
+    persistPrefs(eventId, next);
+  };
+
+  const ordered = orderedColumns(columns, prefs.order);
+  const hidden = new Set(prefs.hidden);
+  const shown = ordered.filter((c) => !hidden.has(c.key));
+  const hiddenCount = ordered.length - shown.length;
+  const width = (key: string) => columnWidth(key, prefs.widths);
+  const customised = prefs.order.length > 0 || prefs.hidden.length > 0 || Object.keys(prefs.widths).length > 0;
+
+  const toggleColumn = (key: string, visible: boolean) => {
+    const next = new Set(hidden);
+    if (visible) next.delete(key); else next.add(key);
+    save({ ...prefs, hidden: Array.from(next) });
+  };
+
+  const resetWidth = (key: string) => {
+    const widths = { ...prefs.widths };
+    delete widths[key];
+    save({ ...prefs, widths });
+  };
+
+  /** Both routes into a reorder — the drag and the menu — go through here, so they cannot drift apart. */
+  const moveTo = (key: string, targetKey: string) => {
+    const keys = ordered.map((c) => c.key);
+    const from = keys.indexOf(key);
+    const to = keys.indexOf(targetKey);
+    if (from < 0 || to < 0 || from === to) return;
+    const label = ordered[from].label;
+    const next = moveItem(keys, from, to);
+    save({ ...prefs, order: next });
+    setMessage(`${label} moved to position ${next.indexOf(key) + 1} of ${next.length}`);
+  };
+
+  /** One place among the columns you can see — stepping over a hidden one would look like nothing happened. */
+  const moveBy = (key: string, direction: -1 | 1) => {
+    const visible = shown.map((c) => c.key);
+    const target = visible[visible.indexOf(key) + direction];
+    if (target) moveTo(key, target);
+  };
+
+  const startResize = (key: string, e: React.PointerEvent<HTMLSpanElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = width(key);
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    let latest = startWidth;
+
+    const onMove = (ev: PointerEvent) => {
+      latest = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, startWidth + ev.clientX - startX));
+      setPrefs((p) => ({ ...p, widths: { ...p.widths, [key]: latest } }));
+    };
+    const onUp = () => {
+      el.releasePointerCapture(e.pointerId);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      // Written once at the end rather than on every pointer move — a drag would otherwise
+      // rewrite the cookie a hundred times on the way across the screen.
+      save({ ...prefs, widths: { ...prefs.widths, [key]: latest } });
+    };
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+  };
+
+  const runBulk = (action: TableAction): TableAction => async (formData) => {
+    await action(formData);
+    setSelected(new Set());
+    setBulkVersion((v) => v + 1);
+  };
 
   // Adding a column redirects back to this same URL, so nothing unmounts the dialog and
   // nothing changes in the address bar. The new column arriving is the signal that the
@@ -111,26 +218,6 @@ export function AttendeeTable({
     lastCount.current = columnCount;
     addRef.current?.close();
   }, [columnCount]);
-
-  const toggleColumn = (key: string, visible: boolean) => {
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (visible) next.delete(key); else next.add(key);
-      // A per-browser preference, not shared state: one organiser hiding Source must not
-      // hide it for the crew member next to them.
-      document.cookie = `${columnsCookieName(eventId)}=${hiddenToCookie(next)}; path=/; max-age=31536000; samesite=lax`;
-      return next;
-    });
-  };
-
-  const shown = columns.filter((c) => !hidden.has(c.key));
-  const hiddenCount = columns.length - shown.length;
-
-  const runBulk = (action: TableAction): TableAction => async (formData) => {
-    await action(formData);
-    setSelected(new Set());
-    setBulkVersion((v) => v + 1);
-  };
 
   const toggleOne = (id: string, checked: boolean) => {
     setSelected((prev) => {
@@ -147,6 +234,7 @@ export function AttendeeTable({
   const selectedOnPage = rows.filter((a) => selected.has(a.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
+  const tableWidth = SELECT_COLUMN_WIDTH + width("name") + shown.reduce((n, c) => n + width(c.key), 0);
 
   return (
     <div className="space-y-3">
@@ -165,32 +253,64 @@ export function AttendeeTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted">
           {hiddenCount > 0
-            ? `${hiddenCount} ${hiddenCount === 1 ? "column is" : "columns are"} hidden. Any column header opens the list.`
-            : "Registration questions are already columns. Any header opens the list; add one for what the form never asked."}
+            ? `${hiddenCount} ${hiddenCount === 1 ? "column is" : "columns are"} hidden. Drag a header to reorder it, drag its edge to resize.`
+            : "Drag a header to reorder it, drag its edge to resize. Every header opens a menu."}
         </p>
-        <button type="button" onClick={() => addRef.current?.showModal()}
-          className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-4 text-sm font-bold text-ink transition-colors duration-150 hover:bg-canvas">
-          <Icon name="plus" size={18} />Add a column
-        </button>
+        <div className="flex items-center gap-2">
+          {customised && (
+            <button type="button" onClick={() => save({ hidden: [], order: [], widths: {} })}
+              className="min-h-11 rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted transition-colors duration-150 hover:bg-canvas">
+              Reset layout
+            </button>
+          )}
+          <button type="button" onClick={() => addRef.current?.showModal()}
+            className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-4 text-sm font-bold text-ink transition-colors duration-150 hover:bg-canvas">
+            <Icon name="plus" size={18} />Add a column
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-card)]">
-        <table className="w-full min-w-[720px] text-sm">
+        {/* `table-fixed` plus a colgroup is what makes a width mean something: under
+            automatic layout the browser overrules whatever you set the moment a cell holds
+            a long email address. Cells clip instead of pushing their neighbours around. */}
+        <table className="w-full table-fixed text-sm" style={{ minWidth: tableWidth }}>
+          <colgroup>
+            <col style={{ width: SELECT_COLUMN_WIDTH }} />
+            <col style={{ width: width("name") }} />
+            {shown.map((c) => <col key={c.key} style={{ width: width(c.key) }} />)}
+          </colgroup>
           <thead>
             <tr className="text-left">
               <th className="p-2">
                 <HeaderCheckbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} />
               </th>
-              <th className="p-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Name</th>
-              {shown.map((c) => (
-                <th key={c.key} className="px-0.5 py-2">
+              <th className="relative p-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                Name
+                <ResizeHandle onPointerDown={(e) => startResize("name", e)} label="Name" />
+              </th>
+              {shown.map((c, i) => (
+                <th
+                  key={c.key}
+                  draggable
+                  onDragStart={(e) => { setDragKey(c.key); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverKey(c.key); }}
+                  onDragLeave={() => setOverKey((prev) => (prev === c.key ? null : prev))}
+                  onDrop={(e) => { e.preventDefault(); if (dragKey) moveTo(dragKey, c.key); setDragKey(null); setOverKey(null); }}
+                  onDragEnd={() => { setDragKey(null); setOverKey(null); }}
+                  className={`relative cursor-grab px-0.5 py-2 transition-colors duration-150 ${dragKey === c.key ? "opacity-50" : ""} ${overKey === c.key && dragKey !== c.key ? "bg-brand-soft" : ""}`}
+                >
                   <ColumnMenu
-                    column={c} columns={columns} hidden={hidden}
+                    column={c} columns={ordered} hidden={hidden}
+                    canMoveLeft={i > 0} canMoveRight={i < shown.length - 1}
+                    onMove={moveBy}
                     onToggle={toggleColumn}
+                    onResetWidth={resetWidth}
                     onAddColumn={() => addRef.current?.showModal()}
                     renameColumn={renameColumn}
                     deleteColumn={deleteColumn}
                   />
+                  <ResizeHandle onPointerDown={(e) => startResize(c.key, e)} label={c.label} />
                 </th>
               ))}
             </tr>
@@ -209,14 +329,17 @@ export function AttendeeTable({
                     />
                   </label>
                 </td>
-                <td className="p-2"><Link className="font-semibold text-brand-ink" href={`/admin/events/${eventId}/attendees/${a.id}`}>{a.name}</Link></td>
-                {shown.map((c) => <td key={c.key} className="p-2">{cell(a, c.key)}</td>)}
+                <td className="truncate p-2">
+                  <Link className="font-semibold text-brand-ink" href={`/admin/events/${eventId}/attendees/${a.id}`}>{a.name}</Link>
+                </td>
+                {shown.map((c) => <td key={c.key} className="truncate p-2">{cell(a, c.key)}</td>)}
               </tr>
             ))}
             {rows.length === 0 && <tr className="border-t border-line"><td colSpan={shown.length + 2} className="p-6 text-center text-muted">{emptyMessage}</td></tr>}
           </tbody>
         </table>
       </div>
+      <p className="sr-only" role="status" aria-live="polite">{message}</p>
 
       {/* `m-auto` is load-bearing — see Modal.tsx: Tailwind's preflight zeroes the margin
           a dialog centres itself with. */}
