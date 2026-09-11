@@ -13,6 +13,7 @@ import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { arrivalBuckets, arrivalWindow, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
 import { nowInKL, eventDays } from "@/lib/time";
+import { checkpointsByDay, dayOptions, pickCheckpoint } from "@/lib/checkpoints";
 import { shortDate } from "@/lib/text";
 
 export const metadata = { title: "Overview · Orange Lobby" };
@@ -29,11 +30,15 @@ export default async function Overview({ params, searchParams }: { params: Promi
   ]);
 
   const today = nowInKL().date;
-  const days = eventDays(ev.starts_on, ev.ends_on);
+  const days = dayOptions(eventDays(ev.starts_on, ev.ends_on), cps);
   // Land on the day being run if the event is on, otherwise its first day.
   const day = days.includes(sp.day ?? "") ? sp.day! : days.includes(today) ? today : days[0] ?? today;
-  const cpId = cps.some((c) => c.id === sp.cp) ? sp.cp! : cps[0]?.id;
-  const cpName = cps.find((c) => c.id === cpId)?.name;
+  // A day can hold several checkpoints, so the checkpoint filter is scoped to the day:
+  // switching day must never leave one selected whose scans are all on another date.
+  const dayCps = checkpointsByDay(cps).find((g) => g.day === day)?.items ?? [];
+  const activeCp = pickCheckpoint(cps, day, sp.cp);
+  const cpId = activeCp?.id;
+  const cpName = activeCp?.name;
 
   const counts = countByCheckpoint(checkins);
   const checkedIn = new Set(checkins.map((c) => c.attendee_id)).size;
@@ -76,17 +81,27 @@ export default async function Overview({ params, searchParams }: { params: Promi
           <ArrivalsPanel
             buckets={buckets}
             registered={total}
-            checkpoints={cps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))}
+            checkpoints={dayCps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))}
             chartLabel={`Per ${BUCKET_MINUTES} minutes${at}${on}`}
-            emptyChartLabel={`No arrivals yet${cpName ? ` at ${cpName}` : ""}${days.length > 1 ? ` on ${shortDate(day)}` : ""}.`}
-            controls={(days.length > 1 || cps.length > 1) && (
+            emptyChartLabel={dayCps.length === 0
+              ? `No checkpoint on ${shortDate(day)}. Add one in Settings.`
+              : `No arrivals yet${cpName ? ` at ${cpName}` : ""} on ${shortDate(day)}.`}
+            controls={(days.length > 1 || dayCps.length > 1) && (
               <>
-                {days.length > 1 && days.map((d) => (
-                  <Link key={d} href={chipHref({ day: d })} aria-current={d === day ? "true" : undefined} className={chip(d === day)}>{shortDate(d)}</Link>
-                ))}
-                {cps.length > 1 && cps.map((c) => (
-                  <Link key={c.id} href={chipHref({ cp: c.id })} aria-current={c.id === cpId ? "true" : undefined} className={chip(c.id === cpId)}>{c.name}</Link>
-                ))}
+                {days.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Day">
+                    {days.map((d) => (
+                      <Link key={d} href={chipHref({ day: d })} aria-current={d === day ? "true" : undefined} className={chip(d === day)}>{shortDate(d)}</Link>
+                    ))}
+                  </div>
+                )}
+                {dayCps.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5 border-l border-line pl-2" role="group" aria-label="Checkpoint">
+                    {dayCps.map((c) => (
+                      <Link key={c.id} href={chipHref({ day, cp: c.id })} aria-current={c.id === cpId ? "true" : undefined} className={chip(c.id === cpId)}>{c.name}</Link>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           />

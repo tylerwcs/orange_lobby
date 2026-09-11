@@ -81,7 +81,7 @@ export type Announcement = {
   created_at: string;
 };
 
-export type Checkpoint = { id: string; event_id: string; name: string; sort_order: number };
+export type Checkpoint = { id: string; event_id: string; name: string; day: string; sort_order: number };
 
 export type Checkin = {
   id: string;

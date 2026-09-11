@@ -280,10 +280,16 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const name = str(formData, "name");
-  if (!name) redirect(`/admin/events/${eventId}/settings?error=Checkpoint+name+is+required`);
-  await createCheckpoint(ev, name, Number(str(formData, "sort_order") ?? 0));
-  revalidatePath(`/admin/events/${eventId}/settings`);
-  redirect(`/admin/events/${eventId}/settings?saved=1`);
+  const day = str(formData, "day");
+  const back = `/admin/events/${eventId}/settings`;
+  if (!name) redirect(`${back}?error=Checkpoint+name+is+required`);
+  // A checkpoint names a moment on a date, so the date is not optional — several
+  // checkpoints can share one day and the filters need to tell them apart.
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) redirect(`${back}?error=Pick+a+date+for+the+checkpoint`);
+  await createCheckpoint(ev, name, day, Number(str(formData, "sort_order") ?? 0));
+  revalidatePath(back);
+  revalidatePath(`/admin/events/${eventId}`);
+  redirect(`${back}?saved=1`);
 }
 
 export async function deleteCheckpointAction(eventId: string, cpId: string) {

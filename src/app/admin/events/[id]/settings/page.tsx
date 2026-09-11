@@ -1,6 +1,9 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listCheckpoints } from "@/lib/db/checkpoints";
+import { checkpointsByDay } from "@/lib/checkpoints";
+import { eventDays } from "@/lib/time";
+import { shortDate } from "@/lib/text";
 import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { countAttendees } from "@/lib/db/attendees";
 import { appBaseUrl, genericLink, registrationLink } from "@/lib/links";
@@ -58,6 +61,8 @@ export default async function Settings({ params, searchParams }: { params: Promi
   const [cps, cpCounts, total] = await Promise.all([
     listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id),
   ]);
+  const grouped = checkpointsByDay(cps);
+  const days = eventDays(ev.starts_on, ev.ends_on);
 
   return (
     <div className="space-y-4">
@@ -100,30 +105,41 @@ export default async function Settings({ params, searchParams }: { params: Promi
       <Card className="p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-extrabold">Checkpoints</h2>
-          <p className="text-xs text-muted">Crew pick one when they open the scanner. One per day, or per door, meal or session.</p>
+          <p className="text-xs text-muted">Crew pick one when they open the scanner. A day can hold several — registration, lunch, a dinner door.</p>
         </div>
-        <ul className="mt-3 divide-y divide-line">
-          {cps.map((c) => {
-            const n = cpCounts[c.id] ?? 0;
-            return (
-              <li key={c.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0">
-                <Icon name="flag" size={18} className="shrink-0 text-brand-ink" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-bold">{c.name}</div>
-                  <div className="text-xs font-semibold text-muted tabular-nums">{n} of {total} checked in</div>
-                </div>
-                <a href={`/scan/${ev.id}?cp=${c.id}`} className={buttonClass("secondary")}><Icon name="scan" size={18} />Scanner</a>
-                <form action={deleteCheckpointAction.bind(null, ev.id, c.id)}>
-                  <ConfirmButton message={`Delete “${c.name}” and its ${n} check-in${n === 1 ? "" : "s"}? This cannot be undone.`} className="text-danger-strong">Delete</ConfirmButton>
-                </form>
-              </li>
-            );
-          })}
-          {cps.length === 0 && <li className="py-3 text-sm text-muted">No checkpoints yet. Add &ldquo;Day 1&rdquo; and &ldquo;Day 2&rdquo; for a two-day event.</li>}
-        </ul>
+        {grouped.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No checkpoints yet. Add &ldquo;Registration&rdquo; on the first morning to get started.</p>
+        ) : (
+          <div className="mt-3 flex flex-col gap-4">
+            {grouped.map((g) => (
+              <div key={g.day}>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{shortDate(g.day)}</h3>
+                <ul className="mt-1 divide-y divide-line">
+                  {g.items.map((c) => {
+                    const n = cpCounts[c.id] ?? 0;
+                    return (
+                      <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
+                        <Icon name="flag" size={18} className="shrink-0 text-brand-ink" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold">{c.name}</div>
+                          <div className="text-xs font-semibold text-muted tabular-nums">{n} of {total} checked in</div>
+                        </div>
+                        <a href={`/scan/${ev.id}?cp=${c.id}`} className={buttonClass("secondary")}><Icon name="scan" size={18} />Scanner</a>
+                        <form action={deleteCheckpointAction.bind(null, ev.id, c.id)}>
+                          <ConfirmButton message={`Delete “${c.name}” on ${shortDate(g.day)} and its ${n} check-in${n === 1 ? "" : "s"}? This cannot be undone.`} className="text-danger-strong">Delete</ConfirmButton>
+                        </form>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
         <form action={addCheckpointAction.bind(null, ev.id)} className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4">
-          <div className="min-w-52 flex-1"><Field label="New checkpoint" name="name" placeholder="Day 1" /></div>
-          <div className="w-28"><Field label="Order" name="sort_order" defaultValue="0" /></div>
+          <div className="min-w-52 flex-1"><Field label="New checkpoint" name="name" placeholder="Registration" /></div>
+          <div className="w-44"><Field label="Date" name="day" type="date" defaultValue={days[0] ?? ev.starts_on} /></div>
+          <div className="w-24"><Field label="Order" name="sort_order" defaultValue="0" /></div>
           <SubmitButton>Add</SubmitButton>
         </form>
       </Card>

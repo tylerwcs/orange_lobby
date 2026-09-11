@@ -3,7 +3,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import type { Checkpoint, Event } from "@/lib/types";
 
 export async function listCheckpoints(eventId: string): Promise<Checkpoint[]> {
-  const { data, error } = await serviceClient().from("checkpoints").select("*").eq("event_id", eventId).order("sort_order").order("created_at");
+  const { data, error } = await serviceClient().from("checkpoints").select("*").eq("event_id", eventId).order("day").order("sort_order").order("created_at");
   if (error) throw error;
   return data as Checkpoint[];
 }
@@ -12,8 +12,8 @@ export async function getCheckpoint(id: string, eventId: string): Promise<Checkp
   if (error) throw error;
   return data as Checkpoint | null;
 }
-export async function createCheckpoint(event: Pick<Event, "id" | "org_id">, name: string, sort_order: number) {
-  const { error } = await serviceClient().from("checkpoints").insert({ org_id: event.org_id, event_id: event.id, name, sort_order });
+export async function createCheckpoint(event: Pick<Event, "id" | "org_id">, name: string, day: string, sort_order: number) {
+  const { error } = await serviceClient().from("checkpoints").insert({ org_id: event.org_id, event_id: event.id, name, day, sort_order });
   if (error) throw error;
 }
 export async function deleteCheckpoint(id: string, eventId: string) {
