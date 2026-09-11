@@ -69,3 +69,21 @@ describe("elapsed", () => {
     expect(elapsed("2026-09-30T10:05:00+08:00", now)).toBe("just now");
   });
 });
+
+describe("elapsed, timestamps ahead of now", () => {
+  const now = new Date("2026-09-11T10:00:00+08:00");
+
+  it("treats a small skew as just now, because clocks disagree by seconds", () => {
+    expect(elapsed("2026-09-11T10:02:00+08:00", now)).toBe("just now");
+  });
+
+  it("shows the date for a timestamp genuinely in the future", () => {
+    expect(elapsed("2026-09-30T08:33:00+08:00", now)).toBe("Wed 30 Sep");
+  });
+
+  it("reads the date in Malaysian time, not UTC", () => {
+    // 2026-09-30T23:30+08 is still 30 Sep locally but 30 Sep 15:30 UTC; an earlier
+    // KL morning scan that crosses back over UTC midnight must not report the day before.
+    expect(elapsed("2026-10-01T00:30:00+08:00", now)).toBe("Thu 1 Oct");
+  });
+});

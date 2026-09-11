@@ -6,10 +6,13 @@ import { elapsed } from "@/lib/text";
 
 const hhmm = (iso: string) => isoToLocalInput(iso).split("T")[1] ?? "";
 
-export function RecentScans({ rows, checkpointNames }: { rows: ScanRow[]; checkpointNames: Map<string, string> }) {
+export function RecentScans({ rows, checkpointNames, live }: { rows: ScanRow[]; checkpointNames: Map<string, string>; live?: React.ReactNode }) {
   return (
     <Card className="p-5">
-      <h2 className="mb-4 text-[17px] font-extrabold">Recent scans</h2>
+      <div className="mb-4 flex items-center gap-2.5">
+        <h2 className="text-[17px] font-extrabold">Recent scans</h2>
+        {live}
+      </div>
       {rows.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">No scans yet. They appear here as the crew works the door.</p>
       ) : (

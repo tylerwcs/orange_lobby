@@ -10,6 +10,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SummaryCard } from "@/components/admin/SummaryCard";
 import { ArrivalsPanel } from "@/components/admin/ArrivalsPanel";
 import { RecentScans } from "@/components/admin/RecentScans";
+import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { arrivalBuckets, arrivalWindow, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
 import { nowInKL, eventDays } from "@/lib/time";
 import { shortDate } from "@/lib/text";
@@ -69,7 +70,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
       {/* Scans on the left because that is the column that keeps growing; the short
           cards go right, which is what stops the dead space this layout used to have. */}
       <div className="grid items-start gap-6 xl:grid-cols-[1.55fr_1fr]">
-        <RecentScans rows={scans} checkpointNames={cpNames} />
+        <RecentScans rows={scans} checkpointNames={cpNames} live={<AutoRefresh seconds={15} />} />
         <div className="flex flex-col gap-6">
           <SummaryCard checkedIn={checkedIn} registered={total} walkIns={walkIns} />
           <ArrivalsPanel
