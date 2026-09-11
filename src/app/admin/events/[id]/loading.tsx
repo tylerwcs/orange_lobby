@@ -16,7 +16,7 @@ export default function AdminEventLoading() {
         <Skeleton className="ml-auto h-11 w-36" />
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[1.55fr_1fr]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <SkeletonCard><SkeletonRows rows={8} /></SkeletonCard>
         <div className="flex flex-col gap-6">
           <SkeletonCard className="space-y-3">
