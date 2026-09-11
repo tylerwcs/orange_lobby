@@ -7,8 +7,8 @@ import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { buttonClass } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { StatStrip } from "@/components/admin/StatStrip";
-import { CheckInPanel } from "@/components/admin/CheckInPanel";
+import { SummaryCard } from "@/components/admin/SummaryCard";
+import { ArrivalsPanel } from "@/components/admin/ArrivalsPanel";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { arrivalBuckets, arrivalWindow, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
 import { nowInKL, eventDays } from "@/lib/time";
@@ -38,7 +38,7 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const checkedIn = new Set(checkins.map((c) => c.attendee_id)).size;
   const walkIns = attendees.filter((a) => a.source === "walkin").length;
   const cpNames = new Map(cps.map((c) => [c.id, c.name]));
-  const scans = recentScans(checkins, attendees, 8);
+  const scans = recentScans(checkins, attendees, 11);
 
   // The window comes from the scans themselves: a fixed one shows empty bars on a day
   // whose door opened outside it, and hides arrivals that fell either side.
@@ -66,33 +66,31 @@ export default async function Overview({ params, searchParams }: { params: Promi
         subtitle={`${ev.name} · ${checkedIn} of ${total} checked in`}
         actions={<a href={`/scan/${ev.id}`} className={buttonClass("primary")}><Icon name="scan" size={18} />Open scanner</a>}
       />
-      <StatStrip stats={[
-        { label: "Checked in", value: checkedIn, lead: true },
-        { label: "Registered", value: total },
-        { label: "Walk-ins", value: walkIns },
-        { label: "Not yet in", value: Math.max(0, total - checkedIn) },
-      ]} />
-
-      <CheckInPanel
-        checkedIn={checkedIn}
-        registered={total}
-        buckets={buckets}
-        checkpoints={cps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))}
-        chartLabel={`Arrivals per ${BUCKET_MINUTES} minutes${at}${on}`}
-        emptyChartLabel={`No arrivals yet${cpName ? ` at ${cpName}` : ""}${days.length > 1 ? ` on ${shortDate(day)}` : ""}.`}
-        controls={(days.length > 1 || cps.length > 1) && (
-          <>
-            {days.length > 1 && days.map((d) => (
-              <Link key={d} href={chipHref({ day: d })} aria-current={d === day ? "true" : undefined} className={chip(d === day)}>{shortDate(d)}</Link>
-            ))}
-            {cps.length > 1 && cps.map((c) => (
-              <Link key={c.id} href={chipHref({ cp: c.id })} aria-current={c.id === cpId ? "true" : undefined} className={chip(c.id === cpId)}>{c.name}</Link>
-            ))}
-          </>
-        )}
-      />
-
-      <RecentScans rows={scans} checkpointNames={cpNames} />
+      {/* Scans on the left because that is the column that keeps growing; the short
+          cards go right, which is what stops the dead space this layout used to have. */}
+      <div className="grid items-start gap-6 xl:grid-cols-[1.55fr_1fr]">
+        <RecentScans rows={scans} checkpointNames={cpNames} />
+        <div className="flex flex-col gap-6">
+          <SummaryCard checkedIn={checkedIn} registered={total} walkIns={walkIns} />
+          <ArrivalsPanel
+            buckets={buckets}
+            registered={total}
+            checkpoints={cps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))}
+            chartLabel={`Per ${BUCKET_MINUTES} minutes${at}${on}`}
+            emptyChartLabel={`No arrivals yet${cpName ? ` at ${cpName}` : ""}${days.length > 1 ? ` on ${shortDate(day)}` : ""}.`}
+            controls={(days.length > 1 || cps.length > 1) && (
+              <>
+                {days.length > 1 && days.map((d) => (
+                  <Link key={d} href={chipHref({ day: d })} aria-current={d === day ? "true" : undefined} className={chip(d === day)}>{shortDate(d)}</Link>
+                ))}
+                {cps.length > 1 && cps.map((c) => (
+                  <Link key={c.id} href={chipHref({ cp: c.id })} aria-current={c.id === cpId ? "true" : undefined} className={chip(c.id === cpId)}>{c.name}</Link>
+                ))}
+              </>
+            )}
+          />
+        </div>
+      </div>
     </div>
   );
 }

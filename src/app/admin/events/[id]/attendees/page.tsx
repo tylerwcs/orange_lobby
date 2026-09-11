@@ -4,18 +4,31 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, assignTableAction, clearTableAction } from "../actions";
+import { addAttendeeAction, assignTableAction, clearTableAction, importMasterlistAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
-import { Icon } from "@/components/ui/Icon";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SearchInput } from "@/components/admin/SearchInput";
+import { Modal } from "@/components/admin/Modal";
 import { AttendeeTable, type AttendeeRow } from "@/components/admin/AttendeeTable";
-import { Card, buttonClass } from "@/components/ui/Card";
+import { buttonClass } from "@/components/ui/Card";
 import { paginate } from "@/lib/paginate";
 
 export const metadata = { title: "Attendees · Orange Lobby" };
 
 const PAGE_SIZE = 50;
+
+// A few thousand masterlist rows can outrun the default serverless timeout.
+export const maxDuration = 60;
+
+const IMPORT_COLUMNS: [string, string][] = [
+  ["Name", "Required. Blank rows are skipped and reported back."],
+  ["Email", "Matches existing attendees. Rows with one update; rows without are always added."],
+  ["Phone", "Kept as text, so leading zeros survive."],
+  ["Company", "Shown to crew on the scan card."],
+  ["Category", "Drives which agenda sessions the attendee sees."],
+  ["Table", "Shown on My seat."],
+  ["Seat", "Optional, shown next to the table."],
+];
 
 export default async function Attendees({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
@@ -50,17 +63,43 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         subtitle={`${total} registered · ${checkedInCount} checked in`}
         actions={
           <>
-            <a href="#add-attendee" className={buttonClass("secondary")}><Icon name="plus" size={18} />Add attendee</a>
-            <Link href={`/admin/events/${ev.id}/attendees/import`} className={buttonClass("secondary")}><Icon name="download" size={18} />Import masterlist</Link>
+            <Modal title="Add an attendee" hint="For someone who is not on the masterlist and is not registering themselves." trigger="Add attendee" icon="plus">
+              <form action={addAttendeeAction.bind(null, ev.id)} className="grid gap-3 md:grid-cols-2">
+                <Field label="Name" name="name" /><Field label="Email" name="email" />
+                <Field label="Phone" name="phone" /><Field label="Company" name="company" />
+                <Field label="Category" name="category" /><Field label="Table" name="table_no" />
+                <Field label="Seat" name="seat_no" />
+                <input type="hidden" name="source" value="import" />
+                <div className="md:col-span-2"><SubmitButton>Add attendee</SubmitButton></div>
+              </form>
+            </Modal>
+            <Modal title="Import masterlist" hint="The first sheet is read. Rows are matched by email, so re-importing the same file updates in place rather than duplicating." trigger="Import masterlist" icon="download">
+              <form action={importMasterlistAction.bind(null, ev.id)} className="grid gap-4">
+                <label className="block text-sm">
+                  <span className="mb-1 block font-bold">Excel file (.xlsx)</span>
+                  <input type="file" name="file" accept=".xlsx" required className="block w-full rounded-[var(--radius-control)] border border-dashed border-line bg-canvas p-4 text-sm file:mr-3 file:rounded-[8px] file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-white" />
+                </label>
+                <SubmitButton>Import attendees</SubmitButton>
+              </form>
+              <div className="mt-5 border-t border-line pt-4">
+                <h3 className="text-sm font-extrabold">Columns it looks for</h3>
+                <p className="mt-0.5 text-xs text-muted">Header row, any order, case-insensitive. Anything else is kept under its own header and can appear on the scan card.</p>
+                <dl className="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
+                  {IMPORT_COLUMNS.map(([c, note]) => (
+                    <div key={c}><dt className="font-mono font-bold">{c}</dt><dd className="text-muted">{note}</dd></div>
+                  ))}
+                </dl>
+              </div>
+            </Modal>
           </>
         }
       />
       {sp.imported !== undefined && (
-        <p className="rounded bg-green-50 p-3 text-sm text-green-800">
+        <p role="status" className="rounded-[var(--radius-control)] bg-ok-soft p-3 text-sm font-semibold text-ok-strong">
           Imported {sp.imported}, updated {sp.updated}. {sp.skipped ? `Skipped: ${sp.skipped}` : ""}
         </p>
       )}
-      {sp.error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{sp.error}</p>}
+      {sp.error && <p role="alert" className="rounded-[var(--radius-control)] bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{sp.error}</p>}
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput initial={sp.q ?? ""} />
       </div>
@@ -93,18 +132,6 @@ export default async function Attendees({ params, searchParams }: { params: Prom
             ? <Link href={pageHref(page + 1)} className={buttonClass("secondary")}>Next</Link>
             : <span className={`${buttonClass("secondary")} opacity-50`} aria-disabled="true">Next</span>}
         </div>
-      </div>
-      <div id="add-attendee" className="scroll-mt-4">
-        <Card className="p-4">
-          <h2 className="font-bold">Add an attendee by hand</h2>
-          <form action={addAttendeeAction.bind(null, ev.id)} className="mt-4 grid gap-3 md:grid-cols-3">
-            <Field label="Name" name="name" /><Field label="Email" name="email" /><Field label="Phone" name="phone" />
-            <Field label="Company" name="company" /><Field label="Category" name="category" /><Field label="Table" name="table_no" />
-            <Field label="Seat" name="seat_no" />
-            <input type="hidden" name="source" value="import" />
-            <div className="md:col-span-3"><SubmitButton>Add</SubmitButton></div>
-          </form>
-        </Card>
       </div>
     </div>
   );

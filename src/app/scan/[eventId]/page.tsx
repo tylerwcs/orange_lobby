@@ -28,7 +28,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
               </a>
             </li>
           ))}
-          {cps.length === 0 && <li className="text-sm text-red-700">No checkpoints configured. Add them in admin.</li>}
+          {cps.length === 0 && <li className="text-sm text-red-700">No checkpoints configured. Add them in Settings.</li>}
         </ul>
       </main>
     );

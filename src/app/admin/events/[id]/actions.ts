@@ -32,7 +32,7 @@ const httpUrl = (v: string | null) => (v && /^https?:\/\//i.test(v) ? v : null);
 export async function createEventAction(formData: FormData) {
   const { orgId } = await requireAdmin();
   const name = str(formData, "name");
-  if (!name) redirect("/admin/events/new?error=Name+is+required");
+  if (!name) redirect("/admin/events?error=Name+is+required");
   const slug = str(formData, "slug") ?? slugify(name);
   const ev = await createEvent(orgId, { name, slug: slugify(slug) });
   redirect(`/admin/events/${ev.id}`);
@@ -91,11 +91,11 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const file = formData.get("file");
-  if (!(file instanceof File)) redirect(`/admin/events/${eventId}/attendees/import?error=Choose+a+file`);
+  if (!(file instanceof File)) redirect(`/admin/events/${eventId}/attendees?error=Choose+a+file`);
   let parsed: MasterlistResult | null = null;
   try { parsed = await parseMasterlist(await file.arrayBuffer()); }
-  catch (e) { redirect(`/admin/events/${eventId}/attendees/import?error=${encodeURIComponent((e as Error).message)}`); }
-  if (!parsed) redirect(`/admin/events/${eventId}/attendees/import?error=Could+not+read+file`);
+  catch (e) { redirect(`/admin/events/${eventId}/attendees?error=${encodeURIComponent((e as Error).message)}`); }
+  if (!parsed) redirect(`/admin/events/${eventId}/attendees?error=Could+not+read+file`);
   // One read of the existing roster instead of a lookup per row; new rows go out in one bulk insert.
   const existingByEmail = new Map((await listAttendees(ev.id)).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
   const queued = new Map<string, AttendeeInput>();
@@ -280,17 +280,18 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const name = str(formData, "name");
-  if (!name) redirect(`/admin/events/${eventId}/checkpoints`);
+  if (!name) redirect(`/admin/events/${eventId}/settings?error=Checkpoint+name+is+required`);
   await createCheckpoint(ev, name, Number(str(formData, "sort_order") ?? 0));
-  revalidatePath(`/admin/events/${eventId}/checkpoints`);
-  redirect(`/admin/events/${eventId}/checkpoints`);
+  revalidatePath(`/admin/events/${eventId}/settings`);
+  redirect(`/admin/events/${eventId}/settings?saved=1`);
 }
 
 export async function deleteCheckpointAction(eventId: string, cpId: string) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
   await deleteCheckpoint(cpId, eventId);
-  revalidatePath(`/admin/events/${eventId}/checkpoints`);
+  revalidatePath(`/admin/events/${eventId}/settings`);
+  revalidatePath(`/admin/events/${eventId}`);
 }
 
 // ---- Archive / purge ----

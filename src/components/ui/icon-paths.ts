@@ -1,7 +1,7 @@
 export const ICON_NAMES = [
   "calendar", "seat", "map", "info", "megaphone", "mic", "file", "chat", "check", "phone", "link",
   "home", "grid", "user", "qr", "chevron", "search", "star", "logout", "scan", "users", "download", "settings", "layers", "flag",
-  "bell", "plus", "filter", "clock",
+  "bell", "plus", "filter", "clock", "close",
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -34,6 +34,7 @@ const PATHS: Record<IconName, string> = {
   bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   filter: '<path d="M3 6h18M7 12h10M10 18h4"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 

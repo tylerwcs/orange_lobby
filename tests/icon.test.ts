@@ -8,7 +8,7 @@ describe("icons", () => {
   it("includes the names the portal and admin rely on", () => {
     for (const n of ["calendar", "seat", "map", "info", "megaphone", "link", "home", "user", "qr", "grid", "scan"]) expect(ICON_NAMES).toContain(n);
   });
-  it("includes bell, plus, filter and clock by name", () => {
-    for (const n of ["bell", "plus", "filter", "clock"]) expect(ICON_NAMES).toContain(n);
+  it("includes bell, plus, filter, clock and close by name", () => {
+    for (const n of ["bell", "plus", "filter", "clock", "close"]) expect(ICON_NAMES).toContain(n);
   });
 });

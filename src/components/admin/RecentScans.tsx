@@ -14,10 +14,10 @@ export function RecentScans({ rows, checkpointNames }: { rows: ScanRow[]; checkp
         <p className="py-6 text-center text-sm text-muted">No scans yet. They appear here as the crew works the door.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left">
+          <table className="w-full min-w-[520px] text-left">
             <thead>
               <tr className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
-                <th className="pb-2.5">Attendee</th><th className="pb-2.5">Company</th><th className="pb-2.5">Table</th>
+                <th className="pb-2.5">Attendee</th><th className="pb-2.5">Table</th>
                 <th className="pb-2.5">Checkpoint</th><th className="pb-2.5">Time</th><th className="pb-2.5">Status</th>
               </tr>
             </thead>
@@ -25,7 +25,6 @@ export function RecentScans({ rows, checkpointNames }: { rows: ScanRow[]; checkp
               {rows.map((r) => (
                 <tr key={r.checkinId} className="border-t border-line">
                   <td className="py-3 text-[13px] font-semibold">{r.name}</td>
-                  <td className="py-3 text-[13px] font-semibold text-muted">{r.company ?? "—"}</td>
                   <td className="py-3">{r.tableNo ? <Badge tone="brand">{r.tableNo}</Badge> : <span className="text-muted">—</span>}</td>
                   <td className="py-3 text-[13px] font-semibold text-muted">{checkpointNames.get(r.checkpointId) ?? "—"}</td>
                   {/* Absolute time answers "when"; the elapsed line is what says the door is still moving. */}
