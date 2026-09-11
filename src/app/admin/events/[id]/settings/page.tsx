@@ -13,8 +13,9 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card } from "@/components/ui/Card";
-import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, setActiveCheckpointAction } from "../actions";
+import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
+import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
@@ -100,9 +101,18 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
       {/* Also outside the settings form: adding and deleting a checkpoint are their own posts. */}
       <Card className="p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-base font-extrabold">Checkpoints</h2>
-          <p className="max-w-md text-xs text-muted">Mark the one you are running. The dashboard counts it, the scanner opens on it, and checking a selection in uses it. A day can hold several — registration, lunch, a dinner door.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-extrabold">Checkpoints</h2>
+            <p className="mt-0.5 max-w-md text-xs text-muted">The doors this event runs. Which one is live is chosen on the Overview. A day can hold several — registration, lunch, a dinner door.</p>
+          </div>
+          <Modal title="New checkpoint" hint="A checkpoint is a moment on a date, so several can share one day." trigger="New checkpoint" icon="plus" iconOnly>
+            <form action={addCheckpointAction.bind(null, ev.id)} className="grid gap-4 sm:grid-cols-2">
+              <Field label="Name" name="name" placeholder="Registration" />
+              <Field label="Date" name="day" type="date" defaultValue={days[0] ?? ev.starts_on} />
+              <div className="sm:col-span-2"><SubmitButton>Add checkpoint</SubmitButton></div>
+            </form>
+          </Modal>
         </div>
         {grouped.length === 0 ? (
           <p className="mt-3 text-sm text-muted">No checkpoints yet. Add &ldquo;Registration&rdquo; on the first morning to get started.</p>
@@ -114,11 +124,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                 <CheckpointList
                   day={shortDate(g.day)}
                   items={g.items}
-                  eventId={ev.id}
                   counts={cpCounts}
                   total={total}
                   activeId={running?.id ?? null}
-                  setActive={setActiveCheckpointAction.bind(null, ev.id)}
                   reorder={reorderCheckpointsAction.bind(null, ev.id, g.day)}
                   deleteCheckpoint={deleteCheckpointAction.bind(null, ev.id)}
                 />
@@ -126,11 +134,6 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             ))}
           </div>
         )}
-        <form action={addCheckpointAction.bind(null, ev.id)} className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4">
-          <div className="min-w-52 flex-1"><Field label="New checkpoint" name="name" placeholder="Registration" /></div>
-          <div className="w-44"><Field label="Date" name="day" type="date" defaultValue={days[0] ?? ev.starts_on} /></div>
-          <SubmitButton>Add</SubmitButton>
-        </form>
       </Card>
 
       <form action={updateSettingsAction.bind(null, ev.id)} className="space-y-4">

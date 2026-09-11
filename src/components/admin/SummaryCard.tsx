@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Meter } from "@/components/ui/Meter";
 
@@ -7,12 +6,11 @@ import { Meter } from "@/components/ui/Meter";
  * band. The progress meter lives here too, so the check-in figure is stated once on the
  * page rather than twice in two treatments.
  *
- * Naming the checkpoint is load-bearing: "34 of 43" never said 34 of what — through the
- * door, at dinner, or anyone scanned anywhere. It is stated, not chosen, because the choice
- * belongs to the one switch in Settings that the scanner follows too.
+ * The checkpoint is not named here. The picker in the page header sits directly above this
+ * card and says it once; repeating it was the duplication this card already lost once. It
+ * still reaches the meter's label, which is where a screen reader needs it.
  */
-export function SummaryCard({ eventId, checkedIn, registered, scope }: {
-  eventId: string;
+export function SummaryCard({ checkedIn, registered, scope }: {
   checkedIn: number;
   registered: number;
   /** The running checkpoint, or null when the event has none yet. */
@@ -28,12 +26,7 @@ export function SummaryCard({ eventId, checkedIn, registered, scope }: {
   return (
     <Card className="p-5">
       <h2 className="text-[17px] font-extrabold">Summary</h2>
-      <p className="mt-1.5 text-sm text-muted">
-        {scope ? <>Running <span className="font-bold text-ink">{scope}</span>. </> : <>No checkpoint is running. </>}
-        <Link href={`/admin/events/${eventId}/settings`} className="font-bold text-brand-ink">Change</Link>
-      </p>
-
-      <dl className="mt-3">
+      <dl className="mt-1">
         {rows.map((r, i) => (
           <div key={r.label} className={`flex items-baseline justify-between py-3 ${i < rows.length - 1 ? "border-b border-line" : ""}`}>
             <dt className="text-[13px] font-bold text-muted">{r.label}</dt>

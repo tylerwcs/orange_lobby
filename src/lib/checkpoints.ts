@@ -1,4 +1,7 @@
 import type { Checkpoint } from "@/lib/types";
+import { shortDate } from "@/lib/text";
+
+export type CheckpointOption = { id: string; label: string };
 
 /**
  * A checkpoint is a moment on a date, not a whole day: one event day can hold
@@ -47,4 +50,14 @@ export function activeCheckpoint(activeId: string | null, checkpoints: Checkpoin
   if (chosen) return chosen;
   const byDay = checkpointsByDay(checkpoints);
   return byDay.find((g) => g.day === today)?.items[0] ?? byDay[0]?.items[0] ?? null;
+}
+
+/** Checkpoints as pickable options, dated only when the event runs longer than a day. */
+export function checkpointOptions(checkpoints: Checkpoint[]): CheckpointOption[] {
+  const days = checkpointsByDay(checkpoints);
+  const multiDay = days.length > 1;
+  return days.flatMap((g) => g.items.map((c) => ({
+    id: c.id,
+    label: multiDay ? `${c.name} · ${shortDate(g.day)}` : c.name,
+  })));
 }

@@ -12,6 +12,12 @@ Run `npm run dev`, sign in, and work through these.
 ## Admin — Overview (`/admin`)
 
 - [ ] `/admin` lands on the live event's Overview, not the event list. With no live event it lands on `/admin/events`.
+- [x] **The running checkpoint is a dropdown in the Overview header, beside Open scanner.** Changing it moves
+      the figures under it, the scanner and the bulk check-in default, and toasts. *(Verified.)*
+- [x] Settings lists the checkpoints without per-row actions — drag handle, name, count, Delete. Reordering
+      still has a keyboard route: **focus the drag handle and use the arrow keys.** *(Worth one try; a drag with
+      no keyboard equivalent fails WCAG 2.5.7, and this is what replaced the pair of arrow buttons.)*
+- [x] Adding a checkpoint is an icon button that opens a modal, which closes itself and toasts. *(Verified.)*
 - [x] **The Summary card names what it counts** — the checkpoint Settings says is running, with a link to
       change it. There is no picker on the dashboard any more, so it cannot disagree with the scanner.
       *(Verified: marking Dinner door in Settings moved the dashboard to 26 of 43, opened the scanner on it, and

@@ -15,12 +15,14 @@ import { buttonClass, type ButtonVariant } from "@/components/ui/Card";
  * URL is therefore what closes it: when the address changes, the task that opened this
  * dialog is over.
  */
-export function Modal({ title, hint, trigger, icon, variant = "secondary", children }: {
+export function Modal({ title, hint, trigger, icon, variant = "secondary", iconOnly = false, children }: {
   title: string;
   hint?: string;
   trigger: string;
   icon?: IconName;
   variant?: ButtonVariant;
+  /** Square button, no label — `trigger` becomes the accessible name and the tooltip. */
+  iconOnly?: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -36,8 +38,13 @@ export function Modal({ title, hint, trigger, icon, variant = "secondary", child
 
   return (
     <>
-      <button type="button" className={buttonClass(variant)} onClick={() => ref.current?.showModal()}>
-        {icon && <Icon name={icon} size={18} />}{trigger}
+      <button
+        type="button"
+        onClick={() => ref.current?.showModal()}
+        {...(iconOnly ? { "aria-label": trigger, title: trigger } : {})}
+        className={`${buttonClass(variant)} ${iconOnly ? "w-11 px-0" : ""}`}
+      >
+        {icon && <Icon name={icon} size={18} />}{!iconOnly && trigger}
       </button>
       <dialog
         ref={ref}

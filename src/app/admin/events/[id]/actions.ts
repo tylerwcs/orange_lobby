@@ -387,7 +387,9 @@ export async function reorderCheckpointsAction(eventId: string, day: string, ord
 export async function setActiveCheckpointAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  const back = `/admin/events/${eventId}/settings`;
+  // Chosen from the Overview, and settable from anywhere else that grows a control for it,
+  // so the flash lands where the organiser is rather than always on Settings.
+  const back = `/admin/events/${eventId}`;
   const id = String(formData.get("checkpoint_id") ?? "");
   // Validated against this event's own checkpoints, so a posted id cannot point the
   // dashboard and the scanner at somebody else's door.
@@ -395,7 +397,7 @@ export async function setActiveCheckpointAction(eventId: string, formData: FormD
   if (!chosen) redirect(flashPath(back, "That checkpoint no longer exists.", "error"));
   await updateEvent(eventId, { active_checkpoint_id: chosen.id });
   revalidatePath(back);
-  revalidatePath(`/admin/events/${eventId}`);
+  revalidatePath(`/admin/events/${eventId}/settings`);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(flashPath(back, `Now running “${chosen.name}”.`));
 }

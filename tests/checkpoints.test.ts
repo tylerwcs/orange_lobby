@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { activeCheckpoint, checkpointsByDay, pickCheckpoint } from "@/lib/checkpoints";
+import { activeCheckpoint, checkpointOptions, checkpointsByDay, pickCheckpoint } from "@/lib/checkpoints";
 import type { Checkpoint } from "@/lib/types";
 
 const cp = (id: string, name: string, day: string, sort_order = 0): Checkpoint =>
@@ -86,5 +86,26 @@ describe("activeCheckpoint", () => {
   it("respects the running order within a day, not insertion order", () => {
     const late = cp("c9", "Aardvark", "2026-09-30", 5);
     expect(activeCheckpoint(null, [late, reg], "2026-09-30")).toEqual(reg);
+  });
+});
+
+describe("checkpointOptions", () => {
+  it("dates every label when the event runs more than a day", () => {
+    expect(checkpointOptions([cp("c1", "Registration", "2026-09-30"), cp("c2", "Day 2", "2026-10-01")]))
+      .toEqual([{ id: "c1", label: "Registration · Wed 30 Sep" }, { id: "c2", label: "Day 2 · Thu 1 Oct" }]);
+  });
+
+  it("leaves labels undated on a single-day event, where the date says nothing", () => {
+    expect(checkpointOptions([cp("c1", "Registration", "2026-09-30", 0), cp("c2", "Lunch", "2026-09-30", 1)]))
+      .toEqual([{ id: "c1", label: "Registration" }, { id: "c2", label: "Lunch" }]);
+  });
+
+  it("lists them in running order, days first", () => {
+    const rows = [cp("c3", "Day 2", "2026-10-01"), cp("c2", "Lunch", "2026-09-30", 1), cp("c1", "Registration", "2026-09-30", 0)];
+    expect(checkpointOptions(rows).map((o) => o.id)).toEqual(["c1", "c2", "c3"]);
+  });
+
+  it("has nothing to offer when there are no checkpoints", () => {
+    expect(checkpointOptions([])).toEqual([]);
   });
 });
