@@ -51,9 +51,8 @@ function ShareLink({ label, url }: { label: string; url: string }) {
   );
 }
 
-export default async function Settings({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; purged?: string }> }) {
+export default async function Settings({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { saved, error, purged } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const qs = ev.registration_questions;
@@ -67,9 +66,6 @@ export default async function Settings({ params, searchParams }: { params: Promi
   return (
     <div className="space-y-4">
       <AdminHeader title="Settings" subtitle={ev.name} />
-      {saved && <p role="status" className="rounded-[var(--radius-control)] bg-ok-soft p-3 text-sm font-semibold text-ok-strong">Saved.</p>}
-      {purged && <p role="status" className="rounded-[var(--radius-control)] bg-ok-soft p-3 text-sm font-semibold text-ok-strong">Personal data purged.</p>}
-      {error && <p role="alert" className="rounded-[var(--radius-control)] bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{error}</p>}
 
       {/* Status and links sit outside the settings form: each status is its own form, and
           HTML has no nested forms. They save on click rather than with the button below. */}

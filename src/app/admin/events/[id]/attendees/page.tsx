@@ -122,17 +122,6 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           </>
         }
       />
-      {sp.imported !== undefined && (
-        <p role="status" className="rounded-[var(--radius-control)] bg-ok-soft p-3 text-sm font-semibold text-ok-strong">
-          Imported {sp.imported}, updated {sp.updated}. {sp.skipped ? `Skipped: ${sp.skipped}` : ""}
-        </p>
-      )}
-      {sp.adopted !== undefined && (
-        <p role="status" className="rounded-[var(--radius-control)] bg-ok-soft p-3 text-sm font-semibold text-ok-strong">
-          Added “{sp.column}” and filled it in for {sp.adopted} {sp.adopted === "1" ? "attendee" : "attendees"} from what was already on file.
-        </p>
-      )}
-      {sp.error && <p role="alert" className="rounded-[var(--radius-control)] bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{sp.error}</p>}
       <SearchInput initial={sp.q ?? ""} matches={rows.length} total={total} />
       <AttendeeTable
         key={`${page}:${sp.q ?? ""}`}

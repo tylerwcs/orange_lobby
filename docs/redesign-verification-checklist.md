@@ -57,7 +57,14 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
       `/attendees/<id>`. Escape, the close button and the backdrop all close it and take the URL back.
 - [ ] **Pasting that URL into a fresh tab renders the full page instead**, with the same content. That split is
       the whole point of the intercepted route; if the modal appears on a hard load, the interception is wrong.
-- [ ] Save inside the dialog keeps you in the dialog and shows "Saved." Delete closes it and returns to the list.
+- [ ] **Save inside the dialog closes it**, returns to the list, and raises a toast naming the attendee. Delete
+      does the same. Neither should leave the panel hanging open over its own result.
+- [ ] **Every other admin action toasts too** — settings, modules, the info page, adding a session, posting an
+      announcement, adding or deleting a checkpoint, importing a masterlist, adding / renaming / deleting a
+      column. No page should still render a green or red banner above its heading.
+- [ ] The toast leaves the address bar clean: after it appears, reload. It must **not** come back.
+- [ ] An error toast (try saving an attendee with the name blank) is red, announced to a screen reader, and
+      stays on screen about twice as long as a success.
 - [ ] **Copy link** puts the personal URL on the clipboard. On an insecure origin it falls back to a prompt box
       rather than failing silently — worth seeing once.
 - [ ] **Download QR** saves a PNG named after the attendee. It is an `<a download>` on a data URL; confirm the

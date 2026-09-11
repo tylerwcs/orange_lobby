@@ -3,15 +3,14 @@ import { requireAdmin } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { AttendeeDetail, loadAttendeeDetail } from "@/components/admin/AttendeeDetail";
 
-export default async function AttendeePage({ params, searchParams }: { params: Promise<{ id: string; attendeeId: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
+export default async function AttendeePage({ params }: { params: Promise<{ id: string; attendeeId: string }> }) {
   const { id, attendeeId } = await params;
-  const { saved, error } = await searchParams;
   const { orgId } = await requireAdmin();
   const data = await loadAttendeeDetail(id, attendeeId, orgId);
   if (!data) notFound();
   return (
     <Card className="mx-auto max-w-5xl p-5">
-      <AttendeeDetail data={data} saved={saved} error={error} />
+      <AttendeeDetail data={data} />
     </Card>
   );
 }

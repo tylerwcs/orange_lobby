@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 
 /**
@@ -8,22 +8,34 @@ import { Icon } from "@/components/ui/Icon";
  * client-side navigation, so the URL is real — the panel can be linked, refreshed into
  * the full page, and closed with the back button — while the list stays behind it.
  *
- * `onClose` is the single way out: it catches Escape, the close button and the backdrop
- * alike, and steps back in history so the URL matches what is on screen.
+ * Two ways out, and they must not be confused. Dismissing it (Escape, the close button,
+ * the backdrop) steps back in history so the URL matches what is on screen. Navigating
+ * away — which is what saving does, since the save lands on the list — closes the dialog
+ * where it stands: going back from there would undo the very navigation that finished the
+ * task.
  */
-export function RouteModal({ label, children }: { label: string; children: React.ReactNode }) {
+export function RouteModal({ label, path, children }: { label: string; path: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  // Set false for the one close that must not rewind history.
+  const dismissing = useRef(true);
 
   useEffect(() => {
-    if (!ref.current?.open) ref.current?.showModal();
-  }, []);
+    const el = ref.current;
+    if (!el) return;
+    if (pathname === path) {
+      if (!el.open) { dismissing.current = true; el.showModal(); }
+      return;
+    }
+    if (el.open) { dismissing.current = false; el.close(); }
+  }, [pathname, path]);
 
   return (
     <dialog
       ref={ref}
       aria-label={label}
-      onClose={() => router.back()}
+      onClose={() => { if (dismissing.current) router.back(); }}
       onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }}
       // `m-auto` is load-bearing: a dialog centres itself through the user-agent's
       // `margin: auto`, which Tailwind's preflight zeroes on every element.

@@ -12,9 +12,8 @@ import { addAgendaItemAction, deleteAgendaItemAction } from "../actions";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
 
-export default async function AgendaAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
+export default async function AgendaAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { error } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const days = groupByDay(await listAgenda(ev.id));
@@ -25,7 +24,6 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
         <h1 className="text-2xl font-extrabold">Agenda</h1>
         <p className="text-sm text-muted">{total} session{total === 1 ? "" : "s"} across {days.length} day{days.length === 1 ? "" : "s"}</p>
       </div>
-      {error && <p role="alert" className="rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-4">

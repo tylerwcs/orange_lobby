@@ -20,6 +20,7 @@ import { parseCategories } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { modulesFromForm } from "@/lib/modules-form";
+import { flashPath } from "@/lib/flash";
 import type { EventModule } from "@/lib/modules";
 
 const str = (fd: FormData, k: string) => {
@@ -33,7 +34,7 @@ const httpUrl = (v: string | null) => (v && /^https?:\/\//i.test(v) ? v : null);
 export async function createEventAction(formData: FormData) {
   const { orgId } = await requireAdmin();
   const name = str(formData, "name");
-  if (!name) redirect("/admin/events?error=Name+is+required");
+  if (!name) redirect(flashPath("/admin/events", "An event needs a name.", "error"));
   const slug = str(formData, "slug") ?? slugify(name);
   const ev = await createEvent(orgId, { name, slug: slugify(slug) });
   redirect(`/admin/events/${ev.id}`);
@@ -46,7 +47,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   try {
     questions = questionsFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; });
   } catch (e) {
-    redirect(`/admin/events/${eventId}/settings?error=${encodeURIComponent((e as Error).message)}`);
+    redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }
   const extras = (str(formData, "scan_extra_fields") ?? "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 2);
   await updateEvent(eventId, {
@@ -69,7 +70,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     scan_extra_fields: extras,
   });
   revalidatePath(`/admin/events/${eventId}`);
-  redirect(`/admin/events/${eventId}/settings?saved=1`);
+  redirect(flashPath(`/admin/events/${eventId}/settings`, "Settings saved."));
 }
 
 export async function setStatusAction(eventId: string, status: EventStatus) {
@@ -92,11 +93,11 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const file = formData.get("file");
-  if (!(file instanceof File)) redirect(`/admin/events/${eventId}/attendees?error=Choose+a+file`);
+  if (!(file instanceof File)) redirect(flashPath(`/admin/events/${eventId}/attendees`, "Choose a file first.", "error"));
   let parsed: MasterlistResult | null = null;
   try { parsed = await parseMasterlist(await file.arrayBuffer(), eventFields(ev.registration_questions, ev.attendee_fields)); }
-  catch (e) { redirect(`/admin/events/${eventId}/attendees?error=${encodeURIComponent((e as Error).message)}`); }
-  if (!parsed) redirect(`/admin/events/${eventId}/attendees?error=Could+not+read+file`);
+  catch (e) { redirect(flashPath(`/admin/events/${eventId}/attendees`, (e as Error).message, "error")); }
+  if (!parsed) redirect(flashPath(`/admin/events/${eventId}/attendees`, "Could not read that file.", "error"));
   // One read of the existing roster instead of a lookup per row; new rows go out in one bulk insert.
   const existingByEmail = new Map((await listAttendees(ev.id)).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
   const queued = new Map<string, AttendeeInput>();
@@ -124,7 +125,11 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const inserted = await createAttendees(ev, toInsert, "import");
   const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
   revalidatePath(`/admin/events/${eventId}/attendees`);
-  redirect(`/admin/events/${eventId}/attendees?imported=${inserted}&updated=${updated}&skipped=${encodeURIComponent(skipped)}`);
+  redirect(flashPath(
+    `/admin/events/${eventId}/attendees`,
+    `Imported ${inserted}, updated ${updated}.${skipped ? ` Skipped — ${skipped}` : ""}`,
+    parsed.skipped.length > 0 ? "error" : "ok",
+  ));
 }
 
 /**
@@ -149,7 +154,7 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const input = attendeeInputFrom(ev, formData);
-  if (!input.name) redirect(`/admin/events/${eventId}/attendees?error=Name+required`);
+  if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees`, "An attendee needs a name.", "error"));
   const source = (str(formData, "source") ?? "walkin") as "walkin" | "import";
   const a = input.email ? (await upsertByEmail(ev, { ...input, email: input.email }, source)).attendee : await createAttendee(ev, input, source);
   revalidatePath(`/admin/events/${eventId}/attendees`);
@@ -161,19 +166,22 @@ export async function updateAttendeeAction(eventId: string, attendeeId: string, 
   const ev = await requireEvent(eventId, orgId);
   const existing = await requireEventAttendee(eventId, attendeeId);
   const input = attendeeInputFrom(ev, formData, existing.extra);
-  if (!input.name) redirect(`/admin/events/${eventId}/attendees/${attendeeId}?error=Name+is+required`);
+  if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees/${attendeeId}`, "An attendee needs a name.", "error"));
   await updateAttendee(attendeeId, input);
   revalidatePath(`/admin/events/${eventId}/attendees`);
-  redirect(`/admin/events/${eventId}/attendees/${attendeeId}?saved=1`);
+  // Back to the list rather than to the panel: saving is the end of the task, so the panel
+  // opened to do it closes, and the toast carries the result out with it.
+  redirect(flashPath(`/admin/events/${eventId}/attendees`, `Saved ${input.name}.`));
 }
 
 export async function deleteAttendeeAction(eventId: string, attendeeId: string) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
-  await requireEventAttendee(eventId, attendeeId);
+  // Loaded before the delete, because the toast needs a name the row will no longer have.
+  const gone = await requireEventAttendee(eventId, attendeeId);
   await deleteAttendee(attendeeId);
   revalidatePath(`/admin/events/${eventId}/attendees`);
-  redirect(`/admin/events/${eventId}/attendees`);
+  redirect(flashPath(`/admin/events/${eventId}/attendees`, `Deleted ${gone.name}.`));
 }
 
 /**
@@ -186,7 +194,7 @@ export async function markCheckedInAction(eventId: string, formData: FormData) {
   const ev = await requireEvent(eventId, orgId);
   const checkpointId = String(formData.get("checkpoint_id") ?? "");
   const onEvent = (await listCheckpoints(ev.id)).some((c) => c.id === checkpointId);
-  if (!onEvent) redirect(`/admin/events/${ev.id}/attendees?error=Pick+a+checkpoint+first`);
+  if (!onEvent) redirect(flashPath(`/admin/events/${ev.id}/attendees`, "Pick a checkpoint first.", "error"));
   const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
   const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
   await recordCheckins(ev, checkpointId, ids, userId);
@@ -241,7 +249,7 @@ export async function addAttendeeFieldAction(eventId: string, formData: FormData
     type: String(formData.get("type") ?? "text"),
     options: String(formData.get("options") ?? ""),
   }, ev.registration_questions.map((q) => q.key));
-  if (!result.ok) redirect(`${columnsBack(eventId)}?error=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(flashPath(columnsBack(eventId), result.error, "error"));
   await updateEvent(eventId, { attendee_fields: result.fields });
 
   // A masterlist header or a registration answer may already hold this fact under another
@@ -257,26 +265,30 @@ export async function addAttendeeFieldAction(eventId: string, formData: FormData
   }
 
   revalidatePath(columnsBack(eventId));
-  redirect(adopted > 0 ? `${columnsBack(eventId)}?adopted=${adopted}&column=${encodeURIComponent(field.label)}` : columnsBack(eventId));
+  redirect(flashPath(columnsBack(eventId), adopted > 0
+    ? `Added “${field.label}” and filled it in for ${adopted} ${adopted === 1 ? "attendee" : "attendees"} from what was already on file.`
+    : `Added “${field.label}”.`));
 }
 
 export async function renameAttendeeFieldAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const result = renameField(ev.attendee_fields, String(formData.get("key") ?? ""), String(formData.get("label") ?? ""));
-  if (!result.ok) redirect(`${columnsBack(eventId)}?error=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(flashPath(columnsBack(eventId), result.error, "error"));
   await updateEvent(eventId, { attendee_fields: result.fields });
   revalidatePath(columnsBack(eventId));
-  redirect(columnsBack(eventId));
+  redirect(flashPath(columnsBack(eventId), `Column renamed to “${String(formData.get("label") ?? "").trim()}”.`));
 }
 
 /** Drops the definition only. Every attendee keeps the value, so re-adding the column restores it. */
 export async function deleteAttendeeFieldAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  await updateEvent(eventId, { attendee_fields: removeField(ev.attendee_fields, String(formData.get("key") ?? "")) });
+  const key = String(formData.get("key") ?? "");
+  const gone = ev.attendee_fields.find((f) => f.key === key);
+  await updateEvent(eventId, { attendee_fields: removeField(ev.attendee_fields, key) });
   revalidatePath(columnsBack(eventId));
-  redirect(columnsBack(eventId));
+  redirect(flashPath(columnsBack(eventId), `Removed “${gone?.label ?? "the column"}”. What people entered is kept.`));
 }
 
 // ---- Agenda / announcements / info / checkpoints ----
@@ -287,7 +299,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
   const day = str(formData, "day");
   const starts_at = str(formData, "starts_at");
   const title = str(formData, "title");
-  if (!day || !starts_at || !title) redirect(`/admin/events/${eventId}/agenda?error=Day,+start+time+and+title+are+required`);
+  if (!day || !starts_at || !title) redirect(flashPath(`/admin/events/${eventId}/agenda`, "A session needs a day, a start time and a title.", "error"));
   await createAgendaItem(ev, {
     day,
     starts_at,
@@ -299,7 +311,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
     sort_order: Number(str(formData, "sort_order") ?? 0),
   });
   revalidatePath(`/admin/events/${eventId}/agenda`);
-  redirect(`/admin/events/${eventId}/agenda`);
+  redirect(flashPath(`/admin/events/${eventId}/agenda`, `“${title}” added.`));
 }
 
 export async function deleteAgendaItemAction(eventId: string, itemId: string) {
@@ -314,10 +326,10 @@ export async function addAnnouncementAction(eventId: string, formData: FormData)
   const ev = await requireEvent(eventId, orgId);
   const title = str(formData, "title");
   const body = str(formData, "body");
-  if (!title || !body) redirect(`/admin/events/${eventId}/announcements?error=Title+and+body+required`);
+  if (!title || !body) redirect(flashPath(`/admin/events/${eventId}/announcements`, "An announcement needs a title and a body.", "error"));
   await createAnnouncement(ev, { title, body, pinned: formData.get("pinned") === "on" });
   revalidatePath(`/admin/events/${eventId}/announcements`);
-  redirect(`/admin/events/${eventId}/announcements`);
+  redirect(flashPath(`/admin/events/${eventId}/announcements`, `“${title}” posted.`));
 }
 
 export async function deleteAnnouncementAction(eventId: string, annId: string) {
@@ -332,7 +344,7 @@ export async function saveInfoPageAction(eventId: string, formData: FormData) {
   await requireEvent(eventId, orgId);
   await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info", info_page_html: str(formData, "info_page_html") });
   revalidatePath(`/admin/events/${eventId}/info`);
-  redirect(`/admin/events/${eventId}/info?saved=1`);
+  redirect(flashPath(`/admin/events/${eventId}/info`, "Info page saved."));
 }
 
 export async function addCheckpointAction(eventId: string, formData: FormData) {
@@ -341,14 +353,14 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
   const name = str(formData, "name");
   const day = str(formData, "day");
   const back = `/admin/events/${eventId}/settings`;
-  if (!name) redirect(`${back}?error=Checkpoint+name+is+required`);
+  if (!name) redirect(flashPath(back, "A checkpoint needs a name.", "error"));
   // A checkpoint names a moment on a date, so the date is not optional — several
   // checkpoints can share one day and the filters need to tell them apart.
-  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) redirect(`${back}?error=Pick+a+date+for+the+checkpoint`);
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) redirect(flashPath(back, "Pick a date for the checkpoint.", "error"));
   await createCheckpoint(ev, name, day);
   revalidatePath(back);
   revalidatePath(`/admin/events/${eventId}`);
-  redirect(`${back}?saved=1`);
+  redirect(flashPath(back, `“${name}” added.`));
 }
 
 /**
@@ -379,9 +391,9 @@ export async function deleteCheckpointAction(eventId: string, cpId: string) {
 
 export async function purgeEventAction(eventId: string) {
   const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
-  if (ev.status !== "archived") redirect(`/admin/events/${eventId}/settings?error=Archive+the+event+first`);
+  if (ev.status !== "archived") redirect(flashPath(`/admin/events/${eventId}/settings`, "Archive the event first.", "error"));
   await purgeAttendeePersonalData(eventId);
-  revalidatePath(`/admin/events/${eventId}`); redirect(`/admin/events/${eventId}/settings?purged=1`);
+  revalidatePath(`/admin/events/${eventId}`); redirect(flashPath(`/admin/events/${eventId}/settings`, "Personal data purged."));
 }
 
 // ---- Modules ----
@@ -391,9 +403,9 @@ export async function updateModulesAction(eventId: string, formData: FormData) {
   await requireEvent(eventId, orgId);
   let modules: EventModule[] | undefined;
   try { modules = modulesFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; }); }
-  catch (e) { redirect(`/admin/events/${eventId}/modules?error=${encodeURIComponent((e as Error).message)}`); }
-  if (!modules) redirect(`/admin/events/${eventId}/modules?error=Unknown+error`);
+  catch (e) { redirect(flashPath(`/admin/events/${eventId}/modules`, (e as Error).message, "error")); }
+  if (!modules) redirect(flashPath(`/admin/events/${eventId}/modules`, "Could not read those settings.", "error"));
   await updateEvent(eventId, { modules });
   revalidatePath(`/admin/events/${eventId}`);
-  redirect(`/admin/events/${eventId}/modules?saved=1`);
+  redirect(flashPath(`/admin/events/${eventId}/modules`, "Modules saved."));
 }

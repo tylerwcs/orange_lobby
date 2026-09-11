@@ -14,8 +14,7 @@ import { formatDateRange } from "@/lib/text";
 
 export const metadata = { title: "All events · Orange Lobby" };
 
-export default async function AdminHome({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+export default async function AdminHome() {
   const { orgId, email } = await requireAdmin();
   const events = await listEvents(orgId);
   const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
@@ -39,7 +38,6 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
             </Modal>
           }
         />
-        {error && <p role="alert" className="mb-4 rounded-[var(--radius-control)] bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{error}</p>}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {events.map((e, i) => (
             <Link key={e.id} href={`/admin/events/${e.id}`}>

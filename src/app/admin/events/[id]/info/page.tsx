@@ -8,9 +8,8 @@ import { saveInfoPageAction } from "../actions";
 
 export const metadata = { title: "Info page · Orange Lobby" };
 
-export default async function InfoAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function InfoAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { saved } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const html = sanitizeHtml(ev.info_page_html ?? "");
@@ -20,7 +19,6 @@ export default async function InfoAdmin({ params, searchParams }: { params: Prom
         <h1 className="text-2xl font-extrabold">Info page</h1>
         <p className="text-sm text-muted">Shown under the Info tile when it has content. Venue and contact come from Settings.</p>
       </div>
-      {saved && <p role="status" className="rounded-[var(--radius-control)] bg-green-50 p-3 text-sm text-green-800">Saved.</p>}
 
       <div className="grid items-start gap-6 xl:grid-cols-2">
         <form action={saveInfoPageAction.bind(null, ev.id)} className="grid gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4">

@@ -50,7 +50,7 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
  * door beside them. Nothing scrolls on a desktop screen, which is what you want when you
  * are correcting a walk-in's details at the desk while they wait.
  */
-export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailData; saved?: string; error?: string }) {
+export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
   const { ev, a, cps, scans, crew, link, qr } = data;
   const firstScan = cps.map((c) => scans[c.id]?.at).filter(Boolean).sort()[0];
   // Two groups, because they are edited for different reasons: the first is what someone
@@ -86,13 +86,6 @@ export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailDat
       </div>
 
       <form action={updateAttendeeAction.bind(null, ev.id, a.id)}>
-        {(saved || error) && (
-          <div className="mt-5">
-            {saved && <p role="status" className="rounded-[var(--radius-control)] bg-ok-soft p-3 text-sm font-semibold text-ok-strong">Saved.</p>}
-            {error && <p role="alert" className="rounded-[var(--radius-control)] bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{error}</p>}
-          </div>
-        )}
-
         <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-5">
             <section>

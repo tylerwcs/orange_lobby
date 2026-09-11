@@ -16,8 +16,8 @@ const NAMES: Record<(typeof BUILTIN_MODULES)[number], { label: string; help: str
   announcements: { label: "Announcements", help: "Subtitle shows the latest announcement." },
 };
 
-export default async function ModulesPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
-  const { id } = await params; const { saved, error } = await searchParams;
+export default async function ModulesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
   const mods = ev.modules?.length ? ev.modules : defaultModules();
   const builtin = (k: string) => mods.find((m) => m.key === k && m.key !== "link") as { enabled: boolean; label?: string; subtitle?: string } | undefined;
@@ -26,8 +26,6 @@ export default async function ModulesPage({ params, searchParams }: { params: Pr
   return (
     <form action={updateModulesAction.bind(null, ev.id)} className="space-y-4">
       <h1 className="mb-4 text-2xl font-extrabold">Modules</h1>
-      {saved && <p className="rounded-[var(--radius-control)] bg-green-50 p-3 text-sm text-green-800">Saved.</p>}
-      {error && <p className="rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <div className="grid gap-4 items-start xl:grid-cols-2">
       <Card className="divide-y divide-line">
         <div className="p-4"><div className="font-bold">Built-in tiles</div><div className="text-xs text-muted">Switch a tile off to hide it; give it a custom label or subtitle if the default reads wrong for this event.</div></div>

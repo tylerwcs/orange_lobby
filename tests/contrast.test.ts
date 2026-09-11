@@ -83,6 +83,8 @@ describe("token contrast (WCAG 2.x, sRGB)", () => {
 
   it("white text on brand-strong fill meets 4.5:1", () => assertPair("brand-strong", "white", WHITE));
   it("white text on ok-strong fill meets 4.5:1", () => assertPair("ok-strong", "white", WHITE));
+  it("white text on danger-strong fill meets 4.5:1 (error toast)", () => assertPair("danger-strong", "white", WHITE));
+  it("white text on ink fill meets 4.5:1 (toast, bulk bar)", () => assertPair("ink", "white", WHITE));
 });
 
 describe("non-text UI contrast (WCAG 2.x, sRGB, D43 3:1 tier)", () => {

@@ -11,9 +11,8 @@ import { addAnnouncementAction, deleteAnnouncementAction } from "../actions";
 
 export const metadata = { title: "Announcements · Orange Lobby" };
 
-export default async function AnnouncementsAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
+export default async function AnnouncementsAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { error } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const list = await listAnnouncements(ev.id);
@@ -23,7 +22,6 @@ export default async function AnnouncementsAdmin({ params, searchParams }: { par
         <h1 className="text-2xl font-extrabold">Announcements</h1>
         <p className="text-sm text-muted">The pinned one, or else the newest, shows as a banner on the portal home.</p>
       </div>
-      {error && <p role="alert" className="rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <Card>

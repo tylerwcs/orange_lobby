@@ -5,29 +5,28 @@ import { AttendeeDetail, loadAttendeeDetail } from "@/components/admin/AttendeeD
 import { AttendeeDetailSkeleton } from "@/components/admin/AttendeeDetailSkeleton";
 
 type Params = Promise<{ id: string; attendeeId: string }>;
-type Search = Promise<{ saved?: string; error?: string }>;
 
-async function Content({ params, searchParams }: { params: Params; searchParams: Search }) {
+async function Content({ params }: { params: Params }) {
   const { id, attendeeId } = await params;
-  const { saved, error } = await searchParams;
   const { orgId } = await requireAdmin();
   const data = await loadAttendeeDetail(id, attendeeId, orgId);
-  // Deleting from inside the panel navigates back to the list; if the slot is still
+  // Saving or deleting from inside the panel navigates to the list; if the slot is still
   // holding this route when that happens, there is nothing left to show.
   if (!data) return <p className="py-12 text-center text-sm text-muted">This attendee is no longer on the list.</p>;
-  return <AttendeeDetail data={data} saved={saved} error={error} />;
+  return <AttendeeDetail data={data} />;
 }
 
 /**
- * Deliberately not `async`: nothing is awaited before the dialog, so the shell streams
- * out first and the panel is on screen while the attendee, their check-ins and their QR
- * are still being fetched. Everything that touches the database sits inside the boundary.
+ * Only `params` is awaited here — route values, already known, no round trip. Everything
+ * that touches the database sits inside the Suspense boundary, so the dialog streams out
+ * first and is on screen while the attendee, their check-ins and their QR are fetched.
  */
-export default function AttendeeModalPage({ params, searchParams }: { params: Params; searchParams: Search }) {
+export default async function AttendeeModalPage({ params }: { params: Params }) {
+  const { id, attendeeId } = await params;
   return (
-    <RouteModal label="Attendee">
+    <RouteModal label="Attendee" path={`/admin/events/${id}/attendees/${attendeeId}`}>
       <Suspense fallback={<AttendeeDetailSkeleton />}>
-        <Content params={params} searchParams={searchParams} />
+        <Content params={params} />
       </Suspense>
     </RouteModal>
   );
