@@ -5,6 +5,7 @@ import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/Card";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { Badge } from "@/components/ui/Badge";
 
 type Reorder = (ids: string[]) => Promise<void>;
 
@@ -16,12 +17,15 @@ type Reorder = (ids: string[]) => Promise<void>;
  * go through `moveItem`, so they cannot drift apart, and both save immediately — there
  * is no separate "save order" step to forget.
  */
-export function CheckpointList({ day, items, eventId, counts, total, reorder, deleteCheckpoint }: {
+export function CheckpointList({ day, items, eventId, counts, total, activeId, setActive, reorder, deleteCheckpoint }: {
   day: string;
   items: Checkpoint[];
   eventId: string;
   counts: Record<string, number>;
   total: number;
+  /** The checkpoint the event is running; every other surface follows it. */
+  activeId: string | null;
+  setActive: (formData: FormData) => void | Promise<void>;
   reorder: Reorder;
   deleteCheckpoint: (cpId: string) => Promise<void>;
 }) {
@@ -67,9 +71,20 @@ export function CheckpointList({ day, items, eventId, counts, total, reorder, de
               </span>
               <span className="w-5 shrink-0 text-xs font-bold text-muted tabular-nums">{i + 1}</span>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-bold">{c.name}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-bold">{c.name}</span>
+                  {c.id === activeId && <Badge tone="ok" dot>Running now</Badge>}
+                </div>
                 <div className="text-xs font-semibold text-muted tabular-nums">{n} of {total} checked in</div>
               </div>
+              {c.id !== activeId && (
+                <form action={setActive}>
+                  <input type="hidden" name="checkpoint_id" value={c.id} />
+                  <button className="min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm font-bold text-ink transition-colors duration-150 hover:bg-canvas">
+                    Run this
+                  </button>
+                </form>
+              )}
               <div className="flex shrink-0 items-center">
                 <button type="button" onClick={() => move(i, i - 1)} disabled={i === 0}
                   aria-label={`Move ${c.name} up`}

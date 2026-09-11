@@ -8,7 +8,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { addAttendeeAction, addAttendeeFieldAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { pickCheckpoint } from "@/lib/checkpoints";
+import { activeCheckpoint } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SearchInput } from "@/components/admin/SearchInput";
@@ -71,9 +71,9 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   }
   const checkedInCount = earliestScan.size;
 
-  // Default the bulk check-in to a checkpoint on today, so the desk is not one wrong
-  // dropdown away from writing arrivals into yesterday's door.
-  const defaultCheckpointId = (pickCheckpoint(cps, nowInKL().date, undefined) ?? cps[0])?.id;
+  // Default the bulk check-in to the checkpoint the event is running, so the desk is not
+  // one wrong dropdown away from writing arrivals into a door nobody is working.
+  const defaultCheckpointId = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date)?.id;
 
   // `?attendee=` opens the panel over this list. It is a query parameter rather than an
   // intercepted route because Next's interception rewrite is broken under a dynamic

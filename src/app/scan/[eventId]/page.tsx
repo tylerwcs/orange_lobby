@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { checkpointsByDay } from "@/lib/checkpoints";
+import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
 import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { countAttendees } from "@/lib/db/attendees";
 import { nowInKL } from "@/lib/time";
@@ -10,13 +10,17 @@ import { Scanner } from "./Scanner";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
 
-export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string }> }) {
-  const { eventId } = await params; const { cp } = await searchParams;
+export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string; pick?: string }> }) {
+  const { eventId } = await params; const { cp, pick } = await searchParams;
   const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
   const [cps, counts, total] = await Promise.all([listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id)]);
-  const active = cps.find((c) => c.id === cp);
+  const today = nowInKL().date;
+  // Crew open the scanner and start scanning: it lands on whatever Settings says the event
+  // is running, and the chooser is one tap away for the second door. `?cp=` still wins, so
+  // a link to a particular door keeps working.
+  const active = cps.find((c) => c.id === cp)
+    ?? (pick ? undefined : activeCheckpoint(ev.active_checkpoint_id, cps, today) ?? undefined);
   if (!active) {
-    const today = nowInKL().date;
     const grouped = checkpointsByDay(cps);
     return (
       <main className="mx-auto max-w-md p-4">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkpointsByDay, pickCheckpoint } from "@/lib/checkpoints";
+import { activeCheckpoint, checkpointsByDay, pickCheckpoint } from "@/lib/checkpoints";
 import type { Checkpoint } from "@/lib/types";
 
 const cp = (id: string, name: string, day: string, sort_order = 0): Checkpoint =>
@@ -46,5 +46,45 @@ describe("pickCheckpoint", () => {
   it("returns null for a day with no checkpoints", () => {
     expect(pickCheckpoint(rows, "2026-10-02", undefined)).toBeNull();
     expect(pickCheckpoint([], "2026-09-30", "c1")).toBeNull();
+  });
+});
+
+describe("activeCheckpoint", () => {
+  // Explicit running order: without it these two tie on sort_order and fall back to the
+  // name, which would make "Lunch" the morning's first checkpoint.
+  const reg = cp("c1", "Registration", "2026-09-30", 0);
+  const lunch = cp("c2", "Lunch", "2026-09-30", 1);
+  const day2 = cp("c3", "Day 2", "2026-10-01", 0);
+  const all = [reg, lunch, day2];
+
+  it("returns the checkpoint the organiser marked as running", () => {
+    expect(activeCheckpoint("c2", all, "2026-09-30")).toEqual(lunch);
+  });
+
+  it("follows the choice even onto another day — an organiser running tomorrow's door means it", () => {
+    expect(activeCheckpoint("c3", all, "2026-09-30")).toEqual(day2);
+  });
+
+  it("falls back to today's first when nothing is marked", () => {
+    expect(activeCheckpoint(null, all, "2026-10-01")).toEqual(day2);
+  });
+
+  it("falls back to today's first when the marked one was deleted", () => {
+    // `on delete set null` should prevent this, but a stale id must not empty the dashboard.
+    expect(activeCheckpoint("gone", all, "2026-09-30")).toEqual(reg);
+  });
+
+  it("falls back to the very first when today has no checkpoint at all", () => {
+    expect(activeCheckpoint(null, all, "2026-12-25")).toEqual(reg);
+  });
+
+  it("returns nothing when the event has no checkpoints", () => {
+    expect(activeCheckpoint(null, [], "2026-09-30")).toBeNull();
+    expect(activeCheckpoint("c1", [], "2026-09-30")).toBeNull();
+  });
+
+  it("respects the running order within a day, not insertion order", () => {
+    const late = cp("c9", "Aardvark", "2026-09-30", 5);
+    expect(activeCheckpoint(null, [late, reg], "2026-09-30")).toEqual(reg);
   });
 });

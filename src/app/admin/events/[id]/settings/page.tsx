@@ -1,8 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { checkpointsByDay } from "@/lib/checkpoints";
-import { eventDays } from "@/lib/time";
+import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
+import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { countAttendees } from "@/lib/db/attendees";
@@ -13,7 +13,7 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card } from "@/components/ui/Card";
-import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction } from "../actions";
+import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, setActiveCheckpointAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
@@ -61,6 +61,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
     listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id),
   ]);
   const grouped = checkpointsByDay(cps);
+  const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
   const days = eventDays(ev.starts_on, ev.ends_on);
 
   return (
@@ -101,7 +102,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
       <Card className="p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-extrabold">Checkpoints</h2>
-          <p className="text-xs text-muted">Crew pick one when they open the scanner. A day can hold several — registration, lunch, a dinner door.</p>
+          <p className="max-w-md text-xs text-muted">Mark the one you are running. The dashboard counts it, the scanner opens on it, and checking a selection in uses it. A day can hold several — registration, lunch, a dinner door.</p>
         </div>
         {grouped.length === 0 ? (
           <p className="mt-3 text-sm text-muted">No checkpoints yet. Add &ldquo;Registration&rdquo; on the first morning to get started.</p>
@@ -116,6 +117,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                   eventId={ev.id}
                   counts={cpCounts}
                   total={total}
+                  activeId={running?.id ?? null}
+                  setActive={setActiveCheckpointAction.bind(null, ev.id)}
                   reorder={reorderCheckpointsAction.bind(null, ev.id, g.day)}
                   deleteCheckpoint={deleteCheckpointAction.bind(null, ev.id)}
                 />

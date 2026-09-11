@@ -379,6 +379,27 @@ export async function reorderCheckpointsAction(eventId: string, day: string, ord
   revalidatePath(`/admin/events/${ev.id}`);
 }
 
+/**
+ * Marks which checkpoint the event is running. One switch, and the dashboard, the scanner
+ * and bulk check-in all follow it — so there is one answer to "which door are we on"
+ * rather than three screens each guessing separately.
+ */
+export async function setActiveCheckpointAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/settings`;
+  const id = String(formData.get("checkpoint_id") ?? "");
+  // Validated against this event's own checkpoints, so a posted id cannot point the
+  // dashboard and the scanner at somebody else's door.
+  const chosen = (await listCheckpoints(ev.id)).find((c) => c.id === id);
+  if (!chosen) redirect(flashPath(back, "That checkpoint no longer exists.", "error"));
+  await updateEvent(eventId, { active_checkpoint_id: chosen.id });
+  revalidatePath(back);
+  revalidatePath(`/admin/events/${eventId}`);
+  revalidatePath(`/admin/events/${eventId}/attendees`);
+  redirect(flashPath(back, `Now running “${chosen.name}”.`));
+}
+
 export async function deleteCheckpointAction(eventId: string, cpId: string) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);

@@ -98,7 +98,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
   return (
     <main className="mx-auto max-w-md p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <a href={`/scan/${eventId}`} className="flex min-h-11 items-center gap-1 text-sm font-bold text-ink">
+        <a href={`/scan/${eventId}?pick=1`} className="flex min-h-11 items-center gap-1 text-sm font-bold text-ink">
           <Icon name="chevron" size={18} className="rotate-180" />
           {checkpoint.name}
         </a>

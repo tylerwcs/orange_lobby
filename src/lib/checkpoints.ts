@@ -32,3 +32,19 @@ export function pickCheckpoint(checkpoints: Checkpoint[], day: string, requested
   const onDay = checkpointsByDay(checkpoints).find((g) => g.day === day)?.items ?? [];
   return onDay.find((c) => c.id === requested) ?? onDay[0] ?? null;
 }
+
+/**
+ * The checkpoint every surface should be working against: the one an organiser set in
+ * Settings, or — before they have set one, or after it was deleted — the first dated today,
+ * or failing that the first there is.
+ *
+ * The fallback matters more than it looks. Without it a brand new event, or one whose
+ * current checkpoint was just deleted, would show a dashboard counting nothing and a
+ * scanner with nowhere to scan.
+ */
+export function activeCheckpoint(activeId: string | null, checkpoints: Checkpoint[], today: string): Checkpoint | null {
+  const chosen = checkpoints.find((c) => c.id === activeId);
+  if (chosen) return chosen;
+  const byDay = checkpointsByDay(checkpoints);
+  return byDay.find((g) => g.day === today)?.items[0] ?? byDay[0]?.items[0] ?? null;
+}

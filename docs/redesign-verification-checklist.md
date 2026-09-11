@@ -12,8 +12,10 @@ Run `npm run dev`, sign in, and work through these.
 ## Admin — Overview (`/admin`)
 
 - [ ] `/admin` lands on the live event's Overview, not the event list. With no live event it lands on `/admin/events`.
-- [x] **The Summary card names what it counts**, and switching checkpoint shows a skeleton in that card alone.
-      *(Verified.)*
+- [x] **The Summary card names what it counts** — the checkpoint Settings says is running, with a link to
+      change it. There is no picker on the dashboard any more, so it cannot disagree with the scanner.
+      *(Verified: marking Dinner door in Settings moved the dashboard to 26 of 43, opened the scanner on it, and
+      defaulted the bulk check-in to it.)*
 - [ ] **The Summary card names what it counts.** With "Any checkpoint" it reads "Across every checkpoint";
       pick one and both the card's caption and the page heading say so. The two numbers must never disagree.
 - [ ] Changing the checkpoint shows a **skeleton in that card only** — the rest of the dashboard must not blank.
@@ -126,6 +128,13 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
 - [ ] The Add attendee and Import masterlist dialogs now close themselves when their action finishes. Confirm
       neither is left hanging open over its own success banner.
 
+### Worth a decision before the day
+
+**One checkpoint runs at a time.** That is what the single switch means, and it is what was asked for. If two
+doors ever need to be worked at once — a registration desk still open while lunch starts — the second crew
+member reaches their door through the scanner's chooser, and the dashboard will be counting the other one.
+Nothing is lost, but the dashboard only ever answers for the door you marked.
+
 ### Not built, and deliberately
 
 - **Sorting from the column menu.** The mockup showed Sort A→Z; it is not implemented. Sorting has to happen on
@@ -149,6 +158,8 @@ could not be: the Browser pane has no device. **Nothing here replaces one real p
 - [ ] **Read the result banner at arm's length in a dim room.** It is a light tint rather than a solid saturated
       fill — the honest consequence of deciding against dark mode plus the contrast rule. If it is not legible
       under ballroom lighting, that is a real finding and worth reopening the dark-mode decision.
+- [x] **The scanner opens straight on the checkpoint Settings says is running** — no chooser step. The back
+      link still reaches the chooser, and a `?cp=` link to a particular door still wins. *(Verified.)*
 - [x] The checkpoint chooser lists every checkpoint grouped by day, each with its live count. *(Verified.)*
 - [x] A successful check-in, a duplicate and a camera error each render their own state. *(Verified: green
       "Checked in" with the attendee's company, category and table; amber "Already in since 19:12" with no Undo

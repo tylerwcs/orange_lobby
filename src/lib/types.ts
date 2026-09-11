@@ -36,6 +36,8 @@ export type Event = {
   info_page_html: string | null;
   registration_open: boolean;
   registration_closes_at: string | null;
+  /** The checkpoint the event is running right now; every surface follows it. */
+  active_checkpoint_id: string | null;
   registration_questions: RegistrationQuestion[];
   /** Organiser-defined columns on the attendee table; values live in `Attendee.extra`. */
   attendee_fields: AttendeeField[];

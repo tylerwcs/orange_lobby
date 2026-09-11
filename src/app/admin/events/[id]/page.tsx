@@ -10,14 +10,14 @@ import { SummaryCard } from "@/components/admin/SummaryCard";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { checkedInCount, recentScans } from "@/lib/checkins-stats";
-import { checkpointsByDay } from "@/lib/checkpoints";
+import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
+import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 
 export const metadata = { title: "Overview · Orange Lobby" };
 
-export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ cp?: string }> }) {
+export default async function Overview({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const sp = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const [total, cps, checkins, attendees] = await Promise.all([
@@ -27,19 +27,16 @@ export default async function Overview({ params, searchParams }: { params: Promi
   const cpNames = new Map(cps.map((c) => [c.id, c.name]));
   const scans = recentScans(checkins, attendees, 11);
 
-  // A checkpoint id from a stale link counts nothing at all, which would read as an empty
-  // room; fall back to counting everyone instead.
-  const chosen = cps.find((c) => c.id === sp.cp) ?? null;
+  // No picker here: the checkpoint comes from the one switch in Settings, so this page and
+  // the scanner and a bulk check-in can never disagree about which door is being worked.
+  const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
   const multiDay = checkpointsByDay(cps).length > 1;
-  const options = cps.map((c) => ({ id: c.id, label: multiDay ? `${c.name} · ${shortDate(c.day)}` : c.name }));
+  const scope = running ? `${running.name}${multiDay ? ` · ${shortDate(running.day)}` : ""}` : null;
 
   return (
     <div className="space-y-6">
       <AdminHeader
         title="Overview"
-        // The check-in figure belongs to the Summary card, which says which checkpoint it
-        // is counting. Repeating it here would state it twice, and the two would disagree
-        // for as long as a checkpoint change was in flight.
         subtitle={`${ev.name} · ${total} registered`}
         actions={<a href={`/scan/${ev.id}`} className={buttonClass("primary")}><Icon name="scan" size={18} />Open scanner</a>}
       />
@@ -49,10 +46,9 @@ export default async function Overview({ params, searchParams }: { params: Promi
         <RecentScans rows={scans} checkpointNames={cpNames} live={<AutoRefresh seconds={15} />} />
         <SummaryCard
           eventId={ev.id}
-          options={options}
-          checkpointId={chosen?.id ?? ""}
-          checkedIn={checkedInCount(checkins, chosen?.id ?? null)}
+          checkedIn={checkedInCount(checkins, running?.id ?? null)}
           registered={total}
+          scope={scope}
         />
       </div>
     </div>
