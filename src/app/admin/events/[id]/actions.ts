@@ -13,7 +13,7 @@ import { parseIds } from "@/lib/bulk";
 import type { Attendee } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
-import { createCheckpoint, deleteCheckpoint } from "@/lib/db/checkpoints";
+import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { deleteCheckin } from "@/lib/db/checkins";
 import { parseCategories } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
@@ -286,10 +286,26 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
   // A checkpoint names a moment on a date, so the date is not optional — several
   // checkpoints can share one day and the filters need to tell them apart.
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) redirect(`${back}?error=Pick+a+date+for+the+checkpoint`);
-  await createCheckpoint(ev, name, day, Number(str(formData, "sort_order") ?? 0));
+  await createCheckpoint(ev, name, day);
   revalidatePath(back);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(`${back}?saved=1`);
+}
+
+/**
+ * Stores a day's running order from a dragged or keyboard-moved list. The posted ids are
+ * filtered against this event's checkpoints on that day, so a stale tab or a tampered
+ * payload cannot reorder — or touch — anything it does not own.
+ */
+export async function reorderCheckpointsAction(eventId: string, day: string, orderedIds: string[]) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const onDay = new Set((await listCheckpoints(ev.id)).filter((c) => c.day === day).map((c) => c.id));
+  const ids = orderedIds.filter((id) => onDay.has(id));
+  if (ids.length !== onDay.size) return; // a partial list would renumber the rest by accident
+  await setCheckpointOrder(ev.id, ids);
+  revalidatePath(`/admin/events/${ev.id}/settings`);
+  revalidatePath(`/admin/events/${ev.id}`);
 }
 
 export async function deleteCheckpointAction(eventId: string, cpId: string) {

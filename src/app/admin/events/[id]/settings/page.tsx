@@ -12,9 +12,9 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Card, buttonClass } from "@/components/ui/Card";
-import { Icon } from "@/components/ui/Icon";
-import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction } from "../actions";
+import { Card } from "@/components/ui/Card";
+import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction } from "../actions";
+import { CheckpointList } from "@/components/admin/CheckpointList";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
@@ -114,24 +114,15 @@ export default async function Settings({ params, searchParams }: { params: Promi
             {grouped.map((g) => (
               <div key={g.day}>
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{shortDate(g.day)}</h3>
-                <ul className="mt-1 divide-y divide-line">
-                  {g.items.map((c) => {
-                    const n = cpCounts[c.id] ?? 0;
-                    return (
-                      <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
-                        <Icon name="flag" size={18} className="shrink-0 text-brand-ink" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold">{c.name}</div>
-                          <div className="text-xs font-semibold text-muted tabular-nums">{n} of {total} checked in</div>
-                        </div>
-                        <a href={`/scan/${ev.id}?cp=${c.id}`} className={buttonClass("secondary")}><Icon name="scan" size={18} />Scanner</a>
-                        <form action={deleteCheckpointAction.bind(null, ev.id, c.id)}>
-                          <ConfirmButton message={`Delete “${c.name}” on ${shortDate(g.day)} and its ${n} check-in${n === 1 ? "" : "s"}? This cannot be undone.`} className="text-danger-strong">Delete</ConfirmButton>
-                        </form>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <CheckpointList
+                  day={shortDate(g.day)}
+                  items={g.items}
+                  eventId={ev.id}
+                  counts={cpCounts}
+                  total={total}
+                  reorder={reorderCheckpointsAction.bind(null, ev.id, g.day)}
+                  deleteCheckpoint={deleteCheckpointAction.bind(null, ev.id)}
+                />
               </div>
             ))}
           </div>
@@ -139,7 +130,6 @@ export default async function Settings({ params, searchParams }: { params: Promi
         <form action={addCheckpointAction.bind(null, ev.id)} className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4">
           <div className="min-w-52 flex-1"><Field label="New checkpoint" name="name" placeholder="Registration" /></div>
           <div className="w-44"><Field label="Date" name="day" type="date" defaultValue={days[0] ?? ev.starts_on} /></div>
-          <div className="w-24"><Field label="Order" name="sort_order" defaultValue="0" /></div>
           <SubmitButton>Add</SubmitButton>
         </form>
       </Card>
