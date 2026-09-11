@@ -1,7 +1,7 @@
 "use server";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { findByToken, getAttendee, listAttendees, createAttendee, upsertByEmail, type AttendeeInput } from "@/lib/db/attendees";
+import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
 import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin } from "@/lib/db/checkins";
 import { getCheckpoint } from "@/lib/db/checkpoints";
 import { extractToken, scanResultFields } from "@/lib/scan";
@@ -34,7 +34,7 @@ export async function checkInByTokenAction(eventId: string, checkpointId: string
   const token = extractToken(scanned);
   if (!token) return { status: "notfound", message: "That code isn't an attendee badge. Try the name search." };
   const a = await findByToken(eventId, token);
-  if (!a) return { status: "notfound", message: "This badge isn't on the list for this event. Search by name, or add a walk-in." };
+  if (!a) return { status: "notfound", message: "This badge isn't on the list for this event. Try the name search." };
   return doCheckin(ev, userId, checkpointId, a);
 }
 
@@ -58,18 +58,4 @@ export async function searchAttendeesAction(eventId: string, q: string, checkpoi
   if (q.trim().length < 2) return [];
   const [rows, checkedIn] = await Promise.all([listAttendees(eventId, q), listCheckedInAttendeeIds(checkpointId)]);
   return rows.slice(0, 20).map((a) => ({ id: a.id, name: a.name, company: a.company, category: a.category, table_no: a.table_no, checkedIn: checkedIn.has(a.id) }));
-}
-
-export async function walkInAction(eventId: string, checkpointId: string, formData: FormData): Promise<ScanResult> {
-  const { ev, userId } = await authorise(eventId);
-  if (ev.status === "archived") return { status: "error", message: "This event is archived, so check-in is closed." };
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) return { status: "error", message: "Enter the walk-in's name first." };
-  const field = (k: string) => String(formData.get(k) ?? "").trim() || undefined;
-  const email = field("email");
-  // Blank fields are omitted so an upsert onto an imported row never nulls what the masterlist had.
-  const input: AttendeeInput = { name, phone: field("phone"), company: field("company") };
-  // A walk-in whose email is already on the masterlist must update that row, not collide with it.
-  const a = email ? (await upsertByEmail(ev, { ...input, email }, "walkin")).attendee : await createAttendee(ev, input, "walkin");
-  return doCheckin(ev, userId, checkpointId, a);
 }

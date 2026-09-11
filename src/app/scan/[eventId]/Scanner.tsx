@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
-import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, walkInAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
+import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Card";
@@ -12,20 +12,17 @@ type Recent = { name: string; at: string; status: ScanResult["status"] };
 type CameraState = { phase: "starting" | "ready" | "error"; problem?: CameraProblem };
 
 const UNDO_SECONDS = 6;
-const control = "w-full min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3.5 text-base";
-
 export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId: string; checkpoint: Checkpoint; initialCount: number; total: number }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [count, setCount] = useState(initialCount);
   const [recent, setRecent] = useState<Recent[]>([]);
   const [q, setQ] = useState(""); const [hits, setHits] = useState<SearchHit[]>([]);
-  const [busy, setBusy] = useState(false); const [showWalkIn, setShowWalkIn] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState<CameraState>({ phase: "starting" });
   const [undoLeft, setUndoLeft] = useState(0);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
   const busyRef = useRef(false);
-  const walkInRef = useRef<HTMLFormElement | null>(null);
 
   const handle = useCallback(async (fn: () => Promise<ScanResult>) => {
     busyRef.current = true;
@@ -46,7 +43,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
       if (navigator.vibrate) navigator.vibrate(r.status === "ok" ? 100 : [80, 60, 80]);
     } catch {
       setResult({ status: "error", message: "The check-in didn't reach the server. Check the connection and scan again." });
-    } finally { busyRef.current = false; setBusy(false); setHits([]); setQ(""); setShowWalkIn(false); }
+    } finally { busyRef.current = false; setBusy(false); setHits([]); setQ(""); }
   }, []);
 
   // No synchronous setState here: the initial state is already "starting", and Retry
@@ -87,13 +84,6 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
     const t = setTimeout(async () => { setHits(q.trim().length >= 2 ? await searchAttendeesAction(eventId, q, checkpoint.id) : []); }, 250);
     return () => clearTimeout(t);
   }, [q, eventId, checkpoint.id]);
-
-  useEffect(() => {
-    if (showWalkIn) {
-      walkInRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      walkInRef.current?.querySelector<HTMLInputElement>("input[name=name]")?.focus();
-    }
-  }, [showWalkIn]);
 
   const tone = busy ? "bg-tint-slate text-ink"
     : result?.status === "ok" ? "bg-ok-soft text-ok-strong"
@@ -186,24 +176,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
         </ul>
       )}
       {q.trim().length >= 2 && hits.length === 0 && !busy && (
-        <p className="mt-2 text-sm text-muted">No one matches &ldquo;{q.trim()}&rdquo;. Try a shorter name, or add them as a walk-in.</p>
-      )}
-
-      <Button type="button" variant="secondary" icon="user" className="mt-4 w-full" onClick={() => setShowWalkIn((v) => !v)} aria-expanded={showWalkIn}>
-        {showWalkIn ? "Cancel walk-in" : "Add walk-in"}
-      </Button>
-      {showWalkIn && (
-        <form ref={walkInRef} action={(fd) => handle(() => walkInAction(eventId, checkpoint.id, fd))} className="mt-2 flex flex-col gap-2 rounded-[var(--radius-card)] border border-line bg-surface p-3">
-          <label className="text-sm font-bold" htmlFor="walkin-name">Full name</label>
-          <input id="walkin-name" name="name" required className={control} />
-          <label className="text-sm font-bold" htmlFor="walkin-email">Email <span className="font-normal text-muted">(matches the masterlist if they are on it)</span></label>
-          <input id="walkin-email" name="email" type="email" inputMode="email" className={control} />
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-sm font-bold" htmlFor="walkin-phone">Phone</label><input id="walkin-phone" name="phone" type="tel" className={control} /></div>
-            <div><label className="text-sm font-bold" htmlFor="walkin-company">Company</label><input id="walkin-company" name="company" className={control} /></div>
-          </div>
-          <Button type="submit" disabled={busy} className="w-full">Add and check in</Button>
-        </form>
+        <p className="mt-2 text-sm text-muted">No one matches &ldquo;{q.trim()}&rdquo;. Try a shorter name, or part of their company.</p>
       )}
 
       {recent.length > 0 && (

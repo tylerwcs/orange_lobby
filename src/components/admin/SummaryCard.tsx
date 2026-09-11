@@ -6,11 +6,10 @@ import { Meter } from "@/components/ui/Meter";
  * horizontal band. The progress meter lives here too, so the check-in figure is
  * stated once on the page rather than twice in two treatments.
  */
-export function SummaryCard({ checkedIn, registered, walkIns }: { checkedIn: number; registered: number; walkIns: number }) {
+export function SummaryCard({ checkedIn, registered }: { checkedIn: number; registered: number }) {
   const rows: { label: string; value: number; lead?: boolean }[] = [
     { label: "Checked in", value: checkedIn, lead: true },
     { label: "Not yet in", value: Math.max(0, registered - checkedIn) },
-    { label: "Walk-ins", value: walkIns },
     { label: "Registered", value: registered },
   ];
   const pct = registered > 0 ? Math.round((checkedIn / registered) * 100) : 0;

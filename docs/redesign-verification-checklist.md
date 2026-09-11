@@ -12,16 +12,10 @@ Run `npm run dev`, sign in, and work through these.
 ## Admin — Overview (`/admin`)
 
 - [ ] `/admin` lands on the live event's Overview, not the event list. With no live event it lands on `/admin/events`.
-- [ ] **At 1440px specifically**, the arrivals chart's 16 axis labels do not overflow and stay aligned with their
-      bars. The chart scrolls horizontally inside its own container if the panel is narrow — the page itself
-      must never scroll sideways.
-- [ ] **The arrivals window is 08:00–12:00.** If the KOM's door opens outside that, the chart renders flat and
-      correct-looking while telling you nothing. Confirm the window matches the real check-in period, or say
-      so and it becomes a prop.
-- [ ] The chart heading names the checkpoint it covers. The hero number above it counts **all** checkpoints —
-      confirm that difference reads clearly rather than looking like a contradiction.
-- [ ] With zero check-ins: hero reads `0 of N`, no bar is broken, Recent scans shows its empty sentence.
-- [ ] A checkpoint with no scans shows an empty track, not a broken bar.
+- [ ] The Check-in card lists **every checkpoint on every day**, dated when the event runs longer than one day.
+      There is no day or checkpoint filter any more — if one is missing from the card, it is missing.
+- [ ] With zero check-ins: the hero reads `0 of N`, no meter is broken, Recent scans shows its empty sentence.
+- [ ] A checkpoint with no scans reads "no scans yet" against an empty track, not a broken bar.
 - [ ] Registration state, the "closes …" hint and the Reopen / Copy-link controls behave.
 
 ## Admin — sidebar and shell
@@ -138,7 +132,9 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
 - [ ] A successful scan, a duplicate scan and a camera error each render their own state.
 - [ ] Undo still appears and works within its window.
 - [ ] The result is still announced to a screen reader.
-- [ ] The walk-in path still works.
+- [ ] There is **no walk-in control** on the scanner any more. Someone who is not on the list is added from
+      Attendees → Add attendee, then scanned. Check that the "not on the list" message points somewhere useful
+      rather than at a button that no longer exists.
 
 ## Two decisions that are yours, not defects
 
@@ -163,6 +159,6 @@ measure 44px; `scrollWidth === innerWidth` (no horizontal overflow); zero consol
 fallback card renders; per-event `primary_color` flows through `brandStyle()`. Separately, `/login`'s submit
 button computes to `rgb(194, 65, 12)` on white text at 44px.
 
-Automated: 214 tests pass, lint clean, production build clean. `tests/contrast.test.ts` parses the live
+Automated: 252 tests pass, lint clean, production build clean. `tests/contrast.test.ts` parses the live
 `:root` from `globals.css` and enforces 4.5:1 on text pairs and 3:1 on non-text indicators, so a token edit
 that breaks contrast fails the suite rather than shipping.

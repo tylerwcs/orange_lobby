@@ -1,53 +1,4 @@
-import { isoToLocalInput } from "@/lib/time";
 import type { Attendee, Checkin } from "@/lib/types";
-
-export type ArrivalBucket = { label: string; count: number };
-
-/** Splits an absolute instant into Malaysian wall-clock date and time, reusing the tested formatter. */
-function klParts(iso: string): { day: string; time: string } | null {
-  const s = isoToLocalInput(iso);
-  if (!s) return null;
-  const [day, time] = s.split("T");
-  return { day, time };
-}
-
-function toMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function toLabel(minutes: number): string {
-  const h = Math.floor(minutes / 60), m = minutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
-/**
- * Scans per fixed-width bucket across one day's window. `to` is exclusive, and empty
- * buckets are kept so the chart shows a gap rather than closing it up.
- */
-export function arrivalBuckets(
-  checkins: Checkin[],
-  opts: { day: string; from: string; to: string; minutes: number; checkpointId?: string },
-): ArrivalBucket[] {
-  const { day, minutes, checkpointId } = opts;
-  const start = toMinutes(opts.from), end = toMinutes(opts.to);
-  if (!(minutes > 0) || end <= start) return [];
-  // Deferred (Minor, not fixed here): when (to - from) isn't a whole multiple of
-  // `minutes`, the final bucket below still spans a full `minutes` width by label,
-  // but the exclusive `end` bound in the scan-assignment loop cuts off anything
-  // scanned past `to` — so that last bucket is narrower than its label implies.
-  const buckets: ArrivalBucket[] = [];
-  for (let t = start; t < end; t += minutes) buckets.push({ label: toLabel(t), count: 0 });
-  for (const c of checkins) {
-    if (checkpointId && c.checkpoint_id !== checkpointId) continue;
-    const parts = klParts(c.scanned_at);
-    if (!parts || parts.day !== day) continue;
-    const m = toMinutes(parts.time);
-    if (m < start || m >= end) continue;
-    buckets[Math.floor((m - start) / minutes)].count += 1;
-  }
-  return buckets;
-}
 
 export type CheckinState = { status: "checked_in" | "expected"; at: string | null };
 
@@ -122,8 +73,8 @@ export function countByCheckpoint(checkins: Checkin[]): Record<string, number> {
 /**
  * Where one attendee has been scanned: checkpoint id -> the earliest scan time there.
  * A checkpoint they never reached is absent, so a caller can read presence directly.
- * Backs the admin's per-checkpoint check-in state, including the reversal control —
- * removing a check-in needs to name which checkpoint it is removing.
+ * Backs the admin panel's check-in timeline, which says when each door was reached and
+ * which crew account did the scanning.
  */
 export type AttendeeScan = { at: string; by: string | null };
 
@@ -135,36 +86,4 @@ export function attendeeCheckins(attendeeId: string, checkins: Checkin[]): Recor
     if (seen === undefined || c.scanned_at < seen.at) out[c.checkpoint_id] = { at: c.scanned_at, by: c.scanned_by };
   }
   return out;
-}
-
-/** Below this, a chart reads as one lonely bar rather than a distribution. */
-const MIN_WINDOW_BUCKETS = 4;
-
-/**
- * The span the arrivals chart should cover for one day, derived from the scans themselves.
- * A hardcoded window is wrong twice over: it shows empty bars on a day whose door opened
- * outside it, and hides arrivals that fell either side. Null when nothing was scanned —
- * the caller renders an empty state rather than a flat axis.
- */
-export function arrivalWindow(
-  checkins: Checkin[],
-  opts: { day: string; minutes: number; checkpointId?: string },
-): { from: string; to: string } | null {
-  const { day, minutes, checkpointId } = opts;
-  if (!(minutes > 0)) return null;
-  let lo = Infinity, hi = -Infinity;
-  for (const c of checkins) {
-    if (checkpointId && c.checkpoint_id !== checkpointId) continue;
-    const parts = klParts(c.scanned_at);
-    if (!parts || parts.day !== day) continue;
-    const m = toMinutes(parts.time);
-    if (m < lo) lo = m;
-    if (m > hi) hi = m;
-  }
-  if (lo === Infinity) return null;
-  const start = Math.floor(lo / minutes) * minutes;
-  // `to` is exclusive, so step past the bucket the last scan fell in to include it.
-  let end = Math.floor(hi / minutes) * minutes + minutes;
-  if ((end - start) / minutes < MIN_WINDOW_BUCKETS) end = start + MIN_WINDOW_BUCKETS * minutes;
-  return { from: toLabel(start), to: toLabel(Math.min(end, 24 * 60)) };
 }

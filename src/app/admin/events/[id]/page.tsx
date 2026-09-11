@@ -7,55 +7,30 @@ import { buttonClass } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SummaryCard } from "@/components/admin/SummaryCard";
-import { ArrivalsPanel } from "@/components/admin/ArrivalsPanel";
+import { CheckpointProgress } from "@/components/admin/CheckpointProgress";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
-import { ArrivalsFilter } from "@/components/admin/ArrivalsFilter";
-import { arrivalBuckets, arrivalWindow, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
-import { nowInKL, eventDays } from "@/lib/time";
-import { checkpointsByDay, dayOptions, pickCheckpoint } from "@/lib/checkpoints";
-import { shortDate } from "@/lib/text";
+import { recentScans, countByCheckpoint } from "@/lib/checkins-stats";
+import { checkpointsByDay } from "@/lib/checkpoints";
 
 export const metadata = { title: "Overview · Orange Lobby" };
 
-const BUCKET_MINUTES = 15;
-
-export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ day?: string; cp?: string }> }) {
+export default async function Overview({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const sp = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const [total, cps, checkins, attendees] = await Promise.all([
     countAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id), listAttendees(ev.id),
   ]);
 
-  const today = nowInKL().date;
-  const days = dayOptions(eventDays(ev.starts_on, ev.ends_on), cps);
-  // Land on the day being run if the event is on, otherwise its first day.
-  const day = days.includes(sp.day ?? "") ? sp.day! : days.includes(today) ? today : days[0] ?? today;
-  // A day can hold several checkpoints, so the checkpoint filter is scoped to the day:
-  // switching day must never leave one selected whose scans are all on another date.
-  const dayCps = checkpointsByDay(cps).find((g) => g.day === day)?.items ?? [];
-  const activeCp = pickCheckpoint(cps, day, sp.cp);
-  const cpId = activeCp?.id;
-  const cpName = activeCp?.name;
-
   const counts = countByCheckpoint(checkins);
   const checkedIn = new Set(checkins.map((c) => c.attendee_id)).size;
-  const walkIns = attendees.filter((a) => a.source === "walkin").length;
   const cpNames = new Map(cps.map((c) => [c.id, c.name]));
   const scans = recentScans(checkins, attendees, 11);
-
-  // The window comes from the scans themselves: a fixed one shows empty bars on a day
-  // whose door opened outside it, and hides arrivals that fell either side.
-  const window = arrivalWindow(checkins, { day, minutes: BUCKET_MINUTES, checkpointId: cpId });
-  const buckets = window
-    ? arrivalBuckets(checkins, { day, from: window.from, to: window.to, minutes: BUCKET_MINUTES, checkpointId: cpId })
-    : [];
-
-  const at = cpName ? ` · ${cpName}` : "";
-  const on = days.length > 1 ? ` · ${shortDate(day)}` : "";
-  const dayLabels = Object.fromEntries(days.map((d) => [d, shortDate(d)]));
+  const days = checkpointsByDay(cps).map(({ day, items }) => ({
+    day,
+    items: items.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 })),
+  }));
 
   return (
     <div className="space-y-6">
@@ -69,26 +44,8 @@ export default async function Overview({ params, searchParams }: { params: Promi
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <RecentScans rows={scans} checkpointNames={cpNames} live={<AutoRefresh seconds={15} />} />
         <div className="flex flex-col gap-6">
-          <SummaryCard checkedIn={checkedIn} registered={total} walkIns={walkIns} />
-          <ArrivalsPanel
-            buckets={buckets}
-            registered={total}
-            checkpoints={dayCps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))}
-            chartLabel={`Per ${BUCKET_MINUTES} minutes${at}${on}`}
-            emptyChartLabel={dayCps.length === 0
-              ? `No checkpoint on ${shortDate(day)}. Add one in Settings.`
-              : `No arrivals yet${cpName ? ` at ${cpName}` : ""} on ${shortDate(day)}.`}
-            controls={(days.length > 1 || dayCps.length > 1) && (
-              <ArrivalsFilter
-                eventId={ev.id}
-                days={days}
-                dayLabels={dayLabels}
-                day={day}
-                checkpoints={dayCps}
-                checkpointId={cpId}
-              />
-            )}
-          />
+          <SummaryCard checkedIn={checkedIn} registered={total} />
+          <CheckpointProgress days={days} registered={total} />
         </div>
       </div>
     </div>

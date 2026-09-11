@@ -1,60 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { arrivalBuckets, arrivalWindow, attendeeCheckins, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
+import { attendeeCheckins, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
 import type { Attendee, Checkin } from "@/lib/types";
 
 /** `scanned_at` is stored as an absolute instant; these are Malaysian wall-clock times (UTC+8). */
 const scan = (id: string, at: string, attendee = "a1", checkpoint = "cp1", by: string | null = null): Checkin => ({
   id, event_id: "e1", checkpoint_id: checkpoint, attendee_id: attendee, scanned_by: by, scanned_at: at,
-});
-
-const OPTS = { day: "2026-09-30", from: "08:30", to: "09:30", minutes: 15 };
-
-describe("arrivalBuckets", () => {
-  it("returns every bucket in the window, including empty ones", () => {
-    expect(arrivalBuckets([], OPTS)).toEqual([
-      { label: "08:30", count: 0 }, { label: "08:45", count: 0 },
-      { label: "09:00", count: 0 }, { label: "09:15", count: 0 },
-    ]);
-  });
-
-  it("counts a scan into its bucket", () => {
-    const out = arrivalBuckets([scan("c1", "2026-09-30T08:52:00+08:00")], OPTS);
-    expect(out.map((b) => b.count)).toEqual([0, 1, 0, 0]);
-  });
-
-  it("puts a scan exactly on a boundary into the later bucket", () => {
-    const out = arrivalBuckets([scan("c1", "2026-09-30T08:45:00+08:00")], OPTS);
-    expect(out.map((b) => b.count)).toEqual([0, 1, 0, 0]);
-  });
-
-  it("excludes scans before the window, at the exclusive end, and after it", () => {
-    const out = arrivalBuckets([
-      scan("c1", "2026-09-30T08:29:00+08:00"),
-      scan("c2", "2026-09-30T09:30:00+08:00"),
-      scan("c3", "2026-09-30T11:00:00+08:00"),
-    ], OPTS);
-    expect(out.map((b) => b.count)).toEqual([0, 0, 0, 0]);
-  });
-
-  it("excludes scans on another day", () => {
-    const out = arrivalBuckets([scan("c1", "2026-10-01T08:52:00+08:00")], OPTS);
-    expect(out.map((b) => b.count)).toEqual([0, 0, 0, 0]);
-  });
-
-  it("reads the instant in Malaysian time, not UTC", () => {
-    // 2026-09-30T00:52Z is 08:52 in Kuala Lumpur on the same date.
-    const out = arrivalBuckets([scan("c1", "2026-09-30T00:52:00Z")], OPTS);
-    expect(out.map((b) => b.count)).toEqual([0, 1, 0, 0]);
-  });
-
-  it("filters to one checkpoint when asked", () => {
-    const rows = [
-      scan("c1", "2026-09-30T08:52:00+08:00", "a1", "cp1"),
-      scan("c2", "2026-09-30T08:52:00+08:00", "a2", "cp2"),
-    ];
-    expect(arrivalBuckets(rows, OPTS).map((b) => b.count)).toEqual([0, 2, 0, 0]);
-    expect(arrivalBuckets(rows, { ...OPTS, checkpointId: "cp2" }).map((b) => b.count)).toEqual([0, 1, 0, 0]);
-  });
 });
 
 const attendee = (id: string, name: string, over: Partial<Attendee> = {}): Attendee => ({
@@ -199,35 +149,3 @@ describe("attendeeCheckins", () => {
   });
 });
 
-describe("arrivalWindow", () => {
-  it("returns null when nothing was scanned that day", () => {
-    expect(arrivalWindow([], { day: "2026-09-30", minutes: 15 })).toBeNull();
-    expect(arrivalWindow([scan("c1", "2026-10-01T08:52:00+08:00")], { day: "2026-09-30", minutes: 15 })).toBeNull();
-  });
-
-  it("starts at the bucket holding the first scan and ends after the bucket holding the last", () => {
-    const rows = [
-      scan("c1", "2026-09-30T08:05:00+08:00"),
-      scan("c2", "2026-09-30T09:50:00+08:00"),
-    ];
-    expect(arrivalWindow(rows, { day: "2026-09-30", minutes: 15 })).toEqual({ from: "08:00", to: "10:00" });
-  });
-
-  it("widens a single scan to a readable minimum rather than one lonely bucket", () => {
-    const out = arrivalWindow([scan("c1", "2026-09-30T08:52:00+08:00")], { day: "2026-09-30", minutes: 15 });
-    expect(out).toEqual({ from: "08:45", to: "09:45" });
-  });
-
-  it("honours the checkpoint filter", () => {
-    const rows = [
-      scan("c1", "2026-09-30T08:05:00+08:00", "a1", "cp1"),
-      scan("c2", "2026-09-30T18:20:00+08:00", "a2", "cp2"),
-    ];
-    expect(arrivalWindow(rows, { day: "2026-09-30", minutes: 15, checkpointId: "cp2" })).toEqual({ from: "18:15", to: "19:15" });
-  });
-
-  it("reads the instant in Malaysian time", () => {
-    const out = arrivalWindow([scan("c1", "2026-09-30T00:52:00Z")], { day: "2026-09-30", minutes: 15 });
-    expect(out?.from).toBe("08:45");
-  });
-});

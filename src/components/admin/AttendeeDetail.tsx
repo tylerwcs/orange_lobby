@@ -48,7 +48,7 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
  * The attendee record in the layout chosen from the mockups: a band carrying who they are
  * and the badge you hand them, then the fields on the left with where they stand on the
  * door beside them. Nothing scrolls on a desktop screen, which is what you want when you
- * are correcting a walk-in's details at the desk while they wait.
+ * are correcting someone's details at the desk while they wait.
  */
 export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
   const { ev, a, cps, scans, crew, link, qr } = data;

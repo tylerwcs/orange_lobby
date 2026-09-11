@@ -24,17 +24,6 @@ export function checkpointsByDay(checkpoints: Checkpoint[]): { day: string; item
 }
 
 /**
- * The days the filter offers: the event's own days plus any day a checkpoint sits on.
- * A checkpoint dated outside the event — a rehearsal, or a date typed wrong — stays
- * reachable instead of silently dropping off the dashboard.
- */
-export function dayOptions(eventDays: string[], checkpoints: Checkpoint[]): string[] {
-  const days = new Set<string>(eventDays);
-  for (const c of checkpoints) days.add(c.day);
-  return [...days].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-}
-
-/**
  * The checkpoint a day should show: the requested one when it belongs to that day,
  * otherwise that day's first. Switching day must never leave a checkpoint selected
  * whose scans are all on a different date.

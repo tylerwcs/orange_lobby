@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkpointsByDay, dayOptions, pickCheckpoint } from "@/lib/checkpoints";
+import { checkpointsByDay, pickCheckpoint } from "@/lib/checkpoints";
 import type { Checkpoint } from "@/lib/types";
 
 const cp = (id: string, name: string, day: string, sort_order = 0): Checkpoint =>
@@ -21,26 +21,6 @@ describe("checkpointsByDay", () => {
   it("orders within a day by sort_order, then name, so two zeros are still stable", () => {
     const rows = [cp("c2", "Zebra", "2026-09-30", 0), cp("c1", "Apple", "2026-09-30", 0), cp("c3", "First", "2026-09-30", -1)];
     expect(checkpointsByDay(rows)[0].items.map((i) => i.name)).toEqual(["First", "Apple", "Zebra"]);
-  });
-});
-
-describe("dayOptions", () => {
-  it("falls back to the event days when no checkpoint exists yet", () => {
-    expect(dayOptions(["2026-09-30", "2026-10-01"], [])).toEqual(["2026-09-30", "2026-10-01"]);
-  });
-
-  it("merges checkpoint days with event days and de-duplicates", () => {
-    const rows = [cp("c1", "Registration", "2026-09-30"), cp("c2", "Dinner", "2026-10-01")];
-    expect(dayOptions(["2026-09-30", "2026-10-01"], rows)).toEqual(["2026-09-30", "2026-10-01"]);
-  });
-
-  it("keeps a checkpoint dated outside the event, so it is never unreachable", () => {
-    const rows = [cp("c1", "Rehearsal", "2026-09-29")];
-    expect(dayOptions(["2026-09-30", "2026-10-01"], rows)).toEqual(["2026-09-29", "2026-09-30", "2026-10-01"]);
-  });
-
-  it("works from checkpoints alone when the event has no dates", () => {
-    expect(dayOptions([], [cp("c1", "Registration", "2026-09-30")])).toEqual(["2026-09-30"]);
   });
 });
 
