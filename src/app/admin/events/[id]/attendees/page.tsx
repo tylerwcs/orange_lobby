@@ -14,6 +14,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SearchInput } from "@/components/admin/SearchInput";
 import { Modal } from "@/components/admin/Modal";
 import { AttendeeTable, type AttendeeRow } from "@/components/admin/AttendeeTable";
+import { AttendeeDetail, loadAttendeeDetail } from "@/components/admin/AttendeeDetail";
 import { AddColumnForm } from "@/components/admin/AddColumnForm";
 import { FieldInputs } from "@/components/admin/FieldInputs";
 import { allColumns, bulkFields, columnsCookieName, parseTablePrefs, tableCookieName } from "@/lib/columns";
@@ -73,6 +74,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // Default the bulk check-in to a checkpoint on today, so the desk is not one wrong
   // dropdown away from writing arrivals into yesterday's door.
   const defaultCheckpointId = (pickCheckpoint(cps, nowInKL().date, undefined) ?? cps[0])?.id;
+
+  // `?attendee=` opens the panel over this list. It is a query parameter rather than an
+  // intercepted route because Next's interception rewrite is broken under a dynamic
+  // segment — see AttendeeDialog for what that looked like.
+  const open = sp.attendee ? await loadAttendeeDetail(ev.id, sp.attendee, orgId) : null;
 
   const { slice, page, pages } = paginate(rows, Number(sp.page ?? 1), PAGE_SIZE);
   const pageHref = (p: number) => {
@@ -141,6 +147,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         }))}
         columns={columns}
         initialPrefs={prefs}
+        openAttendeeId={open ? open.a.id : null}
+        detailPanel={open ? <AttendeeDetail data={open} /> : null}
         renameColumn={renameAttendeeFieldAction.bind(null, ev.id)}
         deleteColumn={deleteAttendeeFieldAction.bind(null, ev.id)}
         addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} suggestions={suggestions} />}

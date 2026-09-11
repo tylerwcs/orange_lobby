@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { attendeeCheckins, checkedInCount, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
+import { attendeeCheckins, checkedInCount, checkinStatus, recentScans } from "@/lib/checkins-stats";
 import type { Attendee, Checkin } from "@/lib/types";
 
 /** `scanned_at` is stored as an absolute instant; these are Malaysian wall-clock times (UTC+8). */
@@ -90,28 +90,6 @@ describe("recentScans", () => {
     expect(out[0].name).toBe("Removed attendee");
     expect(out[0].company).toBeNull();
     expect(out[0].tableNo).toBeNull();
-  });
-});
-
-describe("countByCheckpoint", () => {
-  it("returns an empty map for no scans", () => {
-    expect(countByCheckpoint([])).toEqual({});
-  });
-
-  it("counts scans per checkpoint", () => {
-    const rows = [
-      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
-      scan("c2", "2026-09-30T08:58:00+08:00", "a2", "cp1"),
-      scan("c3", "2026-09-30T09:12:00+08:00", "a3", "cp2"),
-    ];
-    expect(countByCheckpoint(rows)).toEqual({ cp1: 2, cp2: 1 });
-  });
-
-  it("leaves a checkpoint with no scans absent, rather than present at 0", () => {
-    const rows = [scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1")];
-    const counts = countByCheckpoint(rows);
-    expect(counts).toEqual({ cp1: 1 });
-    expect("cp2" in counts).toBe(false);
   });
 });
 

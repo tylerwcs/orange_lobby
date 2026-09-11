@@ -158,7 +158,7 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
   const source = (str(formData, "source") ?? "walkin") as "walkin" | "import";
   const a = input.email ? (await upsertByEmail(ev, { ...input, email: input.email }, source)).attendee : await createAttendee(ev, input, source);
   revalidatePath(`/admin/events/${eventId}/attendees`);
-  redirect(`/admin/events/${eventId}/attendees/${a.id}`);
+  redirect(flashPath(`/admin/events/${eventId}/attendees?attendee=${a.id}`, `Added ${a.name}.`));
 }
 
 export async function updateAttendeeAction(eventId: string, attendeeId: string, formData: FormData) {

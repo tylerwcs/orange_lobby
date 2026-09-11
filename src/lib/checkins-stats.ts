@@ -76,17 +76,6 @@ export function checkedInCount(checkins: Checkin[], checkpointId?: string | null
 }
 
 /**
- * Check-ins per checkpoint, over rows already fetched. A checkpoint with no scans is
- * simply absent rather than present as 0 — callers that want a full checkpoint list
- * with zeros should read this with `?? 0` against their own checkpoint set.
- */
-export function countByCheckpoint(checkins: Checkin[]): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const c of checkins) counts[c.checkpoint_id] = (counts[c.checkpoint_id] ?? 0) + 1;
-  return counts;
-}
-
-/**
  * Where one attendee has been scanned: checkpoint id -> the earliest scan time there.
  * A checkpoint they never reached is absent, so a caller can read presence directly.
  * Backs the admin panel's check-in timeline, which says when each door was reached and

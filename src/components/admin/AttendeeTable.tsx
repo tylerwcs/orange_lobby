@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
+import { AttendeeDialog } from "@/components/admin/AttendeeDialog";
 import { Icon } from "@/components/ui/Icon";
 import { moveItem } from "@/lib/reorder";
 import {
@@ -95,6 +97,8 @@ export function AttendeeTable({
   rows,
   columns,
   initialPrefs,
+  openAttendeeId,
+  detailPanel,
   emptyMessage,
   setColumn,
   markCheckedIn,
@@ -109,6 +113,9 @@ export function AttendeeTable({
   rows: AttendeeRow[];
   columns: ColumnDef[];
   initialPrefs: TablePrefs;
+  /** The attendee the URL says is open, and the server-rendered panel for them. */
+  openAttendeeId: string | null;
+  detailPanel: React.ReactNode;
   emptyMessage: string;
   setColumn: TableAction;
   markCheckedIn: TableAction;
@@ -131,6 +138,30 @@ export function AttendeeTable({
   const [overKey, setOverKey] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const addRef = useRef<HTMLDialogElement>(null);
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [opening, setOpening] = useState<string | null>(null);
+  const [opensPending, startOpening] = useTransition();
+
+  /** The same list, with or without an attendee open — so the search and page survive. */
+  const listHref = (attendeeId: string | null) => {
+    const next = new URLSearchParams(params.toString());
+    if (attendeeId) next.set("attendee", attendeeId); else next.delete("attendee");
+    const qs = next.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
+
+  const showPanel = (attendeeId: string | null) => {
+    setOpening(attendeeId);
+    startOpening(() => router.push(listHref(attendeeId), { scroll: false }));
+  };
+
+  // Derived, not synced: while the navigation is in flight the local choice wins, so the
+  // dialog opens on the click rather than a round trip later; once it settles the URL is
+  // the truth, which is what closes the panel after a save redirects to the plain list.
+  const openId = opensPending ? opening : openAttendeeId;
 
   // A per-browser preference, not shared state: one organiser's layout must not rearrange
   // the table for the crew member next to them.
@@ -330,7 +361,13 @@ export function AttendeeTable({
                   </label>
                 </td>
                 <td className="truncate p-2">
-                  <Link className="font-semibold text-brand-ink" href={`/admin/events/${eventId}/attendees/${a.id}`}>{a.name}</Link>
+                  {/* A real link, so it can be opened in a new tab or copied — but a plain
+                      click opens the panel here rather than navigating away from the list. */}
+                  <Link
+                    href={listHref(a.id)}
+                    onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); showPanel(a.id); }}
+                    className="font-semibold text-brand-ink"
+                  >{a.name}</Link>
                 </td>
                 {shown.map((c) => <td key={c.key} className="truncate p-2">{cell(a, c.key)}</td>)}
               </tr>
@@ -340,6 +377,10 @@ export function AttendeeTable({
         </table>
       </div>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
+
+      <AttendeeDialog openId={openId} pending={opensPending} onClose={() => showPanel(null)}>
+        {detailPanel}
+      </AttendeeDialog>
 
       {/* `m-auto` is load-bearing — see Modal.tsx: Tailwind's preflight zeroes the margin
           a dialog centres itself with. */}

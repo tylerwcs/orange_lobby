@@ -12,6 +12,8 @@ Run `npm run dev`, sign in, and work through these.
 ## Admin — Overview (`/admin`)
 
 - [ ] `/admin` lands on the live event's Overview, not the event list. With no live event it lands on `/admin/events`.
+- [x] **The Summary card names what it counts**, and switching checkpoint shows a skeleton in that card alone.
+      *(Verified.)*
 - [ ] **The Summary card names what it counts.** With "Any checkpoint" it reads "Across every checkpoint";
       pick one and both the card's caption and the page heading say so. The two numbers must never disagree.
 - [ ] Changing the checkpoint shows a **skeleton in that card only** — the rest of the dashboard must not blank.
@@ -55,24 +57,25 @@ Run `npm run dev`, sign in, and work through these.
 
 Nothing below has been run: the whole surface is behind `requireAdmin()`.
 
-- [ ] Clicking an attendee's name opens the panel as a **dialog over the list**, and the address bar shows
-      `/attendees/<id>`. Escape, the close button and the backdrop all close it and take the URL back.
-- [ ] **Pasting that URL into a fresh tab renders the full page instead**, with the same content. That split is
-      the whole point of the intercepted route; if the modal appears on a hard load, the interception is wrong.
-- [ ] **Save inside the dialog closes it**, returns to the list, and raises a toast naming the attendee. Delete
-      does the same. Neither should leave the panel hanging open over its own result.
+- [x] Clicking an attendee's name opens the panel as a **dialog over the list**, and the address bar shows
+      `?attendee=<id>`. Escape, the close button and the backdrop all close it and clear the parameter.
+      *(Verified 2026-09-11 in a browser.)*
+- [x] Pasting that URL into a fresh tab opens the **same dialog over the same list**. *(Verified.)*
+- [x] **Save inside the dialog closes it**, returns to the list, and raises a toast naming the attendee.
+      *(Verified.)* Delete is the same path but has not been run — it destroys a row, so it is yours to try.
 - [ ] **Every other admin action toasts too** — settings, modules, the info page, adding a session, posting an
       announcement, adding or deleting a checkpoint, importing a masterlist, adding / renaming / deleting a
       column. No page should still render a green or red banner above its heading.
-- [ ] The toast leaves the address bar clean: after it appears, reload. It must **not** come back.
+- [x] The toast leaves the address bar clean, and does not come back on reload. *(Verified.)*
 - [ ] An error toast (try saving an attendee with the name blank) is red, announced to a screen reader, and
       stays on screen about twice as long as a success.
 - [ ] **Copy link** puts the personal URL on the clipboard. On an insecure origin it falls back to a prompt box
       rather than failing silently — worth seeing once.
 - [ ] **Download QR** saves a PNG named after the attendee. It is an `<a download>` on a data URL; confirm the
       browser saves rather than navigating.
-- [ ] The dialog appears **immediately** on click, with a skeleton, and the attendee fills in behind it. The
-      panel must not jump or resize as the real content lands — if it does, the skeleton's block sizes are wrong.
+- [x] The dialog appears **immediately** on click, with a skeleton, and the attendee fills in behind it.
+      *(Verified: the dialog is open with the skeleton in the same tick as the click.)* Still worth your eye on
+      whether the panel jumps as the real content lands.
 - [ ] **At 1280px and below**, the two columns collapse to one and the check-in list moves under the fields
       rather than squeezing. The panel is 960px wide, so check a 1366×768 laptop as well as your own screen.
 - [ ] Save changes and Delete attendee sit in one row, delete far left and save far right. Confirm Delete still
@@ -143,6 +146,22 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
 - [ ] There is **no walk-in control** on the scanner any more. Someone who is not on the list is added from
       Attendees → Add attendee, then scanned. Check that the "not on the list" message points somewhere useful
       rather than at a button that no longer exists.
+
+## A framework bug worth knowing about
+
+The attendee panel first shipped as a Next.js **intercepting route** (`@modal/(.)[attendeeId]`), which is the
+idiomatic way to put a route in a dialog. It does not work under a dynamic segment in Next 16.3.4. The rewrite
+Next generates carries the marker into its own destination —
+
+    "destination": "/admin/events/:nxtPid/attendees/(.):nxtIattendeeId"
+
+— and path-to-regexp reads `(.)` there as an unnamed capture group rather than as text. Every client-side
+navigation to an attendee answered **500** on the RSC request, and Next quietly fell back to a full page load,
+so the dialog never appeared and you got the standalone page instead.
+
+The panel is now opened by a `?attendee=<id>` query parameter, which has none of that and is arguably better:
+a hard load of the link opens the dialog over the list rather than dropping you on a bare page. If a future
+Next release fixes interception, there is no reason to go back.
 
 ## Two decisions that are yours, not defects
 
