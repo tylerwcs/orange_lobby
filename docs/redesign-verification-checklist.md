@@ -77,6 +77,10 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
 - [ ] **Rename a column and export.** The attendance sheet must carry the new label with the old values under it.
 - [ ] **Delete a column, then add it back under the same name.** The values must come back — the definition is
       what gets deleted, never the data. If they do not, that is a real bug.
+- [ ] **Add a column named after one of the suggestions** in the dialog ("Shirt size", "Room partner"). It
+      must arrive already filled in, and the banner must say for how many attendees. That is the whole point of
+      the feature; if the column comes up empty, the matching in `keyMatchesField` is wrong.
+- [ ] After adopting, check the attendance export carries that column **once**, not twice under two spellings.
 - [ ] **Import a masterlist whose header matches one of your columns** (e.g. a "Dietary" column and a Dietary
       header). The values must land in that column, not in a second near-identical one beside it.
 - [ ] Import a masterlist with a header matching nothing. It is kept, appears in the export, and is **not**

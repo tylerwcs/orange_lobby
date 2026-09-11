@@ -17,6 +17,7 @@ import { AttendeeTable, type AttendeeRow } from "@/components/admin/AttendeeTabl
 import { AddColumnForm } from "@/components/admin/AddColumnForm";
 import { FieldInputs } from "@/components/admin/FieldInputs";
 import { allColumns, columnsCookieName, hiddenFromCookie } from "@/lib/columns";
+import { unclaimedKeys } from "@/lib/attendee-fields";
 import { buttonClass } from "@/components/ui/Card";
 import { paginate } from "@/lib/paginate";
 
@@ -48,6 +49,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // already right, rather than rendering everything and pulling columns back out.
   const columns = allColumns(ev.attendee_fields);
   const hidden = hiddenFromCookie(jar.get(columnsCookieName(ev.id))?.value, columns);
+
+  // What the "add a column" dialog offers. Counted across the whole roster, not the
+  // current search — a suggestion that changes as you type would be a lie.
+  const everyone = sp.q ? await listAttendees(ev.id) : rows;
+  const suggestions = unclaimedKeys(everyone.map((a) => a.extra ?? {}), ev.attendee_fields);
 
   // Hoisted single pass over `checkins` (same shape as `checkinStatus`, but scanned once
   // rather than once per row): a per-attendee earliest scan, so status/time lookup below is O(1).
@@ -115,6 +121,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           Imported {sp.imported}, updated {sp.updated}. {sp.skipped ? `Skipped: ${sp.skipped}` : ""}
         </p>
       )}
+      {sp.adopted !== undefined && (
+        <p role="status" className="rounded-[var(--radius-control)] bg-ok-soft p-3 text-sm font-semibold text-ok-strong">
+          Added “{sp.column}” and filled it in for {sp.adopted} {sp.adopted === "1" ? "attendee" : "attendees"} from what was already on file.
+        </p>
+      )}
       {sp.error && <p role="alert" className="rounded-[var(--radius-control)] bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{sp.error}</p>}
       <SearchInput initial={sp.q ?? ""} matches={rows.length} total={total} />
       <AttendeeTable
@@ -137,7 +148,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         initialHidden={hidden}
         renameColumn={renameAttendeeFieldAction.bind(null, ev.id)}
         deleteColumn={deleteAttendeeFieldAction.bind(null, ev.id)}
-        addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} />}
+        addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} suggestions={suggestions} />}
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         assignTable={assignTableAction.bind(null, ev.id)}
         clearTable={clearTableAction.bind(null, ev.id)}

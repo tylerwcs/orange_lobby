@@ -8,7 +8,7 @@ import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
 import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
-import { addField, renameField, removeField, fieldValuesFromForm } from "@/lib/attendee-fields";
+import { addField, renameField, removeField, fieldValuesFromForm, adoptValue } from "@/lib/attendee-fields";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
@@ -229,8 +229,21 @@ export async function addAttendeeFieldAction(eventId: string, formData: FormData
   });
   if (!result.ok) redirect(`${columnsBack(eventId)}?error=${encodeURIComponent(result.error)}`);
   await updateEvent(eventId, { attendee_fields: result.fields });
+
+  // A masterlist header or a registration answer may already hold this fact under another
+  // spelling. Claim those, so a new column arrives populated rather than empty beside its
+  // own data.
+  const field = result.fields[result.fields.length - 1];
+  let adopted = 0;
+  for (const a of await listAttendees(ev.id)) {
+    const next = adoptValue(a.extra ?? {}, field);
+    if (!next) continue;
+    await updateAttendee(a.id, { extra: next });
+    adopted++;
+  }
+
   revalidatePath(columnsBack(eventId));
-  redirect(columnsBack(eventId));
+  redirect(adopted > 0 ? `${columnsBack(eventId)}?adopted=${adopted}&column=${encodeURIComponent(field.label)}` : columnsBack(eventId));
 }
 
 export async function renameAttendeeFieldAction(eventId: string, formData: FormData) {

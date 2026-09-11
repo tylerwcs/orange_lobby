@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  addField, coerceFieldValue, fieldKey, fieldValuesFromForm, MAX_ATTENDEE_FIELDS,
-  parseAttendeeFields, parseOptions, removeField, renameField, type AttendeeField,
+  addField, adoptValue, coerceFieldValue, fieldKey, fieldValuesFromForm, keyMatchesField,
+  labelFromKey, MAX_ATTENDEE_FIELDS, parseAttendeeFields, parseOptions, removeField,
+  renameField, unclaimedKeys, type AttendeeField,
 } from "@/lib/attendee-fields";
 
 const text = (label: string): AttendeeField => ({ key: fieldKey(label), label, type: "text" });
@@ -153,5 +154,79 @@ describe("fieldValuesFromForm", () => {
   it("skips a column the form never rendered, so saving a partial form cannot wipe it", () => {
     const posted: Record<string, string> = { f_room_no: "12A" };
     expect(fieldValuesFromForm(fields, (k) => posted[k] ?? null)).toEqual({ room_no: "12A" });
+  });
+});
+
+describe("keyMatchesField", () => {
+  const field: AttendeeField = { key: "shirt_size", label: "Shirt size", type: "text" };
+
+  it("matches the column's own key, its label's spelling, and the same words slugged", () => {
+    expect(keyMatchesField("shirt_size", field)).toBe(true);   // registration answer
+    expect(keyMatchesField("Shirt Size", field)).toBe(true);   // imported header
+    expect(keyMatchesField("shirt size", field)).toBe(true);
+    expect(keyMatchesField("Shirt-Size", field)).toBe(true);
+  });
+
+  it("does not match a different fact", () => {
+    expect(keyMatchesField("jacket_size", field)).toBe(false);
+    expect(keyMatchesField("shirt", field)).toBe(false);
+  });
+});
+
+describe("adoptValue", () => {
+  const field: AttendeeField = { key: "shirt_size", label: "Shirt size", type: "text" };
+
+  it("moves a value stored under another spelling onto the column's key", () => {
+    expect(adoptValue({ "Shirt Size": "M", Seat: "3" }, field)).toEqual({ shirt_size: "M", Seat: "3" });
+  });
+
+  it("leaves a value already in the right place alone", () => {
+    expect(adoptValue({ shirt_size: "M" }, field)).toBeNull();
+    expect(adoptValue({ Seat: "3" }, field)).toBeNull();
+    expect(adoptValue({}, field)).toBeNull();
+  });
+
+  it("keeps the value already under the column's key, but still drops the stray copy", () => {
+    // Otherwise the attendance export carries the same column twice, under two spellings.
+    expect(adoptValue({ shirt_size: "L", "Shirt Size": "M" }, field)).toEqual({ shirt_size: "L" });
+  });
+
+  it("fills a blank column from the stray copy rather than keeping the blank", () => {
+    expect(adoptValue({ shirt_size: "", "Shirt Size": "M" }, field)).toEqual({ shirt_size: "M" });
+  });
+});
+
+describe("unclaimedKeys", () => {
+  const extras: Record<string, string>[] = [
+    { shirt_size: "M", "Room partner": "Ali", seed: "1" },
+    { shirt_size: "L", seed: "1" },
+    { shirt_size: "", nickname: "Wei" },
+  ];
+
+  it("counts only attendees who actually have a value", () => {
+    expect(unclaimedKeys(extras, [])).toEqual([
+      { key: "seed", count: 2 },
+      { key: "shirt_size", count: 2 },
+      { key: "nickname", count: 1 },
+      { key: "Room partner", count: 1 },
+    ]);
+  });
+
+  it("drops anything an existing column already claims, under any spelling", () => {
+    const fields: AttendeeField[] = [{ key: "shirt_size", label: "Shirt size", type: "text" }, { key: "room_partner", label: "Room partner", type: "text" }];
+    expect(unclaimedKeys(extras, fields).map((s) => s.key)).toEqual(["seed", "nickname"]);
+  });
+
+  it("caps the list", () => {
+    const many = [Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`k${i}`, "x"]))];
+    expect(unclaimedKeys(many, [], 5)).toHaveLength(5);
+  });
+});
+
+describe("labelFromKey", () => {
+  it("turns a stored key back into something worth showing", () => {
+    expect(labelFromKey("shirt_size")).toBe("Shirt size");
+    expect(labelFromKey("room-partner")).toBe("Room partner");
+    expect(labelFromKey("Dietary")).toBe("Dietary");
   });
 });

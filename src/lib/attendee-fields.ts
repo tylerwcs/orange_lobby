@@ -138,3 +138,64 @@ export function fieldValuesFromForm(fields: AttendeeField[], get: (key: string) 
   }
   return out;
 }
+
+/**
+ * Whether a raw `extra` key is the same thing as a defined column under another spelling.
+ * Import stores an unrecognised header verbatim ("Shirt Size"), registration stores its
+ * answers already slugged ("shirt_size"), and a column made later derives its key from
+ * the label — so the same fact can be sitting under three names.
+ */
+export function keyMatchesField(key: string, field: AttendeeField): boolean {
+  return key === field.key || key.toLowerCase() === field.label.toLowerCase() || fieldKey(key) === field.key;
+}
+
+/**
+ * Moves a value already stored under another spelling onto a newly created column, so
+ * adding "Shirt size" picks up what an import or the registration form already collected
+ * instead of showing an empty column beside the data.
+ *
+ * Returns null when there is nothing to move. A value already under the column's own key
+ * wins — but the stray copy still goes, or the export would carry the column twice.
+ */
+export function adoptValue(extra: Record<string, string>, field: AttendeeField): Record<string, string> | null {
+  const match = Object.keys(extra).find((k) => k !== field.key && keyMatchesField(k, field));
+  if (match === undefined) return null;
+  const next = { ...extra };
+  delete next[match];
+  next[field.key] = extra[field.key] || extra[match];
+  return next;
+}
+
+/**
+ * Values on the attendees that no column has claimed yet, commonest first — what the
+ * "add a column" dialog offers, so populating a column is usually one click rather than
+ * a hundred keystrokes. Blank values do not count towards a suggestion; a key where
+ * everyone is blank is not worth surfacing.
+ */
+export function unclaimedKeys(extras: Record<string, string>[], fields: AttendeeField[], limit = 12): { key: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const extra of extras) {
+    for (const [k, v] of Object.entries(extra ?? {})) {
+      if (!v) continue;
+      if (fields.some((f) => keyMatchesField(k, f))) continue;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+  }
+  // Commonest first, then alphabetical. The tie-break compares lowercased keys with plain
+  // operators rather than `localeCompare`, so the order does not depend on the locale the
+  // server happens to be running under.
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => {
+      if (a.count !== b.count) return b.count - a.count;
+      const x = a.key.toLowerCase(), y = b.key.toLowerCase();
+      return x < y ? -1 : x > y ? 1 : 0;
+    })
+    .slice(0, limit);
+}
+
+/** A stored key turned back into something worth showing as a column name. */
+export function labelFromKey(key: string): string {
+  const words = key.replace(/[_-]+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : key;
+}
