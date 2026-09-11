@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MY_TZ, isoToLocalInput, localInputToIso, nowInKL } from "@/lib/time";
+import { MY_TZ, isoToLocalInput, localInputToIso, nowInKL, eventDays } from "@/lib/time";
 
 describe("time", () => {
   it("uses the Malaysian timezone", () => {
@@ -29,5 +29,32 @@ describe("nowInKL", () => {
   it("converts an instant to a Kuala Lumpur date and HH:MM", () => {
     expect(nowInKL(new Date("2026-09-30T02:05:00Z"))).toEqual({ date: "2026-09-30", time: "10:05" });
     expect(nowInKL(new Date("2026-09-30T17:30:00Z"))).toEqual({ date: "2026-10-01", time: "01:30" });
+  });
+});
+
+describe("eventDays", () => {
+  it("returns nothing when the event has no dates", () => {
+    expect(eventDays(null, null)).toEqual([]);
+  });
+
+  it("returns the single day when an event starts and ends the same day", () => {
+    expect(eventDays("2026-09-30", "2026-09-30")).toEqual(["2026-09-30"]);
+  });
+
+  it("returns every day across a range, inclusive", () => {
+    expect(eventDays("2026-09-30", "2026-10-01")).toEqual(["2026-09-30", "2026-10-01"]);
+  });
+
+  it("falls back to the start day when there is no end, or the end precedes the start", () => {
+    expect(eventDays("2026-09-30", null)).toEqual(["2026-09-30"]);
+    expect(eventDays("2026-09-30", "2026-09-29")).toEqual(["2026-09-30"]);
+  });
+
+  it("uses the end day when only that is set", () => {
+    expect(eventDays(null, "2026-10-01")).toEqual(["2026-10-01"]);
+  });
+
+  it("caps a nonsense range rather than looping forever", () => {
+    expect(eventDays("2026-01-01", "2027-01-01")).toHaveLength(14);
   });
 });

@@ -3,16 +3,22 @@ import { Meter } from "@/components/ui/Meter";
 import type { ArrivalBucket } from "@/lib/checkins-stats";
 import type { Checkpoint } from "@/lib/types";
 
-export function CheckInPanel({ checkedIn, registered, buckets, checkpoints, checkpointName }: {
+/** A lone scan against a peak of 1 draws a full-height bar, which reads as a busy door. */
+const MIN_PEAK = 4;
+
+export function CheckInPanel({ checkedIn, registered, buckets, checkpoints, chartLabel, emptyChartLabel, controls }: {
   checkedIn: number; registered: number; buckets: ArrivalBucket[];
   checkpoints: { checkpoint: Checkpoint; count: number }[];
-  checkpointName?: string;
+  chartLabel: string; emptyChartLabel: string; controls?: React.ReactNode;
 }) {
-  const peak = Math.max(1, ...buckets.map((b) => b.count));
+  const peak = Math.max(MIN_PEAK, ...buckets.map((b) => b.count));
   const peakIndex = buckets.findIndex((b) => b.count === peak);
   return (
     <Card className="flex flex-col gap-5 p-5">
-      <h2 className="text-[17px] font-extrabold">Check-in</h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[17px] font-extrabold">Check-in</h2>
+        {controls && <div className="ml-auto flex flex-wrap items-center gap-2">{controls}</div>}
+      </div>
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end gap-4">
@@ -29,28 +35,31 @@ export function CheckInPanel({ checkedIn, registered, buckets, checkpoints, chec
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
-          Arrivals per 15 minutes{checkpointName ? ` · ${checkpointName}` : ""}
-        </h3>
-        {/* One series, so one hue and no legend; only the peak bucket is labelled. */}
-        <div className="overflow-x-auto">
-          <div className="min-w-[720px]">
-            <div className="flex h-[104px] items-end gap-3.5 pt-4">
-              {buckets.map((b, i) => (
-                <div key={b.label} className="flex flex-1 flex-col items-center">
-                  {i === peakIndex && b.count > 0 && <div className="mb-1 text-xs font-extrabold tabular-nums">{b.count}</div>}
-                  <div className="flex h-[68px] w-full items-end">
-                    <div className="w-full rounded-t bg-brand-strong" style={{ height: `${(b.count / peak) * 100}%` }} />
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{chartLabel}</h3>
+        {buckets.length === 0 ? (
+          // An empty window is a real answer. A flat axis of zeroes looks like a broken chart.
+          <p className="rounded-[var(--radius-control)] bg-canvas px-4 py-6 text-center text-sm font-semibold text-muted">{emptyChartLabel}</p>
+        ) : (
+          /* One series, so one hue and no legend; only the peak bucket is labelled. */
+          <div className="overflow-x-auto">
+            <div className="min-w-[520px]">
+              <div className="flex h-[104px] items-end gap-3.5 pt-4">
+                {buckets.map((b, i) => (
+                  <div key={b.label} className="flex flex-1 flex-col items-center">
+                    {i === peakIndex && b.count > 0 && <div className="mb-1 text-xs font-extrabold tabular-nums">{b.count}</div>}
+                    <div className="flex h-[68px] w-full items-end">
+                      <div className="w-full rounded-t bg-brand-strong" style={{ height: `${(b.count / peak) * 100}%` }} />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            <div className="h-px bg-line" />
-            <div className="flex gap-3.5">
-              {buckets.map((b) => <div key={b.label} className="flex-1 text-center text-[11px] font-semibold text-muted tabular-nums">{b.label}</div>)}
+                ))}
+              </div>
+              <div className="h-px bg-line" />
+              <div className="flex gap-3.5">
+                {buckets.map((b) => <div key={b.label} className="flex-1 text-center text-[11px] font-semibold text-muted tabular-nums">{b.label}</div>)}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-2.5 border-t border-line pt-4">

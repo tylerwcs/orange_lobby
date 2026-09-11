@@ -52,3 +52,24 @@ export function nowInKL(now: Date = new Date()): { date: string; time: string } 
   const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   return { date: `${g("year")}-${g("month")}-${g("day")}`, time: `${g("hour")}:${g("minute")}` };
 }
+
+/** A pilot is two days; anything longer is bad data, and an uncapped loop is a hang. */
+const MAX_EVENT_DAYS = 14;
+
+/**
+ * Every calendar day an event spans, as `YYYY-MM-DD`. Drives the day filter on the
+ * admin dashboard, which is why a half-filled date pair still has to produce something
+ * usable rather than nothing.
+ */
+export function eventDays(startsOn: string | null, endsOn: string | null): string[] {
+  const first = startsOn ?? endsOn;
+  if (!first) return [];
+  const start = new Date(`${first}T00:00:00Z`);
+  if (Number.isNaN(start.getTime())) return [];
+  const last = startsOn && endsOn ? new Date(`${endsOn}T00:00:00Z`) : start;
+  const days: string[] = [];
+  for (let d = start; d <= last && days.length < MAX_EVENT_DAYS; d = new Date(d.getTime() + 86400000)) {
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days.length > 0 ? days : [first];
+}

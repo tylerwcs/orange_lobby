@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { initials, formatDateRange, shortDate, shortDateTime } from "@/lib/text";
+import { initials, formatDateRange, shortDate, shortDateTime, elapsed } from "@/lib/text";
 
 describe("text helpers", () => {
   it("initials take the first two words, uppercase", () => {
@@ -41,5 +41,31 @@ describe("displayName", () => {
     expect(displayName("WONG CAI SHEN")).toBe("Wong Cai Shen");
     expect(displayName("Aiman bin Rashid")).toBe("Aiman bin Rashid");
     expect(displayName("  ")).toBe("");
+  });
+});
+
+describe("elapsed", () => {
+  const now = new Date("2026-09-30T10:00:00+08:00");
+
+  it("says just now under a minute", () => {
+    expect(elapsed("2026-09-30T09:59:30+08:00", now)).toBe("just now");
+  });
+
+  it("counts whole minutes under an hour", () => {
+    expect(elapsed("2026-09-30T09:58:00+08:00", now)).toBe("2 min ago");
+    expect(elapsed("2026-09-30T09:01:00+08:00", now)).toBe("59 min ago");
+  });
+
+  it("counts whole hours under a day", () => {
+    expect(elapsed("2026-09-30T08:00:00+08:00", now)).toBe("2 h ago");
+    expect(elapsed("2026-09-29T11:00:00+08:00", now)).toBe("23 h ago");
+  });
+
+  it("falls back to the shared short date beyond a day", () => {
+    expect(elapsed("2026-09-28T10:00:00+08:00", now)).toBe("Mon 28 Sep");
+  });
+
+  it("does not render a future scan as a negative age", () => {
+    expect(elapsed("2026-09-30T10:05:00+08:00", now)).toBe("just now");
   });
 });

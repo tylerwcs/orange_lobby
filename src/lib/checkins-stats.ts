@@ -134,3 +134,35 @@ export function attendeeCheckins(attendeeId: string, checkins: Checkin[]): Recor
   }
   return out;
 }
+
+/** Below this, a chart reads as one lonely bar rather than a distribution. */
+const MIN_WINDOW_BUCKETS = 4;
+
+/**
+ * The span the arrivals chart should cover for one day, derived from the scans themselves.
+ * A hardcoded window is wrong twice over: it shows empty bars on a day whose door opened
+ * outside it, and hides arrivals that fell either side. Null when nothing was scanned —
+ * the caller renders an empty state rather than a flat axis.
+ */
+export function arrivalWindow(
+  checkins: Checkin[],
+  opts: { day: string; minutes: number; checkpointId?: string },
+): { from: string; to: string } | null {
+  const { day, minutes, checkpointId } = opts;
+  if (!(minutes > 0)) return null;
+  let lo = Infinity, hi = -Infinity;
+  for (const c of checkins) {
+    if (checkpointId && c.checkpoint_id !== checkpointId) continue;
+    const parts = klParts(c.scanned_at);
+    if (!parts || parts.day !== day) continue;
+    const m = toMinutes(parts.time);
+    if (m < lo) lo = m;
+    if (m > hi) hi = m;
+  }
+  if (lo === Infinity) return null;
+  const start = Math.floor(lo / minutes) * minutes;
+  // `to` is exclusive, so step past the bucket the last scan fell in to include it.
+  let end = Math.floor(hi / minutes) * minutes + minutes;
+  if ((end - start) / minutes < MIN_WINDOW_BUCKETS) end = start + MIN_WINDOW_BUCKETS * minutes;
+  return { from: toLabel(start), to: toLabel(Math.min(end, 24 * 60)) };
+}

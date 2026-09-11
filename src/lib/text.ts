@@ -55,3 +55,20 @@ export function displayName(name: string): string {
   if (t !== t.toUpperCase()) return t;
   return t.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase());
 }
+
+/**
+ * How long ago something happened, for a table watched live. Absolute times answer
+ * "when"; a crew lead watching the door is asking "is it still moving". Clock skew
+ * between the browser and the server can put a scan slightly in the future, which
+ * reads as "just now" rather than a negative age.
+ */
+export function elapsed(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "";
+  const mins = Math.floor((now.getTime() - then.getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return shortDate(iso.slice(0, 10));
+}

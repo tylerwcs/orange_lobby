@@ -1,45 +1,64 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { appBaseUrl, genericLink, registrationLink } from "@/lib/links";
-import { setStatusAction, purgeEventAction, removeCheckinAction } from "./actions";
-import type { EventStatus } from "@/lib/types";
-import { countAttendees } from "@/lib/db/attendees";
+import { countAttendees, listAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Card, buttonClass } from "@/components/ui/Card";
+import { listCheckinsForEvent } from "@/lib/db/checkins";
+import { buttonClass } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { StatStrip } from "@/components/admin/StatStrip";
 import { CheckInPanel } from "@/components/admin/CheckInPanel";
-import { GlanceCard } from "@/components/admin/GlanceCard";
 import { RecentScans } from "@/components/admin/RecentScans";
-import { arrivalBuckets, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
-import { listCheckinsForEvent } from "@/lib/db/checkins";
-import { listAttendees } from "@/lib/db/attendees";
-import { nowInKL, isoToLocalInput } from "@/lib/time";
+import { arrivalBuckets, arrivalWindow, recentScans, countByCheckpoint } from "@/lib/checkins-stats";
+import { nowInKL, eventDays } from "@/lib/time";
+import { shortDate } from "@/lib/text";
 
 export const metadata = { title: "Overview · Orange Lobby" };
 
-export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; purged?: string }> }) {
+const BUCKET_MINUTES = 15;
+
+export default async function Overview({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ day?: string; cp?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const base = appBaseUrl();
-  const statuses: EventStatus[] = ["draft", "live", "archived"];
   const [total, cps, checkins, attendees] = await Promise.all([
     countAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id), listAttendees(ev.id),
   ]);
+
   const today = nowInKL().date;
+  const days = eventDays(ev.starts_on, ev.ends_on);
+  // Land on the day being run if the event is on, otherwise its first day.
+  const day = days.includes(sp.day ?? "") ? sp.day! : days.includes(today) ? today : days[0] ?? today;
+  const cpId = cps.some((c) => c.id === sp.cp) ? sp.cp! : cps[0]?.id;
+  const cpName = cps.find((c) => c.id === cpId)?.name;
+
   const counts = countByCheckpoint(checkins);
-  const firstCp = cps[0]?.id;
-  const firstCpName = cps[0]?.name;
   const checkedIn = new Set(checkins.map((c) => c.attendee_id)).size;
   const walkIns = attendees.filter((a) => a.source === "walkin").length;
-  const buckets = arrivalBuckets(checkins, { day: today, from: "08:00", to: "12:00", minutes: 15, checkpointId: firstCp });
-  const scans = recentScans(checkins, attendees, 8);
   const cpNames = new Map(cps.map((c) => [c.id, c.name]));
-  const registrationOpen = ev.registration_open && !(ev.registration_closes_at && new Date(ev.registration_closes_at) < new Date());
-  const registrationHint = ev.registration_closes_at ? `Closes ${isoToLocalInput(ev.registration_closes_at).replace("T", " ")}` : undefined;
+  const scans = recentScans(checkins, attendees, 8);
+
+  // The window comes from the scans themselves: a fixed one shows empty bars on a day
+  // whose door opened outside it, and hides arrivals that fell either side.
+  const window = arrivalWindow(checkins, { day, minutes: BUCKET_MINUTES, checkpointId: cpId });
+  const buckets = window
+    ? arrivalBuckets(checkins, { day, from: window.from, to: window.to, minutes: BUCKET_MINUTES, checkpointId: cpId })
+    : [];
+
+  const at = cpName ? ` · ${cpName}` : "";
+  const on = days.length > 1 ? ` · ${shortDate(day)}` : "";
+  const chipHref = (next: { day?: string; cp?: string }) => {
+    const p = new URLSearchParams();
+    p.set("day", next.day ?? day);
+    const cp = next.cp ?? cpId;
+    if (cp) p.set("cp", cp);
+    return `/admin/events/${ev.id}?${p.toString()}`;
+  };
+  const chip = (active: boolean) =>
+    `inline-flex min-h-11 items-center rounded-[var(--radius-control)] px-3.5 text-xs font-bold ${active ? "bg-ink text-white" : "bg-canvas text-ink hover:brightness-95"}`;
+
   return (
     <div className="space-y-6">
       <AdminHeader
@@ -47,64 +66,33 @@ export default async function Overview({ params, searchParams }: { params: Promi
         subtitle={`${ev.name} · ${checkedIn} of ${total} checked in`}
         actions={<a href={`/scan/${ev.id}`} className={buttonClass("primary")}><Icon name="scan" size={18} />Open scanner</a>}
       />
-      {sp.error && <div className="rounded-[var(--radius-control)] border border-red-300 bg-red-50 p-3 text-sm text-red-700">{sp.error}</div>}
-      {sp.purged && <div className="rounded-[var(--radius-control)] border border-green-300 bg-green-50 p-3 text-sm text-green-700">Personal data purged.</div>}
-      <div className="grid items-start gap-6 xl:grid-cols-[1.75fr_1fr]">
-        <CheckInPanel checkedIn={checkedIn} registered={total} buckets={buckets} checkpointName={firstCpName}
-          checkpoints={cps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))} />
-        <GlanceCard registered={total} checkedIn={checkedIn} walkIns={walkIns}
-          registrationOpen={registrationOpen} registrationHint={registrationHint} eventId={ev.id} />
-      </div>
-      <RecentScans rows={scans} checkpointNames={cpNames} eventId={ev.id} removeCheckin={removeCheckinAction} />
-      <div className="grid gap-6 items-start xl:grid-cols-[3fr_2fr]">
-      <div className="space-y-6">
-      <Card className="p-4">
-        <h2 className="mb-2 font-bold">Links</h2>
-        <div className="space-y-2">
-          <div>
-            <div className="text-xs text-muted">Generic</div>
-            <a className="block rounded-[var(--radius-control)] bg-canvas p-2 text-xs break-all font-mono text-brand-ink" href={genericLink(base, ev.slug)}>{genericLink(base, ev.slug)}</a>
-          </div>
-          <div>
-            <div className="text-xs text-muted">Registration</div>
-            <a className="block rounded-[var(--radius-control)] bg-canvas p-2 text-xs break-all font-mono text-brand-ink" href={registrationLink(base, ev.slug)}>{registrationLink(base, ev.slug)}</a>
-          </div>
-        </div>
-      </Card>
-      <Card className="p-4">
-        <h2 className="mb-2 font-bold">Exports</h2>
-        {/* Plain anchors, not `<Link>`: prefetching an export route would build the file on hover. */}
-        <div className="flex flex-wrap gap-3">
-          <a download href={`/admin/events/${ev.id}/export/qr.zip`} className={buttonClass("secondary")}><Icon name="qr" size={18} />QR codes (ZIP)</a>
-          <a download href={`/admin/events/${ev.id}/export/links.xlsx`} className={buttonClass("secondary")}><Icon name="link" size={18} />Links (Excel)</a>
-          <a download href={`/admin/events/${ev.id}/export/attendance.xlsx`} className={buttonClass("secondary")}><Icon name="file" size={18} />Attendance (Excel)</a>
-        </div>
-        <p className="mt-2 text-xs text-muted">Links are generated for: {base}</p>
-      </Card>
-      </div>
-      <div className="space-y-6">
-      <Card className="p-4">
-        <h2 className="mb-2 font-bold">Status</h2>
-        <p className="mb-2 text-xs text-muted">Draft shows &ldquo;Coming soon&rdquo; on every link. Live opens the portal. Archived makes it read-only.</p>
-        <div className="flex flex-wrap gap-2">
-          {statuses.map((s) => (
-            <form key={s} action={setStatusAction.bind(null, ev.id, s)}>
-              <button className={`rounded-[var(--radius-control)] border border-line px-3 py-1.5 text-sm font-bold ${ev.status === s ? "border-ink bg-ink text-white" : ""}`}>{s}</button>
-            </form>
-          ))}
-        </div>
-      </Card>
-      {ev.status === "archived" && (
-        <Card className="p-4">
-          <form action={purgeEventAction.bind(null, ev.id)}>
-            <h2 className="mb-2 font-bold text-red-700">Purge personal data</h2>
-            <p className="mb-2 text-sm text-muted">Replaces names, emails, phones, companies and extra fields. Attendance counts are kept. Cannot be undone.</p>
-            <ConfirmButton message="Purge all attendee personal data for this event? This cannot be undone." className="text-red-700">Purge</ConfirmButton>
-          </form>
-        </Card>
-      )}
-      </div>
-      </div>
+      <StatStrip stats={[
+        { label: "Checked in", value: checkedIn, lead: true },
+        { label: "Registered", value: total },
+        { label: "Walk-ins", value: walkIns },
+        { label: "Not yet in", value: Math.max(0, total - checkedIn) },
+      ]} />
+
+      <CheckInPanel
+        checkedIn={checkedIn}
+        registered={total}
+        buckets={buckets}
+        checkpoints={cps.map((c) => ({ checkpoint: c, count: counts[c.id] ?? 0 }))}
+        chartLabel={`Arrivals per ${BUCKET_MINUTES} minutes${at}${on}`}
+        emptyChartLabel={`No arrivals yet${cpName ? ` at ${cpName}` : ""}${days.length > 1 ? ` on ${shortDate(day)}` : ""}.`}
+        controls={(days.length > 1 || cps.length > 1) && (
+          <>
+            {days.length > 1 && days.map((d) => (
+              <Link key={d} href={chipHref({ day: d })} aria-current={d === day ? "true" : undefined} className={chip(d === day)}>{shortDate(d)}</Link>
+            ))}
+            {cps.length > 1 && cps.map((c) => (
+              <Link key={c.id} href={chipHref({ cp: c.id })} aria-current={c.id === cpId ? "true" : undefined} className={chip(c.id === cpId)}>{c.name}</Link>
+            ))}
+          </>
+        )}
+      />
+
+      <RecentScans rows={scans} checkpointNames={cpNames} />
     </div>
   );
 }

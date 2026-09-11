@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { arrivalBuckets, attendeeCheckins, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
+import { arrivalBuckets, arrivalWindow, attendeeCheckins, checkinStatus, countByCheckpoint, recentScans } from "@/lib/checkins-stats";
 import type { Attendee, Checkin } from "@/lib/types";
 
 /** `scanned_at` is stored as an absolute instant; these are Malaysian wall-clock times (UTC+8). */
@@ -196,5 +196,38 @@ describe("attendeeCheckins", () => {
       scan("c2", "2026-09-30T08:42:00+08:00", "a2", "cp1"),
     ];
     expect(attendeeCheckins("a2", rows)).toEqual({ cp1: "2026-09-30T08:42:00+08:00" });
+  });
+});
+
+describe("arrivalWindow", () => {
+  it("returns null when nothing was scanned that day", () => {
+    expect(arrivalWindow([], { day: "2026-09-30", minutes: 15 })).toBeNull();
+    expect(arrivalWindow([scan("c1", "2026-10-01T08:52:00+08:00")], { day: "2026-09-30", minutes: 15 })).toBeNull();
+  });
+
+  it("starts at the bucket holding the first scan and ends after the bucket holding the last", () => {
+    const rows = [
+      scan("c1", "2026-09-30T08:05:00+08:00"),
+      scan("c2", "2026-09-30T09:50:00+08:00"),
+    ];
+    expect(arrivalWindow(rows, { day: "2026-09-30", minutes: 15 })).toEqual({ from: "08:00", to: "10:00" });
+  });
+
+  it("widens a single scan to a readable minimum rather than one lonely bucket", () => {
+    const out = arrivalWindow([scan("c1", "2026-09-30T08:52:00+08:00")], { day: "2026-09-30", minutes: 15 });
+    expect(out).toEqual({ from: "08:45", to: "09:45" });
+  });
+
+  it("honours the checkpoint filter", () => {
+    const rows = [
+      scan("c1", "2026-09-30T08:05:00+08:00", "a1", "cp1"),
+      scan("c2", "2026-09-30T18:20:00+08:00", "a2", "cp2"),
+    ];
+    expect(arrivalWindow(rows, { day: "2026-09-30", minutes: 15, checkpointId: "cp2" })).toEqual({ from: "18:15", to: "19:15" });
+  });
+
+  it("reads the instant in Malaysian time", () => {
+    const out = arrivalWindow([scan("c1", "2026-09-30T00:52:00Z")], { day: "2026-09-30", minutes: 15 });
+    expect(out?.from).toBe("08:45");
   });
 });

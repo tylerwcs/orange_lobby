@@ -12,8 +12,8 @@ export function Sidebar({ email, event }: { email: string; event?: { id: string;
   // The overview item is a prefix of every other item in its section, so it only
   // lights up on an exact match; the rest also match their own sub-routes.
   const root = event ? `/admin/events/${event.id}` : "/admin/events";
-  const isActive = (i: { href: string; external?: true }) =>
-    !i.external && (pathname === i.href || (i.href !== root && pathname.startsWith(`${i.href}/`)));
+  const isActive = (i: { href: string }) =>
+    pathname === i.href || (i.href !== root && pathname.startsWith(`${i.href}/`));
   const itemClass = (active: boolean) =>
     `flex min-h-11 items-center gap-2.5 rounded-[9px] px-2 text-sm ${active ? "bg-brand-soft font-extrabold text-brand-ink" : "font-bold text-ink hover:bg-canvas"}`;
   return (
@@ -34,11 +34,9 @@ export function Sidebar({ email, event }: { email: string; event?: { id: string;
         {groups.map((g) => (
           <div key={g.title} className="flex shrink-0 flex-col gap-0.5">
             <div className="px-2 pb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{g.title}</div>
-            {g.items.map((i) => i.external
-              // A download route: `<Link>` would prefetch it and pull the file down on hover.
-              ? <a key={i.href} href={i.href} download className={itemClass(false)}><Icon name={i.icon} size={18} />{i.label}</a>
-              : <Link key={i.href} href={i.href} className={itemClass(isActive(i))}><Icon name={i.icon} size={18} />{i.label}</Link>
-            )}
+            {g.items.map((i) => (
+              <Link key={i.href} href={i.href} className={itemClass(isActive(i))}><Icon name={i.icon} size={18} />{i.label}</Link>
+            ))}
           </div>
         ))}
       </nav>
