@@ -84,6 +84,12 @@ export async function upsertByEmail(event: Pick<Event, "id" | "org_id">, input: 
   return { attendee: await createAttendee(event, input, source), created: true };
 }
 
+/**
+ * Rotates one attendee's token, invalidating the QR already printed on their badge.
+ * No admin control points here any more — it was one confirm dialog away from the QR you
+ * had just handed someone. It stays because it is the only answer to a leaked link, and
+ * because `purgeAttendeePersonalData` rotates every token the same way.
+ */
 export async function regenerateToken(id: string): Promise<string> {
   const token = generateToken();
   const { error } = await serviceClient().from("attendees").update({ token, updated_at: new Date().toISOString() }).eq("id", id);

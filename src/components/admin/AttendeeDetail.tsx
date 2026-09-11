@@ -14,10 +14,11 @@ import { FieldInputs } from "@/components/admin/FieldInputs";
 import { CopyLink } from "@/components/admin/CopyLink";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { scannerNames, shortScanner } from "@/lib/db/users";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { buttonClass } from "@/components/ui/Card";
-import { updateAttendeeAction, regenerateTokenAction, deleteAttendeeAction, removeCheckinAction } from "@/app/admin/events/[id]/actions";
+import { updateAttendeeAction, deleteAttendeeAction } from "@/app/admin/events/[id]/actions";
 
 const hhmm = (iso: string) => isoToLocalInput(iso).split("T")[1] ?? "";
 
@@ -34,8 +35,12 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== ev.id) return null;
   const [cps, checkins] = await Promise.all([listCheckpoints(ev.id), listCheckinsForEvent(ev.id)]);
+  const scans = attendeeCheckins(a.id, checkins);
   const link = attendeeLink(appBaseUrl(), ev.slug, a.token);
-  return { ev, a, cps, scans: attendeeCheckins(a.id, checkins), link, qr: await qrDataUrl(link) };
+  // Only this attendee's own scanners, so the lookup is one or two calls rather than one
+  // per crew account on the event.
+  const crew = await scannerNames(Object.values(scans).map((s) => s.by));
+  return { ev, a, cps, scans, crew, link, qr: await qrDataUrl(link) };
 }
 
 /**
@@ -44,8 +49,8 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
  * they stand on the door; then the fields, which are the rarer edit.
  */
 export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailData; saved?: string; error?: string }) {
-  const { ev, a, cps, scans, link, qr } = data;
-  const firstScan = cps.map((c) => scans[c.id]).filter(Boolean).sort()[0];
+  const { ev, a, cps, scans, crew, link, qr } = data;
+  const firstScan = cps.map((c) => scans[c.id]?.at).filter(Boolean).sort()[0];
 
   return (
     <div className="space-y-6">
@@ -76,26 +81,31 @@ export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailDat
         </div>
       </div>
 
+      {/* A list of moments rather than a list of rows: the dot carries the state, and the
+          line under each name says when and who — which is the question actually asked of
+          this panel when an attendee says they were let in and the record disagrees.
+          Reversing one lives in the scanner's Undo; it is not an admin control. */}
       <section>
-        <h3 className={`${caption} mb-2.5`}>Check-in</h3>
+        <h3 className={`${caption} mb-3`}>Check-in</h3>
         {cps.length === 0 ? (
           <p className="text-sm text-muted">No checkpoints yet. Add them under Settings.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-3.5">
             {checkpointsByDay(cps).flatMap((g) => g.items.map((cp) => {
-              const at = scans[cp.id];
+              const scan = scans[cp.id];
+              const by = scan?.by ? crew[scan.by] : undefined;
               return (
-                <li key={cp.id} className="flex min-h-11 flex-wrap items-center gap-3 rounded-[var(--radius-control)] border border-line px-3 py-2">
-                  <span className="flex-1 text-sm font-bold">{cp.name} <span className="font-semibold text-muted">· {shortDate(g.day)}</span></span>
-                  {at
-                    ? <Badge tone="ok" dot>In at {hhmm(at)}</Badge>
-                    : <span className="text-sm font-semibold text-muted">Not checked in</span>}
-                  {/* Only a real check-in can be removed, so the control appears only where there is one. */}
-                  {at && (
-                    <form action={removeCheckinAction.bind(null, ev.id, cp.id, a.id)}>
-                      <ConfirmButton message={`Remove the check-in for ${a.name} at ${cp.name}? They will need to be scanned again.`} className="text-danger-strong">Remove</ConfirmButton>
-                    </form>
-                  )}
+                <li key={cp.id} className="flex gap-3">
+                  <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${scan ? "bg-ok" : "bg-surface ring-[1.5px] ring-muted"}`} />
+                  <div className="min-w-0">
+                    <div className={`text-sm font-bold ${scan ? "text-ink" : "text-muted"}`}>{cp.name}</div>
+                    <div className="mt-0.5 text-[13px] text-muted">
+                      {shortDate(g.day)} ·{" "}
+                      {scan
+                        ? <><span className="tabular-nums">{hhmm(scan.at)}</span>{by ? ` · by ${shortScanner(by)}` : ""}</>
+                        : "not checked in"}
+                    </div>
+                  </div>
                 </li>
               );
             }))}
@@ -131,13 +141,9 @@ export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailDat
         <SubmitButton>Save changes</SubmitButton>
       </form>
 
-      {/* Their own forms, below the save: a form cannot nest, and neither of these should
-          sit a mis-click away from the primary button. */}
-      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-        <form action={regenerateTokenAction.bind(null, ev.id, a.id)}>
-          <ConfirmButton message="Issue a new link? The QR code already printed on their badge stops working.">New link</ConfirmButton>
-        </form>
-        <span className="flex-1" />
+      {/* Its own form, below the save: a form cannot nest, and this should not sit a
+          mis-click away from the primary button. */}
+      <div className="border-t border-line pt-4">
         <form action={deleteAttendeeAction.bind(null, ev.id, a.id)}>
           <ConfirmButton message={`Delete ${a.name}? Their check-ins go with them.`} className="text-danger-strong">Delete attendee</ConfirmButton>
         </form>

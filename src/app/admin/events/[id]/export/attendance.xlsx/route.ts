@@ -4,7 +4,7 @@ import { listAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { buildAttendanceWorkbook } from "@/lib/exports";
-import { serviceClient } from "@/lib/supabase/service";
+import { scannerNames } from "@/lib/db/users";
 import { parseIds } from "@/lib/bulk";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,9 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   // No `ids` param at all means "export everything" (unchanged full-roster behaviour). An
   // `ids` param that matched nothing must export nothing, not silently fail open to everyone.
   const rows = idsParam === null ? attendees : attendees.filter((a) => selectedIds.includes(a.id));
-  const ids = Array.from(new Set(cis.map((c) => c.scanned_by).filter(Boolean))) as string[];
-  const names: Record<string, string> = {};
-  for (const uid of ids) { const { data } = await serviceClient().auth.admin.getUserById(uid); if (data.user?.email) names[uid] = data.user.email; }
+  const names = await scannerNames(cis.map((c) => c.scanned_by));
   const buf = await buildAttendanceWorkbook(rows, cps, cis, names, ev.attendee_fields).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${ev.slug}-attendance.xlsx"` } });
 }

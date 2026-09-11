@@ -125,12 +125,14 @@ export function countByCheckpoint(checkins: Checkin[]): Record<string, number> {
  * Backs the admin's per-checkpoint check-in state, including the reversal control —
  * removing a check-in needs to name which checkpoint it is removing.
  */
-export function attendeeCheckins(attendeeId: string, checkins: Checkin[]): Record<string, string> {
-  const out: Record<string, string> = {};
+export type AttendeeScan = { at: string; by: string | null };
+
+export function attendeeCheckins(attendeeId: string, checkins: Checkin[]): Record<string, AttendeeScan> {
+  const out: Record<string, AttendeeScan> = {};
   for (const c of checkins) {
     if (c.attendee_id !== attendeeId) continue;
     const seen = out[c.checkpoint_id];
-    if (seen === undefined || c.scanned_at < seen) out[c.checkpoint_id] = c.scanned_at;
+    if (seen === undefined || c.scanned_at < seen.at) out[c.checkpoint_id] = { at: c.scanned_at, by: c.scanned_by };
   }
   return out;
 }

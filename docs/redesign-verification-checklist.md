@@ -57,7 +57,11 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
       rather than failing silently — worth seeing once.
 - [ ] **Download QR** saves a PNG named after the attendee. It is an `<a download>` on a data URL; confirm the
       browser saves rather than navigating.
-- [ ] **New link** invalidates the old QR. Check the previously copied link now 404s.
+- [ ] The dialog appears **immediately** on click, with a skeleton, and the attendee fills in behind it. The
+      panel must not jump or resize as the real content lands — if it does, the skeleton's block sizes are wrong.
+- [ ] Check-in reads as a list of moments: a filled dot and `Wed 30 Sep · 08:33 · by <crew>` where they were
+      scanned, a hollow dot and `not checked in` where they were not. Confirm the crew name resolves to
+      something you recognise rather than a bare id.
 - [ ] Add a column of each type — Text, Number, Date, Choice — and confirm each renders the right input in the
       panel and the right value in the table.
 - [ ] **A Choice column offers exactly its choices, plus a blank.** A value stored before the choices changed
@@ -82,6 +86,11 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
 - **Reordering columns.** They appear in the order they were added, built-ins first.
 - **Per-column required/validation rules.** A Number column refuses non-numbers by blanking them; nothing else
   is enforced.
+- **"New link"** (rotating an attendee's token) has no button any more, at your request. The database function
+  survives, so if a personal link ever leaks it can still be rotated — but only from SQL, not from the app.
+- **Removing a check-in from the panel**, also at your request. Note what that costs: the scanner's six-second
+  Undo is now the *only* way back from a wrong scan. After that window, a mis-scan is permanent in the
+  attendance export. If that turns out to bite on the day, the action is a dozen lines to restore.
 
 ## Scanner (`/scan/[eventId]`)
 

@@ -3,8 +3,8 @@ import { arrivalBuckets, arrivalWindow, attendeeCheckins, checkinStatus, countBy
 import type { Attendee, Checkin } from "@/lib/types";
 
 /** `scanned_at` is stored as an absolute instant; these are Malaysian wall-clock times (UTC+8). */
-const scan = (id: string, at: string, attendee = "a1", checkpoint = "cp1"): Checkin => ({
-  id, event_id: "e1", checkpoint_id: checkpoint, attendee_id: attendee, scanned_by: null, scanned_at: at,
+const scan = (id: string, at: string, attendee = "a1", checkpoint = "cp1", by: string | null = null): Checkin => ({
+  id, event_id: "e1", checkpoint_id: checkpoint, attendee_id: attendee, scanned_by: by, scanned_at: at,
 });
 
 const OPTS = { day: "2026-09-30", from: "08:30", to: "09:30", minutes: 15 };
@@ -171,23 +171,23 @@ describe("attendeeCheckins", () => {
     expect(attendeeCheckins("a1", [scan("c1", "2026-09-30T08:41:00+08:00", "a2", "cp1")])).toEqual({});
   });
 
-  it("maps each checkpoint the attendee was scanned at to that scan time", () => {
+  it("maps each checkpoint the attendee was scanned at to when it happened and who did it", () => {
     const rows = [
-      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
+      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1", "crew-1"),
       scan("c2", "2026-09-30T18:31:00+08:00", "a1", "cp2"),
     ];
     expect(attendeeCheckins("a1", rows)).toEqual({
-      cp1: "2026-09-30T08:41:00+08:00",
-      cp2: "2026-09-30T18:31:00+08:00",
+      cp1: { at: "2026-09-30T08:41:00+08:00", by: "crew-1" },
+      cp2: { at: "2026-09-30T18:31:00+08:00", by: null },
     });
   });
 
-  it("keeps the earliest scan when the same checkpoint has more than one", () => {
+  it("keeps the earliest scan when the same checkpoint has more than one, and its scanner with it", () => {
     const rows = [
-      scan("c2", "2026-09-30T09:12:00+08:00", "a1", "cp1"),
-      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
+      scan("c2", "2026-09-30T09:12:00+08:00", "a1", "cp1", "crew-2"),
+      scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1", "crew-1"),
     ];
-    expect(attendeeCheckins("a1", rows)).toEqual({ cp1: "2026-09-30T08:41:00+08:00" });
+    expect(attendeeCheckins("a1", rows)).toEqual({ cp1: { at: "2026-09-30T08:41:00+08:00", by: "crew-1" } });
   });
 
   it("ignores other attendees at the same checkpoint", () => {
@@ -195,7 +195,7 @@ describe("attendeeCheckins", () => {
       scan("c1", "2026-09-30T08:41:00+08:00", "a1", "cp1"),
       scan("c2", "2026-09-30T08:42:00+08:00", "a2", "cp1"),
     ];
-    expect(attendeeCheckins("a2", rows)).toEqual({ cp1: "2026-09-30T08:42:00+08:00" });
+    expect(attendeeCheckins("a2", rows)).toEqual({ cp1: { at: "2026-09-30T08:42:00+08:00", by: null } });
   });
 });
 

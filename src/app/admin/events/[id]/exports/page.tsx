@@ -53,7 +53,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
         <ul className="mt-3 space-y-2 text-sm text-muted">
           <li>Personal links and QR codes are generated for <span className="font-bold text-ink">{base}</span>. If that address changes, re-export before printing.</li>
           <li>A personal link signs the holder in without a password. Treat both files as you would the attendee list itself.</li>
-          <li>Regenerating an attendee&rsquo;s link from their detail page invalidates the QR code already printed on their badge.</li>
+          <li>A personal link does not expire, so a QR printed today still scans on the day. Re-export only if the list changes.</li>
         </ul>
       </Card>
     </div>
