@@ -39,8 +39,13 @@ Run `npm run dev`, sign in, and work through these.
 - [ ] Search filters as you type, with no button, and resets to page 1.
 - [ ] Pagination preserves the search term; page 0 and a page past the last both clamp.
 - [ ] The check-in column reads `In HH:MM` or `Expected`.
-- [ ] Select three attendees → Assign table → the three rows update and the selection clears.
-- [ ] **Assign table with the field left blank does nothing** (it used to wipe `table_no` silently).
+- [ ] Select three attendees, pick a column in the bulk bar, type a value, Update → the three rows change and
+      the selection clears.
+- [ ] **Applying a blank value asks first** ("Clear Table for 3 attendees?"). That confirmation is the only
+      thing standing between a stray Enter and a wiped column — the old rule that simply refused blanks is gone,
+      because clearing has to be possible somehow.
+- [ ] The value control matches the column: a date picker for a Date column, a fixed list for a Choice column,
+      a numeric field for a Number column.
 - [ ] Export selected downloads a workbook containing only the selected rows.
 - [ ] The "Add attendee" header link lands on a visible form, not a collapsed one.
 
@@ -77,6 +82,10 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
 - [ ] **Rename a column and export.** The attendance sheet must carry the new label with the old values under it.
 - [ ] **Delete a column, then add it back under the same name.** The values must come back — the definition is
       what gets deleted, never the data. If they do not, that is a real bug.
+- [ ] **Every registration question already has a column**, with no action taken. Its header menu offers hide
+      but not rename or delete, and says to edit the question under Settings. If a question is missing from the
+      table, `fieldsFromQuestions` is dropping it.
+- [ ] Adding a column named after an existing registration question is **refused** with a message saying so.
 - [ ] **Add a column named after one of the suggestions** in the dialog ("Shirt size", "Room partner"). It
       must arrive already filled in, and the banner must say for how many attendees. That is the whole point of
       the feature; if the column comes up empty, the matching in `keyMatchesField` is wrong.

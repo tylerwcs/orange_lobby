@@ -10,6 +10,7 @@ import { isoToLocalInput } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { safeFileName } from "@/lib/filenames";
 import { scannerNames, shortScanner } from "@/lib/db/users";
+import { fieldsFromQuestions } from "@/lib/attendee-fields";
 import { Field } from "@/components/admin/Field";
 import { FieldInputs } from "@/components/admin/FieldInputs";
 import { CopyLink } from "@/components/admin/CopyLink";
@@ -52,6 +53,11 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
 export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailData; saved?: string; error?: string }) {
   const { ev, a, cps, scans, crew, link, qr } = data;
   const firstScan = cps.map((c) => scans[c.id]?.at).filter(Boolean).sort()[0];
+  // Two groups, because they are edited for different reasons: the first is what someone
+  // told you when they signed up, the second is what you learned since.
+  const registrationFields = fieldsFromQuestions(ev.registration_questions);
+  const claimed = new Set(registrationFields.map((f) => f.key));
+  const customFields = ev.attendee_fields.filter((f) => !claimed.has(f.key));
 
   return (
     <div>
@@ -98,14 +104,26 @@ export function AttendeeDetail({ data, saved, error }: { data: AttendeeDetailDat
               </div>
             </section>
 
-            {ev.attendee_fields.length > 0 && (
+            {registrationFields.length > 0 && (
+              <section>
+                <div className="mb-2.5 flex flex-wrap items-baseline gap-2.5">
+                  <h3 className={caption}>Registration</h3>
+                  <span className="text-xs text-muted">What the form asked</span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FieldInputs fields={registrationFields} values={a.extra} />
+                </div>
+              </section>
+            )}
+
+            {customFields.length > 0 && (
               <section>
                 <div className="mb-2.5 flex flex-wrap items-baseline gap-2.5">
                   <h3 className={caption}>Your columns</h3>
                   <span className="text-xs text-muted">Added on the attendees table</span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <FieldInputs fields={ev.attendee_fields} values={a.extra} />
+                  <FieldInputs fields={customFields} values={a.extra} />
                 </div>
               </section>
             )}

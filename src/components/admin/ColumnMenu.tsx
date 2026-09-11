@@ -85,13 +85,16 @@ export function ColumnMenu({ column, columns, hidden, onToggle, onAddColumn, ren
           style={{ left: spot.left, top: spot.top }}
           className="fixed z-50 w-70 rounded-[14px] border border-line bg-surface p-2 text-ink shadow-[var(--shadow-card)]"
         >
-          <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">{column.label}</p>
+          <p className="px-2.5 pt-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">{column.label}</p>
+          {column.source === "registration" && (
+            <p className="px-2.5 pb-1.5 text-xs text-muted">Asked on the registration form. Edit the question under Settings.</p>
+          )}
 
           <button type="button" className={item} onClick={() => { onToggle(column.key, false); close(); }}>
             <Icon name="close" size={16} className="text-muted" />Hide this column
           </button>
 
-          {column.custom && (renaming ? (
+          {column.source === "custom" && (renaming ? (
             <form action={renameColumn} className="flex items-center gap-2 px-1.5 py-1.5">
               <input type="hidden" name="key" value={column.key} />
               <label className="sr-only" htmlFor={`rename-${column.key}`}>New name for {column.label}</label>

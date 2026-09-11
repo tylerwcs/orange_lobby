@@ -8,7 +8,8 @@ import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
 import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
-import { addField, renameField, removeField, fieldValuesFromForm, adoptValue } from "@/lib/attendee-fields";
+import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue } from "@/lib/attendee-fields";
+import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
@@ -93,7 +94,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const file = formData.get("file");
   if (!(file instanceof File)) redirect(`/admin/events/${eventId}/attendees?error=Choose+a+file`);
   let parsed: MasterlistResult | null = null;
-  try { parsed = await parseMasterlist(await file.arrayBuffer(), ev.attendee_fields); }
+  try { parsed = await parseMasterlist(await file.arrayBuffer(), eventFields(ev.registration_questions, ev.attendee_fields)); }
   catch (e) { redirect(`/admin/events/${eventId}/attendees?error=${encodeURIComponent((e as Error).message)}`); }
   if (!parsed) redirect(`/admin/events/${eventId}/attendees?error=Could+not+read+file`);
   // One read of the existing roster instead of a lookup per row; new rows go out in one bulk insert.
@@ -134,7 +135,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
  * under its own header — survives the save.
  */
 function attendeeInputFrom(ev: Event, formData: FormData, existingExtra: Record<string, string> = {}) {
-  const values = fieldValuesFromForm(ev.attendee_fields, (k) => {
+  const values = fieldValuesFromForm(eventFields(ev.registration_questions, ev.attendee_fields), (k) => {
     const v = formData.get(k);
     return typeof v === "string" ? v : null;
   });
@@ -193,22 +194,35 @@ export async function markCheckedInAction(eventId: string, formData: FormData) {
   revalidatePath(`/admin/events/${ev.id}`);
 }
 
-export async function assignTableAction(eventId: string, formData: FormData) {
+/**
+ * Sets one column across a selection: a table number for a row of guests, a shirt size
+ * for a group, a room for everyone arriving on the same coach. Replaces the old
+ * assign-table and clear-table pair — one control that knows which column it is writing
+ * to, and what kind of value that column holds.
+ *
+ * A blank value clears the column. That used to be guarded by refusing blanks entirely,
+ * because a stray Enter on an empty box wiped the table; the guard now lives in the
+ * confirmation the bar puts in front of a clear, which is the honest place for it.
+ */
+export async function setColumnAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
-  const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
-  const table = String(formData.get("table_no") ?? "").trim();
-  if (!table) return; // Blank input under "Assign table" must not wipe table_no — "Clear table" owns that.
-  for (const id of ids) await updateAttendee(id, { table_no: table });
-  revalidatePath(`/admin/events/${ev.id}/attendees`);
-}
+  const attendees = await listAttendees(ev.id);
+  const ids = parseIds(String(formData.get("ids") ?? ""), new Set(attendees.map((a) => a.id)));
+  if (ids.length === 0) return;
 
-export async function clearTableAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
-  const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
-  for (const id of parseIds(String(formData.get("ids") ?? ""), allowed)) await updateAttendee(id, { table_no: null });
+  const key = String(formData.get("column") ?? "");
+  const raw = String(formData.get("value") ?? "");
+  const field = bulkFields(eventFields(ev.registration_questions, ev.attendee_fields)).find((f) => f.key === key);
+  if (!field) return; // a posted key that is not an editable column writes nothing
+
+  const value = coerceFieldValue(field, raw);
+  const chosen = new Set(ids);
+  for (const a of attendees) {
+    if (!chosen.has(a.id)) continue;
+    if (BULK_BUILTIN_KEYS.includes(key)) await updateAttendee(a.id, { [key]: value || null });
+    else await updateAttendee(a.id, { extra: mergeExtra(a.extra ?? {}, { [key]: value }) });
+  }
   revalidatePath(`/admin/events/${ev.id}/attendees`);
 }
 
@@ -226,7 +240,7 @@ export async function addAttendeeFieldAction(eventId: string, formData: FormData
     label: String(formData.get("label") ?? ""),
     type: String(formData.get("type") ?? "text"),
     options: String(formData.get("options") ?? ""),
-  });
+  }, ev.registration_questions.map((q) => q.key));
   if (!result.ok) redirect(`${columnsBack(eventId)}?error=${encodeURIComponent(result.error)}`);
   await updateEvent(eventId, { attendee_fields: result.fields });
 

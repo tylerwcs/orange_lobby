@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   addField, adoptValue, coerceFieldValue, fieldKey, fieldValuesFromForm, keyMatchesField,
   labelFromKey, MAX_ATTENDEE_FIELDS, parseAttendeeFields, parseOptions, removeField,
-  renameField, unclaimedKeys, type AttendeeField,
+  renameField, unclaimedKeys, fieldsFromQuestions, eventFields, type AttendeeField,
 } from "@/lib/attendee-fields";
+import type { RegistrationQuestion } from "@/lib/types";
 
 const text = (label: string): AttendeeField => ({ key: fieldKey(label), label, type: "text" });
 
@@ -228,5 +229,47 @@ describe("labelFromKey", () => {
     expect(labelFromKey("shirt_size")).toBe("Shirt size");
     expect(labelFromKey("room-partner")).toBe("Room partner");
     expect(labelFromKey("Dietary")).toBe("Dietary");
+  });
+});
+
+describe("fieldsFromQuestions", () => {
+  it("turns a registration question into a column of the same key and label", () => {
+    expect(fieldsFromQuestions([
+      { key: "shirt_size", label: "Shirt size", type: "text", required: true },
+      { key: "dietary", label: "Dietary", type: "select", required: false, options: ["Halal", " Veg ", ""] },
+    ])).toEqual([
+      { key: "shirt_size", label: "Shirt size", type: "text" },
+      { key: "dietary", label: "Dietary", type: "select", options: ["Halal", "Veg"] },
+    ]);
+  });
+
+  it("falls back to free text for a choice that lost its choices, so the answer stays editable", () => {
+    expect(fieldsFromQuestions([{ key: "d", label: "D", type: "select", required: false, options: [] }]))
+      .toEqual([{ key: "d", label: "D", type: "text" }]);
+  });
+});
+
+describe("eventFields", () => {
+  const questions: RegistrationQuestion[] = [{ key: "shirt_size", label: "Shirt size", type: "text", required: true }];
+
+  it("reads the form's questions first, then the columns added on top", () => {
+    const custom: AttendeeField[] = [{ key: "room_no", label: "Room no", type: "text" }];
+    expect(eventFields(questions, custom).map((f) => f.key)).toEqual(["shirt_size", "room_no"]);
+  });
+
+  it("does not list a column twice when a custom one shares a question's key", () => {
+    const custom: AttendeeField[] = [{ key: "shirt_size", label: "Shirt size", type: "text" }];
+    expect(eventFields(questions, custom)).toHaveLength(1);
+  });
+});
+
+describe("addField against the registration form", () => {
+  it("refuses a column the form already asks for", () => {
+    const r = addField([], { label: "Shirt size", type: "text", options: "" }, ["shirt_size"]);
+    expect(r).toEqual({ ok: false, error: "“Shirt size” is already a question on the registration form" });
+  });
+
+  it("allows a column the form never asks for", () => {
+    expect(addField([], { label: "Room number", type: "text", options: "" }, ["shirt_size"]).ok).toBe(true);
   });
 });

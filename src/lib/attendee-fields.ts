@@ -1,4 +1,5 @@
 import { slugify } from "@/lib/slug";
+import type { RegistrationQuestion } from "@/lib/types";
 
 /**
  * Columns an organiser adds to the attendee table after registration has closed — room
@@ -66,7 +67,7 @@ export function parseAttendeeFields(raw: unknown): AttendeeField[] {
 
 export type FieldResult = { ok: true; fields: AttendeeField[] } | { ok: false; error: string };
 
-export function addField(fields: AttendeeField[], input: { label: string; type: string; options: string }): FieldResult {
+export function addField(fields: AttendeeField[], input: { label: string; type: string; options: string }, reserved: string[] = []): FieldResult {
   const label = input.label.trim();
   if (!label) return { ok: false, error: "Give the column a name" };
   if (label.length > 40) return { ok: false, error: "Column names are limited to 40 characters" };
@@ -75,6 +76,7 @@ export function addField(fields: AttendeeField[], input: { label: string; type: 
   const key = fieldKey(label);
   if (!key) return { ok: false, error: "Use letters or numbers in the column name" };
   if (RESERVED_KEYS.has(key)) return { ok: false, error: `“${label}” is already a built-in column` };
+  if (reserved.includes(key)) return { ok: false, error: `“${label}” is already a question on the registration form` };
   if (fields.some((f) => f.key === key)) return { ok: false, error: `You already have a column called “${label}”` };
 
   const type = isType(input.type) ? input.type : "text";
@@ -198,4 +200,31 @@ export function unclaimedKeys(extras: Record<string, string>[], fields: Attendee
 export function labelFromKey(key: string): string {
   const words = key.replace(/[_-]+/g, " ").trim();
   return words ? words[0].toUpperCase() + words.slice(1) : key;
+}
+
+/**
+ * The registration form's questions, as columns. Their answers already live in `extra`
+ * under the question key, so they are columns whether or not anyone declares them — which
+ * is why they are derived here rather than added by hand. A `select` that lost its
+ * choices falls back to free text so the answer stays editable.
+ */
+export function fieldsFromQuestions(questions: RegistrationQuestion[]): AttendeeField[] {
+  return questions.map((q) => {
+    const options = q.options?.map((o) => o.trim()).filter(Boolean) ?? [];
+    return q.type === "select" && options.length > 0
+      ? { key: q.key, label: q.label, type: "select" as const, options }
+      : { key: q.key, label: q.label, type: "text" as const };
+  });
+}
+
+/**
+ * Every column an attendee's `extra` can hold: what the registration form asks, then what
+ * the organiser added afterwards. This is the list the table, the attendee panel, the
+ * import matcher and the export all work from — `attendee_fields` alone is only the
+ * second half.
+ */
+export function eventFields(questions: RegistrationQuestion[], custom: AttendeeField[]): AttendeeField[] {
+  const fromForm = fieldsFromQuestions(questions);
+  const claimed = new Set(fromForm.map((f) => f.key));
+  return [...fromForm, ...custom.filter((f) => !claimed.has(f.key))];
 }

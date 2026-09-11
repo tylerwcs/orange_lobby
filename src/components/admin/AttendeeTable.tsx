@@ -7,6 +7,7 @@ import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
 import { Icon } from "@/components/ui/Icon";
 import { columnsCookieName, hiddenToCookie, type ColumnDef } from "@/lib/columns";
+import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AttendeeSource, Checkpoint } from "@/lib/types";
 
 // Exactly the fields this table renders — never the full `Attendee` shape, which carries
@@ -67,9 +68,9 @@ export function AttendeeTable({
   columns,
   initialHidden,
   emptyMessage,
-  assignTable,
-  clearTable,
+  setColumn,
   markCheckedIn,
+  bulkEditable,
   renameColumn,
   deleteColumn,
   addColumnForm,
@@ -81,9 +82,9 @@ export function AttendeeTable({
   columns: ColumnDef[];
   initialHidden: string[];
   emptyMessage: string;
-  assignTable: TableAction;
-  clearTable: TableAction;
+  setColumn: TableAction;
   markCheckedIn: TableAction;
+  bulkEditable: AttendeeField[];
   renameColumn: TableAction;
   deleteColumn: TableAction;
   addColumnForm: React.ReactNode;
@@ -154,9 +155,9 @@ export function AttendeeTable({
         eventId={eventId}
         ids={Array.from(selected)}
         onClear={() => setSelected(new Set())}
-        assignTable={runBulk(assignTable)}
-        clearTable={runBulk(clearTable)}
+        setColumn={runBulk(setColumn)}
         markCheckedIn={runBulk(markCheckedIn)}
+        fields={bulkEditable}
         checkpoints={checkpoints}
         defaultCheckpointId={defaultCheckpointId}
       />
@@ -165,7 +166,7 @@ export function AttendeeTable({
         <p className="text-sm text-muted">
           {hiddenCount > 0
             ? `${hiddenCount} ${hiddenCount === 1 ? "column is" : "columns are"} hidden. Any column header opens the list.`
-            : "Every column header opens a menu to hide columns or add your own."}
+            : "Registration questions are already columns. Any header opens the list; add one for what the form never asked."}
         </p>
         <button type="button" onClick={() => addRef.current?.showModal()}
           className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-4 text-sm font-bold text-ink transition-colors duration-150 hover:bg-canvas">
@@ -227,7 +228,7 @@ export function AttendeeTable({
         <div className="flex items-start gap-4 border-b border-line p-5">
           <div className="min-w-0 flex-1">
             <h2 className="text-[17px] font-extrabold">Add a column</h2>
-            <p className="mt-1 text-sm text-muted">It appears on every attendee in this event, in their details, and in the attendance export.</p>
+            <p className="mt-1 text-sm text-muted">For what the registration form never asked — a room number, a flight. Every form question is already a column. Whatever you add here appears on every attendee, in their details, and in the attendance export.</p>
           </div>
           <button type="button" aria-label="Close" onClick={() => addRef.current?.close()}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted transition-colors duration-150 hover:bg-canvas">

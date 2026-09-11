@@ -1,27 +1,40 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
 
-export type ColumnDef = {
-  key: string;
-  label: string;
-  /** Custom columns can be renamed and deleted from their header menu; built-ins cannot. */
-  custom: boolean;
-};
+/**
+ * Where a column comes from, which decides what its header menu may offer: a built-in is
+ * part of the attendee row, a registration column is owned by the form in Settings, and
+ * only a custom one can be renamed or deleted from the table.
+ */
+export type ColumnSource = "builtin" | "registration" | "custom";
+
+export type ColumnDef = { key: string; label: string; source: ColumnSource };
 
 /**
  * Name is deliberately absent: it is the row's handle — the link into the attendee — so
  * hiding it would leave a table of details with nothing to open.
  */
 export const BUILTIN_COLUMNS: ColumnDef[] = [
-  { key: "email", label: "Email", custom: false },
-  { key: "company", label: "Company", custom: false },
-  { key: "category", label: "Category", custom: false },
-  { key: "table_no", label: "Table", custom: false },
-  { key: "checked_in", label: "Checked in", custom: false },
-  { key: "source", label: "Source", custom: false },
+  { key: "email", label: "Email", source: "builtin" },
+  { key: "company", label: "Company", source: "builtin" },
+  { key: "category", label: "Category", source: "builtin" },
+  { key: "table_no", label: "Table", source: "builtin" },
+  { key: "checked_in", label: "Checked in", source: "builtin" },
+  { key: "source", label: "Source", source: "builtin" },
 ];
 
-export function allColumns(fields: AttendeeField[]): ColumnDef[] {
-  return [...BUILTIN_COLUMNS, ...fields.map((f) => ({ key: f.key, label: f.label, custom: true }))];
+/**
+ * The table's columns in reading order: the attendee row's own, then what the
+ * registration form asked, then what the organiser added. Registration questions are
+ * columns automatically — their answers are already on file, so making someone re-declare
+ * them would be asking for work the system can do itself.
+ */
+export function allColumns(registrationFields: AttendeeField[], customFields: AttendeeField[]): ColumnDef[] {
+  const claimed = new Set(registrationFields.map((f) => f.key));
+  return [
+    ...BUILTIN_COLUMNS,
+    ...registrationFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "registration" })),
+    ...customFields.filter((f) => !claimed.has(f.key)).map((f): ColumnDef => ({ key: f.key, label: f.label, source: "custom" })),
+  ];
 }
 
 /** The cookie is per event, so hiding Company on one event does not hide it on the next. */
@@ -51,4 +64,24 @@ export function hiddenToCookie(hidden: Iterable<string>): string {
 export function visibleColumns(columns: ColumnDef[], hidden: Iterable<string>): ColumnDef[] {
   const skip = new Set(hidden);
   return columns.filter((c) => !skip.has(c.key));
+}
+
+/**
+ * Columns a bulk edit may set for a whole selection. Name, email and phone are per-person
+ * and have no business being set in bulk; check-in has its own control; source records
+ * how someone got on the list and is not typed.
+ *
+ * Described as `AttendeeField`s so one piece of UI can render the right control for each —
+ * a date picker for a date, a fixed list for a choice.
+ */
+export const BULK_BUILTIN_FIELDS: AttendeeField[] = [
+  { key: "company", label: "Company", type: "text" },
+  { key: "category", label: "Category", type: "text" },
+  { key: "table_no", label: "Table", type: "text" },
+];
+
+export const BULK_BUILTIN_KEYS = BULK_BUILTIN_FIELDS.map((f) => f.key);
+
+export function bulkFields(eventFields: AttendeeField[]): AttendeeField[] {
+  return [...BULK_BUILTIN_FIELDS, ...eventFields];
 }

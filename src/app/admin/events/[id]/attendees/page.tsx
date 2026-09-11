@@ -5,7 +5,7 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, addAttendeeFieldAction, assignTableAction, clearTableAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction } from "../actions";
+import { addAttendeeAction, addAttendeeFieldAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { pickCheckpoint } from "@/lib/checkpoints";
@@ -16,8 +16,8 @@ import { Modal } from "@/components/admin/Modal";
 import { AttendeeTable, type AttendeeRow } from "@/components/admin/AttendeeTable";
 import { AddColumnForm } from "@/components/admin/AddColumnForm";
 import { FieldInputs } from "@/components/admin/FieldInputs";
-import { allColumns, columnsCookieName, hiddenFromCookie } from "@/lib/columns";
-import { unclaimedKeys } from "@/lib/attendee-fields";
+import { allColumns, bulkFields, columnsCookieName, hiddenFromCookie } from "@/lib/columns";
+import { eventFields, fieldsFromQuestions, unclaimedKeys } from "@/lib/attendee-fields";
 import { buttonClass } from "@/components/ui/Card";
 import { paginate } from "@/lib/paginate";
 
@@ -47,13 +47,17 @@ export default async function Attendees({ params, searchParams }: { params: Prom
 
   // Which columns this browser has hidden. Read on the server so the first paint is
   // already right, rather than rendering everything and pulling columns back out.
-  const columns = allColumns(ev.attendee_fields);
+  // Registration questions are columns without anyone declaring them — the answers are
+  // already on file. `attendee_fields` is only what was added on top.
+  const registrationFields = fieldsFromQuestions(ev.registration_questions);
+  const allFields = eventFields(ev.registration_questions, ev.attendee_fields);
+  const columns = allColumns(registrationFields, ev.attendee_fields);
   const hidden = hiddenFromCookie(jar.get(columnsCookieName(ev.id))?.value, columns);
 
   // What the "add a column" dialog offers. Counted across the whole roster, not the
   // current search — a suggestion that changes as you type would be a lie.
   const everyone = sp.q ? await listAttendees(ev.id) : rows;
-  const suggestions = unclaimedKeys(everyone.map((a) => a.extra ?? {}), ev.attendee_fields);
+  const suggestions = unclaimedKeys(everyone.map((a) => a.extra ?? {}), allFields);
 
   // Hoisted single pass over `checkins` (same shape as `checkinStatus`, but scanned once
   // rather than once per row): a per-attendee earliest scan, so status/time lookup below is O(1).
@@ -90,7 +94,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
                 <Field label="Phone" name="phone" /><Field label="Company" name="company" />
                 <Field label="Category" name="category" /><Field label="Table" name="table_no" />
-                <FieldInputs fields={ev.attendee_fields} />
+                <FieldInputs fields={allFields} />
                 <input type="hidden" name="source" value="import" />
                 <div className="md:col-span-2"><SubmitButton>Add attendee</SubmitButton></div>
               </form>
@@ -142,7 +146,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           checkedInAt: earliestScan.get(a.id) ?? null,
           // Only the defined columns cross to the client: an unmapped header an import
           // left in `extra` has no column to land in and stays on the server.
-          values: Object.fromEntries(ev.attendee_fields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
+          values: Object.fromEntries(allFields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
         }))}
         columns={columns}
         initialHidden={hidden}
@@ -150,9 +154,9 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         deleteColumn={deleteAttendeeFieldAction.bind(null, ev.id)}
         addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} suggestions={suggestions} />}
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
-        assignTable={assignTableAction.bind(null, ev.id)}
-        clearTable={clearTableAction.bind(null, ev.id)}
+        setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
+        bulkEditable={bulkFields(allFields)}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
       />

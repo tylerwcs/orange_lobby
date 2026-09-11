@@ -1,5 +1,6 @@
 import { isValidToken } from "@/lib/tokens";
 import type { Attendee, Event } from "@/lib/types";
+import { eventFields } from "@/lib/attendee-fields";
 
 export function extractToken(scanned: string): string | null {
   const s = scanned.trim();
@@ -8,7 +9,7 @@ export function extractToken(scanned: string): string | null {
   return m && isValidToken(m[1]) ? m[1] : null;
 }
 
-export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields" | "attendee_fields">) {
+export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields" | "attendee_fields" | "registration_questions">) {
   const out = [
     { label: "Company", value: a.company ?? "" }, { label: "Category", value: a.category ?? "" },
     { label: "Table", value: a.table_no ?? "" },
@@ -19,7 +20,7 @@ export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields"
     // A configured name may be a raw `extra` key from an import, or the label of one of
     // the event's own columns — whose storage key is the slug, not the label the
     // organiser typed. Try the key first, then match a defined column by name.
-    const field = (e.attendee_fields ?? []).find((f) => f.label.toLowerCase() === key.toLowerCase());
+    const field = eventFields(e.registration_questions ?? [], e.attendee_fields ?? []).find((f) => f.label.toLowerCase() === key.toLowerCase());
     out.push({ label: field?.label ?? key, value: a.extra[key] ?? (field ? a.extra[field.key] ?? "" : "") });
   }
   return out;

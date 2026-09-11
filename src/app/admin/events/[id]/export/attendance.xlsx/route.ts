@@ -5,6 +5,7 @@ import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { buildAttendanceWorkbook } from "@/lib/exports";
 import { scannerNames } from "@/lib/db/users";
+import { eventFields } from "@/lib/attendee-fields";
 import { parseIds } from "@/lib/bulk";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +19,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   // `ids` param that matched nothing must export nothing, not silently fail open to everyone.
   const rows = idsParam === null ? attendees : attendees.filter((a) => selectedIds.includes(a.id));
   const names = await scannerNames(cis.map((c) => c.scanned_by));
-  const buf = await buildAttendanceWorkbook(rows, cps, cis, names, ev.attendee_fields).xlsx.writeBuffer();
+  const buf = await buildAttendanceWorkbook(rows, cps, cis, names, eventFields(ev.registration_questions, ev.attendee_fields)).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${ev.slug}-attendance.xlsx"` } });
 }
