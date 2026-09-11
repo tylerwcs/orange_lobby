@@ -10,7 +10,7 @@ export default async function AttendeePage({ params, searchParams }: { params: P
   const data = await loadAttendeeDetail(id, attendeeId, orgId);
   if (!data) notFound();
   return (
-    <Card className="mx-auto max-w-3xl p-5">
+    <Card className="mx-auto max-w-5xl p-5">
       <AttendeeDetail data={data} saved={saved} error={error} />
     </Card>
   );

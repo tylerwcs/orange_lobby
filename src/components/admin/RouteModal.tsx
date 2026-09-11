@@ -27,7 +27,7 @@ export function RouteModal({ label, children }: { label: string; children: React
       onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }}
       // `m-auto` is load-bearing: a dialog centres itself through the user-agent's
       // `margin: auto`, which Tailwind's preflight zeroes on every element.
-      className="m-auto w-[min(92vw,720px)] rounded-[var(--radius-card)] bg-surface p-0 text-ink shadow-[var(--shadow-card)] backdrop:bg-ink/40"
+      className="m-auto w-[min(94vw,960px)] rounded-[var(--radius-card)] bg-surface p-0 text-ink shadow-[var(--shadow-card)] backdrop:bg-ink/40"
     >
       <div className="flex justify-end p-3 pb-0">
         <button type="button" aria-label="Close" onClick={() => ref.current?.close()}

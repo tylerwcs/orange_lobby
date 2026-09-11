@@ -59,6 +59,11 @@ Nothing below has been run: the whole surface is behind `requireAdmin()`.
       browser saves rather than navigating.
 - [ ] The dialog appears **immediately** on click, with a skeleton, and the attendee fills in behind it. The
       panel must not jump or resize as the real content lands — if it does, the skeleton's block sizes are wrong.
+- [ ] **At 1280px and below**, the two columns collapse to one and the check-in list moves under the fields
+      rather than squeezing. The panel is 960px wide, so check a 1366×768 laptop as well as your own screen.
+- [ ] Save changes and Delete attendee sit in one row, delete far left and save far right. Confirm Delete still
+      asks first — it is no longer a form, so its confirmation is the only thing between a click and the record
+      going.
 - [ ] Check-in reads as a list of moments: a filled dot and `Wed 30 Sep · 08:33 · by <crew>` where they were
       scanned, a hollow dot and `not checked in` where they were not. Confirm the crew name resolves to
       something you recognise rather than a bare id.

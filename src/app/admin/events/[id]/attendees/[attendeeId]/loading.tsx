@@ -3,7 +3,7 @@ import { AttendeeDetailSkeleton } from "@/components/admin/AttendeeDetailSkeleto
 
 export default function AttendeeLoading() {
   return (
-    <Card className="mx-auto max-w-3xl p-5">
+    <Card className="mx-auto max-w-5xl p-5">
       <AttendeeDetailSkeleton />
     </Card>
   );
