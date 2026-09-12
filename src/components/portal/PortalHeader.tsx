@@ -19,7 +19,7 @@ export function PortalHeader({ event, href }: { event: HeaderEvent; href?: strin
       {href ? <Link href={href} aria-label="Home"><Mark event={event} /></Link> : <Mark event={event} />}
       <div className="min-w-0 flex-1">
         <div className="line-clamp-2 text-base font-extrabold leading-tight">{event.name}</div>
-        {meta && <div className="truncate text-xs font-medium text-muted">{meta}</div>}
+        {meta && <div className="truncate text-xs font-medium text-muted-foreground">{meta}</div>}
       </div>
     </header>
   );

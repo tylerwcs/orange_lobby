@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
 import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
-import { Icon } from "@/components/ui/Icon";
-import { Button } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/legacy/Icon";
+import { Button } from "@/components/ui/legacy/Card";
 import { describeCameraError, type CameraProblem } from "@/lib/scan";
 import { shortTime } from "@/lib/text";
 
@@ -90,7 +90,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
     : result?.status === "duplicate" ? "bg-warn-soft text-warn"
     : result?.status === "undone" ? "bg-ink text-white"
     : result ? "bg-danger-soft text-danger-strong"
-    : "bg-surface text-muted shadow-[var(--shadow-card)]";
+    : "bg-surface text-muted-foreground shadow-[var(--shadow-card)]";
   const headline = result?.status === "ok" ? "Checked in"
     : result?.status === "duplicate" ? `Already in since ${shortTime(result.earlier!.at)}`
     : result?.status === "undone" ? "Check-in undone" : "";
@@ -153,7 +153,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
       </div>
 
       <div className="relative mt-3">
-        <Icon name="search" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+        <Icon name="search" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <label htmlFor="scan-search" className="sr-only">Search attendees by name, email or company</label>
         <input id="scan-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email or company" autoComplete="off" className="w-full min-h-12 rounded-[var(--radius-control)] border border-line bg-surface pl-11 pr-3.5 text-base" />
       </div>
@@ -165,7 +165,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
                 className="flex w-full min-h-14 items-center gap-3 rounded-[var(--radius-card)] border border-line bg-surface px-4 text-left active:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-bold">{h.name}</div>
-                  <div className="truncate text-xs text-muted">{[h.company, h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</div>
+                  <div className="truncate text-xs text-muted-foreground">{[h.company, h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</div>
                 </div>
                 {h.checkedIn
                   ? <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">Already in</span>
@@ -176,17 +176,17 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
         </ul>
       )}
       {q.trim().length >= 2 && hits.length === 0 && !busy && (
-        <p className="mt-2 text-sm text-muted">No one matches &ldquo;{q.trim()}&rdquo;. Try a shorter name, or part of their company.</p>
+        <p className="mt-2 text-sm text-muted-foreground">No one matches &ldquo;{q.trim()}&rdquo;. Try a shorter name, or part of their company.</p>
       )}
 
       {recent.length > 0 && (
         <section className="mt-5">
-          <h2 className="mb-1.5 text-xs font-bold uppercase tracking-[0.08em] text-muted">Recent</h2>
+          <h2 className="mb-1.5 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Recent</h2>
           <ul className="divide-y divide-line rounded-[var(--radius-card)] border border-line bg-surface text-sm">
             {recent.map((r, i) => (
               <li key={`${r.at}-${i}`} className="flex items-center justify-between px-3.5 py-2.5">
                 <span className="truncate font-semibold">{r.name}</span>
-                <span className="ml-3 shrink-0 text-xs text-muted">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
+                <span className="ml-3 shrink-0 text-xs text-muted-foreground">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
               </li>
             ))}
           </ul>

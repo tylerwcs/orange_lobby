@@ -1,5 +1,5 @@
-import { Icon } from "@/components/ui/Icon";
-import { Card } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/legacy/Icon";
+import { Card } from "@/components/ui/legacy/Card";
 
 export default function NotFound() {
   return (
@@ -7,7 +7,7 @@ export default function NotFound() {
       <Card className="w-full p-6 text-center">
         <Icon name="info" size={28} className="mx-auto text-brand-ink" />
         <h1 className="mt-3 text-lg font-extrabold">This link isn&apos;t valid.</h1>
-        <p className="mt-1 text-sm text-muted">Please see the registration desk.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Please see the registration desk.</p>
       </Card>
     </main>
   );

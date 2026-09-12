@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 import type { ColumnDef } from "@/lib/columns";
 
 type Action = (formData: FormData) => void | Promise<void>;
@@ -89,7 +89,7 @@ export function ColumnMenu({ column, columns, hidden, canMoveLeft, canMoveRight,
       <button
         ref={buttonRef} type="button" aria-expanded={open} aria-haspopup="true"
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-[8px] px-1.5 text-left text-[11px] font-bold uppercase tracking-[0.08em] transition-colors duration-150 hover:bg-canvas ${open ? "text-brand-ink" : "text-muted"}`}
+        className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-[8px] px-1.5 text-left text-[11px] font-bold uppercase tracking-[0.08em] transition-colors duration-150 hover:bg-canvas ${open ? "text-brand-ink" : "text-muted-foreground"}`}
       >
         <span className="truncate">{column.label}</span>
         <Icon name="chevron" size={12} className="shrink-0 rotate-90" />
@@ -101,24 +101,24 @@ export function ColumnMenu({ column, columns, hidden, canMoveLeft, canMoveRight,
           style={{ left: spot.left, top: spot.top, maxHeight: spot.maxHeight }}
           className="fixed z-50 w-70 overflow-y-auto overscroll-contain rounded-[14px] border border-line bg-surface p-2 text-ink shadow-[var(--shadow-card)]"
         >
-          <p className="px-2.5 pt-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">{column.label}</p>
+          <p className="px-2.5 pt-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted-foreground">{column.label}</p>
           {column.source === "registration" && (
-            <p className="px-2.5 pb-1.5 text-xs text-muted">Asked on the registration form. Edit the question under Settings.</p>
+            <p className="px-2.5 pb-1.5 text-xs text-muted-foreground">Asked on the registration form. Edit the question under Settings.</p>
           )}
 
           {/* Dragging a header is quicker, but it is a pointer gesture no keyboard can
               perform, so the same move lives here too. */}
           <button type="button" className={item} disabled={!canMoveLeft} onClick={() => { onMove(column.key, -1); close(); }}>
-            <Icon name="chevron" size={16} className="rotate-180 text-muted" />Move left
+            <Icon name="chevron" size={16} className="rotate-180 text-muted-foreground" />Move left
           </button>
           <button type="button" className={item} disabled={!canMoveRight} onClick={() => { onMove(column.key, 1); close(); }}>
-            <Icon name="chevron" size={16} className="text-muted" />Move right
+            <Icon name="chevron" size={16} className="text-muted-foreground" />Move right
           </button>
           <button type="button" className={item} onClick={() => { onResetWidth(column.key); close(); }}>
-            <Icon name="filter" size={16} className="text-muted" />Reset width
+            <Icon name="filter" size={16} className="text-muted-foreground" />Reset width
           </button>
           <button type="button" className={item} onClick={() => { onToggle(column.key, false); close(); }}>
-            <Icon name="close" size={16} className="text-muted" />Hide this column
+            <Icon name="close" size={16} className="text-muted-foreground" />Hide this column
           </button>
 
           {column.source === "custom" && (renaming ? (
@@ -134,7 +134,7 @@ export function ColumnMenu({ column, columns, hidden, canMoveLeft, canMoveRight,
           ) : (
             <>
               <button type="button" className={item} onClick={() => setRenamingFrom(column.label)}>
-                <Icon name="file" size={16} className="text-muted" />Rename column
+                <Icon name="file" size={16} className="text-muted-foreground" />Rename column
               </button>
               <form action={deleteColumn}>
                 <input type="hidden" name="key" value={column.key} />
@@ -151,7 +151,7 @@ export function ColumnMenu({ column, columns, hidden, canMoveLeft, canMoveRight,
           ))}
 
           <div className="my-2 h-px bg-line" />
-          <p className="px-2.5 pb-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">Show columns</p>
+          <p className="px-2.5 pb-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted-foreground">Show columns</p>
           {columns.map((c) => (
             <label key={c.key} className={`${item} cursor-pointer`}>
               <input

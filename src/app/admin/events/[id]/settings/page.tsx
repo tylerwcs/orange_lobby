@@ -12,7 +12,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/legacy/Card";
 import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { Modal } from "@/components/admin/Modal";
@@ -34,7 +34,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   return (
     <Card className="p-5">
       <h2 className="text-base font-extrabold">{title}</h2>
-      {hint && <p className="mt-0.5 mb-3 text-xs text-muted">{hint}</p>}
+      {hint && <p className="mt-0.5 mb-3 text-xs text-muted-foreground">{hint}</p>}
       <div className={`grid gap-4 ${hint ? "" : "mt-3"} md:grid-cols-2`}>{children}</div>
     </Card>
   );
@@ -43,7 +43,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 function ShareLink({ label, url }: { label: string; url: string }) {
   return (
     <div>
-      <div className="text-xs font-semibold text-muted">{label}</div>
+      <div className="text-xs font-semibold text-muted-foreground">{label}</div>
       <div className="mt-1 flex items-center gap-2">
         <a href={url} className="min-w-0 flex-1 truncate rounded-[var(--radius-control)] bg-canvas px-3 py-2.5 font-mono text-xs text-brand-ink">{url}</a>
         <CopyButton value={url} label={`${label.toLowerCase()} link`} />
@@ -74,7 +74,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="text-base font-extrabold">Status</h2>
-          <p className="mt-0.5 mb-3 text-xs text-muted">Applies the moment you choose it — there is no separate save.</p>
+          <p className="mt-0.5 mb-3 text-xs text-muted-foreground">Applies the moment you choose it — there is no separate save.</p>
           <div className="flex flex-wrap gap-2">
             {STATUSES.map((s) => (
               <form key={s.value} action={setStatusAction.bind(null, ev.id, s.value)}>
@@ -86,12 +86,12 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               </form>
             ))}
           </div>
-          <p className="mt-3 text-xs text-muted">{STATUSES.find((s) => s.value === ev.status)?.what}</p>
+          <p className="mt-3 text-xs text-muted-foreground">{STATUSES.find((s) => s.value === ev.status)?.what}</p>
         </Card>
 
         <Card className="p-5">
           <h2 className="text-base font-extrabold">Share links</h2>
-          <p className="mt-0.5 mb-3 text-xs text-muted">The two addresses you hand out. Personal per-attendee links are in Exports.</p>
+          <p className="mt-0.5 mb-3 text-xs text-muted-foreground">The two addresses you hand out. Personal per-attendee links are in Exports.</p>
           <div className="space-y-3">
             <ShareLink label="Portal" url={genericLink(base, ev.slug)} />
             <ShareLink label="Registration" url={registrationLink(base, ev.slug)} />
@@ -104,7 +104,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-extrabold">Checkpoints</h2>
-            <p className="mt-0.5 max-w-md text-xs text-muted">The doors this event runs. Which one is live is chosen on the Overview. A day can hold several — registration, lunch, a dinner door.</p>
+            <p className="mt-0.5 max-w-md text-xs text-muted-foreground">The doors this event runs. Which one is live is chosen on the Overview. A day can hold several — registration, lunch, a dinner door.</p>
           </div>
           <Modal title="New checkpoint" hint="A checkpoint is a moment on a date, so several can share one day." trigger="New checkpoint" icon="plus" iconOnly>
             <form action={addCheckpointAction.bind(null, ev.id)} className="grid gap-4 sm:grid-cols-2">
@@ -115,12 +115,12 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </Modal>
         </div>
         {grouped.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">No checkpoints yet. Add &ldquo;Registration&rdquo; on the first morning to get started.</p>
+          <p className="mt-3 text-sm text-muted-foreground">No checkpoints yet. Add &ldquo;Registration&rdquo; on the first morning to get started.</p>
         ) : (
           <div className="mt-3 flex flex-col gap-4">
             {grouped.map((g) => (
               <div key={g.day}>
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{shortDate(g.day)}</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{shortDate(g.day)}</h3>
                 <CheckpointList
                   day={shortDate(g.day)}
                   items={g.items}
@@ -172,11 +172,11 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <Field label="Closes automatically at" name="registration_closes_at" type="datetime-local" defaultValue={isoToLocalInput(ev.registration_closes_at)} />
           </div>
           <h3 className="mt-6 text-sm font-extrabold">Questions</h3>
-          <p className="mt-0.5 mb-3 text-xs text-muted">Name, email, mobile and department are always asked. Add up to {MAX_QUESTIONS} more. Leave a row blank to remove it. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
+          <p className="mt-0.5 mb-3 text-xs text-muted-foreground">Name, email, mobile and department are always asked. Add up to {MAX_QUESTIONS} more. Leave a row blank to remove it. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
               <thead>
-                <tr className="text-left text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                <tr className="text-left text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                   <th className="p-1.5">#</th><th className="p-1.5">Label</th><th className="p-1.5">Key</th><th className="p-1.5">Type</th><th className="p-1.5">Required</th><th className="p-1.5">Options (comma separated)</th><th className="p-1.5">Help text</th><th className="p-1.5">Show only when</th>
                 </tr>
               </thead>
@@ -185,7 +185,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                   const q = qs[n - 1];
                   return (
                     <tr key={n} className="border-t border-line align-top">
-                      <td className="p-1.5 pt-3 text-xs text-muted">{n}</td>
+                      <td className="p-1.5 pt-3 text-xs text-muted-foreground">{n}</td>
                       <td className="p-1.5"><input name={`q_${n}_label`} defaultValue={q?.label ?? ""} aria-label={`Question ${n} label`} className={input} /></td>
                       <td className="p-1.5"><input name={`q_${n}_key`} defaultValue={q?.key ?? ""} aria-label={`Question ${n} key`} placeholder="auto" className={`${input} font-mono text-xs`} /></td>
                       <td className="p-1.5">
@@ -210,14 +210,14 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
         <div className="sticky bottom-0 -mx-6 flex items-center gap-3 border-t border-line bg-surface/95 px-6 py-3 backdrop-blur lg:-mx-8 lg:px-8 2xl:-mx-10 2xl:px-10">
           <SubmitButton>Save settings</SubmitButton>
-          <span className="text-xs text-muted">Changes apply to the portal immediately.</span>
+          <span className="text-xs text-muted-foreground">Changes apply to the portal immediately.</span>
         </div>
       </form>
 
       {ev.status === "archived" && (
         <Card className="p-5">
           <h2 className="text-base font-extrabold text-danger-strong">Purge personal data</h2>
-          <p className="mt-1 mb-3 text-sm text-muted">Replaces names, emails, phones, companies and extra fields across this event. Attendance counts are kept. This cannot be undone.</p>
+          <p className="mt-1 mb-3 text-sm text-muted-foreground">Replaces names, emails, phones, companies and extra fields across this event. Attendance counts are kept. This cannot be undone.</p>
           <form action={purgeEventAction.bind(null, ev.id)}>
             <ConfirmButton message="Purge all attendee personal data for this event? This cannot be undone." className="text-danger-strong">Purge</ConfirmButton>
           </form>

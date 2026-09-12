@@ -19,7 +19,7 @@ import { AddColumnForm } from "@/components/admin/AddColumnForm";
 import { FieldInputs } from "@/components/admin/FieldInputs";
 import { allColumns, bulkFields, columnsCookieName, parseTablePrefs, tableCookieName } from "@/lib/columns";
 import { eventFields, fieldsFromQuestions, unclaimedKeys } from "@/lib/attendee-fields";
-import { buttonClass } from "@/components/ui/Card";
+import { buttonClass } from "@/components/ui/legacy/Card";
 import { paginate } from "@/lib/paginate";
 
 export const metadata = { title: "Attendees · Orange Lobby" };
@@ -117,10 +117,10 @@ export default async function Attendees({ params, searchParams }: { params: Prom
               </form>
               <div className="mt-5 border-t border-line pt-4">
                 <h3 className="text-sm font-extrabold">Columns it looks for</h3>
-                <p className="mt-0.5 text-xs text-muted">Header row, any order, case-insensitive. Anything else is kept under its own header and can appear on the scan card.</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Header row, any order, case-insensitive. Anything else is kept under its own header and can appear on the scan card.</p>
                 <dl className="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
                   {IMPORT_COLUMNS.map(([c, note]) => (
-                    <div key={c}><dt className="font-mono font-bold">{c}</dt><dd className="text-muted">{note}</dd></div>
+                    <div key={c}><dt className="font-mono font-bold">{c}</dt><dd className="text-muted-foreground">{note}</dd></div>
                   ))}
                 </dl>
               </div>
@@ -159,7 +159,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
       />
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span className="tabular-nums">Showing {from}–{to} of {rows.length}</span>
         <div className="flex items-center gap-2">
           {page > 1

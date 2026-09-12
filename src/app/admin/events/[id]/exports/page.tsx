@@ -3,8 +3,8 @@ import { requireEvent } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Card, buttonClass } from "@/components/ui/Card";
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { Card, buttonClass } from "@/components/ui/legacy/Card";
+import { Icon, type IconName } from "@/components/ui/legacy/Icon";
 
 export const metadata = { title: "Exports · Orange Lobby" };
 
@@ -39,7 +39,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
         {files.map((f) => (
           <Card key={f.href} className="flex flex-col gap-3 p-5">
             <h2 className="text-[17px] font-extrabold">{f.name}</h2>
-            <p className="flex-1 text-sm text-muted">{f.what}</p>
+            <p className="flex-1 text-sm text-muted-foreground">{f.what}</p>
             {/* Plain anchors, not `<Link>`: prefetching an export route would build the file on hover. */}
             <a download href={f.href} className={`${buttonClass("secondary")} self-start`}>
               <Icon name={f.icon} size={18} />Download
@@ -50,7 +50,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
 
       <Card className="p-5">
         <h2 className="text-[17px] font-extrabold">Before you send these out</h2>
-        <ul className="mt-3 space-y-2 text-sm text-muted">
+        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
           <li>Personal links and QR codes are generated for <span className="font-bold text-ink">{base}</span>. If that address changes, re-export before printing.</li>
           <li>A personal link signs the holder in without a password. Treat both files as you would the attendee list itself.</li>
           <li>A personal link does not expire, so a QR printed today still scans on the day. Re-export only if the list changes.</li>

@@ -1,6 +1,6 @@
 "use client";
 import { useFormStatus } from "react-dom";
-import { buttonClass, type ButtonVariant } from "../ui/Card";
+import { buttonClass, type ButtonVariant } from "../ui/legacy/Card";
 
 export function SubmitButton({ children, className = "", variant = "primary" }: { children: React.ReactNode; className?: string; variant?: ButtonVariant }) {
   const { pending } = useFormStatus();

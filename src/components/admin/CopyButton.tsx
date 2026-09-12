@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 
 /**
  * Copies a share link. The link stays a selectable anchor beside it, so a browser

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Checkpoint } from "@/lib/types";
 

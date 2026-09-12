@@ -2,9 +2,9 @@
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import type { Checkpoint } from "@/lib/types";
 import { moveItem } from "@/lib/reorder";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/legacy/Badge";
 
 type Reorder = (ids: string[]) => Promise<void>;
 
@@ -76,17 +76,17 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
                   e.preventDefault();
                   move(i, to);
                 }}
-                className="flex h-11 w-7 shrink-0 cursor-grab items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-canvas active:cursor-grabbing"
+                className="flex h-11 w-7 shrink-0 cursor-grab items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-canvas active:cursor-grabbing"
               >
                 <Icon name="grip" size={18} />
               </button>
-              <span className="w-5 shrink-0 text-xs font-bold text-muted tabular-nums">{i + 1}</span>
+              <span className="w-5 shrink-0 text-xs font-bold text-muted-foreground tabular-nums">{i + 1}</span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold">{c.name}</span>
                   {c.id === activeId && <Badge tone="ok" dot>Running now</Badge>}
                 </div>
-                <div className="text-xs font-semibold text-muted tabular-nums">{n} of {total} checked in</div>
+                <div className="text-xs font-semibold text-muted-foreground tabular-nums">{n} of {total} checked in</div>
               </div>
               <form action={() => deleteCheckpoint(c.id)}>
                 <ConfirmButton message={`Delete “${c.name}” and its ${n} check-in${n === 1 ? "" : "s"}? This cannot be undone.`} className="text-danger-strong">Delete</ConfirmButton>
@@ -97,7 +97,7 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
       </ul>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
       {order.length > 1 && (
-        <p className="pt-2 text-xs text-muted">Drag a row by its handle — or focus the handle and use the arrow keys — to set the order crew see on the scanner. Saved as you go.</p>
+        <p className="pt-2 text-xs text-muted-foreground">Drag a row by its handle — or focus the handle and use the arrow keys — to set the order crew see on the scanner. Saved as you go.</p>
       )}
       <span className="sr-only">{`Order for ${day}`}</span>
     </div>

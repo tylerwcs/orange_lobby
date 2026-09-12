@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Icon, type IconName } from "@/components/ui/Icon";
-import { buttonClass, type ButtonVariant } from "@/components/ui/Card";
+import { Icon, type IconName } from "@/components/ui/legacy/Icon";
+import { buttonClass, type ButtonVariant } from "@/components/ui/legacy/Card";
 
 /**
  * A task that interrupts the page it was launched from. Built on the native `<dialog>`
@@ -60,10 +60,10 @@ export function Modal({ title, hint, trigger, icon, variant = "secondary", iconO
         <div className="flex items-start gap-4 border-b border-line p-5">
           <div className="min-w-0 flex-1">
             <h2 className="text-[17px] font-extrabold">{title}</h2>
-            {hint && <p className="mt-1 text-sm text-muted">{hint}</p>}
+            {hint && <p className="mt-1 text-sm text-muted-foreground">{hint}</p>}
           </div>
           <button type="button" aria-label="Close" onClick={close}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted transition-colors duration-150 hover:bg-canvas">
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition-colors duration-150 hover:bg-canvas">
             <Icon name="close" size={18} />
           </button>
         </div>

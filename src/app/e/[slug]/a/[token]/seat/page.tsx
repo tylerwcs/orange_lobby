@@ -1,6 +1,6 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { ButtonLink } from "@/components/ui/Card";
+import { ButtonLink } from "@/components/ui/legacy/Card";
 
 export default async function Seat({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -15,7 +15,7 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
           <div className="text-6xl font-extrabold text-brand">{attendee.table_no}</div>
         </div>
       ) : (
-        <p className="mb-4 text-sm text-muted">Your seat will be shown here once seating is confirmed.</p>
+        <p className="mb-4 text-sm text-muted-foreground">Your seat will be shown here once seating is confirmed.</p>
       )}
       {event.floor_plan_url && (
         <ButtonLink href={`${basePath}/plan`} variant="secondary">Open floor plan</ButtonLink>

@@ -21,7 +21,7 @@ export function RunningCheckpoint({ options, value, setActive }: {
 
   return (
     <label className="flex min-w-0 items-center gap-2">
-      <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted sm:inline">Running</span>
+      <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:inline">Running</span>
       <select
         value={chosen}
         disabled={pending}

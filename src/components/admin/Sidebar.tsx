@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Icon } from "@/components/ui/Icon";
-import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/legacy/Icon";
+import { Badge } from "@/components/ui/legacy/Badge";
 import { signOut } from "@/app/login/actions";
 import { groupsFor } from "./nav";
 
@@ -27,20 +27,20 @@ export function Sidebar({ email, event }: { email: string; event?: { id: string;
             <span className="block truncate text-sm font-extrabold">{event.name}</span>
             <span className="mt-1 block"><Badge tone={event.status === "live" ? "brand" : event.status === "archived" ? "ink" : "neutral"} dot={event.status === "live"}>{event.status}</Badge></span>
           </span>
-          <Icon name="chevron" size={16} className="shrink-0 rotate-90 text-muted" />
+          <Icon name="chevron" size={16} className="shrink-0 rotate-90 text-muted-foreground" />
         </Link>
       )}
       <nav className="flex flex-1 gap-4 overflow-x-auto md:flex-col">
         {groups.map((g) => (
           <div key={g.title} className="flex shrink-0 flex-col gap-0.5">
-            <div className="px-2 pb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">{g.title}</div>
+            <div className="px-2 pb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{g.title}</div>
             {g.items.map((i) => (
               <Link key={i.href} href={i.href} className={itemClass(isActive(i))}><Icon name={i.icon} size={18} />{i.label}</Link>
             ))}
           </div>
         ))}
       </nav>
-      <form action={signOut} className="flex items-center justify-between border-t border-line pt-3 text-xs text-muted">
+      <form action={signOut} className="flex items-center justify-between border-t border-line pt-3 text-xs text-muted-foreground">
         <span className="truncate">{email}</span>
         <button className="flex min-h-11 items-center gap-1 font-bold"><Icon name="logout" size={14} /> Sign out</button>
       </form>

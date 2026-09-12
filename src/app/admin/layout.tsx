@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/auth";
-import { Toaster } from "@/components/ui/Toaster";
+import { Toaster } from "@/components/ui/legacy/Toaster";
 import { Flash } from "@/components/admin/Flash";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonCard, SkeletonRows } from "@/components/ui/Skeleton";
+import { Skeleton, SkeletonCard, SkeletonRows } from "@/components/ui/legacy/Skeleton";
 
 /** The attendee list: header with two actions, search, then a long table. */
 export default function AttendeesLoading() {

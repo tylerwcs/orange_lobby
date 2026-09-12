@@ -1,6 +1,6 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/legacy/Card";
 
 export default async function PlanPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -19,7 +19,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
       ) : (
         // A tile can be enabled before the plan image is uploaded; say so inside the
         // shell rather than dead-ending on a 404.
-        <Card className="p-4"><p className="text-sm text-muted">The floor plan isn&apos;t available yet.</p></Card>
+        <Card className="p-4"><p className="text-sm text-muted-foreground">The floor plan isn&apos;t available yet.</p></Card>
       )}
     </PortalShell>
   );

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AgendaItem, Attendee, Event } from "@/lib/types";
-import type { IconName } from "@/components/ui/icon-paths";
+import type { IconName } from "@/components/ui/legacy/icon-paths";
 
 export const BUILTIN_MODULES = ["agenda", "seat", "floor_plan", "info", "announcements"] as const;
 export type BuiltinKey = (typeof BUILTIN_MODULES)[number];

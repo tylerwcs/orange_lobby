@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/ui/Icon";
-import { buttonClass } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/legacy/Icon";
+import { buttonClass } from "@/components/ui/legacy/Card";
 
 /**
  * Puts an attendee's personal link on the clipboard, to paste into WhatsApp or a mail

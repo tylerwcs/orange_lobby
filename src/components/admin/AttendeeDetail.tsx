@@ -16,14 +16,14 @@ import { FieldInputs } from "@/components/admin/FieldInputs";
 import { CopyLink } from "@/components/admin/CopyLink";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { DangerButton } from "@/components/admin/DangerButton";
-import { Badge } from "@/components/ui/Badge";
-import { Icon } from "@/components/ui/Icon";
-import { buttonClass } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/legacy/Badge";
+import { Icon } from "@/components/ui/legacy/Icon";
+import { buttonClass } from "@/components/ui/legacy/Card";
 import { updateAttendeeAction, deleteAttendeeAction } from "@/app/admin/events/[id]/actions";
 
 const hhmm = (iso: string) => isoToLocalInput(iso).split("T")[1] ?? "";
 
-const caption = "text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted";
+const caption = "text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted-foreground";
 
 export type AttendeeDetailData = NonNullable<Awaited<ReturnType<typeof loadAttendeeDetail>>>;
 
@@ -101,7 +101,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
               <section>
                 <div className="mb-2.5 flex flex-wrap items-baseline gap-2.5">
                   <h3 className={caption}>Registration</h3>
-                  <span className="text-xs text-muted">What the form asked</span>
+                  <span className="text-xs text-muted-foreground">What the form asked</span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FieldInputs fields={registrationFields} values={a.extra} />
@@ -113,7 +113,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
               <section>
                 <div className="mb-2.5 flex flex-wrap items-baseline gap-2.5">
                   <h3 className={caption}>Your columns</h3>
-                  <span className="text-xs text-muted">Added on the attendees table</span>
+                  <span className="text-xs text-muted-foreground">Added on the attendees table</span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FieldInputs fields={customFields} values={a.extra} />
@@ -129,7 +129,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
           <aside className="lg:border-l lg:border-line lg:pl-6">
             <h3 className={`${caption} mb-3`}>Check-in</h3>
             {cps.length === 0 ? (
-              <p className="text-sm text-muted">No checkpoints yet. Add them under Settings.</p>
+              <p className="text-sm text-muted-foreground">No checkpoints yet. Add them under Settings.</p>
             ) : (
               <ul className="flex flex-col gap-3.5">
                 {checkpointsByDay(cps).flatMap((g) => g.items.map((cp) => {
@@ -137,10 +137,10 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
                   const by = scan?.by ? crew[scan.by] : undefined;
                   return (
                     <li key={cp.id} className="flex gap-3">
-                      <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${scan ? "bg-ok" : "bg-surface ring-[1.5px] ring-muted"}`} />
+                      <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${scan ? "bg-ok" : "bg-surface ring-[1.5px] ring-muted-foreground"}`} />
                       <div className="min-w-0">
-                        <div className={`text-sm font-bold ${scan ? "text-ink" : "text-muted"}`}>{cp.name}</div>
-                        <div className="mt-0.5 text-[13px] text-muted">
+                        <div className={`text-sm font-bold ${scan ? "text-ink" : "text-muted-foreground"}`}>{cp.name}</div>
+                        <div className="mt-0.5 text-[13px] text-muted-foreground">
                           {shortDate(g.day)} ·{" "}
                           {scan
                             ? <><span className="tabular-nums">{hhmm(scan.at)}</span>{by ? ` · by ${shortScanner(by)}` : ""}</>

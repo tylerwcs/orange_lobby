@@ -2,7 +2,7 @@ import { loadPortalAttendee } from "@/lib/portal";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/legacy/Badge";
 
 export default async function MePage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -16,16 +16,16 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qr} alt="Your QR code" width={208} height={208} className="mx-auto h-52 w-52 rounded-[10px]" />
           <div className="mt-3 text-xl font-extrabold">{attendee.name}</div>
-          {attendee.company && <div className="text-sm text-muted">{attendee.company}</div>}
+          {attendee.company && <div className="text-sm text-muted-foreground">{attendee.company}</div>}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {attendee.category && <Badge tone="neutral">{attendee.category}</Badge>}
             {attendee.table_no && <Badge tone="brand">Table {attendee.table_no}</Badge>}
           </div>
-          <p className="mt-3 text-xs text-muted">Show this at check-in if you do not have your badge.</p>
+          <p className="mt-3 text-xs text-muted-foreground">Show this at check-in if you do not have your badge.</p>
         </div>
         {(event.contact_name || event.contact_phone) && (
           <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4 text-sm">
-            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Need help?</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Need help?</div>
             <div className="mt-1 font-bold">{event.contact_name}</div>
             {event.contact_phone && <a className="text-brand-ink" href={`tel:${event.contact_phone}`}>{event.contact_phone}</a>}
           </div>

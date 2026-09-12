@@ -1,8 +1,8 @@
 import { loadPortalEvent } from "@/lib/portal";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { buttonClass } from "@/components/ui/Card";
-import { Icon } from "@/components/ui/Icon";
+import { buttonClass } from "@/components/ui/legacy/Card";
+import { Icon } from "@/components/ui/legacy/Icon";
 
 export default async function GenericInfo({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -14,7 +14,7 @@ export default async function GenericInfo({ params }: { params: Promise<{ slug: 
         {event.venue_name && (
           <div>
             <div className="text-[15px] font-bold">{event.venue_name}</div>
-            {event.venue_address && <div className="mt-0.5 text-sm text-muted">{event.venue_address}</div>}
+            {event.venue_address && <div className="mt-0.5 text-sm text-muted-foreground">{event.venue_address}</div>}
             {event.venue_map_url && (
               <div className="mt-2">
                 {/* Plain anchor: the map is an external site, so it needs target/rel. */}
@@ -23,9 +23,9 @@ export default async function GenericInfo({ params }: { params: Promise<{ slug: 
             )}
           </div>
         )}
-        {event.description && <p className="whitespace-pre-line text-sm text-muted">{event.description}</p>}
+        {event.description && <p className="whitespace-pre-line text-sm text-muted-foreground">{event.description}</p>}
         {event.contact_name && (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             Contact: {event.contact_name}
             {event.contact_phone && (
               <>

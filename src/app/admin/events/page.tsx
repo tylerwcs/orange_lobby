@@ -8,8 +8,8 @@ import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { createEventAction } from "./[id]/actions";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/legacy/Card";
+import { Badge } from "@/components/ui/legacy/Badge";
 import { formatDateRange } from "@/lib/text";
 
 export const metadata = { title: "All events · Orange Lobby" };
@@ -30,10 +30,10 @@ export default async function AdminHome() {
                 <Field label="Event name" name="name" placeholder="Ecopia Kick-Off Meeting 2026" />
                 <div>
                   <Field label="Link slug" name="slug" placeholder="auto from the name" />
-                  <p className="mt-1 text-xs text-muted">Appears in every attendee link, so it cannot change after badges are printed.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Appears in every attendee link, so it cannot change after badges are printed.</p>
                 </div>
                 <SubmitButton>Create event</SubmitButton>
-                <p className="text-xs text-muted">Next: settings and modules, then checkpoints, then import the masterlist or open registration. Draft links show &ldquo;Coming soon&rdquo; until you set the status to live.</p>
+                <p className="text-xs text-muted-foreground">Next: settings and modules, then checkpoints, then import the masterlist or open registration. Draft links show &ldquo;Coming soon&rdquo; until you set the status to live.</p>
               </form>
             </Modal>
           }
@@ -43,15 +43,15 @@ export default async function AdminHome() {
             <Link key={e.id} href={`/admin/events/${e.id}`}>
               <Card className="p-4">
                 <div className="font-extrabold">{e.name}</div>
-                <div className="mt-1 text-xs text-muted">{formatDateRange(e.starts_on, e.ends_on)}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{formatDateRange(e.starts_on, e.ends_on)}</div>
                 <div className="mt-3 flex items-center justify-between">
                   <Badge tone={e.status === "live" ? "brand" : e.status === "archived" ? "ink" : "neutral"}>{e.status}</Badge>
-                  <span className="text-xs text-muted">{counts[i]} attendees</span>
+                  <span className="text-xs text-muted-foreground">{counts[i]} attendees</span>
                 </div>
               </Card>
             </Link>
           ))}
-          {events.length === 0 && <p className="text-muted">No events yet. Create one to get started.</p>}
+          {events.length === 0 && <p className="text-muted-foreground">No events yet. Create one to get started.</p>}
         </div>
       </main>
     </>

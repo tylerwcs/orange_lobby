@@ -1,5 +1,5 @@
-import { Card } from "@/components/ui/Card";
-import { Meter } from "@/components/ui/Meter";
+import { Card } from "@/components/ui/legacy/Card";
+import { Meter } from "@/components/ui/legacy/Meter";
 
 /**
  * The counts as a vertical list, which packs into a narrow column better than a horizontal
@@ -29,14 +29,14 @@ export function SummaryCard({ checkedIn, registered, scope }: {
       <dl className="mt-1">
         {rows.map((r, i) => (
           <div key={r.label} className={`flex items-baseline justify-between py-3 ${i < rows.length - 1 ? "border-b border-line" : ""}`}>
-            <dt className="text-[13px] font-bold text-muted">{r.label}</dt>
+            <dt className="text-[13px] font-bold text-muted-foreground">{r.label}</dt>
             <dd className={`text-[26px] font-extrabold leading-none tabular-nums ${r.lead ? "text-ok-strong" : "text-ink"}`}>{r.value}</dd>
           </div>
         ))}
       </dl>
       <div className="mt-4 flex flex-col gap-2">
         <Meter value={checkedIn} max={registered} label={`${checkedIn} of ${registered} attendees checked in${scope ? ` at ${scope}` : ""}`} />
-        <p className="text-xs font-semibold text-muted tabular-nums">{pct}% of the room is in</p>
+        <p className="text-xs font-semibold text-muted-foreground tabular-nums">{pct}% of the room is in</p>
       </div>
     </Card>
   );

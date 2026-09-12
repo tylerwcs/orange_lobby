@@ -1,5 +1,5 @@
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/legacy/Card";
+import { Badge } from "@/components/ui/legacy/Badge";
 import type { ScanRow } from "@/lib/checkins-stats";
 import { isoToLocalInput } from "@/lib/time";
 import { elapsed } from "@/lib/text";
@@ -14,12 +14,12 @@ export function RecentScans({ rows, checkpointNames, live }: { rows: ScanRow[]; 
         {live}
       </div>
       {rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">No scans yet. They appear here as the crew works the door.</p>
+        <p className="py-6 text-center text-sm text-muted-foreground">No scans yet. They appear here as the crew works the door.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-left">
             <thead>
-              <tr className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+              <tr className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
                 <th className="pb-2.5">Attendee</th><th className="pb-2.5">Table</th>
                 <th className="pb-2.5">Checkpoint</th><th className="pb-2.5">Time</th><th className="pb-2.5">Status</th>
               </tr>
@@ -28,12 +28,12 @@ export function RecentScans({ rows, checkpointNames, live }: { rows: ScanRow[]; 
               {rows.map((r) => (
                 <tr key={r.checkinId} className="border-t border-line">
                   <td className="py-3 text-[13px] font-semibold">{r.name}</td>
-                  <td className="py-3">{r.tableNo ? <Badge tone="brand">{r.tableNo}</Badge> : <span className="text-muted">—</span>}</td>
-                  <td className="py-3 text-[13px] font-semibold text-muted">{checkpointNames.get(r.checkpointId) ?? "—"}</td>
+                  <td className="py-3">{r.tableNo ? <Badge tone="brand">{r.tableNo}</Badge> : <span className="text-muted-foreground">—</span>}</td>
+                  <td className="py-3 text-[13px] font-semibold text-muted-foreground">{checkpointNames.get(r.checkpointId) ?? "—"}</td>
                   {/* Absolute time answers "when"; the elapsed line is what says the door is still moving. */}
                   <td className="py-3 text-[13px]">
                     <div className="font-semibold text-ink tabular-nums">{hhmm(r.at)}</div>
-                    <div className="text-[11px] font-semibold text-muted">{elapsed(r.at)}</div>
+                    <div className="text-[11px] font-semibold text-muted-foreground">{elapsed(r.at)}</div>
                   </td>
                   <td className="py-3">
                     {r.duplicate

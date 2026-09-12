@@ -6,13 +6,13 @@ const TONE: Record<BadgeTone, string> = {
   warn: "bg-warn-soft text-warn",
   danger: "bg-danger-soft text-danger-strong",
   brand: "bg-brand-soft text-brand-ink",
-  neutral: "bg-tint-slate text-muted",
+  neutral: "bg-tint-slate text-muted-foreground",
   ink: "bg-ink text-white",
 };
 
 const DOT: Record<BadgeTone, string> = {
   ok: "bg-ok", warn: "bg-warn", danger: "bg-danger",
-  brand: "bg-brand", neutral: "bg-muted", ink: "bg-white",
+  brand: "bg-brand", neutral: "bg-muted-foreground", ink: "bg-white",
 };
 
 /** Class string for a status pill. Kept separate from the component so plain `<span>`s can share it. */

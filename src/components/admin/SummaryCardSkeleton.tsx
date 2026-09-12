@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { Skeleton, SkeletonCard } from "@/components/ui/legacy/Skeleton";
 
 /** The three figures and the meter — everything that changes with the checkpoint. */
 export function SummaryStatsSkeleton() {

@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/legacy/Card";
 import { AttendeeDetailSkeleton } from "@/components/admin/AttendeeDetailSkeleton";
 
 export default function AttendeeLoading() {

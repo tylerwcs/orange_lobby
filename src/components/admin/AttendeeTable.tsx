@@ -2,12 +2,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/legacy/Badge";
 import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
 import { AttendeeDialog } from "@/components/admin/AttendeeDialog";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 import { moveItem } from "@/lib/reorder";
 import {
   columnWidth, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns,
@@ -59,12 +59,12 @@ function cell(a: AttendeeRow, key: string) {
     case "company": return a.company;
     case "category": return a.category;
     case "table_no": return a.table_no;
-    case "source": return <span className="text-muted">{a.source}</span>;
+    case "source": return <span className="text-muted-foreground">{a.source}</span>;
     case "checked_in":
       return a.checkedInAt
         ? <Badge tone="ok" dot>In {isoToLocalInput(a.checkedInAt).split("T")[1]}</Badge>
         : <Badge tone="warn" dot>Expected</Badge>;
-    default: return a.values[key] || <span className="text-muted">—</span>;
+    default: return a.values[key] || <span className="text-muted-foreground">—</span>;
   }
 }
 
@@ -282,7 +282,7 @@ export function AttendeeTable({
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted-foreground">
           {hiddenCount > 0
             ? `${hiddenCount} ${hiddenCount === 1 ? "column is" : "columns are"} hidden. Drag a header to reorder it, drag its edge to resize.`
             : "Drag a header to reorder it, drag its edge to resize. Every header opens a menu."}
@@ -290,7 +290,7 @@ export function AttendeeTable({
         <div className="flex items-center gap-2">
           {customised && (
             <button type="button" onClick={() => save({ hidden: [], order: [], widths: {} })}
-              className="min-h-11 rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted transition-colors duration-150 hover:bg-canvas">
+              className="min-h-11 rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted-foreground transition-colors duration-150 hover:bg-canvas">
               Reset layout
             </button>
           )}
@@ -316,7 +316,7 @@ export function AttendeeTable({
               <th className="p-2">
                 <HeaderCheckbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} />
               </th>
-              <th className="relative p-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+              <th className="relative p-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 Name
                 <ResizeHandle onPointerDown={(e) => startResize("name", e)} label="Name" />
               </th>
@@ -372,7 +372,7 @@ export function AttendeeTable({
                 {shown.map((c) => <td key={c.key} className="truncate p-2">{cell(a, c.key)}</td>)}
               </tr>
             ))}
-            {rows.length === 0 && <tr className="border-t border-line"><td colSpan={shown.length + 2} className="p-6 text-center text-muted">{emptyMessage}</td></tr>}
+            {rows.length === 0 && <tr className="border-t border-line"><td colSpan={shown.length + 2} className="p-6 text-center text-muted-foreground">{emptyMessage}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -392,10 +392,10 @@ export function AttendeeTable({
         <div className="flex items-start gap-4 border-b border-line p-5">
           <div className="min-w-0 flex-1">
             <h2 className="text-[17px] font-extrabold">Add a column</h2>
-            <p className="mt-1 text-sm text-muted">For what the registration form never asked — a room number, a flight. Every form question is already a column. Whatever you add here appears on every attendee, in their details, and in the attendance export.</p>
+            <p className="mt-1 text-sm text-muted-foreground">For what the registration form never asked — a room number, a flight. Every form question is already a column. Whatever you add here appears on every attendee, in their details, and in the attendance export.</p>
           </div>
           <button type="button" aria-label="Close" onClick={() => addRef.current?.close()}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted transition-colors duration-150 hover:bg-canvas">
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition-colors duration-150 hover:bg-canvas">
             <Icon name="close" size={18} />
           </button>
         </div>

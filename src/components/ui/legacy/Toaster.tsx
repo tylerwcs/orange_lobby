@@ -1,7 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { dismissToast, getServerToasts, getToasts, subscribeToasts } from "@/lib/toast-store";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 
 const TONE = {
   ok: "bg-ink text-white",

@@ -7,8 +7,8 @@ import { countAttendees } from "@/lib/db/attendees";
 import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Scanner } from "./Scanner";
-import { Icon } from "@/components/ui/Icon";
-import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/legacy/Icon";
+import { Badge } from "@/components/ui/legacy/Badge";
 
 export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string; pick?: string }> }) {
   const { eventId } = await params; const { cp, pick } = await searchParams;
@@ -25,12 +25,12 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
     return (
       <main className="mx-auto max-w-md p-4">
         <h1 className="text-xl font-extrabold">{ev.name}</h1>
-        <p className="text-sm text-muted">Choose a checkpoint to start scanning</p>
+        <p className="text-sm text-muted-foreground">Choose a checkpoint to start scanning</p>
         {grouped.length === 0 && <p className="mt-4 text-sm font-semibold text-danger-strong">No checkpoints configured. Add them in Settings.</p>}
         <div className="mt-4 flex flex-col gap-5">
           {grouped.map((g) => (
             <section key={g.day}>
-              <h2 className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+              <h2 className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 {shortDate(g.day)}
                 {/* The crew open this on the day; say which group is the one in front of them. */}
                 {g.day === today && <Badge tone="ok" dot>Today</Badge>}
@@ -42,7 +42,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
                       <Icon name="flag" size={20} className="text-brand-ink" />
                       <span className="flex-1 text-[15px] font-bold">{c.name}</span>
                       <Badge tone="neutral">{counts[c.id] ?? 0}/{total}</Badge>
-                      <Icon name="chevron" size={18} className="text-muted" />
+                      <Icon name="chevron" size={18} className="text-muted-foreground" />
                     </a>
                   </li>
                 ))}

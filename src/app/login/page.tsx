@@ -1,6 +1,6 @@
 import { signIn } from "./actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/legacy/Card";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   const { error, next } = await searchParams;

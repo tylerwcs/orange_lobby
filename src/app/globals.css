@@ -1,29 +1,94 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 @plugin "@tailwindcss/typography";
 
+/*
+  Orange Lobby on shadcn/ui — see docs/superpowers/specs/2026-09-12-shadcn-revamp-design.md
+  Values are OKLCH (D58); the hex in each comment is the sRGB reference it converts from and is
+  what tests/contrast.test.ts converts back to in order to compute WCAG ratios.
+  No .dark block: the app is light-only (D56).
+*/
 :root {
   color-scheme: light;
-  --canvas: #F5F5F3;
-  --surface: #FFFFFF;
-  --ink: #111827;
-  --muted: #4B5563;
-  --line: #E5E7EB;
-  --brand: #F97316;
-  --brand-ink: #C2410C;
-  --brand-strong: #C2410C;
-  --brand-soft: #FFF1E7;
-  --danger: #DC2626;
-  --danger-soft: #FDECEC;
-  --danger-strong: #B91C1C;
-  --ok: #16A34A;
-  --ok-strong: #166534;
-  --ok-soft: #E7F6EC;
-  --warn: #B45309;
-  --warn-soft: #FDF2E2;
-  --tint-pink: #FBEFF6;
-  --tint-sky: #E8F1FC;
-  --tint-lilac: #EFEDFB;
-  --tint-slate: #F1F2F4;
+
+  /* --- shadcn semantic tokens, carrying Orange Lobby's values --- */
+  --background: oklch(0.9696 0.0026 106.45); /* #F5F5F3 */
+  --foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
+  --card: oklch(1 0 0); /* #FFFFFF */
+  --card-foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
+  --popover: oklch(1 0 0); /* #FFFFFF */
+  --popover-foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
+  --primary: oklch(0.5534 0.1739 38.4); /* #C2410C */
+  --primary-foreground: oklch(1 0 0); /* #FFFFFF */
+  --secondary: oklch(0.961 0.0029 264.54); /* #F1F2F4 */
+  --secondary-foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
+  /* D64: --muted is a BACKGROUND here. The secondary text colour is --muted-foreground. */
+  --muted: oklch(0.961 0.0029 264.54); /* #F1F2F4 */
+  --muted-foreground: oklch(0.4461 0.0263 256.8); /* #4B5563 */
+  --accent: oklch(0.9665 0.0202 58.07); /* #FFF1E7 */
+  --accent-foreground: oklch(0.5534 0.1739 38.4); /* #C2410C */
+  --destructive: oklch(0.5771 0.2152 27.33); /* #DC2626 */
+  --destructive-foreground: oklch(1 0 0); /* #FFFFFF */
+  --border: oklch(0.9276 0.0058 264.53); /* #E5E7EB */
+  --input: oklch(0.9276 0.0058 264.53); /* #E5E7EB */
+  --ring: oklch(0.5534 0.1739 38.4); /* #C2410C */
+  --radius: 0.625rem;
+
+  /* --- custom extensions: shadcn ships no success or warning token --- */
+  --success: oklch(0.6271 0.1699 149.21); /* #16A34A */
+  --success-soft: oklch(0.9592 0.0206 156.82); /* #E7F6EC */
+  --success-strong: oklch(0.4479 0.1083 151.33); /* #166534 */
+  --warning: oklch(0.5553 0.1455 49); /* #B45309 */
+  --warning-soft: oklch(0.9655 0.0242 77.46); /* #FDF2E2 */
+  --destructive-soft: oklch(0.9566 0.0185 17.48); /* #FDECEC */
+  --destructive-strong: oklch(0.5054 0.1905 27.52); /* #B91C1C */
+
+  /* --- charts: real inks, each contrast-checked against --card --- */
+  --chart-1: oklch(0.5534 0.1739 38.4); /* #C2410C */
+  --chart-2: oklch(0.4882 0.2172 264.38); /* #1D4ED8 */
+  --chart-3: oklch(0.5112 0.1514 346.3); /* #A03A78 */
+  --chart-4: oklch(0.499 0.181 283.7); /* #5B4BC4 */
+  --chart-5: oklch(0.4461 0.0263 256.8); /* #4B5563 */
+
+  /* --- sidebar --- */
+  --sidebar: oklch(1 0 0); /* #FFFFFF */
+  --sidebar-foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
+  --sidebar-primary: oklch(0.5534 0.1739 38.4); /* #C2410C */
+  --sidebar-primary-foreground: oklch(1 0 0); /* #FFFFFF */
+  --sidebar-accent: oklch(0.9665 0.0202 58.07); /* #FFF1E7 */
+  --sidebar-accent-foreground: oklch(0.5534 0.1739 38.4); /* #C2410C */
+  --sidebar-border: oklch(0.9276 0.0058 264.53); /* #E5E7EB */
+  --sidebar-ring: oklch(0.5534 0.1739 38.4); /* #C2410C */
+
+  /*
+    --- transition aliases (D65) ---
+    The app still has ~370 call sites on the old vocabulary. Each alias is deleted when its last
+    call site is gone, surface by surface. Nothing new should reference these.
+    --muted is NOT aliased: the name changed meaning, so its 140 call sites were renamed instead.
+  */
+  --canvas: var(--background);
+  --surface: var(--card);
+  --ink: var(--foreground);
+  --line: var(--border);
+  --brand: oklch(0.7017 0.1868 44.13); /* #F97316 — replaced per event by brandStyle() */
+  --brand-ink: var(--primary);
+  --brand-strong: var(--primary);
+  --brand-soft: var(--accent);
+  --danger: var(--destructive);
+  --danger-soft: var(--destructive-soft);
+  --danger-strong: var(--destructive-strong);
+  --ok: var(--success);
+  --ok-soft: var(--success-soft);
+  --ok-strong: var(--success-strong);
+  --warn: var(--warning);
+  --warn-soft: var(--warning-soft);
+  --tint-slate: var(--muted);
+  --tint-pink: oklch(0.9635 0.0158 341.39); /* #FBEFF6 */
+  --tint-sky: oklch(0.9546 0.0177 253.34); /* #E8F1FC */
+  --tint-lilac: oklch(0.9517 0.0188 292.61); /* #EFEDFB */
   --radius-card: 18px;
   --radius-control: 10px;
   --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.05), 0 10px 26px -18px rgba(17, 24, 39, 0.35);
@@ -31,47 +96,98 @@
 }
 
 @theme inline {
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-strong: var(--success-strong);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-strong: var(--destructive-strong);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* transition aliases — see :root */
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-ink: var(--ink);
-  --color-muted: var(--muted);
   --color-line: var(--line);
   --color-brand: var(--brand);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
   --color-danger: var(--danger);
-  --color-brand-strong: var(--brand-strong);
   --color-danger-soft: var(--danger-soft);
   --color-danger-strong: var(--danger-strong);
   --color-ok: var(--ok);
-  --color-ok-strong: var(--ok-strong);
   --color-ok-soft: var(--ok-soft);
+  --color-ok-strong: var(--ok-strong);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-tint-slate: var(--tint-slate);
   --color-tint-pink: var(--tint-pink);
   --color-tint-sky: var(--tint-sky);
   --color-tint-lilac: var(--tint-lilac);
-  --color-tint-slate: var(--tint-slate);
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
-  --font-sans: var(--font-manrope), "Segoe UI", system-ui, sans-serif;
 }
 
-html { background: var(--canvas); scroll-behavior: smooth; }
+html { scroll-behavior: smooth; }
 body {
-  color: var(--ink);
-  font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
-  accent-color: var(--brand);
-  caret-color: var(--brand-ink);
+  accent-color: var(--primary);
+  caret-color: var(--primary);
 }
 
 /* Browser surfaces carry the design too: selection, focus, and numerals. */
-::selection { background: var(--brand-soft); color: var(--ink); }
+::selection { background: var(--accent); color: var(--foreground); }
 
 /* One visible focus ring everywhere, drawn from the brand, never removed without a replacement. */
 :focus-visible {
-  outline: 3px solid var(--brand);
+  outline: 3px solid var(--primary);
   outline-offset: 2px;
   border-radius: 6px;
   /* Keep the focused control clear of sticky bars and the fixed bottom nav. */
@@ -90,4 +206,16 @@ input, textarea { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 import { AttendeeDetailSkeleton } from "@/components/admin/AttendeeDetailSkeleton";
 
 /**
@@ -42,7 +42,7 @@ export function AttendeeDialog({ openId, pending, children, onClose }: {
     >
       <div className="flex justify-end p-3 pb-0">
         <button type="button" aria-label="Close" onClick={() => ref.current?.close()}
-          className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-control)] text-muted transition-colors duration-150 hover:bg-canvas">
+          className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition-colors duration-150 hover:bg-canvas">
           <Icon name="close" size={18} />
         </button>
       </div>

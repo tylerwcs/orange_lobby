@@ -5,7 +5,7 @@ import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { isValidToken } from "@/lib/tokens";
 import { PortalHeader } from "@/components/portal/PortalHeader";
-import { Card, ButtonLink } from "@/components/ui/Card";
+import { Card, ButtonLink } from "@/components/ui/legacy/Card";
 import { brandStyle } from "@/lib/brand";
 
 export default async function Done({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ t?: string }> }) {
@@ -27,7 +27,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
           <img src={qr} alt="Your QR code" width={208} height={208} className="mx-auto h-52 w-52 rounded-[10px]" />
           {/* The greeting is a paragraph, not a second h1: the sr-only heading above names the page. */}
           <p className="mt-4 text-xl font-extrabold">You&apos;re registered, {attendee.name.split(" ")[0]}!</p>
-          <p className="mt-1 text-sm text-muted">This is your personal event link. Bookmark it or save this page.</p>
+          <p className="mt-1 text-sm text-muted-foreground">This is your personal event link. Bookmark it or save this page.</p>
           <a href={link} className="mt-4 block break-all rounded-[var(--radius-control)] border border-line bg-canvas p-3 text-xs text-brand-ink">{link}</a>
           <ButtonLink href={link} variant="primary" className="mt-4 w-full" icon="chevron">Open my event page</ButtonLink>
         </Card>

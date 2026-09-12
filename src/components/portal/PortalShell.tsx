@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Event } from "@/lib/types";
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/legacy/Icon";
 import { formatDateRange } from "@/lib/text";
 import { brandStyle } from "@/lib/brand";
 import { Mark, PortalHeader } from "./PortalHeader";
@@ -28,8 +28,8 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
         <div className="w-full rounded-[var(--radius-card)] border border-line bg-surface p-6 text-center">
           <div className="mx-auto mb-4 w-fit"><Mark event={event} /></div>
           <h1 className="text-xl font-extrabold">{event.name}</h1>
-          {meta && <p className="mt-1 text-sm text-muted">{meta}</p>}
-          <p className="mt-4 text-sm text-muted">Coming soon. Check back closer to the event.</p>
+          {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
+          <p className="mt-4 text-sm text-muted-foreground">Coming soon. Check back closer to the event.</p>
         </div>
       </main>
     );
@@ -46,7 +46,7 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
         {nav(personal).map((n) => {
           const active = n.href === current;
           return (
-            <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${active ? "font-bold text-brand-ink" : "font-semibold text-muted"}`}>
+            <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${active ? "font-bold text-brand-ink" : "font-semibold text-muted-foreground"}`}>
               <Icon name={n.icon} size={22} /><span>{n.label}</span>
             </Link>
           );

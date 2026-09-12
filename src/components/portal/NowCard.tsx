@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/legacy/Icon";
 import { shortDate } from "@/lib/text";
 
 /** The one thing an attendee wants at a glance: what is on now, or what comes next. */
@@ -16,9 +16,9 @@ export function NowCard({ next, href, today }: { next: { item: AgendaItem; statu
           {status === "now" ? "Happening now" : `Next · ${when}`}
         </div>
         <div className="mt-0.5 text-[17px] font-extrabold leading-tight">{item.title}</div>
-        <div className="text-xs text-muted">{[status === "now" ? `until ${item.ends_at ?? "later"}` : null, item.location].filter(Boolean).join(" · ")}</div>
+        <div className="text-xs text-muted-foreground">{[status === "now" ? `until ${item.ends_at ?? "later"}` : null, item.location].filter(Boolean).join(" · ")}</div>
       </div>
-      <Icon name="chevron" size={18} className="shrink-0 text-muted" />
+      <Icon name="chevron" size={18} className="shrink-0 text-muted-foreground" />
     </Link>
   );
 }

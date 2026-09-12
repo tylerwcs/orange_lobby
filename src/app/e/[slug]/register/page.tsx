@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { RegisterForm } from "./RegisterForm";
 import { PortalHeader } from "@/components/portal/PortalHeader";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/legacy/Card";
 import { brandStyle } from "@/lib/brand";
 
 export default async function RegisterPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -16,7 +16,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
       <main className="flex-1 px-4 py-4">
         <h1 className="sr-only">Registration</h1>
         <Card className="p-4">
-          {closed ? <p className="text-sm text-muted">Registration is closed.</p>
+          {closed ? <p className="text-sm text-muted-foreground">Registration is closed.</p>
                   : <RegisterForm slug={slug} questions={event.registration_questions} />}
         </Card>
       </main>

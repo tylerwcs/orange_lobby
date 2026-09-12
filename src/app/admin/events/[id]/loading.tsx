@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonCard, SkeletonRows } from "@/components/ui/Skeleton";
+import { Skeleton, SkeletonCard, SkeletonRows } from "@/components/ui/legacy/Skeleton";
 import { SummaryCardSkeleton } from "@/components/admin/SummaryCardSkeleton";
 
 /**

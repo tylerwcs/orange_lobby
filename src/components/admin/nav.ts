@@ -1,4 +1,4 @@
-import type { IconName } from "@/components/ui/Icon";
+import type { IconName } from "@/components/ui/legacy/Icon";
 
 export type Item = { href: string; label: string; icon: IconName };
 export type Group = { title: string; items: Item[] };

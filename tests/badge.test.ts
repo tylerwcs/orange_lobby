@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { badgeClass, BADGE_TONES } from "@/components/ui/Badge";
+import { badgeClass, BADGE_TONES } from "@/components/ui/legacy/Badge";
 
 describe("badgeClass", () => {
   it("gives every tone a background and a foreground", () => {

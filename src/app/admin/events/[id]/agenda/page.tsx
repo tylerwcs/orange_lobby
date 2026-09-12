@@ -6,8 +6,8 @@ import { shortDate } from "@/lib/text";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/legacy/Card";
+import { Badge } from "@/components/ui/legacy/Badge";
 import { addAgendaItemAction, deleteAgendaItemAction } from "../actions";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
@@ -22,13 +22,13 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-extrabold">Agenda</h1>
-        <p className="text-sm text-muted">{total} session{total === 1 ? "" : "s"} across {days.length} day{days.length === 1 ? "" : "s"}</p>
+        <p className="text-sm text-muted-foreground">{total} session{total === 1 ? "" : "s"} across {days.length} day{days.length === 1 ? "" : "s"}</p>
       </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-4">
           {days.length === 0 && (
-            <Card className="p-6 text-sm text-muted">No sessions yet. Add the first one on the right; attendees see the agenda grouped by day, filtered by their category.</Card>
+            <Card className="p-6 text-sm text-muted-foreground">No sessions yet. Add the first one on the right; attendees see the agenda grouped by day, filtered by their category.</Card>
           )}
           {days.map((d) => (
             <Card key={d.day} className="p-4">
@@ -37,10 +37,10 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                 {d.items.map((i) => (
                   <li key={i.id} className="flex items-start justify-between gap-4 py-3">
                     <div className="flex min-w-0 gap-4">
-                      <div className="w-24 shrink-0 tabular-nums text-muted">{i.starts_at}{i.ends_at ? ` – ${i.ends_at}` : ""}</div>
+                      <div className="w-24 shrink-0 tabular-nums text-muted-foreground">{i.starts_at}{i.ends_at ? ` – ${i.ends_at}` : ""}</div>
                       <div className="min-w-0">
                         <div className="font-bold">{i.title}</div>
-                        <div className="text-xs text-muted">{[i.location, i.description].filter(Boolean).join(" · ")}</div>
+                        <div className="text-xs text-muted-foreground">{[i.location, i.description].filter(Boolean).join(" · ")}</div>
                         {i.categories && i.categories.length > 0 && <div className="mt-1"><Badge tone="brand">{i.categories.join(", ")}</Badge></div>}
                       </div>
                     </div>

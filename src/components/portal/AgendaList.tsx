@@ -1,18 +1,18 @@
 import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
 import { isNow } from "@/lib/agenda";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/legacy/Badge";
 import { shortDate } from "@/lib/text";
 
 export function AgendaList({ items, day, days, basePath, now }: { items: AgendaItem[]; day: string | null; days: string[]; basePath: string; now: { date: string; time: string } }) {
-  if (!day) return <p className="text-sm text-muted">Agenda will be published soon.</p>;
+  if (!day) return <p className="text-sm text-muted-foreground">Agenda will be published soon.</p>;
   const todays = items.filter((i) => i.day === day);
   return (
     <div className="flex flex-col gap-3">
       {days.length > 1 && (
         <div className="flex gap-5 border-b border-line">
           {days.map((d) => (
-            <Link key={d} href={`${basePath}/agenda?day=${d}`} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-brand font-extrabold text-brand-ink" : "border-transparent font-semibold text-muted"}`}>{shortDate(d)}</Link>
+            <Link key={d} href={`${basePath}/agenda?day=${d}`} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-brand font-extrabold text-brand-ink" : "border-transparent font-semibold text-muted-foreground"}`}>{shortDate(d)}</Link>
           ))}
         </div>
       )}
@@ -21,19 +21,19 @@ export function AgendaList({ items, day, days, basePath, now }: { items: AgendaI
         return (
           <div key={i.id} id={live ? "now" : undefined} className={`flex gap-3 rounded-[14px] bg-surface p-3.5 scroll-mt-4 ${live ? "border-2 border-brand" : "border border-line"}`}>
             <div className="w-11 shrink-0">
-              <div className={`text-[13px] font-extrabold ${live ? "text-brand-ink" : "text-muted"}`}>{i.starts_at}</div>
-              {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-brand-ink">NOW</div> : i.ends_at && <div className="text-[11px] text-muted">{i.ends_at}</div>}
+              <div className={`text-[13px] font-extrabold ${live ? "text-brand-ink" : "text-muted-foreground"}`}>{i.starts_at}</div>
+              {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-brand-ink">NOW</div> : i.ends_at && <div className="text-[11px] text-muted-foreground">{i.ends_at}</div>}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[15px] font-bold">{i.title}</div>
-              {i.location && <div className="text-xs text-muted">{i.location}</div>}
-              {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted">{i.description}</p>}
+              {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
+              {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{i.description}</p>}
               {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Badge tone="brand">{i.categories.join(", ")}</Badge></div>}
             </div>
           </div>
         );
       })}
-      {todays.length === 0 && <p className="text-sm text-muted">Nothing scheduled on this day.</p>}
+      {todays.length === 0 && <p className="text-sm text-muted-foreground">Nothing scheduled on this day.</p>}
     </div>
   );
 }

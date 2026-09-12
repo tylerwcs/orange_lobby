@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ICON_NAMES, iconPath } from "@/components/ui/icon-paths";
+import { ICON_NAMES, iconPath } from "@/components/ui/legacy/icon-paths";
 
 describe("icons", () => {
   it("has a path for every registered name", () => {
