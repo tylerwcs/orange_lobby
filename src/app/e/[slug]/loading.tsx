@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/legacy/Skeleton";
+import { Skeleton } from "@/components/ui/skeletons";
 
 /** The attendee portal: header, badge card, now card, tile grid — reserved so nothing jumps. */
 export default function PortalLoading() {

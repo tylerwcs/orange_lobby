@@ -1,11 +1,11 @@
 "use client";
 import { useSyncExternalStore } from "react";
+import { Check, Info, X } from "lucide-react";
 import { dismissToast, getServerToasts, getToasts, subscribeToasts } from "@/lib/toast-store";
-import { Icon } from "@/components/ui/icon";
 
 const TONE = {
-  ok: "bg-ink text-white",
-  error: "bg-danger-strong text-white",
+  ok: "bg-foreground text-background",
+  error: "bg-destructive-strong text-white",
 } as const;
 
 /**
@@ -15,6 +15,12 @@ const TONE = {
  *
  * Solid fills rather than the soft tints used inline: a toast floats over whatever content
  * happens to be underneath it and cannot rely on the page's own background for contrast.
+ *
+ * Deliberately NOT shadcn's toast (D71). This stack is driven by src/lib/toast-store.ts,
+ * which is how a server action's redirect turns into an announcement - the flash arrives
+ * in the URL, not from a click handler. Adopting shadcn's toast would mean rewriting that
+ * store and the Flash component that feeds it, for no visual gain, on the surface that
+ * reports whether a save worked. The styling is shadcn's; the plumbing stays.
  */
 export function Toaster() {
   const toasts = useSyncExternalStore(subscribeToasts, getToasts, getServerToasts);
@@ -29,15 +35,17 @@ export function Toaster() {
         <div
           key={t.id}
           role={t.tone === "error" ? "alert" : undefined}
-          className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-[var(--radius-control)] p-3 pl-4 text-sm font-semibold shadow-[var(--shadow-card)] ${TONE[t.tone]}`}
+          className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-lg p-3 pl-4 text-sm font-medium shadow-lg ${TONE[t.tone]}`}
         >
-          <Icon name={t.tone === "error" ? "info" : "check"} size={18} className="mt-px shrink-0" />
-          <p className="min-w-0 flex-1 py-1.5">{t.message}</p>
+          {t.tone === "error"
+            ? <Info className="mt-0.5 size-4 shrink-0" />
+            : <Check className="mt-0.5 size-4 shrink-0" />}
+          <p className="min-w-0 flex-1 py-1">{t.message}</p>
           <button
             type="button" aria-label="Dismiss" onClick={() => dismissToast(t.id)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-white/70 transition-colors duration-150 hover:bg-white/15 hover:text-white"
+            className="flex size-7 shrink-0 items-center justify-center rounded-md opacity-70 transition-opacity hover:opacity-100"
           >
-            <Icon name="close" size={16} />
+            <X className="size-4" />
           </button>
         </div>
       ))}

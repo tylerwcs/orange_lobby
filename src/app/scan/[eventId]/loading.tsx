@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/legacy/Skeleton";
+import { Skeleton } from "@/components/ui/skeletons";
 
 /**
  * The scanner. The camera area keeps its dark ground rather than a shimmer: it is

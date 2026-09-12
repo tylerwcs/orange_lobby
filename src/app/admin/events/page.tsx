@@ -26,7 +26,7 @@ export default async function AdminHome() {
         <AdminHeader
           title="Events"
           actions={
-            <Modal title="New event" hint="You can change everything else later, but not the link slug once badges are printed." trigger="New event" icon="plus" variant="primary">
+            <Modal title="New event" hint="You can change everything else later, but not the link slug once badges are printed." trigger="New event" icon="plus" variant="default">
               <form action={createEventAction} className="grid gap-4">
                 <Field label="Event name" name="name" placeholder="Ecopia Kick-Off Meeting 2026" />
                 <div>

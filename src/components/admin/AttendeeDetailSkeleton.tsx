@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/legacy/Skeleton";
+import { Skeleton } from "@/components/ui/skeletons";
 
 /**
  * Stands in for `AttendeeDetail` while it loads, block for block, so the panel fills in

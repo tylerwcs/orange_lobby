@@ -1,15 +1,24 @@
 "use client";
 import { useFormStatus } from "react-dom";
-import { buttonClass, type ButtonVariant } from "../ui/legacy/Card";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
-export function SubmitButton({ children, className = "", variant = "primary" }: { children: React.ReactNode; className?: string; variant?: ButtonVariant }) {
+type Variant = React.ComponentProps<typeof Button>["variant"];
+
+/**
+ * Button has no isPending of its own - the shadcn way is to compose it with Spinner and
+ * disabled, which is what this does once for every form in the admin.
+ */
+export function SubmitButton({ children, className = "", variant = "default" }: {
+  children: React.ReactNode;
+  className?: string;
+  variant?: Variant;
+}) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending}
-      aria-busy={pending}
-      className={`${buttonClass(variant)} ${className}`}>
-      {pending && <span aria-hidden="true" className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+    <Button type="submit" variant={variant} disabled={pending} aria-busy={pending} className={className}>
+      {pending && <Spinner data-icon="inline-start" />}
       {pending ? "Working…" : children}
-    </button>
+    </Button>
   );
 }

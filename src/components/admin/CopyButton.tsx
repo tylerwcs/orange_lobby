@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/ui/icon";
+import { Check, Link2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
- * Copies a share link. The link stays a selectable anchor beside it, so a browser
- * that refuses clipboard access (or an insecure origin) costs convenience, not the
- * ability to get the URL.
+ * Copies a share link. The link stays a selectable anchor beside it, so a browser that
+ * refuses clipboard access (or an insecure origin) costs convenience, not the ability to
+ * get the URL.
  */
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -17,7 +18,8 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
   }, [copied]);
 
   return (
-    <button type="button" aria-label={`Copy the ${label}`}
+    <Button
+      type="button" variant="secondary" size="sm" aria-label={`Copy the ${label}`}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);
@@ -26,9 +28,9 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
           setCopied(false);
         }
       }}
-      className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-canvas px-3.5 text-xs font-bold text-ink transition-colors duration-150 hover:brightness-95">
-      <Icon name={copied ? "check" : "link"} size={15} />
+    >
+      {copied ? <Check data-icon="inline-start" /> : <Link2 data-icon="inline-start" />}
       <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
-    </button>
+    </Button>
   );
 }

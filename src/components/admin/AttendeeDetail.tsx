@@ -16,14 +16,14 @@ import { FieldInputs } from "@/components/admin/FieldInputs";
 import { CopyLink } from "@/components/admin/CopyLink";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { DangerButton } from "@/components/admin/DangerButton";
-import { Badge } from "@/components/ui/legacy/Badge";
+import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
-import { buttonClass } from "@/components/ui/legacy/Card";
+import { buttonVariants } from "@/components/ui/button";
 import { updateAttendeeAction, deleteAttendeeAction } from "@/app/admin/events/[id]/actions";
 
 const hhmm = (iso: string) => isoToLocalInput(iso).split("T")[1] ?? "";
 
-const caption = "text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted-foreground";
+const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
 export type AttendeeDetailData = NonNullable<Awaited<ReturnType<typeof loadAttendeeDetail>>>;
 
@@ -63,26 +63,26 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
     <div>
       {/* Who they are and what you hand them, together: the QR sits beside the link that
           explains it rather than under a heading of its own. */}
-      <div className="flex flex-wrap items-start gap-5 rounded-[14px] bg-canvas p-5">
+      <div className="flex flex-wrap items-start gap-5 rounded-xl bg-muted p-5">
         <div className="min-w-64 flex-1 space-y-3">
           <h2 className="text-xl font-extrabold leading-tight">{a.name}</h2>
           <div className="flex flex-wrap items-center gap-2">
-            {a.category && <Badge>{a.category}</Badge>}
+            {a.category && <Badge variant="secondary">{a.category}</Badge>}
             {firstScan
-              ? <Badge tone="ok" dot>In at {hhmm(firstScan)}</Badge>
-              : <Badge tone="warn" dot>Not checked in</Badge>}
-            {a.table_no && <Badge>Table {a.table_no}</Badge>}
+              ? <Badge variant="success">In at {hhmm(firstScan)}</Badge>
+              : <Badge variant="warning">Not checked in</Badge>}
+            {a.table_no && <Badge variant="secondary">Table {a.table_no}</Badge>}
           </div>
-          <a href={link} className="block break-all font-mono text-xs leading-relaxed text-brand-ink">{link}</a>
+          <a href={link} className="block break-all font-mono text-xs leading-relaxed text-primary">{link}</a>
           <div className="flex flex-wrap gap-2">
             <CopyLink link={link} />
-            <a download={safeFileName(a.name, a.id)} href={qr} className={buttonClass("secondary")}>
+            <a download={safeFileName(a.name, a.id)} href={qr} className={buttonVariants({ variant: "outline" })}>
               <Icon name="download" size={18} />Download QR
             </a>
           </div>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qr} alt={`QR code for ${a.name}`} width={152} height={152} className="h-38 w-38 shrink-0 rounded-xl bg-surface p-2.5" />
+        <img src={qr} alt={`QR code for ${a.name}`} width={152} height={152} className="h-38 w-38 shrink-0 rounded-xl bg-card p-2.5" />
       </div>
 
       {/* The @container is a parent of everything that reads it - an element does not
@@ -128,7 +128,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
               the line under each name says when and who — the question actually asked of
               this panel when an attendee says they were let in and the record disagrees.
               Reversing one lives in the scanner's Undo; it is not an admin control. */}
-          <aside className="@3xl:border-l @3xl:border-line @3xl:pl-6">
+          <aside className="@3xl:border-l @3xl:pl-6">
             <h3 className={`${caption} mb-3`}>Check-in</h3>
             {cps.length === 0 ? (
               <p className="text-sm text-muted-foreground">No checkpoints yet. Add them under Settings.</p>
@@ -160,12 +160,12 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
         {/* One row, destructive at the far left and confirming at the far right. Delete is
             a `DangerButton` rather than its own form, because a form cannot nest inside
             the form this Save belongs to. */}
-        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-4">
           <DangerButton action={deleteAttendeeAction.bind(null, ev.id, a.id)} message={`Delete ${a.name}? Their check-ins go with them.`}>
             Delete attendee
           </DangerButton>
           <span className="flex-1" />
-          <SubmitButton variant="ok">Save changes</SubmitButton>
+          <SubmitButton>Save changes</SubmitButton>
         </div>
       </form>
     </div>

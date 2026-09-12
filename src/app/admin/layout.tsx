@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/auth";
-import { Toaster } from "@/components/ui/legacy/Toaster";
+import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";

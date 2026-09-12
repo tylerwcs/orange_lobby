@@ -1,74 +1,63 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { buttonClass, type ButtonVariant } from "@/components/ui/legacy/Card";
+
+type Variant = React.ComponentProps<typeof Button>["variant"];
 
 /**
- * A task that interrupts the page it was launched from. Built on the native `<dialog>`
- * so focus trapping, Escape, focus restore and inertness of the page behind come from
- * the platform rather than from a hand-rolled imitation.
+ * A task that interrupts the page it was launched from.
  *
  * Children are rendered by the server parent, so the forms inside stay server components
- * posting to server actions. Those actions redirect on success — but the redirect usually
+ * posting to server actions. Those actions redirect on success - but the redirect usually
  * lands back inside the same page component, so the dialog is not unmounted by it. The
  * URL is therefore what closes it: when the address changes, the task that opened this
  * dialog is over.
  */
-export function Modal({ title, hint, trigger, icon, variant = "secondary", iconOnly = false, children }: {
+export function Modal({ title, hint, trigger, icon, variant = "outline", iconOnly = false, children }: {
   title: string;
   hint?: string;
   trigger: string;
   icon?: IconName;
-  variant?: ButtonVariant;
-  /** Square button, no label — `trigger` becomes the accessible name and the tooltip. */
+  variant?: Variant;
+  /** Square button, no label - `trigger` becomes the accessible name and the tooltip. */
   iconOnly?: boolean;
   children: React.ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const close = () => ref.current?.close();
+  const [open, setOpen] = useState(false);
 
   const url = `${usePathname()}?${useSearchParams().toString()}`;
   const openedAt = useRef<string | null>(null);
   useEffect(() => {
     if (openedAt.current === null || openedAt.current === url) { openedAt.current = url; return; }
     openedAt.current = url;
-    close();
+    setOpen(false);
   }, [url]);
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => ref.current?.showModal()}
-        {...(iconOnly ? { "aria-label": trigger, title: trigger } : {})}
-        className={`${buttonClass(variant)} ${iconOnly ? "w-11 px-0" : ""}`}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant={variant}
+            size={iconOnly ? "icon" : "default"}
+            {...(iconOnly ? { "aria-label": trigger, title: trigger } : {})}
+          />
+        }
       >
-        {icon && <Icon name={icon} size={18} />}{!iconOnly && trigger}
-      </button>
-      <dialog
-        ref={ref}
-        aria-label={title}
-        // A click that lands on the dialog element itself is a click on the backdrop;
-        // anything inside the panel hits a child and is left alone.
-        onClick={(e) => { if (e.target === ref.current) close(); }}
-        // `m-auto` is load-bearing: a dialog centres itself through the user-agent's
-        // `margin: auto`, and Tailwind's preflight zeroes margin on every element, which
-        // pins the panel to the top-left corner.
-        className="m-auto w-[min(92vw,720px)] rounded-[var(--radius-card)] bg-surface p-0 text-ink shadow-[var(--shadow-card)] backdrop:bg-ink/40"
-      >
-        <div className="flex items-start gap-4 border-b border-line p-5">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[17px] font-extrabold">{title}</h2>
-            {hint && <p className="mt-1 text-sm text-muted-foreground">{hint}</p>}
-          </div>
-          <button type="button" aria-label="Close" onClick={close}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition-colors duration-150 hover:bg-canvas">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-        <div className="max-h-[70vh] overflow-y-auto p-5">{children}</div>
-      </dialog>
-    </>
+        {icon && <Icon name={icon} size={18} />}
+        {!iconOnly && trigger}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {hint && <DialogDescription>{hint}</DialogDescription>}
+        </DialogHeader>
+        <div className="max-h-[70vh] overflow-y-auto">{children}</div>
+      </DialogContent>
+    </Dialog>
   );
 }

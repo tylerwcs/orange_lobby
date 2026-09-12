@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonCard } from "@/components/ui/legacy/Skeleton";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeletons";
 
 /** Settings: the two click-to-apply cards, checkpoints, then the long configuration form. */
 export default function SettingsLoading() {

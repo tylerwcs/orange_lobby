@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/ui/icon";
-import { buttonClass } from "@/components/ui/legacy/Card";
+import { Check, Link2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
  * Puts an attendee's personal link on the clipboard, to paste into WhatsApp or a mail
@@ -29,9 +29,9 @@ export function CopyLink({ link, label = "Copy link" }: { link: string; label?: 
   };
 
   return (
-    <button type="button" onClick={copy} className={buttonClass("primary")}>
-      <Icon name={done ? "check" : "link"} size={18} />
+    <Button type="button" onClick={copy}>
+      {done ? <Check data-icon="inline-start" /> : <Link2 data-icon="inline-start" />}
       <span aria-live="polite">{done ? "Copied" : label}</span>
-    </button>
+    </Button>
   );
 }
