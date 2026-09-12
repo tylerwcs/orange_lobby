@@ -166,7 +166,9 @@ export async function updateAttendeeAction(eventId: string, attendeeId: string, 
   const ev = await requireEvent(eventId, orgId);
   const existing = await requireEventAttendee(eventId, attendeeId);
   const input = attendeeInputFrom(ev, formData, existing.extra);
-  if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees/${attendeeId}`, "An attendee needs a name.", "error"));
+  // Back to the panel the edit was made in, not a page of its own - there is no longer a
+  // standalone attendee route to land on.
+  if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees?attendee=${attendeeId}`, "An attendee needs a name.", "error"));
   await updateAttendee(attendeeId, input);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   // Back to the list rather than to the panel: saving is the end of the task, so the panel
