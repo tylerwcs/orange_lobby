@@ -44,6 +44,14 @@ whatever is green by 26 Sep ships with the pilot. Nothing here is pilot scope.
   `qr` → `qr-code`, `close` → `x`, `logout` → `log-out`, `grip` → `grip-vertical`,
   `chat` → `message-square`, `grid` → `grid-3x3`, `chevron` → `chevron-down` (the base of the four
   rotations the current registry serves from one path). The remaining 22 are 1:1.
+  **Revised 12 Sep, during Phase 0.** `Icon` cannot be deleted outright. `events.modules` is a jsonb
+  column (migration 0002) whose rows carry an icon *name*, validated by `z.enum(MODULE_ICONS)`, so
+  ten call sites only learn which glyph to draw at runtime — a name→component registry is
+  structurally required and no amount of "pass icons as objects" removes it. `icon-paths.ts` and its
+  hand-rolled SVG data are still deleted; `src/components/ui/icon.tsx` replaces them with a
+  lucide-backed registry of the same 31 names. Static call sites import from `lucide-react` directly,
+  as each surface is redesigned (D68) rather than in one mechanical sweep. Renaming any of the 31 is
+  a data migration, not a refactor.
 - **D61** Incremental on `main` in the phase order of §5. No commitment to land before the 26 Sep
   freeze; every commit leaves `main` green, lint-clean and building.
 - **D62** `Badge` gains two variants — `success` and `warning`. This is the one place stock shadcn
@@ -58,6 +66,15 @@ whatever is green by 26 Sep ships with the pilot. Nothing here is pilot scope.
   half-wired component on `main`.
 - **D66** `design-system/orange-lobby/MASTER.md` is replaced by a short pointer to shadcn's own docs
   plus the list of deliberate divergences (currently just D62).
+- **D68** *(added 12 Sep, after D53–D67 were approved)* This is a **redesign, not a port**. Each
+  surface is rebuilt around what it is *for*, choosing whichever shadcn component serves that
+  purpose best — layout, information architecture and control choice may all change. The §4 table
+  below is therefore a record of what exists today, **not** the plan: it says which concern each
+  current component owns, so nothing is dropped by accident. It does not say what replaces it.
+  The existing design is a constraint only where something real depends on it, and each such case
+  must be named. The ones known now: printed KOM badges assume the orange identity (D55); the
+  accessibility rules carried forward in §3 were earned by the 9 Sep UX pass; crew are trained on
+  the scanner's one-thumb flow; and registration is live with real signups (D67).
 - **D67** `RegisterForm` migrates **last**. Registration goes live 12 Sep and holds real KOM signups
   from that date; it is the one surface where a regression costs data rather than face.
 
@@ -95,9 +112,13 @@ Kept from the current stylesheet unchanged: the `:focus-visible` rule (3px outli
 `font-variant-numeric: tabular-nums` on `table` and `dl`. These encode accessibility decisions from
 the 9 Sep UX pass that shadcn does not supply.
 
-## 4. Component map
+## 4. What each current component owns
 
-| Current | shadcn |
+Per D68 this is an inventory, not a plan — it exists so a concern the old UI handled is not lost
+when a surface is redesigned. The right-hand column is the nearest shadcn equivalent, useful as a
+starting point and not binding on the redesign.
+
+| Current | Nearest shadcn equivalent |
 |---|---|
 | `ui/Card.tsx` (`Card`, `Button`, `buttonClass`, `ButtonLink`) | `Card` + `CardHeader`/`CardTitle`/`CardDescription`/`CardContent`/`CardFooter`, `Button` |
 | `ui/Badge.tsx` | `Badge` (+ D62 variants) |
@@ -124,17 +145,22 @@ the 9 Sep UX pass that shadcn does not supply.
 
 ## 5. Order of work
 
-Each phase is a commit range leaving `main` green.
+Each phase is a commit range leaving `main` green. Per D68 each is a redesign of that surface around
+its purpose, not a component-for-component port; the phase notes say what the surface is *for*.
 
 0. **Foundation** — `npx shadcn@latest init --preset nova`, `components.json`, token layer (§3),
-   OKLCH contrast test (§6), lucide swap, and the base set: `card button badge skeleton alert
-   separator progress spinner`. Additive; no page renders differently yet.
-1. **Admin** — `Sidebar`, `Table`, `Dialog`, `DropdownMenu`, `AlertDialog`, `Field`/`FieldGroup`
-   forms. Login-gated and desktop-only, so zero attendee exposure while the pattern beds in.
-2. **Portal** — `TileGrid`, `BadgeCard`, `NowCard`, `AgendaList`, `AnnouncementList` onto `Card`
-   composition, `Alert` and `Empty`. First real exercise of per-event `--primary`.
-3. **Scanner** — reskin only.
-4. **Register** — `RegisterForm` onto `FieldGroup`/`Field`/`InputGroup` (D67).
+   OKLCH contrast test (§6), the lucide registry (D60 as revised), and the base set: `card button
+   badge skeleton alert separator progress spinner`. Additive; no surface is redesigned yet.
+   *Done — commit `461352d`.*
+1. **Admin** — *for: one organiser, at a desk, answering "is this event on track?" and fixing what
+   isn't.* Login-gated and desktop-only, so zero attendee exposure while the patterns bed in.
+2. **Portal** — *for: an attendee holding a phone who has just scanned their badge and wants one
+   thing — usually where to sit, what's on now, or what changed.* First real exercise of per-event
+   `--primary`.
+3. **Scanner** — *for: crew clearing 100 people in 30 minutes, one thumb, in a dim foyer.* The
+   trained flow is a named constraint (D68); speed and error recovery beat elegance here.
+4. **Register** — *for: an invitee completing a form once, correctly, often on mobile.* Last, and
+   the most conservative of the five, because it is live with real signups (D67).
 
 ## 6. Tests
 
@@ -153,8 +179,7 @@ Each phase is a commit range leaving `main` green.
 
 ## 7. Out of scope
 
-Dark mode (D56). Information architecture — this revamp changes the component layer, not what is on
-which page; the 11 Sep admin IA stands. Data model, Supabase schema, exports, scan logic, auth.
+Dark mode (D56). Data model, Supabase schema, exports, scan logic, auth.
 Charts beyond repointing the arrivals chart at `--chart-*`. The `react-hook-form` + `zod` resolver
 pattern shadcn documents for forms: server actions stay as they are.
 
