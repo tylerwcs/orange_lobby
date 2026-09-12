@@ -7,8 +7,10 @@ import { countAttendees } from "@/lib/db/attendees";
 import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Scanner } from "./Scanner";
-import { Icon } from "@/components/ui/icon";
-import { Badge } from "@/components/ui/legacy/Badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { ChevronRight, Flag } from "lucide-react";
 
 export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string; pick?: string }> }) {
   const { eventId } = await params; const { cp, pick } = await searchParams;
@@ -23,33 +25,55 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
   if (!active) {
     const grouped = checkpointsByDay(cps);
     return (
-      <main className="mx-auto max-w-md p-4">
-        <h1 className="text-xl font-extrabold">{ev.name}</h1>
-        <p className="text-sm text-muted-foreground">Choose a checkpoint to start scanning</p>
-        {grouped.length === 0 && <p className="mt-4 text-sm font-semibold text-danger-strong">No checkpoints configured. Add them in Settings.</p>}
-        <div className="mt-4 flex flex-col gap-5">
-          {grouped.map((g) => (
-            <section key={g.day}>
-              <h2 className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                {shortDate(g.day)}
-                {/* The crew open this on the day; say which group is the one in front of them. */}
-                {g.day === today && <Badge tone="ok" dot>Today</Badge>}
-              </h2>
-              <ul className="flex flex-col gap-2">
-                {g.items.map((c) => (
-                  <li key={c.id}>
-                    <a href={`/scan/${ev.id}?cp=${c.id}`} className="flex min-h-14 items-center gap-3 rounded-[var(--radius-card)] bg-surface px-4 shadow-[var(--shadow-card)]">
-                      <Icon name="flag" size={20} className="text-brand-ink" />
-                      <span className="flex-1 text-[15px] font-bold">{c.name}</span>
-                      <Badge tone="neutral">{counts[c.id] ?? 0}/{total}</Badge>
-                      <Icon name="chevron" size={18} className="text-muted-foreground" />
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+      <main className="mx-auto flex max-w-md flex-col gap-4 p-4">
+        <header>
+          <h1 className="text-lg font-extrabold leading-tight">{ev.name}</h1>
+          <p className="text-sm text-muted-foreground">Which door are you on?</p>
+        </header>
+        {grouped.length === 0 ? (
+          // The old copy said "Add them in Settings" to crew who cannot leave this screen
+          // to look for it. If the answer is a page, the page should be a tap away.
+          <Empty className="border border-dashed">
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><Flag /></EmptyMedia>
+              <EmptyTitle>No checkpoints yet</EmptyTitle>
+              <EmptyDescription>A checkpoint is a door — registration, lunch, day two. Scanning needs at least one.</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button render={<a href={`/admin/events/${ev.id}/settings`} />}>Add one in Settings</Button>
+            </EmptyContent>
+          </Empty>
+        ) : (
+          <div className="flex flex-col gap-5">
+            {grouped.map((g) => (
+              <section key={g.day} className="flex flex-col gap-1.5">
+                <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                  {shortDate(g.day)}
+                  {/* The crew open this on the day; say which group is the one in front of them. */}
+                  {g.day === today && <Badge variant="success">Today</Badge>}
+                </h2>
+                <ul className="flex flex-col gap-2">
+                  {g.items.map((c) => (
+                    <li key={c.id}>
+                      <a href={`/scan/${ev.id}?cp=${c.id}`}
+                        className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-4 transition-colors hover:bg-muted active:bg-muted">
+                        <Flag className="size-5 shrink-0 text-primary" />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-sm font-bold">{c.name}</span>
+                          {/* Settings decides which door the scanner opens on. Saying so here stops
+                              a second crew member picking the one the first is already working. */}
+                          {c.id === ev.active_checkpoint_id && <span className="text-xs font-semibold text-primary">Running now</span>}
+                        </span>
+                        <Badge variant="secondary" className="shrink-0 tabular-nums">{counts[c.id] ?? 0}/{total}</Badge>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )}
       </main>
     );
   }

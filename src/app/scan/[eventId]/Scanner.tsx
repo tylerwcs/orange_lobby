@@ -1,17 +1,42 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
+import { CameraOff, ChevronLeft, Search, Undo2, X } from "lucide-react";
 import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
-import { Icon } from "@/components/ui/icon";
-import { Button } from "@/components/ui/legacy/Card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
+import { Progress } from "@/components/ui/progress";
+import { Spinner } from "@/components/ui/spinner";
 import { describeCameraError, type CameraProblem } from "@/lib/scan";
+import { meterAriaMax, meterAriaValue, meterPercent } from "@/lib/meter";
 import { shortTime } from "@/lib/text";
+import { cn } from "@/lib/utils";
 
 type Recent = { name: string; at: string; status: ScanResult["status"] };
 type CameraState = { phase: "starting" | "ready" | "error"; problem?: CameraProblem };
 
 const UNDO_SECONDS = 6;
+
+/** The ground each outcome is read off. Every pair here is asserted in tests/contrast.test.ts. */
+const TONE: Record<ScanResult["status"], string> = {
+  ok: "bg-success-soft text-success-strong",
+  duplicate: "bg-warning-soft text-warning",
+  undone: "bg-foreground text-background",
+  notfound: "bg-destructive-soft text-destructive-strong",
+  error: "bg-destructive-soft text-destructive-strong",
+};
+
+const LABEL: Record<ScanResult["status"], string> = {
+  ok: "Checked in",
+  duplicate: "Already in",
+  undone: "Check-in undone",
+  notfound: "Not on the list",
+  error: "Not saved",
+};
+
 export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId: string; checkpoint: Checkpoint; initialCount: number; total: number }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [count, setCount] = useState(initialCount);
@@ -85,108 +110,155 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
     return () => clearTimeout(t);
   }, [q, eventId, checkpoint.id]);
 
-  const tone = busy ? "bg-tint-slate text-ink"
-    : result?.status === "ok" ? "bg-ok-soft text-ok-strong"
-    : result?.status === "duplicate" ? "bg-warn-soft text-warn"
-    : result?.status === "undone" ? "bg-ink text-white"
-    : result ? "bg-danger-soft text-danger-strong"
-    : "bg-surface text-muted-foreground shadow-[var(--shadow-card)]";
-  const headline = result?.status === "ok" ? "Checked in"
-    : result?.status === "duplicate" ? `Already in since ${shortTime(result.earlier!.at)}`
-    : result?.status === "undone" ? "Check-in undone" : "";
+  const named = result?.attendee && result.status !== "error" && result.status !== "notfound";
 
   return (
-    <main className="mx-auto max-w-md p-3">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <a href={`/scan/${eventId}?pick=1`} className="flex min-h-11 items-center gap-1 text-sm font-bold text-ink">
-          <Icon name="chevron" size={18} className="rotate-180" />
-          {checkpoint.name}
-        </a>
-        <div className="flex items-baseline gap-1.5 rounded-full bg-ink px-3.5 py-1.5 text-white" aria-label={`${count} of ${total} checked in`}>
-          <span className="text-xl font-extrabold leading-none">{count}</span>
-          <span className="text-xs font-semibold text-gray-300">of {total} in</span>
+    <main className="mx-auto flex max-w-md flex-col gap-3 p-3">
+      <header className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-2">
+          {/* The door is also the way back to the door list: one tap, where the thumb is. */}
+          <Button variant="ghost" className="-ml-2 h-11 gap-1 px-2 text-base font-extrabold" render={<a href={`/scan/${eventId}?pick=1`} />}>
+            <ChevronLeft data-icon="inline-start" />
+            <span className="truncate">{checkpoint.name}</span>
+          </Button>
+          <p className="flex shrink-0 items-baseline gap-1.5">
+            <span className="text-2xl font-extrabold leading-none tabular-nums">{count}</span>
+            <span className="text-xs font-semibold text-muted-foreground">of {total} in</span>
+          </p>
         </div>
-      </div>
+        {/* At the door the real question is how many are still to come, so the count gets a
+            length as well as a number. Green to agree with what a check-in means everywhere else. */}
+        <Progress
+          value={Math.round(meterPercent(count, total))}
+          className="[&_[data-slot=progress-indicator]]:bg-success-strong"
+          aria-label={`${count} of ${total} checked in at ${checkpoint.name}`}
+          aria-valuenow={meterAriaValue(count, total)}
+          aria-valuemin={0}
+          aria-valuemax={meterAriaMax(total)}
+        />
+      </header>
 
-      <div className="relative min-h-[240px] overflow-hidden rounded-[var(--radius-card)] bg-ink">
+      {/* The camera box keeps its measurements: html5-qrcode sizes the video itself, and the
+          crew are trained on this frame. Only its surface changed. */}
+      <div className="relative min-h-[240px] overflow-hidden rounded-xl bg-foreground">
         <div id="reader" />
         {camera.phase === "starting" && (
-          <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-gray-300">Starting camera…</p>
+          <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-background/70">Starting camera…</p>
         )}
         {camera.phase === "error" && camera.problem && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-white">
-            <Icon name="scan" size={28} className="text-brand" />
-            <div className="text-lg font-extrabold">{camera.problem.title}</div>
-            <p className="text-sm text-gray-300">{camera.problem.hint}</p>
-            <Button type="button" variant="primary" onClick={() => { setCamera({ phase: "starting" }); startCamera(); }}>Retry camera</Button>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-background">
+            <CameraOff className="size-7 text-background/70" />
+            <p className="text-lg font-extrabold">{camera.problem.title}</p>
+            <p className="text-sm text-background/70">{camera.problem.hint}</p>
+            <Button type="button" variant="secondary" className="mt-2 h-11 px-4" onClick={() => { setCamera({ phase: "starting" }); startCamera(); }}>Retry camera</Button>
           </div>
         )}
       </div>
 
-      <div className={`mt-3 rounded-[var(--radius-card)] p-4 ${tone}`} role="status" aria-live="polite">
+      {/*
+        A fixed height, not a box that grows with its contents. This panel sits directly
+        above the search field, and when it collapsed back to one line between scans the
+        field jumped up under a thumb already reaching for it. Reserving the space costs a
+        screenful of nothing on an idle scanner and buys a search box that never moves.
+      */}
+      <section
+        role="status"
+        aria-live="polite"
+        className={cn(
+          "flex min-h-44 flex-col justify-center rounded-xl p-4",
+          busy ? "bg-muted text-foreground" : result ? TONE[result.status] : "border border-border bg-card text-muted-foreground"
+        )}
+      >
         {busy && (
           <div className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink/25 border-t-ink" />
+            <Spinner className="size-4" />
             <span className="text-sm font-bold">Checking…</span>
           </div>
         )}
         {!busy && !result && <p className="text-sm">Point the camera at a badge, or search by name below.</p>}
         {result && <span className="sr-only">{count} of {total} checked in.</span>}
-        {result && result.attendee && result.status !== "error" && result.status !== "notfound" && (
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.08em]">{headline}</div>
-            <div className="text-[20px] font-extrabold leading-tight">{result.attendee.name}</div>
-            {result.fields && (
-              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                {result.fields.filter((f) => f.value).map((f) => <div key={f.label}><dt className="text-[11px] uppercase tracking-[0.08em]">{f.label}</dt><dd className="font-bold">{f.value}</dd></div>)}
+        {result && !busy && (
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-bold uppercase tracking-[0.08em]">
+              {LABEL[result.status]}
+              {result.status === "duplicate" && result.earlier && <> · since {shortTime(result.earlier.at)}</>}
+            </p>
+            {named
+              ? <p className="text-2xl font-extrabold leading-tight text-balance">{result.attendee!.name}</p>
+              : <p className="text-lg font-bold leading-snug text-balance">{result.message}</p>}
+            {named && result.fields && result.fields.some((f) => f.value) && (
+              <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                {result.fields.filter((f) => f.value).map((f) => (
+                  <div key={f.label}>
+                    <dt className="text-xs uppercase tracking-[0.08em] opacity-80">{f.label}</dt>
+                    <dd className="font-bold">{f.value}</dd>
+                  </div>
+                ))}
               </dl>
             )}
             {result.status === "ok" && undoLeft > 0 && (
-              <button type="button" disabled={busy} onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id))}
-                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-ok-strong px-4 text-sm font-bold text-white">
+              <Button type="button" variant="outline" disabled={busy} className="mt-2 h-11 w-fit px-4 font-bold"
+                onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id))}>
+                <Undo2 data-icon="inline-start" />
                 Undo · {undoLeft}s
-              </button>
+              </Button>
             )}
           </div>
         )}
-        {result && (result.status === "notfound" || result.status === "error") && <div className="font-bold">{result.message}</div>}
+      </section>
+
+      <div>
+        <label htmlFor="scan-search" className="sr-only">Search attendees by name, email or company</label>
+        <InputGroup className="h-12">
+          <InputGroupAddon><Search /></InputGroupAddon>
+          <InputGroupInput
+            id="scan-search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" enterKeyHint="search"
+            placeholder="Search name, email or company" className="h-12 text-base"
+          />
+          {/* Badges do not always scan, and the next person is waiting: clearing a search has to
+              be one tap rather than a held backspace. */}
+          {q.length > 0 && (
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton size="icon-sm" aria-label="Clear search" onClick={() => setQ("")}><X /></InputGroupButton>
+            </InputGroupAddon>
+          )}
+        </InputGroup>
       </div>
 
-      <div className="relative mt-3">
-        <Icon name="search" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <label htmlFor="scan-search" className="sr-only">Search attendees by name, email or company</label>
-        <input id="scan-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email or company" autoComplete="off" className="w-full min-h-12 rounded-[var(--radius-control)] border border-line bg-surface pl-11 pr-3.5 text-base" />
-      </div>
       {hits.length > 0 && (
-        <ul className="mt-2 flex flex-col gap-2">
+        <ul className="flex flex-col gap-2">
           {hits.map((h) => (
             <li key={h.id}>
-              <button disabled={busy} onClick={() => handle(() => checkInByIdAction(eventId, checkpoint.id, h.id))}
-                className="flex w-full min-h-14 items-center gap-3 rounded-[var(--radius-card)] border border-line bg-surface px-4 text-left active:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-bold">{h.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">{[h.company, h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</div>
-                </div>
-                {h.checkedIn
-                  ? <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">Already in</span>
-                  : <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-ink">Check in</span>}
-              </button>
+              <Button variant="outline" disabled={busy} onClick={() => handle(() => checkInByIdAction(eventId, checkpoint.id, h.id))}
+                className="h-auto min-h-14 w-full justify-start gap-3 px-4 py-2.5 text-left">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-bold">{h.name}</span>
+                  <span className="truncate text-xs font-normal text-muted-foreground">{[h.company, h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</span>
+                </span>
+                {h.checkedIn ? <Badge variant="success">Already in</Badge> : <Badge>Check in</Badge>}
+              </Button>
             </li>
           ))}
         </ul>
       )}
+
       {q.trim().length >= 2 && hits.length === 0 && !busy && (
-        <p className="mt-2 text-sm text-muted-foreground">No one matches &ldquo;{q.trim()}&rdquo;. Try a shorter name, or part of their company.</p>
+        <Empty className="border border-dashed py-6">
+          <EmptyHeader>
+            <EmptyTitle>No one matches &ldquo;{q.trim()}&rdquo;</EmptyTitle>
+            <EmptyDescription>Try a shorter name, or part of their company.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       {recent.length > 0 && (
-        <section className="mt-5">
-          <h2 className="mb-1.5 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Recent</h2>
-          <ul className="divide-y divide-line rounded-[var(--radius-card)] border border-line bg-surface text-sm">
+        <section className="mt-2 flex flex-col gap-1.5">
+          <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Recent</h2>
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-sm">
             {recent.map((r, i) => (
-              <li key={`${r.at}-${i}`} className="flex items-center justify-between px-3.5 py-2.5">
+              <li key={`${r.at}-${i}`} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                 <span className="truncate font-semibold">{r.name}</span>
-                <span className="ml-3 shrink-0 text-xs text-muted-foreground">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
               </li>
             ))}
           </ul>
