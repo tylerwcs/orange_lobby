@@ -15,7 +15,6 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";

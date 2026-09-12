@@ -1,27 +1,35 @@
 "use client";
-import { useRef, useState } from "react";
-import { Check, Download, ScanLine, X } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { ChevronDown, Download, MoreHorizontal, ScanLine, X } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Field, FieldLabel } from "@/components/ui/field";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Checkpoint } from "@/lib/types";
 
 type TableAction = (formData: FormData) => void | Promise<void>;
 
-const control = "min-h-11 rounded-md bg-white/10 px-3 text-sm font-bold text-white placeholder:text-white/60";
-const action = "inline-flex min-h-11 items-center gap-2 rounded-md bg-white/15 px-3.5 text-sm font-bold text-white transition-colors duration-150 hover:bg-white/25";
-const icon = "flex h-11 w-11 items-center justify-center rounded-md text-white/80 transition-colors duration-150 hover:bg-white/15 hover:text-white";
+/** Dark-bar button face. The bar floats over the page, so it cannot borrow the page's ground. */
+const onDark = "bg-white/12 text-white hover:bg-white/20 border-transparent";
 
 /**
- * What you can do to a selection, in one line. It used to be five buttons — assign table,
- * clear table, mark checked in, export, clear — which is five things to read every time
- * and only ever one of them wanted.
+ * What you can do to a selection.
  *
- * Now there is one editor: pick a column, type the value, apply. The control changes with
- * the column, so a date column gets a date picker and a choice column its own list rather
- * than a free-text box that quietly accepts a typo.
+ * Fixed to the bottom of the viewport rather than sitting in the page: it used to push the
+ * whole table down the moment you ticked one box, which moves the rows you are aiming at.
+ * Out of flow, nothing shifts.
+ *
+ * One row, always. The column editor lives in a Popover and check-in in a DropdownMenu, so
+ * two forms and four actions no longer compete for one strip and wrap onto a second line.
  */
 export function BulkBar({
   eventId,
@@ -45,16 +53,17 @@ export function BulkBar({
   const [columnKey, setColumnKey] = useState(fields[0]?.key ?? "");
   const [value, setValue] = useState("");
   const [confirmingClear, setConfirmingClear] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
+  const editForm = useRef<HTMLFormElement>(null);
   const confirmed = useRef(false);
+  const [, startCheckIn] = useTransition();
+
   if (ids.length === 0) return null;
 
   const field = fields.find((f) => f.key === columnKey);
   const people = `${ids.length} ${ids.length === 1 ? "attendee" : "attendees"}`;
 
-  // Clearing a column for a whole selection is the one move here that destroys something,
-  // and a blank box is easy to submit by accident. It is also the only way to clear, so it
-  // asks rather than being forbidden.
+  // Submitting a blank value clears that column for everyone selected - the one move here
+  // that destroys something, and the easiest to trigger by accident.
   const confirmIfClearing = (e: React.FormEvent) => {
     if (confirmed.current) { confirmed.current = false; return; }
     if (value.trim() === "") {
@@ -63,64 +72,120 @@ export function BulkBar({
     }
   };
 
+  // Built here rather than posted from a hidden form with a ref-held checkpoint: reading a
+  // ref during render is exactly what it is not for, and a state-held one would still carry
+  // the previous value on the tick the menu item is clicked.
+  const checkInAt = (id: string) => {
+    const data = new FormData();
+    data.set("ids", ids.join(","));
+    data.set("checkpoint_id", id);
+    startCheckIn(() => { void markCheckedIn(data); });
+  };
+
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-[12px] bg-foreground p-2.5 text-white">
-      <span className="px-1.5 text-[13px] font-extrabold">{ids.length} selected</span>
+    <div className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-foreground p-2 pl-4 text-background shadow-[0_16px_38px_-14px_rgba(17,24,39,.6)]">
+        <span className="text-sm font-semibold whitespace-nowrap">{ids.length} selected</span>
+        <span aria-hidden="true" className="h-5 w-px bg-white/20" />
 
-      {field && (
-        <form ref={formRef} action={setColumn} onSubmit={confirmIfClearing} className="flex flex-wrap items-center gap-2">
-          <input type="hidden" name="ids" value={ids.join(",")} />
-          <label htmlFor="bulk-column" className="sr-only">Column to update</label>
-          <select id="bulk-column" name="column" value={columnKey}
-            onChange={(e) => { setColumnKey(e.target.value); setValue(""); }} className={control}>
-            {fields.map((f) => <option key={f.key} value={f.key} className="text-foreground">{f.label}</option>)}
-          </select>
+        {field && (
+          <Popover>
+            <PopoverTrigger render={<Button size="sm" className={onDark} />}>
+              Edit
+              <ChevronDown data-icon="inline-end" />
+            </PopoverTrigger>
+            <PopoverContent align="center" className="w-72">
+              <form ref={editForm} action={setColumn} onSubmit={confirmIfClearing} className="flex flex-col gap-3">
+                <input type="hidden" name="ids" value={ids.join(",")} />
 
-          <label htmlFor="bulk-value" className="sr-only">New value for {field.label}</label>
-          {field.type === "select" ? (
-            <select id="bulk-value" name="value" value={value} onChange={(e) => setValue(e.target.value)} className={`${control} min-w-40`}>
-              <option value="" className="text-foreground">— clear —</option>
-              {(field.options ?? []).map((o) => <option key={o} value={o} className="text-foreground">{o}</option>)}
-            </select>
-          ) : (
-            <input
-              id="bulk-value" name="value" value={value} onChange={(e) => setValue(e.target.value)}
-              type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
-              {...(field.type === "number" ? { step: "any", inputMode: "decimal" as const } : {})}
-              placeholder={`Set ${field.label.toLowerCase()}`}
-              className={`${control} w-44`}
-            />
-          )}
+                <Field>
+                  <FieldLabel htmlFor="bulk-column">Column</FieldLabel>
+                  <select
+                    id="bulk-column" name="column" value={columnKey}
+                    onChange={(e) => { setColumnKey(e.target.value); setValue(""); }}
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    {fields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                  </select>
+                </Field>
 
-          <button className={action}><Check className="size-4" />Update</button>
-        </form>
-      )}
+                <Field>
+                  <FieldLabel htmlFor="bulk-value">New value</FieldLabel>
+                  {field.type === "select" ? (
+                    <select
+                      id="bulk-value" name="value" value={value} onChange={(e) => setValue(e.target.value)}
+                      className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <option value="">— clear —</option>
+                      {(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <Input
+                      id="bulk-value" name="value" value={value} onChange={(e) => setValue(e.target.value)}
+                      type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
+                      {...(field.type === "number" ? { step: "any", inputMode: "decimal" as const } : {})}
+                      placeholder={`Set ${field.label.toLowerCase()}`}
+                    />
+                  )}
+                </Field>
 
-      {checkpoints.length > 0 && (
-        <form action={markCheckedIn} className="flex flex-wrap items-center gap-2">
-          <input type="hidden" name="ids" value={ids.join(",")} />
-          <label htmlFor="bulk-checkpoint" className="sr-only">Checkpoint to check them in at</label>
-          <select id="bulk-checkpoint" name="checkpoint_id" defaultValue={defaultCheckpointId} className={control}>
-            {checkpoints.map((c) => <option key={c.id} value={c.id} className="text-foreground">{c.name}</option>)}
-          </select>
-          <button className={action}><ScanLine className="size-4" />Check in</button>
-        </form>
-      )}
+                <Button type="submit" className="w-full">Update {people}</Button>
+              </form>
+            </PopoverContent>
+          </Popover>
+        )}
 
-      <span className="flex-1" />
+        {checkpoints.length > 0 && (
+          <DropdownMenu>
+              <DropdownMenuTrigger render={<Button size="sm" className={onDark} />}>
+                <ScanLine data-icon="inline-start" />
+                Check in
+                <ChevronDown data-icon="inline-end" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center">
+                {/* The label belongs INSIDE the group: Base UI throws MenuGroupContext is
+                    missing if a group part sits directly under the content, which takes the
+                    whole bar down with it. */}
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-muted-foreground">Check {people} in at</DropdownMenuLabel>
+                  {checkpoints.map((c) => (
+                    <DropdownMenuItem key={c.id} onClick={() => checkInAt(c.id)}>
+                      {c.name}
+                      {/* The one the Overview says is running. Naming it here is what stops a
+                          bulk check-in landing at a door nobody is working. */}
+                      {c.id === defaultCheckpointId && (
+                        <span className="ml-auto pl-4 text-xs text-muted-foreground">running</span>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
-      <a href={`/admin/events/${eventId}/export/attendance.xlsx?ids=${ids.join(",")}`} download
-        title={`Export ${people}`} aria-label={`Export ${people}`} className={icon}>
-        <Download className="size-4" />
-      </a>
-      <button type="button" onClick={onClear} title="Clear selection" aria-label="Clear selection" className={icon}>
-        <X className="size-4" />
-      </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="icon-sm" aria-label="More actions" className={onDark} />}>
+            <MoreHorizontal />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              render={<a href={`/admin/events/${eventId}/export/attendance.xlsx?ids=${ids.join(",")}`} download />}
+            >
+              <Download />
+              Export {people}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      {/* Submitting a blank value clears the column for everyone selected - the one move
-          here that destroys something, and the easiest to trigger by accident. It used to
-          ask through window.confirm, which some browsers suppress outright; a suppressed
-          confirm means the clear just happens. */}
+        <span aria-hidden="true" className="h-5 w-px bg-white/20" />
+        <Button
+          size="icon-sm" onClick={onClear} aria-label="Clear selection" title="Clear selection"
+          className={onDark}
+        >
+          <X />
+        </Button>
+      </div>
+
       <AlertDialog open={confirmingClear} onOpenChange={setConfirmingClear}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -133,7 +198,7 @@ export function BulkBar({
             <AlertDialogCancel>Keep the values</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => { confirmed.current = true; setConfirmingClear(false); formRef.current?.requestSubmit(); }}
+              onClick={() => { confirmed.current = true; setConfirmingClear(false); editForm.current?.requestSubmit(); }}
             >
               Clear it
             </AlertDialogAction>
