@@ -3,10 +3,11 @@ import { requireEvent } from "@/lib/db/events";
 import { countAttendees, listAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
-import { buttonClass } from "@/components/ui/legacy/Card";
-import { Icon } from "@/components/ui/icon";
+import Link from "next/link";
+import { ScanLine } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { SummaryCard } from "@/components/admin/SummaryCard";
+import { OverviewStats } from "@/components/admin/OverviewStats";
 import { RunningCheckpoint } from "@/components/admin/RunningCheckpoint";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
@@ -33,7 +34,7 @@ export default async function Overview({ params }: { params: Promise<{ id: strin
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <AdminHeader
         title="Overview"
         subtitle={`${ev.name} · ${total} registered`}
@@ -44,16 +45,25 @@ export default async function Overview({ params }: { params: Promise<{ id: strin
               value={running?.id ?? ""}
               setActive={setActiveCheckpointAction.bind(null, ev.id)}
             />
-            <a href={`/scan/${ev.id}`} className={buttonClass("primary")}><Icon name="scan" size={18} />Open scanner</a>
+            {/* A link that looks like a button, not a Button pretending to be a link:
+                rendering one through `Button` keeps Base UI's native-button semantics on an
+                <a>, which it warns about. buttonVariants is the styling without the role. */}
+            <Link href={`/scan/${ev.id}`} className={buttonVariants()}>
+              <ScanLine data-icon="inline-start" />
+              Open scanner
+            </Link>
           </>
         }
       />
-      {/* Scans on the left because that is the column that keeps growing; the short
-          cards go right, which is what stops the dead space this layout used to have. */}
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <RecentScans rows={scans} checkpointNames={cpNames} live={<AutoRefresh seconds={15} />} />
-        <SummaryCard checkedIn={checkedInCount(checkins, running?.id ?? null)} registered={total} scope={running?.name ?? null} />
-      </div>
+      {/* The numbers first, across the top: "is this event on track" is the question the
+          page exists to answer, and it should not be read out of a side rail after the
+          scan log. The log then gets the full width it kept outgrowing. */}
+      <OverviewStats
+        checkedIn={checkedInCount(checkins, running?.id ?? null)}
+        registered={total}
+        scope={running?.name ?? null}
+      />
+      <RecentScans rows={scans} checkpointNames={cpNames} live={<AutoRefresh seconds={15} />} />
     </div>
   );
 }

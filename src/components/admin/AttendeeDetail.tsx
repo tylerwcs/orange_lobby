@@ -85,8 +85,10 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
         <img src={qr} alt={`QR code for ${a.name}`} width={152} height={152} className="h-38 w-38 shrink-0 rounded-xl bg-surface p-2.5" />
       </div>
 
-      <form action={updateAttendeeAction.bind(null, ev.id, a.id)}>
-        <div className="mt-5 @container grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_300px]">
+      {/* The @container is a parent of everything that reads it - an element does not
+          query itself, so the split and the field pairs both hang off this one. */}
+      <form action={updateAttendeeAction.bind(null, ev.id, a.id)} className="@container">
+        <div className="mt-5 grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-5">
             <section>
               <h3 className={`${caption} mb-2.5`}>Details</h3>

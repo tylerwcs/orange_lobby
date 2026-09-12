@@ -1,5 +1,7 @@
-import { Card } from "@/components/ui/legacy/Card";
-import { Badge } from "@/components/ui/legacy/Badge";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import type { ScanRow } from "@/lib/checkins-stats";
 import { isoToLocalInput } from "@/lib/time";
 import { elapsed } from "@/lib/text";
@@ -8,44 +10,54 @@ const hhmm = (iso: string) => isoToLocalInput(iso).split("T")[1] ?? "";
 
 export function RecentScans({ rows, checkpointNames, live }: { rows: ScanRow[]; checkpointNames: Map<string, string>; live?: React.ReactNode }) {
   return (
-    <Card className="p-5">
-      <div className="mb-4 flex items-center gap-2.5">
-        <h2 className="text-[17px] font-extrabold">Recent scans</h2>
-        {live}
-      </div>
-      {rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">No scans yet. They appear here as the crew works the door.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-left">
-            <thead>
-              <tr className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
-                <th className="pb-2.5">Attendee</th><th className="pb-2.5">Table</th>
-                <th className="pb-2.5">Checkpoint</th><th className="pb-2.5">Time</th><th className="pb-2.5">Status</th>
-              </tr>
-            </thead>
-            <tbody>
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent scans</CardTitle>
+        {live && <CardAction>{live}</CardAction>}
+      </CardHeader>
+      <CardContent className="px-0">
+        {rows.length === 0 ? (
+          <Empty className="border-0 bg-transparent">
+            <EmptyHeader>
+              <EmptyTitle>No scans yet</EmptyTitle>
+              <EmptyDescription>They appear here as the crew works the door.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Attendee</TableHead>
+                <TableHead>Table</TableHead>
+                <TableHead>Checkpoint</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r) => (
-                <tr key={r.checkinId} className="border-t border-line">
-                  <td className="py-3 text-[13px] font-semibold">{r.name}</td>
-                  <td className="py-3">{r.tableNo ? <Badge tone="brand">{r.tableNo}</Badge> : <span className="text-muted-foreground">—</span>}</td>
-                  <td className="py-3 text-[13px] font-semibold text-muted-foreground">{checkpointNames.get(r.checkpointId) ?? "—"}</td>
+                <TableRow key={r.checkinId}>
+                  <TableCell className="font-semibold">{r.name}</TableCell>
+                  <TableCell>
+                    {r.tableNo ? <Badge variant="secondary">{r.tableNo}</Badge> : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{checkpointNames.get(r.checkpointId) ?? "—"}</TableCell>
                   {/* Absolute time answers "when"; the elapsed line is what says the door is still moving. */}
-                  <td className="py-3 text-[13px]">
-                    <div className="font-semibold text-ink tabular-nums">{hhmm(r.at)}</div>
-                    <div className="text-[11px] font-semibold text-muted-foreground">{elapsed(r.at)}</div>
-                  </td>
-                  <td className="py-3">
+                  <TableCell>
+                    <div className="font-semibold tabular-nums">{hhmm(r.at)}</div>
+                    <div className="text-xs text-muted-foreground">{elapsed(r.at)}</div>
+                  </TableCell>
+                  <TableCell>
                     {r.duplicate
-                      ? <Badge tone="warn" dot>Already in</Badge>
-                      : <Badge tone="ok" dot>Checked in</Badge>}
-                  </td>
-                </tr>
+                      ? <Badge variant="warning">Already in</Badge>
+                      : <Badge variant="success">Checked in</Badge>}
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
     </Card>
   );
 }

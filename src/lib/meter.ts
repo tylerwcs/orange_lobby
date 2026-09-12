@@ -1,3 +1,8 @@
+/**
+ * The arithmetic behind a progress bar, kept apart from whatever draws it. It moved here
+ * when the hand-rolled Meter gave way to shadcn's Progress (D65): the component went, the
+ * edge cases it had learned did not.
+ */
 export function meterPercent(value: number, max: number): number {
   if (!(max > 0)) return 0;
   return Math.min(100, Math.max(0, (value / max) * 100));
@@ -14,15 +19,4 @@ export function meterAriaMax(max: number): number {
 export function meterAriaValue(value: number, max: number): number {
   const valueMax = meterAriaMax(max);
   return Math.min(valueMax, Math.max(0, value));
-}
-
-export function Meter({ value, max, tone = "ok", label }: { value: number; max: number; tone?: "ok" | "brand"; label: string }) {
-  const pct = meterPercent(value, max);
-  const fill = tone === "ok" ? "bg-ok-strong" : "bg-brand";
-  return (
-    <div role="progressbar" aria-label={label} aria-valuenow={meterAriaValue(value, max)} aria-valuemin={0} aria-valuemax={meterAriaMax(max)}
-      className="h-2 overflow-hidden rounded-full bg-tint-slate">
-      <div className={`h-2 rounded-full ${fill}`} style={{ width: `${pct}%` }} />
-    </div>
-  );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { meterPercent, meterAriaMax, meterAriaValue } from "@/components/ui/legacy/Meter";
+import { meterPercent, meterAriaMax, meterAriaValue } from "@/lib/meter";
 
 describe("meterPercent", () => {
   it("scales value against max", () => {
