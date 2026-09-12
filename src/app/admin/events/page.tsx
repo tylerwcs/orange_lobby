@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { listEvents } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
-import { Sidebar } from "@/components/admin/Sidebar";
+import { AppSidebar } from "@/components/admin/AppSidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
@@ -20,8 +21,8 @@ export default async function AdminHome() {
   const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
   return (
     <>
-      <Sidebar email={email} />
-      <main id="main" className="min-w-0 flex-1 p-3 pt-6 lg:p-6 lg:pt-8 2xl:p-8">
+      <AppSidebar email={email} />
+      <SidebarInset id="main" className="min-w-0 p-4 pt-6 lg:p-6 lg:pt-8 2xl:p-8">
         <AdminHeader
           title="Events"
           actions={
@@ -53,7 +54,7 @@ export default async function AdminHome() {
           ))}
           {events.length === 0 && <p className="text-muted-foreground">No events yet. Create one to get started.</p>}
         </div>
-      </main>
+      </SidebarInset>
     </>
   );
 }
