@@ -15,10 +15,15 @@ export function TileGrid({ tiles }: { tiles: Tile[] }) {
   if (tiles.length === 0) return <p className="text-sm text-muted-foreground">Nothing to show yet.</p>;
   const cls = "flex min-h-[108px] flex-col justify-between gap-2.5 rounded-xl bg-card ring-1 ring-foreground/10 p-4 transition active:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+    <div className="@container">
+      {/* Container queries, not viewport: this grid is full width on a phone and in a
+          300px dashboard column on a desktop. md:grid-cols-4 put four 70px tiles in that
+          column. */}
+      <div className="grid grid-cols-1 gap-3 @2xs:grid-cols-2 @3xl:grid-cols-4 @3xl:gap-5">
       {tiles.map((t) => t.external
         ? <a key={t.id} href={t.href} target="_blank" rel="noopener noreferrer" className={cls}><TileBody t={t} /></a>
         : <Link key={t.id} href={t.href} className={cls}><TileBody t={t} /></Link>)}
+      </div>
     </div>
   );
 }

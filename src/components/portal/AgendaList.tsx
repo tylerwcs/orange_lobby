@@ -4,7 +4,16 @@ import { isNow } from "@/lib/agenda";
 import { Badge } from "@/components/ui/badge";
 import { shortDate } from "@/lib/text";
 
-export function AgendaList({ items, day, days, basePath, now }: { items: AgendaItem[]; day: string | null; days: string[]; basePath: string; now: { date: string; time: string } }) {
+export function AgendaList({ items, day, days, basePath, now, dayHref }: {
+  items: AgendaItem[];
+  day: string | null;
+  days: string[];
+  basePath: string;
+  now: { date: string; time: string };
+  /** Where a day tab goes. Defaults to the agenda page; the desktop home points at itself. */
+  dayHref?: (day: string) => string;
+}) {
+  const hrefForDay = dayHref ?? ((d: string) => `${basePath}/agenda?day=${d}`);
   if (!day) return <p className="text-sm text-muted-foreground">Agenda will be published soon.</p>;
   const todays = items.filter((i) => i.day === day);
   return (
@@ -12,7 +21,7 @@ export function AgendaList({ items, day, days, basePath, now }: { items: AgendaI
       {days.length > 1 && (
         <div className="flex gap-5 border-b border-border">
           {days.map((d) => (
-            <Link key={d} href={`${basePath}/agenda?day=${d}`} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-primary font-extrabold text-primary" : "border-transparent font-semibold text-muted-foreground"}`}>{shortDate(d)}</Link>
+            <Link key={d} href={hrefForDay(d)} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-primary font-extrabold text-primary" : "border-transparent font-semibold text-muted-foreground"}`}>{shortDate(d)}</Link>
           ))}
         </div>
       )}

@@ -4,27 +4,83 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { TileGrid } from "@/components/portal/TileGrid";
 import { NowCard } from "@/components/portal/NowCard";
+import { AgendaList } from "@/components/portal/AgendaList";
+import { AnnouncementList } from "@/components/portal/AnnouncementList";
+import { VenueCard } from "@/components/portal/VenueCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { QrCode } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function GenericHome({ params }: { params: Promise<{ slug: string }> }) {
+const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
+
+export default async function GenericHome({ params, searchParams }: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const { slug } = await params;
+  const { day: requestedDay } = await searchParams;
   const event = await loadPortalEvent(slug);
   const basePath = `/e/${slug}`;
-  const { tiles, banner, next, today } = await loadHomeData(event, null, basePath);
+  const { tiles, banner, next, today, agenda, days, day, announcements, now } =
+    await loadHomeData(event, null, basePath, requestedDay);
+
   return (
-    <PortalShell event={event} basePath={basePath} personal={false} current="" hero>
+    <PortalShell event={event} basePath={basePath} personal={false} current="" hero dashboard>
       <h1 className="sr-only">{event.name}</h1>
-      <div className="flex flex-col gap-3.5 md:grid md:grid-cols-2 md:items-start md:gap-5">
-        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <div className="font-extrabold">Open your own badge link</div>
-          <p className="mt-1 text-sm text-muted-foreground">Scan the QR code on your badge to see your table and check-in status.</p>
+
+      {/* Same three columns as the badge home; the identity card is the one difference,
+          because this reader has not opened their own link yet. */}
+      <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
+
+        <div className="flex flex-col gap-4 md:gap-5">
+          <Card>
+            <CardContent className="flex flex-col gap-2">
+              <QrCode className="size-6 text-primary" />
+              <div className="font-extrabold">Open your own badge link</div>
+              <p className="text-sm text-muted-foreground">
+                Scan the QR code on your badge to see your table and check-in status.
+              </p>
+            </CardContent>
+          </Card>
+          <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
         </div>
-        <div className="flex flex-col gap-3.5 md:gap-5">
-          {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
-          <NowCard next={next} href={`${basePath}/agenda`} today={today} />
+
+        <div className="flex flex-col gap-4 md:gap-5">
+          <div className="flex flex-col gap-4 md:hidden">
+            {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
+            <NowCard next={next} href={`${basePath}/agenda`} today={today} />
+          </div>
+
+          <Card className="hidden md:block">
+            <CardHeader>
+              <CardTitle>Today</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AgendaList
+                items={agenda}
+                day={day}
+                days={days}
+                basePath={basePath}
+                now={now}
+                dayHref={(d) => `${basePath}?day=${d}`}
+              />
+            </CardContent>
+          </Card>
         </div>
-        <div className="md:col-span-2"><TileGrid tiles={tiles} /></div>
+
+        <div className="flex flex-col gap-4 md:col-span-2 md:gap-5 xl:col-span-1">
+          <Card className="hidden md:block">
+            <CardHeader>
+              <CardTitle className={caption}>Announcements</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AnnouncementList items={announcements.slice(0, 4)} />
+            </CardContent>
+          </Card>
+          <TileGrid tiles={tiles} />
+        </div>
+
       </div>
     </PortalShell>
   );

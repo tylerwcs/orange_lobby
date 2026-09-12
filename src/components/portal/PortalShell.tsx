@@ -20,17 +20,39 @@ const nav = (personal: boolean, hasInfo: boolean): NavItem[] => [
   ...(personal ? [{ href: "/me", label: "Me", icon: "user" as IconName }] : []),
 ];
 
+/**
+ * The desktop home carries the agenda and the venue summary on the page itself, so a
+ * header link to either would be a second route to what the reader is already looking at -
+ * the same reason those stopped being tiles. The phone home cannot show them, so its bar
+ * keeps them.
+ *
+ * `dashboard` is therefore about what is ON this page, not about screen width.
+ */
+const desktopNav = (items: NavItem[], dashboard: boolean): NavItem[] =>
+  dashboard ? items.filter((n) => n.href === "" || n.href === "/me") : items;
+
 const Banner = ({ url, className }: { url: string; className: string }) => (
   // eslint-disable-next-line @next/next/no-img-element
   <img src={url} alt="" className={className} />
 );
 
-export function PortalShell({ event, basePath, personal, current = null, hero = false, children }: { event: Event; basePath: string; personal: boolean; current?: "" | "/agenda" | "/me" | "/info" | null; hero?: boolean; children: React.ReactNode }) {
+export function PortalShell({ event, basePath, personal, current = null, hero = false, dashboard = false, children }: {
+  event: Event;
+  basePath: string;
+  personal: boolean;
+  current?: "" | "/agenda" | "/me" | "/info" | null;
+  hero?: boolean;
+  /** This page lays out as the three-column desktop dashboard: wider, and a shorter header nav. */
+  dashboard?: boolean;
+  children: React.ReactNode;
+}) {
   const hasInfo = !!event.info_page_html;
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
   const items = nav(personal, hasInfo);
+  const headerItems = desktopNav(items, dashboard);
+  const shellWidth = dashboard ? "max-w-md md:max-w-4xl xl:max-w-[1200px]" : "max-w-md md:max-w-4xl";
 
   if (event.status === "draft") {
     return (
@@ -58,13 +80,13 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">Skip to content</a>
 
       <div className="bg-card shadow-[0_1px_0_rgba(17,24,39,.08)]">
-        <div className="mx-auto w-full max-w-md md:max-w-4xl md:px-6">
+        <div className={`mx-auto w-full ${shellWidth} md:px-6`}>
           <div className="flex flex-col md:flex-row md:items-center md:gap-8">
             <PortalHeader event={event} href={basePath || "/"} className="md:flex-1 md:px-0" />
 
             {/* Desktop nav: the same items, in the header where a pointer already is. */}
             <nav aria-label="Sections" className="hidden shrink-0 gap-1 md:flex">
-              {items.map((n) => {
+              {headerItems.map((n) => {
                 const active = n.href === current;
                 return (
                   <Link
@@ -82,7 +104,7 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
         </div>
       </div>
 
-      <main id="main" className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-4 md:max-w-4xl md:px-6 md:pb-10 md:pt-6">
+      <main id="main" className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 md:px-6 md:pb-10 md:pt-6 ${shellWidth}`}>
         {hero && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         {children}
       </main>
