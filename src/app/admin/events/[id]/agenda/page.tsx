@@ -6,9 +6,11 @@ import { shortDate } from "@/lib/text";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Card } from "@/components/ui/legacy/Card";
-import { Badge } from "@/components/ui/legacy/Badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { addAgendaItemAction, deleteAgendaItemAction } from "../actions";
+import { AdminHeader } from "@/components/admin/AdminHeader";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
 
@@ -21,19 +23,30 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-extrabold">Agenda</h1>
-        <p className="text-sm text-muted-foreground">{total} session{total === 1 ? "" : "s"} across {days.length} day{days.length === 1 ? "" : "s"}</p>
+        <AdminHeader title="Agenda" subtitle={`${total} session${total === 1 ? "" : "s"} across ${days.length} day${days.length === 1 ? "" : "s"}`} />
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="@container"><div className="grid items-start gap-6 @4xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-4">
           {days.length === 0 && (
-            <Card className="p-6 text-sm text-muted-foreground">No sessions yet. Add the first one on the right; attendees see the agenda grouped by day, filtered by their category.</Card>
+            <Card>
+              <CardContent>
+                <Empty className="border-0 bg-transparent">
+                  <EmptyHeader>
+                    <EmptyTitle>No sessions yet</EmptyTitle>
+                    <EmptyDescription>Add the first one on the right; attendees see the agenda grouped by day, filtered by their category.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </CardContent>
+            </Card>
           )}
           {days.map((d) => (
-            <Card key={d.day} className="p-4">
-              <h2 className="mb-2 text-base font-extrabold">{shortDate(d.day)}</h2>
-              <ul className="divide-y divide-line text-sm">
+            <Card key={d.day}>
+              <CardHeader>
+                <CardTitle>{shortDate(d.day)}</CardTitle>
+              </CardHeader>
+              <CardContent>
+              <ul className="divide-y text-sm">
                 {d.items.map((i) => (
                   <li key={i.id} className="flex items-start justify-between gap-4 py-3">
                     <div className="flex min-w-0 gap-4">
@@ -41,18 +54,19 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                       <div className="min-w-0">
                         <div className="font-bold">{i.title}</div>
                         <div className="text-xs text-muted-foreground">{[i.location, i.description].filter(Boolean).join(" · ")}</div>
-                        {i.categories && i.categories.length > 0 && <div className="mt-1"><Badge tone="brand">{i.categories.join(", ")}</Badge></div>}
+                        {i.categories && i.categories.length > 0 && <div className="mt-1"><Badge variant="secondary">{i.categories.join(", ")}</Badge></div>}
                       </div>
                     </div>
                     <form action={deleteAgendaItemAction.bind(null, ev.id, i.id)}><ConfirmButton message={`Delete "${i.title}"?`}>Delete</ConfirmButton></form>
                   </li>
                 ))}
               </ul>
+              </CardContent>
             </Card>
           ))}
         </div>
 
-        <form action={addAgendaItemAction.bind(null, ev.id)} className="grid gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4 xl:sticky xl:top-6">
+        <form action={addAgendaItemAction.bind(null, ev.id)} className="grid gap-3 rounded-xl bg-card p-5 ring-1 ring-foreground/10 xl:sticky xl:top-6">
           <h2 className="text-base font-extrabold">Add a session</h2>
           <Field label="Day" name="day" type="date" defaultValue={ev.starts_on} />
           <div className="grid grid-cols-2 gap-3"><Field label="Starts" name="starts_at" type="time" /><Field label="Ends" name="ends_at" type="time" /></div>
@@ -63,6 +77,7 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
           <Field label="Order among sessions at the same time (lower first)" name="sort_order" type="number" defaultValue="0" />
           <SubmitButton>Add session</SubmitButton>
         </form>
+      </div>
       </div>
     </div>
   );

@@ -3,7 +3,8 @@ import { requireEvent } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Card, buttonClass } from "@/components/ui/legacy/Card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 
 export const metadata = { title: "Exports · Orange Lobby" };
@@ -32,29 +33,38 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <AdminHeader title="Exports" subtitle={`${ev.name} · ${total} attendees`} />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="@container"><div className="grid gap-4 @4xl:grid-cols-3">
         {files.map((f) => (
-          <Card key={f.href} className="flex flex-col gap-3 p-5">
-            <h2 className="text-[17px] font-extrabold">{f.name}</h2>
-            <p className="flex-1 text-sm text-muted-foreground">{f.what}</p>
-            {/* Plain anchors, not `<Link>`: prefetching an export route would build the file on hover. */}
-            <a download href={f.href} className={`${buttonClass("secondary")} self-start`}>
-              <Icon name={f.icon} size={18} />Download
-            </a>
+          <Card key={f.href} className="flex flex-col">
+            <CardHeader>
+              <CardTitle>{f.name}</CardTitle>
+              <CardDescription>{f.what}</CardDescription>
+            </CardHeader>
+            <CardContent className="mt-auto">
+              {/* Plain anchors, not `<Link>`: prefetching an export route would build the file on hover. */}
+              <a download href={f.href} className={buttonVariants({ variant: "outline" })}>
+                <Icon name={f.icon} size={18} />Download
+              </a>
+            </CardContent>
           </Card>
         ))}
       </div>
+      </div>
 
-      <Card className="p-5">
-        <h2 className="text-[17px] font-extrabold">Before you send these out</h2>
-        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-          <li>Personal links and QR codes are generated for <span className="font-bold text-ink">{base}</span>. If that address changes, re-export before printing.</li>
+      <Card>
+        <CardHeader>
+          <CardTitle>Before you send these out</CardTitle>
+        </CardHeader>
+        <CardContent>
+        <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+          <li>Personal links and QR codes are generated for <span className="font-bold text-foreground">{base}</span>. If that address changes, re-export before printing.</li>
           <li>A personal link signs the holder in without a password. Treat both files as you would the attendee list itself.</li>
           <li>A personal link does not expire, so a QR printed today still scans on the day. Re-export only if the list changes.</li>
         </ul>
+        </CardContent>
       </Card>
     </div>
   );

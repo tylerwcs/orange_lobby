@@ -4,7 +4,7 @@ import type { Checkpoint } from "@/lib/types";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Badge } from "@/components/ui/legacy/Badge";
+import { Badge } from "@/components/ui/badge";
 
 type Reorder = (ids: string[]) => Promise<void>;
 
@@ -84,7 +84,7 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold">{c.name}</span>
-                  {c.id === activeId && <Badge tone="ok" dot>Running now</Badge>}
+                  {c.id === activeId && <Badge variant="success">Running now</Badge>}
                 </div>
                 <div className="text-xs font-semibold text-muted-foreground tabular-nums">{n} of {total} checked in</div>
               </div>

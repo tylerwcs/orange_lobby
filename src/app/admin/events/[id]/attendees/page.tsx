@@ -19,7 +19,7 @@ import { AddColumnForm } from "@/components/admin/AddColumnForm";
 import { FieldInputs } from "@/components/admin/FieldInputs";
 import { allColumns, bulkFields, columnsCookieName, parseTablePrefs, tableCookieName } from "@/lib/columns";
 import { eventFields, fieldsFromQuestions, unclaimedKeys } from "@/lib/attendee-fields";
-import { buttonClass } from "@/components/ui/legacy/Card";
+import { buttonVariants } from "@/components/ui/button";
 import { paginate } from "@/lib/paginate";
 
 export const metadata = { title: "Attendees · Orange Lobby" };
@@ -163,12 +163,12 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         <span className="tabular-nums">Showing {from}–{to} of {rows.length}</span>
         <div className="flex items-center gap-2">
           {page > 1
-            ? <Link href={pageHref(page - 1)} className={buttonClass("secondary")}>Previous</Link>
-            : <span className={`${buttonClass("secondary")} opacity-50`} aria-disabled="true">Previous</span>}
+            ? <Link href={pageHref(page - 1)} className={buttonVariants({ variant: "outline" })}>Previous</Link>
+            : <span className={`${buttonVariants({ variant: "outline" })} opacity-50`} aria-disabled="true">Previous</span>}
           <span className="tabular-nums">Page {page} of {pages}</span>
           {page < pages
-            ? <Link href={pageHref(page + 1)} className={buttonClass("secondary")}>Next</Link>
-            : <span className={`${buttonClass("secondary")} opacity-50`} aria-disabled="true">Next</span>}
+            ? <Link href={pageHref(page + 1)} className={buttonVariants({ variant: "outline" })}>Next</Link>
+            : <span className={`${buttonVariants({ variant: "outline" })} opacity-50`} aria-disabled="true">Next</span>}
         </div>
       </div>
     </div>
