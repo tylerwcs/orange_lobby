@@ -18,6 +18,6 @@ export async function loadHomeData(event: Event, attendee: Attendee | null, base
   const { date, time } = nowInKL();
   const next = nextSession(visibleTo(agenda, attendee?.category ?? null), date, time);
   const banner = announcements.find((a) => a.pinned) ?? announcements[0] ?? null;
-  const tiles = resolveTiles({ event, personal: !!attendee, basePath, attendee, next, latestAnnouncement: banner?.title ?? null });
+  const tiles = resolveTiles({ event, basePath });
   return { tiles, banner, next, today: date };
 }

@@ -6,10 +6,18 @@ import { brandStyle } from "@/lib/brand";
 import { Mark, PortalHeader } from "./PortalHeader";
 
 type NavItem = { href: string; label: string; icon: IconName };
-const nav = (personal: boolean): NavItem[] => [
+
+/**
+ * Info is in the nav rather than being a tile: it is one of the few destinations every
+ * attendee wants at some point, and a tile for it was a second route to a page the nav
+ * could hold permanently. It only appears when the event actually has an info page -
+ * a nav slot leading to an empty screen is worse than no slot.
+ */
+const nav = (personal: boolean, hasInfo: boolean): NavItem[] => [
   { href: "", label: "Home", icon: "grid" },
   { href: "/agenda", label: "Agenda", icon: "calendar" },
-  personal ? { href: "/me", label: "Me", icon: "user" } : { href: "/info", label: "Info", icon: "info" },
+  ...(hasInfo ? [{ href: "/info", label: "Info", icon: "info" as IconName }] : []),
+  ...(personal ? [{ href: "/me", label: "Me", icon: "user" as IconName }] : []),
 ];
 
 const Banner = ({ url, className }: { url: string; className: string }) => (
@@ -18,6 +26,7 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
 );
 
 export function PortalShell({ event, basePath, personal, current = null, hero = false, children }: { event: Event; basePath: string; personal: boolean; current?: "" | "/agenda" | "/me" | "/info" | null; hero?: boolean; children: React.ReactNode }) {
+  const hasInfo = !!event.info_page_html;
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
@@ -43,7 +52,7 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
         {children}
       </main>
       <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around shadow-[0_-1px_0_rgba(17,24,39,.08)] bg-card px-2 py-2" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
-        {nav(personal).map((n) => {
+        {nav(personal, hasInfo).map((n) => {
           const active = n.href === current;
           return (
             <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "font-bold text-primary" : "font-semibold text-muted-foreground"}`}>

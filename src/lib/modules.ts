@@ -1,9 +1,28 @@
 import { z } from "zod";
-import type { AgendaItem, Attendee, Event } from "@/lib/types";
+import type { Event } from "@/lib/types";
 import type { IconName } from "@/components/ui/icon";
 
+/**
+ * The keys a stored module row may carry. This list can gain entries but must not lose
+ * them: `events.modules` is a jsonb column and `builtinSchema` validates against this enum,
+ * so dropping a key makes every event that still has a row for it fail to parse - the
+ * portal would 500 rather than ignore it.
+ *
+ * Which of these actually renders as a tile is TILE_BUILTINS, below.
+ */
 export const BUILTIN_MODULES = ["agenda", "seat", "floor_plan", "info", "announcements"] as const;
 export type BuiltinKey = (typeof BUILTIN_MODULES)[number];
+
+/**
+ * The built-ins that are still tiles on the portal home.
+ *
+ * Agenda and Info are in the bottom nav, Announcements is the banner at the top of the
+ * home, and the table number is on the badge card - so a tile for any of them was a second
+ * route to something already on screen. Rows for the retired keys still parse; they simply
+ * do not render, and the Modules page no longer offers switches for them.
+ */
+export const TILE_BUILTINS = ["floor_plan"] as const satisfies readonly BuiltinKey[];
+const IS_TILE = new Set<string>(TILE_BUILTINS);
 export const MODULE_ICONS = ["calendar", "seat", "map", "info", "megaphone", "mic", "file", "chat", "check", "phone", "link", "star", "users", "download"] as const satisfies readonly IconName[];
 export type ModuleIcon = (typeof MODULE_ICONS)[number];
 
@@ -54,7 +73,7 @@ export function parseModules(input: string | unknown): EventModule[] {
 }
 
 export function defaultModules(): EventModule[] {
-  return BUILTIN_MODULES.map((key) => ({ key, enabled: true }));
+  return TILE_BUILTINS.map((key) => ({ key, enabled: true }));
 }
 
 const DEFAULT_LABEL: Record<BuiltinKey, string> = { agenda: "Agenda", seat: "My seat", floor_plan: "Floor plan", info: "Info", announcements: "Announcements" };
@@ -62,18 +81,23 @@ const DEFAULT_ICON: Record<BuiltinKey, ModuleIcon> = { agenda: "calendar", seat:
 
 export type Tile = { id: string; label: string; subtitle: string; href: string; icon: ModuleIcon; external: boolean };
 
+/**
+ * `personal`, `attendee`, `next` and `latestAnnouncement` used to be inputs here: they
+ * filled the subtitles of the agenda, seat and announcement tiles. Those tiles are gone,
+ * and with them the only reason this function needed to know anything about who is looking
+ * or what is happening. It now depends on the event and the path, and nothing else.
+ */
 export function resolveTiles(input: {
   event: Pick<Event, "floor_plan_url" | "info_page_html" | "info_page_title" | "modules">;
-  personal: boolean; basePath: string;
-  attendee?: Pick<Attendee, "table_no"> | null;
-  next?: { item: AgendaItem; status: "now" | "next" } | null;
-  latestAnnouncement?: string | null;
+  basePath: string;
 }): Tile[] {
-  const { event, personal, basePath, attendee, next, latestAnnouncement } = input;
+  const { event, basePath } = input;
   const modules = event.modules?.length ? event.modules : defaultModules();
   const out: Tile[] = [];
   for (const m of modules) {
     if (!m.enabled) continue;
+    // A row for a retired built-in parses but draws nothing.
+    if (m.key !== "link" && !IS_TILE.has(m.key)) continue;
     // Re-check the url here too: rows written before this rule, or edited around
     // parseModules, must never render as a javascript:/data: tile.
     if (m.key === "link") {
@@ -84,26 +108,9 @@ export function resolveTiles(input: {
     const label = m.label ?? (m.key === "info" ? event.info_page_title || DEFAULT_LABEL.info : DEFAULT_LABEL[m.key]);
     const icon = DEFAULT_ICON[m.key];
     switch (m.key) {
-      case "agenda":
-        out.push({ id: "agenda", label, icon, external: false, href: `${basePath}/agenda`,
-          subtitle: m.subtitle ?? (next ? `${next.status === "now" ? "Now" : "Next"}: ${next.item.starts_at} ${next.item.title}` : "Programme") });
-        break;
-      case "seat":
-        if (!personal) break;
-        out.push({ id: "seat", label, icon, external: false, href: `${basePath}/seat`,
-          subtitle: m.subtitle ?? (attendee?.table_no ? `Table ${attendee.table_no}` : "To be confirmed") });
-        break;
       case "floor_plan":
         if (!event.floor_plan_url) break;
         out.push({ id: "floor_plan", label, icon, external: false, href: `${basePath}/plan`, subtitle: m.subtitle ?? "Venue layout" });
-        break;
-      case "info":
-        if (!event.info_page_html) break;
-        out.push({ id: "info", label, icon, external: false, href: `${basePath}/info`, subtitle: m.subtitle ?? "Everything you need to know" });
-        break;
-      case "announcements":
-        if (!latestAnnouncement && !m.subtitle) break; // an empty destination is not an option worth a tile
-        out.push({ id: "announcements", label, icon, external: false, href: `${basePath}/announcements`, subtitle: m.subtitle ?? latestAnnouncement ?? "No announcements yet" });
         break;
     }
   }

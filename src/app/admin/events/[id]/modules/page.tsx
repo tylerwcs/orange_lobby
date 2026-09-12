@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { BUILTIN_MODULES, MODULE_ICONS, defaultModules, type LinkModule } from "@/lib/modules";
+import { TILE_BUILTINS, MODULE_ICONS, defaultModules, type LinkModule } from "@/lib/modules";
 import { MAX_LINK_TILES } from "@/lib/modules-form";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,13 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 
 export const metadata = { title: "Modules · Orange Lobby" };
 
-const NAMES: Record<(typeof BUILTIN_MODULES)[number], { label: string; help: string }> = {
-  agenda: { label: "Agenda", help: "Programme by day. Subtitle shows the next session automatically." },
-  seat: { label: "My seat", help: "Personal links only. Shows the attendee’s table from their record." },
+/**
+ * Only the built-ins that still draw a tile. Agenda and Info moved to the portal's bottom
+ * nav, Announcements is the banner on the portal home and the table number is on the badge
+ * card, so switches for those controlled a second route to something already on screen.
+ */
+const NAMES: Record<(typeof TILE_BUILTINS)[number], { label: string; help: string }> = {
   floor_plan: { label: "Floor plan", help: "Shown only when the event has a floor plan image URL." },
-  info: { label: "Info page", help: "Shown only when the info page has content. Label defaults to the page title." },
-  announcements: { label: "Announcements", help: "Subtitle shows the latest announcement." },
 };
 
 export default async function ModulesPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,8 +31,8 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
       <AdminHeader title="Modules" subtitle="What appears on the portal home, and in what order." />
       <div className="@container"><div className="grid gap-4 items-start @5xl:grid-cols-2">
       <Card className="gap-0 divide-y py-0">
-        <div className="p-4"><div className="font-bold">Built-in tiles</div><div className="text-xs text-muted-foreground">Switch a tile off to hide it; give it a custom label or subtitle if the default reads wrong for this event.</div></div>
-        {BUILTIN_MODULES.map((key) => { const m = builtin(key); return (
+        <div className="p-4"><div className="font-bold">Built-in tiles</div><div className="text-xs text-muted-foreground">Agenda, Info and Announcements are no longer tiles — they live in the portal’s bottom nav and its banner. What is left here is the floor plan.</div></div>
+        {TILE_BUILTINS.map((key) => { const m = builtin(key); return (
           <div key={key} className="grid gap-3 p-4 md:grid-cols-[minmax(12rem,1fr)_1fr_1fr]">
             <label className="flex items-start gap-3 text-sm">
               <input type="checkbox" name={`mod_${key}_enabled`} defaultChecked={m?.enabled ?? true} className="mt-1 size-4 accent-primary" />
