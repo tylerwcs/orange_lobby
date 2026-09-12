@@ -20,12 +20,12 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
 export function PortalShell({ event, basePath, personal, current = null, hero = false, children }: { event: Event; basePath: string; personal: boolean; current?: "" | "/agenda" | "/me" | "/info" | null; hero?: boolean; children: React.ReactNode }) {
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
-  const bannerClass = "mb-4 aspect-[3/1] w-full rounded-[var(--radius-card)] object-cover";
+  const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
   if (event.status === "draft") {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6" style={style}>
         {event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
-        <div className="w-full rounded-[var(--radius-card)] border border-line bg-surface p-6 text-center">
+        <div className="w-full rounded-xl border border-border bg-card p-6 text-center">
           <div className="mx-auto mb-4 w-fit"><Mark event={event} /></div>
           <h1 className="text-xl font-extrabold">{event.name}</h1>
           {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
@@ -35,18 +35,18 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
     );
   }
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-canvas" style={style}>
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background" style={style}>
       <PortalHeader event={event} href={basePath || "/"} />
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[var(--radius-control)] focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">Skip to content</a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">Skip to content</a>
       <main id="main" className="flex-1 px-4 pb-24 pt-4">
         {hero && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         {children}
       </main>
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around shadow-[var(--shadow-bar)] bg-surface px-2 py-2" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around shadow-[0_-1px_0_rgba(17,24,39,.08)] bg-card px-2 py-2" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
         {nav(personal).map((n) => {
           const active = n.href === current;
           return (
-            <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${active ? "font-bold text-brand-ink" : "font-semibold text-muted-foreground"}`}>
+            <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "font-bold text-primary" : "font-semibold text-muted-foreground"}`}>
               <Icon name={n.icon} size={22} /><span>{n.label}</span>
             </Link>
           );

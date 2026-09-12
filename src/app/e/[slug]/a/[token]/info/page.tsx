@@ -1,7 +1,7 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { buttonClass } from "@/components/ui/legacy/Card";
+import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 
 export default async function PersonalInfo({ params }: { params: Promise<{ slug: string; token: string }> }) {
@@ -18,7 +18,7 @@ export default async function PersonalInfo({ params }: { params: Promise<{ slug:
             {event.venue_map_url && (
               <div className="mt-2">
                 {/* Plain anchor: the map is an external site, so it needs target/rel. */}
-                <a href={event.venue_map_url} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}><Icon name="map" size={18} />Open map</a>
+                <a href={event.venue_map_url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline" })}><Icon name="map" size={18} />Open map</a>
               </div>
             )}
           </div>
@@ -30,7 +30,7 @@ export default async function PersonalInfo({ params }: { params: Promise<{ slug:
             {event.contact_phone && (
               <>
                 {" · "}
-                <a className="font-semibold text-brand-ink underline" href={`tel:${event.contact_phone}`}>{event.contact_phone}</a>
+                <a className="font-semibold text-primary underline" href={`tel:${event.contact_phone}`}>{event.contact_phone}</a>
               </>
             )}
           </p>

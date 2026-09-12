@@ -74,6 +74,7 @@
   --ink: var(--foreground);
   --line: var(--border);
   --brand: oklch(0.7017 0.1868 44.13); /* #F97316 — replaced per event by brandStyle() */
+  --brand-foreground: var(--foreground); /* readable on the default orange; per-event too */
   --brand-ink: var(--primary);
   --brand-strong: var(--primary);
   --brand-soft: var(--accent);
@@ -156,6 +157,7 @@
   --color-ink: var(--ink);
   --color-line: var(--line);
   --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-brand-ink: var(--brand-ink);
   --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);

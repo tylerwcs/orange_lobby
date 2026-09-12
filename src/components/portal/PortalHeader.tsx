@@ -9,13 +9,16 @@ export function Mark({ event }: { event: HeaderEvent }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={event.logo_url} alt="" className="h-10 w-10 rounded-[10px] object-contain" />
   );
-  return <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-ink">{initials(event.name)}</div>;
+    // The organiser's colour with a foreground computed FOR it, rather than a fixed dark
+  // ink that happened to fail on some of them. This mark is the element the 8 Sep audit
+  // measured at 3.97:1, and it survived the 10 Sep redesign because nothing could see it.
+  return <div className="flex size-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-brand-foreground">{initials(event.name)}</div>;
 }
 
 export function PortalHeader({ event, href }: { event: HeaderEvent; href?: string }) {
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   return (
-    <header className="flex items-center gap-3 shadow-[var(--shadow-bar)] bg-surface px-4 py-4">
+    <header className="flex items-center gap-3 shadow-[0_-1px_0_rgba(17,24,39,.08)] bg-card px-4 py-4">
       {href ? <Link href={href} aria-label="Home"><Mark event={event} /></Link> : <Mark event={event} />}
       <div className="min-w-0 flex-1">
         <div className="line-clamp-2 text-base font-extrabold leading-tight">{event.name}</div>
