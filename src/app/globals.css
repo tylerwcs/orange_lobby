@@ -64,36 +64,13 @@
   --sidebar-ring: oklch(0.5534 0.1739 38.4); /* #C2410C */
 
   /*
-    --- transition aliases (D65) ---
-    The app still has ~370 call sites on the old vocabulary. Each alias is deleted when its last
-    call site is gone, surface by surface. Nothing new should reference these.
-    --muted is NOT aliased: the name changed meaning, so its 140 call sites were renamed instead.
+    --- the event's own colour (D72) ---
+    Not a shadcn token and not a leftover: an organiser's colour has a decorative job that
+    --primary cannot do, because --primary is darkened until it can be read as text.
+    Both are replaced per event by brandStyle(); these are the defaults.
   */
-  --canvas: var(--background);
-  --surface: var(--card);
-  --ink: var(--foreground);
-  --line: var(--border);
-  --brand: oklch(0.7017 0.1868 44.13); /* #F97316 — replaced per event by brandStyle() */
+  --brand: oklch(0.7017 0.1868 44.13); /* #F97316 */
   --brand-foreground: var(--foreground); /* readable on the default orange; per-event too */
-  --brand-ink: var(--primary);
-  --brand-strong: var(--primary);
-  --brand-soft: var(--accent);
-  --danger: var(--destructive);
-  --danger-soft: var(--destructive-soft);
-  --danger-strong: var(--destructive-strong);
-  --ok: var(--success);
-  --ok-soft: var(--success-soft);
-  --ok-strong: var(--success-strong);
-  --warn: var(--warning);
-  --warn-soft: var(--warning-soft);
-  --tint-slate: var(--muted);
-  --tint-pink: oklch(0.9635 0.0158 341.39); /* #FBEFF6 */
-  --tint-sky: oklch(0.9546 0.0177 253.34); /* #E8F1FC */
-  --tint-lilac: oklch(0.9517 0.0188 292.61); /* #EFEDFB */
-  --radius-card: 18px;
-  --radius-control: 10px;
-  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.05), 0 10px 26px -18px rgba(17, 24, 39, 0.35);
-  --shadow-bar: 0 1px 2px rgba(17, 24, 39, 0.04), 0 10px 24px -20px rgba(17, 24, 39, 0.5);
 }
 
 @theme inline {
@@ -151,30 +128,9 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* transition aliases — see :root */
-  --color-canvas: var(--canvas);
-  --color-surface: var(--surface);
-  --color-ink: var(--ink);
-  --color-line: var(--line);
+  /* the event's own colour — see :root */
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
-  --color-brand-ink: var(--brand-ink);
-  --color-brand-strong: var(--brand-strong);
-  --color-brand-soft: var(--brand-soft);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-danger-strong: var(--danger-strong);
-  --color-ok: var(--ok);
-  --color-ok-soft: var(--ok-soft);
-  --color-ok-strong: var(--ok-strong);
-  --color-warn: var(--warn);
-  --color-warn-soft: var(--warn-soft);
-  --color-tint-slate: var(--tint-slate);
-  --color-tint-pink: var(--tint-pink);
-  --color-tint-sky: var(--tint-sky);
-  --color-tint-lilac: var(--tint-lilac);
-  --radius-card: var(--radius-card);
-  --radius-control: var(--radius-control);
 }
 
 html { scroll-behavior: smooth; }

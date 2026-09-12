@@ -16,8 +16,9 @@ const DEFAULT_BRAND = "#F97316";
  *  - `--accent` is a pale tint for chips and grounds, `--accent-foreground` the readable ink
  *  - `--ring` follows primary, so the focus ring stays the event's colour
  *
- * `--brand*` are still emitted: the scanner and the register flow (phases 3 and 4) have not
- * been migrated yet and their call sites still read them.
+ * `--brand` and `--brand-foreground` are emitted too, and are not leftovers: they are the
+ * colour as the organiser chose it, for the decorative jobs `--primary` cannot do once it
+ * has been darkened to be readable as text (D72).
  */
 export function brandStyle(primary: string | null | undefined): Record<string, string> {
   const brand = primary && /^#[0-9a-fA-F]{6}$/.test(primary) ? primary : DEFAULT_BRAND;
@@ -48,9 +49,6 @@ export function brandStyle(primary: string | null | undefined): Record<string, s
     // The organiser's colour, untouched, and whatever can be read on it.
     "--brand": brand,
     "--brand-foreground": onBrand.hex,
-    // Aliases the scanner and register flow (phases 3 and 4) still read.
-    "--brand-ink": inkHex,
-    "--brand-soft": `color-mix(in oklch, ${brand} 14%, white)`,
   };
 }
 

@@ -55,11 +55,19 @@ describe("brandStyle", () => {
     expect(style["--accent"]).toContain("color-mix(");
   });
 
-  it("still emits the brand aliases the scanner and register flow read", () => {
+  it("emits the organiser's colour untouched, with a foreground computed for it", () => {
     const style = brandStyle("#1D4ED8");
     expect(style["--brand"]).toBe("#1D4ED8");
-    expect(style["--brand-ink"]).toBeTruthy();
-    expect(style["--brand-soft"]).toContain("#1D4ED8");
+    expect(style["--brand-foreground"]).toBe("#FFFFFF");
+    // The decorative colour is the one chosen; only --primary is allowed to darken.
+    expect(style["--brand"]).not.toBe(style["--primary-foreground"]);
+  });
+
+  it("emits nothing but the tokens the app reads", () => {
+    expect(Object.keys(brandStyle("#1D4ED8")).sort()).toEqual([
+      "--accent", "--accent-foreground", "--brand", "--brand-foreground",
+      "--primary", "--primary-foreground", "--ring",
+    ]);
   });
 
   it.each([["orange"], [null], ["#12"]])("falls back to #F97316 for invalid value %p", (value) => {

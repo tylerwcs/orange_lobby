@@ -114,10 +114,6 @@ describe("colour helpers", () => {
     expect(rgb("primary")).toEqual([194, 65, 12]);
   });
 
-  it("resolves a transition alias through var() to a real colour", () => {
-    expect(rgb("brand-strong")).toEqual(rgb("primary"));
-    expect(rgb("canvas")).toEqual(rgb("background"));
-  });
 });
 
 describe("token contrast (WCAG 2.x, sRGB)", () => {
@@ -159,17 +155,18 @@ describe("D64 — --muted is a background, --muted-foreground is text", () => {
   });
 });
 
-// The transition aliases (D65) carry ~370 existing call sites. A typo in one of them would not fail
-// the build — it would silently render an invalid colour — so every alias is checked here.
-describe("transition aliases resolve", () => {
-  const aliases = [
-    "canvas", "surface", "ink", "line", "brand", "brand-ink", "brand-strong", "brand-soft",
-    "danger", "danger-soft", "danger-strong", "ok", "ok-soft", "ok-strong", "warn", "warn-soft",
-    "tint-slate", "tint-pink", "tint-sky", "tint-lilac",
-  ];
-  for (const name of aliases) {
-    it(`--${name} resolves to a colour`, () => {
-      expect(rgb(name)).toHaveLength(3);
-    });
-  }
+// D72: --brand is the organiser's colour as chosen, for decorative fills only, paired with a
+// foreground computed for it. brandStyle() replaces both per event - that pair is tested in
+// tests/brand.test.ts, which can see the computed values; these are the defaults shipped here.
+// There is deliberately no --brand-on-card assertion. The default orange is 2.83:1 on white,
+// and it is allowed to be: it fills the event mark (whose initials are checked against it
+// above) and the "happening now" dot, which sits beside the words "Happening now". Neither
+// shape carries meaning the reader cannot get from the text on or next to it. What must hold
+// is that whatever the organiser picks can be read ON, and that is this pair.
+describe("D72 - the event colour pair", () => {
+  it("brand-foreground on brand meets 4.5:1", () => assertPair("brand-foreground", "brand"));
+});
+
+it("resolves a token written as var() through to a real colour", () => {
+  expect(rgb("brand-foreground")).toEqual(rgb("foreground"));
 });
