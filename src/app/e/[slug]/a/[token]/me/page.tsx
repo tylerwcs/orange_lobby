@@ -47,7 +47,10 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
 
   return (
     <PortalShell event={event} basePath={basePath} personal current="/me">
-      <div className="flex flex-col gap-3.5">
+      {/* Capped on desktop. A profile is a reading measure, not a dashboard: at the full
+          896px the label and its value end up half a metre apart and the button stretches
+          to 830px. */}
+      <div className="flex flex-col gap-3.5 md:mx-auto md:max-w-2xl md:gap-5">
 
         {/* Identity first, and the badge is a dialog rather than a wall of QR: someone
             opening their profile is usually reading it, not presenting it. */}
@@ -66,7 +69,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
             </div>
 
             <Dialog>
-              <DialogTrigger render={<Button className="mt-1 w-full" />}>Show my badge</DialogTrigger>
+              <DialogTrigger render={<Button className="mt-1 w-full sm:w-64" />}>Show my badge</DialogTrigger>
               <DialogContent className="sm:max-w-sm">
                 <DialogTitle className="text-center">{attendee.name}</DialogTitle>
                 <DialogDescription className="text-center">

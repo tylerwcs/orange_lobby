@@ -30,6 +30,8 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
+  const items = nav(personal, hasInfo);
+
   if (event.status === "draft") {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6" style={style}>
@@ -43,19 +45,60 @@ export function PortalShell({ event, basePath, personal, current = null, hero = 
       </main>
     );
   }
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background" style={style}>
-      <PortalHeader event={event} href={basePath || "/"} />
+    /*
+      One layout, two shapes. Almost everyone opens this on a phone, so the phone case is
+      the default and the desktop case is the override - not a separate design.
+      Below md: a phone column with a thumb-reachable bottom bar.
+      From md:  the column widens, and the same nav moves into the header, because a bar
+                pinned to the bottom of a 1400px window is nowhere near anything.
+    */
+    <div className="flex min-h-screen flex-col bg-background" style={style}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">Skip to content</a>
-      <main id="main" className="flex-1 px-4 pb-24 pt-4">
+
+      <div className="bg-card shadow-[0_1px_0_rgba(17,24,39,.08)]">
+        <div className="mx-auto w-full max-w-md md:max-w-4xl md:px-6">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-8">
+            <PortalHeader event={event} href={basePath || "/"} className="md:flex-1 md:px-0" />
+
+            {/* Desktop nav: the same items, in the header where a pointer already is. */}
+            <nav aria-label="Sections" className="hidden shrink-0 gap-1 md:flex">
+              {items.map((n) => {
+                const active = n.href === current;
+                return (
+                  <Link
+                    key={n.href}
+                    href={`${basePath}${n.href}`}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex min-h-11 items-center gap-2 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-accent font-bold text-primary" : "font-semibold text-muted-foreground hover:bg-muted"}`}
+                  >
+                    <Icon name={n.icon} size={18} />{n.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <main id="main" className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-4 md:max-w-4xl md:px-6 md:pb-10 md:pt-6">
         {hero && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         {children}
       </main>
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around shadow-[0_-1px_0_rgba(17,24,39,.08)] bg-card px-2 py-2" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
-        {nav(personal, hasInfo).map((n) => {
+
+      {/* Mobile nav. Rendered separately rather than repositioned, because the two are
+          genuinely different controls - icon-over-label thumb targets against a row of
+          text links - and only one is ever in the tree's visible flow at a time. */}
+      <nav
+        aria-label="Sections"
+        className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around bg-card px-2 py-2 shadow-[0_-1px_0_rgba(17,24,39,.08)] md:hidden"
+        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+      >
+        {items.map((n) => {
           const active = n.href === current;
           return (
-            <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "font-bold text-primary" : "font-semibold text-muted-foreground"}`}>
+            <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "font-bold text-primary" : "font-semibold text-muted-foreground"}`}>
               <Icon name={n.icon} size={22} /><span>{n.label}</span>
             </Link>
           );

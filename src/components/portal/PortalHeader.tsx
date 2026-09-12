@@ -15,10 +15,10 @@ export function Mark({ event }: { event: HeaderEvent }) {
   return <div className="flex size-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-brand-foreground">{initials(event.name)}</div>;
 }
 
-export function PortalHeader({ event, href }: { event: HeaderEvent; href?: string }) {
+export function PortalHeader({ event, href, className = "" }: { event: HeaderEvent; href?: string; className?: string }) {
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   return (
-    <header className="flex items-center gap-3 shadow-[0_-1px_0_rgba(17,24,39,.08)] bg-card px-4 py-4">
+    <header className={`flex items-center gap-3 bg-card px-4 py-4 ${className}`}>
       {href ? <Link href={href} aria-label="Home"><Mark event={event} /></Link> : <Mark event={event} />}
       <div className="min-w-0 flex-1">
         <div className="line-clamp-2 text-base font-extrabold leading-tight">{event.name}</div>

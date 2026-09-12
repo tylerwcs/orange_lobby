@@ -22,11 +22,15 @@ export default async function PersonalHome({ params }: { params: Promise<{ slug:
   return (
     <PortalShell event={event} basePath={basePath} personal current="" hero>
       <h1 className="sr-only">{event.name}</h1>
-      <div className="flex flex-col gap-3.5">
+      {/* Two columns from md: the badge is the identity half, the rest is the
+          what-is-happening half. On a phone it is one column in the same order. */}
+      <div className="flex flex-col gap-3.5 md:grid md:grid-cols-2 md:items-start md:gap-5">
         <BadgeCard attendee={attendee} basePath={basePath} checkedInAt={checkedInAt} floorPlan={Boolean(event.floor_plan_url)} />
-        {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
-        <NowCard next={next} href={`${basePath}/agenda`} today={today} />
-        <TileGrid tiles={tiles} />
+        <div className="flex flex-col gap-3.5 md:gap-5">
+          {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
+          <NowCard next={next} href={`${basePath}/agenda`} today={today} />
+        </div>
+        <div className="md:col-span-2"><TileGrid tiles={tiles} /></div>
       </div>
     </PortalShell>
   );

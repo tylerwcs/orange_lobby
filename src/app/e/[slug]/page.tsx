@@ -15,14 +15,16 @@ export default async function GenericHome({ params }: { params: Promise<{ slug: 
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="" hero>
       <h1 className="sr-only">{event.name}</h1>
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-3.5 md:grid md:grid-cols-2 md:items-start md:gap-5">
         <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <div className="text-[15px] font-extrabold">Open your own badge link</div>
+          <div className="font-extrabold">Open your own badge link</div>
           <p className="mt-1 text-sm text-muted-foreground">Scan the QR code on your badge to see your table and check-in status.</p>
         </div>
-        {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
-        <NowCard next={next} href={`${basePath}/agenda`} today={today} />
-        <TileGrid tiles={tiles} />
+        <div className="flex flex-col gap-3.5 md:gap-5">
+          {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
+          <NowCard next={next} href={`${basePath}/agenda`} today={today} />
+        </div>
+        <div className="md:col-span-2"><TileGrid tiles={tiles} /></div>
       </div>
     </PortalShell>
   );
