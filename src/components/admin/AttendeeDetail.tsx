@@ -86,11 +86,11 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
       </div>
 
       <form action={updateAttendeeAction.bind(null, ev.id, a.id)}>
-        <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="mt-5 @container grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-5">
             <section>
               <h3 className={`${caption} mb-2.5`}>Details</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 @md:grid-cols-2">
                 <Field label="Name" name="name" defaultValue={a.name} /><Field label="Email" name="email" defaultValue={a.email} />
                 <Field label="Phone" name="phone" defaultValue={a.phone} /><Field label="Company" name="company" defaultValue={a.company} />
                 <Field label="Category" name="category" defaultValue={a.category} /><Field label="Table" name="table_no" defaultValue={a.table_no} />
@@ -103,7 +103,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
                   <h3 className={caption}>Registration</h3>
                   <span className="text-xs text-muted-foreground">What the form asked</span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 @md:grid-cols-2">
                   <FieldInputs fields={registrationFields} values={a.extra} />
                 </div>
               </section>
@@ -115,7 +115,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
                   <h3 className={caption}>Your columns</h3>
                   <span className="text-xs text-muted-foreground">Added on the attendees table</span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 @md:grid-cols-2">
                   <FieldInputs fields={customFields} values={a.extra} />
                 </div>
               </section>
@@ -126,7 +126,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
               the line under each name says when and who — the question actually asked of
               this panel when an attendee says they were let in and the record disagrees.
               Reversing one lives in the scanner's Undo; it is not an admin control. */}
-          <aside className="lg:border-l lg:border-line lg:pl-6">
+          <aside className="@3xl:border-l @3xl:border-line @3xl:pl-6">
             <h3 className={`${caption} mb-3`}>Check-in</h3>
             {cps.length === 0 ? (
               <p className="text-sm text-muted-foreground">No checkpoints yet. Add them under Settings.</p>

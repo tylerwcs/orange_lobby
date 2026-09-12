@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/legacy/Badge";
 import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
-import { AttendeeDialog } from "@/components/admin/AttendeeDialog";
+import { AttendeePanel } from "@/components/admin/AttendeePanel";
 import { Icon } from "@/components/ui/icon";
 import { moveItem } from "@/lib/reorder";
 import {
@@ -378,9 +378,9 @@ export function AttendeeTable({
       </div>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
 
-      <AttendeeDialog openId={openId} pending={opensPending} onClose={() => showPanel(null)}>
+      <AttendeePanel openId={openId} pending={opensPending} onClose={() => showPanel(null)}>
         {detailPanel}
-      </AttendeeDialog>
+      </AttendeePanel>
 
       {/* `m-auto` is load-bearing — see Modal.tsx: Tailwind's preflight zeroes the margin
           a dialog centres itself with. */}
