@@ -49,7 +49,7 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
 
   return (
     <div>
-      <ul className="divide-y divide-line" aria-busy={pending}>
+      <ul className="divide-y divide-border" aria-busy={pending}>
         {order.map((c, i) => {
           const n = counts[c.id] ?? 0;
           return (
@@ -61,7 +61,7 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
               onDragLeave={() => setOver((prev) => (prev === i ? null : prev))}
               onDrop={(e) => { e.preventDefault(); const from = fromRef.current; setDragging(null); setOver(null); if (from !== null) move(from, i); }}
               onDragEnd={() => { fromRef.current = null; setDragging(null); setOver(null); }}
-              className={`flex flex-wrap items-center gap-3 py-3 transition-colors duration-150 ${dragging === i ? "opacity-50" : ""} ${over === i && dragging !== i ? "bg-brand-soft" : ""}`}
+              className={`flex flex-wrap items-center gap-3 py-3 transition-colors duration-150 ${dragging === i ? "opacity-50" : ""} ${over === i && dragging !== i ? "bg-accent" : ""}`}
             >
               {/* The handle is the keyboard route as well as the pointer one: focus it and
                   the arrow keys move the row. A drag with no keyboard equivalent fails
@@ -76,7 +76,7 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
                   e.preventDefault();
                   move(i, to);
                 }}
-                className="flex h-11 w-7 shrink-0 cursor-grab items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-canvas active:cursor-grabbing"
+                className="flex h-11 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-background active:cursor-grabbing"
               >
                 <Icon name="grip" size={18} />
               </button>
@@ -89,7 +89,7 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
                 <div className="text-xs font-semibold text-muted-foreground tabular-nums">{n} of {total} checked in</div>
               </div>
               <form action={() => deleteCheckpoint(c.id)}>
-                <ConfirmButton message={`Delete “${c.name}” and its ${n} check-in${n === 1 ? "" : "s"}? This cannot be undone.`} className="text-danger-strong">Delete</ConfirmButton>
+                <ConfirmButton message={`Delete “${c.name}” and its ${n} check-in${n === 1 ? "" : "s"}? This cannot be undone.`} className="text-destructive">Delete</ConfirmButton>
               </form>
             </li>
           );

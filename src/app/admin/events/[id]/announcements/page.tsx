@@ -59,7 +59,7 @@ export default async function AnnouncementsAdmin({ params }: { params: Promise<{
           <h2 className="font-semibold">New announcement</h2>
           <Field label="Title" name="title" placeholder="Breakouts moved to Level 3" />
           <Field label="Message" name="body" textarea />
-          <label className="flex min-h-10 items-center gap-2 text-sm font-bold"><input type="checkbox" name="pinned" className="size-4 accent-[var(--brand)]" /> Pin to the top</label>
+          <label className="flex min-h-10 items-center gap-2 text-sm font-bold"><input type="checkbox" name="pinned" className="size-4 accent-primary" /> Pin to the top</label>
           <SubmitButton>Publish announcement</SubmitButton>
           <p className="text-xs text-muted-foreground">Attendees see it the next time they open the portal. There is no push notification.</p>
         </form>

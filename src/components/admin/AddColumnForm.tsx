@@ -3,7 +3,7 @@ import { useState } from "react";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ATTENDEE_FIELD_TYPES, FIELD_TYPE_LABELS, labelFromKey, type AttendeeFieldType } from "@/lib/attendee-fields";
 
-const control = "min-h-11 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm";
+const control = "min-h-11 w-full rounded-md border border-border bg-card px-3 text-sm";
 
 const HINTS: Record<AttendeeFieldType, string> = {
   text: "Anything typed — a room number, a flight, a note.",
@@ -38,7 +38,7 @@ export function AddColumnForm({ addColumn, suggestions = [] }: {
             {suggestions.map((s) => (
               <button
                 key={s.key} type="button" onClick={() => setLabel(labelFromKey(s.key))}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-3.5 text-sm font-bold text-ink transition-colors duration-150 hover:bg-canvas"
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-sm font-bold text-foreground transition-colors duration-150 hover:bg-background"
               >
                 {labelFromKey(s.key)}
                 <span className="text-xs font-semibold tabular-nums text-muted-foreground">{s.count}</span>

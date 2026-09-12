@@ -34,7 +34,7 @@ export function RunningCheckpoint({ options, value, setActive }: {
             await setActive(body);
           });
         }}
-        className="min-h-11 max-w-56 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm font-bold text-ink disabled:opacity-60"
+        className="min-h-11 max-w-56 rounded-md border border-border bg-card px-3 text-sm font-bold text-foreground disabled:opacity-60"
       >
         {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
       </select>

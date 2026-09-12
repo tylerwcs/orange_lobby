@@ -21,12 +21,12 @@ export default async function InfoAdmin({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="@container"><div className="grid items-start gap-6 @4xl:grid-cols-2">
-        <form action={saveInfoPageAction.bind(null, ev.id)} className="grid gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4">
+        <form action={saveInfoPageAction.bind(null, ev.id)} className="grid gap-3 rounded-xl border border-border bg-card p-4">
           <Field label="Page title" name="info_page_title" defaultValue={ev.info_page_title} />
           <label className="block text-sm">
             <span className="mb-1 block font-bold">Content</span>
             <span className="mb-2 block text-xs text-muted-foreground">HTML with p, h2, h3, ul, ol, li, a, img, strong, em and br. Attribute values need double quotes, for example &lt;a href=&quot;https://…&quot;&gt;. Anything else is stripped.</span>
-            <textarea name="info_page_html" rows={22} defaultValue={ev.info_page_html ?? ""} spellCheck={false} className="w-full rounded-[var(--radius-control)] border border-line bg-surface p-3 font-mono text-xs leading-relaxed" />
+            <textarea name="info_page_html" rows={22} defaultValue={ev.info_page_html ?? ""} spellCheck={false} className="w-full rounded-md border border-border bg-card p-3 font-mono text-xs leading-relaxed" />
           </label>
           <SubmitButton>Save page</SubmitButton>
         </form>

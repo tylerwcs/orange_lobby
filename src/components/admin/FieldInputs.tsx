@@ -1,6 +1,6 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
 
-const control = "w-full min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-sm";
+const control = "w-full min-h-11 rounded-md border border-border bg-card px-3 text-sm";
 
 /**
  * The event's own columns, rendered as real labelled inputs — the thing that replaced the

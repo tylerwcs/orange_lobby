@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeletons";
 export function AttendeeDetailSkeleton() {
   return (
     <div role="status" aria-busy="true" aria-label="Loading attendee">
-      <div className="flex flex-wrap items-start gap-5 rounded-[14px] bg-canvas p-5">
+      <div className="flex flex-wrap items-start gap-5 rounded-[14px] bg-background p-5">
         <div className="min-w-64 flex-1 space-y-3">
           <Skeleton className="h-7 w-64" />
           <div className="flex gap-2">
@@ -35,7 +35,7 @@ export function AttendeeDetailSkeleton() {
           </div>
         </div>
 
-        <div className="space-y-3 lg:border-l lg:border-line lg:pl-6">
+        <div className="space-y-3 lg:border-l lg:border-border lg:pl-6">
           <Skeleton className="h-3 w-20" />
           <div className="flex flex-col gap-3.5">
             {[0, 1, 2].map((i) => (
@@ -51,7 +51,7 @@ export function AttendeeDetailSkeleton() {
         </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-3 border-t border-line pt-4">
+      <div className="mt-6 flex items-center gap-3 border-t border-border pt-4">
         <Skeleton className="h-11 w-36" />
         <span className="flex-1" />
         <Skeleton className="h-11 w-36" />

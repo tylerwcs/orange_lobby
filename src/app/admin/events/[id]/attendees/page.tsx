@@ -111,11 +111,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
               <form action={importMasterlistAction.bind(null, ev.id)} className="grid gap-4">
                 <label className="block text-sm">
                   <span className="mb-1 block font-bold">Excel file (.xlsx)</span>
-                  <input type="file" name="file" accept=".xlsx" required className="block w-full rounded-[var(--radius-control)] border border-dashed border-line bg-canvas p-4 text-sm file:mr-3 file:rounded-[8px] file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-white" />
+                  <input type="file" name="file" accept=".xlsx" required className="block w-full rounded-md border border-dashed border-border bg-background p-4 text-sm file:mr-3 file:rounded-[8px] file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-white" />
                 </label>
                 <SubmitButton>Import attendees</SubmitButton>
               </form>
-              <div className="mt-5 border-t border-line pt-4">
+              <div className="mt-5 border-t border-border pt-4">
                 <h3 className="text-sm font-extrabold">Columns it looks for</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">Header row, any order, case-insensitive. Anything else is kept under its own header and can appear on the scan card.</p>
                 <dl className="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">

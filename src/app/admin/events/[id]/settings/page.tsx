@@ -224,7 +224,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
           <div className="grid gap-4 @xl:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input type="checkbox" name="registration_open" defaultChecked={ev.registration_open} className="size-4 accent-[var(--brand)]" /> Registration is open</label>
+            <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input type="checkbox" name="registration_open" defaultChecked={ev.registration_open} className="size-4 accent-primary" /> Registration is open</label>
             <Field label="Closes automatically at" name="registration_closes_at" type="datetime-local" defaultValue={isoToLocalInput(ev.registration_closes_at)} />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -242,14 +242,14 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                 {Array.from({ length: MAX_QUESTIONS }, (_, i) => i + 1).map((n) => {
                   const q = qs[n - 1];
                   return (
-                    <tr key={n} className="border-t border-line align-top">
+                    <tr key={n} className="border-t border-border align-top">
                       <td className="p-1.5 pt-3 text-xs text-muted-foreground">{n}</td>
                       <td className="p-1.5"><input name={`q_${n}_label`} defaultValue={q?.label ?? ""} aria-label={`Question ${n} label`} className={input} /></td>
                       <td className="p-1.5"><input name={`q_${n}_key`} defaultValue={q?.key ?? ""} aria-label={`Question ${n} key`} placeholder="auto" className={`${input} font-mono text-xs`} /></td>
                       <td className="p-1.5">
                         <select name={`q_${n}_type`} defaultValue={q?.type ?? "text"} aria-label={`Question ${n} type`} className={input}><option value="text">Text</option><option value="select">Choice</option></select>
                       </td>
-                      <td className="p-1.5 pt-3 text-center"><input type="checkbox" name={`q_${n}_required`} defaultChecked={q?.required ?? false} aria-label={`Question ${n} required`} className="size-4 accent-[var(--brand)]" /></td>
+                      <td className="p-1.5 pt-3 text-center"><input type="checkbox" name={`q_${n}_required`} defaultChecked={q?.required ?? false} aria-label={`Question ${n} required`} className="size-4 accent-primary" /></td>
                       <td className="p-1.5"><input name={`q_${n}_options`} defaultValue={q?.options?.join(", ") ?? ""} aria-label={`Question ${n} options`} className={input} /></td>
                       <td className="p-1.5"><input name={`q_${n}_description`} defaultValue={q?.description ?? ""} aria-label={`Question ${n} help text`} className={input} /></td>
                       <td className="p-1.5">

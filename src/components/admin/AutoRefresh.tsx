@@ -37,10 +37,10 @@ export function AutoRefresh({ seconds = 15 }: { seconds?: number }) {
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-ok-strong"
+      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-success-strong"
       title={`Refreshes every ${seconds} seconds while this tab is open`}
     >
-      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full bg-ok ${live ? "animate-pulse" : ""}`} />
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full bg-success ${live ? "animate-pulse" : ""}`} />
       {live ? "Live" : "Paused"}
     </span>
   );

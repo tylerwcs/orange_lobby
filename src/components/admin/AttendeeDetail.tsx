@@ -139,9 +139,9 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
                   const by = scan?.by ? crew[scan.by] : undefined;
                   return (
                     <li key={cp.id} className="flex gap-3">
-                      <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${scan ? "bg-ok" : "bg-surface ring-[1.5px] ring-muted-foreground"}`} />
+                      <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${scan ? "bg-success" : "bg-card ring-[1.5px] ring-muted-foreground"}`} />
                       <div className="min-w-0">
-                        <div className={`text-sm font-bold ${scan ? "text-ink" : "text-muted-foreground"}`}>{cp.name}</div>
+                        <div className={`text-sm font-bold ${scan ? "text-foreground" : "text-muted-foreground"}`}>{cp.name}</div>
                         <div className="mt-0.5 text-[13px] text-muted-foreground">
                           {shortDate(g.day)} ·{" "}
                           {scan
