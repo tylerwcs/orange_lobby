@@ -79,6 +79,16 @@ whatever is green by 26 Sep ships with the pilot. Nothing here is pilot scope.
   must be named. The ones known now: printed KOM badges assume the orange identity (D55); the
   accessibility rules carried forward in §3 were earned by the 9 Sep UX pass; crew are trained on
   the scanner's one-thumb flow; and registration is live with real signups (D67).
+- **D69** *(added 12 Sep)* The nine-step type scale retires for a four-step ramp: **12 / 14 / 18 /
+  24**, plus one display size per surface where a number is the point (the check-in hero, a stat).
+  Caps labels drop from 11px to 12px and separate from body text by weight, letterspacing and
+  colour rather than by one pixel. `MASTER.md`'s own R31 correction is the evidence: three of its
+  nine steps had already drifted out of sync with the shipped code, because a ramp that fine cannot
+  be held consistently by hand. This matches shadcn's own `text-xs` / `text-sm` / `text-lg` /
+  `text-2xl` and so needs no custom scale.
+- **D70** *(added 12 Sep)* `/admin/events/[id]/attendees/[attendeeId]` is deleted. It rendered the
+  same `AttendeeDetail` as the list's `?attendee=` panel, so the record had two routes and every
+  change to it had to be made twice. The panel is the record.
 - **D67** `RegisterForm` migrates **last**. Registration goes live 12 Sep and holds real KOM signups
   from that date; it is the one surface where a regression costs data rather than face.
 
