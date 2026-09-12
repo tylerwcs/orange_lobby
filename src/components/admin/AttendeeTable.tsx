@@ -2,17 +2,17 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Badge } from "@/components/ui/legacy/Badge";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
+import { ColumnsButton } from "@/components/admin/ColumnsButton";
 import { AttendeePanel } from "@/components/admin/AttendeePanel";
-import { Icon } from "@/components/ui/icon";
-import { moveItem } from "@/lib/reorder";
-import {
-  columnWidth, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns,
-  SELECT_COLUMN_WIDTH, serialiseTablePrefs, tableCookieName, type ColumnDef, type TablePrefs,
-} from "@/lib/columns";
+import { serialiseTablePrefs, tableCookieName, type ColumnDef, type TablePrefs } from "@/lib/columns";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AttendeeSource, Checkpoint } from "@/lib/types";
 
@@ -34,25 +34,6 @@ export type AttendeeRow = {
 
 type TableAction = (formData: FormData) => void | Promise<void>;
 
-function HeaderCheckbox({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: (checked: boolean) => void }) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = indeterminate;
-  }, [indeterminate]);
-  return (
-    <label className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
-      <span className="sr-only">Select all attendees on this page</span>
-      <input
-        ref={ref}
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5"
-      />
-    </label>
-  );
-}
-
 function cell(a: AttendeeRow, key: string) {
   switch (key) {
     case "email": return a.email;
@@ -62,8 +43,8 @@ function cell(a: AttendeeRow, key: string) {
     case "source": return <span className="text-muted-foreground">{a.source}</span>;
     case "checked_in":
       return a.checkedInAt
-        ? <Badge tone="ok" dot>In {isoToLocalInput(a.checkedInAt).split("T")[1]}</Badge>
-        : <Badge tone="warn" dot>Expected</Badge>;
+        ? <Badge variant="success">In {isoToLocalInput(a.checkedInAt).split("T")[1]}</Badge>
+        : <Badge variant="warning">Expected</Badge>;
     default: return a.values[key] || <span className="text-muted-foreground">—</span>;
   }
 }
@@ -75,21 +56,6 @@ function cell(a: AttendeeRow, key: string) {
  */
 function persistPrefs(eventId: string, prefs: TablePrefs) {
   document.cookie = `${tableCookieName(eventId)}=${serialiseTablePrefs(prefs)}; path=/; max-age=31536000; samesite=lax`;
-}
-
-/**
- * The grab strip on a column's right edge. `draggable={false}` matters: without it the
- * header's own reorder drag starts the moment you try to resize, and the column jumps
- * somewhere else instead of getting wider.
- */
-function ResizeHandle({ onPointerDown, label }: { onPointerDown: (e: React.PointerEvent<HTMLSpanElement>) => void; label: string }) {
-  return (
-    <span
-      role="separator" aria-orientation="vertical" aria-label={`Resize ${label} column`}
-      draggable={false} onPointerDown={onPointerDown} onDragStart={(e) => e.preventDefault()}
-      className="absolute right-0 top-0 z-10 h-full w-2 cursor-col-resize touch-none select-none border-r-2 border-transparent hover:border-brand"
-    />
-  );
 }
 
 export function AttendeeTable({
@@ -132,12 +98,9 @@ export function AttendeeTable({
   // BulkBar merely renders null while `selected` is empty.
   const [bulkVersion, setBulkVersion] = useState(0);
   // Seeded from the cookie on the server, so the first paint already has the right
-  // columns at the right widths and nothing flashes in and back out on hydration.
+  // columns and nothing flashes in and back out on hydration.
   const [prefs, setPrefs] = useState<TablePrefs>(initialPrefs);
-  const [dragKey, setDragKey] = useState<string | null>(null);
-  const [overKey, setOverKey] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const addRef = useRef<HTMLDialogElement>(null);
+  const [addingColumn, setAddingColumn] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -159,78 +122,25 @@ export function AttendeeTable({
   };
 
   // Derived, not synced: while the navigation is in flight the local choice wins, so the
-  // dialog opens on the click rather than a round trip later; once it settles the URL is
+  // panel opens on the click rather than a round trip later; once it settles the URL is
   // the truth, which is what closes the panel after a save redirects to the plain list.
   const openId = opensPending ? opening : openAttendeeId;
 
-  // A per-browser preference, not shared state: one organiser's layout must not rearrange
-  // the table for the crew member next to them.
+  // A per-browser preference, not shared state: one organiser's choice of columns must not
+  // rearrange the table for the crew member next to them.
   const save = (next: TablePrefs) => {
     setPrefs(next);
     persistPrefs(eventId, next);
   };
 
-  const ordered = orderedColumns(columns, prefs.order);
   const hidden = new Set(prefs.hidden);
-  const shown = ordered.filter((c) => !hidden.has(c.key));
-  const hiddenCount = ordered.length - shown.length;
-  const width = (key: string) => columnWidth(key, prefs.widths);
-  const customised = prefs.order.length > 0 || prefs.hidden.length > 0 || Object.keys(prefs.widths).length > 0;
+  const shown = columns.filter((c) => !hidden.has(c.key));
+  const emailShown = shown.some((c) => c.key === "email");
 
   const toggleColumn = (key: string, visible: boolean) => {
     const next = new Set(hidden);
     if (visible) next.delete(key); else next.add(key);
-    save({ ...prefs, hidden: Array.from(next) });
-  };
-
-  const resetWidth = (key: string) => {
-    const widths = { ...prefs.widths };
-    delete widths[key];
-    save({ ...prefs, widths });
-  };
-
-  /** Both routes into a reorder — the drag and the menu — go through here, so they cannot drift apart. */
-  const moveTo = (key: string, targetKey: string) => {
-    const keys = ordered.map((c) => c.key);
-    const from = keys.indexOf(key);
-    const to = keys.indexOf(targetKey);
-    if (from < 0 || to < 0 || from === to) return;
-    const label = ordered[from].label;
-    const next = moveItem(keys, from, to);
-    save({ ...prefs, order: next });
-    setMessage(`${label} moved to position ${next.indexOf(key) + 1} of ${next.length}`);
-  };
-
-  /** One place among the columns you can see — stepping over a hidden one would look like nothing happened. */
-  const moveBy = (key: string, direction: -1 | 1) => {
-    const visible = shown.map((c) => c.key);
-    const target = visible[visible.indexOf(key) + direction];
-    if (target) moveTo(key, target);
-  };
-
-  const startResize = (key: string, e: React.PointerEvent<HTMLSpanElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const startWidth = width(key);
-    const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
-    let latest = startWidth;
-
-    const onMove = (ev: PointerEvent) => {
-      latest = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, startWidth + ev.clientX - startX));
-      setPrefs((p) => ({ ...p, widths: { ...p.widths, [key]: latest } }));
-    };
-    const onUp = () => {
-      el.releasePointerCapture(e.pointerId);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-      // Written once at the end rather than on every pointer move — a drag would otherwise
-      // rewrite the cookie a hundred times on the way across the screen.
-      save({ ...prefs, widths: { ...prefs.widths, [key]: latest } });
-    };
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
+    save({ hidden: Array.from(next) });
   };
 
   const runBulk = (action: TableAction): TableAction => async (formData) => {
@@ -247,7 +157,7 @@ export function AttendeeTable({
   useEffect(() => {
     if (lastCount.current === columnCount) return;
     lastCount.current = columnCount;
-    addRef.current?.close();
+    setAddingColumn(false);
   }, [columnCount]);
 
   const toggleOne = (id: string, checked: boolean) => {
@@ -265,10 +175,9 @@ export function AttendeeTable({
   const selectedOnPage = rows.filter((a) => selected.has(a.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
-  const tableWidth = SELECT_COLUMN_WIDTH + width("name") + shown.reduce((n, c) => n + width(c.key), 0);
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <BulkBar
         key={bulkVersion}
         eventId={eventId}
@@ -281,126 +190,99 @@ export function AttendeeTable({
         defaultCheckpointId={defaultCheckpointId}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {hiddenCount > 0
-            ? `${hiddenCount} ${hiddenCount === 1 ? "column is" : "columns are"} hidden. Drag a header to reorder it, drag its edge to resize.`
-            : "Drag a header to reorder it, drag its edge to resize. Every header opens a menu."}
-        </p>
-        <div className="flex items-center gap-2">
-          {customised && (
-            <button type="button" onClick={() => save({ hidden: [], order: [], widths: {} })}
-              className="min-h-11 rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted-foreground transition-colors duration-150 hover:bg-canvas">
-              Reset layout
-            </button>
-          )}
-          <button type="button" onClick={() => addRef.current?.showModal()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-4 text-sm font-bold text-ink transition-colors duration-150 hover:bg-canvas">
-            <Icon name="plus" size={18} />Add a column
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <ColumnsButton
+          columns={columns}
+          hidden={hidden}
+          onToggle={toggleColumn}
+          onShowAll={() => save({ hidden: [] })}
+          onAddColumn={() => setAddingColumn(true)}
+        />
       </div>
 
-      <div className="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-card)]">
-        {/* `table-fixed` plus a colgroup is what makes a width mean something: under
-            automatic layout the browser overrules whatever you set the moment a cell holds
-            a long email address. Cells clip instead of pushing their neighbours around. */}
-        <table className="w-full table-fixed text-sm" style={{ minWidth: tableWidth }}>
-          <colgroup>
-            <col style={{ width: SELECT_COLUMN_WIDTH }} />
-            <col style={{ width: width("name") }} />
-            {shown.map((c) => <col key={c.key} style={{ width: width(c.key) }} />)}
-          </colgroup>
-          <thead>
-            <tr className="text-left">
-              <th className="p-2">
-                <HeaderCheckbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} />
-              </th>
-              <th className="relative p-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                Name
-                <ResizeHandle onPointerDown={(e) => startResize("name", e)} label="Name" />
-              </th>
-              {shown.map((c, i) => (
-                <th
-                  key={c.key}
-                  draggable
-                  onDragStart={(e) => { setDragKey(c.key); e.dataTransfer.effectAllowed = "move"; }}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverKey(c.key); }}
-                  onDragLeave={() => setOverKey((prev) => (prev === c.key ? null : prev))}
-                  onDrop={(e) => { e.preventDefault(); if (dragKey) moveTo(dragKey, c.key); setDragKey(null); setOverKey(null); }}
-                  onDragEnd={() => { setDragKey(null); setOverKey(null); }}
-                  className={`relative cursor-grab px-0.5 py-2 transition-colors duration-150 ${dragKey === c.key ? "opacity-50" : ""} ${overKey === c.key && dragKey !== c.key ? "bg-brand-soft" : ""}`}
-                >
+      <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-11">
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={someSelected}
+                  onCheckedChange={(checked) => toggleAll(checked === true)}
+                  aria-label="Select all attendees on this page"
+                />
+              </TableHead>
+              <TableHead className="text-xs font-bold uppercase tracking-[0.06em]">Name</TableHead>
+              {shown.map((c) => (
+                <TableHead key={c.key} className="p-0">
                   <ColumnMenu
-                    column={c} columns={ordered} hidden={hidden}
-                    canMoveLeft={i > 0} canMoveRight={i < shown.length - 1}
-                    onMove={moveBy}
-                    onToggle={toggleColumn}
-                    onResetWidth={resetWidth}
-                    onAddColumn={() => addRef.current?.showModal()}
+                    column={c}
+                    onHide={(key) => toggleColumn(key, false)}
                     renameColumn={renameColumn}
                     deleteColumn={deleteColumn}
                   />
-                  <ResizeHandle onPointerDown={(e) => startResize(c.key, e)} label={c.label} />
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((a) => (
-              <tr key={a.id} className="border-t border-line">
-                <td className="p-0">
-                  <label className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
-                    <span className="sr-only">Select {a.name}</span>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(a.id)}
-                      onChange={(e) => toggleOne(a.id, e.target.checked)}
-                      className="h-5 w-5"
-                    />
-                  </label>
-                </td>
-                <td className="truncate p-2">
+              <TableRow key={a.id} data-state={selected.has(a.id) ? "selected" : undefined}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.has(a.id)}
+                    onCheckedChange={(checked) => toggleOne(a.id, checked === true)}
+                    aria-label={`Select ${a.name}`}
+                  />
+                </TableCell>
+                <TableCell>
                   {/* A real link, so it can be opened in a new tab or copied — but a plain
                       click opens the panel here rather than navigating away from the list. */}
                   <Link
                     href={listHref(a.id)}
                     onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); showPanel(a.id); }}
-                    className="font-semibold text-brand-ink"
+                    className="font-semibold text-primary hover:underline"
                   >{a.name}</Link>
-                </td>
-                {shown.map((c) => <td key={c.key} className="truncate p-2">{cell(a, c.key)}</td>)}
-              </tr>
+                  {/* Only when Email is not a column of its own, so ticking it on in the
+                      Columns menu does not print the same address twice in one row. */}
+                  {!emailShown && a.email && (
+                    <span className="block truncate text-xs text-muted-foreground">{a.email}</span>
+                  )}
+                </TableCell>
+                {shown.map((c) => <TableCell key={c.key}>{cell(a, c.key)}</TableCell>)}
+              </TableRow>
             ))}
-            {rows.length === 0 && <tr className="border-t border-line"><td colSpan={shown.length + 2} className="p-6 text-center text-muted-foreground">{emptyMessage}</td></tr>}
-          </tbody>
-        </table>
+            {rows.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={shown.length + 2}>
+                  <Empty className="border-0 bg-transparent">
+                    <EmptyHeader>
+                      <EmptyTitle>Nobody here yet</EmptyTitle>
+                      <EmptyDescription>{emptyMessage}</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
-      <p className="sr-only" role="status" aria-live="polite">{message}</p>
 
       <AttendeePanel openId={openId} pending={opensPending} onClose={() => showPanel(null)}>
         {detailPanel}
       </AttendeePanel>
 
-      {/* `m-auto` is load-bearing — see Modal.tsx: Tailwind's preflight zeroes the margin
-          a dialog centres itself with. */}
-      <dialog
-        ref={addRef} aria-label="Add a column"
-        onClick={(e) => { if (e.target === addRef.current) addRef.current?.close(); }}
-        className="m-auto w-[min(92vw,520px)] rounded-[var(--radius-card)] bg-surface p-0 text-ink shadow-[var(--shadow-card)] backdrop:bg-ink/40"
-      >
-        <div className="flex items-start gap-4 border-b border-line p-5">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[17px] font-extrabold">Add a column</h2>
-            <p className="mt-1 text-sm text-muted-foreground">For what the registration form never asked — a room number, a flight. Every form question is already a column. Whatever you add here appears on every attendee, in their details, and in the attendance export.</p>
-          </div>
-          <button type="button" aria-label="Close" onClick={() => addRef.current?.close()}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition-colors duration-150 hover:bg-canvas">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-        <div className="p-5">{addColumnForm}</div>
-      </dialog>
+      <Dialog open={addingColumn} onOpenChange={setAddingColumn}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add a column</DialogTitle>
+            <DialogDescription>
+              For what the registration form never asked — a room number, a flight. Every form question is already a column. Whatever you add here appears on every attendee, in their details, and in the attendance export.
+            </DialogDescription>
+          </DialogHeader>
+          {addColumnForm}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
