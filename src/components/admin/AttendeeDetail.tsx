@@ -17,7 +17,7 @@ import { CopyLink } from "@/components/admin/CopyLink";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { DangerButton } from "@/components/admin/DangerButton";
 import { Badge } from "@/components/ui/legacy/Badge";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { buttonClass } from "@/components/ui/legacy/Card";
 import { updateAttendeeAction, deleteAttendeeAction } from "@/app/admin/events/[id]/actions";
 

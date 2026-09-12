@@ -2,7 +2,7 @@ import { loadPortalAttendee } from "@/lib/portal";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { buttonClass } from "@/components/ui/legacy/Card";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 
 export default async function PersonalInfo({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;

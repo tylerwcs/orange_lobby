@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import type { ColumnDef } from "@/lib/columns";
 
 type Action = (formData: FormData) => void | Promise<void>;

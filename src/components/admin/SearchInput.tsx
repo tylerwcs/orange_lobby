@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 
 /**
  * Filters as you type. The results come from the server, so the round trip is real and

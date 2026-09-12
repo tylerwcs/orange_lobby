@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { buttonClass } from "@/components/ui/legacy/Card";
 
 /**

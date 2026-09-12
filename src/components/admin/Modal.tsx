@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Icon, type IconName } from "@/components/ui/legacy/Icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { buttonClass, type ButtonVariant } from "@/components/ui/legacy/Card";
 
 /**

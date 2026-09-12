@@ -7,7 +7,7 @@ import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
 import { AttendeeDialog } from "@/components/admin/AttendeeDialog";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { moveItem } from "@/lib/reorder";
 import {
   columnWidth, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns,

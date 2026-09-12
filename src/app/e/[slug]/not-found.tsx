@@ -1,4 +1,4 @@
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { Card } from "@/components/ui/legacy/Card";
 
 export default function EventNotFound() {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Event } from "@/lib/types";
-import { Icon, type IconName } from "@/components/ui/legacy/Icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
 import { brandStyle } from "@/lib/brand";
 import { Mark, PortalHeader } from "./PortalHeader";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Attendee } from "@/lib/types";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { displayName } from "@/lib/text";
 
 /** The two things an attendee opens the portal for: am I in, and where do I sit. */

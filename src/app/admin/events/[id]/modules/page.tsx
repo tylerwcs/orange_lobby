@@ -3,7 +3,7 @@ import { requireEvent } from "@/lib/db/events";
 import { BUILTIN_MODULES, MODULE_ICONS, defaultModules, type LinkModule } from "@/lib/modules";
 import { MAX_LINK_TILES } from "@/lib/modules-form";
 import { Card, Button } from "@/components/ui/legacy/Card";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { updateModulesAction } from "../actions";
 
 export const metadata = { title: "Modules · Orange Lobby" };

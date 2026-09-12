@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Tile } from "@/lib/modules";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 
 function TileBody({ t }: { t: Tile }) {
   return (

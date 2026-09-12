@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Announcement } from "@/lib/types";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { shortDateTime } from "@/lib/text";
 
 export function AnnouncementBanner({ a, href }: { a: Announcement; href: string }) {

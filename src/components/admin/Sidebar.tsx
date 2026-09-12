@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/legacy/Badge";
 import { signOut } from "@/app/login/actions";
 import { groupsFor } from "./nav";

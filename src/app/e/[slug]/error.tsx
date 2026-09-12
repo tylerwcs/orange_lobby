@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { Card, Button } from "@/components/ui/legacy/Card";
 
 // Next 16 passes `retry()` (re-fetches the segment); `reset()` is the older, non-refetching escape hatch.

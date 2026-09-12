@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { shortDate } from "@/lib/text";
 
 /** The one thing an attendee wants at a glance: what is on now, or what comes next. */

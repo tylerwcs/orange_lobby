@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { AttendeeDetailSkeleton } from "@/components/admin/AttendeeDetailSkeleton";
 
 /**

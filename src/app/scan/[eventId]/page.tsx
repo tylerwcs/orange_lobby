@@ -7,7 +7,7 @@ import { countAttendees } from "@/lib/db/attendees";
 import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Scanner } from "./Scanner";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/legacy/Badge";
 
 export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string; pick?: string }> }) {

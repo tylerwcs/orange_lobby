@@ -2,7 +2,7 @@ import { loadPortalEvent } from "@/lib/portal";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { buttonClass } from "@/components/ui/legacy/Card";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 
 export default async function GenericInfo({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

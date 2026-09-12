@@ -4,7 +4,7 @@ import { countAttendees, listAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { buttonClass } from "@/components/ui/legacy/Card";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SummaryCard } from "@/components/admin/SummaryCard";
 import { RunningCheckpoint } from "@/components/admin/RunningCheckpoint";

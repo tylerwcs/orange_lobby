@@ -2,7 +2,7 @@
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import type { Checkpoint } from "@/lib/types";
 import { moveItem } from "@/lib/reorder";
-import { Icon } from "@/components/ui/legacy/Icon";
+import { Icon } from "@/components/ui/icon";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Badge } from "@/components/ui/legacy/Badge";
 

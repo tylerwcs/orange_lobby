@@ -4,7 +4,7 @@ import { countAttendees } from "@/lib/db/attendees";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, buttonClass } from "@/components/ui/legacy/Card";
-import { Icon, type IconName } from "@/components/ui/legacy/Icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 export const metadata = { title: "Exports · Orange Lobby" };
 
