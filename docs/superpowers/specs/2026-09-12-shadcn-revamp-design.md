@@ -39,6 +39,10 @@ whatever is green by 26 Sep ships with the pilot. Nothing here is pilot scope.
   all 18 assertions are preserved.
 - **D59** Preset `nova` to start. Swappable later in one command
   (`npx shadcn@latest apply <code> --only theme,font`), so it is not a load-bearing choice.
+  **Amended 12 Sep:** the preset governs everything except the typeface. `init` swapped Manrope for
+  the preset's Geist; Manrope is kept, bound to `--font-sans` so every shadcn component reads it
+  without knowing which face is in use. The printed KOM badges assume the current identity (D68),
+  and the type ramp in `design-system/` was tuned on Manrope's metrics.
 - **D60** `lucide-react` replaces `src/components/ui/Icon.tsx` and `icon-paths.ts`. All 30 registered
   names map onto lucide equivalents; the ones that are not a literal rename are `seat` → `armchair`,
   `qr` → `qr-code`, `close` → `x`, `logout` → `log-out`, `grip` → `grip-vertical`,
