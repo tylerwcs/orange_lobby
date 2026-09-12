@@ -1,11 +1,21 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { CircleAlert } from "lucide-react";
 import { registerAction, type RegisterState } from "./actions";
 import type { RegistrationQuestion } from "@/lib/types";
-import { Button } from "@/components/ui/legacy/Card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 
-const control = "w-full min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand";
-const labelCls = "mb-1 block text-sm font-bold";
+/**
+ * A select stays native. The rest of this form is shadcn's Field set, but the choices an
+ * invitee makes here are made on a phone, where a native select is the OS picker — one
+ * thumb, no popup to mis-tap, and it works when JavaScript is still catching up. It is
+ * also what the admin's own forms use, so the two sides of the app agree.
+ */
+const selectClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
 
 function isShown(q: RegistrationQuestion, answers: Record<string, string>) {
   if (!q.show_when) return true;
@@ -14,55 +24,117 @@ function isShown(q: RegistrationQuestion, answers: Record<string, string>) {
 
 export function RegisterForm({ slug, questions }: { slug: string; questions: RegistrationQuestion[] }) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug), {});
-  const v = state.values ?? {};
-  const [answers, setAnswers] = useState<Record<string, string>>(() => Object.fromEntries(questions.map((q) => [q.key, v[q.key] ?? ""])));
-  const err = (k: string) => state.errors?.[k] && <p id={`${k}-error`} className="mt-1 text-xs text-red-600">{state.errors[k]}</p>;
-  const invalid = (k: string) => (state.errors?.[k] ? { "aria-invalid": true, "aria-describedby": `${k}-error` } : {});
+  // Every field is controlled, the four fixed ones included. They used to be uncontrolled
+  // with a defaultValue echoed back from the server, which React ignores on re-render: after
+  // a rejected submit the value the invitee could see and the value the component believed
+  // in had already parted company, and Base UI says so out loud.
+  const [answers, setAnswers] = useState<Record<string, string>>(() => ({ ...(state.values ?? {}) }));
   const set = (k: string, val: string) => setAnswers((a) => ({ ...a, [k]: val }));
+  const value = (k: string) => answers[k] ?? "";
+  const errors = state.errors ?? {};
+  const fieldErrors = Object.keys(errors).filter((k) => k !== "form");
+
+  useEffect(() => {
+    // React resets the <form> when a server action returns (React 19). A controlled <select>
+    // does not survive that reset: React writes the DOM only when the prop changed, and the
+    // answer did not change — so every size an invitee picked goes blank while state still
+    // holds it, and the form they are being asked to correct is emptier than the one they
+    // sent. Put the DOM back in agreement with state before anything else.
+    for (const [k, val] of Object.entries(answers)) {
+      const el = document.getElementById(`reg-${k}`);
+      if ((el instanceof HTMLSelectElement || el instanceof HTMLInputElement) && el.value !== val) el.value = val ?? "";
+    }
+
+    // A rejected form is read from wherever the submit button was — the bottom, on a phone,
+    // with the answer that needs fixing somewhere above the fold. Take the invitee to it
+    // rather than leaving them to hunt for the red text.
+    const first = fieldErrors[0];
+    if (!first) return;
+    const el = document.getElementById(`reg-${first}`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.focus({ preventScroll: true });
+    // `state` is a fresh object on every submit, so the same error twice still moves focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  /** Invalid marks the control AND keeps pointing at its help text, which a reader needs most when the answer was wrong. */
+  const invalid = (k: string, help?: string) => (errors[k]
+    ? { "aria-invalid": true as const, "aria-describedby": [help, `reg-${k}-error`].filter(Boolean).join(" ") }
+    : help ? { "aria-describedby": help } : {});
 
   return (
-    <form action={action} className="space-y-6">
-      {state.errors?.form && <p role="alert" className="rounded-[var(--radius-control)] bg-red-50 p-3 text-sm text-red-700">{state.errors.form}</p>}
-
-      <fieldset className="space-y-4">
-        <legend className="mb-1 text-base font-extrabold">About you</legend>
-        <div><label htmlFor="reg-name" className={labelCls}>Full name</label><input id="reg-name" name="name" required autoComplete="name" defaultValue={v.name} className={control} {...invalid("name")} />{err("name")}</div>
-        <div><label htmlFor="reg-email" className={labelCls}>Email</label><input id="reg-email" name="email" type="email" required autoComplete="email" inputMode="email" defaultValue={v.email} className={control} {...invalid("email")} />{err("email")}</div>
-        <div><label htmlFor="reg-phone" className={labelCls}>Mobile number <span className="font-normal text-muted-foreground">(optional)</span></label><input id="reg-phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" defaultValue={v.phone} className={control} /></div>
-        <div><label htmlFor="reg-company" className={labelCls}>Department or company <span className="font-normal text-muted-foreground">(optional)</span></label><input id="reg-company" name="company" autoComplete="organization" defaultValue={v.company} className={control} /></div>
-      </fieldset>
-
-      {questions.length > 0 && (
-        <fieldset className="space-y-4">
-          <legend className="mb-1 text-base font-extrabold">Your details</legend>
-          {questions.map((q) => {
-            const id = `reg-${q.key}`;
-            const shown = isShown(q, answers);
-            if (!shown) return <input key={q.key} type="hidden" name={q.key} value="" />;
-            return (
-              <div key={q.key}>
-                <label htmlFor={id} className={labelCls}>{q.label}{!q.required && <span className="font-normal text-muted-foreground"> (optional)</span>}</label>
-                {q.description && <p id={`${id}-help`} className="mb-2 text-xs text-muted-foreground">{q.description}</p>}
-                {q.type === "select" ? (
-                  <select id={id} name={q.key} required={q.required} value={answers[q.key] ?? ""} onChange={(e) => set(q.key, e.target.value)}
-                    aria-describedby={q.description ? `${id}-help` : undefined} className={control} {...invalid(q.key)}>
-                    <option value="">Select…</option>
-                    {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                ) : (
-                  <input id={id} name={q.key} required={q.required} value={answers[q.key] ?? ""} onChange={(e) => set(q.key, e.target.value)}
-                    aria-describedby={q.description ? `${id}-help` : undefined} className={control} {...invalid(q.key)} />
-                )}
-                {err(q.key)}
-              </div>
-            );
-          })}
-        </fieldset>
+    <form action={action} className="flex flex-col gap-6">
+      {errors.form && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertTitle>That didn&apos;t go through</AlertTitle>
+          <AlertDescription>{errors.form}</AlertDescription>
+        </Alert>
       )}
 
-      <Button type="submit" variant="primary" className="w-full" disabled={pending}>
-        {pending ? "Submitting…" : "Register"}
-      </Button>
+      <FieldSet>
+        <FieldLegend>About you</FieldLegend>
+        <FieldGroup>
+          <Field data-invalid={!!errors.name}>
+            <FieldLabel htmlFor="reg-name">Full name</FieldLabel>
+            <Input id="reg-name" name="name" required autoComplete="name" enterKeyHint="next" value={value("name")} onChange={(e) => set("name", e.target.value)} className="h-11" {...invalid("name")} />
+            <FieldError id="reg-name-error">{errors.name}</FieldError>
+          </Field>
+          <Field data-invalid={!!errors.email}>
+            <FieldLabel htmlFor="reg-email">Email</FieldLabel>
+            <Input id="reg-email" name="email" type="email" required autoComplete="email" inputMode="email" enterKeyHint="next" value={value("email")} onChange={(e) => set("email", e.target.value)} className="h-11" {...invalid("email", "reg-email-help")} />
+            {/* The badge link is emailed to nobody — it appears on the next screen — but the
+                address is how a duplicate registration finds the record it already has. */}
+            <FieldDescription id="reg-email-help">We use this to recognise you if you register twice.</FieldDescription>
+            <FieldError id="reg-email-error">{errors.email}</FieldError>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="reg-phone">Mobile number<span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
+            <Input id="reg-phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" enterKeyHint="next" value={value("phone")} onChange={(e) => set("phone", e.target.value)} className="h-11" />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="reg-company">Department or company<span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
+            <Input id="reg-company" name="company" autoComplete="organization" value={value("company")} onChange={(e) => set("company", e.target.value)} className="h-11" />
+          </Field>
+        </FieldGroup>
+      </FieldSet>
+
+      {questions.length > 0 && (
+        <FieldSet>
+          <FieldLegend>Your details</FieldLegend>
+          <FieldGroup>
+            {questions.map((q) => {
+              const id = `reg-${q.key}`;
+              if (!isShown(q, answers)) return <input key={q.key} type="hidden" name={q.key} value="" />;
+              return (
+                <Field key={q.key} data-invalid={!!errors[q.key]}>
+                  <FieldLabel htmlFor={id}>{q.label}{!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
+                  {q.description && <FieldDescription id={`${id}-help`}>{q.description}</FieldDescription>}
+                  {q.type === "select" ? (
+                    <select id={id} name={q.key} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                      className={selectClass} {...invalid(q.key, q.description ? `${id}-help` : undefined)}>
+                      <option value="">Select…</option>
+                      {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <Input id={id} name={q.key} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                      className="h-11" {...invalid(q.key, q.description ? `${id}-help` : undefined)} />
+                  )}
+                  <FieldError id={`${id}-error`}>{errors[q.key]}</FieldError>
+                </Field>
+              );
+            })}
+          </FieldGroup>
+        </FieldSet>
+      )}
+
+      <Field>
+        <Button type="submit" disabled={pending} className="h-12 w-full text-base font-bold">
+          {pending && <Spinner data-icon="inline-start" />}
+          {pending ? "Submitting…" : "Register"}
+        </Button>
+        <FieldDescription className="text-center">Your QR badge appears on the next screen.</FieldDescription>
+      </Field>
     </form>
   );
 }

@@ -8,7 +8,7 @@ import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Scanner } from "./Scanner";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { ChevronRight, Flag } from "lucide-react";
 
@@ -40,7 +40,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
               <EmptyDescription>A checkpoint is a door — registration, lunch, day two. Scanning needs at least one.</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button render={<a href={`/admin/events/${ev.id}/settings`} />}>Add one in Settings</Button>
+              <a href={`/admin/events/${ev.id}/settings`} className={buttonVariants()}>Add one in Settings</a>
             </EmptyContent>
           </Empty>
         ) : (

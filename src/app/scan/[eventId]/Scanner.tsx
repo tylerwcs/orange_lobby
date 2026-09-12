@@ -5,7 +5,7 @@ import { CameraOff, ChevronLeft, Search, Undo2, X } from "lucide-react";
 import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Progress } from "@/components/ui/progress";
@@ -117,10 +117,12 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
       <header className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           {/* The door is also the way back to the door list: one tap, where the thumb is. */}
-          <Button variant="ghost" className="-ml-2 h-11 gap-1 px-2 text-base font-extrabold" render={<a href={`/scan/${eventId}?pick=1`} />}>
+          {/* A link, styled as a button: it navigates, so it stays an <a>. Base UI's Button
+              would announce it as a button and take open-in-new-tab away from the crew. */}
+          <a href={`/scan/${eventId}?pick=1`} className={cn(buttonVariants({ variant: "ghost" }), "-ml-2 h-11 gap-1 px-2 text-base font-extrabold")}>
             <ChevronLeft data-icon="inline-start" />
             <span className="truncate">{checkpoint.name}</span>
-          </Button>
+          </a>
           <p className="flex shrink-0 items-baseline gap-1.5">
             <span className="text-2xl font-extrabold leading-none tabular-nums">{count}</span>
             <span className="text-xs font-semibold text-muted-foreground">of {total} in</span>
