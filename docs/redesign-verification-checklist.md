@@ -224,3 +224,53 @@ button computes to `rgb(194, 65, 12)` on white text at 44px.
 Automated: 257 tests pass, lint clean, production build clean. `tests/contrast.test.ts` parses the live
 `:root` from `globals.css` and enforces 4.5:1 on text pairs and 3:1 on non-text indicators, so a token edit
 that breaks contrast fails the suite rather than shipping.
+
+---
+
+## shadcn revamp — the scanner (phase 3, added 2026-09-13)
+
+Covers `feat(scan): the result stops shoving the search box`. The scanner is behind `requireAdmin()` **and**
+needs a camera, so none of this has been run. The register flow (phase 4) is public and **was** driven in a
+browser; what was verified there is recorded at the bottom of this section.
+
+- [ ] **The result panel no longer moves the search box.** Scan, let the result clear, scan again: the search
+      field must stay exactly where it is. It has a reserved height now (`min-h-44`) — the fix for a field that
+      jumped up under a thumb already reaching for it. If the panel ever overflows that height, the reserve is
+      wrong and it will jump again: check a result with four extra fields configured under
+      Settings → scan extra fields.
+- [ ] **The progress line under the count.** It fills green as the door fills. Confirm it agrees with the
+      number beside it, and that an event with zero attendees shows an empty track rather than a full one.
+- [ ] **Read the result at arm's length in a dim room.** Unchanged from 10 Sep and still the open question:
+      the tints are light rather than solid. Green "Checked in", amber "Already in · since HH:MM", dark
+      "Check-in undone", red "Not on the list" / "Not saved".
+- [ ] **Undo still appears and still works within six seconds.** The button is now a stock outline Button on
+      the green ground; confirm it is findable at a glance.
+- [ ] **Clear the search with the × in the field.** New, and the reason is that badges do not always scan and
+      the next person is waiting. It must clear the text and the hits without clearing the result above it.
+- [ ] **Search a name that matches nobody.** The message is an Empty card now, not a grey line.
+- [ ] **The camera box is untouched on purpose.** Same `min-h-[240px]`, same `#reader` element, same
+      html5-qrcode config — only the surface changed. If the camera or the decode behaves differently from
+      before this commit, that is a real regression and worth saying so.
+- [ ] **Camera blocked / no camera / camera in use** still render their titles, hints and a Retry that works.
+- [ ] **The door chooser** (`/scan/<id>?pick=1`): each door shows its live count, the one Settings is running
+      says "Running now", and today's group is badged. With no checkpoints configured, the empty state links
+      straight to Settings — follow it and confirm it lands on the right page.
+- [ ] At 375px: no horizontal scroll, every target 44px or larger.
+
+### Register (phase 4) — verified 2026-09-13, in a browser at 390px
+
+Against the live event, with registration temporarily forced open **locally only** (no data was written and
+nothing was changed in Supabase; the submits used were all rejected by validation):
+
+- The form renders the event's six real questions, including the conditional room-partner one.
+- Inputs and selects measure 44px, the submit button 48px.
+- A rejected submit keeps **every** answer, selects included, moves focus to the offending field, and shows
+  the message under it with `aria-invalid` and `aria-describedby` wired to both the help text and the error.
+- `--primary` resolves to `#A86000` — the event's `#FFB066` darkened in Oklab until it carries white text
+  (D72). `--muted-foreground` is untouched grey.
+- The closed state and the done page render as intended; "Open my event page" is a link, not a button.
+- Zero console errors on load, on submit and on the done page.
+
+Not covered: a **successful** registration writes a real attendee, so the happy path was not exercised. The
+one thing left to check on the register flow is therefore a genuine end-to-end signup once registration is
+reopened — submit, land on the done page, copy the link, open it.

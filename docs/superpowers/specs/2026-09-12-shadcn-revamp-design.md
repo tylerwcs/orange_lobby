@@ -2,7 +2,7 @@
 
 Date: 2026-09-12
 Status: approved for implementation
-Extends `2026-09-10-orange-lobby-redesign-design.md` (D34–D52) with D53–D67.
+Extends `2026-09-10-orange-lobby-redesign-design.md` (D34–D52) with D53–D75.
 Supersedes the hand-rolled design system in `design-system/orange-lobby/MASTER.md`.
 
 ## 1. Why
@@ -103,6 +103,23 @@ whatever is green by 26 Sep ships with the pilot. Nothing here is pilot scope.
   previously they were `color-mix()` strings only the browser could resolve, which is why
   the 8 Sep audit's 3.97:1 event mark survived the 10 Sep redesign. Darkening must not scale
   RGB channels: that desaturates, and turned `#F97316` into the brown `#986A3E`.
+- **D73** *(added 13 Sep, Phase 3)* A link that looks like a button is styled with
+  `buttonVariants()` and stays an `<a>`. Base UI's `Button` assumes a native `<button>`: given an
+  anchor in `render` it logs an error unless `nativeButton={false}`, and with it, announces the
+  anchor as `role="button"` — which takes open-in-new-tab and link semantics off things that
+  navigate. `Button` is for things that do something; `buttonVariants` is for things that go
+  somewhere.
+- **D74** *(added 13 Sep, Phase 4)* `RegisterForm` is controlled in full, and re-synced after
+  submit. React resets a `<form>` when its action returns; a controlled `<select>` does not come
+  back from that reset, because React writes the DOM only when the prop changed and the answer
+  had not. Every size an invitee picked went blank on a rejected submit while state still held it.
+  The fields all read from one state object, and an effect puts the DOM back in agreement with it
+  before moving focus to the first error. This predates the revamp — the hand-rolled form had the
+  same shape — and is fixed here because this is the phase that owns the surface.
+- **D75** *(added 13 Sep, Phase 4)* The register form's selects stay **native**. shadcn's `Select`
+  is installed and unused; on a phone a native select is the OS picker, which is one thumb and no
+  popup to mis-tap, and it is what the admin's own forms already use. Not a divergence from a
+  shadcn file — a component choice, recorded so it is not "fixed" later by mistake.
 - **D67** `RegisterForm` migrates **last**. Registration goes live 12 Sep and holds real KOM signups
   from that date; it is the one surface where a regression costs data rather than face.
 
@@ -182,13 +199,20 @@ its purpose, not a component-for-component port; the phase notes say what the su
    *Done — commit `461352d`.*
 1. **Admin** — *for: one organiser, at a desk, answering "is this event on track?" and fixing what
    isn't.* Login-gated and desktop-only, so zero attendee exposure while the patterns bed in.
+   *Done — commits `f6c35b2`–`d1e1137`.*
 2. **Portal** — *for: an attendee holding a phone who has just scanned their badge and wants one
    thing — usually where to sit, what's on now, or what changed.* First real exercise of per-event
-   `--primary`.
+   `--primary`. *Done — commits `6e46ece`–`3d5919a`.*
 3. **Scanner** — *for: crew clearing 100 people in 30 minutes, one thumb, in a dim foyer.* The
    trained flow is a named constraint (D68); speed and error recovery beat elegance here.
+   *Done — commit `0d653f1`. The camera box kept its measurements and its html5-qrcode config
+   deliberately; what changed is that the result panel has a reserved height, so the search field
+   below it no longer moves between scans.*
 4. **Register** — *for: an invitee completing a form once, correctly, often on mobile.* Last, and
    the most conservative of the five, because it is live with real signups (D67).
+   *Done — commit `4db0d1d`, with the D65 cleanup it unlocked in `b8bc24e`: the legacy Card and
+   Badge and the whole transition-alias block are gone, since these were the last two surfaces
+   speaking the old vocabulary.*
 
 ## 6. Tests
 
@@ -229,9 +253,12 @@ pattern shadcn documents for forms: server actions stay as they are.
 
 ## 9. Open decisions
 
-- **D62 — the two `Badge` variants.** The alternative is forcing *checked-in* and *expected* into
-  stock `secondary` / `outline`, which loses the green/amber semantic the scanner and attendee table
-  rely on. Recommendation: add the variants. Proceeding on that unless told otherwise.
+- **D62 — the two `Badge` variants.** *Closed: the variants were added, and are guarded by
+  `tests/badge-variants.test.ts` and listed in `MASTER.md`'s divergence table.*
+- **The result panel's reserved height (Phase 3).** `min-h-44` is sized for a result with four
+  fields. An event configuring more `scan_extra_fields` than that would overflow it and the search
+  box would start moving again. Left as it is rather than made clever, because the honest fix is to
+  cap what the panel shows, and nobody has yet asked for five.
 
 ## 10. Verification
 
