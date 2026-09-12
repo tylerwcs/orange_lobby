@@ -89,6 +89,20 @@ whatever is green by 26 Sep ships with the pilot. Nothing here is pilot scope.
 - **D70** *(added 12 Sep)* `/admin/events/[id]/attendees/[attendeeId]` is deleted. It rendered the
   same `AttendeeDetail` as the list's `?attendee=` panel, so the record had two routes and every
   change to it had to be made twice. The panel is the record.
+- **D71** *(added 12 Sep)* `Toaster` stays hand-rolled rather than adopting shadcn's toast.
+  It is driven by `src/lib/toast-store.ts`, which is how a server action's redirect becomes
+  an announcement — the flash arrives in the URL and `Flash` raises it, not a click handler.
+  Adopting shadcn's toast means rewriting that store and `Flash` for no visual gain, on the
+  surface that reports whether a save worked. Its styling is shadcn's; its plumbing is not.
+- **D72** *(added 12 Sep, Phase 2)* An event's `primary_color` drives **two** tokens, not one.
+  `--brand` is the colour exactly as the organiser chose it, for decorative fills, paired
+  with `--brand-foreground` computed for it. `--primary` is that colour darkened **in Oklab**
+  until it clears 4.5:1 as text on `--card`, because `text-primary` is read on a white card
+  as well as being a button fill — the seeded event's `#FFB066` rendered announcement text
+  at about 1.9:1. The derived values are computed in `src/lib/contrast.ts` and tested;
+  previously they were `color-mix()` strings only the browser could resolve, which is why
+  the 8 Sep audit's 3.97:1 event mark survived the 10 Sep redesign. Darkening must not scale
+  RGB channels: that desaturates, and turned `#F97316` into the brown `#986A3E`.
 - **D67** `RegisterForm` migrates **last**. Registration goes live 12 Sep and holds real KOM signups
   from that date; it is the one surface where a regression costs data rather than face.
 
