@@ -3,17 +3,19 @@ import { notFound } from "next/navigation";
 import { serviceClient } from "@/lib/supabase/service";
 import type { Event, EventStatus } from "@/lib/types";
 import { parseAttendeeFields } from "@/lib/attendee-fields";
+import { hydratePins } from "@/lib/pinned-fields";
 
 export { slugify } from "@/lib/slug";
 
 /**
- * Normalises the jsonb columns on the way out of the database. `attendee_fields` is
- * hand-editable state that predates any validation, so every read goes through the
- * parser rather than trusting the column shape.
+ * Normalises the jsonb columns on the way out of the database. `attendee_fields` and
+ * `pinned_fields` are hand-editable state that predates any validation, so every read goes
+ * through a parser rather than trusting the column shape.
  */
 function hydrate(row: unknown): Event {
   const ev = row as Event;
-  return { ...ev, attendee_fields: parseAttendeeFields((row as { attendee_fields?: unknown }).attendee_fields) };
+  const raw = row as { attendee_fields?: unknown; pinned_fields?: unknown };
+  return { ...ev, attendee_fields: parseAttendeeFields(raw.attendee_fields), pinned_fields: hydratePins(raw) };
 }
 
 export async function listEvents(orgId: string): Promise<Event[]> {

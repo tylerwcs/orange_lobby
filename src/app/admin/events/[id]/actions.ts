@@ -20,6 +20,7 @@ import { parseCategories } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
+import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
 import { normalizeModules, type EventModule } from "@/lib/modules";
 
@@ -476,3 +477,38 @@ export async function reorderModulesAction(eventId: string, orderedIds: string[]
   revalidatePath(`/admin/events/${ev.id}`);
 }
 
+
+// ---- Pinned fields ----
+
+const settingsPath = (eventId: string) => `/admin/events/${eventId}/settings`;
+
+/**
+ * These save on click rather than with the settings form. updateSettingsAction writes
+ * every column on every save, so a picker inside that form would have to be submitted to
+ * take effect — and reordering a pin is not a thing anyone expects to have to save twice.
+ */
+export async function addPinAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const result = addPin(ev.pinned_fields, String(formData.get("key") ?? ""), String(formData.get("label") ?? ""));
+  if (!result.ok) redirect(flashPath(settingsPath(eventId), result.error, "error"));
+  await updateEvent(eventId, { pinned_fields: result.pins });
+  revalidatePath(`/admin/events/${eventId}`);
+  redirect(flashPath(settingsPath(eventId), "Pinned to the badge."));
+}
+
+export async function removePinAction(eventId: string, key: string) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  await updateEvent(eventId, { pinned_fields: removePin(ev.pinned_fields, key) });
+  revalidatePath(`/admin/events/${eventId}`);
+  redirect(flashPath(settingsPath(eventId), "Unpinned."));
+}
+
+export async function reorderPinsAction(eventId: string, keys: string[]) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  await updateEvent(eventId, { pinned_fields: reorderPins(ev.pinned_fields, keys) });
+  revalidatePath(settingsPath(ev.id));
+  revalidatePath(`/admin/events/${ev.id}`);
+}

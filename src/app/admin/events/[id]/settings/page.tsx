@@ -16,8 +16,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction } from "../actions";
+import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
+import { PinList } from "@/components/admin/PinList";
+import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
 import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
@@ -86,6 +88,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
   const days = eventDays(ev.starts_on, ev.ends_on);
 
+  const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields);
+  const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
+
   return (
     <div className="flex flex-col gap-4">
       <AdminHeader title="Settings" subtitle={ev.name} />
@@ -96,6 +101,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="registration">Registration form</TabsTrigger>
           <TabsTrigger value="share">Share &amp; access</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
+          <TabsTrigger value="badge">Badge</TabsTrigger>
           {ev.status === "archived" && <TabsTrigger value="danger">Danger zone</TabsTrigger>}
         </TabsList>
 
@@ -177,6 +183,41 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             ))}
           </div>
         )}
+        </CardContent>
+      </Card>
+      </TabsContent>
+
+      <TabsContent value="badge">
+      <Card>
+        <CardHeader>
+          <CardTitle>Pinned on the badge</CardTitle>
+          <CardDescription>
+            Up to {MAX_PINS} facts shown under an attendee&apos;s name on the portal home. The first gets the
+            large treatment. Someone with no value for a pinned field simply does not see it.
+          </CardDescription>
+          <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+          <Modal title="Pin a field" hint="Anything the event knows about an attendee: a column you added, an answer they gave, or a built-in like the table number." trigger="Pin a field" icon="plus" iconOnly>
+            <form action={addPinAction.bind(null, ev.id)} className="grid gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="pin_key">Field</label>
+                <select id="pin_key" name="key" className={input} defaultValue="">
+                  <option value="" disabled>Choose a field</option>
+                  {pinnable.filter((f) => !pinnedKeys.has(f.key)).map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                </select>
+              </div>
+              <Field label="Shown as (optional)" name="label" placeholder="Partner" description="A short caption for the badge. Leave blank to use the field&apos;s own name." />
+              <SubmitButton>Pin to the badge</SubmitButton>
+            </form>
+          </Modal>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <PinList
+            pins={ev.pinned_fields}
+            labels={Object.fromEntries(pinnable.map((f) => [f.key, f.label]))}
+            reorder={reorderPinsAction.bind(null, ev.id)}
+            remove={removePinAction.bind(null, ev.id)}
+          />
         </CardContent>
       </Card>
       </TabsContent>

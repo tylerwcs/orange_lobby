@@ -13,6 +13,8 @@ import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { VenueCard } from "@/components/portal/VenueCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { floorPlanUrl } from "@/lib/modules";
+import { resolvePins } from "@/lib/pinned-fields";
+import { eventFields } from "@/lib/attendee-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +48,7 @@ export default async function PersonalHome({ params, searchParams }: {
       <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
         <div className="flex flex-col gap-4 md:gap-5">
-          <BadgeCard attendee={attendee} basePath={basePath} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} />
+          <BadgeCard attendee={attendee} basePath={basePath} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
         </div>
 
