@@ -205,7 +205,6 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <Section title="Branding and images" hint="Paste image links. The logo replaces the initials mark; the banner appears above the home page.">
             <Field label="Logo image link" name="logo_url" defaultValue={ev.logo_url} />
             <Field label="Banner image link" name="banner_url" defaultValue={ev.banner_url} />
-            <div className="@xl:col-span-2"><Field label="Floor plan image link" name="floor_plan_url" defaultValue={ev.floor_plan_url} /></div>
           </Section>
 
           <Section title="Onsite scanner" hint="After a scan, crew see name, company, category and table. Add up to two more fields, for example shirt_size or dietary.">

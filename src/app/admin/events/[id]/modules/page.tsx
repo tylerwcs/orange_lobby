@@ -1,64 +1,125 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { TILE_BUILTINS, MODULE_ICONS, defaultModules, type LinkModule } from "@/lib/modules";
-import { MAX_LINK_TILES } from "@/lib/modules-form";
+import { MODULE_ICONS, TILE_ROUTES, normalizeModules, type EventModule } from "@/lib/modules";
+import { MAX_TILES, moduleId } from "@/lib/modules-form";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { updateModulesAction } from "../actions";
+import { Field } from "@/components/admin/Field";
+import { Modal } from "@/components/admin/Modal";
+import { SubmitButton } from "@/components/admin/SubmitButton";
+import { TileList } from "@/components/admin/TileList";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { saveModuleAction, deleteModuleAction, toggleModuleAction, reorderModulesAction } from "../actions";
 
 export const metadata = { title: "Modules · Orange Lobby" };
 
+const select = "w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+
 /**
- * Only the built-ins that still draw a tile. Agenda and Info moved to the portal's bottom
- * nav, Announcements is the banner on the portal home and the table number is on the badge
- * card, so switches for those controlled a second route to something already on screen.
+ * The add/edit form for one tile.
+ *
+ * Both the link and the portal-page inputs stay mounted whatever "Opens" is set to, so
+ * switching between them does not throw away what was typed. `moduleFromForm` reads only
+ * the one the chooser selected.
  */
-const NAMES: Record<(typeof TILE_BUILTINS)[number], { label: string; help: string }> = {
-  floor_plan: { label: "Floor plan", help: "Shown only when the event has a floor plan image URL." },
-};
+function TileForm({ eventId, module: m }: { eventId: string; module?: EventModule }) {
+  const isPlan = m?.key === "floor_plan";
+  const tile = m?.key === "tile" ? m : undefined;
+  return (
+    <form action={saveModuleAction.bind(null, eventId)} className="grid gap-4 p-1">
+      <input type="hidden" name="id" value={m ? moduleId(m) : ""} />
+      <input type="hidden" name="preset" value={isPlan ? "floor_plan" : "tile"} />
+
+      <Field label="Label" name="label" defaultValue={m && "label" in m ? m.label ?? "" : ""} placeholder={isPlan ? "Floor plan" : "Q&A"} />
+      <Field label="Subtitle (optional)" name="subtitle" defaultValue={m && "subtitle" in m ? m.subtitle ?? "" : ""} placeholder="Ask the directors" />
+
+      {isPlan ? (
+        <Field label="Floor plan image URL" name="url" type="url" defaultValue={m.url ?? ""} placeholder="https://" description="The image the floor plan page shows. Without it the tile stays hidden." />
+      ) : (
+        <>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium" htmlFor="target_kind">Opens</label>
+            <select id="target_kind" name="target_kind" defaultValue={tile?.target.kind ?? "url"} className={select}>
+              <option value="url">A link, outside the portal</option>
+              <option value="route">A page inside the portal</option>
+            </select>
+          </div>
+          <Field label="Link URL" name="url" type="url" defaultValue={tile?.target.kind === "url" ? tile.target.url : ""} placeholder="https://" description="Used when this tile opens a link." />
+          <div className="grid gap-2">
+            <label className="text-sm font-medium" htmlFor="route">Portal page</label>
+            <select id="route" name="route" defaultValue={tile?.target.kind === "route" ? tile.target.route : "agenda"} className={select}>
+              {TILE_ROUTES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">Used when this tile opens a page inside the portal.</p>
+          </div>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium" htmlFor="icon">Icon</label>
+            <select id="icon" name="icon" defaultValue={tile?.icon ?? "link"} className={select}>
+              {MODULE_ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
+            </select>
+          </div>
+        </>
+      )}
+
+      <label className="flex items-center gap-3 text-sm font-medium">
+        <input type="checkbox" name="enabled" defaultChecked={m?.enabled ?? true} className="size-4 accent-primary" />
+        Show this tile on the portal home
+      </label>
+
+      <SubmitButton>{m ? "Save tile" : "Add tile"}</SubmitButton>
+    </form>
+  );
+}
 
 export default async function ModulesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
-  const mods = ev.modules?.length ? ev.modules : defaultModules();
-  const builtin = (k: string) => mods.find((m) => m.key === k && m.key !== "link") as { enabled: boolean; label?: string; subtitle?: string } | undefined;
-  const links = mods.filter((m): m is LinkModule => m.key === "link");
-  const input = "w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(id, orgId);
+  const modules = normalizeModules(ev);
+  const hasPlan = modules.some((m) => m.key === "floor_plan");
+
+  // Keyed by id, not position: TileList reorders optimistically and would otherwise pair
+  // a row with another tile's form mid-drag.
+  const editors = Object.fromEntries(modules.map((m) => [
+    moduleId(m),
+    <Modal key={moduleId(m)} title="Edit tile" trigger="Edit" variant="ghost">
+      <TileForm eventId={ev.id} module={m} />
+    </Modal>,
+  ]));
+
   return (
-    <form action={updateModulesAction.bind(null, ev.id)} className="space-y-4">
-      <AdminHeader title="Modules" subtitle="What appears on the portal home, and in what order." />
-      <div className="@container"><div className="grid gap-4 items-start @5xl:grid-cols-2">
-      <Card className="gap-0 divide-y py-0">
-        <div className="p-4"><div className="font-bold">Built-in tiles</div><div className="text-xs text-muted-foreground">Agenda, Info and Announcements are no longer tiles — they live in the portal’s bottom nav and its banner. What is left here is the floor plan.</div></div>
-        {TILE_BUILTINS.map((key) => { const m = builtin(key); return (
-          <div key={key} className="grid gap-3 p-4 md:grid-cols-[minmax(12rem,1fr)_1fr_1fr]">
-            <label className="flex items-start gap-3 text-sm">
-              <input type="checkbox" name={`mod_${key}_enabled`} defaultChecked={m?.enabled ?? true} className="mt-1 size-4 accent-primary" />
-              <span><span className="block font-bold">{NAMES[key].label}</span><span className="block text-xs text-muted-foreground">{NAMES[key].help}</span></span>
-            </label>
-            <input name={`mod_${key}_label`} defaultValue={m?.label ?? ""} placeholder="Custom label (optional)" className={input} />
-            <input name={`mod_${key}_subtitle`} defaultValue={m?.subtitle ?? ""} placeholder="Custom subtitle (optional)" className={input} />
+    <div className="space-y-4">
+      <AdminHeader title="Modules" subtitle="The tiles on the portal home, in the order attendees see them." />
+      <Card className="gap-0 py-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+          <div>
+            <div className="font-bold">Tiles</div>
+            <div className="text-xs text-muted-foreground">{modules.length} of {MAX_TILES} used.</div>
           </div>
-        ); })}
-      </Card>
-      <Card className="gap-0 divide-y py-0">
-        <div className="p-4"><div className="font-bold">Link tiles</div><div className="text-xs text-muted-foreground">Up to {MAX_LINK_TILES} tiles that open an external page: Slido Q&amp;A, a feedback form, a documents folder.</div></div>
-        {Array.from({ length: MAX_LINK_TILES }, (_, i) => i + 1).map((n) => { const l = links[n - 1]; return (
-          <div key={n} className="grid gap-3 p-4 md:grid-cols-[auto_1fr_1fr]">
-            <label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" name={`link_${n}_enabled`} defaultChecked={l?.enabled ?? true} className="size-4 accent-primary" /> Tile {n}</label>
-            <input name={`link_${n}_label`} defaultValue={l?.label ?? ""} placeholder="Label" className={input} />
-            <input name={`link_${n}_subtitle`} defaultValue={l?.subtitle ?? ""} placeholder="Subtitle (optional)" className={input} />
-            <div />
-            <input name={`link_${n}_url`} defaultValue={l?.url ?? ""} placeholder="https://" className={input} />
-            <select name={`link_${n}_icon`} defaultValue={l?.icon ?? "link"} className={input}>{MODULE_ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}</select>
+          <div className="flex gap-2">
+            {!hasPlan && (
+              <Modal title="Add the floor plan" hint="A preset tile that opens the venue layout inside the portal." trigger="Add floor plan" icon="map" variant="outline">
+                <TileForm eventId={ev.id} module={{ key: "floor_plan", enabled: true }} />
+              </Modal>
+            )}
+            <Modal title="Add a tile" hint="A tile can open a link, or a page inside the portal." trigger="Add tile" icon="plus">
+              <TileForm eventId={ev.id} />
+            </Modal>
           </div>
-        ); })}
+        </div>
+        <div className="px-4 pb-4">
+          <TileList
+            items={modules}
+            editors={editors}
+            reorder={reorderModulesAction.bind(null, ev.id)}
+            remove={deleteModuleAction.bind(null, ev.id)}
+            toggle={toggleModuleAction.bind(null, ev.id)}
+          />
+        </div>
       </Card>
-      </div>
-      </div>
-      <div className="flex items-center gap-3"><Button type="submit">Save modules</Button><span className="flex items-center gap-1 text-xs text-muted-foreground"><Icon name="info" size={14} /> Tiles appear on the portal home in this order.</span></div>
-    </form>
+      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Icon name="info" size={14} /> The floor plan image URL now lives on its tile, not in Settings.
+      </p>
+    </div>
   );
 }

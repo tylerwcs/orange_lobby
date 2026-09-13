@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseModules, defaultModules, resolveTiles } from "@/lib/modules";
+import { parseModules, defaultModules, resolveTiles, floorPlanUrl, normalizeModules } from "@/lib/modules";
 
 
 describe("parseModules", () => {
@@ -70,5 +70,120 @@ describe("resolveTiles", () => {
   it("keeps the floor plan out when the event has no plan image", () => {
     const tiles = resolveTiles({ event: { ...event, floor_plan_url: null }, basePath: "/p" });
     expect(tiles.map((t) => t.id)).toEqual([]);
+  });
+});
+
+describe("tile modules", () => {
+  it("accepts a tile pointing at an internal route", () => {
+    const mods = parseModules(JSON.stringify([
+      { key: "tile", id: "t1", enabled: true, label: "Programme", icon: "calendar", target: { kind: "route", route: "agenda" } },
+    ]));
+    expect(mods[0]).toMatchObject({ key: "tile", id: "t1", target: { kind: "route", route: "agenda" } });
+  });
+
+  const base = { floor_plan_url: null, info_page_html: null, info_page_title: "Info" };
+  const tile = (target: unknown) => ({ key: "tile" as const, id: "t1", enabled: true, label: "T", icon: "link" as const, target } as never);
+
+  it("points a route tile at the path under basePath, not off-site", () => {
+    const [t] = resolveTiles({ event: { ...base, modules: [tile({ kind: "route", route: "agenda" })] }, basePath: "/e/kom/a/tok" });
+    expect(t).toMatchObject({ href: "/e/kom/a/tok/agenda", external: false });
+  });
+
+  it("opens a url tile off-site", () => {
+    const [t] = resolveTiles({ event: { ...base, modules: [tile({ kind: "url", url: "https://sli.do/x" })] }, basePath: "/e/kom" });
+    expect(t).toMatchObject({ href: "https://sli.do/x", external: true });
+  });
+
+  it("drops a url tile that is not http(s), even if it bypassed parseModules", () => {
+    const tiles = resolveTiles({ event: { ...base, modules: [tile({ kind: "url", url: "javascript:alert(1)" })] }, basePath: "/e/kom" });
+    expect(tiles).toEqual([]);
+  });
+});
+
+describe("floor plan url on the tile", () => {
+  const base = { info_page_html: null, info_page_title: "Info" };
+
+  it("renders the floor plan from the tile when the column is empty", () => {
+    const tiles = resolveTiles({
+      event: { ...base, floor_plan_url: null, modules: [{ key: "floor_plan", enabled: true, url: "https://x/p.png" }] as never },
+      basePath: "/e/kom",
+    });
+    expect(tiles.map((t) => t.id)).toEqual(["floor_plan"]);
+  });
+
+  it("prefers the tile's url over the column", () => {
+    expect(floorPlanUrl({ floor_plan_url: "https://old/p.png", modules: [{ key: "floor_plan", enabled: true, url: "https://new/p.png" }] as never }))
+      .toBe("https://new/p.png");
+  });
+
+  it("falls back to the column so already-deployed events keep their plan", () => {
+    // The migration window: new code, rows not yet rewritten.
+    expect(floorPlanUrl({ floor_plan_url: "https://old/p.png", modules: [{ key: "floor_plan", enabled: true }] as never }))
+      .toBe("https://old/p.png");
+  });
+});
+
+describe("normalizeModules", () => {
+  const ev = (modules: unknown, floor_plan_url: string | null = null) => ({ floor_plan_url, modules } as never);
+
+  it("turns a legacy link row into a tile with a url target, keeping its id", () => {
+    const [m] = normalizeModules(ev([{ key: "link", id: "l1", enabled: true, label: "Q&A", subtitle: "Ask", url: "https://sli.do/x", icon: "chat" }]));
+    expect(m).toEqual({ key: "tile", id: "l1", enabled: true, label: "Q&A", subtitle: "Ask", icon: "chat", target: { kind: "url", url: "https://sli.do/x" } });
+  });
+
+  it("lifts the floor plan url off the column so the editor can show it", () => {
+    const [m] = normalizeModules(ev([{ key: "floor_plan", enabled: true }], "https://old/p.png"));
+    expect(m).toMatchObject({ key: "floor_plan", url: "https://old/p.png" });
+  });
+
+  it("drops retired builtins rather than carrying them forward", () => {
+    // They parse so the portal never 500s on old rows, but there is no reason to write
+    // them back once an admin has saved.
+    const out = normalizeModules(ev([{ key: "agenda", enabled: true }, { key: "seat", enabled: true }, { key: "floor_plan", enabled: true, url: "https://x/p.png" }]));
+    expect(out.map((m) => m.key)).toEqual(["floor_plan"]);
+  });
+
+  it("seeds from the defaults when the event was never configured", () => {
+    // resolveTiles already falls back to defaultModules() for an empty array. If the
+    // editor did not agree, opening it on an untouched event would show an empty list and
+    // saving would throw the floor plan away.
+    const out = normalizeModules(ev([], "https://old/p.png"));
+    expect(out).toEqual([{ key: "floor_plan", enabled: true, url: "https://old/p.png" }]);
+  });
+
+  it("preserves the order the admin arranged", () => {
+    const out = normalizeModules(ev([
+      { key: "link", id: "l2", enabled: true, label: "B", url: "https://b/", icon: "link" },
+      { key: "floor_plan", enabled: true, url: "https://x/p.png" },
+      { key: "link", id: "l1", enabled: true, label: "A", url: "https://a/", icon: "link" },
+    ]));
+    expect(out.map((m) => ("id" in m ? m.id : m.key))).toEqual(["l2", "floor_plan", "l1"]);
+  });
+});
+
+describe("the rows actually stored on the live event", () => {
+  // Copied verbatim from events.modules on the pilot event: five retired built-ins, a
+  // floor plan with no image, and two pre-tile `link` rows. Everything here predates the
+  // tile editor, so it is the shape the first admin to open that page will be handed.
+  const live = [
+    { key: "agenda", enabled: true }, { key: "seat", enabled: true }, { key: "floor_plan", enabled: true },
+    { key: "info", enabled: true }, { key: "announcements", enabled: true },
+    { id: "l1", key: "link", url: "https://app.sli.do/event/test", icon: "chat", label: "Q&A", enabled: true, subtitle: "Ask the directors" },
+    { id: "l2", key: "link", url: "https://forms.office.com/r/test", icon: "check", label: "Feedback", enabled: true, subtitle: "2 minutes" },
+  ] as never;
+
+  it("still parses", () => {
+    expect(parseModules(live)).toHaveLength(7);
+  });
+
+  it("draws only the two link tiles, because the plan has no image", () => {
+    const tiles = resolveTiles({ event: { floor_plan_url: null, info_page_html: null, info_page_title: "Info", modules: live }, basePath: "/e/kom/a/tok" });
+    expect(tiles.map((t) => t.label)).toEqual(["Q&A", "Feedback"]);
+  });
+
+  it("opens in the editor as a floor plan and two tiles, retired built-ins gone", () => {
+    const out = normalizeModules({ floor_plan_url: null, modules: live });
+    expect(out.map((m) => m.key)).toEqual(["floor_plan", "tile", "tile"]);
+    expect(out[1]).toMatchObject({ id: "l1", label: "Q&A", target: { kind: "url", url: "https://app.sli.do/event/test" } });
   });
 });
