@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { loginErrorCopy } from "@/lib/login-errors";
 
 /**
  * The only door into the admin.
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
  */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   const { error, next } = await searchParams;
+  const copy = loginErrorCopy(error);
   // `w-full` on the main below is load-bearing, not decoration. The root layout's body is
   // `flex flex-col`, so this main is a flex item, and `mx-auto` in the cross axis cancels the
   // default stretch — leaving the element to size to its content. Without it the card collapsed
@@ -40,12 +42,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             An Alert rather than a tinted div: the old one used bg-red-50/text-red-700, two
             colours that exist nowhere in globals.css and so were never contrast-checked
             against this card the way every token pair in tests/contrast.test.ts is.
+
+            The words come from `loginErrorCopy`, not from the query string. `?error=` now
+            carries a code, so a crafted link can pick one of five sentences this app wrote
+            and cannot write a sixth of its own.
           */}
-          {error && (
+          {copy && (
             <Alert variant="destructive">
               <TriangleAlert />
-              <AlertTitle>Could not sign you in</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+              <AlertTitle>{copy.title}</AlertTitle>
+              <AlertDescription>{copy.description}</AlertDescription>
             </Alert>
           )}
 
