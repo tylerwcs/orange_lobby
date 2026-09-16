@@ -52,7 +52,7 @@ function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: bool
   const tone = stamped ? "bg-card ring-1 ring-foreground/10" : "border border-dashed border-border";
   const info = (
     <div className="min-w-0">
-      <div className="text-sm font-extrabold leading-tight text-balance">{cell.booth.name}</div>
+      <div className="text-sm font-extrabold leading-tight text-balance break-words">{cell.booth.name}</div>
       {cell.booth.location && <div className="truncate text-xs text-muted-foreground">{cell.booth.location}</div>}
     </div>
   );
@@ -67,7 +67,10 @@ function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: bool
     );
   }
   return (
-    <div className={`flex min-h-[146px] flex-col gap-2.5 rounded-2xl p-3.5 ${tone}`}>
+    // min-w-0: this is the grid item that holds the grid-cols-2 track. Without it, a long
+    // unbroken booth name sets this flex column's min-content width and blows the track out
+    // past the viewport (a client can rename a booth in the week before the event).
+    <div className={`flex min-h-[146px] min-w-0 flex-col gap-2.5 rounded-2xl p-3.5 ${tone}`}>
       <div className="flex flex-1 items-start justify-between gap-2">
         {glyph}
         {stamped && <div className="text-xs font-bold tabular-nums text-muted-foreground">{shortTime(cell.stampedAt!)}</div>}
@@ -124,7 +127,7 @@ function CompleteHeader({ passport, attendeeName, message }: { passport: Passpor
       <div className="flex items-center gap-3.5 p-4">
         <StampGlyph deg={-8} size={62} />
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="inline-flex w-fit items-center rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-success-soft">{progressLine(passport)}</span>
+          <span className="inline-flex w-fit items-center rounded-full bg-brand/25 px-2.5 py-1 text-xs font-extrabold text-accent">{progressLine(passport)}</span>
           <div className="truncate text-2xl font-extrabold leading-tight">{attendeeName}</div>
           {passport.completedAt && <div className="text-xs font-semibold tabular-nums text-background/70">Completed {shortDateTime(passport.completedAt)}</div>}
         </div>
