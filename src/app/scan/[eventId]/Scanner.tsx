@@ -92,7 +92,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
         .catch((e) => { if (!cancelled) setCamera({ phase: "error", problem: describeCameraError(e) }); });
     });
     return () => { cancelled = true; };
-  }, [eventId, checkpoint.id, handle]);
+  }, [eventId, checkpoint.id, handle, crewToken]);
 
   useEffect(() => {
     const cancel = startCamera();
@@ -108,7 +108,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
   useEffect(() => {
     const t = setTimeout(async () => { setHits(q.trim().length >= 2 ? await searchAttendeesAction(eventId, q, checkpoint.id, crewToken) : []); }, 250);
     return () => clearTimeout(t);
-  }, [q, eventId, checkpoint.id]);
+  }, [q, eventId, checkpoint.id, crewToken]);
 
   const named = result?.attendee && result.status !== "error" && result.status !== "notfound";
 
