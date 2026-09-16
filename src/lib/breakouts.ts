@@ -111,10 +111,14 @@ export function rosters(
     const list = byItem.get(a.agenda_item_id);
     if (list) list.push(a.attendee_id); else byItem.set(a.agenda_item_id, [a.attendee_id]);
   }
+  // listAssignments has no ORDER BY, so assignment order is not stable. attendeeIds comes from
+  // listAttendees, which is already ordered by name — sorting into that order makes each room's
+  // list both deterministic and alphabetical, which is what a printed roster wants.
+  const rank = new Map(attendeeIds.map((id, i) => [id, i]));
   return breakoutSlots(items).map((s) => {
     const rooms = s.items.map((i) => ({
       slot: s.slot, code: i.code?.trim() || "", title: i.title, location: i.location,
-      attendeeIds: byItem.get(i.id) ?? [],
+      attendeeIds: (byItem.get(i.id) ?? []).slice().sort((x, y) => (rank.get(x) ?? Infinity) - (rank.get(y) ?? Infinity)),
     }));
     const placed = new Set(rooms.flatMap((r) => r.attendeeIds));
     return { slot: s.slot, rooms, unassignedIds: attendeeIds.filter((id) => !placed.has(id)) };

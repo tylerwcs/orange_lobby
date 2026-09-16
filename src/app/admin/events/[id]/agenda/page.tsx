@@ -15,6 +15,7 @@ import { addAgendaItemAction, assignFromColumnAction, deleteAgendaItemAction } f
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { breakoutSlots, rosters } from "@/lib/breakouts";
+import type { Attendee, BreakoutAssignment } from "@/lib/types";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
 
@@ -22,14 +23,15 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [items, attendees, assignments] = await Promise.all([
-    listAgenda(ev.id),
-    listAttendees(ev.id),
-    listAssignments(ev.id),
-  ]);
+  const items = await listAgenda(ev.id);
   const days = groupByDay(items);
   const total = days.reduce((n, d) => n + d.items.length, 0);
   const slots = breakoutSlots(items);
+  // Only fetched when the event actually runs breakout rounds — a non-breakout event must
+  // issue exactly the queries it issued before this feature.
+  const [attendees, assignments]: [Attendee[], BreakoutAssignment[]] = slots.length > 0
+    ? await Promise.all([listAttendees(ev.id), listAssignments(ev.id)])
+    : [[], []];
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -62,7 +64,7 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                   <div className="flex flex-wrap items-center justify-between gap-3 p-4">
                     <div className="font-bold">{s.slot}</div>
                     {s.unassignedIds.length > 0
-                      ? <Badge variant="secondary">{s.unassignedIds.length} with no room</Badge>
+                      ? <Badge variant="secondary" className="tabular-nums">{s.unassignedIds.length} with no room</Badge>
                       : <Badge variant="success">Everyone placed</Badge>}
                   </div>
                   {s.rooms.map((r) => (

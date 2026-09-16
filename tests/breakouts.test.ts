@@ -146,4 +146,15 @@ describe("rosters", () => {
     const out = rosters([a, c], ["p1"], [{ agenda_item_id: "a", attendee_id: "p1" }]);
     expect(out.map((s) => [s.slot, s.unassignedIds.length])).toEqual([["Breakout 1", 0], ["Breakout 2", 1]]);
   });
+
+  it("orders each room's attendeeIds to match the attendeeIds argument, not assignment order", () => {
+    // listAssignments has no ORDER BY, so assignment order is not stable; attendeeIds (from
+    // listAttendees, ordered by name) is the only ordering this function can rely on.
+    const [r] = rosters([a], ["p3", "p1", "p2"], [
+      { agenda_item_id: "a", attendee_id: "p1" },
+      { agenda_item_id: "a", attendee_id: "p3" },
+      { agenda_item_id: "a", attendee_id: "p2" },
+    ]);
+    expect(r.rooms[0].attendeeIds).toEqual(["p3", "p1", "p2"]);
+  });
 });
