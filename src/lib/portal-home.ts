@@ -1,7 +1,9 @@
 import "server-only";
 import { listAgenda } from "@/lib/db/agenda";
 import { listAnnouncements } from "@/lib/db/announcements";
+import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { visibleTo, nextSession, groupByDay, pickDay } from "@/lib/agenda";
+import { isBreakout } from "@/lib/breakouts";
 import { nowInKL } from "@/lib/time";
 import { resolveTiles, type Tile } from "@/lib/modules";
 import type { AgendaItem, Announcement, Attendee, Event } from "@/lib/types";
@@ -31,9 +33,13 @@ export async function loadHomeData(
   attendee: Attendee | null,
   basePath: string,
   requestedDay?: string,
-  assignedItemIds: ReadonlySet<string> = new Set(),
 ): Promise<HomeData> {
   const [allAgenda, announcements] = await Promise.all([listAgenda(event.id), listAnnouncements(event.id)]);
+  // Only touch breakout_assignments when this event actually has breakout rows: every event
+  // that exists today has none, and skipping the query keeps their portal working even before
+  // the migration adding that table has been applied.
+  const hasBreakouts = allAgenda.some(isBreakout);
+  const assignedItemIds = attendee && hasBreakouts ? await assignedItemIdsFor(attendee.id) : new Set<string>();
   const { date, time } = nowInKL();
   // Filtered once, here: everything downstream - the next card, the day tabs and the
   // desktop agenda column - must agree about what this attendee is allowed to see.
