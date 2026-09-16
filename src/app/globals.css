@@ -53,6 +53,20 @@
   --chart-4: oklch(0.499 0.181 283.7); /* #5B4BC4 */
   --chart-5: oklch(0.4461 0.0263 256.8); /* #4B5563 */
 
+  /*
+    --- agenda session tints ---
+    Pastel SURFACES, one per --chart-N ink, same hue. A session's colour tints its own
+    background and the matching ink draws its leading edge, because neither can do the job
+    alone: text needs a tint light enough to read on (4.5:1 against --muted-foreground,
+    which wants luminance >= 0.57), and being distinguishable from a white card needs 3:1,
+    which wants <= 0.30. No single colour satisfies both, so the pair does.
+  */
+  --session-1: oklch(0.945 0.042 38.4);   /* tint of --chart-1 */
+  --session-2: oklch(0.945 0.042 264.38); /* tint of --chart-2 */
+  --session-3: oklch(0.945 0.042 346.3);  /* tint of --chart-3 */
+  --session-4: oklch(0.945 0.042 283.7);  /* tint of --chart-4 */
+  --session-5: oklch(0.945 0.018 256.8);  /* tint of --chart-5 */
+
   /* --- sidebar --- */
   --sidebar: oklch(1 0 0); /* #FFFFFF */
   --sidebar-foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
@@ -110,6 +124,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  --color-session-1: var(--session-1);
+  --color-session-2: var(--session-2);
+  --color-session-3: var(--session-3);
+  --color-session-4: var(--session-4);
+  --color-session-5: var(--session-5);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);

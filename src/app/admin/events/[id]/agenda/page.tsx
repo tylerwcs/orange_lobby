@@ -14,49 +14,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { addAgendaItemAction, addBreakoutRoomAction, deleteAgendaItemAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
-import { ColourPicker } from "@/components/admin/ColourPicker";
-import { agendaAccentClass } from "@/lib/agenda-colours";
+import { CategoryCombo, ColourCombo } from "@/components/admin/AgendaCombos";
+import { agendaInkClass } from "@/lib/agenda-colours";
 import { breakoutSlots, rosters, isBreakout } from "@/lib/breakouts";
 import type { Attendee, BreakoutAssignment } from "@/lib/types";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
-
-/**
- * Which categories a session is for, as toggles rather than a comma-separated box.
- *
- * The list is the categories this event&apos;s attendees actually have, so a session can no longer
- * be restricted to a category nobody is in — which used to be a silent way to hide something
- * from everybody. Nothing ticked means everyone.
- */
-function CategoryToggles({ categories }: { categories: string[] }) {
-  if (categories.length === 0) {
-    return (
-      <div className="grid gap-1.5">
-        <span className="text-sm font-medium">Who can see it</span>
-        <p className="text-xs text-muted-foreground">
-          Everyone. Add attendees with categories and you can restrict a session to some of them.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div className="grid gap-2">
-      <span className="text-sm font-medium">Who can see it</span>
-      <div className="flex flex-wrap gap-2">
-        {categories.map((c) => (
-          <label
-            key={c}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-input px-3.5 text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-accent has-[:checked]:text-accent-foreground"
-          >
-            <input type="checkbox" name="categories" value={c} className="size-4 accent-primary" />
-            {c}
-          </label>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">Tick none for everyone.</p>
-    </div>
-  );
-}
 
 export default async function AgendaAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -90,8 +53,8 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
               <Field label="Title" name="title" />
               <Field label="Location" name="location" placeholder="Grand Ballroom" />
               <Field label="Description" name="description" textarea />
-              <CategoryToggles categories={categories} />
-              <ColourPicker />
+              <CategoryCombo categories={categories} />
+              <ColourCombo />
               <SubmitButton>Add session</SubmitButton>
             </form>
           </Modal>
@@ -123,7 +86,7 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
               />
               <Field label="Title (optional)" name="title" placeholder="Breakout: regional teams" />
               <Field label="Description" name="description" textarea />
-              <ColourPicker />
+              <ColourCombo />
               <SubmitButton>Add breakout room</SubmitButton>
             </form>
           </Modal>
@@ -183,8 +146,8 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          {agendaAccentClass(i.color) && (
-                            <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${agendaAccentClass(i.color)}`} />
+                          {agendaInkClass(i.color) && (
+                            <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${agendaInkClass(i.color)}`} />
                           )}
                           <span className="font-bold">{i.title}</span>
                         </div>
