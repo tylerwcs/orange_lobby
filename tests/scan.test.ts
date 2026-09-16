@@ -49,3 +49,22 @@ describe("describeCameraError", () => {
     expect(describeCameraError(new Error("boom")).title).toBe("Camera unavailable");
   });
 });
+
+describe("scanResultFields and what the event collects", () => {
+  const a = { name: "Ann", company: "Ecopia", category: "VIP", table_no: "3", extra: {} } as unknown as Attendee;
+
+  it("leaves off a field the event does not collect", () => {
+    const e = { scan_extra_fields: [], collected_fields: ["company"] } as unknown as Event;
+    expect(scanResultFields(a, e).map((f) => f.label)).toEqual(["Company", "Category"]);
+  });
+
+  it("keeps Category whatever is collected, because the agenda filters on it", () => {
+    const e = { scan_extra_fields: [], collected_fields: [] } as unknown as Event;
+    expect(scanResultFields(a, e).map((f) => f.label)).toEqual(["Category"]);
+  });
+
+  it("shows all three for an event row from before the column existed", () => {
+    const e = { scan_extra_fields: [] } as unknown as Event;
+    expect(scanResultFields(a, e).map((f) => f.label)).toEqual(["Company", "Category", "Table"]);
+  });
+});

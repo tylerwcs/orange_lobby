@@ -141,3 +141,38 @@ describe("hydratePins", () => {
     expect(hydratePins({ pinned_fields: [{ key: "room_no" }] })).toEqual([{ key: "room_no" }]);
   });
 });
+
+describe("pinnableFields and what the event collects", () => {
+  it("does not offer a field the event has switched off", () => {
+    const keys = pinnableFields([], [], ["company"]).map((f) => f.key);
+    expect(keys).toContain("company");
+    expect(keys).not.toContain("table_no");
+    expect(keys).not.toContain("phone");
+  });
+
+  it("still offers the fields that carry behaviour", () => {
+    const keys = pinnableFields([], [], []).map((f) => f.key);
+    expect(keys).toEqual(expect.arrayContaining(["email", "category"]));
+  });
+});
+
+describe("resolvePins and what the event collects", () => {
+  it("drops a pin for a field the event has switched off", () => {
+    // Settings promises that switching a field off hides it everywhere. The badge is the
+    // most visible "everywhere" there is — an attendee's own phone.
+    const pins = [{ key: "table_no" }, { key: "room_no" }];
+    const out = resolvePins(pins, attendee(), fields, ["company"]);
+    expect(out.map((p) => p.key)).toEqual(["room_no"]);
+  });
+
+  it("keeps the pin itself, so turning the field back on restores the badge", () => {
+    // Only the rendering is suppressed; nothing rewrites events.pinned_fields.
+    const pins = [{ key: "table_no" }];
+    expect(resolvePins(pins, attendee(), fields, [])).toEqual([]);
+    expect(resolvePins(pins, attendee(), fields, ["table_no"])).toHaveLength(1);
+  });
+
+  it("never drops a field that carries behaviour", () => {
+    expect(resolvePins([{ key: "category" }], attendee(), fields, []).map((p) => p.key)).toEqual(["category"]);
+  });
+});

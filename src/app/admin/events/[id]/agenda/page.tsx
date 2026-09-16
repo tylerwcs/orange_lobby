@@ -5,56 +5,19 @@ import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listAssignments } from "@/lib/db/breakouts";
 import { groupByDay } from "@/lib/agenda";
 import { shortDate } from "@/lib/text";
-import { Field } from "@/components/admin/Field";
-import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { addAgendaItemAction, addBreakoutRoomAction, deleteAgendaItemAction } from "../actions";
+import { deleteAgendaItemAction, deleteBreakoutRoundAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
-import { breakoutSlots, rosters, isBreakout } from "@/lib/breakouts";
+import { SessionForm, BreakoutForm } from "@/components/admin/AgendaForms";
+import { agendaAccentClass } from "@/lib/agenda-colours";
+import { breakoutSlots, rosters, agendaRows } from "@/lib/breakouts";
 import type { Attendee, BreakoutAssignment } from "@/lib/types";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
-
-/**
- * Which categories a session is for, as toggles rather than a comma-separated box.
- *
- * The list is the categories this event&apos;s attendees actually have, so a session can no longer
- * be restricted to a category nobody is in — which used to be a silent way to hide something
- * from everybody. Nothing ticked means everyone.
- */
-function CategoryToggles({ categories }: { categories: string[] }) {
-  if (categories.length === 0) {
-    return (
-      <div className="grid gap-1.5">
-        <span className="text-sm font-medium">Who can see it</span>
-        <p className="text-xs text-muted-foreground">
-          Everyone. Add attendees with categories and you can restrict a session to some of them.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div className="grid gap-2">
-      <span className="text-sm font-medium">Who can see it</span>
-      <div className="flex flex-wrap gap-2">
-        {categories.map((c) => (
-          <label
-            key={c}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-input px-3.5 text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-accent has-[:checked]:text-accent-foreground"
-          >
-            <input type="checkbox" name="categories" value={c} className="size-4 accent-primary" />
-            {c}
-          </label>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">Tick none for everyone.</p>
-    </div>
-  );
-}
 
 export default async function AgendaAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -69,9 +32,23 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
   const [attendees, assignments]: [Attendee[], BreakoutAssignment[]] = slots.length > 0
     ? await Promise.all([listAttendees(ev.id), listAssignments(ev.id)])
     : [[], []];
+  // Counts per room and per round, read straight onto the agenda rows. There is no
+  // separate roster block any more: a breakout listed in a stats card AND again in the
+  // programme was the same thing twice, and the programme is where an organiser is already
+  // looking.
+  const roster = slots.length > 0 ? rosters(items, attendees.map((a) => a.id), assignments) : [];
+  // Nested rather than a joined string key: a round called "A" with a room "B C" and a
+  // round "A B" with a room "C" would build the same flat key, and a count landing on the
+  // wrong room is the kind of wrong that looks right.
+  const inRoom = new Map<string, Map<string, number>>();
+  const noRoom = new Map<string, number>();
+  for (const s of roster) {
+    noRoom.set(s.slot, s.unassignedIds.length);
+    inRoom.set(s.slot, new Map(s.rooms.map((r) => [r.code, r.attendeeIds.length])));
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminHeader
           title="Agenda"
@@ -79,123 +56,105 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
         />
         <div className="flex flex-wrap gap-2">
           <Modal title="Add a session" hint="Anything on the programme that a whole category attends together." trigger="Add session" icon="plus">
-            <form action={addAgendaItemAction.bind(null, ev.id)} className="grid gap-4 p-1">
-              <Field label="Day" name="day" type="date" defaultValue={ev.starts_on} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Starts" name="starts_at" type="time" />
-                <Field label="Ends" name="ends_at" type="time" />
-              </div>
-              <Field label="Title" name="title" />
-              <Field label="Location" name="location" placeholder="Grand Ballroom" />
-              <Field label="Description" name="description" textarea />
-              <CategoryToggles categories={categories} />
-              <SubmitButton>Add session</SubmitButton>
-            </form>
+            <SessionForm eventId={ev.id} categories={categories} startsOn={ev.starts_on} />
           </Modal>
-
           <Modal
-            title="Add a breakout room"
-            hint="One room of a round. An attendee sees only the room they are assigned to."
-            trigger="Add breakout room"
+            title="Add a breakout round"
+            hint="A round and all of its rooms at once. An attendee sees only the room they are assigned to."
+            trigger="Add breakout round"
             icon="users"
             variant="outline"
           >
-            <form action={addBreakoutRoomAction.bind(null, ev.id)} className="grid gap-4 p-1">
-              <Field label="Day" name="day" type="date" defaultValue={ev.starts_on} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Starts" name="starts_at" type="time" />
-                <Field label="Ends" name="ends_at" type="time" />
-              </div>
-              <Field
-                label="Round"
-                name="slot"
-                placeholder="Breakout 1"
-                description="Every room of one round shares this. Name it the same as the column in the spreadsheet."
-              />
-              <Field
-                label="Room"
-                name="code"
-                placeholder="3A"
-                description="Exactly as the spreadsheet writes it. This is also what the attendee sees."
-              />
-              <Field label="Title (optional)" name="title" placeholder="Breakout: regional teams" />
-              <Field label="Description" name="description" textarea />
-              <SubmitButton>Add breakout room</SubmitButton>
-            </form>
+            <BreakoutForm eventId={ev.id} startsOn={ev.starts_on} />
           </Modal>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {slots.length > 0 && (
-          <div className="space-y-3">
-            {rosters(items, attendees.map((a) => a.id), assignments).map((s) => (
-              <Card key={s.slot} className="gap-0 divide-y py-0">
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="font-bold">{s.slot}</div>
-                  {s.unassignedIds.length > 0
-                    ? <Badge variant="secondary" className="tabular-nums">{s.unassignedIds.length} with no room</Badge>
-                    : <Badge variant="success">Everyone placed</Badge>}
-                </div>
-                {s.rooms.map((r) => (
-                  <div key={r.code} className="flex items-center justify-between gap-3 p-4 text-sm">
-                    <div className="font-bold">{r.code || "no code"}</div>
-                    <span className="font-bold tabular-nums">{r.attendeeIds.length}</span>
-                  </div>
-                ))}
-                <p className="p-4 text-xs text-muted-foreground">
-                  Rooms are assigned from the attendee list: select people there, then Edit.
-                </p>
-              </Card>
-            ))}
-          </div>
-        )}
+      {days.length === 0 && (
+        <Card>
+          <CardContent>
+            <Empty className="border-0 bg-transparent">
+              <EmptyHeader>
+                <EmptyTitle>No sessions yet</EmptyTitle>
+                <EmptyDescription>
+                  Add the first one above; attendees see the agenda grouped by day, filtered by their category.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+      )}
 
-        {days.length === 0 && (
-          <Card>
-            <CardContent>
-              <Empty className="border-0 bg-transparent">
-                <EmptyHeader>
-                  <EmptyTitle>No sessions yet</EmptyTitle>
-                  <EmptyDescription>
-                    Add the first one above; attendees see the agenda grouped by day, filtered by their category.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            </CardContent>
-          </Card>
-        )}
-
-        {days.map((d) => (
-          <Card key={d.day}>
-            <CardHeader><CardTitle>{shortDate(d.day)}</CardTitle></CardHeader>
-            <CardContent>
-              <ul className="divide-y text-sm">
-                {d.items.map((i) => (
-                  <li key={i.id} className="flex items-start justify-between gap-4 py-3">
+      {days.map((d) => (
+        <Card key={d.day}>
+          <CardHeader><CardTitle>{shortDate(d.day)}</CardTitle></CardHeader>
+          <CardContent>
+            <ul className="divide-y text-sm">
+              {agendaRows(d.items).map((row) => {
+                const lead = row.kind === "round" ? row.items[0] : row.item;
+                const accent = agendaAccentClass(lead.color);
+                return (
+                  <li key={row.kind === "round" ? row.slot : row.item.id} className="flex items-start justify-between gap-4 py-3">
                     <div className="flex min-w-0 gap-4">
                       <div className="w-24 shrink-0 tabular-nums text-muted-foreground">
-                        {i.starts_at}{i.ends_at ? ` – ${i.ends_at}` : ""}
+                        {lead.starts_at}{lead.ends_at ? ` – ${lead.ends_at}` : ""}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold">{i.title}</div>
-                        <div className="text-xs text-muted-foreground">{[i.location, i.description].filter(Boolean).join(" · ")}</div>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          {isBreakout(i) && <Badge>{i.slot} · {i.code}</Badge>}
-                          {i.categories && i.categories.length > 0 && <Badge variant="secondary">{i.categories.join(", ")}</Badge>}
+                        <div className="flex items-center gap-2">
+                          {accent && <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${accent}`} />}
+                          <span className="font-bold">{row.kind === "round" ? row.slot : row.item.title}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.kind === "round"
+                            ? [lead.title !== row.slot ? lead.title : null, lead.description].filter(Boolean).join(" · ")
+                            : [row.item.location, row.item.description].filter(Boolean).join(" · ")}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          {/* Every room of the round on one line — the thing the round is
+                              actually for, and the counts that say how it is filling up. */}
+                          {row.kind === "round" && row.items.map((r) => (
+                            <span key={r.id} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs">
+                              <span className="font-bold">{r.code || "no code"}</span>
+                              <span className="tabular-nums text-muted-foreground">{inRoom.get(row.slot)?.get(r.code ?? "") ?? 0}</span>
+                            </span>
+                          ))}
+                          {row.kind === "round" && (noRoom.get(row.slot) ?? 0) > 0 && (
+                            <Badge variant="secondary" className="tabular-nums">{noRoom.get(row.slot)} with no room</Badge>
+                          )}
+                          {row.kind === "session" && row.item.categories && row.item.categories.length > 0 && (
+                            <Badge variant="secondary">{row.item.categories.join(", ")}</Badge>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <form action={deleteAgendaItemAction.bind(null, ev.id, i.id)}>
-                      <ConfirmButton message={`Delete "${i.title}"?`}>Delete</ConfirmButton>
-                    </form>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {row.kind === "round" ? (
+                        <>
+                          <Modal title={`Edit ${row.slot}`} trigger="Edit" variant="ghost">
+                            <BreakoutForm eventId={ev.id} round={{ slot: row.slot, items: row.items }} />
+                          </Modal>
+                          <form action={deleteBreakoutRoundAction.bind(null, ev.id, row.slot)}>
+                            <ConfirmButton message={`Delete “${row.slot}” and its ${row.items.length} room${row.items.length === 1 ? "" : "s"}? Anyone assigned to them loses their room.`}>Delete</ConfirmButton>
+                          </form>
+                        </>
+                      ) : (
+                        <>
+                          <Modal title="Edit session" trigger="Edit" variant="ghost">
+                            <SessionForm eventId={ev.id} categories={categories} item={row.item} />
+                          </Modal>
+                          <form action={deleteAgendaItemAction.bind(null, ev.id, row.item.id)}>
+                            <ConfirmButton message={`Delete "${row.item.title}"?`}>Delete</ConfirmButton>
+                          </form>
+                        </>
+                      )}
+                    </div>
                   </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

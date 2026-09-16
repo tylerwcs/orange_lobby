@@ -1,4 +1,5 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
+import { COLLECTED_FIELDS, type CollectedField } from "@/lib/collected-fields";
 
 /**
  * Where a column comes from, which decides what its header menu may offer: a built-in is
@@ -17,11 +18,15 @@ export type ColumnDef = { key: string; label: string; source: ColumnSource };
 export const BUILTIN_COLUMNS: ColumnDef[] = [
   { key: "email", label: "Email", source: "builtin" },
   { key: "company", label: "Company", source: "builtin" },
+  { key: "phone", label: "Mobile", source: "builtin" },
   { key: "category", label: "Category", source: "builtin" },
   { key: "table_no", label: "Table", source: "builtin" },
   { key: "checked_in", label: "Checked in", source: "builtin" },
   { key: "source", label: "Source", source: "builtin" },
 ];
+
+/** The built-ins an event can switch off entirely, as opposed to merely hide. */
+const OPTIONAL_KEYS = new Set<string>(COLLECTED_FIELDS);
 
 /**
  * The table's columns in reading order: the attendee row's own, then what the
@@ -29,10 +34,19 @@ export const BUILTIN_COLUMNS: ColumnDef[] = [
  * columns automatically — their answers are already on file, so making someone re-declare
  * them would be asking for work the system can do itself.
  */
-export function allColumns(registrationFields: AttendeeField[], customFields: AttendeeField[], breakoutFields: AttendeeField[] = []): ColumnDef[] {
+export function allColumns(
+  registrationFields: AttendeeField[],
+  customFields: AttendeeField[],
+  breakoutFields: AttendeeField[] = [],
+  collected: CollectedField[] = [...COLLECTED_FIELDS],
+): ColumnDef[] {
   const claimed = new Set(registrationFields.map((f) => f.key));
+  const uses = new Set<string>(collected);
   return [
-    ...BUILTIN_COLUMNS,
+    // A field this event does not collect has no column at all, rather than a hidden one:
+    // a hidden column is something you can tick back on by accident, and there would be
+    // nothing behind it.
+    ...BUILTIN_COLUMNS.filter((c) => !OPTIONAL_KEYS.has(c.key) || uses.has(c.key)),
     ...registrationFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "registration" })),
     ...customFields.filter((f) => !claimed.has(f.key)).map((f): ColumnDef => ({ key: f.key, label: f.label, source: "custom" })),
     ...breakoutFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "breakout" })),
@@ -88,12 +102,12 @@ export function defaultHidden(columns: ColumnDef[]): string[] {
 }
 
 /**
- * Two of the attendee's own columns start hidden as well. `email` is rendered under the
- * name instead, where it identifies a row without costing a column; `source` records how
- * somebody got on the list, which matters when reconciling an import and never while
- * working the door.
+ * Three of the attendee's own columns start hidden as well. `email` and `phone` are contact
+ * details rendered under the name or on the attendee panel, where they identify a row
+ * without costing a column; `source` records how somebody got on the list, which matters
+ * when reconciling an import and never while working the door.
  */
-const DEFAULT_HIDDEN_BUILTINS = new Set(["email", "source"]);
+const DEFAULT_HIDDEN_BUILTINS = new Set(["email", "phone", "source"]);
 
 export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], legacyHidden?: string): TablePrefs {
   const known = new Set(["name", ...columns.map((c) => c.key)]);
@@ -163,6 +177,7 @@ export const BULK_BUILTIN_FIELDS: AttendeeField[] = [
 
 export const BULK_BUILTIN_KEYS = BULK_BUILTIN_FIELDS.map((f) => f.key);
 
-export function bulkFields(eventFields: AttendeeField[]): AttendeeField[] {
-  return [...BULK_BUILTIN_FIELDS, ...eventFields];
+export function bulkFields(eventFields: AttendeeField[], collected: CollectedField[] = [...COLLECTED_FIELDS]): AttendeeField[] {
+  const uses = new Set<string>(collected);
+  return [...BULK_BUILTIN_FIELDS.filter((f) => !OPTIONAL_KEYS.has(f.key) || uses.has(f.key)), ...eventFields];
 }

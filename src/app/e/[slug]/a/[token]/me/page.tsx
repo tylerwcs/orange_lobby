@@ -40,9 +40,12 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
     .map((f) => ({ label: f.label, value: attendee.extra?.[f.key] ?? "" }))
     .filter((f) => f.value.trim() !== "");
 
+  // Only what this event collects. Settings promises that switching a field off hides it
+  // everywhere, and an attendee's own profile is the most literal "everywhere" there is.
+  const collects = new Set<string>(event.collected_fields);
   const contactDetails = [
     attendee.email ? { label: "Email", value: attendee.email } : null,
-    attendee.phone ? { label: "Mobile", value: attendee.phone } : null,
+    attendee.phone && collects.has("phone") ? { label: "Mobile", value: attendee.phone } : null,
   ].filter((x): x is { label: string; value: string } => x !== null);
 
   return (
@@ -61,11 +64,11 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-xl font-extrabold leading-tight">{attendee.name}</div>
-              {attendee.company && <div className="text-sm text-muted-foreground">{attendee.company}</div>}
+              {attendee.company && collects.has("company") && <div className="text-sm text-muted-foreground">{attendee.company}</div>}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {attendee.category && <Badge variant="secondary">{attendee.category}</Badge>}
-              {attendee.table_no && <Badge>Table {attendee.table_no}</Badge>}
+              {attendee.table_no && collects.has("table_no") && <Badge>Table {attendee.table_no}</Badge>}
             </div>
 
             <Dialog>

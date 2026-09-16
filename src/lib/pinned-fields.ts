@@ -1,4 +1,5 @@
 import { eventFields, type AttendeeField } from "@/lib/attendee-fields";
+import { COLLECTED_FIELDS, type CollectedField } from "@/lib/collected-fields";
 import type { Attendee, RegistrationQuestion } from "@/lib/types";
 
 /**
@@ -68,10 +69,22 @@ export type ResolvedPin = { key: string; label: string; value: string };
  * room caption rather than an empty one — so blanks drop out here, and the badge row is
  * free to disappear entirely when nothing survives.
  */
-export function resolvePins(pins: PinnedField[], attendee: Attendee, fields: AttendeeField[]): ResolvedPin[] {
+export function resolvePins(
+  pins: PinnedField[],
+  attendee: Attendee,
+  fields: AttendeeField[],
+  collected: CollectedField[] = [...COLLECTED_FIELDS],
+): ResolvedPin[] {
   const known = new Map([...NATIVE_PINNABLE, ...fields].map((f) => [f.key, f]));
+  const uses = new Set<string>(collected);
+  const optional = new Set<string>(COLLECTED_FIELDS);
   const out: ResolvedPin[] = [];
   for (const pin of pins) {
+    // A field the event no longer collects stops rendering, but its pin is left in place:
+    // Settings promises switching one off hides it everywhere, and the badge on somebody's
+    // phone is the most public "everywhere" there is. Turning it back on restores the badge
+    // without anyone re-pinning.
+    if (optional.has(pin.key) && !uses.has(pin.key)) continue;
     const field = known.get(pin.key);
     if (!field) continue; // the column was deleted; the pin stops rendering
     const value = pinValue(attendee, pin.key);
@@ -86,10 +99,18 @@ export function resolvePins(pins: PinnedField[], attendee: Attendee, fields: Att
  * asked and the organiser added. `eventFields` already unifies the latter two, so this is
  * the one list the picker, the resolver and the badge all work from.
  */
-export function pinnableFields(questions: RegistrationQuestion[], custom: AttendeeField[]): AttendeeField[] {
+export function pinnableFields(
+  questions: RegistrationQuestion[],
+  custom: AttendeeField[],
+  collected: CollectedField[] = [...COLLECTED_FIELDS],
+): AttendeeField[] {
   const own = eventFields(questions, custom);
   const claimed = new Set(own.map((f) => f.key));
-  return [...NATIVE_PINNABLE.filter((f) => !claimed.has(f.key)), ...own];
+  const uses = new Set<string>(collected);
+  const optional = new Set<string>(COLLECTED_FIELDS);
+  // A field the event does not collect is never offered for the badge: there would be
+  // nothing behind the pin for anybody.
+  return [...NATIVE_PINNABLE.filter((f) => !claimed.has(f.key) && (!optional.has(f.key) || uses.has(f.key))), ...own];
 }
 
 export type PinResult = { ok: true; pins: PinnedField[] } | { ok: false; error: string };

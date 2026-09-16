@@ -159,3 +159,64 @@ export function breakoutSlotFromColumn(key: string): string | null {
   const slot = key.slice(BREAKOUT_COLUMN_PREFIX.length).trim();
   return slot === "" ? null : slot;
 }
+
+/** At most this many rooms in one round. Beyond it, somebody has pasted the wrong column. */
+export const MAX_ROOMS_PER_ROUND = 24;
+
+/**
+ * The rooms of one round, read from a single line: "3A, 3B, 3C, 3D".
+ *
+ * A round is created once, with all its rooms, because everything except the code is
+ * shared — the day, the time, the title, the colour. Entering that four times to create
+ * four rooms was the same form filled in four times over.
+ *
+ * Repeats are dropped case-insensitively. `matchAssignments` case-folds when it reads the
+ * client's spreadsheet, so "3a" and "3A" would both claim the same cell value and an
+ * attendee could land in either room.
+ */
+export function parseRoomCodes(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const code = part.trim();
+    if (!code) continue;
+    const fold = code.toLowerCase();
+    if (seen.has(fold)) continue;
+    seen.add(fold);
+    out.push(code);
+    if (out.length >= MAX_ROOMS_PER_ROUND) break;
+  }
+  return out;
+}
+
+/**
+ * A line in the organiser's agenda: either one ordinary session, or a whole breakout round
+ * with its rooms folded into it.
+ *
+ * A four-room round was four rows saying the same time, the same title and the same round
+ * name, differing only in a code — four lines to carry one fact. It is one line now, and
+ * the rooms are what it lists.
+ */
+export type AgendaRow =
+  | { kind: "session"; item: AgendaItem }
+  | { kind: "round"; slot: string; items: AgendaItem[]; day: string; starts_at: string; ends_at: string | null };
+
+export function agendaRows(items: AgendaItem[]): AgendaRow[] {
+  const sorted = [...items].sort((a, b) =>
+    a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at) || a.sort_order - b.sort_order);
+  const out: AgendaRow[] = [];
+  const rounds = new Map<string, Extract<AgendaRow, { kind: "round" }>>();
+  for (const i of sorted) {
+    if (!isBreakout(i)) { out.push({ kind: "session", item: i }); continue; }
+    const slot = (i.slot as string).trim();
+    const seen = rounds.get(slot);
+    if (seen) { seen.items.push(i); continue; }
+    // The round takes its place from its EARLIEST room — the first one reached, since the
+    // list is sorted. Rooms of a round normally share a time, but nothing enforces it and
+    // one mistyped room must not drag the whole round to the bottom of the day.
+    const row = { kind: "round" as const, slot, items: [i], day: i.day, starts_at: i.starts_at, ends_at: i.ends_at };
+    rounds.set(slot, row);
+    out.push(row);
+  }
+  return out;
+}

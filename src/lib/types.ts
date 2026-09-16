@@ -1,6 +1,7 @@
 import type { EventModule } from "@/lib/modules";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { PinnedField } from "@/lib/pinned-fields";
+import type { CollectedField } from "@/lib/collected-fields";
 
 export type EventStatus = "draft" | "live" | "archived";
 
@@ -45,6 +46,8 @@ export type Event = {
   scan_extra_fields: string[];
   /** Facts shown on the badge card, in order. The first gets the large treatment. */
   pinned_fields: PinnedField[];
+  /** Which of the optional attendee facts this event collects — company, phone, table. */
+  collected_fields: CollectedField[];
   modules: EventModule[];
 };
 
@@ -80,6 +83,8 @@ export type AgendaItem = {
   slot: string | null;
   /** This room's value within the slot, e.g. "3A". What the client's spreadsheet column holds. */
   code: string | null;
+  /** A palette key from src/lib/agenda-colours.ts, or null. Decoration; nothing reads it back. */
+  color: string | null;
   sort_order: number;
 };
 

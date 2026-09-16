@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
 import { isNow } from "@/lib/agenda";
+import { agendaAccentClass } from "@/lib/agenda-colours";
 import { isBreakout } from "@/lib/breakouts";
 import { Badge } from "@/components/ui/badge";
 import { shortDate } from "@/lib/text";
@@ -28,8 +29,14 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
       )}
       {todays.map((i) => {
         const live = isNow(i, now.date, now.time);
+        const accent = agendaAccentClass(i.color);
         return (
-          <div key={i.id} id={live ? "now" : undefined} className={`flex gap-3 rounded-[14px] bg-card p-3.5 scroll-mt-4 ${live ? "border-2 border-primary" : "border border-border"}`}>
+          <div key={i.id} id={live ? "now" : undefined} className={`relative flex gap-3 overflow-hidden rounded-[14px] p-3.5 scroll-mt-4 bg-card ${live ? "border-2 border-primary" : "border border-border"}`}>
+            {/* A saturated bar down the leading edge, not a tint behind the text: every
+                chart ink is already proven 3:1 against a white card, and a pastel fill was
+                tried and taken back out at about 1.2:1. Hidden from screen readers — the
+                colour carries no meaning of its own, so announcing it would be noise. */}
+            {accent && <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${accent}`} />}
             <div className="w-11 shrink-0">
               <div className={`text-[13px] font-extrabold ${live ? "text-primary" : "text-muted-foreground"}`}>{i.starts_at}</div>
               {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-primary">NOW</div> : i.ends_at && <div className="text-[11px] text-muted-foreground">{i.ends_at}</div>}

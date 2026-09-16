@@ -3,6 +3,7 @@ import { useActionState, useEffect, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { registerAction, type RegisterState } from "./actions";
 import type { RegistrationQuestion } from "@/lib/types";
+import type { CollectedField } from "@/lib/collected-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -22,7 +23,12 @@ function isShown(q: RegistrationQuestion, answers: Record<string, string>) {
   return (answers[q.show_when.key] ?? "").toLowerCase().includes(q.show_when.includes.toLowerCase());
 }
 
-export function RegisterForm({ slug, questions }: { slug: string; questions: RegistrationQuestion[] }) {
+export function RegisterForm({ slug, questions, collects }: {
+  slug: string;
+  questions: RegistrationQuestion[];
+  /** Which optional facts this event collects. An invitee is never asked for the rest. */
+  collects: CollectedField[];
+}) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug), {});
   // Every field is controlled, the four fixed ones included. They used to be uncontrolled
   // with a defaultValue echoed back from the server, which React ignores on re-render: after
@@ -88,14 +94,18 @@ export function RegisterForm({ slug, questions }: { slug: string; questions: Reg
             <FieldDescription id="reg-email-help">We use this to recognise you if you register twice.</FieldDescription>
             <FieldError id="reg-email-error">{errors.email}</FieldError>
           </Field>
+          {collects.includes("phone") && (
           <Field>
             <FieldLabel htmlFor="reg-phone">Mobile number<span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
             <Input id="reg-phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" enterKeyHint="next" value={value("phone")} onChange={(e) => set("phone", e.target.value)} className="h-11" />
           </Field>
+          )}
+          {collects.includes("company") && (
           <Field>
             <FieldLabel htmlFor="reg-company">Department or company<span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
             <Input id="reg-company" name="company" autoComplete="organization" value={value("company")} onChange={(e) => set("company", e.target.value)} className="h-11" />
           </Field>
+          )}
         </FieldGroup>
       </FieldSet>
 

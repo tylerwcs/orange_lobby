@@ -48,7 +48,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
             <p className="mt-1 text-sm text-muted-foreground">A few details, once. It takes about a minute.</p>
             <Card className="mt-4">
               <CardContent>
-                <RegisterForm slug={slug} questions={event.registration_questions} />
+                <RegisterForm slug={slug} questions={event.registration_questions} collects={event.collected_fields} />
               </CardContent>
             </Card>
           </>

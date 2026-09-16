@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn } from "@/lib/breakouts";
+import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
 const item = (over: Partial<AgendaItem>): AgendaItem => ({
   id: "i1", event_id: "e", day: "2026-09-30", starts_at: "13:30", ends_at: "15:00",
   title: "Breakout", description: null, location: null, categories: null,
-  slot: null, code: null, sort_order: 0, ...over,
+  slot: null, code: null, color: null, sort_order: 0, ...over,
 });
 
 describe("isBreakout", () => {
@@ -222,5 +222,63 @@ describe("breakoutSlotFromColumn", () => {
   it("returns null for an ordinary column, so it can never be mistaken for a round", () => {
     expect(breakoutSlotFromColumn("company")).toBeNull();
     expect(breakoutSlotFromColumn("breakout:")).toBeNull();
+  });
+});
+
+describe("parseRoomCodes", () => {
+  it("reads a round's rooms from one line", () => {
+    expect(parseRoomCodes("3A, 3B, 3C, 3D")).toEqual(["3A", "3B", "3C", "3D"]);
+  });
+
+  it("forgives the spacing an organiser actually types", () => {
+    expect(parseRoomCodes(" 3A ,3B,  3C ")).toEqual(["3A", "3B", "3C"]);
+  });
+
+  it("drops blanks and repeats, because a round cannot hold the same room twice", () => {
+    expect(parseRoomCodes("3A, ,3B,3A,")).toEqual(["3A", "3B"]);
+  });
+
+  it("treats a repeat that differs only in case as the same room", () => {
+    // The import matches room codes case-insensitively, so "3a" and "3A" would both claim
+    // the same spreadsheet value and an attendee could land in either.
+    expect(parseRoomCodes("3A, 3a")).toEqual(["3A"]);
+  });
+
+  it("is empty for an empty line", () => {
+    expect(parseRoomCodes("")).toEqual([]);
+    expect(parseRoomCodes("  ,  ")).toEqual([]);
+  });
+});
+
+describe("agendaRows", () => {
+  const lunch = item({ id: "l", title: "Lunch", starts_at: "12:15" });
+  const a = item({ id: "a", slot: "Breakout 3", code: "9A", starts_at: "21:00", ends_at: "21:45" });
+  const b = item({ id: "b", slot: "Breakout 3", code: "9B", starts_at: "21:00", ends_at: "21:45" });
+  const c = item({ id: "c", slot: "Breakout 3", code: "9C", starts_at: "21:00", ends_at: "21:45" });
+
+  it("collapses every room of a round into one row", () => {
+    const rows = agendaRows([lunch, a, b, c]);
+    expect(rows.map((r) => r.kind)).toEqual(["session", "round"]);
+    expect(rows[1].kind === "round" && rows[1].items.map((i) => i.code)).toEqual(["9A", "9B", "9C"]);
+  });
+
+  it("leaves ordinary sessions alone, one row each", () => {
+    const other = item({ id: "o", title: "Coffee", starts_at: "10:00" });
+    expect(agendaRows([lunch, other]).map((r) => r.kind === "session" && r.item.id)).toEqual(["o", "l"]);
+  });
+
+  it("places a round at its earliest room, so it sorts with the programme", () => {
+    // Rooms of a round normally share a time, but nothing enforces it and a mistyped one
+    // must not drag the round to the bottom of the day.
+    const late = item({ id: "z", slot: "Breakout 3", code: "9Z", starts_at: "23:30" });
+    const rows = agendaRows([late, a, lunch]);
+    expect(rows.map((r) => (r.kind === "round" ? r.slot : r.item.title))).toEqual(["Lunch", "Breakout 3"]);
+    expect(rows[1].kind === "round" && rows[1].starts_at).toBe("21:00");
+  });
+
+  it("keeps two different rounds apart", () => {
+    const other = item({ id: "x", slot: "Breakout 4", code: "1A", starts_at: "22:00" });
+    const rows = agendaRows([a, other]);
+    expect(rows.map((r) => r.kind === "round" && r.slot)).toEqual(["Breakout 3", "Breakout 4"]);
   });
 });

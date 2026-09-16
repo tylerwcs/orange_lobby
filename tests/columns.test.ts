@@ -69,7 +69,7 @@ describe("hiddenFromCookie", () => {
 
 describe("visibleColumns", () => {
   it("drops the hidden ones and keeps the order", () => {
-    expect(visibleColumns(cols, ["email", "room_no"]).map((c) => c.key)).toEqual(["company", "category", "table_no", "checked_in", "source", "shirt_size", "dietary"]);
+    expect(visibleColumns(cols, ["email", "room_no"]).map((c) => c.key)).toEqual(["company", "phone", "category", "table_no", "checked_in", "source", "shirt_size", "dietary"]);
   });
 });
 
@@ -90,7 +90,7 @@ describe("parseTablePrefs", () => {
     // Fifteen columns is what a seven-question registration form produces; six is what
     // someone can actually read. The rest are one tick away in the Columns menu.
     expect(parseTablePrefs(undefined, cols).hidden).toEqual(defaultHidden(cols));
-    expect(parseTablePrefs(undefined, cols).hidden).toEqual(["email", "source", "shirt_size", "room_no", "dietary"]);
+    expect(parseTablePrefs(undefined, cols).hidden).toEqual(["email", "phone", "source", "shirt_size", "room_no", "dietary"]);
   });
 
   it("treats an empty stored layout as a deliberate show-everything", () => {
@@ -164,5 +164,30 @@ describe("breakout rounds as table columns", () => {
 
   it("still hides the organiser's own columns by default", () => {
     expect(defaultHidden(allColumns(registration, fields, rounds))).toContain(fields[0].key);
+  });
+});
+
+describe("fields an event does not collect", () => {
+  it("has no column at all, rather than a hidden one", () => {
+    // Hidden would be something you could tick back on by accident, with nothing behind it.
+    const keys = allColumns(registration, fields, [], ["company"]).map((c) => c.key);
+    expect(keys).toContain("company");
+    expect(keys).not.toContain("phone");
+    expect(keys).not.toContain("table_no");
+  });
+
+  it("leaves the fields that carry behaviour alone, whatever is collected", () => {
+    // email is the import's matching key and category decides who sees which sessions, so
+    // neither is ever switchable.
+    const keys = allColumns(registration, fields, [], []).map((c) => c.key);
+    expect(keys).toEqual(expect.arrayContaining(["email", "category", "checked_in", "source"]));
+  });
+
+  it("drops an uncollected field from the bulk editor too", () => {
+    expect(bulkFields(fields, ["category" as never]).map((f) => f.key)).not.toContain("table_no");
+  });
+
+  it("collects all three when nothing is said, so an un-migrated event is unchanged", () => {
+    expect(allColumns(registration, fields).map((c) => c.key)).toEqual(allColumns(registration, fields, [], ["company", "phone", "table_no"]).map((c) => c.key));
   });
 });

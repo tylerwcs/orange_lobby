@@ -54,8 +54,19 @@ export async function undoCheckinAction(eventId: string, checkpointId: string, a
 }
 
 export async function searchAttendeesAction(eventId: string, q: string, checkpointId: string): Promise<SearchHit[]> {
-  await authorise(eventId);
+  const { ev } = await authorise(eventId);
   if (q.trim().length < 2) return [];
   const [rows, checkedIn] = await Promise.all([listAttendees(eventId, q), listCheckedInAttendeeIds(checkpointId)]);
-  return rows.slice(0, 20).map((a) => ({ id: a.id, name: a.name, company: a.company, category: a.category, table_no: a.table_no, checkedIn: checkedIn.has(a.id) }));
+  // A field this event does not collect never reaches the crew's phone at all, rather than
+  // being filtered out once it is there. The subtitle under a search hit is built from
+  // whatever survives, so nulling it here is enough — and it keeps the wire honest.
+  const collects = new Set<string>(ev.collected_fields);
+  return rows.slice(0, 20).map((a) => ({
+    id: a.id,
+    name: a.name,
+    company: collects.has("company") ? a.company : null,
+    category: a.category,
+    table_no: collects.has("table_no") ? a.table_no : null,
+    checkedIn: checkedIn.has(a.id),
+  }));
 }

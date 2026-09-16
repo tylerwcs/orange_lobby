@@ -73,7 +73,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // already on file. `attendee_fields` is only what was added on top.
   const registrationFields = fieldsFromQuestions(ev.registration_questions);
   const allFields = eventFields(ev.registration_questions, ev.attendee_fields);
-  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns);
+  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns, ev.collected_fields);
   // The older cookie only held hidden columns; reading it as a fallback means an organiser
   // who had already tuned their table does not lose that when ordering ships.
   const prefs = parseTablePrefs(jar.get(tableCookieName(ev.id))?.value, columns, jar.get(columnsCookieName(ev.id))?.value);
@@ -121,8 +121,10 @@ export default async function Attendees({ params, searchParams }: { params: Prom
             <Modal title="Add an attendee" hint="For someone who is not on the masterlist and is not registering themselves." trigger="Add attendee" icon="plus">
               <form action={addAttendeeAction.bind(null, ev.id)} className="grid gap-3 md:grid-cols-2">
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
-                <Field label="Phone" name="phone" /><Field label="Company" name="company" />
-                <Field label="Category" name="category" /><Field label="Table" name="table_no" />
+                {ev.collected_fields.includes("phone") && <Field label="Mobile" name="phone" />}
+                {ev.collected_fields.includes("company") && <Field label="Company" name="company" />}
+                <Field label="Category" name="category" />
+                {ev.collected_fields.includes("table_no") && <Field label="Table" name="table_no" />}
                 <FieldInputs fields={allFields} />
                 <input type="hidden" name="source" value="import" />
                 <div className="md:col-span-2"><SubmitButton>Add attendee</SubmitButton></div>
@@ -204,7 +206,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
-        bulkEditable={[...bulkFields(allFields), ...roundColumns]}
+        bulkEditable={[...bulkFields(allFields, ev.collected_fields), ...roundColumns]}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
       />
