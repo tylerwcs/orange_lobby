@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes } from "@/lib/breakouts";
+import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
@@ -247,5 +247,38 @@ describe("parseRoomCodes", () => {
   it("is empty for an empty line", () => {
     expect(parseRoomCodes("")).toEqual([]);
     expect(parseRoomCodes("  ,  ")).toEqual([]);
+  });
+});
+
+describe("agendaRows", () => {
+  const lunch = item({ id: "l", title: "Lunch", starts_at: "12:15" });
+  const a = item({ id: "a", slot: "Breakout 3", code: "9A", starts_at: "21:00", ends_at: "21:45" });
+  const b = item({ id: "b", slot: "Breakout 3", code: "9B", starts_at: "21:00", ends_at: "21:45" });
+  const c = item({ id: "c", slot: "Breakout 3", code: "9C", starts_at: "21:00", ends_at: "21:45" });
+
+  it("collapses every room of a round into one row", () => {
+    const rows = agendaRows([lunch, a, b, c]);
+    expect(rows.map((r) => r.kind)).toEqual(["session", "round"]);
+    expect(rows[1].kind === "round" && rows[1].items.map((i) => i.code)).toEqual(["9A", "9B", "9C"]);
+  });
+
+  it("leaves ordinary sessions alone, one row each", () => {
+    const other = item({ id: "o", title: "Coffee", starts_at: "10:00" });
+    expect(agendaRows([lunch, other]).map((r) => r.kind === "session" && r.item.id)).toEqual(["o", "l"]);
+  });
+
+  it("places a round at its earliest room, so it sorts with the programme", () => {
+    // Rooms of a round normally share a time, but nothing enforces it and a mistyped one
+    // must not drag the round to the bottom of the day.
+    const late = item({ id: "z", slot: "Breakout 3", code: "9Z", starts_at: "23:30" });
+    const rows = agendaRows([late, a, lunch]);
+    expect(rows.map((r) => (r.kind === "round" ? r.slot : r.item.title))).toEqual(["Lunch", "Breakout 3"]);
+    expect(rows[1].kind === "round" && rows[1].starts_at).toBe("21:00");
+  });
+
+  it("keeps two different rounds apart", () => {
+    const other = item({ id: "x", slot: "Breakout 4", code: "1A", starts_at: "22:00" });
+    const rows = agendaRows([a, other]);
+    expect(rows.map((r) => r.kind === "round" && r.slot)).toEqual(["Breakout 3", "Breakout 4"]);
   });
 });

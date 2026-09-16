@@ -595,6 +595,81 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
 }
 
 /**
+ * Edits a whole breakout round: its shared fields, its name, and which rooms it has.
+ *
+ * A round is created in one go and listed as one line, so it is edited in one go too. The
+ * rooms field is the round's room list — codes added to it become new rooms, and codes
+ * taken off it are removed ONLY if the removal box is ticked. That default is deliberate:
+ * clearing a code by accident would otherwise delete a room and, by cascade, everybody
+ * assigned to it.
+ *
+ * Renaming pushes onto the assignment rows, because `unique (attendee_id, slot)` reads the
+ * copy denormalised there. Doing every room of the round at once is what makes renaming
+ * safe here and dangerous one room at a time — this cannot split a round.
+ */
+export async function updateBreakoutRoundAction(eventId: string, slot: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/agenda`;
+
+  const current = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
+  if (!current) redirect(flashPath(back, "That round no longer exists.", "error"));
+
+  const day = str(formData, "day");
+  const starts_at = str(formData, "starts_at");
+  const nextSlot = str(formData, "slot");
+  const rooms = parseRoomCodes(str(formData, "code") ?? "");
+  if (!day || !starts_at || !nextSlot) redirect(flashPath(back, "A round needs a day, a start time and a name.", "error"));
+  if (rooms.length === 0) redirect(flashPath(back, "A round needs at least one room.", "error"));
+
+  const shared = {
+    day, starts_at,
+    ends_at: str(formData, "ends_at"),
+    title: str(formData, "title") ?? nextSlot,
+    description: str(formData, "description"),
+    location: null,
+    categories: null,
+    slot: nextSlot,
+    color: parseAgendaColour(str(formData, "color")),
+    sort_order: 0,
+  };
+
+  const wanted = new Map(rooms.map((r) => [r.toLowerCase(), r]));
+  const removeMissing = formData.get("remove_missing") === "on";
+  let removed = 0;
+
+  for (const room of current.items) {
+    const code = room.code?.trim() ?? "";
+    const keep = wanted.has(code.toLowerCase());
+    if (!keep && removeMissing) { await deleteAgendaItem(room.id, ev.id); removed++; continue; }
+    await updateAgendaItem(room.id, ev.id, { ...shared, code: keep ? wanted.get(code.toLowerCase())! : code });
+    if (nextSlot !== slot) {
+      try {
+        await renameSlotAssignments(room.id, nextSlot);
+      } catch {
+        redirect(flashPath(back, `Renamed, but the people in ${code} could not follow — somebody there is already in “${nextSlot}”.`, "error"));
+      }
+    }
+    wanted.delete(code.toLowerCase());
+  }
+
+  for (const code of wanted.values()) await createAgendaItem(ev, { ...shared, code });
+
+  revalidatePath(back);
+  redirect(flashPath(back, `${nextSlot} saved.${wanted.size > 0 ? ` ${wanted.size} room${wanted.size === 1 ? "" : "s"} added.` : ""}${removed > 0 ? ` ${removed} removed.` : ""}`));
+}
+
+/** Deletes a round and every room in it. Assignments go with the rooms, by cascade. */
+export async function deleteBreakoutRoundAction(eventId: string, slot: string) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const round = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
+  if (round) for (const room of round.items) await deleteAgendaItem(room.id, ev.id);
+  revalidatePath(`/admin/events/${eventId}/agenda`);
+  redirect(flashPath(`/admin/events/${eventId}/agenda`, `“${slot}” removed.`));
+}
+
+/**
  * Edits one session, ordinary or breakout.
  *
  * `preset` says which form posted: a breakout carries a round and a room and never a

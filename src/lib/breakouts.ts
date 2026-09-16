@@ -188,3 +188,35 @@ export function parseRoomCodes(raw: string): string[] {
   }
   return out;
 }
+
+/**
+ * A line in the organiser's agenda: either one ordinary session, or a whole breakout round
+ * with its rooms folded into it.
+ *
+ * A four-room round was four rows saying the same time, the same title and the same round
+ * name, differing only in a code — four lines to carry one fact. It is one line now, and
+ * the rooms are what it lists.
+ */
+export type AgendaRow =
+  | { kind: "session"; item: AgendaItem }
+  | { kind: "round"; slot: string; items: AgendaItem[]; day: string; starts_at: string; ends_at: string | null };
+
+export function agendaRows(items: AgendaItem[]): AgendaRow[] {
+  const sorted = [...items].sort((a, b) =>
+    a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at) || a.sort_order - b.sort_order);
+  const out: AgendaRow[] = [];
+  const rounds = new Map<string, Extract<AgendaRow, { kind: "round" }>>();
+  for (const i of sorted) {
+    if (!isBreakout(i)) { out.push({ kind: "session", item: i }); continue; }
+    const slot = (i.slot as string).trim();
+    const seen = rounds.get(slot);
+    if (seen) { seen.items.push(i); continue; }
+    // The round takes its place from its EARLIEST room — the first one reached, since the
+    // list is sorted. Rooms of a round normally share a time, but nothing enforces it and
+    // one mistyped room must not drag the whole round to the bottom of the day.
+    const row = { kind: "round" as const, slot, items: [i], day: i.day, starts_at: i.starts_at, ends_at: i.ends_at };
+    rounds.set(slot, row);
+    out.push(row);
+  }
+  return out;
+}

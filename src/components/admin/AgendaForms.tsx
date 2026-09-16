@@ -1,7 +1,7 @@
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { CategoryCombo, ColourCombo } from "@/components/admin/AgendaCombos";
-import { addAgendaItemAction, addBreakoutRoundAction, updateAgendaItemAction } from "@/app/admin/events/[id]/actions";
+import { addAgendaItemAction, addBreakoutRoundAction, updateAgendaItemAction, updateBreakoutRoundAction } from "@/app/admin/events/[id]/actions";
 import type { AgendaItem } from "@/lib/types";
 
 /**
@@ -39,43 +39,56 @@ export function SessionForm({ eventId, categories, item, startsOn }: {
   );
 }
 
-export function BreakoutForm({ eventId, item, startsOn }: { eventId: string; item?: AgendaItem; startsOn?: string | null }) {
-  const action = item
-    ? updateAgendaItemAction.bind(null, eventId, item.id)
+export function BreakoutForm({ eventId, round, startsOn }: {
+  eventId: string;
+  /** The round being edited, with every room in it. Absent means creating a new one. */
+  round?: { slot: string; items: AgendaItem[] };
+  startsOn?: string | null;
+}) {
+  const first = round?.items[0];
+  const action = round
+    ? updateBreakoutRoundAction.bind(null, eventId, round.slot)
     : addBreakoutRoundAction.bind(null, eventId);
+  const codes = round?.items.map((i) => i.code).filter(Boolean).join(", ");
   return (
     <form action={action} className="grid gap-4 p-1">
       <input type="hidden" name="preset" value="breakout" />
-      <When item={item} startsOn={startsOn} />
+      <When item={first} startsOn={startsOn} />
       <Field
         label="Round"
         name="slot"
-        defaultValue={item?.slot}
+        defaultValue={round?.slot}
         placeholder="Breakout 1"
-        description="Every room of one round shares this. Name it the same as the column in the spreadsheet."
+        description="Every room of this round shares it. Name it the same as the column in the spreadsheet."
       />
-      {/* Creating a round asks for all of its rooms at once — everything else on this form
-          is shared between them. Editing is one room at a time, because that is the only
-          field of a room that is its own. */}
       <Field
-        label={item ? "Room" : "Rooms"}
+        label="Rooms"
         name="code"
-        defaultValue={item?.code}
-        placeholder={item ? "3A" : "3A, 3B, 3C, 3D"}
-        description={item
-          ? "Exactly as the spreadsheet writes it. This is also what the attendee sees."
-          : "One per room, separated by commas, exactly as the spreadsheet writes them. Each becomes a room of this round."}
+        defaultValue={codes}
+        placeholder="3A, 3B, 3C, 3D"
+        description="One per room, separated by commas, exactly as the spreadsheet writes them."
       />
-      <Field label="Title (optional)" name="title" defaultValue={item?.title} placeholder="Breakout: regional teams" />
-      <Field label="Description" name="description" textarea defaultValue={item?.description} />
-      <ColourCombo defaultValue={item?.color ?? null} />
-      {item && (
-        <p className="text-xs text-muted-foreground">
-          Renaming the round moves the people already in this room with it. Rename every room of the
-          round, or you will have split it in two.
-        </p>
+      <Field label="Title (optional)" name="title" defaultValue={first?.title} placeholder="Breakout: regional teams" />
+      <Field label="Description" name="description" textarea defaultValue={first?.description} />
+      <ColourCombo defaultValue={first?.color ?? null} />
+      {round && (
+        <>
+          <label className="flex items-start gap-3 text-sm font-medium">
+            <input type="checkbox" name="remove_missing" className="mt-0.5 size-4 accent-primary" />
+            <span>
+              Remove rooms I have taken off the list
+              <span className="block text-xs font-normal text-muted-foreground">
+                Off by default. A room removed here is deleted, and so is everybody assigned to it.
+              </span>
+            </span>
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Renaming the round moves everybody in it with it — every room at once, so the round
+            cannot be split in half.
+          </p>
+        </>
       )}
-      <SubmitButton>{item ? "Save room" : "Add round"}</SubmitButton>
+      <SubmitButton>{round ? "Save round" : "Add round"}</SubmitButton>
     </form>
   );
 }
