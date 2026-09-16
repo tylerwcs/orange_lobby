@@ -1,5 +1,6 @@
 import type { EventModule } from "@/lib/modules";
 import type { AttendeeField } from "@/lib/attendee-fields";
+import type { PinnedField } from "@/lib/pinned-fields";
 
 export type EventStatus = "draft" | "live" | "archived";
 
@@ -42,6 +43,8 @@ export type Event = {
   /** Organiser-defined columns on the attendee table; values live in `Attendee.extra`. */
   attendee_fields: AttendeeField[];
   scan_extra_fields: string[];
+  /** Facts shown on the badge card, in order. The first gets the large treatment. */
+  pinned_fields: PinnedField[];
   modules: EventModule[];
 };
 
