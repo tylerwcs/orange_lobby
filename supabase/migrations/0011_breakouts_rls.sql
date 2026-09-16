@@ -1,0 +1,16 @@
+-- Close a hole 0007 left open: `breakout_assignments` shipped without row level security.
+--
+-- Every other table in this database has had it since 0001_init.sql, under the same rule —
+-- enabled, with no policies, because only the service role (which bypasses RLS) may touch
+-- data. 0007 created this table and did not repeat those two lines, so from the day breakouts
+-- shipped the table was reachable by the anon and authenticated roles: the anon key travels in
+-- the client bundle, so anyone holding it could read every assignment, move somebody to another
+-- room, or delete the lot.
+--
+-- Nothing breaks. `src/lib/db/breakouts.ts` is `server-only` and reaches this table through
+-- `serviceClient()`, which bypasses RLS; the anon key is used in this app only for
+-- `supabase.auth` session handling, never for a data read.
+--
+-- Enabling RLS without policies denies the anon and authenticated roles outright, which is the
+-- intent, not an oversight — see the note at the foot of 0001_init.sql.
+alter table breakout_assignments enable row level security;
