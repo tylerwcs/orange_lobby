@@ -36,21 +36,23 @@ export function breakoutSlots(items: AgendaItem[]): BreakoutSlot[] {
  * One row per breakout round for one attendee: the room they have, or null when they have none.
  *
  * The null row is the point. `visibleTo` removed every room this attendee is not in, so
- * without this an unassigned attendee's afternoon is a silent ninety-minute hole. The
- * placeholder's time comes from the round's own rooms, which share a time by definition —
- * they are alternatives to one another.
+ * without this an unassigned attendee's afternoon is a silent ninety-minute hole. When the
+ * attendee is assigned, the row's time comes from their own room, so a mistyped agenda cannot
+ * show someone else's hours. When unassigned (placeholder), the time comes from the round's
+ * first room, which has no better source — the rooms should share a time, but nothing enforces it.
  */
 export type MyBreakout = { slot: string; item: AgendaItem | null; day: string; starts_at: string; ends_at: string | null };
 
 export function myBreakouts(items: AgendaItem[], assignedItemIds: ReadonlySet<string>): MyBreakout[] {
   return breakoutSlots(items).map((s) => {
-    const first = s.items[0];
+    const assigned = s.items.find((i) => assignedItemIds.has(i.id)) ?? null;
+    const source = assigned ?? s.items[0];
     return {
       slot: s.slot,
-      item: s.items.find((i) => assignedItemIds.has(i.id)) ?? null,
-      day: first.day,
-      starts_at: first.starts_at,
-      ends_at: first.ends_at,
+      item: assigned,
+      day: source.day,
+      starts_at: source.starts_at,
+      ends_at: source.ends_at,
     };
   });
 }

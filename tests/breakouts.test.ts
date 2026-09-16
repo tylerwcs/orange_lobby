@@ -75,6 +75,17 @@ describe("myBreakouts", () => {
   it("is empty for an event that runs no breakouts", () => {
     expect(myBreakouts([item({ title: "Lunch" })], new Set())).toEqual([]);
   });
+
+  it("takes the assigned room's time, not the first room's time", () => {
+    // A hand-typed agenda may have rooms with conflicting times.
+    // An attendee assigned to the second room must see that room's hours, not the first room's.
+    const rooms = [
+      item({ id: "a", slot: "Breakout 1", code: "3A", starts_at: "13:30", ends_at: "15:00" }),
+      item({ id: "b", slot: "Breakout 1", code: "3B", starts_at: "14:00", ends_at: "15:30" }),
+    ];
+    const mine = myBreakouts(rooms, new Set(["b"]));
+    expect(mine[0]).toMatchObject({ item: expect.objectContaining({ id: "b" }), starts_at: "14:00", ends_at: "15:30" });
+  });
 });
 
 describe("matchAssignments", () => {
