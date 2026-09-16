@@ -50,10 +50,16 @@ export function buildPassport(booths: Booth[], stamps: BoothStamp[], required: n
   };
 }
 
-/** The one line the card and the booth scanner both show. */
+/**
+ * The one line the card and the booth scanner both show.
+ *
+ * When complete, drops the fraction `X of Y` because a target below the booth count means
+ * an attendee can keep collecting after hitting the target — `"5 of 3"` reads as broken.
+ * The true count feeds the export and the admin's data; the display just says the card is full.
+ */
 export function progressLine(p: Pick<Passport, "collected" | "target" | "remaining" | "complete">): string {
   if (p.target === 0) return "No booths yet";
-  if (p.complete) return `${p.collected} of ${p.target} · card full`;
+  if (p.complete) return `Card full · ${p.collected} stamp${p.collected === 1 ? "" : "s"}`;
   return `${p.collected} of ${p.target} · ${p.remaining} more to go`;
 }
 

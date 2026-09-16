@@ -89,7 +89,15 @@ describe("progressLine", () => {
   });
 
   it("says so when the card is full", () => {
-    expect(progressLine({ collected: 5, target: 5, remaining: 0, complete: true })).toBe("5 of 5 · card full");
+    expect(progressLine({ collected: 5, target: 5, remaining: 0, complete: true })).toBe("Card full · 5 stamps");
+  });
+
+  it("guards: target below booth count cannot produce X of Y when complete", () => {
+    expect(progressLine({ collected: 5, target: 3, remaining: 0, complete: true })).toBe("Card full · 5 stamps");
+  });
+
+  it("uses singular when the card is full with one stamp", () => {
+    expect(progressLine({ collected: 1, target: 1, remaining: 0, complete: true })).toBe("Card full · 1 stamp");
   });
 
   it("says nothing numeric when there are no booths", () => {
