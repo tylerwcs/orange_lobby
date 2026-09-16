@@ -25,7 +25,7 @@ export function parseQuestions(input: string | unknown): RegistrationQuestion[] 
   return res.data;
 }
 
-export type RegistrationData = { name: string; email: string; phone: string | null; company: string | null; extra: Record<string, string> };
+export type RegistrationData = { name: string; email: string; extra: Record<string, string> };
 export type RegistrationResult = { ok: true; data: RegistrationData } | { ok: false; errors: Record<string, string> };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -47,5 +47,5 @@ export function validateRegistration(input: Record<string, string>, questions: R
     extra[q.key] = v;
   }
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, data: { name, email, phone: get("phone") || null, company: get("company") || null, extra } };
+  return { ok: true, data: { name, email, extra } };
 }

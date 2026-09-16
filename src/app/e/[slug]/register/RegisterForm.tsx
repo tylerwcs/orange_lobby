@@ -3,7 +3,6 @@ import { useActionState, useEffect, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { registerAction, type RegisterState } from "./actions";
 import type { RegistrationQuestion } from "@/lib/types";
-import type { CollectedField } from "@/lib/collected-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -18,16 +17,19 @@ import { Spinner } from "@/components/ui/spinner";
  */
 const selectClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
 
+// Only these two question types want a specialised keyboard; select has its own branch below,
+// and plain text needs neither an overridden type nor an inputMode.
+const INPUT_TYPE: Record<string, string> = { phone: "tel", number: "number" };
+const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMode"]> = { phone: "tel", number: "decimal" };
+
 function isShown(q: RegistrationQuestion, answers: Record<string, string>) {
   if (!q.show_when) return true;
   return (answers[q.show_when.key] ?? "").toLowerCase().includes(q.show_when.includes.toLowerCase());
 }
 
-export function RegisterForm({ slug, questions, collects }: {
+export function RegisterForm({ slug, questions }: {
   slug: string;
   questions: RegistrationQuestion[];
-  /** Which optional facts this event collects. An invitee is never asked for the rest. */
-  collects: CollectedField[];
 }) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug), {});
   // Every field is controlled, the four fixed ones included. They used to be uncontrolled
@@ -94,18 +96,6 @@ export function RegisterForm({ slug, questions, collects }: {
             <FieldDescription id="reg-email-help">We use this to recognise you if you register twice.</FieldDescription>
             <FieldError id="reg-email-error">{errors.email}</FieldError>
           </Field>
-          {collects.includes("phone") && (
-          <Field>
-            <FieldLabel htmlFor="reg-phone">Mobile number<span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
-            <Input id="reg-phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" enterKeyHint="next" value={value("phone")} onChange={(e) => set("phone", e.target.value)} className="h-11" />
-          </Field>
-          )}
-          {collects.includes("company") && (
-          <Field>
-            <FieldLabel htmlFor="reg-company">Department or company<span className="font-normal text-muted-foreground">(optional)</span></FieldLabel>
-            <Input id="reg-company" name="company" autoComplete="organization" value={value("company")} onChange={(e) => set("company", e.target.value)} className="h-11" />
-          </Field>
-          )}
         </FieldGroup>
       </FieldSet>
 
@@ -127,7 +117,7 @@ export function RegisterForm({ slug, questions, collects }: {
                       {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
                   ) : (
-                    <Input id={id} name={q.key} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                    <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
                       className="h-11" {...invalid(q.key, q.description ? `${id}-help` : undefined)} />
                   )}
                   <FieldError id={`${id}-error`}>{errors[q.key]}</FieldError>

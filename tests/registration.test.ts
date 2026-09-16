@@ -33,7 +33,8 @@ describe("validateRegistration", () => {
   it("returns trimmed data with extra answers", () => {
     const r = validateRegistration({ name: " Ann ", email: " Ann@B.co ", phone: "012", company: "Ecopia", tshirt: "M", remarks: "" }, qs);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.data).toEqual({ name: "Ann", email: "ann@b.co", phone: "012", company: "Ecopia", extra: { tshirt: "M", remarks: "" } });
+    // phone/company aren't questions this event asked (qs only has tshirt/remarks), so they're dropped like any other unasked field.
+    if (r.ok) expect(r.data).toEqual({ name: "Ann", email: "ann@b.co", extra: { tshirt: "M", remarks: "" } });
   });
 });
 
@@ -50,6 +51,28 @@ describe("phone and number questions", () => {
 
   it("still rejects a type it does not know", () => {
     expect(() => parseQuestions([{ key: "x", label: "X", type: "file", required: false }])).toThrow();
+  });
+});
+
+describe("validateRegistration after unification", () => {
+  const q = (key: string, type: "text" | "phone" = "text") =>
+    ({ key, label: key, type, required: false }) as const;
+
+  it("puts every answer in extra, including phone and company", () => {
+    const r = validateRegistration(
+      { name: "Sam", email: "S@x.com", phone: "012", company: "Ecopia" },
+      [q("phone", "phone"), q("company")],
+    );
+    expect(r).toEqual({ ok: true, data: { name: "Sam", email: "s@x.com", extra: { phone: "012", company: "Ecopia" } } });
+  });
+
+  it("ignores a phone the event never asked for", () => {
+    const r = validateRegistration({ name: "Sam", email: "s@x.com", phone: "012" }, []);
+    expect(r).toEqual({ ok: true, data: { name: "Sam", email: "s@x.com", extra: {} } });
+  });
+
+  it("still requires name and a valid email", () => {
+    expect(validateRegistration({ name: "", email: "nope" }, [])).toMatchObject({ ok: false });
   });
 });
 
