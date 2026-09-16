@@ -1,6 +1,7 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { loadHomeData } from "@/lib/portal-home";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
+import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { checkinStatus } from "@/lib/checkins-stats";
 import { isoToLocalInput } from "@/lib/time";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -28,8 +29,9 @@ export default async function PersonalHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
+  const assignedItemIds = await assignedItemIdsFor(attendee.id);
   const { tiles, banner, next, today, agenda, days, day, announcements, now } =
-    await loadHomeData(event, attendee, basePath, requestedDay);
+    await loadHomeData(event, attendee, basePath, requestedDay, assignedItemIds);
   const checkins = await listCheckinsForEvent(event.id);
   const state = checkinStatus(attendee.id, checkins);
   const checkedInAt = state.at ? isoToLocalInput(state.at).split("T")[1] : null;
