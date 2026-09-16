@@ -3,8 +3,7 @@ import { loadHomeData } from "@/lib/portal-home";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { checkinStatus } from "@/lib/checkins-stats";
 import { isoToLocalInput } from "@/lib/time";
-import { assignedItemIdsFor } from "@/lib/db/breakouts";
-import { isBreakout, myBreakouts } from "@/lib/breakouts";
+import { myBreakouts } from "@/lib/breakouts";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { BadgeCard } from "@/components/portal/BadgeCard";
 import { BreakoutCard } from "@/components/portal/BreakoutCard";
@@ -31,14 +30,11 @@ export default async function PersonalHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
-  const { tiles, banner, next, today, agenda, allAgenda, days, day, announcements, now } =
+  const { tiles, banner, next, today, agenda, allAgenda, assignedItemIds, days, day, announcements, now } =
     await loadHomeData(event, attendee, basePath, requestedDay);
   const checkins = await listCheckinsForEvent(event.id);
   const state = checkinStatus(attendee.id, checkins);
   const checkedInAt = state.at ? isoToLocalInput(state.at).split("T")[1] : null;
-  // Same guard loadHomeData uses internally: skip the assignments query entirely for the
-  // events that exist today, which have no breakout rows at all.
-  const assignedItemIds = allAgenda.some(isBreakout) ? await assignedItemIdsFor(attendee.id) : new Set<string>();
 
   return (
     <PortalShell event={event} basePath={basePath} personal current="" hero dashboard>

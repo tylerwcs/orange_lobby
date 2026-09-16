@@ -21,6 +21,8 @@ export type HomeData = {
    * attendee is missing, not just the one (if any) they're assigned to.
    */
   allAgenda: AgendaItem[];
+  /** The breakout items this attendee is assigned to, exposed so the home page's breakouts card can reuse it rather than re-querying. */
+  assignedItemIds: ReadonlySet<string>;
   days: string[];
   /** The day the desktop home is showing - today when the event is running, else the first. */
   day: string | null;
@@ -50,7 +52,7 @@ export async function loadHomeData(
   const days = groupByDay(agenda).map((g) => g.day);
   return {
     tiles, banner, next, today: date,
-    agenda, allAgenda, days, day: pickDay(days, requestedDay, date),
+    agenda, allAgenda, assignedItemIds, days, day: pickDay(days, requestedDay, date),
     announcements, now: { date, time },
   };
 }
