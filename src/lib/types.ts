@@ -48,6 +48,10 @@ export type Event = {
   pinned_fields: PinnedField[];
   /** Which of the optional attendee facts this event collects — company, phone, table. */
   collected_fields: CollectedField[];
+  /** How many stamps fill the Booth Passport. Null means every booth this event has. */
+  stamps_required: number | null;
+  /** What the passport says when it is full. Admin-authored, because the prize is decided late. */
+  stamps_message: string | null;
   modules: EventModule[];
 };
 
@@ -115,4 +119,24 @@ export type Checkin = {
   attendee_id: string;
   scanned_by: string | null;
   scanned_at: string;
+};
+
+export type Booth = {
+  id: string;
+  org_id: string;
+  event_id: string;
+  name: string;
+  location: string | null;
+  /** The booth's scanner authority. Printed as a QR; never shown to attendees. */
+  token: string;
+  sort_order: number;
+};
+
+export type BoothStamp = {
+  id: string;
+  org_id: string;
+  event_id: string;
+  booth_id: string;
+  attendee_id: string;
+  stamped_at: string;
 };
