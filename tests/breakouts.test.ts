@@ -35,6 +35,18 @@ describe("breakoutSlots", () => {
     expect(slots[0].items.map((i) => i.code)).toEqual(["3A", "3B"]);
   });
 
+  it("sorts breakout items by day, then starts_at, regardless of input order", () => {
+    // Supply items out of chronological order to test that sort actually runs
+    const slots = breakoutSlots([
+      item({ id: "c", slot: "Breakout 1", code: "3C", starts_at: "15:30" }),
+      item({ id: "a", slot: "Breakout 1", code: "3A", starts_at: "13:30" }),
+      item({ id: "b", slot: "Breakout 1", code: "3B", starts_at: "14:30" }),
+    ]);
+    // If .sort() were removed, items would appear in input order: 3C, 3A, 3B
+    // With sort, they must appear in chronological order: 3A, 3B, 3C
+    expect(slots[0].items.map((i) => i.code)).toEqual(["3A", "3B", "3C"]);
+  });
+
   it("returns nothing for an event that runs no breakouts", () => {
     expect(breakoutSlots([item({ title: "Lunch" })])).toEqual([]);
   });
