@@ -629,6 +629,13 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
   const rooms = parseRoomCodes(str(formData, "code") ?? "");
   if (!day || !starts_at || !nextSlot) redirect(flashPath(back, "A round needs a day, a start time and a name.", "error"));
   if (rooms.length === 0) redirect(flashPath(back, "A round needs at least one room.", "error"));
+  // Renaming into a name another round already uses would merge the two: `breakoutSlots`
+  // groups on the name alone, so the next edit would pull both into one round and rewrite
+  // the other one's day. Guarding creation was not enough — this is the same state by a
+  // different door.
+  if (nextSlot !== slot && breakoutSlots(await listAgenda(ev.id)).some((s) => s.slot === nextSlot)) {
+    redirect(flashPath(back, `There is already a round called “${nextSlot}”. Two rounds cannot share a name.`, "error"));
+  }
 
   const shared = {
     day, starts_at,
@@ -655,7 +662,11 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
     // everybody assigned to it) on the strength of that would be silent data loss.
     const keep = code === "" || wanted.has(code.toLowerCase());
     if (!keep && removeMissing) { await deleteAgendaItem(room.id, ev.id); removed++; continue; }
-    await updateAgendaItem(room.id, ev.id, { ...shared, code: keep ? wanted.get(code.toLowerCase())! : code });
+    // `wanted` never holds a "" key, so a codeless room must keep what it has rather than
+    // be handed an undefined that `updateAgendaItem` would drop from the payload — the one
+    // place that function is documented to send every column explicitly.
+    const nextCode = code === "" ? room.code : (wanted.get(code.toLowerCase()) ?? code);
+    await updateAgendaItem(room.id, ev.id, { ...shared, code: nextCode });
     if (nextSlot !== slot) {
       try {
         await renameSlotAssignments(room.id, nextSlot);
