@@ -20,6 +20,7 @@ import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointA
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
+import { COLLECTED_FIELDS, COLLECTED_FIELD_LABELS } from "@/lib/collected-fields";
 import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
@@ -88,7 +89,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
   const days = eventDays(ev.starts_on, ev.ends_on);
 
-  const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields);
+  const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields, ev.collected_fields);
   const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
 
   return (
@@ -246,6 +247,29 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <Section title="Branding and images" hint="Paste image links. The logo replaces the initials mark; the banner appears above the home page.">
             <Field label="Logo image link" name="logo_url" defaultValue={ev.logo_url} />
             <Field label="Banner image link" name="banner_url" defaultValue={ev.banner_url} />
+          </Section>
+
+          <Section
+            title="What this event collects"
+            hint="Name, email and category are always collected — the import matches on email and the agenda filters on category. These three are optional. Switching one off hides it everywhere; nothing already entered is deleted."
+          >
+            <div className="@xl:col-span-2 flex flex-wrap gap-2">
+              {COLLECTED_FIELDS.map((f) => (
+                <label
+                  key={f}
+                  className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-input px-3.5 text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-accent has-[:checked]:text-accent-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    name="collected_fields"
+                    value={f}
+                    defaultChecked={ev.collected_fields.includes(f)}
+                    className="size-4 accent-primary"
+                  />
+                  {COLLECTED_FIELD_LABELS[f]}
+                </label>
+              ))}
+            </div>
           </Section>
 
           <Section title="Onsite scanner" hint="After a scan, crew see name, company, category and table. Add up to two more fields, for example shirt_size or dietary.">

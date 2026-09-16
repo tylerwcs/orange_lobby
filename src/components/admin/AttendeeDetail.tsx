@@ -71,7 +71,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
             {firstScan
               ? <Badge variant="success">In at {hhmm(firstScan)}</Badge>
               : <Badge variant="warning">Not checked in</Badge>}
-            {a.table_no && <Badge variant="secondary">Table {a.table_no}</Badge>}
+            {a.table_no && ev.collected_fields.includes("table_no") && <Badge variant="secondary">Table {a.table_no}</Badge>}
           </div>
           <a href={link} className="block break-all font-mono text-xs leading-relaxed text-primary">{link}</a>
           <div className="flex flex-wrap gap-2">
@@ -94,8 +94,12 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
               <h3 className={`${caption} mb-2.5`}>Details</h3>
               <div className="grid gap-3 @md:grid-cols-2">
                 <Field label="Name" name="name" defaultValue={a.name} /><Field label="Email" name="email" defaultValue={a.email} />
-                <Field label="Phone" name="phone" defaultValue={a.phone} /><Field label="Company" name="company" defaultValue={a.company} />
-                <Field label="Category" name="category" defaultValue={a.category} /><Field label="Table" name="table_no" defaultValue={a.table_no} />
+                {/* Only what this event collects. A value already stored under a field that
+                    was switched off is kept, just not shown or editable here. */}
+                {ev.collected_fields.includes("phone") && <Field label="Mobile" name="phone" defaultValue={a.phone} />}
+                {ev.collected_fields.includes("company") && <Field label="Company" name="company" defaultValue={a.company} />}
+                <Field label="Category" name="category" defaultValue={a.category} />
+                {ev.collected_fields.includes("table_no") && <Field label="Table" name="table_no" defaultValue={a.table_no} />}
               </div>
             </section>
 

@@ -1,6 +1,7 @@
 import { isValidToken } from "@/lib/tokens";
 import type { Attendee, Event } from "@/lib/types";
 import { eventFields } from "@/lib/attendee-fields";
+import { COLLECTED_FIELDS } from "@/lib/collected-fields";
 
 export function extractToken(scanned: string): string | null {
   const s = scanned.trim();
@@ -9,10 +10,16 @@ export function extractToken(scanned: string): string | null {
   return m && isValidToken(m[1]) ? m[1] : null;
 }
 
-export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields" | "attendee_fields" | "registration_questions">) {
+export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields" | "attendee_fields" | "registration_questions"> & Partial<Pick<Event, "collected_fields">>) {
+  // A field this event does not collect is left off the card entirely rather than shown
+  // blank: crew read this in a second at a door, and a line that is always empty costs
+  // them one of those seconds every time. An event row from before migration 0008 has no
+  // list, which reads as collecting all three — what every event did before.
+  const collects = new Set<string>(e.collected_fields ?? COLLECTED_FIELDS);
   const out = [
-    { label: "Company", value: a.company ?? "" }, { label: "Category", value: a.category ?? "" },
-    { label: "Table", value: a.table_no ?? "" },
+    ...(collects.has("company") ? [{ label: "Company", value: a.company ?? "" }] : []),
+    { label: "Category", value: a.category ?? "" },
+    ...(collects.has("table_no") ? [{ label: "Table", value: a.table_no ?? "" }] : []),
   ];
   for (const key of e.scan_extra_fields) {
     const direct = (a as unknown as Record<string, unknown>)[key];

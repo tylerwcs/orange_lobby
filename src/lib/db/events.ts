@@ -4,6 +4,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import type { Event, EventStatus } from "@/lib/types";
 import { parseAttendeeFields } from "@/lib/attendee-fields";
 import { hydratePins } from "@/lib/pinned-fields";
+import { parseCollectedFields } from "@/lib/collected-fields";
 
 export { slugify } from "@/lib/slug";
 
@@ -14,8 +15,16 @@ export { slugify } from "@/lib/slug";
  */
 function hydrate(row: unknown): Event {
   const ev = row as Event;
-  const raw = row as { attendee_fields?: unknown; pinned_fields?: unknown };
-  return { ...ev, attendee_fields: parseAttendeeFields(raw.attendee_fields), pinned_fields: hydratePins(raw) };
+  const raw = row as { attendee_fields?: unknown; pinned_fields?: unknown; collected_fields?: unknown };
+  return {
+    ...ev,
+    attendee_fields: parseAttendeeFields(raw.attendee_fields),
+    pinned_fields: hydratePins(raw),
+    // A database without migration 0008 has no key here, which parses as all three — the
+    // behaviour every event had before this column existed, so the deploys may land in
+    // either order.
+    collected_fields: parseCollectedFields(raw.collected_fields),
+  };
 }
 
 export async function listEvents(orgId: string): Promise<Event[]> {

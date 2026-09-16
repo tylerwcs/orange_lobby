@@ -1,0 +1,15 @@
+-- Which of the optional attendee facts this event actually collects.
+--
+-- `name`, `email` and `category` are not here and never will be: the app has behaviour
+-- bolted to them — email is the key the masterlist import matches on, so a re-import
+-- updates rows instead of duplicating them, and category decides which sessions an
+-- attendee may see. Check-in is the scanner. Those are features, not columns.
+--
+-- Company, phone and table number are different. They are facts some events collect and
+-- others have no use for: not every event seats people at tables, and an event where
+-- everyone works for the same client has no use for a company column. Listing them per
+-- event is what stops an organiser reading past three columns that will never be filled.
+--
+-- Values are only ever hidden by this, never deleted: turning a field off leaves whatever
+-- was imported or entered exactly where it is, and turning it back on shows it again.
+alter table events add column collected_fields text[] not null default '{company,phone,table_no}';
