@@ -1,7 +1,7 @@
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { CategoryCombo, ColourCombo } from "@/components/admin/AgendaCombos";
-import { addAgendaItemAction, addBreakoutRoomAction, updateAgendaItemAction } from "@/app/admin/events/[id]/actions";
+import { addAgendaItemAction, addBreakoutRoundAction, updateAgendaItemAction } from "@/app/admin/events/[id]/actions";
 import type { AgendaItem } from "@/lib/types";
 
 /**
@@ -42,7 +42,7 @@ export function SessionForm({ eventId, categories, item, startsOn }: {
 export function BreakoutForm({ eventId, item, startsOn }: { eventId: string; item?: AgendaItem; startsOn?: string | null }) {
   const action = item
     ? updateAgendaItemAction.bind(null, eventId, item.id)
-    : addBreakoutRoomAction.bind(null, eventId);
+    : addBreakoutRoundAction.bind(null, eventId);
   return (
     <form action={action} className="grid gap-4 p-1">
       <input type="hidden" name="preset" value="breakout" />
@@ -54,12 +54,17 @@ export function BreakoutForm({ eventId, item, startsOn }: { eventId: string; ite
         placeholder="Breakout 1"
         description="Every room of one round shares this. Name it the same as the column in the spreadsheet."
       />
+      {/* Creating a round asks for all of its rooms at once — everything else on this form
+          is shared between them. Editing is one room at a time, because that is the only
+          field of a room that is its own. */}
       <Field
-        label="Room"
+        label={item ? "Room" : "Rooms"}
         name="code"
         defaultValue={item?.code}
-        placeholder="3A"
-        description="Exactly as the spreadsheet writes it. This is also what the attendee sees."
+        placeholder={item ? "3A" : "3A, 3B, 3C, 3D"}
+        description={item
+          ? "Exactly as the spreadsheet writes it. This is also what the attendee sees."
+          : "One per room, separated by commas, exactly as the spreadsheet writes them. Each becomes a room of this round."}
       />
       <Field label="Title (optional)" name="title" defaultValue={item?.title} placeholder="Breakout: regional teams" />
       <Field label="Description" name="description" textarea defaultValue={item?.description} />
@@ -70,7 +75,7 @@ export function BreakoutForm({ eventId, item, startsOn }: { eventId: string; ite
           round, or you will have split it in two.
         </p>
       )}
-      <SubmitButton>{item ? "Save room" : "Add breakout room"}</SubmitButton>
+      <SubmitButton>{item ? "Save room" : "Add round"}</SubmitButton>
     </form>
   );
 }

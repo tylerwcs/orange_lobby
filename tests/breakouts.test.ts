@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn } from "@/lib/breakouts";
+import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
@@ -222,5 +222,30 @@ describe("breakoutSlotFromColumn", () => {
   it("returns null for an ordinary column, so it can never be mistaken for a round", () => {
     expect(breakoutSlotFromColumn("company")).toBeNull();
     expect(breakoutSlotFromColumn("breakout:")).toBeNull();
+  });
+});
+
+describe("parseRoomCodes", () => {
+  it("reads a round's rooms from one line", () => {
+    expect(parseRoomCodes("3A, 3B, 3C, 3D")).toEqual(["3A", "3B", "3C", "3D"]);
+  });
+
+  it("forgives the spacing an organiser actually types", () => {
+    expect(parseRoomCodes(" 3A ,3B,  3C ")).toEqual(["3A", "3B", "3C"]);
+  });
+
+  it("drops blanks and repeats, because a round cannot hold the same room twice", () => {
+    expect(parseRoomCodes("3A, ,3B,3A,")).toEqual(["3A", "3B"]);
+  });
+
+  it("treats a repeat that differs only in case as the same room", () => {
+    // The import matches room codes case-insensitively, so "3a" and "3A" would both claim
+    // the same spreadsheet value and an attendee could land in either.
+    expect(parseRoomCodes("3A, 3a")).toEqual(["3A"]);
+  });
+
+  it("is empty for an empty line", () => {
+    expect(parseRoomCodes("")).toEqual([]);
+    expect(parseRoomCodes("  ,  ")).toEqual([]);
   });
 });

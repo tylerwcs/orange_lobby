@@ -159,3 +159,32 @@ export function breakoutSlotFromColumn(key: string): string | null {
   const slot = key.slice(BREAKOUT_COLUMN_PREFIX.length).trim();
   return slot === "" ? null : slot;
 }
+
+/** At most this many rooms in one round. Beyond it, somebody has pasted the wrong column. */
+export const MAX_ROOMS_PER_ROUND = 24;
+
+/**
+ * The rooms of one round, read from a single line: "3A, 3B, 3C, 3D".
+ *
+ * A round is created once, with all its rooms, because everything except the code is
+ * shared — the day, the time, the title, the colour. Entering that four times to create
+ * four rooms was the same form filled in four times over.
+ *
+ * Repeats are dropped case-insensitively. `matchAssignments` case-folds when it reads the
+ * client's spreadsheet, so "3a" and "3A" would both claim the same cell value and an
+ * attendee could land in either room.
+ */
+export function parseRoomCodes(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const code = part.trim();
+    if (!code) continue;
+    const fold = code.toLowerCase();
+    if (seen.has(fold)) continue;
+    seen.add(fold);
+    out.push(code);
+    if (out.length >= MAX_ROOMS_PER_ROUND) break;
+  }
+  return out;
+}

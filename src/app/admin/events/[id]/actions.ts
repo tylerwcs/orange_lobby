@@ -13,7 +13,7 @@ import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem } from "@/lib/db/agenda";
-import { breakoutSlots, matchAssignments, breakoutSlotFromColumn } from "@/lib/breakouts";
+import { breakoutSlots, matchAssignments, breakoutSlotFromColumn, parseRoomCodes } from "@/lib/breakouts";
 import { assignMany, unassign, renameSlotAssignments } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
@@ -540,35 +540,58 @@ export async function reorderPinsAction(eventId: string, keys: string[]) {
 }
 
 /**
- * A breakout room, which is an agenda item with a round and a code.
+ * A whole breakout round, in one go.
+ *
+ * Every room of a round shares its day, its time, its title and its colour — only the code
+ * differs — so creating a four-room round used to mean filling the same form four times.
+ * The rooms come in as one line, "3A, 3B, 3C, 3D", and each becomes an agenda item.
  *
  * Its own form because a breakout is not an ordinary session with extra fields: it has no
  * location of its own — the code IS the room — and no category restriction, because who
  * attends is decided by assignment rather than by category.
  */
-export async function addBreakoutRoomAction(eventId: string, formData: FormData) {
+export async function addBreakoutRoundAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const back = `/admin/events/${eventId}/agenda`;
   const day = str(formData, "day");
   const starts_at = str(formData, "starts_at");
   const slot = str(formData, "slot");
-  const code = str(formData, "code");
-  if (!day || !starts_at || !slot || !code) {
-    redirect(flashPath(back, "A breakout room needs a day, a start time, a round and a room.", "error"));
+  const rooms = parseRoomCodes(str(formData, "code") ?? "");
+  if (!day || !starts_at || !slot) {
+    redirect(flashPath(back, "A breakout round needs a day, a start time and a name.", "error"));
   }
-  await createAgendaItem(ev, {
-    day, starts_at, ends_at: str(formData, "ends_at"),
+  if (rooms.length === 0) {
+    redirect(flashPath(back, "List the rooms, separated by commas — for example 3A, 3B, 3C.", "error"));
+  }
+
+  // A round cannot reuse a room code it already has: the import matches on that value, so
+  // two rooms answering to "3A" would put people in whichever came first.
+  const taken = new Set(
+    breakoutSlots(await listAgenda(ev.id))
+      .filter((s) => s.slot === slot)
+      .flatMap((s) => s.items.map((i) => i.code?.trim().toLowerCase()))
+  );
+  const fresh = rooms.filter((r) => !taken.has(r.toLowerCase()));
+  if (fresh.length === 0) {
+    redirect(flashPath(back, `“${slot}” already has ${rooms.join(", ")}.`, "error"));
+  }
+
+  const shared = {
+    day, starts_at,
+    ends_at: str(formData, "ends_at"),
     title: str(formData, "title") ?? slot,
     description: str(formData, "description"),
     location: null,
     categories: null,
-    slot, code,
+    slot,
     color: parseAgendaColour(str(formData, "color")),
     sort_order: 0,
-  });
-  revalidatePath(back);
-  redirect(flashPath(back, `Room ${code} added to ${slot}.`));
+  };
+  for (const code of fresh) await createAgendaItem(ev, { ...shared, code });
+
+  const skipped = rooms.length - fresh.length;
+  redirect(flashPath(back, `${slot}: ${fresh.join(", ")} added.${skipped > 0 ? ` ${skipped} already existed.` : ""}`));
 }
 
 /**
