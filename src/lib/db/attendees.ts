@@ -2,7 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
-import { buildAttendeeSearchFilter, isSearchable } from "@/lib/search-filter";
+import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -25,9 +25,15 @@ export async function getAttendee(id: string): Promise<Attendee | null> {
   return (data as Attendee) ?? null;
 }
 
-export async function listAttendees(eventId: string, q?: string): Promise<Attendee[]> {
+/**
+ * `scope` exists because the booth scanner and the crew scanner cannot share one filter: a
+ * booth is an unauthenticated, post-event-third-party route, so its search must not be able
+ * to use email or company as an inference channel (D98, D99), while the crew door
+ * legitimately needs to find someone by the email they registered with.
+ */
+export async function listAttendees(eventId: string, q?: string, scope: "wide" | "name" = "wide"): Promise<Attendee[]> {
   let query = serviceClient().from("attendees").select("*").eq("event_id", eventId).order("name");
-  if (q && isSearchable(q)) query = query.or(buildAttendeeSearchFilter(q));
+  if (q && isSearchable(q)) query = query.or(scope === "name" ? buildNameSearchFilter(q) : buildAttendeeSearchFilter(q));
   const { data, error } = await query.limit(2000);
   if (error) throw error;
   return data as Attendee[];

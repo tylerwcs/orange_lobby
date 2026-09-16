@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAttendeeSearchFilter, isSearchable } from "@/lib/search-filter";
+import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
 
 describe("attendee search filter", () => {
   it("strips PostgREST separators from the term", () => {
@@ -18,5 +18,20 @@ describe("attendee search filter", () => {
   it("is searchable once at least one character survives cleaning", () => {
     expect(isSearchable("a")).toBe(true);
     expect(isSearchable("%a%")).toBe(true);
+  });
+});
+
+describe("booth name-only search filter", () => {
+  it("matches only the name", () => {
+    expect(buildNameSearchFilter("Kow")).toBe("name.ilike.%Kow%");
+  });
+  it("strips the same unsafe separators clean() strips", () => {
+    expect(buildNameSearchFilter("Tan, Ah Kow")).toBe("name.ilike.%Tan Ah Kow%");
+    expect(buildNameSearchFilter(`  A(b)\\c"d  `)).toBe("name.ilike.%Abcd%");
+  });
+  it("never mentions email or company — a booth's search must not become an inference channel on those fields", () => {
+    const filter = buildNameSearchFilter("Petronas");
+    expect(filter).not.toMatch(/email/);
+    expect(filter).not.toMatch(/company/);
   });
 });

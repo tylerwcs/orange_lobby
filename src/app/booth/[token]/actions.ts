@@ -99,6 +99,6 @@ export async function searchForBoothAction(boothToken: string, q: string): Promi
   const auth = await authoriseBooth(boothToken);
   if ("error" in auth) return [];
   if (q.trim().length < 2) return [];
-  const rows = await listAttendees(auth.event.id, q);
+  const rows = await listAttendees(auth.event.id, q, "name");
   return rows.slice(0, 20).map((a) => ({ id: a.id, name: a.name, category: a.category }));
 }

@@ -19,3 +19,16 @@ export function buildAttendeeSearchFilter(q: string): string {
   const term = clean(q);
   return `name.ilike.%${term}%,email.ilike.%${term}%,company.ilike.%${term}%`;
 }
+
+/**
+ * Builds the `or(...)` filter body matching the name only.
+ *
+ * The booth scanner searches with this rather than the wide filter. Dropping email and
+ * company from the RESULT is not enough on that route: the query is an inference channel,
+ * and an exhibitor typing a rival's domain would get back the names of everyone from it
+ * (D98, D99). The crew scanner keeps the wide search — a door legitimately needs to find
+ * someone by the email they registered with.
+ */
+export function buildNameSearchFilter(q: string): string {
+  return `name.ilike.%${clean(q)}%`;
+}
