@@ -3,7 +3,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import type { AgendaItem, Event } from "@/lib/types";
 
 export async function listAgenda(eventId: string): Promise<AgendaItem[]> {
-  const { data, error } = await serviceClient().from("agenda_items").select("*").eq("event_id", eventId).order("day").order("starts_at").order("sort_order");
+  const { data, error } = await serviceClient().from("agenda_items").select("*").eq("event_id", eventId).order("day").order("starts_at").order("created_at");
   if (error) throw error;
   return (data as AgendaItem[]).map((i) => ({ ...i, starts_at: i.starts_at.slice(0, 5), ends_at: i.ends_at?.slice(0, 5) ?? null }));
 }

@@ -96,3 +96,18 @@ export function pickDay(days: string[], requested: string | undefined, today: st
   if (days.includes(today)) return today;
   return days[0];
 }
+
+/**
+ * The categories a session is restricted to, read from the ticked toggles.
+ *
+ * Replaces the comma-separated text box: the toggles are built from the categories the
+ * event's attendees actually have, so a session can no longer be restricted to a category
+ * nobody is in — which used to be a silent way to hide a session from everyone.
+ *
+ * Nothing ticked means everyone, stored as null. `visibleTo` treats null and [] alike, so
+ * only one of them is ever written.
+ */
+export function categoriesFromValues(values: string[]): string[] | null {
+  const out = Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
+  return out.length ? out : null;
+}

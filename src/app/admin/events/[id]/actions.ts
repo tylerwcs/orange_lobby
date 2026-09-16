@@ -13,12 +13,12 @@ import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem, listAgenda } from "@/lib/db/agenda";
-import { breakoutSlots, matchAssignments } from "@/lib/breakouts";
+import { breakoutSlots, matchAssignments, breakoutSlotFromColumn } from "@/lib/breakouts";
 import { assignMany, unassign } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
-import { parseCategories } from "@/lib/agenda";
+import { categoriesFromValues } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
@@ -225,6 +225,23 @@ export async function setColumnAction(eventId: string, formData: FormData) {
 
   const key = String(formData.get("column") ?? "");
   const raw = String(formData.get("value") ?? "");
+
+  // A breakout round is offered as a column beside the attendee's own, but it is not stored
+  // on the attendee — it is a row in breakout_assignments. Same gesture, different table.
+  const slot = breakoutSlotFromColumn(key);
+  if (slot) {
+    const rooms = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
+    if (!rooms) return;
+    const wanted = raw.trim().toLowerCase();
+    const room = wanted ? rooms.items.find((i) => i.code?.trim().toLowerCase() === wanted) : undefined;
+    // Blank clears the round. An unrecognised code writes nothing rather than guessing.
+    if (wanted && !room) return;
+    if (room) await assignMany(ev.id, ids.map((attendeeId) => ({ attendeeId, itemId: room.id, slot })), true);
+    else for (const id of ids) await unassign(ev.id, id, slot);
+    revalidatePath(`/admin/events/${ev.id}/attendees`);
+    return;
+  }
+
   const field = bulkFields(eventFields(ev.registration_questions, ev.attendee_fields)).find((f) => f.key === key);
   if (!field) return; // a posted key that is not an editable column writes nothing
 
@@ -311,10 +328,11 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
     title,
     description: str(formData, "description"),
     location: str(formData, "location"),
-    categories: parseCategories(str(formData, "categories") ?? ""),
-    slot: str(formData, "slot"),
-    code: str(formData, "code"),
-    sort_order: Number(str(formData, "sort_order") ?? 0),
+    categories: categoriesFromValues(formData.getAll("categories").map(String)),
+    slot: null,
+    code: null,
+    // Sessions at the same time now order by when they were added, so nothing to collect.
+    sort_order: 0,
   });
   revalidatePath(`/admin/events/${eventId}/agenda`);
   redirect(flashPath(`/admin/events/${eventId}/agenda`, `“${title}” added.`));
@@ -517,6 +535,37 @@ export async function reorderPinsAction(eventId: string, keys: string[]) {
   revalidatePath(`/admin/events/${ev.id}`);
 }
 
+/**
+ * A breakout room, which is an agenda item with a round and a code.
+ *
+ * Its own form because a breakout is not an ordinary session with extra fields: it has no
+ * location of its own — the code IS the room — and no category restriction, because who
+ * attends is decided by assignment rather than by category.
+ */
+export async function addBreakoutRoomAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/agenda`;
+  const day = str(formData, "day");
+  const starts_at = str(formData, "starts_at");
+  const slot = str(formData, "slot");
+  const code = str(formData, "code");
+  if (!day || !starts_at || !slot || !code) {
+    redirect(flashPath(back, "A breakout room needs a day, a start time, a round and a room.", "error"));
+  }
+  await createAgendaItem(ev, {
+    day, starts_at, ends_at: str(formData, "ends_at"),
+    title: str(formData, "title") ?? slot,
+    description: str(formData, "description"),
+    location: null,
+    categories: null,
+    slot, code,
+    sort_order: 0,
+  });
+  revalidatePath(back);
+  redirect(flashPath(back, `Room ${code} added to ${slot}.`));
+}
+
 // ---- Breakouts ----
 
 /**
@@ -532,10 +581,12 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
   const ev = await requireEvent(eventId, orgId);
   const wanted = String(formData.get("slot") ?? "").trim();
   const overwrite = formData.get("overwrite") === "on";
-  const agendaPath = `/admin/events/${eventId}/agenda`;
+  // Back to the attendee list, which is where this is run from and where the result is
+  // read: the roster counts on the agenda are a summary of what this list already shows.
+  const back = `/admin/events/${eventId}/attendees`;
 
   const slot = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === wanted);
-  if (!slot) redirect(flashPath(agendaPath, "That breakout round no longer exists.", "error"));
+  if (!slot) redirect(flashPath(back, "That breakout round no longer exists.", "error"));
 
   const report = matchAssignments(await listAttendees(ev.id), slot);
   const written = await assignMany(ev.id, report.matched, overwrite);
@@ -546,55 +597,6 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
     report.blank ? `${report.blank} blank.` : "",
     problems ? `No room matches: ${problems}.` : "",
   ].filter(Boolean).join(" ");
-  redirect(flashPath(agendaPath, message, report.unmatched.length ? "error" : "ok"));
-}
-
-/**
- * Moves a selection of attendees into one breakout room — the day-of edit, which starts from
- * the attendee list somebody is already searching rather than from the agenda.
- *
- * The bar posts a single `target` from one `<select>`: `item:<agendaItemId>` to put the
- * selection in a room, or `clear:<slotName>` to unassign them from that round instead, which
- * is how you undo a bad import without picking a room nobody belongs in. Split on the first
- * colon only — a slot name may itself contain one.
- */
-export async function bulkAssignBreakoutAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
-  const attendeesPath = `/admin/events/${eventId}/attendees`;
-
-  const all = await listAttendees(ev.id);
-  const ids = parseIds(String(formData.get("ids") ?? ""), new Set(all.map((a) => a.id)));
-  if (ids.length === 0) redirect(flashPath(attendeesPath, "Select somebody first.", "error"));
-
-  const target = String(formData.get("target") ?? "");
-  const sep = target.indexOf(":");
-  const prefix = sep === -1 ? target : target.slice(0, sep);
-  const rest = sep === -1 ? "" : target.slice(sep + 1);
-
-  if (prefix === "clear") {
-    const slotName = rest.trim();
-    if (!slotName) redirect(flashPath(attendeesPath, "Choose a room, or a round to clear.", "error"));
-    // Validated against this event's own rounds, so a posted slot name cannot unassign from a
-    // round that belongs to somebody else's event, or one that was never real to begin with.
-    const isRealSlot = breakoutSlots(await listAgenda(ev.id)).some((s) => s.slot === slotName);
-    if (!isRealSlot) redirect(flashPath(attendeesPath, "That breakout round no longer exists.", "error"));
-    for (const id of ids) await unassign(ev.id, id, slotName);
-    revalidatePath(attendeesPath);
-    redirect(flashPath(attendeesPath, `${ids.length} cleared from ${slotName}.`));
-  }
-
-  if (prefix === "item") {
-    const itemId = rest.trim();
-    // Validated against this event's own agenda, so a posted id cannot assign into a room
-    // that belongs to somebody else's event.
-    const room = breakoutSlots(await listAgenda(ev.id)).flatMap((s) => s.items).find((i) => i.id === itemId);
-    if (!room) redirect(flashPath(attendeesPath, "That room no longer exists.", "error"));
-    const slot = (room.slot as string).trim();
-    await assignMany(ev.id, ids.map((attendeeId) => ({ attendeeId, itemId: room.id, slot })), true);
-    revalidatePath(attendeesPath);
-    redirect(flashPath(attendeesPath, `${ids.length} moved to ${room.code ?? slot}.`));
-  }
-
-  redirect(flashPath(attendeesPath, "Choose a room, or a round to clear.", "error"));
+  revalidatePath(`/admin/events/${eventId}/agenda`);
+  redirect(flashPath(back, message, report.unmatched.length ? "error" : "ok"));
 }

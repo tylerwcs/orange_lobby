@@ -5,11 +5,12 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, addAttendeeFieldAction, bulkAssignBreakoutAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
+import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listAgenda } from "@/lib/db/agenda";
-import { breakoutSlots } from "@/lib/breakouts";
+import { breakoutSlots, breakoutColumns } from "@/lib/breakouts";
+import { listAssignments } from "@/lib/db/breakouts";
 import { activeCheckpoint } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -47,9 +48,24 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const [rows, total, checkins, cps, agenda, jar] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id), listCheckpoints(ev.id), listAgenda(ev.id), cookies()]);
-  // The rooms the bulk bar can move a selection into — only the events that actually run
-  // breakouts grow this control, exactly as they grow "Assign from column" on the agenda.
-  const breakoutRooms = breakoutSlots(agenda).flatMap((s) => s.items.map((i) => ({ id: i.id, slot: s.slot, code: i.code ?? "" })));
+  // Each breakout round is offered as a column in the bulk editor, so putting people in a
+  // room is the same gesture as setting their table. Only an event that runs breakouts
+  // grows those columns.
+  const slots = breakoutSlots(agenda);
+  const roundColumns = breakoutColumns(agenda);
+  // Which room each attendee is in, as a value per round, so the table can carry a column
+  // per round and the organiser can see the whole split without opening anybody. Only an
+  // event that runs breakouts pays for the query.
+  const assignments = slots.length > 0 ? await listAssignments(ev.id) : [];
+  const roomByItem = new Map(agenda.filter((i) => i.code).map((i) => [i.id, i.code as string]));
+  const roundValues = new Map<string, Record<string, string>>();
+  for (const a of assignments) {
+    const code = roomByItem.get(a.agenda_item_id);
+    if (!code) continue;
+    const row = roundValues.get(a.attendee_id) ?? {};
+    row[`breakout:${a.slot}`] = code;
+    roundValues.set(a.attendee_id, row);
+  }
 
   // Which columns this browser has hidden. Read on the server so the first paint is
   // already right, rather than rendering everything and pulling columns back out.
@@ -57,7 +73,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // already on file. `attendee_fields` is only what was added on top.
   const registrationFields = fieldsFromQuestions(ev.registration_questions);
   const allFields = eventFields(ev.registration_questions, ev.attendee_fields);
-  const columns = allColumns(registrationFields, ev.attendee_fields);
+  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns);
   // The older cookie only held hidden columns; reading it as a fallback means an organiser
   // who had already tuned their table does not lose that when ordering ships.
   const prefs = parseTablePrefs(jar.get(tableCookieName(ev.id))?.value, columns, jar.get(columnsCookieName(ev.id))?.value);
@@ -112,6 +128,28 @@ export default async function Attendees({ params, searchParams }: { params: Prom
                 <div className="md:col-span-2"><SubmitButton>Add attendee</SubmitButton></div>
               </form>
             </Modal>
+{slots.length > 0 && (
+              <Modal title="Assign rooms from the spreadsheet" hint="Reads the column the client sent and matches each value to a room code. Run it after the rooms exist." trigger="Assign from column" icon="users" variant="outline">
+                <div className="grid gap-5">
+                  {slots.map((s) => (
+                    <form key={s.slot} action={assignFromColumnAction.bind(null, ev.id)} className="grid gap-3 rounded-lg border p-4">
+                      <input type="hidden" name="slot" value={s.slot} />
+                      <div>
+                        <div className="font-bold">{s.slot}</div>
+                        <p className="text-xs text-muted-foreground">
+                          Reads each attendee&apos;s “{s.slot}” column. Rooms: {s.items.map((i) => i.code).filter(Boolean).join(", ") || "none have a code yet"}.
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-3 text-sm font-medium">
+                        <input type="checkbox" name="overwrite" className="size-4 accent-primary" />
+                        Overwrite people who already have a room
+                      </label>
+                      <SubmitButton>Assign {s.slot}</SubmitButton>
+                    </form>
+                  ))}
+                </div>
+              </Modal>
+            )}
             <Modal title="Import masterlist" hint="The first sheet is read. Rows are matched by email, so re-importing the same file updates in place rather than duplicating." trigger="Import masterlist" icon="download">
               <form action={importMasterlistAction.bind(null, ev.id)} className="grid gap-4">
                 <label className="block text-sm">
@@ -148,7 +186,13 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           checkedInAt: earliestScan.get(a.id) ?? null,
           // Only the defined columns cross to the client: an unmapped header an import
           // left in `extra` has no column to land in and stays on the server.
-          values: Object.fromEntries(allFields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
+          values: {
+            ...Object.fromEntries(allFields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
+            // The assignment, not the spreadsheet value the import left in `extra` — those
+            // two disagree the moment somebody is moved, and the assignment is the one the
+            // attendee's phone shows.
+            ...(roundValues.get(a.id) ?? {}),
+          },
         }))}
         columns={columns}
         initialPrefs={prefs}
@@ -160,11 +204,9 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
-        assignBreakout={bulkAssignBreakoutAction.bind(null, ev.id)}
-        bulkEditable={bulkFields(allFields)}
+        bulkEditable={[...bulkFields(allFields), ...roundColumns]}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
-        breakoutRooms={breakoutRooms}
       />
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span className="tabular-nums">Showing {from}–{to} of {rows.length}</span>

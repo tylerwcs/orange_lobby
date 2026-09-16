@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters } from "@/lib/breakouts";
+import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
@@ -184,5 +184,43 @@ describe("rosters", () => {
       { agenda_item_id: "a", attendee_id: "p2" },
     ]);
     expect(r.rooms[0].attendeeIds).toEqual(["p3", "p1", "p2"]);
+  });
+});
+
+describe("breakoutColumns", () => {
+  const a = item({ id: "a", slot: "Breakout 1", code: "3A" });
+  const b = item({ id: "b", slot: "Breakout 1", code: "3B" });
+  const c = item({ id: "c", slot: "Breakout 2", code: "5A", starts_at: "15:30" });
+
+  it("offers each round as a column whose choices are its rooms", () => {
+    // The bulk-edit popover renders any field of type "select" as a dropdown, so a round
+    // described this way needs no UI of its own.
+    expect(breakoutColumns([a, b, c])).toEqual([
+      { key: "breakout:Breakout 1", label: "Breakout 1", type: "select", options: ["3A", "3B"] },
+      { key: "breakout:Breakout 2", label: "Breakout 2", type: "select", options: ["5A"] },
+    ]);
+  });
+
+  it("skips a round whose rooms have no codes, because there is nothing to choose", () => {
+    expect(breakoutColumns([item({ id: "x", slot: "Breakout 9", code: null })])).toEqual([]);
+  });
+
+  it("offers nothing for an event with no rounds", () => {
+    expect(breakoutColumns([item({ title: "Lunch" })])).toEqual([]);
+  });
+});
+
+describe("breakoutSlotFromColumn", () => {
+  it("reads the round out of a breakout column key", () => {
+    expect(breakoutSlotFromColumn("breakout:Breakout 1")).toBe("Breakout 1");
+  });
+
+  it("keeps a round name containing a colon whole", () => {
+    expect(breakoutSlotFromColumn("breakout:Round: A")).toBe("Round: A");
+  });
+
+  it("returns null for an ordinary column, so it can never be mistaken for a round", () => {
+    expect(breakoutSlotFromColumn("company")).toBeNull();
+    expect(breakoutSlotFromColumn("breakout:")).toBeNull();
   });
 });
