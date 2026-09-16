@@ -17,6 +17,7 @@ export function groupsFor(ev: { id: string } | null | undefined): Group[] {
     { title: "Onsite", items: [
       { href: b, label: "Overview", icon: "home" },
       { href: `/scan/${ev.id}`, label: "Scanner", icon: "scan" },
+      { href: `${b}/booths`, label: "Booths", icon: "star" },
       { href: `${b}/attendees`, label: "Attendees", icon: "users" },
     ] },
     { title: "Portal", items: [
