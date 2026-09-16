@@ -9,8 +9,10 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { addAgendaItemAction, deleteAgendaItemAction } from "../actions";
+import { addAgendaItemAction, assignFromColumnAction, deleteAgendaItemAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { Modal } from "@/components/admin/Modal";
+import { breakoutSlots } from "@/lib/breakouts";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
 
@@ -18,8 +20,10 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const days = groupByDay(await listAgenda(ev.id));
+  const items = await listAgenda(ev.id);
+  const days = groupByDay(items);
   const total = days.reduce((n, d) => n + d.items.length, 0);
+  const slots = breakoutSlots(items);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -28,6 +32,23 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
 
       <div className="@container"><div className="grid items-start gap-6 @4xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-4">
+          {slots.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {slots.map((s) => (
+                <Modal key={s.slot} title={`Assign from column: ${s.slot}`} hint={`Reads each attendee's "${s.slot}" column and matches it to a room code.`} trigger={`Assign ${s.slot}`} icon="users" variant="outline">
+                  <form action={assignFromColumnAction.bind(null, ev.id)} className="grid gap-4">
+                    <input type="hidden" name="slot" value={s.slot} />
+                    <p className="text-sm text-muted-foreground">Rooms in this round: {s.items.map((i) => i.code).filter(Boolean).join(", ") || "none have a code yet"}.</p>
+                    <label className="flex items-center gap-3 text-sm font-medium">
+                      <input type="checkbox" name="overwrite" className="size-4 accent-primary" />
+                      Overwrite people who already have a room
+                    </label>
+                    <SubmitButton>Assign from column</SubmitButton>
+                  </form>
+                </Modal>
+              ))}
+            </div>
+          )}
           {days.length === 0 && (
             <Card>
               <CardContent>
@@ -74,6 +95,10 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
           <Field label="Location" name="location" placeholder="Grand Ballroom" />
           <Field label="Description" name="description" textarea />
           <Field label="Only for these categories" name="categories" placeholder="Blank = everyone. Otherwise: VIP, Speakers" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Breakout round" name="slot" placeholder="Blank = ordinary session" description="Name it the same as the column in the client's spreadsheet." />
+            <Field label="Room code" name="code" placeholder="3A" description="The value that column holds for this room." />
+          </div>
           <Field label="Order among sessions at the same time (lower first)" name="sort_order" type="number" defaultValue="0" />
           <SubmitButton>Add session</SubmitButton>
         </form>

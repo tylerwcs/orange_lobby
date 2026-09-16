@@ -12,7 +12,9 @@ import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, ev
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
-import { createAgendaItem, deleteAgendaItem } from "@/lib/db/agenda";
+import { createAgendaItem, deleteAgendaItem, listAgenda } from "@/lib/db/agenda";
+import { breakoutSlots, matchAssignments } from "@/lib/breakouts";
+import { assignMany } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
@@ -295,6 +297,8 @@ export async function deleteAttendeeFieldAction(eventId: string, formData: FormD
 
 // ---- Agenda / announcements / info / checkpoints ----
 
+// NOTE: if an edit path is added for agenda items, renaming `slot` MUST also call
+// renameSlotAssignments() — the copy on each assignment row is what the unique index reads.
 export async function addAgendaItemAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
@@ -310,8 +314,8 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
     description: str(formData, "description"),
     location: str(formData, "location"),
     categories: parseCategories(str(formData, "categories") ?? ""),
-    slot: null,
-    code: null,
+    slot: str(formData, "slot"),
+    code: str(formData, "code"),
     sort_order: Number(str(formData, "sort_order") ?? 0),
   });
   revalidatePath(`/admin/events/${eventId}/agenda`);
@@ -513,4 +517,36 @@ export async function reorderPinsAction(eventId: string, keys: string[]) {
   await updateEvent(eventId, { pinned_fields: reorderPins(ev.pinned_fields, keys) });
   revalidatePath(settingsPath(ev.id));
   revalidatePath(`/admin/events/${ev.id}`);
+}
+
+// ---- Breakouts ----
+
+/**
+ * Turns the imported spreadsheet column into assignments for one round.
+ *
+ * Deliberately not run by the import: the masterlist is imported before the agenda exists,
+ * so anything automatic would silently assign nobody (D83). Re-runnable, and skips people who
+ * already have a room unless `overwrite` is ticked, so running it again on the morning of
+ * day 2 does not undo what the desk did at breakfast.
+ */
+export async function assignFromColumnAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const wanted = String(formData.get("slot") ?? "").trim();
+  const overwrite = formData.get("overwrite") === "on";
+  const agendaPath = `/admin/events/${eventId}/agenda`;
+
+  const slot = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === wanted);
+  if (!slot) redirect(flashPath(agendaPath, "That breakout round no longer exists.", "error"));
+
+  const report = matchAssignments(await listAttendees(ev.id), slot);
+  const written = await assignMany(ev.id, report.matched, overwrite);
+
+  const problems = report.unmatched.map((u) => `${u.value} (${u.count})`).join(", ");
+  const message = [
+    `${written} assigned to ${slot.slot}.`,
+    report.blank ? `${report.blank} blank.` : "",
+    problems ? `No room matches: ${problems}.` : "",
+  ].filter(Boolean).join(" ");
+  redirect(flashPath(agendaPath, message, report.unmatched.length ? "error" : "ok"));
 }
