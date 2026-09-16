@@ -37,7 +37,7 @@ const LABEL: Record<ScanResult["status"], string> = {
   error: "Not saved",
 };
 
-export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId: string; checkpoint: Checkpoint; initialCount: number; total: number }) {
+export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }: { eventId: string; checkpoint: Checkpoint; initialCount: number; total: number; crewToken?: string }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [count, setCount] = useState(initialCount);
   const [recent, setRecent] = useState<Recent[]>([]);
@@ -86,7 +86,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
         const now = Date.now();
         if (text === lastRef.current.text && now - lastRef.current.at < 3000) return;
         lastRef.current = { text, at: now };
-        await handle(() => checkInByTokenAction(eventId, checkpoint.id, text));
+        await handle(() => checkInByTokenAction(eventId, checkpoint.id, text, crewToken));
       }, () => {})
         .then(() => { if (!cancelled) setCamera({ phase: "ready" }); })
         .catch((e) => { if (!cancelled) setCamera({ phase: "error", problem: describeCameraError(e) }); });
@@ -106,7 +106,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
   }, [undoLeft]);
 
   useEffect(() => {
-    const t = setTimeout(async () => { setHits(q.trim().length >= 2 ? await searchAttendeesAction(eventId, q, checkpoint.id) : []); }, 250);
+    const t = setTimeout(async () => { setHits(q.trim().length >= 2 ? await searchAttendeesAction(eventId, q, checkpoint.id, crewToken) : []); }, 250);
     return () => clearTimeout(t);
   }, [q, eventId, checkpoint.id]);
 
@@ -200,7 +200,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
             )}
             {result.status === "ok" && undoLeft > 0 && (
               <Button type="button" variant="outline" disabled={busy} className="mt-2 h-11 w-fit px-4 font-bold"
-                onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id))}>
+                onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id, crewToken))}>
                 <Undo2 data-icon="inline-start" />
                 Undo · {undoLeft}s
               </Button>
@@ -231,7 +231,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total }: { eventId:
         <ul className="flex flex-col gap-2">
           {hits.map((h) => (
             <li key={h.id}>
-              <Button variant="outline" disabled={busy} onClick={() => handle(() => checkInByIdAction(eventId, checkpoint.id, h.id))}
+              <Button variant="outline" disabled={busy} onClick={() => handle(() => checkInByIdAction(eventId, checkpoint.id, h.id, crewToken))}
                 className="h-auto min-h-14 w-full justify-start gap-3 px-4 py-2.5 text-left">
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-bold">{h.name}</span>
