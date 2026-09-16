@@ -32,7 +32,7 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
           <EmptyHeader>
             <EmptyMedia variant="icon"><Flag /></EmptyMedia>
             <EmptyTitle>This scanner link has expired</EmptyTitle>
-            <EmptyDescription>{ev.name} has finished. Ask the organiser for a new link if you still need to scan.</EmptyDescription>
+            <EmptyDescription>{ev.name} is closed. Ask the organiser for a new link if you still need to scan.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       </main>

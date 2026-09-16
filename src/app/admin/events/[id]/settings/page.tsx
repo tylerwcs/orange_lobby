@@ -12,7 +12,6 @@ import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
-import { CopyLink } from "@/components/admin/CopyLink";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -200,7 +199,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         <CardContent className="flex flex-col gap-3">
           {ev.crew_token ? (
             <>
-              <CopyLink link={crewLink(base, ev.crew_token)} label="Copy crew link" />
+              <ShareLink label="Crew" url={crewLink(base, ev.crew_token)} />
               <p className="text-xs tabular-nums text-muted-foreground">
                 {crewExpiry ? `Stops working after ${shortDate(crewExpiry)}.` : "This link does not expire, because the event has no dates."}
               </p>
