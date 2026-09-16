@@ -310,6 +310,8 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
     description: str(formData, "description"),
     location: str(formData, "location"),
     categories: parseCategories(str(formData, "categories") ?? ""),
+    slot: null,
+    code: null,
     sort_order: Number(str(formData, "sort_order") ?? 0),
   });
   revalidatePath(`/admin/events/${eventId}/agenda`);

@@ -76,7 +76,20 @@ export type AgendaItem = {
   description: string | null;
   location: string | null;
   categories: string[] | null;
+  /** The breakout round this item belongs to, e.g. "Breakout 1". Null on an ordinary item. */
+  slot: string | null;
+  /** This room's value within the slot, e.g. "3A". What the client's spreadsheet column holds. */
+  code: string | null;
   sort_order: number;
+};
+
+export type BreakoutAssignment = {
+  id: string;
+  event_id: string;
+  agenda_item_id: string;
+  attendee_id: string;
+  /** Copied from the agenda item so `unique (attendee_id, slot)` can enforce one room per round. */
+  slot: string;
 };
 
 export type Announcement = {
