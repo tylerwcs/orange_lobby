@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { visibleTo, groupByDay, parseCategories, nextSession, isNow } from "@/lib/agenda";
+import { visibleTo, groupByDay, parseCategories, nextSession, isNow, categoriesFromValues } from "@/lib/agenda";
 import type { AgendaItem } from "@/lib/types";
 
 const mk = (p: Partial<AgendaItem>): AgendaItem => ({ id: "x", event_id: "e", day: "2026-09-30", starts_at: "09:00", ends_at: null, title: "t", description: null, location: null, categories: null, slot: null, code: null, sort_order: 0, ...p });
@@ -93,5 +93,22 @@ describe("visibleTo with breakouts", () => {
     const vipOnly = mk({ id: "v", categories: ["VIP"] });
     expect(visibleTo([vipOnly], { category: "VIP", assignedItemIds: new Set() }).map((i) => i.id)).toEqual(["v"]);
     expect(visibleTo([vipOnly], { category: "Staff", assignedItemIds: new Set() })).toEqual([]);
+  });
+});
+
+describe("categoriesFromValues", () => {
+  it("keeps the ticked categories, in order", () => {
+    expect(categoriesFromValues(["Management", "Speaker"])).toEqual(["Management", "Speaker"]);
+  });
+
+  it("is null when nothing is ticked, which means everyone", () => {
+    // Null rather than [] because `visibleTo` treats an empty list as "for everyone" too,
+    // and the column is nullable — one representation is enough.
+    expect(categoriesFromValues([])).toBeNull();
+    expect(categoriesFromValues(["", "  "])).toBeNull();
+  });
+
+  it("drops blanks and repeats", () => {
+    expect(categoriesFromValues([" Staff ", "Staff", ""])).toEqual(["Staff"]);
   });
 });

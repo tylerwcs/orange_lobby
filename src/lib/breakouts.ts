@@ -1,3 +1,4 @@
+import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
 /**
@@ -123,4 +124,38 @@ export function rosters(
     const placed = new Set(rooms.flatMap((r) => r.attendeeIds));
     return { slot: s.slot, rooms, unassignedIds: attendeeIds.filter((id) => !placed.has(id)) };
   });
+}
+
+/** The prefix that marks a bulk-edit column as a breakout round rather than an attendee column. */
+const BREAKOUT_COLUMN_PREFIX = "breakout:";
+
+/**
+ * Each breakout round, described as a column the bulk-edit popover can render.
+ *
+ * Rounds appear beside Company, Category and the organiser's own columns rather than in a
+ * control of their own: choosing a room is the same gesture as setting any other fact about
+ * the people you have selected. Describing a round as a `select` field is what makes that
+ * free — the popover already renders a dropdown for that type.
+ *
+ * A round whose rooms have no codes is skipped, because it offers nothing to choose.
+ */
+export function breakoutColumns(items: AgendaItem[]): AttendeeField[] {
+  const out: AttendeeField[] = [];
+  for (const s of breakoutSlots(items)) {
+    const options = s.items.map((i) => i.code?.trim()).filter((c): c is string => !!c);
+    if (options.length === 0) continue;
+    out.push({ key: `${BREAKOUT_COLUMN_PREFIX}${s.slot}`, label: s.slot, type: "select", options });
+  }
+  return out;
+}
+
+/**
+ * The round a bulk-edit column names, or null when it names an ordinary attendee column.
+ *
+ * Split once: a round's name may itself contain a colon, and the remainder is the name.
+ */
+export function breakoutSlotFromColumn(key: string): string | null {
+  if (!key.startsWith(BREAKOUT_COLUMN_PREFIX)) return null;
+  const slot = key.slice(BREAKOUT_COLUMN_PREFIX.length).trim();
+  return slot === "" ? null : slot;
 }

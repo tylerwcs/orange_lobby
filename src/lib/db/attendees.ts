@@ -112,3 +112,20 @@ export async function purgeAttendeePersonalData(eventId: string): Promise<number
   }
   return data?.length ?? 0;
 }
+
+/**
+ * The categories this event's attendees actually have, for the agenda form's toggles.
+ *
+ * One column rather than whole rows: the agenda page needs the names, not the people, and
+ * it renders on every event whether or not it runs breakouts.
+ */
+export async function listCategories(eventId: string): Promise<string[]> {
+  const { data, error } = await serviceClient().from("attendees").select("category").eq("event_id", eventId);
+  if (error) throw error;
+  const seen = new Set<string>();
+  for (const r of (data ?? []) as { category: string | null }[]) {
+    const c = r.category?.trim();
+    if (c) seen.add(c);
+  }
+  return [...seen].sort((a, b) => a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0);
+}
