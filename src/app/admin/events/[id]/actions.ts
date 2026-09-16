@@ -245,7 +245,7 @@ export async function setColumnAction(eventId: string, formData: FormData) {
     return;
   }
 
-  const field = bulkFields(eventFields(ev.registration_questions, ev.attendee_fields)).find((f) => f.key === key);
+  const field = bulkFields(eventFields(ev.registration_questions, ev.attendee_fields), ev.collected_fields).find((f) => f.key === key);
   if (!field) return; // a posted key that is not an editable column writes nothing
 
   const value = coerceFieldValue(field, raw);
@@ -576,6 +576,13 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
   if (fresh.length === 0) {
     redirect(flashPath(back, `“${slot}” already has ${rooms.join(", ")}.`, "error"));
   }
+  // A round is one line on the agenda and is edited as one thing, so it has to live on one
+  // day. Adding rooms to an existing round on a different day would render it twice and
+  // make an edit of either rewrite both.
+  const elsewhere = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot)?.items.find((i) => i.day !== day);
+  if (elsewhere) {
+    redirect(flashPath(back, `“${slot}” is already on ${elsewhere.day}. A round runs on one day — rename this one, or edit the existing round to add rooms.`, "error"));
+  }
 
   const shared = {
     day, starts_at,
@@ -591,6 +598,7 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
   for (const code of fresh) await createAgendaItem(ev, { ...shared, code });
 
   const skipped = rooms.length - fresh.length;
+  revalidatePath(back);
   redirect(flashPath(back, `${slot}: ${fresh.join(", ")} added.${skipped > 0 ? ` ${skipped} already existed.` : ""}`));
 }
 
@@ -625,7 +633,9 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
   const shared = {
     day, starts_at,
     ends_at: str(formData, "ends_at"),
-    title: str(formData, "title") ?? nextSlot,
+    // A round with no title of its own is titled after itself. Carrying the form's seeded
+    // value through a rename would leave the OLD round name sitting under the new one.
+    title: (() => { const t = str(formData, "title"); return !t || t === slot ? nextSlot : t; })(),
     description: str(formData, "description"),
     location: null,
     categories: null,
@@ -640,7 +650,10 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
 
   for (const room of current.items) {
     const code = room.code?.trim() ?? "";
-    const keep = wanted.has(code.toLowerCase());
+    // A room with no code never appears in the Rooms field — it has nothing to print there
+    // — so its absence from that list is not a decision anybody made, and removing it (and
+    // everybody assigned to it) on the strength of that would be silent data loss.
+    const keep = code === "" || wanted.has(code.toLowerCase());
     if (!keep && removeMissing) { await deleteAgendaItem(room.id, ev.id); removed++; continue; }
     await updateAgendaItem(room.id, ev.id, { ...shared, code: keep ? wanted.get(code.toLowerCase())! : code });
     if (nextSlot !== slot) {

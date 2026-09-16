@@ -11,7 +11,7 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
   return (
     <PortalShell event={event} basePath={basePath} personal>
       <h1 className="mb-3 text-xl font-extrabold">My seat</h1>
-      {attendee.table_no ? (
+      {attendee.table_no && event.collected_fields.includes("table_no") ? (
         <div className="mb-4 rounded-[14px] bg-foreground p-6 text-center text-white">
           <div className="text-xs font-bold uppercase tracking-[0.08em] text-gray-300">Table</div>
           <div className="text-6xl font-extrabold text-primary">{attendee.table_no}</div>
