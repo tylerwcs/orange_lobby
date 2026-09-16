@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getBoothByToken, countStampsByBooth } from "@/lib/db/booths";
+import { getBoothByToken, countStampsForBooth } from "@/lib/db/booths";
 import { getEvent } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
 import { isValidToken } from "@/lib/tokens";
@@ -17,8 +17,8 @@ export default async function BoothPage({ params }: { params: Promise<{ token: s
   const event = await getEvent(booth.event_id);
   if (!event) notFound();
 
-  const [counts, total] = await Promise.all([
-    countStampsByBooth(event.id),
+  const [count, total] = await Promise.all([
+    countStampsForBooth(booth.id),
     countAttendees(event.id),
   ]);
 
@@ -27,7 +27,7 @@ export default async function BoothPage({ params }: { params: Promise<{ token: s
       boothToken={token}
       booth={{ name: booth.name, location: booth.location }}
       archived={event.status === "archived"}
-      initialCount={counts[booth.id] ?? 0}
+      initialCount={count}
       total={total}
     />
   );

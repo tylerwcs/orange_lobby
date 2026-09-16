@@ -109,6 +109,19 @@ export async function stampsForAttendee(attendeeId: string): Promise<BoothStamp[
   return data as BoothStamp[];
 }
 
+/**
+ * How many people this one booth has stamped. A head-count query rather than
+ * `countStampsByBooth`, which reads every stamp row in the event to answer for one booth —
+ * the booth scanner's page is public, dynamic and unauthenticated, so its per-request cost
+ * has to stay flat.
+ */
+export async function countStampsForBooth(boothId: string): Promise<number> {
+  const { count, error } = await serviceClient().from("booth_stamps")
+    .select("id", { count: "exact", head: true }).eq("booth_id", boothId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function countStampsByBooth(eventId: string): Promise<Record<string, number>> {
   const rows = await listStampsForEvent(eventId);
   return rows.reduce<Record<string, number>>((acc, r) => {
