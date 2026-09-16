@@ -36,6 +36,20 @@ export type ModuleIcon = (typeof MODULE_ICONS)[number];
 export const TILE_ROUTES = ["agenda", "announcements", "info", "me", "seat", "stamps"] as const;
 export type TileRoute = (typeof TILE_ROUTES)[number];
 
+/**
+ * The human label for each route, shown in the tile editor's "Portal page" picker instead
+ * of the raw slug. Typed as `Record<TileRoute, string>` so adding a route to TILE_ROUTES
+ * without adding its label here is a type error, not a silently blank option.
+ */
+export const TILE_ROUTE_LABELS: Record<TileRoute, string> = {
+  agenda: "Agenda",
+  announcements: "Announcements",
+  info: "Info page",
+  me: "My badge",
+  seat: "My seat",
+  stamps: "Booth Passport",
+};
+
 export type TileTarget = { kind: "url"; url: string } | { kind: "route"; route: TileRoute };
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseModules, defaultModules, resolveTiles, floorPlanUrl, normalizeModules } from "@/lib/modules";
+import { parseModules, defaultModules, resolveTiles, floorPlanUrl, normalizeModules, TILE_ROUTES, TILE_ROUTE_LABELS } from "@/lib/modules";
 
 
 describe("parseModules", () => {
@@ -176,6 +176,14 @@ describe("normalizeModules", () => {
       { key: "link", id: "l1", enabled: true, label: "A", url: "https://a/", icon: "link" },
     ]));
     expect(out.map((m) => ("id" in m ? m.id : m.key))).toEqual(["l2", "floor_plan", "l1"]);
+  });
+});
+
+describe("TILE_ROUTE_LABELS", () => {
+  it("gives every TILE_ROUTES entry a human label", () => {
+    for (const route of TILE_ROUTES) {
+      expect(TILE_ROUTE_LABELS[route]).toBeTruthy();
+    }
   });
 });
 

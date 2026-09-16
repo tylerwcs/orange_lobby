@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { MODULE_ICONS, TILE_ROUTES, normalizeModules, type EventModule } from "@/lib/modules";
+import { MODULE_ICONS, TILE_ROUTES, TILE_ROUTE_LABELS, normalizeModules, type EventModule } from "@/lib/modules";
 import { MAX_TILES, moduleId } from "@/lib/modules-form";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -48,7 +48,7 @@ function TileForm({ eventId, module: m }: { eventId: string; module?: EventModul
           <div className="grid gap-2">
             <label className="text-sm font-medium" htmlFor="route">Portal page</label>
             <select id="route" name="route" defaultValue={tile?.target.kind === "route" ? tile.target.route : "agenda"} className={select}>
-              {TILE_ROUTES.map((r) => <option key={r} value={r}>{r}</option>)}
+              {TILE_ROUTES.map((r) => <option key={r} value={r}>{TILE_ROUTE_LABELS[r]}</option>)}
             </select>
             <p className="text-xs text-muted-foreground">Used when this tile opens a page inside the portal.</p>
           </div>
