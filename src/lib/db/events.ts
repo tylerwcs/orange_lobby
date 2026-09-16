@@ -5,6 +5,7 @@ import type { Event, EventStatus } from "@/lib/types";
 import { parseAttendeeFields } from "@/lib/attendee-fields";
 import { hydratePins } from "@/lib/pinned-fields";
 import { parseCollectedFields } from "@/lib/collected-fields";
+import { generateToken } from "@/lib/tokens";
 
 export { slugify } from "@/lib/slug";
 
@@ -41,6 +42,26 @@ export async function getEvent(id: string): Promise<Event | null> {
 export async function getEventBySlug(slug: string): Promise<Event | null> {
   const { data } = await serviceClient().from("events").select("*").eq("slug", slug).maybeSingle();
   return data ? hydrate(data) : null;
+}
+
+/**
+ * The event behind a crew link. Looked up by token alone — there is no event id in the URL,
+ * and the token is unique across the table for exactly that reason.
+ */
+export async function getEventByCrewToken(token: string): Promise<Event | null> {
+  const { data } = await serviceClient().from("events").select("*").eq("crew_token", token).maybeSingle();
+  return data ? hydrate(data) : null;
+}
+
+/**
+ * Mints a crew token, or replaces the one there. Rotation IS the revocation mechanism (D108):
+ * every copy of the previous link — in a group chat, in a screenshot, on somebody's home screen —
+ * stops working the moment this returns.
+ */
+export async function rotateCrewToken(eventId: string): Promise<string> {
+  const crew_token = generateToken();
+  await updateEvent(eventId, { crew_token });
+  return crew_token;
 }
 
 export async function requireEvent(id: string, orgId: string): Promise<Event> {
