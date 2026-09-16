@@ -2,10 +2,11 @@ import type { AttendeeField } from "@/lib/attendee-fields";
 
 /**
  * Where a column comes from, which decides what its header menu may offer: a built-in is
- * part of the attendee row, a registration column is owned by the form in Settings, and
- * only a custom one can be renamed or deleted from the table.
+ * part of the attendee row, a registration column is owned by the form in Settings, a
+ * breakout round is owned by the agenda, and only a custom one can be renamed or deleted
+ * from the table.
  */
-export type ColumnSource = "builtin" | "registration" | "custom";
+export type ColumnSource = "builtin" | "registration" | "custom" | "breakout";
 
 export type ColumnDef = { key: string; label: string; source: ColumnSource };
 
@@ -28,12 +29,13 @@ export const BUILTIN_COLUMNS: ColumnDef[] = [
  * columns automatically — their answers are already on file, so making someone re-declare
  * them would be asking for work the system can do itself.
  */
-export function allColumns(registrationFields: AttendeeField[], customFields: AttendeeField[]): ColumnDef[] {
+export function allColumns(registrationFields: AttendeeField[], customFields: AttendeeField[], breakoutFields: AttendeeField[] = []): ColumnDef[] {
   const claimed = new Set(registrationFields.map((f) => f.key));
   return [
     ...BUILTIN_COLUMNS,
     ...registrationFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "registration" })),
     ...customFields.filter((f) => !claimed.has(f.key)).map((f): ColumnDef => ({ key: f.key, label: f.label, source: "custom" })),
+    ...breakoutFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "breakout" })),
   ];
 }
 
@@ -76,7 +78,13 @@ export type TablePrefs = {
  * written to the cookie and this stops applying.
  */
 export function defaultHidden(columns: ColumnDef[]): string[] {
-  return columns.filter((c) => c.source !== "builtin" || DEFAULT_HIDDEN_BUILTINS.has(c.key)).map((c) => c.key);
+  return columns
+    // A breakout round is the exception to "everything but the built-ins starts hidden":
+    // the column exists so an organiser can see who is in which room without opening
+    // anybody, and a hidden one is the same as no column at all.
+    .filter((c) => c.source !== "breakout")
+    .filter((c) => c.source !== "builtin" || DEFAULT_HIDDEN_BUILTINS.has(c.key))
+    .map((c) => c.key);
 }
 
 /**

@@ -11,9 +11,10 @@ const GROUP_LABEL: Record<ColumnSource, string> = {
   builtin: "Attendee",
   registration: "From registration",
   custom: "Your columns",
+  breakout: "Breakout rounds",
 };
 
-const ORDER: ColumnSource[] = ["builtin", "registration", "custom"];
+const ORDER: ColumnSource[] = ["builtin", "breakout", "registration", "custom"];
 
 /**
  * Which columns the table shows. This is the answer to an event whose registration form

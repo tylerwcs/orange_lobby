@@ -141,3 +141,28 @@ describe("tableCookieName", () => {
     expect(tableCookieName("a")).not.toBe(columnsCookieName("a"));
   });
 });
+
+describe("breakout rounds as table columns", () => {
+  const rounds: AttendeeField[] = [
+    { key: "breakout:Breakout 1", label: "Breakout 1", type: "select", options: ["3A", "3B"] },
+  ];
+
+  it("adds a column per round, after the organiser's own", () => {
+    const out = allColumns(registration, fields, rounds);
+    expect(out[out.length - 1]).toEqual({ key: "breakout:Breakout 1", label: "Breakout 1", source: "breakout" });
+  });
+
+  it("leaves the columns unchanged for an event with no rounds", () => {
+    expect(allColumns(registration, fields, [])).toEqual(allColumns(registration, fields));
+  });
+
+  it("shows a round by default, unlike every other non-built-in column", () => {
+    // The whole point of the column is to see who is in which room without opening anyone,
+    // so starting hidden would be the same as not having it.
+    expect(defaultHidden(allColumns(registration, fields, rounds))).not.toContain("breakout:Breakout 1");
+  });
+
+  it("still hides the organiser's own columns by default", () => {
+    expect(defaultHidden(allColumns(registration, fields, rounds))).toContain(fields[0].key);
+  });
+});

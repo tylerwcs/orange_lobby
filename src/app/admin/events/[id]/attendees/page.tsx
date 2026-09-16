@@ -10,6 +10,7 @@ import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listAgenda } from "@/lib/db/agenda";
 import { breakoutSlots, breakoutColumns } from "@/lib/breakouts";
+import { listAssignments } from "@/lib/db/breakouts";
 import { activeCheckpoint } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -51,6 +52,20 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // room is the same gesture as setting their table. Only an event that runs breakouts
   // grows those columns.
   const slots = breakoutSlots(agenda);
+  const roundColumns = breakoutColumns(agenda);
+  // Which room each attendee is in, as a value per round, so the table can carry a column
+  // per round and the organiser can see the whole split without opening anybody. Only an
+  // event that runs breakouts pays for the query.
+  const assignments = slots.length > 0 ? await listAssignments(ev.id) : [];
+  const roomByItem = new Map(agenda.filter((i) => i.code).map((i) => [i.id, i.code as string]));
+  const roundValues = new Map<string, Record<string, string>>();
+  for (const a of assignments) {
+    const code = roomByItem.get(a.agenda_item_id);
+    if (!code) continue;
+    const row = roundValues.get(a.attendee_id) ?? {};
+    row[`breakout:${a.slot}`] = code;
+    roundValues.set(a.attendee_id, row);
+  }
 
   // Which columns this browser has hidden. Read on the server so the first paint is
   // already right, rather than rendering everything and pulling columns back out.
@@ -58,7 +73,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // already on file. `attendee_fields` is only what was added on top.
   const registrationFields = fieldsFromQuestions(ev.registration_questions);
   const allFields = eventFields(ev.registration_questions, ev.attendee_fields);
-  const columns = allColumns(registrationFields, ev.attendee_fields);
+  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns);
   // The older cookie only held hidden columns; reading it as a fallback means an organiser
   // who had already tuned their table does not lose that when ordering ships.
   const prefs = parseTablePrefs(jar.get(tableCookieName(ev.id))?.value, columns, jar.get(columnsCookieName(ev.id))?.value);
@@ -171,7 +186,13 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           checkedInAt: earliestScan.get(a.id) ?? null,
           // Only the defined columns cross to the client: an unmapped header an import
           // left in `extra` has no column to land in and stays on the server.
-          values: Object.fromEntries(allFields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
+          values: {
+            ...Object.fromEntries(allFields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
+            // The assignment, not the spreadsheet value the import left in `extra` — those
+            // two disagree the moment somebody is moved, and the assignment is the one the
+            // attendee's phone shows.
+            ...(roundValues.get(a.id) ?? {}),
+          },
         }))}
         columns={columns}
         initialPrefs={prefs}
@@ -183,7 +204,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
-        bulkEditable={[...bulkFields(allFields), ...breakoutColumns(agenda)]}
+        bulkEditable={[...bulkFields(allFields), ...roundColumns]}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
       />
