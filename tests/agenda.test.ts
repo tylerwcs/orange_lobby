@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { visibleTo, groupByDay, parseCategories, nextSession, isNow, categoriesFromValues } from "@/lib/agenda";
 import type { AgendaItem } from "@/lib/types";
 
-const mk = (p: Partial<AgendaItem>): AgendaItem => ({ id: "x", event_id: "e", day: "2026-09-30", starts_at: "09:00", ends_at: null, title: "t", description: null, location: null, categories: null, slot: null, code: null, sort_order: 0, ...p });
+const mk = (p: Partial<AgendaItem>): AgendaItem => ({ id: "x", event_id: "e", day: "2026-09-30", starts_at: "09:00", ends_at: null, title: "t", description: null, location: null, categories: null, slot: null, code: null, color: null, sort_order: 0, ...p });
 
 describe("agenda", () => {
   it("shows unrestricted items to everyone, restricted only to matching category", () => {

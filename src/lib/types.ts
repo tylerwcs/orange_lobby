@@ -83,6 +83,8 @@ export type AgendaItem = {
   slot: string | null;
   /** This room's value within the slot, e.g. "3A". What the client's spreadsheet column holds. */
   code: string | null;
+  /** A palette key from src/lib/agenda-colours.ts, or null. Decoration; nothing reads it back. */
+  color: string | null;
   sort_order: number;
 };
 

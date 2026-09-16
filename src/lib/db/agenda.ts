@@ -8,11 +8,12 @@ export async function listAgenda(eventId: string): Promise<AgendaItem[]> {
   return (data as AgendaItem[]).map((i) => ({ ...i, starts_at: i.starts_at.slice(0, 5), ends_at: i.ends_at?.slice(0, 5) ?? null }));
 }
 /**
- * `slot` and `code` are added by migration 0007, deliberately not yet applied to production
- * (docs/runbook.md). PostgREST rejects an insert that NAMES a column absent from the schema
- * cache — error PGRST204 — even when the value sent for it is null. `slot` and `code` are
- * therefore omitted from the payload entirely when null, rather than sent as `slot: null`,
- * so an ordinary (non-breakout) agenda item still inserts on either side of that migration.
+ * `slot` and `code` (migration 0007) and `color` (0009) are omitted from the payload
+ * entirely when null, rather than sent as `slot: null`. PostgREST rejects an insert that
+ * NAMES a column absent from the schema cache — error PGRST204 — even when the value sent
+ * for it is null, so sending them unconditionally breaks the Add-a-session form on every
+ * event until the migration has run. Omitting them means an ordinary session inserts on
+ * either side of any of those migrations.
  * There is no agenda-item UPDATE path anywhere in this app, so omitting a null on insert can
  * never fail to clear a previously-set value — the column simply defaults to null.
  *
@@ -23,10 +24,11 @@ export async function listAgenda(eventId: string): Promise<AgendaItem[]> {
  * the old round.
  */
 export async function createAgendaItem(event: Pick<Event, "id" | "org_id">, input: Omit<AgendaItem, "id" | "event_id">) {
-  const { slot, code, ...rest } = input;
+  const { slot, code, color, ...rest } = input;
   const payload: Record<string, unknown> = { org_id: event.org_id, event_id: event.id, ...rest };
   if (slot !== null) payload.slot = slot;
   if (code !== null) payload.code = code;
+  if (color !== null) payload.color = color;
   const { error } = await serviceClient().from("agenda_items").insert(payload);
   if (error) throw error;
 }

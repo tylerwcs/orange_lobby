@@ -19,6 +19,7 @@ import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
 import { categoriesFromValues } from "@/lib/agenda";
+import { parseAgendaColour } from "@/lib/agenda-colours";
 import { collectedFromForm } from "@/lib/collected-fields";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
@@ -333,6 +334,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
     categories: categoriesFromValues(formData.getAll("categories").map(String)),
     slot: null,
     code: null,
+    color: parseAgendaColour(str(formData, "color")),
     // Sessions at the same time now order by when they were added, so nothing to collect.
     sort_order: 0,
   });
@@ -562,6 +564,7 @@ export async function addBreakoutRoomAction(eventId: string, formData: FormData)
     location: null,
     categories: null,
     slot, code,
+    color: parseAgendaColour(str(formData, "color")),
     sort_order: 0,
   });
   revalidatePath(back);

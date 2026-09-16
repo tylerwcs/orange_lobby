@@ -14,6 +14,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { addAgendaItemAction, addBreakoutRoomAction, deleteAgendaItemAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
+import { ColourPicker } from "@/components/admin/ColourPicker";
+import { agendaAccentClass } from "@/lib/agenda-colours";
 import { breakoutSlots, rosters, isBreakout } from "@/lib/breakouts";
 import type { Attendee, BreakoutAssignment } from "@/lib/types";
 
@@ -89,6 +91,7 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
               <Field label="Location" name="location" placeholder="Grand Ballroom" />
               <Field label="Description" name="description" textarea />
               <CategoryToggles categories={categories} />
+              <ColourPicker />
               <SubmitButton>Add session</SubmitButton>
             </form>
           </Modal>
@@ -120,6 +123,7 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
               />
               <Field label="Title (optional)" name="title" placeholder="Breakout: regional teams" />
               <Field label="Description" name="description" textarea />
+              <ColourPicker />
               <SubmitButton>Add breakout room</SubmitButton>
             </form>
           </Modal>
@@ -178,7 +182,12 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                         {i.starts_at}{i.ends_at ? ` – ${i.ends_at}` : ""}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold">{i.title}</div>
+                        <div className="flex items-center gap-2">
+                          {agendaAccentClass(i.color) && (
+                            <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${agendaAccentClass(i.color)}`} />
+                          )}
+                          <span className="font-bold">{i.title}</span>
+                        </div>
                         <div className="text-xs text-muted-foreground">{[i.location, i.description].filter(Boolean).join(" · ")}</div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {isBreakout(i) && <Badge>{i.slot} · {i.code}</Badge>}
