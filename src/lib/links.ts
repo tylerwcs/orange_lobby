@@ -17,3 +17,10 @@ export function attendeeLink(base: string, slug: string, token: string) {
 export function registrationLink(base: string, slug: string) {
   return `${genericLink(base, slug)}/register`;
 }
+/**
+ * The booth's scanner. Not under /e/<slug>: it is staff-facing, it is not part of the
+ * attendee portal, and the token is looked up on its own before any event is known.
+ */
+export function boothScannerLink(base: string, token: string) {
+  return `${trimSlash(base)}/booth/${token}`;
+}
