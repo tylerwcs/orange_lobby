@@ -28,6 +28,16 @@ export function BoothQr({ boothName, location, eventName, link, qr }: {
           body * { visibility: hidden; }
           #booth-sheet, #booth-sheet * { visibility: visible; }
           #booth-sheet { position: fixed; inset: 0; box-shadow: none; }
+          /* Browsers drop background colours in print unless the operator ticks
+             "Background graphics" - the accent band behind the staff-only warning is the
+             whole reason that warning gets read rather than skimmed past, so it cannot be
+             left to a checkbox nobody is told about. Safari still wants the prefix; the
+             unprefixed property is simply ignored where unsupported, so there is no
+             downside to sending both. */
+          #booth-sheet, #booth-sheet * {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
         }
       `}</style>
 
