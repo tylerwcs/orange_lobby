@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
+import { listAgenda } from "@/lib/db/agenda";
+import { breakoutSlots } from "@/lib/breakouts";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +15,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const total = await countAttendees(ev.id);
+  const [total, items] = await Promise.all([countAttendees(ev.id), listAgenda(ev.id)]);
   const base = appBaseUrl();
   const b = `/admin/events/${ev.id}/export`;
 
@@ -30,6 +32,10 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
       href: `${b}/qr.zip`, icon: "qr", name: "QR codes",
       what: "One PNG per attendee, named after them, each encoding their personal link. This is what goes to the badge printer.",
     },
+    ...(breakoutSlots(items).length > 0 ? [{
+      href: `${b}/rosters.xlsx`, icon: "file" as IconName, name: "Breakout rosters",
+      what: "One sheet per breakout room, plus one per round for whoever has no room yet. This is what the facilitator or the desk prints.",
+    }] : []),
   ];
 
   return (
