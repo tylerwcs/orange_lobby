@@ -1,24 +1,74 @@
+import { TriangleAlert } from "lucide-react";
 import { signIn } from "./actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
+/**
+ * The only door into the admin.
+ *
+ * The mark is the one on the sidebar, in the same colour, because this is the screen that
+ * hands you over to it — and because a wrong-looking mark is the first thing that should
+ * make someone doubt a page asking for their password.
+ *
+ * There is no "create an account" and no "forgot password": D18 says accounts are made by
+ * an admin and there is no self sign-up. The description says so rather than leaving a new
+ * starter hunting for a link that was never there.
+ */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   const { error, next } = await searchParams;
+  // `w-full` on the main below is load-bearing, not decoration. The root layout's body is
+  // `flex flex-col`, so this main is a flex item, and `mx-auto` in the cross axis cancels the
+  // default stretch — leaving the element to size to its content. Without it the card collapsed
+  // to about 150px and the wordmark wrapped mid-word.
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm items-center bg-background p-6">
-      <Card className="w-full"><CardContent>
-        <div className="mb-6 flex items-center gap-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-foreground">OL</span>
-          <span className="text-xl font-extrabold">Orange Lobby</span>
-        </div>
-        {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <form action={signIn} className="space-y-4">
-          <input type="hidden" name="next" value={next ?? "/admin"} />
-          <label className="block text-sm"><span className="mb-1 block font-bold">Email</span><input name="email" type="email" required autoComplete="email" inputMode="email" className="w-full min-h-11 rounded-md border border-border bg-card px-3 text-sm" /></label>
-          <label className="block text-sm"><span className="mb-1 block font-bold">Password</span><input name="password" type="password" required autoComplete="current-password" className="w-full min-h-11 rounded-md border border-border bg-card px-3 text-sm" /></label>
-          <SubmitButton className="w-full">Sign in</SubmitButton>
-        </form>
-      </CardContent></Card>
+    <main className="mx-auto flex min-h-screen w-full max-w-sm items-center bg-background p-6">
+      <Card className="w-full">
+        <CardHeader>
+          <div className="mb-2 flex items-center gap-2.5">
+            <span className="flex size-10 items-center justify-center rounded-[10px] bg-primary text-sm font-extrabold text-primary-foreground">OL</span>
+            <span className="text-xl font-extrabold">Orange Lobby</span>
+          </div>
+          <CardTitle className="text-base font-extrabold">Sign in</CardTitle>
+          <CardDescription>Accounts are created by an administrator. If you do not have one, ask the team.</CardDescription>
+        </CardHeader>
+
+        <CardContent className="flex flex-col gap-4">
+          {/*
+            An Alert rather than a tinted div: the old one used bg-red-50/text-red-700, two
+            colours that exist nowhere in globals.css and so were never contrast-checked
+            against this card the way every token pair in tests/contrast.test.ts is.
+          */}
+          {error && (
+            <Alert variant="destructive">
+              <TriangleAlert />
+              <AlertTitle>Could not sign you in</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <form action={signIn} className="flex flex-col gap-4">
+            <input type="hidden" name="next" value={next ?? "/admin"} />
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
+                {/*
+                  h-11 rather than the Input's own h-8: crew sign in on a phone at a venue,
+                  and 44px is the floor every touch target in this app is held to.
+                */}
+                <Input id="email" name="email" type="email" required autoComplete="email" inputMode="email" className="h-11" />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <Input id="password" name="password" type="password" required autoComplete="current-password" className="h-11" />
+              </Field>
+            </FieldGroup>
+            <SubmitButton className="h-11 w-full">Sign in</SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }
