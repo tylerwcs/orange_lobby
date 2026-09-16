@@ -6,17 +6,19 @@ import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
 import { countAttendees } from "@/lib/db/attendees";
-import { appBaseUrl, genericLink, registrationLink } from "@/lib/links";
+import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
+import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
+import { CopyLink } from "@/components/admin/CopyLink";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction } from "../actions";
+import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
@@ -88,6 +90,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const grouped = checkpointsByDay(cps);
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
   const days = eventDays(ev.starts_on, ev.ends_on);
+  const crewExpiry = crewLinkLastDay(ev);
 
   const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields, ev.collected_fields);
   const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
@@ -143,7 +146,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
       </div>
       </TabsContent>
 
-      <TabsContent value="checkpoints">
+      <TabsContent value="checkpoints" className="flex flex-col gap-4 @container">
       <Card>
         <CardHeader>
           <CardTitle>Checkpoints</CardTitle>
@@ -184,6 +187,34 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             ))}
           </div>
         )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Crew link</CardTitle>
+          <CardDescription>
+            One shared link for everyone scanning at this event&apos;s doors. Anyone holding it can scan attendees in — and can see the full attendee list. Hand it out like a shared password, not a personal invite.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {ev.crew_token ? (
+            <>
+              <CopyLink link={crewLink(base, ev.crew_token)} label="Copy crew link" />
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {crewExpiry ? `Stops working after ${shortDate(crewExpiry)}.` : "This link does not expire, because the event has no dates."}
+              </p>
+              <form action={rotateCrewTokenAction.bind(null, ev.id)}>
+                <ConfirmButton message="Replace the crew link? The old one stops working immediately, and every copy already handed out will be turned away.">
+                  Replace link
+                </ConfirmButton>
+              </form>
+            </>
+          ) : (
+            <form action={rotateCrewTokenAction.bind(null, ev.id)}>
+              <SubmitButton>Create crew link</SubmitButton>
+            </form>
+          )}
         </CardContent>
       </Card>
       </TabsContent>

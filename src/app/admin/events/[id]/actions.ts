@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { createEvent, requireEvent, updateEvent, setEventStatus } from "@/lib/db/events";
+import { createEvent, requireEvent, updateEvent, setEventStatus, rotateCrewToken } from "@/lib/db/events";
 import { slugify } from "@/lib/slug";
 import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
@@ -83,6 +83,20 @@ export async function setStatusAction(eventId: string, status: EventStatus) {
   await requireEvent(eventId, orgId);
   await setEventStatus(eventId, status);
   revalidatePath(`/admin/events/${eventId}`);
+}
+
+/**
+ * Mints the crew link, and replaces it. Same button either way: an organiser who has never made
+ * one and an organiser whose link has leaked want the same thing, which is a link that works and
+ * that nobody else has (D108).
+ */
+export async function rotateCrewTokenAction(eventId: string) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  await rotateCrewToken(ev.id);
+  const path = `/admin/events/${eventId}/settings`;
+  revalidatePath(path);
+  redirect(flashPath(path, "New crew link ready. The old one has stopped working."));
 }
 
 // --- Attendees: masterlist import + admin CRUD ---
