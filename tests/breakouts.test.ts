@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots } from "@/lib/breakouts";
+import { isBreakout, breakoutSlots, myBreakouts } from "@/lib/breakouts";
 import type { AgendaItem } from "@/lib/types";
 
 const item = (over: Partial<AgendaItem>): AgendaItem => ({
@@ -49,5 +49,30 @@ describe("breakoutSlots", () => {
 
   it("returns nothing for an event that runs no breakouts", () => {
     expect(breakoutSlots([item({ title: "Lunch" })])).toEqual([]);
+  });
+});
+
+describe("myBreakouts", () => {
+  const a = item({ id: "a", slot: "Breakout 1", code: "3A", starts_at: "13:30", ends_at: "15:00" });
+  const b = item({ id: "b", slot: "Breakout 1", code: "3B", starts_at: "13:30", ends_at: "15:00" });
+  const c = item({ id: "c", slot: "Breakout 2", code: "5A", starts_at: "15:30", ends_at: "17:00" });
+
+  it("gives one row per round, carrying the room this attendee has", () => {
+    const mine = myBreakouts([a, b, c], new Set(["b", "c"]));
+    expect(mine.map((m) => [m.slot, m.item?.code])).toEqual([["Breakout 1", "3B"], ["Breakout 2", "5A"]]);
+  });
+
+  it("keeps a row with no item when the attendee is not assigned", () => {
+    // A silently missing ninety-minute block is worse than an honest "not assigned yet".
+    const mine = myBreakouts([a, b, c], new Set(["c"]));
+    expect(mine[0]).toMatchObject({ slot: "Breakout 1", item: null, starts_at: "13:30", ends_at: "15:00" });
+  });
+
+  it("takes the placeholder's time from the round's rooms, which share it", () => {
+    expect(myBreakouts([a, b], new Set())[0]).toMatchObject({ day: "2026-09-30", starts_at: "13:30", ends_at: "15:00" });
+  });
+
+  it("is empty for an event that runs no breakouts", () => {
+    expect(myBreakouts([item({ title: "Lunch" })], new Set())).toEqual([]);
   });
 });
