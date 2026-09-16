@@ -50,21 +50,25 @@ export async function setBoothOrder(eventId: string, orderedIds: string[]) {
 }
 
 /**
- * Deletes a booth only while nobody has stamped there (D94). Deleting a stamped booth would
- * cascade its stamps away and silently drop attendees out of "completed" — so the count is
- * checked here rather than trusted to a disabled button, which a second tab does not have.
+ * Deletes a booth only while nobody has stamped there (D94). The database's foreign key
+ * constraint on booth_stamps.booth_id (restrict, not cascade) refuses the deletion if any
+ * stamps exist — a rule the database enforces atomically, so no check-then-delete race can
+ * sneak a stamp between the two and lose it.
  *
  * Returns false when the booth has stamps; the caller turns that into a message.
  */
 export async function deleteBoothIfUnstamped(id: string, eventId: string): Promise<boolean> {
   const db = serviceClient();
-  const { count, error: countError } = await db.from("booth_stamps")
-    .select("id", { count: "exact", head: true }).eq("booth_id", id);
-  if (countError) throw countError;
-  if ((count ?? 0) > 0) return false;
-  const { error } = await db.from("booths").delete().eq("id", id).eq("event_id", eventId);
+  const { data, error } = await db.from("booths").delete()
+    .eq("id", id).eq("event_id", eventId).select("id");
+  // 23503 is a foreign-key violation: booth_stamps still references this booth, and the
+  // restrict on that key is what refuses the delete. Asking first and deleting second would
+  // leave a window in which a stamp lands between the two and is cascaded away silently.
+  if (error?.code === "23503") return false;
   if (error) throw error;
-  return true;
+  // Zero rows matched: the booth is gone, or the id belongs to another event. Either way
+  // nothing was deleted, and saying otherwise would have the admin page report a success.
+  return (data?.length ?? 0) > 0;
 }
 
 /**

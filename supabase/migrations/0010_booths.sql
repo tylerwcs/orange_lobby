@@ -23,13 +23,20 @@ create index booths_event_idx on booths (event_id, sort_order);
 -- One stamp per booth per attendee for the WHOLE event (D92): a second scan on day two is an
 -- "already stamped" carrying the original time, not a second stamp.
 --
+-- `booth_id` is restricted: the database itself refuses to delete a booth that has stamped
+-- somebody, so that rule cannot be lost to a check-then-delete race or to a second admin tab
+-- with a stale button. `attendee_id` cascades instead: deleting an attendee removes their
+-- stamps. `event_id` cascades: deleting the event removes its stamps. Note for future "delete
+-- this event entirely" features: booth_stamps must be removed before booths, or the restrict
+-- will block the cascade.
+--
 -- No `scanned_by`. The scan is authorised by a booth token rather than by a user, so there is
 -- no auth.users id to record; the booth is the booth_id.
 create table booth_stamps (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references organisations(id),
   event_id uuid not null references events(id) on delete cascade,
-  booth_id uuid not null references booths(id) on delete cascade,
+  booth_id uuid not null references booths(id) on delete restrict,
   attendee_id uuid not null references attendees(id) on delete cascade,
   stamped_at timestamptz not null default now(),
   unique (booth_id, attendee_id)
