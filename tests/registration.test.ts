@@ -37,6 +37,22 @@ describe("validateRegistration", () => {
   });
 });
 
+describe("phone and number questions", () => {
+  it("accepts a phone question", () => {
+    expect(parseQuestions([{ key: "phone", label: "Mobile", type: "phone", required: false }]))
+      .toHaveLength(1);
+  });
+
+  it("accepts a number question", () => {
+    expect(parseQuestions([{ key: "guests", label: "Guests", type: "number", required: false }]))
+      .toHaveLength(1);
+  });
+
+  it("still rejects a type it does not know", () => {
+    expect(() => parseQuestions([{ key: "x", label: "X", type: "file", required: false }])).toThrow();
+  });
+});
+
 describe("show_when", () => {
   const qs2 = parseQuestions(JSON.stringify([
     { key: "stay", label: "Stay?", type: "select", required: true, options: ["No", "Yes – Twin"] },

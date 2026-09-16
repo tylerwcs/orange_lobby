@@ -4,7 +4,7 @@ import type { RegistrationQuestion } from "@/lib/types";
 const questionSchema = z.object({
   key: z.string().regex(/^[a-z0-9_]+$/, "key must be lowercase letters, digits, underscores"),
   label: z.string().min(1, "label is required"),
-  type: z.enum(["text", "select"]),
+  type: z.enum(["text", "phone", "number", "select"]),
   required: z.boolean().default(false),
   options: z.array(z.string().min(1)).optional(),
   description: z.string().optional(),

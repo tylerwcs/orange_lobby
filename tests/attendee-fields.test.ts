@@ -273,3 +273,25 @@ describe("addField against the registration form", () => {
     expect(addField([], { label: "Room number", type: "text", options: "" }, ["shirt_size"]).ok).toBe(true);
   });
 });
+
+describe("phone fields", () => {
+  it("parses a phone column", () => {
+    expect(parseAttendeeFields([{ key: "phone", label: "Mobile", type: "phone" }]))
+      .toEqual([{ key: "phone", label: "Mobile", type: "phone" }]);
+  });
+
+  it("keeps a phone value as typed — an events desk must not have a number rejected", () => {
+    expect(coerceFieldValue({ key: "phone", label: "Mobile", type: "phone" }, " +60 12-345 6789 "))
+      .toBe("+60 12-345 6789");
+  });
+
+  it("carries a phone question through to its column", () => {
+    expect(fieldsFromQuestions([{ key: "phone", label: "Mobile", type: "phone", required: false }]))
+      .toEqual([{ key: "phone", label: "Mobile", type: "phone" }]);
+  });
+
+  it("carries a number question through as a number column", () => {
+    expect(fieldsFromQuestions([{ key: "guests", label: "Guests", type: "number", required: false }]))
+      .toEqual([{ key: "guests", label: "Guests", type: "number" }]);
+  });
+});

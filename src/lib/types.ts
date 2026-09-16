@@ -8,7 +8,7 @@ export type EventStatus = "draft" | "live" | "archived";
 export type RegistrationQuestion = {
   key: string;
   label: string;
-  type: "text" | "select";
+  type: "text" | "phone" | "number" | "select";
   required: boolean;
   options?: string[];
   description?: string;

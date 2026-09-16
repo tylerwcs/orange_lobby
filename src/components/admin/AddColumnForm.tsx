@@ -7,6 +7,7 @@ const control = "min-h-11 w-full rounded-md border border-border bg-card px-3 te
 
 const HINTS: Record<AttendeeFieldType, string> = {
   text: "Anything typed — a room number, a flight, a note.",
+  phone: "A phone number, kept as typed.",
   number: "Digits only, so the column adds up in Excel.",
   date: "A date picker, stored as a real date.",
   select: "A fixed list, so everyone spells it the same way.",

@@ -10,7 +10,7 @@ import type { RegistrationQuestion } from "@/lib/types";
  * `key` is derived from the label once, at creation, and then frozen: renaming a column
  * must not orphan the values already stored under the old key.
  */
-export type AttendeeFieldType = "text" | "number" | "date" | "select";
+export type AttendeeFieldType = "text" | "phone" | "number" | "date" | "select";
 
 export type AttendeeField = {
   key: string;
@@ -21,10 +21,11 @@ export type AttendeeField = {
 };
 
 export const MAX_ATTENDEE_FIELDS = 12;
-export const ATTENDEE_FIELD_TYPES: AttendeeFieldType[] = ["text", "number", "date", "select"];
+export const ATTENDEE_FIELD_TYPES: AttendeeFieldType[] = ["text", "phone", "number", "date", "select"];
 
 export const FIELD_TYPE_LABELS: Record<AttendeeFieldType, string> = {
   text: "Text",
+  phone: "Phone",
   number: "Number",
   date: "Date",
   select: "Choice",
@@ -119,6 +120,11 @@ export function coerceFieldValue(field: AttendeeField, raw: string | null | unde
       return /^-?\d+(\.\d+)?$/.test(v) ? v : "";
     case "date":
       return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "";
+    // No format check. A phone number typed as +60 12-345 6789, 012 3456789 or with a
+    // country code pasted from a spreadsheet is the same phone number, and a registration
+    // desk rejecting one costs more than a messy one costs anybody.
+    case "phone":
+      return v.slice(0, 40);
     default:
       return v.slice(0, 200);
   }
@@ -211,9 +217,10 @@ export function labelFromKey(key: string): string {
 export function fieldsFromQuestions(questions: RegistrationQuestion[]): AttendeeField[] {
   return questions.map((q) => {
     const options = q.options?.map((o) => o.trim()).filter(Boolean) ?? [];
-    return q.type === "select" && options.length > 0
-      ? { key: q.key, label: q.label, type: "select" as const, options }
-      : { key: q.key, label: q.label, type: "text" as const };
+    if (q.type === "select" && options.length > 0) return { key: q.key, label: q.label, type: "select" as const, options };
+    // A select that lost its choices falls back to free text so the answer stays editable.
+    if (q.type === "select") return { key: q.key, label: q.label, type: "text" as const };
+    return { key: q.key, label: q.label, type: q.type };
   });
 }
 
