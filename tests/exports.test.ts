@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns } from "@/lib/exports";
+import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, buildRosterWorkbook, rosterSheetName } from "@/lib/exports";
 import { safeFileName } from "@/lib/filenames";
 import type { AttendeeField } from "@/lib/attendee-fields";
 
@@ -43,5 +43,59 @@ describe("exports", () => {
     const ws = buildAttendanceWorkbook(attendees, [] as never, [] as never, {}, fields).getWorksheet("Attendance")!;
     expect(ws.getRow(1).getCell(8).value).toBe("Room number");
     expect(ws.getRow(2).getCell(8).value).toBe("12A");
+  });
+});
+
+describe("roster workbook", () => {
+  const people = new Map([
+    ["p1", { name: "Ann Tan", company: "Ecopia", email: "a@b.co" }],
+    ["p2", { name: "Bryan Koh", company: null, email: null }],
+  ]);
+  const slots = [{
+    slot: "Breakout 1",
+    rooms: [{ slot: "Breakout 1", code: "3A", title: "Regional teams", location: "Room 3A", attendeeIds: ["p1"] }],
+    unassignedIds: ["p2"],
+  }];
+
+  it("gives each room its own sheet, headed and filled", () => {
+    const wb = buildRosterWorkbook(slots, people);
+    const ws = wb.getWorksheet("Breakout 1 · 3A")!;
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Company", "Email"]);
+    expect(ws.getRow(2).getCell(1).value).toBe("Ann Tan");
+  });
+
+  it("puts the people with no room on their own sheet", () => {
+    const ws = buildRosterWorkbook(slots, people).getWorksheet("Breakout 1 · unassigned")!;
+    expect(ws.getRow(2).getCell(1).value).toBe("Bryan Koh");
+  });
+
+  it("keeps sheet names legal and unique", () => {
+    // Excel forbids : \\ / ? * [ ] and caps a sheet name at 31 characters.
+    const taken = new Set<string>();
+    const first = rosterSheetName("Breakout 1 / afternoon session", "3A", taken);
+    taken.add(first);
+    expect(first).not.toMatch(/[:\\/?*\[\]]/);
+    expect(first.length).toBeLessThanOrEqual(31);
+    expect(rosterSheetName("Breakout 1 / afternoon session", "3A", taken)).not.toBe(first);
+  });
+
+  it("strips every character Excel forbids from a sheet name", () => {
+    // : \ / ? * [ ] all appear across the slot and code — every one must be gone.
+    const taken = new Set<string>();
+    const name = rosterSheetName("Room: A\\B/C?D", "[3*A]", taken);
+    expect(name).not.toMatch(/[:\\/?*[\]]/);
+  });
+
+  it("gives two rooms distinct names even when their full names collide only after truncation", () => {
+    // Both rooms share a slot name so long that it alone fills the 31-character limit, so the
+    // untruncated names differ (different code) but the naive truncation would be identical.
+    const slot = "Breakout 1 / afternoon session for regional teams";
+    const taken = new Set<string>();
+    const first = rosterSheetName(slot, "3A", taken);
+    taken.add(first);
+    const second = rosterSheetName(slot, "3B", taken);
+    expect(second).not.toBe(first);
+    expect(second.length).toBeLessThanOrEqual(31);
+    expect(second).not.toMatch(/[:\\/?*[\]]/);
   });
 });

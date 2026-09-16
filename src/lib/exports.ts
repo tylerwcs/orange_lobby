@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import type { Attendee, Checkin, Checkpoint } from "@/lib/types";
 import type { AttendeeField } from "@/lib/attendee-fields";
+import type { SlotRoster } from "@/lib/breakouts";
 
 export type LinkRow = { name: string; email: string | null; company: string | null; category: string | null; table_no: string | null; link: string };
 
@@ -40,5 +41,55 @@ export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick
     ws.addRow(row);
   }
   ws.columns?.forEach((c) => { c.width = 20; });
+  return wb;
+}
+
+export type RosterPerson = { name: string; company: string | null; email: string | null };
+
+/**
+ * A sheet name Excel will actually accept: no : \ / ? * [ ], 31 characters, and unique within
+ * the workbook. Two rooms called "3A" in rounds whose names collide after truncation would
+ * otherwise make ExcelJS throw at the second one.
+ */
+export function rosterSheetName(slot: string, code: string, taken: Set<string>): string {
+  const clean = (s: string) => s.replace(/[:\\/?*[\]]/g, "-").trim();
+  const base = `${clean(slot)} · ${clean(code) || "no code"}`.slice(0, 31);
+  if (!taken.has(base)) return base;
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${base.slice(0, 31 - String(n).length - 1)} ${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return base.slice(0, 29) + "~~";
+}
+
+/**
+ * One printable sheet per room, plus one per round listing whoever has no room.
+ *
+ * Per room rather than one grid, because the artefact a facilitator asks for is the page for
+ * their own room. The cross-tab of everyone against every round is the file the client sent
+ * you in the first place.
+ *
+ * Each room's `attendeeIds` already arrives sorted alphabetically by `rosters` (it sorts into
+ * the order of the `attendeeIds` it was given, which `listAttendees` orders by name) — rows are
+ * written in that order as-is, with no re-sort here.
+ */
+export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, RosterPerson>): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+  const taken = new Set<string>();
+  const sheet = (slot: string, code: string, ids: string[]) => {
+    const name = rosterSheetName(slot, code, taken);
+    taken.add(name);
+    const ws = wb.addWorksheet(name);
+    ws.addRow(["Name", "Company", "Email"]);
+    for (const id of ids) {
+      const p = people.get(id);
+      if (p) ws.addRow([p.name, p.company, p.email]);
+    }
+    ws.columns = [{ width: 28 }, { width: 24 }, { width: 28 }];
+  };
+  for (const s of slots) {
+    for (const r of s.rooms) sheet(s.slot, r.code || "no code", r.attendeeIds);
+    if (s.unassignedIds.length) sheet(s.slot, "unassigned", s.unassignedIds);
+  }
   return wb;
 }

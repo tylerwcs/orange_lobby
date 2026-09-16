@@ -3,8 +3,11 @@ import { loadHomeData } from "@/lib/portal-home";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { checkinStatus } from "@/lib/checkins-stats";
 import { isoToLocalInput } from "@/lib/time";
+import { myBreakouts } from "@/lib/breakouts";
+import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { BadgeCard } from "@/components/portal/BadgeCard";
+import { BreakoutCard } from "@/components/portal/BreakoutCard";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { TileGrid } from "@/components/portal/TileGrid";
 import { NowCard } from "@/components/portal/NowCard";
@@ -28,7 +31,7 @@ export default async function PersonalHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
-  const { tiles, banner, next, today, agenda, days, day, announcements, now } =
+  const { tiles, banner, next, today, agenda, allAgenda, assignedItemIds, days, day, announcements, now } =
     await loadHomeData(event, attendee, basePath, requestedDay);
   const checkins = await listCheckinsForEvent(event.id);
   const state = checkinStatus(attendee.id, checkins);
@@ -49,6 +52,7 @@ export default async function PersonalHome({ params, searchParams }: {
 
         <div className="flex flex-col gap-4 md:gap-5">
           <BadgeCard attendee={attendee} basePath={basePath} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
+          <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
         </div>
 

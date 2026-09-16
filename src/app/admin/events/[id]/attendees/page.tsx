@@ -5,9 +5,11 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, addAttendeeFieldAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
+import { addAttendeeAction, addAttendeeFieldAction, bulkAssignBreakoutAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
+import { listAgenda } from "@/lib/db/agenda";
+import { breakoutSlots } from "@/lib/breakouts";
 import { activeCheckpoint } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -44,7 +46,10 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const sp = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [rows, total, checkins, cps, jar] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id), listCheckpoints(ev.id), cookies()]);
+  const [rows, total, checkins, cps, agenda, jar] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id), listCheckpoints(ev.id), listAgenda(ev.id), cookies()]);
+  // The rooms the bulk bar can move a selection into — only the events that actually run
+  // breakouts grow this control, exactly as they grow "Assign from column" on the agenda.
+  const breakoutRooms = breakoutSlots(agenda).flatMap((s) => s.items.map((i) => ({ id: i.id, slot: s.slot, code: i.code ?? "" })));
 
   // Which columns this browser has hidden. Read on the server so the first paint is
   // already right, rather than rendering everything and pulling columns back out.
@@ -155,9 +160,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
+        assignBreakout={bulkAssignBreakoutAction.bind(null, ev.id)}
         bulkEditable={bulkFields(allFields)}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
+        breakoutRooms={breakoutRooms}
       />
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span className="tabular-nums">Showing {from}–{to} of {rows.length}</span>

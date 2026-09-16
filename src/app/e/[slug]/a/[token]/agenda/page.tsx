@@ -1,5 +1,7 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { listAgenda } from "@/lib/db/agenda";
+import { assignedItemIdsFor } from "@/lib/db/breakouts";
+import { isBreakout } from "@/lib/breakouts";
 import { visibleTo, groupByDay, pickDay } from "@/lib/agenda";
 import { nowInKL } from "@/lib/time";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -9,7 +11,9 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const { slug, token } = await params; const { day: requested } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
-  const items = visibleTo(await listAgenda(event.id), attendee.category);
+  const allAgenda = await listAgenda(event.id);
+  const assignedItemIds = allAgenda.some(isBreakout) ? await assignedItemIdsFor(attendee.id) : new Set<string>();
+  const items = visibleTo(allAgenda, { category: attendee.category, assignedItemIds });
   const days = groupByDay(items).map((d) => d.day);
   const now = nowInKL();
   const day = pickDay(days, requested, now.date);

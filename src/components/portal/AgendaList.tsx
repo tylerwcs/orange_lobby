@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
 import { isNow } from "@/lib/agenda";
+import { isBreakout } from "@/lib/breakouts";
 import { Badge } from "@/components/ui/badge";
 import { shortDate } from "@/lib/text";
 
@@ -35,7 +36,11 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[15px] font-bold">{i.title}</div>
-              {i.location && <div className="text-xs text-muted-foreground">{i.location}</div>}
+              {i.location && (
+                <div className={isBreakout(i) ? "text-sm font-extrabold text-primary" : "text-xs text-muted-foreground"}>
+                  {i.location}
+                </div>
+              )}
               {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{i.description}</p>}
               {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Badge variant="secondary">{i.categories.join(", ")}</Badge></div>}
             </div>

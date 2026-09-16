@@ -2,14 +2,14 @@ import { describe, it, expect } from "vitest";
 import { visibleTo, groupByDay, parseCategories, nextSession, isNow } from "@/lib/agenda";
 import type { AgendaItem } from "@/lib/types";
 
-const mk = (p: Partial<AgendaItem>): AgendaItem => ({ id: "x", event_id: "e", day: "2026-09-30", starts_at: "09:00", ends_at: null, title: "t", description: null, location: null, categories: null, sort_order: 0, ...p });
+const mk = (p: Partial<AgendaItem>): AgendaItem => ({ id: "x", event_id: "e", day: "2026-09-30", starts_at: "09:00", ends_at: null, title: "t", description: null, location: null, categories: null, slot: null, code: null, sort_order: 0, ...p });
 
 describe("agenda", () => {
   it("shows unrestricted items to everyone, restricted only to matching category", () => {
     const items = [mk({ id: "a" }), mk({ id: "b", categories: ["VIP"] })];
     expect(visibleTo(items, null).map((i) => i.id)).toEqual(["a"]);
-    expect(visibleTo(items, "Staff").map((i) => i.id)).toEqual(["a"]);
-    expect(visibleTo(items, "vip").map((i) => i.id)).toEqual(["a", "b"]); // case-insensitive
+    expect(visibleTo(items, { category: "Staff", assignedItemIds: new Set() }).map((i) => i.id)).toEqual(["a"]);
+    expect(visibleTo(items, { category: "vip", assignedItemIds: new Set() }).map((i) => i.id)).toEqual(["a", "b"]); // case-insensitive
   });
   it("groups by day sorted by time then sort_order", () => {
     const items = [mk({ id: "1", day: "2026-10-01", starts_at: "10:00" }), mk({ id: "2", starts_at: "09:30" }), mk({ id: "3", starts_at: "09:00", sort_order: 1 }), mk({ id: "4", starts_at: "09:00", sort_order: 0 })];
@@ -60,5 +60,38 @@ describe("pickDay", () => {
     expect(pickDay(days, "2026-12-25", "2026-10-01")).toBe("2026-10-01");
     expect(pickDay(days, undefined, "2026-01-01")).toBe("2026-09-30");
     expect(pickDay([], undefined, "2026-01-01")).toBeNull();
+  });
+});
+
+describe("visibleTo with breakouts", () => {
+  const lunch = mk({ id: "lunch", title: "Lunch" });
+  const a = mk({ id: "a", slot: "Breakout 1", code: "3A" });
+  const b = mk({ id: "b", slot: "Breakout 1", code: "3B" });
+  const mgmtRoom = mk({ id: "m", slot: "Breakout 1", code: "5A", categories: ["Management"] });
+
+  it("shows the room this attendee is assigned to and hides the others", () => {
+    const seen = visibleTo([lunch, a, b], { category: null, assignedItemIds: new Set(["a"]) });
+    expect(seen.map((i) => i.id)).toEqual(["lunch", "a"]);
+  });
+
+  it("hides every room from an attendee assigned to none", () => {
+    // Fails closed: showing nothing is recoverable, showing someone else's room is not.
+    const seen = visibleTo([lunch, a, b], { category: null, assignedItemIds: new Set() });
+    expect(seen.map((i) => i.id)).toEqual(["lunch"]);
+  });
+
+  it("hides every room from the anonymous portal", () => {
+    expect(visibleTo([lunch, a, b], null).map((i) => i.id)).toEqual(["lunch"]);
+  });
+
+  it("requires BOTH filters to pass when an item carries a slot and a category", () => {
+    expect(visibleTo([mgmtRoom], { category: "Staff", assignedItemIds: new Set(["m"]) })).toEqual([]);
+    expect(visibleTo([mgmtRoom], { category: "Management", assignedItemIds: new Set(["m"]) }).map((i) => i.id)).toEqual(["m"]);
+  });
+
+  it("leaves an ordinary categorised item behaving exactly as before", () => {
+    const vipOnly = mk({ id: "v", categories: ["VIP"] });
+    expect(visibleTo([vipOnly], { category: "VIP", assignedItemIds: new Set() }).map((i) => i.id)).toEqual(["v"]);
+    expect(visibleTo([vipOnly], { category: "Staff", assignedItemIds: new Set() })).toEqual([]);
   });
 });

@@ -1,8 +1,59 @@
 import type { AgendaItem } from "@/lib/types";
+import { isBreakout, breakoutSlots } from "@/lib/breakouts";
 
-export function visibleTo(items: AgendaItem[], category: string | null): AgendaItem[] {
+/** Who is looking. `null` is the anonymous portal — nobody signed in, so no assignments. */
+export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlySet<string> } | null;
+
+/**
+ * The category rule alone: an item with no categories is for everyone; otherwise the viewer's
+ * category (case/whitespace-insensitive) must be one of the item's. This says nothing about
+ * assignment — `visibleTo` ANDs that in separately, and `categoryVisibleBreakoutItems` below
+ * uses this rule on its own, on purpose, to answer "was this round ever open to them" rather
+ * than "do they have a room in it".
+ */
+export function categoryVisible(item: AgendaItem, category: string | null): boolean {
   const c = category?.trim().toLowerCase() ?? null;
-  return items.filter((i) => !i.categories || i.categories.length === 0 || (c !== null && i.categories.some((x) => x.trim().toLowerCase() === c)));
+  return !item.categories || item.categories.length === 0
+    || (c !== null && item.categories.some((x) => x.trim().toLowerCase() === c));
+}
+
+/**
+ * The items this viewer may see, under two independent filters that must BOTH pass.
+ *
+ * The category rule is unchanged: an item with no categories is for everyone. The assignment
+ * rule applies only to items carrying a slot — a breakout room is visible only to someone
+ * assigned to it — so an item with no slot behaves exactly as it did before breakouts existed.
+ *
+ * Both rules fail closed. An unassigned attendee sees no room rather than everyone's rooms;
+ * the placeholder that tells them so is built by `myBreakouts`, not here, because this
+ * function's job is to remove things.
+ */
+export function visibleTo(items: AgendaItem[], viewer: AgendaViewer): AgendaItem[] {
+  const category = viewer?.category ?? null;
+  const assigned = viewer?.assignedItemIds ?? new Set<string>();
+  return items.filter((i) => {
+    const categoryOk = categoryVisible(i, category);
+    const assignmentOk = !isBreakout(i) || assigned.has(i.id);
+    return categoryOk && assignmentOk;
+  });
+}
+
+/**
+ * The breakout items to hand to `myBreakouts`: every room of every round that has at least
+ * one room this attendee could see on category grounds — assignment ignored entirely, because
+ * `myBreakouts` needs the round's other rooms to build the "not assigned yet" placeholder.
+ *
+ * Without this, `myBreakouts` (fed the fully unfiltered agenda, correctly, so it can see rounds
+ * an attendee is not assigned to) can't tell "not assigned to this round" apart from "this round
+ * was never open to my category" — a round entirely restricted to another category produced a
+ * phantom placeholder row ("Room not assigned yet · call the desk") for attendees it never
+ * concerned. A round only *partly* restricted still needs every one of its rooms passed through,
+ * so the placeholder (and, once assigned, the room itself) is never built from a partial list.
+ */
+export function categoryVisibleBreakoutItems(items: AgendaItem[], category: string | null): AgendaItem[] {
+  return breakoutSlots(items)
+    .filter((s) => s.items.some((i) => categoryVisible(i, category)))
+    .flatMap((s) => s.items);
 }
 
 export function groupByDay(items: AgendaItem[]): { day: string; items: AgendaItem[] }[] {
