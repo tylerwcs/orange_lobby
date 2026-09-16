@@ -1228,12 +1228,15 @@ Claude can verify neither the admin (login-gated) nor the booth scanner (needs a
 
 - [ ] Apply migration 0010 at merge.
 - [ ] Admin → Booths: add three booths, reorder by drag and by keyboard, rename one.
-- [ ] Delete a booth with no stamps — it goes. Stamp another, then try to delete it — refused, with the reason.
-- [ ] Print a booth sheet. Scan its QR with a second phone; the scanner opens on the right booth.
+- [ ] Delete a booth with no stamps — it goes. Stamp another, then try to delete it — refused. **Confirm the refusal message actually appears on screen.** It rides a redirect-with-flash that no other admin delete in this repo uses, it could not be verified without a database, and it is the only signal the admin gets that the booth was spared.
+- [ ] **Print a booth sheet to paper or PDF and count the pages.** It must be exactly one. The sheet is printed by hiding the admin shell and collapsing its boxes; this is the only print surface in the repository, so nothing here has ever survived a real printer. Check too that the orange band behind "Staff only" prints as orange rather than white.
+- [ ] Scan a sheet's QR with a second phone; the scanner opens on the right booth.
 - [ ] Stamp a real badge. The panel shows the name and the progress, and **no company, table or phone**.
 - [ ] Scan the same badge again — "already stamped", with the original time, and the count does not move.
 - [ ] Undo within six seconds; the count drops.
 - [ ] Turn the camera off (deny permission) and search by name — results show name and category only, and there is no way to add a walk-in.
+- [ ] From the booth scanner, search a **company name** and an **email domain** belonging to someone on the list. Both must return nothing. The booth searches names only; the crew scanner still searches email and company, so check that one still finds someone by their registered email.
+- [ ] Open the attendee passport at 390px (phone, or a narrowed window) with a deliberately long booth name — no sideways scroll.
 - [ ] Open the attendee's portal: the chop is there, the counter agrees with the cells.
 - [ ] Set stamps needed to the number you have stamped; the card flips to complete and shows the message.
 - [ ] Scan that attendee on a "Prize counter" checkpoint in the crew scanner; scan them again — "already in".
