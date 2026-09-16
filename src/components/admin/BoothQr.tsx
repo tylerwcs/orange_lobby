@@ -25,8 +25,13 @@ export function BoothQr({ boothName, location, eventName, link, qr }: {
       <style>{`
         @media print {
           @page { size: A5; margin: 0; }
-          body * { visibility: hidden; }
-          #booth-sheet, #booth-sheet * { visibility: visible; }
+          /* visibility: hidden alone leaves the box in layout - the sidebar, the flash and
+             toaster, and the page wrapper would each still generate a page box at A5
+             height, which is a blank printed page. Collapsing height (and clipping the
+             overflow that would otherwise force the box back open) removes the page box
+             instead of just hiding its contents. */
+          body * { visibility: hidden; height: 0 !important; overflow: hidden !important; }
+          #booth-sheet, #booth-sheet * { visibility: visible; height: auto !important; overflow: visible !important; }
           #booth-sheet { position: fixed; inset: 0; box-shadow: none; }
           /* Browsers drop background colours in print unless the operator ticks
              "Background graphics" - the accent band behind the staff-only warning is the
