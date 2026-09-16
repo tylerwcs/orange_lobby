@@ -128,7 +128,13 @@ function CompleteHeader({ passport, attendeeName, message }: { passport: Passpor
         <StampGlyph deg={-8} size={62} />
         <div className="flex min-w-0 flex-col gap-1">
           <span className="inline-flex w-fit items-center rounded-full bg-brand/25 px-2.5 py-1 text-xs font-extrabold text-accent">{progressLine(passport)}</span>
-          <div className="truncate text-2xl font-extrabold leading-tight">{attendeeName}</div>
+          {/*
+            Wraps rather than truncates. This name is the largest thing on the card because a
+            counter reads it against the badge in the person's hand - and "Zainab binti Abdul…"
+            cannot be read against anything. Found by running it: the mockup used a short name,
+            so the design never met a real one.
+          */}
+          <div className="text-2xl font-extrabold leading-tight text-balance break-words">{attendeeName}</div>
           {passport.completedAt && <div className="text-xs font-semibold tabular-nums text-background/70">Completed {shortDateTime(passport.completedAt)}</div>}
         </div>
       </div>
