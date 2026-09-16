@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listAgenda } from "@/lib/db/agenda";
+import { listAttendees } from "@/lib/db/attendees";
+import { listAssignments } from "@/lib/db/breakouts";
 import { groupByDay } from "@/lib/agenda";
 import { shortDate } from "@/lib/text";
 import { Field } from "@/components/admin/Field";
@@ -12,7 +14,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { addAgendaItemAction, assignFromColumnAction, deleteAgendaItemAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
-import { breakoutSlots } from "@/lib/breakouts";
+import { breakoutSlots, rosters } from "@/lib/breakouts";
 
 export const metadata = { title: "Agenda · Orange Lobby" };
 
@@ -20,7 +22,11 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const items = await listAgenda(ev.id);
+  const [items, attendees, assignments] = await Promise.all([
+    listAgenda(ev.id),
+    listAttendees(ev.id),
+    listAssignments(ev.id),
+  ]);
   const days = groupByDay(items);
   const total = days.reduce((n, d) => n + d.items.length, 0);
   const slots = breakoutSlots(items);
@@ -46,6 +52,26 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                     <SubmitButton>Assign from column</SubmitButton>
                   </form>
                 </Modal>
+              ))}
+            </div>
+          )}
+          {slots.length > 0 && (
+            <div className="space-y-3">
+              {rosters(items, attendees.map((a) => a.id), assignments).map((s) => (
+                <Card key={s.slot} className="gap-0 divide-y py-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div className="font-bold">{s.slot}</div>
+                    {s.unassignedIds.length > 0
+                      ? <Badge variant="secondary">{s.unassignedIds.length} with no room</Badge>
+                      : <Badge variant="success">Everyone placed</Badge>}
+                  </div>
+                  {s.rooms.map((r) => (
+                    <div key={r.code} className="flex items-center justify-between gap-3 p-4 text-sm">
+                      <div><span className="font-bold">{r.code || "no code"}</span> <span className="text-muted-foreground">{r.location ?? r.title}</span></div>
+                      <span className="font-bold tabular-nums">{r.attendeeIds.length}</span>
+                    </div>
+                  ))}
+                </Card>
               ))}
             </div>
           )}

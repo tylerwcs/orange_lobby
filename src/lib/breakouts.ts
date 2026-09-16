@@ -90,3 +90,33 @@ export function matchAssignments(attendees: Pick<Attendee, "id" | "extra">[], sl
   }
   return { matched, unmatched: [...misses.entries()].map(([value, count]) => ({ value, count })), blank };
 }
+
+export type RosterRoom = { slot: string; code: string; title: string; location: string | null; attendeeIds: string[] };
+export type SlotRoster = { slot: string; rooms: RosterRoom[]; unassignedIds: string[] };
+
+/**
+ * Who is in which room, per round, plus everyone who is in none of them.
+ *
+ * The unassigned list is the operationally useful half: it is the people the desk has to find
+ * before the round starts, and it is also what a typo in the client's spreadsheet looks like
+ * from the organiser's side.
+ */
+export function rosters(
+  items: AgendaItem[],
+  attendeeIds: string[],
+  assignments: { agenda_item_id: string; attendee_id: string }[],
+): SlotRoster[] {
+  const byItem = new Map<string, string[]>();
+  for (const a of assignments) {
+    const list = byItem.get(a.agenda_item_id);
+    if (list) list.push(a.attendee_id); else byItem.set(a.agenda_item_id, [a.attendee_id]);
+  }
+  return breakoutSlots(items).map((s) => {
+    const rooms = s.items.map((i) => ({
+      slot: s.slot, code: i.code?.trim() || "", title: i.title, location: i.location,
+      attendeeIds: byItem.get(i.id) ?? [],
+    }));
+    const placed = new Set(rooms.flatMap((r) => r.attendeeIds));
+    return { slot: s.slot, rooms, unassignedIds: attendeeIds.filter((id) => !placed.has(id)) };
+  });
+}

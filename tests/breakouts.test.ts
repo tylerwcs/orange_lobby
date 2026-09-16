@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts, matchAssignments } from "@/lib/breakouts";
+import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters } from "@/lib/breakouts";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
 const item = (over: Partial<AgendaItem>): AgendaItem => ({
@@ -120,5 +120,30 @@ describe("matchAssignments", () => {
     expect(r.blank).toBe(2);
     expect(r.unmatched).toEqual([]);
     expect(r.matched).toHaveLength(1);
+  });
+});
+
+describe("rosters", () => {
+  const a = item({ id: "a", slot: "Breakout 1", code: "3A", location: "Room 3A" });
+  const b = item({ id: "b", slot: "Breakout 1", code: "3B", location: "Room 3B" });
+
+  it("puts each attendee in their room", () => {
+    const [r] = rosters([a, b], ["p1", "p2", "p3"], [
+      { agenda_item_id: "a", attendee_id: "p1" },
+      { agenda_item_id: "b", attendee_id: "p2" },
+    ]);
+    expect(r.rooms.map((x) => [x.code, x.attendeeIds])).toEqual([["3A", ["p1"]], ["3B", ["p2"]]]);
+  });
+
+  it("names everyone who has no room in this round", () => {
+    // The number the desk needs at breakfast, not at 13:29.
+    const [r] = rosters([a, b], ["p1", "p2", "p3"], [{ agenda_item_id: "a", attendee_id: "p1" }]);
+    expect(r.unassignedIds).toEqual(["p2", "p3"]);
+  });
+
+  it("counts a round separately from the others", () => {
+    const c = item({ id: "c", slot: "Breakout 2", code: "5A" });
+    const out = rosters([a, c], ["p1"], [{ agenda_item_id: "a", attendee_id: "p1" }]);
+    expect(out.map((s) => [s.slot, s.unassignedIds.length])).toEqual([["Breakout 1", 0], ["Breakout 2", 1]]);
   });
 });
