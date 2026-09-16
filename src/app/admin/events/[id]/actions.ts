@@ -14,7 +14,7 @@ import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem, listAgenda } from "@/lib/db/agenda";
 import { breakoutSlots, matchAssignments } from "@/lib/breakouts";
-import { assignMany } from "@/lib/db/breakouts";
+import { assignMany, unassign } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
@@ -549,4 +549,50 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
     problems ? `No room matches: ${problems}.` : "",
   ].filter(Boolean).join(" ");
   redirect(flashPath(agendaPath, message, report.unmatched.length ? "error" : "ok"));
+}
+
+/**
+ * Moves a selection of attendees into one breakout room — the day-of edit, which starts from
+ * the attendee list somebody is already searching rather than from the agenda.
+ *
+ * The bar posts a single `target` from one `<select>`: `item:<agendaItemId>` to put the
+ * selection in a room, or `clear:<slotName>` to unassign them from that round instead, which
+ * is how you undo a bad import without picking a room nobody belongs in. Split on the first
+ * colon only — a slot name may itself contain one.
+ */
+export async function bulkAssignBreakoutAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const attendeesPath = `/admin/events/${eventId}/attendees`;
+
+  const all = await listAttendees(ev.id);
+  const ids = parseIds(String(formData.get("ids") ?? ""), new Set(all.map((a) => a.id)));
+  if (ids.length === 0) redirect(flashPath(attendeesPath, "Select somebody first.", "error"));
+
+  const target = String(formData.get("target") ?? "");
+  const sep = target.indexOf(":");
+  const prefix = sep === -1 ? target : target.slice(0, sep);
+  const rest = sep === -1 ? "" : target.slice(sep + 1);
+
+  if (prefix === "clear") {
+    const slotName = rest.trim();
+    if (!slotName) redirect(flashPath(attendeesPath, "Choose a room, or a round to clear.", "error"));
+    for (const id of ids) await unassign(ev.id, id, slotName);
+    revalidatePath(attendeesPath);
+    redirect(flashPath(attendeesPath, `${ids.length} cleared from ${slotName}.`));
+  }
+
+  if (prefix === "item") {
+    const itemId = rest.trim();
+    // Validated against this event's own agenda, so a posted id cannot assign into a room
+    // that belongs to somebody else's event.
+    const room = breakoutSlots(await listAgenda(ev.id)).flatMap((s) => s.items).find((i) => i.id === itemId);
+    if (!room) redirect(flashPath(attendeesPath, "That room no longer exists.", "error"));
+    const slot = (room.slot as string).trim();
+    await assignMany(ev.id, ids.map((attendeeId) => ({ attendeeId, itemId: room.id, slot })), true);
+    revalidatePath(attendeesPath);
+    redirect(flashPath(attendeesPath, `${ids.length} moved to ${room.code ?? slot}.`));
+  }
+
+  redirect(flashPath(attendeesPath, "Choose a room, or a round to clear.", "error"));
 }

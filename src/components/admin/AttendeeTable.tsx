@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { isoToLocalInput } from "@/lib/time";
-import { BulkBar } from "@/components/admin/BulkBar";
+import { BulkBar, type BreakoutRoom } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
 import { ColumnsButton } from "@/components/admin/ColumnsButton";
 import { AttendeePanel } from "@/components/admin/AttendeePanel";
@@ -68,12 +68,14 @@ export function AttendeeTable({
   emptyMessage,
   setColumn,
   markCheckedIn,
+  assignBreakout,
   bulkEditable,
   renameColumn,
   deleteColumn,
   addColumnForm,
   checkpoints,
   defaultCheckpointId,
+  breakoutRooms,
 }: {
   eventId: string;
   rows: AttendeeRow[];
@@ -85,12 +87,14 @@ export function AttendeeTable({
   emptyMessage: string;
   setColumn: TableAction;
   markCheckedIn: TableAction;
+  assignBreakout: TableAction;
   bulkEditable: AttendeeField[];
   renameColumn: TableAction;
   deleteColumn: TableAction;
   addColumnForm: React.ReactNode;
   checkpoints: Checkpoint[];
   defaultCheckpointId?: string;
+  breakoutRooms: BreakoutRoom[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Bumped after every successful bulk submit so BulkBar remounts fresh — clearing
@@ -185,9 +189,11 @@ export function AttendeeTable({
         onClear={() => setSelected(new Set())}
         setColumn={runBulk(setColumn)}
         markCheckedIn={runBulk(markCheckedIn)}
+        assignBreakout={runBulk(assignBreakout)}
         fields={bulkEditable}
         checkpoints={checkpoints}
         defaultCheckpointId={defaultCheckpointId}
+        rooms={breakoutRooms}
       />
 
       <div className="flex flex-wrap items-center justify-end gap-2">

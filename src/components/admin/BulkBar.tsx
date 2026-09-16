@@ -13,10 +13,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Checkpoint } from "@/lib/types";
 
 type TableAction = (formData: FormData) => void | Promise<void>;
+
+/** One room, as offered by the breakout picker. */
+export type BreakoutRoom = { id: string; slot: string; code: string };
 
 /** Dark-bar button face. The bar floats over the page, so it cannot borrow the page's ground. */
 const onDark = "bg-white/12 text-white hover:bg-white/20 border-transparent";
@@ -37,18 +41,22 @@ export function BulkBar({
   onClear,
   setColumn,
   markCheckedIn,
+  assignBreakout,
   fields,
   checkpoints,
   defaultCheckpointId,
+  rooms,
 }: {
   eventId: string;
   ids: string[];
   onClear: () => void;
   setColumn: TableAction;
   markCheckedIn: TableAction;
+  assignBreakout: TableAction;
   fields: AttendeeField[];
   checkpoints: Checkpoint[];
   defaultCheckpointId?: string;
+  rooms: BreakoutRoom[];
 }) {
   const [columnKey, setColumnKey] = useState(fields[0]?.key ?? "");
   const [value, setValue] = useState("");
@@ -61,6 +69,15 @@ export function BulkBar({
 
   const field = fields.find((f) => f.key === columnKey);
   const people = `${ids.length} ${ids.length === 1 ? "attendee" : "attendees"}`;
+
+  // Grouped by round, in the order rooms were first seen, so each round's rooms sit
+  // together under one heading with a "clear this round" option alongside them.
+  const roundsInOrder: string[] = [];
+  const roomsByRound = new Map<string, BreakoutRoom[]>();
+  for (const r of rooms) {
+    if (!roomsByRound.has(r.slot)) { roomsByRound.set(r.slot, []); roundsInOrder.push(r.slot); }
+    roomsByRound.get(r.slot)!.push(r);
+  }
 
   // Submitting a blank value clears that column for everyone selected - the one move here
   // that destroys something, and the easiest to trigger by accident.
@@ -161,6 +178,27 @@ export function BulkBar({
                 </DropdownMenuGroup>
               </DropdownMenuContent>
           </DropdownMenu>
+        )}
+
+        {rooms.length > 0 && (
+          <form action={assignBreakout} className="flex items-center gap-2">
+            <input type="hidden" name="ids" value={ids.join(",")} />
+            <select
+              name="target" defaultValue="" required aria-label="Assign a breakout room"
+              className={`h-9 rounded-md border border-white/20 bg-white/12 px-3 text-sm text-white outline-none focus-visible:ring-3 focus-visible:ring-white/40`}
+            >
+              <option value="" disabled>Choose a room…</option>
+              {roundsInOrder.map((slot) => (
+                <optgroup key={slot} label={slot}>
+                  {roomsByRound.get(slot)!.map((r) => (
+                    <option key={r.id} value={`item:${r.id}`}>{r.code || "(no code)"}</option>
+                  ))}
+                  <option value={`clear:${slot}`}>{`— Clear ${slot} —`}</option>
+                </optgroup>
+              ))}
+            </select>
+            <SubmitButton variant="outline" className={onDark}>Assign</SubmitButton>
+          </form>
         )}
 
         <DropdownMenu>
