@@ -98,3 +98,35 @@ where table_name = 'agenda_items' and column_name in ('slot','code');
 select count(*) from breakout_assignments;
 -- expect 0
 ```
+
+## Event images: create the storage bucket
+
+The logo, banner and floor plan are uploaded files rather than pasted links. They live in a
+Supabase Storage bucket called `event-media`, which `supabase/migrations/0013_event_media.sql`
+creates. **Run it before deploying the code that uses uploads** — without the bucket every
+upload fails with "Could not upload that image", though nothing else on the event breaks and
+any link pasted before this change keeps rendering.
+
+Run this in the production Supabase SQL editor (it is safe to re-run):
+
+```sql
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('event-media', 'event-media', true, 4194304,
+        array['image/png','image/jpeg','image/jpg','image/webp','image/svg+xml'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+```
+
+Verify:
+
+```sql
+select id, public, file_size_limit from storage.buckets where id = 'event-media';
+-- expect one row, public = true, file_size_limit = 4194304
+```
+
+The bucket is public to read because the portal is open to anyone holding the link. Nothing
+can write to it from the browser: uploads go through the Server Action under the service role.
+To replace an image, upload a new one — the old object is deleted on save, and "Remove on save"
+clears the image entirely.

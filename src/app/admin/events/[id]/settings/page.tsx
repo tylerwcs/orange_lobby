@@ -9,6 +9,7 @@ import { countAttendees } from "@/lib/db/attendees";
 import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
+import { ImageField } from "@/components/admin/ImageField";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
@@ -274,9 +275,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <Field label="Event desk phone" name="contact_phone" defaultValue={ev.contact_phone} />
           </Section>
 
-          <Section title="Branding and images" hint="Paste image links. The logo replaces the initials mark; the banner appears above the home page.">
-            <Field label="Logo image link" name="logo_url" defaultValue={ev.logo_url} />
-            <Field label="Banner image link" name="banner_url" defaultValue={ev.banner_url} />
+          <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
+            <ImageField label="Logo" name="logo" url={ev.logo_url} />
+            <ImageField label="Banner" name="banner" url={ev.banner_url} />
           </Section>
 
           <Section

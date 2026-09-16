@@ -26,7 +26,9 @@ import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
-import { normalizeModules, type EventModule } from "@/lib/modules";
+import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
+import { uploadEventImage, deleteEventImage } from "@/lib/db/media";
+import type { ImageKind } from "@/lib/storage";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -35,6 +37,36 @@ const str = (fd: FormData, k: string) => {
 
 /** The map URL is rendered as an href, so only http(s) is stored — never javascript: or data:. */
 const httpUrl = (v: string | null) => (v && /^https?:\/\//i.test(v) ? v : null);
+
+/**
+ * What one image field on a saved form means: the URL the column should hold, and the
+ * object the save leaves behind once it lands.
+ *
+ * Three cases, and the third is the one worth naming: a form that posts an untouched file
+ * input is saying nothing about that image, so the stored URL survives. Without this the
+ * Settings save — which writes every column every time — would blank the logo of any event
+ * whose owner only came to change the venue.
+ *
+ * `stale` is handed back rather than deleted here because the order matters. Nothing is
+ * removed from the bucket until the row naming it has actually been written: a save that
+ * fails after the upload must leave the event showing the image it showed before, not a
+ * URL whose object we already threw away.
+ */
+type ImageChange = { url: string | null; stale: string | null };
+
+async function nextImage(
+  formData: FormData,
+  name: string,
+  current: string | null,
+  where: { orgId: string; eventId: string; kind: ImageKind },
+): Promise<ImageChange> {
+  const file = formData.get(name);
+  if (file instanceof File && file.size > 0) {
+    return { url: await uploadEventImage({ ...where, file }), stale: current };
+  }
+  if (formData.get(`${name}_remove`) === "on") return { url: null, stale: current };
+  return { url: current, stale: null };
+}
 
 export async function createEventAction(formData: FormData) {
   const { orgId } = await requireAdmin();
@@ -47,10 +79,20 @@ export async function createEventAction(formData: FormData) {
 
 export async function updateSettingsAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  const ev = await requireEvent(eventId, orgId);
   let questions;
   try {
     questions = questionsFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; });
+  } catch (e) {
+    redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
+  }
+  // The images go up before anything is written: a file we will not take must leave the
+  // whole save unapplied rather than half of it.
+  let logo: ImageChange = { url: ev.logo_url, stale: null };
+  let banner: ImageChange = { url: ev.banner_url, stale: null };
+  try {
+    logo = await nextImage(formData, "logo", ev.logo_url, { orgId, eventId, kind: "logo" });
+    banner = await nextImage(formData, "banner", ev.banner_url, { orgId, eventId, kind: "banner" });
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }
@@ -65,8 +107,8 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     contact_name: str(formData, "contact_name"),
     contact_phone: str(formData, "contact_phone"),
     description: str(formData, "description"),
-    logo_url: str(formData, "logo_url"),
-    banner_url: str(formData, "banner_url"),
+    logo_url: logo.url,
+    banner_url: banner.url,
     primary_color: str(formData, "primary_color") ?? "#F97316",
     registration_open: formData.get("registration_open") === "on",
     registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
@@ -74,6 +116,8 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     scan_extra_fields: extras,
     collected_fields: collectedFromForm(formData.getAll("collected_fields").map(String)),
   });
+  await deleteEventImage(logo.stale);
+  await deleteEventImage(banner.stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(`/admin/events/${eventId}/settings`, "Settings saved."));
 }
@@ -480,17 +524,38 @@ async function saveModules(eventId: string, modules: EventModule[], message: str
 
 /** Adds a tile, or replaces the one whose id the form carries. */
 export async function saveModuleAction(eventId: string, formData: FormData) {
-  const { modules } = await currentModules(eventId);
+  const { ev, modules } = await currentModules(eventId);
   const posted = String(formData.get("id") ?? "").trim();
   const id = /^[a-z0-9_-]{1,32}$/.test(posted) ? posted : crypto.randomUUID().slice(0, 8);
+  const isPlan = formData.get("preset") === "floor_plan";
+  const plan = floorPlanUrl(ev);
+  // The floor plan is the one tile whose url is an uploaded image rather than something
+  // typed. It is resolved here and read back as if it had been posted, so moduleFromForm
+  // stays a pure function of strings that knows nothing about uploads.
+  const readWith = (url: string | null) => (k: string) => {
+    if (k === "url" && isPlan) return url;
+    const v = formData.get(k);
+    return typeof v === "string" ? v : null;
+  };
   let next: EventModule[] | undefined;
+  let image: ImageChange = { url: plan, stale: null };
   try {
-    next = upsertModule(modules, moduleFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; }, id));
+    // What was typed is checked against the image already stored, before a byte moves: a
+    // label this form will reject must not first have spent an upload on the plan.
+    moduleFromForm(readWith(plan), id);
+    if (isPlan) image = await nextImage(formData, "url", plan, { orgId: ev.org_id, eventId, kind: "floor-plan" });
+    next = upsertModule(modules, moduleFromForm(readWith(image.url), id));
   } catch (e) {
     redirect(flashPath(modulesPath(eventId), (e as Error).message, "error"));
   }
   if (!next) redirect(flashPath(modulesPath(eventId), "Could not read that tile.", "error"));
-  await saveModules(eventId, next, posted ? "Tile saved." : "Tile added.");
+  // The legacy column is written alongside the tile rather than left behind: floorPlanUrl
+  // falls back to it, so a plan removed from the tile but still named in the column would
+  // simply reappear.
+  await updateEvent(eventId, { modules: next, ...(isPlan ? { floor_plan_url: image.url } : {}) });
+  await deleteEventImage(image.stale);
+  revalidatePath(`/admin/events/${eventId}`);
+  redirect(flashPath(modulesPath(eventId), posted ? "Tile saved." : "Tile added."));
 }
 
 export async function deleteModuleAction(eventId: string, id: string) {

@@ -5,6 +5,7 @@ import { MAX_TILES, moduleId } from "@/lib/modules-form";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Field } from "@/components/admin/Field";
+import { ImageField } from "@/components/admin/ImageField";
 import { Modal } from "@/components/admin/Modal";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { TileList } from "@/components/admin/TileList";
@@ -34,7 +35,7 @@ function TileForm({ eventId, module: m }: { eventId: string; module?: EventModul
       <Field label="Subtitle (optional)" name="subtitle" defaultValue={m && "subtitle" in m ? m.subtitle ?? "" : ""} placeholder="Ask the directors" />
 
       {isPlan ? (
-        <Field label="Floor plan image URL" name="url" type="url" defaultValue={m.url ?? ""} placeholder="https://" description="The image the floor plan page shows. Without it the tile stays hidden." />
+        <ImageField label="Floor plan image" name="url" url={m.url} description="The image the floor plan page shows. Without it the tile stays hidden." />
       ) : (
         <>
           <div className="grid gap-2">
@@ -118,7 +119,7 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
         </div>
       </Card>
       <p className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Icon name="info" size={14} /> The floor plan image URL now lives on its tile, not in Settings.
+        <Icon name="info" size={14} /> The floor plan image now lives on its tile, not in Settings.
       </p>
     </div>
   );
