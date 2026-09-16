@@ -2,25 +2,22 @@
 import { ChevronDown, Columns3 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup,
-  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import type { ColumnDef, ColumnSource } from "@/lib/columns";
-
-const GROUP_LABEL: Record<ColumnSource, string> = {
-  builtin: "Attendee",
-  registration: "From registration",
-  custom: "Your columns",
-  breakout: "Breakout rounds",
-};
-
-const ORDER: ColumnSource[] = ["builtin", "breakout", "registration", "custom"];
+import type { ColumnDef } from "@/lib/columns";
 
 /**
  * Which columns the table shows. This is the answer to an event whose registration form
  * asks seven questions: every answer is a column, which is fifteen of them for the KOM,
  * and nobody reads fifteen columns at once. They stay one tick away, and the attendee
  * panel shows all of them for one person regardless.
+ *
+ * One flat list, in the table's own order. It used to be grouped by where a column came
+ * from — the attendee row, the registration form, the organiser, a breakout round — but
+ * that is a distinction the person ticking a box does not have and does not need: they are
+ * looking for a column by its name. `source` still decides what a column's own header menu
+ * offers, which is where it actually matters.
  */
 export function ColumnsButton({ columns, hidden, onToggle, onShowAll, onAddColumn }: {
   columns: ColumnDef[];
@@ -41,31 +38,21 @@ export function ColumnsButton({ columns, hidden, onToggle, onShowAll, onAddColum
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="max-h-[70vh] w-64 overflow-y-auto">
-        {ORDER.map((source) => {
-          const group = columns.filter((c) => c.source === source);
-          if (group.length === 0) return null;
-          return (
-            <DropdownMenuGroup key={source}>
-              <DropdownMenuLabel className="text-muted-foreground">
-                {GROUP_LABEL[source]}
-                {source === "registration" && ` · ${group.length}`}
-              </DropdownMenuLabel>
-              {group.map((c) => (
-                <DropdownMenuCheckboxItem
-                  key={c.key}
-                  checked={!hidden.has(c.key)}
-                  onCheckedChange={(checked) => onToggle(c.key, checked)}
-                  /* Keeps the menu open: hiding four columns should be four ticks, not four
-                     round trips through the trigger. */
-                  closeOnClick={false}
-                >
-                  {c.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-              <DropdownMenuSeparator />
-            </DropdownMenuGroup>
-          );
-        })}
+        <DropdownMenuGroup>
+          {columns.map((c) => (
+            <DropdownMenuCheckboxItem
+              key={c.key}
+              checked={!hidden.has(c.key)}
+              onCheckedChange={(checked) => onToggle(c.key, checked)}
+              /* Keeps the menu open: hiding four columns should be four ticks, not four
+                 round trips through the trigger. */
+              closeOnClick={false}
+            >
+              {c.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
           {hiddenCount > 0 && <DropdownMenuItem onClick={onShowAll}>Show all columns</DropdownMenuItem>}
