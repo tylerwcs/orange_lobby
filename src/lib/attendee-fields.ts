@@ -31,8 +31,12 @@ export const FIELD_TYPE_LABELS: Record<AttendeeFieldType, string> = {
   select: "Choice",
 };
 
-/** Keys the attendee row already owns. A column called "Email" would be a trap, not a feature. */
-const RESERVED_KEYS = new Set(["id", "name", "email", "phone", "company", "category", "table", "table_no", "source", "status", "token", "extra"]);
+/**
+ * Keys the attendee row still owns. company, phone and table_no left this list when they
+ * became ordinary fields — an event may now define, rename and delete them like any other
+ * column, which is the whole point of retiring collected_fields.
+ */
+const RESERVED_KEYS = new Set(["id", "name", "email", "category", "source", "status", "token", "extra"]);
 
 export function fieldKey(label: string): string {
   return slugify(label).replace(/-/g, "_");

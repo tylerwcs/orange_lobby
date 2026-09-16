@@ -295,3 +295,16 @@ describe("phone fields", () => {
       .toEqual([{ key: "guests", label: "Guests", type: "number" }]);
   });
 });
+
+describe("keys the attendee row no longer owns", () => {
+  it("lets an event add its own Company column", () => {
+    const r = addField([], { label: "Company", type: "text", options: "" });
+    expect(r).toEqual({ ok: true, fields: [{ key: "company", label: "Company", type: "text" }] });
+  });
+
+  it("still refuses a column that would shadow the row's own identity", () => {
+    for (const label of ["Email", "Name", "Category", "Token"]) {
+      expect(addField([], { label, type: "text", options: "" })).toMatchObject({ ok: false });
+    }
+  });
+});
