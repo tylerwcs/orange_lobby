@@ -9,7 +9,8 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const { slug, token } = await params; const { day: requested } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
-  const items = visibleTo(await listAgenda(event.id), attendee.category);
+  const assignedItemIds = new Set<string>(); // filled in Task 5
+  const items = visibleTo(await listAgenda(event.id), { category: attendee.category, assignedItemIds });
   const days = groupByDay(items).map((d) => d.day);
   const now = nowInKL();
   const day = pickDay(days, requested, now.date);

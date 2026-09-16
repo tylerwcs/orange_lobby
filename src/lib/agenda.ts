@@ -1,8 +1,29 @@
 import type { AgendaItem } from "@/lib/types";
+import { isBreakout } from "@/lib/breakouts";
 
-export function visibleTo(items: AgendaItem[], category: string | null): AgendaItem[] {
-  const c = category?.trim().toLowerCase() ?? null;
-  return items.filter((i) => !i.categories || i.categories.length === 0 || (c !== null && i.categories.some((x) => x.trim().toLowerCase() === c)));
+/** Who is looking. `null` is the anonymous portal — nobody signed in, so no assignments. */
+export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlySet<string> } | null;
+
+/**
+ * The items this viewer may see, under two independent filters that must BOTH pass.
+ *
+ * The category rule is unchanged: an item with no categories is for everyone. The assignment
+ * rule applies only to items carrying a slot — a breakout room is visible only to someone
+ * assigned to it — so an item with no slot behaves exactly as it did before breakouts existed.
+ *
+ * Both rules fail closed. An unassigned attendee sees no room rather than everyone's rooms;
+ * the placeholder that tells them so is built by `myBreakouts`, not here, because this
+ * function's job is to remove things.
+ */
+export function visibleTo(items: AgendaItem[], viewer: AgendaViewer): AgendaItem[] {
+  const c = viewer?.category?.trim().toLowerCase() ?? null;
+  const assigned = viewer?.assignedItemIds ?? new Set<string>();
+  return items.filter((i) => {
+    const categoryOk = !i.categories || i.categories.length === 0
+      || (c !== null && i.categories.some((x) => x.trim().toLowerCase() === c));
+    const assignmentOk = !isBreakout(i) || assigned.has(i.id);
+    return categoryOk && assignmentOk;
+  });
 }
 
 export function groupByDay(items: AgendaItem[]): { day: string; items: AgendaItem[] }[] {
