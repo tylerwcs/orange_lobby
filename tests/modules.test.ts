@@ -100,6 +100,24 @@ describe("tile modules", () => {
   });
 });
 
+describe("the passport tile", () => {
+  it("accepts a tile pointing at the passport", () => {
+    const [m] = parseModules([{ key: "tile", id: "passport", enabled: true, label: "Booth Passport", icon: "star", target: { kind: "route", route: "stamps" } }]);
+    expect(m).toMatchObject({ key: "tile", target: { kind: "route", route: "stamps" } });
+  });
+
+  it("resolves that tile to the attendee's passport path", () => {
+    const tiles = resolveTiles({
+      event: { floor_plan_url: null, info_page_html: null, info_page_title: "Info", modules: [
+        { key: "tile", id: "passport", enabled: true, label: "Booth Passport", icon: "star", target: { kind: "route", route: "stamps" } },
+      ] },
+      basePath: "/e/kom/a/abcdefghjkmn",
+    });
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].href).toBe("/e/kom/a/abcdefghjkmn/stamps");
+  });
+});
+
 describe("floor plan url on the tile", () => {
   const base = { info_page_html: null, info_page_title: "Info" };
 
