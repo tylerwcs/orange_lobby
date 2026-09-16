@@ -106,20 +106,34 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
   }, [undoLeft]);
 
   useEffect(() => {
-    const t = setTimeout(async () => { setHits(q.trim().length >= 2 ? await searchAttendeesAction(eventId, q, checkpoint.id, crewToken) : []); }, 250);
+    const t = setTimeout(async () => {
+      if (q.trim().length < 2) { setHits([]); return; }
+      try {
+        setHits(await searchAttendeesAction(eventId, q, checkpoint.id, crewToken));
+      } catch {
+        // A transport failure here must not leave a stale hit list on screen — a door
+        // reading the previous search's results is how the wrong person gets checked in.
+        setHits([]);
+      }
+    }, 250);
     return () => clearTimeout(t);
   }, [q, eventId, checkpoint.id, crewToken]);
 
   const named = result?.attendee && result.status !== "error" && result.status !== "notfound";
 
+  // The door is also the way back to the door list: one tap, where the thumb is. This
+  // component serves two doors — an admin's session and a crew token — and each must land
+  // back on its own chooser: sending a crew member into /scan's admin route would bounce
+  // them to a login form they have no business seeing.
+  const pickHref = crewToken ? `/crew/${crewToken}?pick=1` : `/scan/${eventId}?pick=1`;
+
   return (
     <main className="mx-auto flex max-w-md flex-col gap-3 p-3">
       <header className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
-          {/* The door is also the way back to the door list: one tap, where the thumb is. */}
           {/* A link, styled as a button: it navigates, so it stays an <a>. Base UI's Button
               would announce it as a button and take open-in-new-tab away from the crew. */}
-          <a href={`/scan/${eventId}?pick=1`} className={cn(buttonVariants({ variant: "ghost" }), "-ml-2 h-11 gap-1 px-2 text-base font-extrabold")}>
+          <a href={pickHref} className={cn(buttonVariants({ variant: "ghost" }), "-ml-2 h-11 gap-1 px-2 text-base font-extrabold")}>
             <ChevronLeft data-icon="inline-start" />
             <span className="truncate">{checkpoint.name}</span>
           </a>

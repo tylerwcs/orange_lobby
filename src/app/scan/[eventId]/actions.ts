@@ -1,5 +1,4 @@
 "use server";
-import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, getEventByCrewToken } from "@/lib/db/events";
 import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
@@ -30,16 +29,26 @@ export type SearchHit = Pick<Attendee, "id" | "name" | "company" | "category" | 
  * Fails closed. A crew token that is malformed, unknown, for another event, or past its last
  * day never falls through to the admin path: if a token was offered, it is the only thing that
  * can authorise this call.
+ *
+ * The two branches fail differently on purpose. The admin branch still throws —
+ * `requireAdmin` redirects to login and `requireEvent` calls `notFound()`, both correct for
+ * someone with a session who is simply on the wrong page. The crew branch returns an `error`
+ * instead of throwing `notFound()`, because every caller here is a server action, not a page
+ * render: `Scanner.tsx` wraps each call in `try/catch` and a caught `notFound()` never
+ * produces its redirect — it just looks like a throw, so the crew branch's refusal has to
+ * travel back as data or it is indistinguishable from a dropped connection.
  */
-async function authorise(eventId: string, crewToken?: string): Promise<{ ev: Event; userId: string | null }> {
+async function authorise(eventId: string, crewToken?: string): Promise<{ ev: Event; userId: string | null } | { error: string }> {
   if (crewToken) {
-    if (!isValidToken(crewToken)) notFound();
+    if (!isValidToken(crewToken)) return { error: "This scanner link isn't valid. Ask the organiser for the right one." };
     // Rate-limited by token, as the booth route is. `allow` is an in-memory Map, so on Vercel
     // this is per-instance and therefore weak — a speed bump against a loop, not the control.
-    if (!allow(`crew:${crewToken}`, 240, 60_000)) notFound();
+    // The budget itself is larger than the booth's 120/min: a door reads one badge per person
+    // through a queue and can burst faster than a stand's steadier trickle of visitors.
+    if (!allow(`crew:${crewToken}`, 240, 60_000)) return { error: "Too many scans at once. Wait a moment and try again." };
     const ev = await getEventByCrewToken(crewToken);
-    if (!ev || ev.id !== eventId) notFound();
-    if (!crewLinkLive(ev, nowInKL().date)) notFound();
+    if (!ev || ev.id !== eventId) return { error: "This scanner link no longer works. Ask the organiser for a new one." };
+    if (!crewLinkLive(ev, nowInKL().date)) return { error: "This scanner link has expired. Ask the organiser for a new one." };
     return { ev, userId: null };
   }
   const { orgId, userId } = await requireAdmin();
@@ -57,7 +66,9 @@ async function doCheckin(ev: Event, userId: string | null, checkpointId: string,
 }
 
 export async function checkInByTokenAction(eventId: string, checkpointId: string, scanned: string, crewToken?: string): Promise<ScanResult> {
-  const { ev, userId } = await authorise(eventId, crewToken);
+  const auth = await authorise(eventId, crewToken);
+  if ("error" in auth) return { status: "error", message: auth.error };
+  const { ev, userId } = auth;
   const token = extractToken(scanned);
   if (!token) return { status: "notfound", message: "That code isn't an attendee badge. Try the name search." };
   const a = await findByToken(eventId, token);
@@ -66,14 +77,18 @@ export async function checkInByTokenAction(eventId: string, checkpointId: string
 }
 
 export async function checkInByIdAction(eventId: string, checkpointId: string, attendeeId: string, crewToken?: string): Promise<ScanResult> {
-  const { ev, userId } = await authorise(eventId, crewToken);
+  const auth = await authorise(eventId, crewToken);
+  if ("error" in auth) return { status: "error", message: auth.error };
+  const { ev, userId } = auth;
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== eventId) return { status: "notfound", message: "That attendee is no longer on the list." };
   return doCheckin(ev, userId, checkpointId, a);
 }
 
 export async function undoCheckinAction(eventId: string, checkpointId: string, attendeeId: string, crewToken?: string): Promise<ScanResult> {
-  const { ev } = await authorise(eventId, crewToken);
+  const auth = await authorise(eventId, crewToken);
+  if ("error" in auth) return { status: "error", message: auth.error };
+  const { ev } = auth;
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== ev.id) return { status: "error", message: "That attendee is no longer on the list." };
   const removed = await deleteCheckin(ev.id, checkpointId, attendeeId);
@@ -81,7 +96,9 @@ export async function undoCheckinAction(eventId: string, checkpointId: string, a
 }
 
 export async function searchAttendeesAction(eventId: string, q: string, checkpointId: string, crewToken?: string): Promise<SearchHit[]> {
-  const { ev } = await authorise(eventId, crewToken);
+  const auth = await authorise(eventId, crewToken);
+  if ("error" in auth) return [];
+  const { ev } = auth;
   if (q.trim().length < 2) return [];
   const [rows, checkedIn] = await Promise.all([listAttendees(eventId, q), listCheckedInAttendeeIds(checkpointId)]);
   // A field this event does not collect never reaches the crew's phone at all, rather than
