@@ -4,6 +4,7 @@ import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { checkinStatus } from "@/lib/checkins-stats";
 import { isoToLocalInput } from "@/lib/time";
 import { myBreakouts } from "@/lib/breakouts";
+import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { BadgeCard } from "@/components/portal/BadgeCard";
 import { BreakoutCard } from "@/components/portal/BreakoutCard";
@@ -51,7 +52,7 @@ export default async function PersonalHome({ params, searchParams }: {
 
         <div className="flex flex-col gap-4 md:gap-5">
           <BadgeCard attendee={attendee} basePath={basePath} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
-          <BreakoutCard breakouts={myBreakouts(allAgenda, assignedItemIds)} contactPhone={event.contact_phone} />
+          <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
         </div>
 

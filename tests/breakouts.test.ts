@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters } from "@/lib/breakouts";
+import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
 const item = (over: Partial<AgendaItem>): AgendaItem => ({
@@ -85,6 +86,33 @@ describe("myBreakouts", () => {
     ];
     const mine = myBreakouts(rooms, new Set(["b"]));
     expect(mine[0]).toMatchObject({ item: expect.objectContaining({ id: "b" }), starts_at: "14:00", ends_at: "15:30" });
+  });
+});
+
+describe("categoryVisibleBreakoutItems + myBreakouts (phantom row, D-review finding 3)", () => {
+  // A round every one of whose rooms is restricted to "Management" — an attendee outside
+  // that category was never in this round at all, not merely unassigned from it.
+  const mgmtA = item({ id: "a", slot: "Breakout 1", code: "3A", categories: ["Management"] });
+  const mgmtB = item({ id: "b", slot: "Breakout 1", code: "3B", categories: ["Management"] });
+
+  it("produces no phantom row for an attendee outside every room's category", () => {
+    const visible = categoryVisibleBreakoutItems([mgmtA, mgmtB], "Staff");
+    expect(myBreakouts(visible, new Set())).toEqual([]);
+  });
+
+  it("still produces a placeholder row for an attendee in the category but unassigned", () => {
+    const visible = categoryVisibleBreakoutItems([mgmtA, mgmtB], "Management");
+    const mine = myBreakouts(visible, new Set());
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({ slot: "Breakout 1", item: null });
+  });
+
+  it("keeps the round when only some rooms match the category, and does not leak the hidden room", () => {
+    const open = item({ id: "c", slot: "Breakout 2", code: "5A" }); // no categories: open to everyone
+    const restricted = item({ id: "d", slot: "Breakout 2", code: "5B", categories: ["Management"] });
+    const visible = categoryVisibleBreakoutItems([open, restricted], "Staff");
+    expect(visible.map((i) => i.id)).toEqual(["c", "d"]); // round kept - myBreakouts still needs both rooms to know what's taken
+    expect(myBreakouts(visible, new Set())[0]).toMatchObject({ slot: "Breakout 2", item: null });
   });
 });
 
