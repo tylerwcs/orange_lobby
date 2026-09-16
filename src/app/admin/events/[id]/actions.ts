@@ -297,8 +297,6 @@ export async function deleteAttendeeFieldAction(eventId: string, formData: FormD
 
 // ---- Agenda / announcements / info / checkpoints ----
 
-// NOTE: if an edit path is added for agenda items, renaming `slot` MUST also call
-// renameSlotAssignments() — the copy on each assignment row is what the unique index reads.
 export async function addAgendaItemAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);

@@ -55,7 +55,7 @@ iOS needs Safari (not in-app browsers). The page must be HTTPS. Reload and allow
 
 Migration `0007_breakouts.sql` adds columns `slot` and `code` to `agenda_items` and creates the `breakout_assignments` table. This migration has NOT been applied to production and must be run by a human before deploying code that uses breakout rooms.
 
-The currently deployed code does not know these columns exist; the deploy may land before or after this migration runs. When you are ready to deploy breakout-room functionality, run this SQL in the production Supabase SQL editor:
+An ordinary agenda item — one that leaves `slot` and `code` blank — inserts successfully whether or not this migration has run yet: the insert names those two columns only when there is a value to store in them, so a schema without them is never asked to accept them. That is what lets this deploy land before or after the migration with no effect on any event that has nothing to do with breakout rooms. Actually creating a breakout round (giving an agenda item a `slot` or `code`), or anything that touches `breakout_assignments`, still needs the migration applied first — that part has not changed. When you are ready to deploy breakout-room functionality, run this SQL in the production Supabase SQL editor:
 
 ```sql
 -- Breakout rooms: which attendee goes to which room, in which round.
