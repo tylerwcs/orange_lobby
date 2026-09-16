@@ -5,17 +5,15 @@ import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listAssignments } from "@/lib/db/breakouts";
 import { groupByDay } from "@/lib/agenda";
 import { shortDate } from "@/lib/text";
-import { Field } from "@/components/admin/Field";
-import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { addAgendaItemAction, addBreakoutRoomAction, deleteAgendaItemAction } from "../actions";
+import { deleteAgendaItemAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
-import { CategoryCombo, ColourCombo } from "@/components/admin/AgendaCombos";
-import { agendaInkClass } from "@/lib/agenda-colours";
+import { SessionForm, BreakoutForm } from "@/components/admin/AgendaForms";
+import { agendaAccentClass } from "@/lib/agenda-colours";
 import { breakoutSlots, rosters, isBreakout } from "@/lib/breakouts";
 import type { Attendee, BreakoutAssignment } from "@/lib/types";
 
@@ -34,9 +32,10 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
   const [attendees, assignments]: [Attendee[], BreakoutAssignment[]] = slots.length > 0
     ? await Promise.all([listAttendees(ev.id), listAssignments(ev.id)])
     : [[], []];
+  const roster = slots.length > 0 ? rosters(items, attendees.map((a) => a.id), assignments) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminHeader
           title="Agenda"
@@ -44,21 +43,8 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
         />
         <div className="flex flex-wrap gap-2">
           <Modal title="Add a session" hint="Anything on the programme that a whole category attends together." trigger="Add session" icon="plus">
-            <form action={addAgendaItemAction.bind(null, ev.id)} className="grid gap-4 p-1">
-              <Field label="Day" name="day" type="date" defaultValue={ev.starts_on} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Starts" name="starts_at" type="time" />
-                <Field label="Ends" name="ends_at" type="time" />
-              </div>
-              <Field label="Title" name="title" />
-              <Field label="Location" name="location" placeholder="Grand Ballroom" />
-              <Field label="Description" name="description" textarea />
-              <CategoryCombo categories={categories} />
-              <ColourCombo />
-              <SubmitButton>Add session</SubmitButton>
-            </form>
+            <SessionForm eventId={ev.id} categories={categories} startsOn={ev.starts_on} />
           </Modal>
-
           <Modal
             title="Add a breakout room"
             hint="One room of a round. An attendee sees only the room they are assigned to."
@@ -66,79 +52,61 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
             icon="users"
             variant="outline"
           >
-            <form action={addBreakoutRoomAction.bind(null, ev.id)} className="grid gap-4 p-1">
-              <Field label="Day" name="day" type="date" defaultValue={ev.starts_on} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Starts" name="starts_at" type="time" />
-                <Field label="Ends" name="ends_at" type="time" />
-              </div>
-              <Field
-                label="Round"
-                name="slot"
-                placeholder="Breakout 1"
-                description="Every room of one round shares this. Name it the same as the column in the spreadsheet."
-              />
-              <Field
-                label="Room"
-                name="code"
-                placeholder="3A"
-                description="Exactly as the spreadsheet writes it. This is also what the attendee sees."
-              />
-              <Field label="Title (optional)" name="title" placeholder="Breakout: regional teams" />
-              <Field label="Description" name="description" textarea />
-              <ColourCombo />
-              <SubmitButton>Add breakout room</SubmitButton>
-            </form>
+            <BreakoutForm eventId={ev.id} startsOn={ev.starts_on} />
           </Modal>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {slots.length > 0 && (
-          <div className="space-y-3">
-            {rosters(items, attendees.map((a) => a.id), assignments).map((s) => (
-              <Card key={s.slot} className="gap-0 divide-y py-0">
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="font-bold">{s.slot}</div>
-                  {s.unassignedIds.length > 0
-                    ? <Badge variant="secondary" className="tabular-nums">{s.unassignedIds.length} with no room</Badge>
-                    : <Badge variant="success">Everyone placed</Badge>}
-                </div>
+      {/* One line per round, not a card each. This is a glance — how full is each room, and
+          how many people still have none — and it used to cost a third of the screen to say
+          it. Where assignment happens is the attendee list, one click away; saying so here
+          on every render was a sentence nobody needed twice. */}
+      {roster.length > 0 && (
+        <Card className="gap-0 divide-y py-0">
+          {roster.map((s) => (
+            <div key={s.slot} className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3 text-sm">
+              <span className="font-bold">{s.slot}</span>
+              <span className="flex flex-wrap items-center gap-1.5">
                 {s.rooms.map((r) => (
-                  <div key={r.code} className="flex items-center justify-between gap-3 p-4 text-sm">
-                    <div className="font-bold">{r.code || "no code"}</div>
-                    <span className="font-bold tabular-nums">{r.attendeeIds.length}</span>
-                  </div>
+                  <span key={r.code} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs">
+                    <span className="font-bold">{r.code || "no code"}</span>
+                    <span className="tabular-nums text-muted-foreground">{r.attendeeIds.length}</span>
+                  </span>
                 ))}
-                <p className="p-4 text-xs text-muted-foreground">
-                  Rooms are assigned from the attendee list: select people there, then Edit.
-                </p>
-              </Card>
-            ))}
-          </div>
-        )}
+              </span>
+              <span className="ml-auto">
+                {s.unassignedIds.length > 0
+                  ? <Badge variant="secondary" className="tabular-nums">{s.unassignedIds.length} with no room</Badge>
+                  : <Badge variant="success">Everyone placed</Badge>}
+              </span>
+            </div>
+          ))}
+        </Card>
+      )}
 
-        {days.length === 0 && (
-          <Card>
-            <CardContent>
-              <Empty className="border-0 bg-transparent">
-                <EmptyHeader>
-                  <EmptyTitle>No sessions yet</EmptyTitle>
-                  <EmptyDescription>
-                    Add the first one above; attendees see the agenda grouped by day, filtered by their category.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            </CardContent>
-          </Card>
-        )}
+      {days.length === 0 && (
+        <Card>
+          <CardContent>
+            <Empty className="border-0 bg-transparent">
+              <EmptyHeader>
+                <EmptyTitle>No sessions yet</EmptyTitle>
+                <EmptyDescription>
+                  Add the first one above; attendees see the agenda grouped by day, filtered by their category.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+      )}
 
-        {days.map((d) => (
-          <Card key={d.day}>
-            <CardHeader><CardTitle>{shortDate(d.day)}</CardTitle></CardHeader>
-            <CardContent>
-              <ul className="divide-y text-sm">
-                {d.items.map((i) => (
+      {days.map((d) => (
+        <Card key={d.day}>
+          <CardHeader><CardTitle>{shortDate(d.day)}</CardTitle></CardHeader>
+          <CardContent>
+            <ul className="divide-y text-sm">
+              {d.items.map((i) => {
+                const accent = agendaAccentClass(i.color);
+                return (
                   <li key={i.id} className="flex items-start justify-between gap-4 py-3">
                     <div className="flex min-w-0 gap-4">
                       <div className="w-24 shrink-0 tabular-nums text-muted-foreground">
@@ -146,9 +114,7 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          {agendaInkClass(i.color) && (
-                            <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${agendaInkClass(i.color)}`} />
-                          )}
+                          {accent && <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${accent}`} />}
                           <span className="font-bold">{i.title}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">{[i.location, i.description].filter(Boolean).join(" · ")}</div>
@@ -158,16 +124,23 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                         </div>
                       </div>
                     </div>
-                    <form action={deleteAgendaItemAction.bind(null, ev.id, i.id)}>
-                      <ConfirmButton message={`Delete "${i.title}"?`}>Delete</ConfirmButton>
-                    </form>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Modal title={isBreakout(i) ? "Edit breakout room" : "Edit session"} trigger="Edit" variant="ghost">
+                        {isBreakout(i)
+                          ? <BreakoutForm eventId={ev.id} item={i} />
+                          : <SessionForm eventId={ev.id} categories={categories} item={i} />}
+                      </Modal>
+                      <form action={deleteAgendaItemAction.bind(null, ev.id, i.id)}>
+                        <ConfirmButton message={`Delete "${i.title}"?`}>Delete</ConfirmButton>
+                      </form>
+                    </div>
                   </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

@@ -143,36 +143,6 @@ describe("non-text UI contrast (WCAG 2.x, sRGB, D43 3:1 tier)", () => {
   });
 });
 
-// The agenda's session colours are SURFACES, not inks. A pastel drawn as a thin accent bar
-// on a white card is about 1.2:1 and cannot be seen — which is why the colour tints the
-// session's own background instead, and why what has to be proven here is that the text
-// still reads on top of it.
-describe("agenda session tints (surfaces, not inks)", () => {
-  const TINTS = ["session-1", "session-2", "session-3", "session-4", "session-5"];
-
-  it("body text meets 4.5:1 on every session tint", () => {
-    for (const t of TINTS) assertPair("foreground", t);
-  });
-
-  it("secondary text meets 4.5:1 on every session tint", () => {
-    // The location and description on an agenda row are --muted-foreground. A tint that
-    // only works for the title would leave the line under it unreadable.
-    for (const t of TINTS) assertPair("muted-foreground", t);
-  });
-
-  it("each colour's ink is visible on its own tint at 3:1", () => {
-    // A pastel cannot do this job alone, and the arithmetic says so: --muted-foreground
-    // needs a tint of luminance >= 0.57 to read at 4.5:1, while being 3:1 apart from white
-    // needs <= 0.30. No pastel is both. So each colour is a PAIR — a tint for the surface
-    // and the saturated chart ink for the edge — and the edge is what carries the 3:1.
-    const PAIRS: [string, string][] = [
-      ["chart-1", "session-1"], ["chart-2", "session-2"], ["chart-3", "session-3"],
-      ["chart-4", "session-4"], ["chart-5", "session-5"],
-    ];
-    for (const [ink, tint] of PAIRS) assertNonTextPair(ink, tint);
-  });
-});
-
 // D64: --muted changed meaning on the shadcn migration. It is a BACKGROUND; the text colour it
 // used to hold is --muted-foreground. Swapping them back would still render, just invisibly.
 describe("D64 — --muted is a background, --muted-foreground is text", () => {

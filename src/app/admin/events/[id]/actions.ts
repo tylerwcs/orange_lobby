@@ -12,9 +12,9 @@ import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, ev
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
-import { createAgendaItem, deleteAgendaItem, listAgenda } from "@/lib/db/agenda";
+import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem } from "@/lib/db/agenda";
 import { breakoutSlots, matchAssignments, breakoutSlotFromColumn } from "@/lib/breakouts";
-import { assignMany, unassign } from "@/lib/db/breakouts";
+import { assignMany, unassign, renameSlotAssignments } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
@@ -569,6 +569,64 @@ export async function addBreakoutRoomAction(eventId: string, formData: FormData)
   });
   revalidatePath(back);
   redirect(flashPath(back, `Room ${code} added to ${slot}.`));
+}
+
+/**
+ * Edits one session, ordinary or breakout.
+ *
+ * `preset` says which form posted: a breakout carries a round and a room and never a
+ * location or a category, so reading the wrong set would blank fields the form never
+ * showed. Everything else — day, times, title, description, colour — is common.
+ *
+ * Renaming a round is the edit with teeth. Assignments carry their own copy of `slot`
+ * because `unique (attendee_id, slot)` cannot reach through to this row, so the rename has
+ * to be pushed onto them or the people in this room keep enforcing the old round. Two
+ * things can then go wrong, and both are reported rather than swallowed: renaming only ONE
+ * room of a round splits it in two, and renaming into a round somebody is already in
+ * violates that unique index.
+ */
+export async function updateAgendaItemAction(eventId: string, itemId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/agenda`;
+
+  const item = (await listAgenda(ev.id)).find((i) => i.id === itemId);
+  if (!item) redirect(flashPath(back, "That session no longer exists.", "error"));
+
+  const day = str(formData, "day");
+  const starts_at = str(formData, "starts_at");
+  const title = str(formData, "title");
+  if (!day || !starts_at) redirect(flashPath(back, "A session needs a day and a start time.", "error"));
+
+  const isBreakout = str(formData, "preset") === "breakout";
+  const slot = isBreakout ? str(formData, "slot") : item.slot;
+  const code = isBreakout ? str(formData, "code") : item.code;
+  if (isBreakout && (!slot || !code)) redirect(flashPath(back, "A breakout room needs a round and a room.", "error"));
+
+  await updateAgendaItem(itemId, ev.id, {
+    day,
+    starts_at,
+    ends_at: str(formData, "ends_at"),
+    title: title ?? slot ?? item.title,
+    description: str(formData, "description"),
+    location: isBreakout ? null : str(formData, "location"),
+    categories: isBreakout ? null : categoriesFromValues(formData.getAll("categories").map(String)),
+    slot,
+    code,
+    color: parseAgendaColour(str(formData, "color")),
+    sort_order: item.sort_order,
+  });
+
+  if (isBreakout && slot && slot !== item.slot) {
+    try {
+      await renameSlotAssignments(itemId, slot);
+    } catch {
+      redirect(flashPath(back, `Room moved to “${slot}”, but the people already in it could not follow — somebody in this room is already assigned to “${slot}”. Clear them first.`, "error"));
+    }
+  }
+
+  revalidatePath(back);
+  redirect(flashPath(back, `“${title ?? slot}” saved.`));
 }
 
 // ---- Breakouts ----

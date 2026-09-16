@@ -17,11 +17,8 @@ export async function listAgenda(eventId: string): Promise<AgendaItem[]> {
  * There is no agenda-item UPDATE path anywhere in this app, so omitting a null on insert can
  * never fail to clear a previously-set value — the column simply defaults to null.
  *
- * NOTE: if an edit path is ever added here, renaming `slot` MUST also call
- * `renameSlotAssignments()` (src/lib/db/breakouts.ts) — `unique (attendee_id, slot)` on
- * breakout_assignments reads the copy of `slot` denormalised onto each assignment row, not
- * the value on this agenda item, so an item renamed without it leaves its people enforcing
- * the old round.
+ * The edit path is `updateAgendaItem` below, and it is where the slot-rename obligation
+ * that used to be a warning here now lives.
  */
 export async function createAgendaItem(event: Pick<Event, "id" | "org_id">, input: Omit<AgendaItem, "id" | "event_id">) {
   const { slot, code, color, ...rest } = input;
@@ -32,6 +29,25 @@ export async function createAgendaItem(event: Pick<Event, "id" | "org_id">, inpu
   const { error } = await serviceClient().from("agenda_items").insert(payload);
   if (error) throw error;
 }
+/**
+ * Edits one session.
+ *
+ * Unlike the insert, this sends every column explicitly INCLUDING nulls: clearing an end
+ * time or a location has to actually clear it, so the "omit when null" trick used above
+ * would quietly make those fields un-clearable. Migrations 0007 and 0009 are applied, so
+ * naming the columns is safe.
+ *
+ * Renaming `slot` is the dangerous edit. `unique (attendee_id, slot)` on
+ * breakout_assignments reads the copy denormalised onto each assignment row, not the value
+ * on this item — so the caller MUST follow a slot change with `renameSlotAssignments()`
+ * (src/lib/db/breakouts.ts), or the people in this room go on enforcing the old round.
+ * `updateAgendaItemAction` does that; anything else that calls this must too.
+ */
+export async function updateAgendaItem(id: string, eventId: string, patch: Omit<AgendaItem, "id" | "event_id">) {
+  const { error } = await serviceClient().from("agenda_items").update(patch).eq("id", id).eq("event_id", eventId);
+  if (error) throw error;
+}
+
 export async function deleteAgendaItem(id: string, eventId: string) {
   const { error } = await serviceClient().from("agenda_items").delete().eq("id", id).eq("event_id", eventId);
   if (error) throw error;

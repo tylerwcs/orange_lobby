@@ -83,7 +83,7 @@ export function ColourCombo({ name = "color", defaultValue = null }: { name?: st
       <Popover>
         <PopoverTrigger render={<Button type="button" variant="outline" className={triggerClass} />}>
           <span className="flex items-center gap-2 truncate">
-            {current && <Swatch tint={current.tintClass} ink={current.inkClass} />}
+            {current && <Swatch className={current.className} />}
             {current ? current.label : "None"}
           </span>
           <ChevronDown data-icon="inline-end" />
@@ -96,7 +96,7 @@ export function ColourCombo({ name = "color", defaultValue = null }: { name?: st
               label={c.label}
               on={chosen === c.key}
               onPick={() => setChosen(c.key)}
-              swatch={<Swatch tint={c.tintClass} ink={c.inkClass} />}
+              swatch={<Swatch className={c.className} />}
             />
           ))}
         </PopoverContent>
@@ -106,17 +106,9 @@ export function ColourCombo({ name = "color", defaultValue = null }: { name?: st
   );
 }
 
-/**
- * The colour as it will actually look: the pastil fill a session sits on, with its ink down
- * the leading edge. A dot of the ink alone would promise a solid colour the agenda never
- * shows.
- */
-function Swatch({ tint, ink }: { tint: string; ink: string }) {
-  return (
-    <span aria-hidden="true" className={`relative inline-block h-4 w-6 shrink-0 overflow-hidden rounded-[4px] ring-1 ring-foreground/15 ${tint}`}>
-      <span className={`absolute inset-y-0 left-0 w-1.5 ${ink}`} />
-    </span>
-  );
+/** The colour as the agenda draws it: a solid bar of the ink. */
+function Swatch({ className }: { className: string }) {
+  return <span aria-hidden="true" className={`inline-block h-4 w-1.5 shrink-0 rounded-full ${className}`} />;
 }
 
 function ColourRow({ label, on, onPick, swatch }: { label: string; on: boolean; onPick: () => void; swatch?: React.ReactNode }) {
