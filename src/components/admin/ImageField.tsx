@@ -1,6 +1,6 @@
 "use client";
 import { useId, useRef, useState } from "react";
-import { ImageUp, Undo2, X } from "lucide-react";
+import { ImageUp, Trash2, Undo2, X } from "lucide-react";
 import { Field as UIField, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { acceptImage, IMAGE_ACCEPT } from "@/lib/storage";
@@ -15,10 +15,12 @@ import { acceptImage, IMAGE_ACCEPT } from "@/lib/storage";
  * the moment it is chosen, wears a ring while it is only a pick, and keeps the image it
  * would replace beside it until Save makes it real.
  *
- * Removal is a checkbox rather than its own button because these fields live inside a
- * larger form that saves as one — a button would have to submit, and submitting the tile
- * editor to drop its image would throw away everything else typed alongside it. It hides
- * once a replacement is chosen, which is the same answer to a different question.
+ * Remove does not act on its own. These fields live inside a larger form that saves as
+ * one, so a button that removed on the spot would have to submit — and submitting the tile
+ * editor to drop its image would throw away everything else typed alongside it. It marks
+ * the image instead, rides the form the way the file does, and lands at Save with an Undo
+ * standing by. It gives way to a replacement, which is the same answer to a different
+ * question.
  *
  * The picked file is checked here against the very rules the Server Action will apply,
  * imported rather than restated, so "that is not an image we take" arrives while the file
@@ -102,25 +104,22 @@ export function ImageField({ label, name, url, description }: {
               <ImageUp aria-hidden />
               {shown && !gone ? "Replace image" : "Choose image"}
             </Button>
-            {picked && (
-              <Button type="button" variant="ghost" size="sm" onClick={drop}>
+            {(picked || gone) && (
+              <Button type="button" variant="ghost" size="sm" onClick={picked ? drop : () => setRemoving(false)}>
                 <Undo2 aria-hidden />
                 Undo
               </Button>
             )}
-            {url && !picked && (
-              <label className="inline-flex min-h-8 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  name={`${name}_remove`}
-                  checked={removing}
-                  onChange={(e) => setRemoving(e.target.checked)}
-                  className="size-4 accent-primary"
-                />
-                Remove on save
-              </label>
+            {url && !picked && !gone && (
+              <Button type="button" variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={() => setRemoving(true)}>
+                <Trash2 aria-hidden />
+                Remove
+              </Button>
             )}
           </div>
+          {/* The removal rides on the form the same way the file does — nothing leaves
+              until Save, and Undo takes the field with it. */}
+          {gone && <input type="hidden" name={`${name}_remove`} value="on" />}
 
           {picked && (
             <p className="min-w-0 truncate text-xs font-medium text-primary">
