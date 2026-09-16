@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts } from "@/lib/breakouts";
-import type { AgendaItem } from "@/lib/types";
+import { isBreakout, breakoutSlots, myBreakouts, matchAssignments } from "@/lib/breakouts";
+import type { AgendaItem, Attendee } from "@/lib/types";
 
 const item = (over: Partial<AgendaItem>): AgendaItem => ({
   id: "i1", event_id: "e", day: "2026-09-30", starts_at: "13:30", ends_at: "15:00",
@@ -74,5 +74,40 @@ describe("myBreakouts", () => {
 
   it("is empty for an event that runs no breakouts", () => {
     expect(myBreakouts([item({ title: "Lunch" })], new Set())).toEqual([]);
+  });
+});
+
+describe("matchAssignments", () => {
+  const slot = { slot: "Breakout 1", items: [
+    item({ id: "a", slot: "Breakout 1", code: "3A" }),
+    item({ id: "b", slot: "Breakout 1", code: "3B" }),
+  ] };
+  const who = (id: string, value?: string): Pick<Attendee, "id" | "extra"> =>
+    ({ id, extra: value === undefined ? {} : { "Breakout 1": value } });
+
+  it("matches a cell value to the room with that code", () => {
+    const r = matchAssignments([who("p1", "3A"), who("p2", "3B")], slot);
+    expect(r.matched).toEqual([
+      { attendeeId: "p1", itemId: "a", slot: "Breakout 1" },
+      { attendeeId: "p2", itemId: "b", slot: "Breakout 1" },
+    ]);
+  });
+
+  it("forgives the spreadsheet's casing and padding", () => {
+    expect(matchAssignments([who("p1", " 3a ")], slot).matched[0].itemId).toBe("a");
+  });
+
+  it("reports a value that matches no room, with how many people wrote it", () => {
+    // This report is the typo detector the join table exists to make possible (D79/D83).
+    const r = matchAssignments([who("p1", "Room 3B"), who("p2", "Room 3B"), who("p3", "9Z")], slot);
+    expect(r.matched).toEqual([]);
+    expect(r.unmatched).toEqual([{ value: "Room 3B", count: 2 }, { value: "9Z", count: 1 }]);
+  });
+
+  it("counts people whose cell is empty separately from people who typed something wrong", () => {
+    const r = matchAssignments([who("p1"), who("p2", "  "), who("p3", "3A")], slot);
+    expect(r.blank).toBe(2);
+    expect(r.unmatched).toEqual([]);
+    expect(r.matched).toHaveLength(1);
   });
 });

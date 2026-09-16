@@ -1,4 +1,4 @@
-import type { AgendaItem } from "@/lib/types";
+import type { AgendaItem, Attendee } from "@/lib/types";
 
 /**
  * Whether this agenda item is one room of a breakout round.
@@ -53,4 +53,38 @@ export function myBreakouts(items: AgendaItem[], assignedItemIds: ReadonlySet<st
       ends_at: first.ends_at,
     };
   });
+}
+
+export type AssignMatch = { attendeeId: string; itemId: string; slot: string };
+export type AssignReport = { matched: AssignMatch[]; unmatched: { value: string; count: number }[]; blank: number };
+
+/**
+ * Reads one round's assignments out of the column the client's spreadsheet already imported.
+ *
+ * The slot's name doubles as the spreadsheet's column header, which is what lets this work
+ * with no mapping UI: the organiser types "Breakout 1" on four agenda items, the client's
+ * column is headed "Breakout 1", and the values line up against each item's `code`.
+ *
+ * Comparison is trimmed and case-folded, because a spreadsheet is typed by hand. Anything
+ * that still matches nothing is reported rather than dropped — that report is the only thing
+ * standing between a typo and an attendee who silently has no room (D83). Blank cells are
+ * counted apart from wrong ones: they are people nobody has placed yet, not mistakes.
+ */
+export function matchAssignments(attendees: Pick<Attendee, "id" | "extra">[], slot: BreakoutSlot): AssignReport {
+  const norm = (s: string) => s.trim().toLowerCase();
+  const byCode = new Map<string, string>();
+  for (const i of slot.items) {
+    if (i.code && i.code.trim()) byCode.set(norm(i.code), i.id);
+  }
+  const matched: AssignMatch[] = [];
+  const misses = new Map<string, number>();
+  let blank = 0;
+  for (const a of attendees) {
+    const raw = (a.extra?.[slot.slot] ?? "").trim();
+    if (!raw) { blank++; continue; }
+    const itemId = byCode.get(norm(raw));
+    if (itemId) matched.push({ attendeeId: a.id, itemId, slot: slot.slot });
+    else misses.set(raw, (misses.get(raw) ?? 0) + 1);
+  }
+  return { matched, unmatched: [...misses.entries()].map(([value, count]) => ({ value, count })), blank };
 }
