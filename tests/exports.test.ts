@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, buildRosterWorkbook, rosterSheetName } from "@/lib/exports";
+import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook } from "@/lib/exports";
 import { safeFileName } from "@/lib/filenames";
 import type { AttendeeField } from "@/lib/attendee-fields";
+import type { Booth, BoothStamp } from "@/lib/types";
 
 describe("exports", () => {
   it("makes safe unique png names", () => {
@@ -97,5 +98,36 @@ describe("roster workbook", () => {
     expect(second).not.toBe(first);
     expect(second.length).toBeLessThanOrEqual(31);
     expect(second).not.toMatch(/[:\\/?*[\]]/);
+  });
+});
+
+describe("buildPassportWorkbook", () => {
+  const booths: Booth[] = [
+    { id: "b1", org_id: "o", event_id: "e", name: "Operations", location: "Foyer", token: "t1", sort_order: 0 },
+    { id: "b2", org_id: "o", event_id: "e", name: "Creative Studio", location: "Foyer", token: "t2", sort_order: 1 },
+  ];
+  const stamps: BoothStamp[] = [
+    { id: "s1", org_id: "o", event_id: "e", booth_id: "b1", attendee_id: "a1", stamped_at: "2026-09-30T02:24:00Z" },
+    { id: "s2", org_id: "o", event_id: "e", booth_id: "b2", attendee_id: "a1", stamped_at: "2026-09-30T02:41:00Z" },
+  ];
+  const attendees = [
+    { id: "a1", name: "Aiman Zulkifli", email: "a@x.my", company: "Ecopia", category: "Management" },
+    { id: "a2", name: "Sarah Lim", email: "s@x.my", company: "Ecopia", category: "Crew" },
+  ] as unknown as Parameters<typeof buildPassportWorkbook>[0];
+
+  it("writes a column per booth plus a total and a completed flag", () => {
+    const ws = buildPassportWorkbook(attendees, booths, stamps, null).getWorksheet("Booth Passport")!;
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Company", "Category", "Operations", "Creative Studio", "Stamps", "Completed"]);
+  });
+
+  it("marks who has been where, and who has finished", () => {
+    const ws = buildPassportWorkbook(attendees, booths, stamps, null).getWorksheet("Booth Passport")!;
+    expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Ecopia", "Management", "Yes", "Yes", 2, "Yes"]);
+    expect(ws.getRow(3).values).toEqual([undefined, "Sarah Lim", "s@x.my", "Ecopia", "Crew", "No", "No", 0, "No"]);
+  });
+
+  it("honours a target below the booth count", () => {
+    const ws = buildPassportWorkbook(attendees, booths, stamps.slice(0, 1), 1).getWorksheet("Booth Passport")!;
+    expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Ecopia", "Management", "Yes", "No", 1, "Yes"]);
   });
 });

@@ -1,7 +1,8 @@
 import ExcelJS from "exceljs";
-import type { Attendee, Checkin, Checkpoint } from "@/lib/types";
+import type { Attendee, Checkin, Checkpoint, Booth, BoothStamp } from "@/lib/types";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { SlotRoster } from "@/lib/breakouts";
+import { completionByAttendee } from "@/lib/booths";
 
 export type LinkRow = { name: string; email: string | null; company: string | null; category: string | null; table_no: string | null; link: string };
 
@@ -91,5 +92,32 @@ export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, Ros
     for (const r of s.rooms) sheet(s.slot, r.code || "no code", r.attendeeIds);
     if (s.unassignedIds.length) sheet(s.slot, "unassigned", s.unassignedIds);
   }
+  return wb;
+}
+
+/**
+ * The passport, as its own sheet (D100).
+ *
+ * Deliberately not folded into the attendance workbook: five booths there would add fifteen
+ * columns to a file that answers a different question, and a booth visit is not attendance.
+ * One row per attendee, one column per booth, then the two numbers anyone actually reads —
+ * how many stamps, and whether the card is full.
+ */
+export function buildPassportWorkbook(attendees: Attendee[], booths: Booth[], stamps: BoothStamp[], required: number | null): ExcelJS.Workbook {
+  const completion = completionByAttendee(booths, stamps, required);
+  const stamped = new Set(stamps.map((s) => `${s.booth_id}:${s.attendee_id}`));
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Booth Passport");
+  ws.addRow(["Name", "Email", "Company", "Category", ...booths.map((b) => b.name), "Stamps", "Completed"]);
+  for (const a of attendees) {
+    const c = completion.get(a.id) ?? { collected: 0, complete: false };
+    ws.addRow([
+      a.name, a.email, a.company, a.category,
+      ...booths.map((b) => (stamped.has(`${b.id}:${a.id}`) ? "Yes" : "No")),
+      c.collected,
+      c.complete ? "Yes" : "No",
+    ]);
+  }
+  ws.columns?.forEach((col) => { col.width = 20; });
   return wb;
 }
