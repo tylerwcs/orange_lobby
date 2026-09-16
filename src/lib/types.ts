@@ -52,6 +52,8 @@ export type Event = {
   stamps_required: number | null;
   /** What the passport says when it is full. Admin-authored, because the prize is decided late. */
   stamps_message: string | null;
+  /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
+  crew_token: string | null;
   modules: EventModule[];
 };
 

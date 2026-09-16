@@ -24,3 +24,10 @@ export function registrationLink(base: string, slug: string) {
 export function boothScannerLink(base: string, token: string) {
   return `${trimSlash(base)}/booth/${token}`;
 }
+/**
+ * The shared crew scanner. Staff-facing like the booth link, and outside `/e` for the same
+ * reason: it is not part of the attendee portal and is looked up by token alone.
+ */
+export function crewLink(base: string, token: string) {
+  return `${trimSlash(base)}/crew/${token}`;
+}

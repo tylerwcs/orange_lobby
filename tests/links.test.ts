@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { attendeeLink, genericLink, registrationLink, boothScannerLink } from "@/lib/links";
+import { attendeeLink, genericLink, registrationLink, boothScannerLink, crewLink } from "@/lib/links";
 
 describe("links", () => {
   const base = "https://events.ecopiaevents.com/";
@@ -19,5 +19,17 @@ describe("boothScannerLink", () => {
   it("tolerates a trailing slash on the base", () => {
     expect(boothScannerLink("https://events.example.com/", "k7m2xq9rt4bd"))
       .toBe("https://events.example.com/booth/k7m2xq9rt4bd");
+  });
+});
+
+describe("crewLink", () => {
+  it("points at the staff route, outside the attendee portal", () => {
+    expect(crewLink("https://events.example.com", "k7m2xq9rt4bd"))
+      .toBe("https://events.example.com/crew/k7m2xq9rt4bd");
+  });
+
+  it("tolerates a trailing slash on the base", () => {
+    expect(crewLink("https://events.example.com/", "k7m2xq9rt4bd"))
+      .toBe("https://events.example.com/crew/k7m2xq9rt4bd");
   });
 });
