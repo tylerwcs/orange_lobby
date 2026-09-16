@@ -575,6 +575,10 @@ export async function bulkAssignBreakoutAction(eventId: string, formData: FormDa
   if (prefix === "clear") {
     const slotName = rest.trim();
     if (!slotName) redirect(flashPath(attendeesPath, "Choose a room, or a round to clear.", "error"));
+    // Validated against this event's own rounds, so a posted slot name cannot unassign from a
+    // round that belongs to somebody else's event, or one that was never real to begin with.
+    const isRealSlot = breakoutSlots(await listAgenda(ev.id)).some((s) => s.slot === slotName);
+    if (!isRealSlot) redirect(flashPath(attendeesPath, "That breakout round no longer exists.", "error"));
     for (const id of ids) await unassign(ev.id, id, slotName);
     revalidatePath(attendeesPath);
     redirect(flashPath(attendeesPath, `${ids.length} cleared from ${slotName}.`));
