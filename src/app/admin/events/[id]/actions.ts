@@ -19,9 +19,9 @@ import { recordCheckins } from "@/lib/db/checkins";
 import { parseCategories } from "@/lib/agenda";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
-import { modulesFromForm } from "@/lib/modules-form";
+import { moduleFromForm, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { flashPath } from "@/lib/flash";
-import type { EventModule } from "@/lib/modules";
+import { normalizeModules, type EventModule } from "@/lib/modules";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -63,7 +63,6 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     logo_url: str(formData, "logo_url"),
     banner_url: str(formData, "banner_url"),
     primary_color: str(formData, "primary_color") ?? "#F97316",
-    floor_plan_url: str(formData, "floor_plan_url"),
     registration_open: formData.get("registration_open") === "on",
     registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
     registration_questions: questions,
@@ -423,14 +422,57 @@ export async function purgeEventAction(eventId: string) {
 
 // ---- Modules ----
 
-export async function updateModulesAction(eventId: string, formData: FormData) {
+const modulesPath = (eventId: string) => `/admin/events/${eventId}/modules`;
+
+/** Loads the event's tiles in the shape the editor works in. */
+async function currentModules(eventId: string) {
   const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
-  let modules: EventModule[] | undefined;
-  try { modules = modulesFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; }); }
-  catch (e) { redirect(flashPath(`/admin/events/${eventId}/modules`, (e as Error).message, "error")); }
-  if (!modules) redirect(flashPath(`/admin/events/${eventId}/modules`, "Could not read those settings.", "error"));
+  const ev = await requireEvent(eventId, orgId);
+  return { ev, modules: normalizeModules(ev) };
+}
+
+async function saveModules(eventId: string, modules: EventModule[], message: string) {
   await updateEvent(eventId, { modules });
   revalidatePath(`/admin/events/${eventId}`);
-  redirect(flashPath(`/admin/events/${eventId}/modules`, "Modules saved."));
+  redirect(flashPath(modulesPath(eventId), message));
 }
+
+/** Adds a tile, or replaces the one whose id the form carries. */
+export async function saveModuleAction(eventId: string, formData: FormData) {
+  const { modules } = await currentModules(eventId);
+  const posted = String(formData.get("id") ?? "").trim();
+  const id = /^[a-z0-9_-]{1,32}$/.test(posted) ? posted : crypto.randomUUID().slice(0, 8);
+  let next: EventModule[] | undefined;
+  try {
+    next = upsertModule(modules, moduleFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; }, id));
+  } catch (e) {
+    redirect(flashPath(modulesPath(eventId), (e as Error).message, "error"));
+  }
+  if (!next) redirect(flashPath(modulesPath(eventId), "Could not read that tile.", "error"));
+  await saveModules(eventId, next, posted ? "Tile saved." : "Tile added.");
+}
+
+export async function deleteModuleAction(eventId: string, id: string) {
+  const { modules } = await currentModules(eventId);
+  await saveModules(eventId, removeModule(modules, id), "Tile removed.");
+}
+
+/**
+ * Shows or hides one tile without opening it. Saving the whole row back through
+ * upsertModule keeps this on the same path as an edit, so the two cannot disagree about
+ * what a stored row looks like.
+ */
+export async function toggleModuleAction(eventId: string, id: string, enabled: boolean) {
+  const { modules } = await currentModules(eventId);
+  const m = modules.find((x) => ("id" in x ? x.id : x.key) === id);
+  if (!m) redirect(flashPath(modulesPath(eventId), "That tile no longer exists.", "error"));
+  await saveModules(eventId, upsertModule(modules, { ...m, enabled }), enabled ? "Tile shown." : "Tile hidden.");
+}
+
+export async function reorderModulesAction(eventId: string, orderedIds: string[]) {
+  const { ev, modules } = await currentModules(eventId);
+  await updateEvent(eventId, { modules: reorderModules(modules, orderedIds) });
+  revalidatePath(modulesPath(ev.id));
+  revalidatePath(`/admin/events/${ev.id}`);
+}
+
