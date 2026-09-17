@@ -73,7 +73,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // already on file. `attendee_fields` is only what was added on top.
   const registrationFields = fieldsFromQuestions(ev.registration_questions);
   const allFields = eventFields(ev.registration_questions, ev.attendee_fields);
-  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns, ev.collected_fields);
+  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns);
   // The older cookie only held hidden columns; reading it as a fallback means an organiser
   // who had already tuned their table does not lose that when ordering ships.
   const prefs = parseTablePrefs(jar.get(tableCookieName(ev.id))?.value, columns, jar.get(columnsCookieName(ev.id))?.value);
@@ -206,7 +206,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
-        bulkEditable={[...bulkFields(allFields, ev.collected_fields), ...roundColumns]}
+        bulkEditable={[...bulkFields(allFields), ...roundColumns]}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
       />

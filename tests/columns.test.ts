@@ -37,7 +37,7 @@ describe("allColumns", () => {
 });
 
 describe("bulkFields", () => {
-  it("offers the three built-ins worth setting in bulk, then every event column", () => {
+  it("offers the built-ins worth setting in bulk, then every event column", () => {
     expect(bulkFields(fields).map((f) => f.key)).toEqual([...BULK_BUILTIN_FIELDS.map((f) => f.key), "room_no", "dietary"]);
   });
 
@@ -69,7 +69,7 @@ describe("hiddenFromCookie", () => {
 
 describe("visibleColumns", () => {
   it("drops the hidden ones and keeps the order", () => {
-    expect(visibleColumns(cols, ["email", "room_no"]).map((c) => c.key)).toEqual(["company", "phone", "category", "table_no", "checked_in", "source", "shirt_size", "dietary"]);
+    expect(visibleColumns(cols, ["email", "room_no"]).map((c) => c.key)).toEqual(["category", "checked_in", "source", "shirt_size", "dietary"]);
   });
 });
 
@@ -90,7 +90,7 @@ describe("parseTablePrefs", () => {
     // Fifteen columns is what a seven-question registration form produces; six is what
     // someone can actually read. The rest are one tick away in the Columns menu.
     expect(parseTablePrefs(undefined, cols).hidden).toEqual(defaultHidden(cols));
-    expect(parseTablePrefs(undefined, cols).hidden).toEqual(["email", "phone", "source", "shirt_size", "room_no", "dietary"]);
+    expect(parseTablePrefs(undefined, cols).hidden).toEqual(["email", "source", "shirt_size", "room_no", "dietary"]);
   });
 
   it("treats an empty stored layout as a deliberate show-everything", () => {
@@ -167,27 +167,18 @@ describe("breakout rounds as table columns", () => {
   });
 });
 
-describe("fields an event does not collect", () => {
-  it("has no column at all, rather than a hidden one", () => {
-    // Hidden would be something you could tick back on by accident, with nothing behind it.
-    const keys = allColumns(registration, fields, [], ["company"]).map((c) => c.key);
-    expect(keys).toContain("company");
-    expect(keys).not.toContain("phone");
-    expect(keys).not.toContain("table_no");
+describe("fields the event may or may not have", () => {
+  it("has no built-in column for a field an event may not have", () => {
+    expect(BUILTIN_COLUMNS.map((c) => c.key)).toEqual(["email", "category", "checked_in", "source"]);
   });
 
-  it("leaves the fields that carry behaviour alone, whatever is collected", () => {
-    // email is the import's matching key and category decides who sees which sessions, so
-    // neither is ever switchable.
-    const keys = allColumns(registration, fields, [], []).map((c) => c.key);
-    expect(keys).toEqual(expect.arrayContaining(["email", "category", "checked_in", "source"]));
+  it("takes company from the event's own fields, wherever it was defined", () => {
+    const cols = allColumns([{ key: "company", label: "Company", type: "text" }], []);
+    expect(cols.find((c) => c.key === "company")).toEqual({ key: "company", label: "Company", source: "registration" });
   });
 
-  it("drops an uncollected field from the bulk editor too", () => {
-    expect(bulkFields(fields, ["category" as never]).map((f) => f.key)).not.toContain("table_no");
-  });
-
-  it("collects all three when nothing is said, so an un-migrated event is unchanged", () => {
-    expect(allColumns(registration, fields).map((c) => c.key)).toEqual(allColumns(registration, fields, [], ["company", "phone", "table_no"]).map((c) => c.key));
+  it("offers bulk edit the event's fields plus category", () => {
+    expect(bulkFields([{ key: "table_no", label: "Table", type: "text" }]).map((f) => f.key))
+      .toEqual(["category", "table_no"]);
   });
 });

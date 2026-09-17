@@ -1,5 +1,4 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
-import { COLLECTED_FIELDS, type CollectedField } from "@/lib/collected-fields";
 
 /**
  * Where a column comes from, which decides what its header menu may offer: a built-in is
@@ -17,16 +16,10 @@ export type ColumnDef = { key: string; label: string; source: ColumnSource };
  */
 export const BUILTIN_COLUMNS: ColumnDef[] = [
   { key: "email", label: "Email", source: "builtin" },
-  { key: "company", label: "Company", source: "builtin" },
-  { key: "phone", label: "Mobile", source: "builtin" },
   { key: "category", label: "Category", source: "builtin" },
-  { key: "table_no", label: "Table", source: "builtin" },
   { key: "checked_in", label: "Checked in", source: "builtin" },
   { key: "source", label: "Source", source: "builtin" },
 ];
-
-/** The built-ins an event can switch off entirely, as opposed to merely hide. */
-const OPTIONAL_KEYS = new Set<string>(COLLECTED_FIELDS);
 
 /**
  * The table's columns in reading order: the attendee row's own, then what the
@@ -38,15 +31,10 @@ export function allColumns(
   registrationFields: AttendeeField[],
   customFields: AttendeeField[],
   breakoutFields: AttendeeField[] = [],
-  collected: CollectedField[] = [...COLLECTED_FIELDS],
 ): ColumnDef[] {
   const claimed = new Set(registrationFields.map((f) => f.key));
-  const uses = new Set<string>(collected);
   return [
-    // A field this event does not collect has no column at all, rather than a hidden one:
-    // a hidden column is something you can tick back on by accident, and there would be
-    // nothing behind it.
-    ...BUILTIN_COLUMNS.filter((c) => !OPTIONAL_KEYS.has(c.key) || uses.has(c.key)),
+    ...BUILTIN_COLUMNS,
     ...registrationFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "registration" })),
     ...customFields.filter((f) => !claimed.has(f.key)).map((f): ColumnDef => ({ key: f.key, label: f.label, source: "custom" })),
     ...breakoutFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "breakout" })),
@@ -162,22 +150,15 @@ export function visibleColumns(columns: ColumnDef[], hidden: Iterable<string>): 
 }
 
 /**
- * Columns a bulk edit may set for a whole selection. Name, email and phone are per-person
- * and have no business being set in bulk; check-in has its own control; source records
- * how someone got on the list and is not typed.
- *
- * Described as `AttendeeField`s so one piece of UI can render the right control for each —
- * a date picker for a date, a fixed list for a choice.
+ * Category is the only row column a bulk edit may set: name and email are per-person,
+ * check-in has its own control, and source records how someone got on the list.
  */
 export const BULK_BUILTIN_FIELDS: AttendeeField[] = [
-  { key: "company", label: "Company", type: "text" },
   { key: "category", label: "Category", type: "text" },
-  { key: "table_no", label: "Table", type: "text" },
 ];
 
 export const BULK_BUILTIN_KEYS = BULK_BUILTIN_FIELDS.map((f) => f.key);
 
-export function bulkFields(eventFields: AttendeeField[], collected: CollectedField[] = [...COLLECTED_FIELDS]): AttendeeField[] {
-  const uses = new Set<string>(collected);
-  return [...BULK_BUILTIN_FIELDS.filter((f) => !OPTIONAL_KEYS.has(f.key) || uses.has(f.key)), ...eventFields];
+export function bulkFields(eventFields: AttendeeField[]): AttendeeField[] {
+  return [...BULK_BUILTIN_FIELDS, ...eventFields];
 }

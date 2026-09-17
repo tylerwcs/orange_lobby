@@ -303,7 +303,7 @@ export async function setColumnAction(eventId: string, formData: FormData) {
     return;
   }
 
-  const field = bulkFields(eventFields(ev.registration_questions, ev.attendee_fields), ev.collected_fields).find((f) => f.key === key);
+  const field = bulkFields(eventFields(ev.registration_questions, ev.attendee_fields)).find((f) => f.key === key);
   if (!field) return; // a posted key that is not an editable column writes nothing
 
   const value = coerceFieldValue(field, raw);
