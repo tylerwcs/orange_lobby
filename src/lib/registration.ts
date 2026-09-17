@@ -49,3 +49,16 @@ export function validateRegistration(input: Record<string, string>, questions: R
   if (Object.keys(errors).length) return { ok: false, errors };
   return { ok: true, data: { name, email, extra } };
 }
+
+/**
+ * Strips blank-valued answers from a re-registration's `extra` before it is merged into an
+ * attendee who already exists. A blank answer there almost never means "clear this" — it means
+ * the invitee skipped an optional question they'd already answered, or the masterlist import
+ * set a value registration never asks about at all (e.g. phone) — so left in, it would overwrite
+ * that value with "". Only call this for an existing attendee: a first-time registration's
+ * blanks are genuinely blank and belong in `extra` as-is (including a show_when-hidden
+ * question's deliberate "" to clear a stale answer).
+ */
+export function dropBlankAnswers(extra: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== ""));
+}

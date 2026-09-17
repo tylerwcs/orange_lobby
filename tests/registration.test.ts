@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseQuestions, validateRegistration } from "@/lib/registration";
+import { dropBlankAnswers, parseQuestions, validateRegistration } from "@/lib/registration";
 
 const qs = parseQuestions(JSON.stringify([
   { key: "tshirt", label: "T-shirt", type: "select", required: true, options: ["S", "M"] },
@@ -89,5 +89,19 @@ describe("show_when", () => {
     const shown = validateRegistration({ name: "A", email: "a@b.co", stay: "Yes – Twin" }, qs2);
     expect(shown.ok).toBe(false);
     if (!shown.ok) expect(shown.errors.partner).toMatch(/required/);
+  });
+});
+
+describe("dropBlankAnswers", () => {
+  it("drops blank-valued keys so a re-registration can't null out a value already on file", () => {
+    expect(dropBlankAnswers({ phone: "", company: "Ecopia", tshirt: "" })).toEqual({ company: "Ecopia" });
+  });
+
+  it("keeps every key when nothing is blank", () => {
+    expect(dropBlankAnswers({ phone: "012", company: "Ecopia" })).toEqual({ phone: "012", company: "Ecopia" });
+  });
+
+  it("is a no-op on an already-empty extra", () => {
+    expect(dropBlankAnswers({})).toEqual({});
   });
 });

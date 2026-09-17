@@ -2,8 +2,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
-import { upsertByEmail } from "@/lib/db/attendees";
-import { validateRegistration } from "@/lib/registration";
+import { findByEmail, upsertByEmail } from "@/lib/db/attendees";
+import { dropBlankAnswers, validateRegistration } from "@/lib/registration";
 import { allow } from "@/lib/ratelimit";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
@@ -22,6 +22,11 @@ export async function registerAction(slug: string, _prev: RegisterState, formDat
   const result = validateRegistration(values, event.registration_questions);
   if (!result.ok) return { errors: result.errors, values };
 
-  const { attendee } = await upsertByEmail(event, result.data, "registration");
+  // Re-registering must not null out a value already on file (e.g. a masterlist import's
+  // phone number) just because this submission left the matching question blank. A first-time
+  // registration has no prior value to protect, so its blanks go through untouched.
+  const existing = await findByEmail(event.id, result.data.email);
+  const data = existing ? { ...result.data, extra: dropBlankAnswers(result.data.extra) } : result.data;
+  const { attendee } = await upsertByEmail(event, data, "registration");
   redirect(`/e/${slug}/register/done?t=${attendee.token}`);
 }
