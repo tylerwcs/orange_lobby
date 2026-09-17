@@ -303,17 +303,28 @@ deploy; report the count and the affected event before going further.
 
 That checks the values moved. Separately, statement 1 must have given every collected fact
 somewhere to land — a value with no field definition is a value `fieldValue()`'s `extra`-first
-branch can never surface, no matter how statement 2 went. This is the check the spec calls the
-counting verification, and it must also return 0:
+branch can never surface, no matter how statement 2 went. Statement 1 is three independent
+updates, one per key, each with its own guard, and each can succeed or fail per event on its
+own — a check that only names `company` reads as passed while `phone` or `table_no` quietly
+has no definition anywhere. This is the check the spec calls the counting verification; all
+three must return 0:
 
 ```sql
 select count(*) from events where collected_fields <> '{}'
   and not (registration_questions || attendee_fields) @> '[{"key":"company"}]'
   and 'company' = any(collected_fields);
 -- expect 0
+select count(*) from events where collected_fields <> '{}'
+  and not (registration_questions || attendee_fields) @> '[{"key":"phone"}]'
+  and 'phone' = any(collected_fields);
+-- expect 0
+select count(*) from events where collected_fields <> '{}'
+  and not (registration_questions || attendee_fields) @> '[{"key":"table_no"}]'
+  and 'table_no' = any(collected_fields);
+-- expect 0
 ```
 
-If it doesn't, stop for the same reason as above — do not proceed to deploy.
+If any of the three doesn't, stop for the same reason as above — do not proceed to deploy.
 
 Optionally, eyeball what each event ended up with (raw jsonb, not a substitute for the count
 above):
