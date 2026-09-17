@@ -176,6 +176,29 @@ migration together rather than leaving days between them.
 > migration alone, before that code ships, and never left for days after. Keep the gap
 > between code and migration to minutes, and never open it during a live event.
 
+**The other order — the code ships and 0014 still hasn't run.** Everything above is about
+running the migration too early. The code that retires the legacy inputs and readers can just
+as easily merge and deploy first, with 0014 left for a human to run afterwards — which is
+exactly the state this repository is normally in between those two steps. Nothing crashes in
+that window, but two things go quietly missing, and neither looks like a missing migration from
+where an operator is standing:
+
+- **Search stops finding anyone by company.** `buildAttendeeSearchFilter()` in
+  `src/lib/search-filter.ts` now matches `extra->>company` only, and `extra` is still empty
+  until statement 2 backfills it — so both the admin attendee list and the crew scanner return
+  nothing for a company search that worked yesterday. This is the symptom an operator is least
+  likely to trace back to a missing migration: a search that comes back empty reads as a search
+  bug, not a data-shape one.
+- **Company, Mobile and Table go missing from the attendee table, the scan card, and the
+  badge — the badge loses its Table pin specifically.** `fieldValue()` supplies a *value* once
+  asked, but the attendee table, the scan card and `resolvePins()` all decide whether to show a
+  column, a scan line or a pin by checking for a field *definition* first — and before 0014
+  runs, no field named company, phone or table_no exists for any event. `fieldValue()` was never
+  meant to paper over that; it exists for values, not for existence.
+
+Both clear the moment 0014 runs, with no code change needed — which is the whole reason this
+gate says to keep the gap between code and migration to minutes, in either order.
+
 **Before running anything**, list the events this migration will do nothing for: an event that
 unticked one of the three facts in Settings has no `collected_fields` entry for it, so this
 migration gives it no field definition — and if that event still has a pin or a
@@ -187,6 +210,23 @@ pre-existing state this migration does not touch.
 select slug, pinned_fields, scan_extra_fields, collected_fields from events
 where not (collected_fields @> array['company','phone','table_no']);
 ```
+
+Also list the events statement 3 will do nothing for. It only seeds `scan_extra_fields` when
+that array is still empty (`= '{}'`) — an event that already put something on the scan card,
+however unrelated, is skipped entirely, and it is not this migration's place to overflow the
+two-slot cap by adding to that list for it. If that event collects company or table_no, its
+crew card has been showing Company or Table by name and silently stops after 0014, with nothing
+in the migration output to say so:
+
+```sql
+select slug, scan_extra_fields, collected_fields from events
+where scan_extra_fields <> '{}' and collected_fields && array['company','table_no'];
+```
+
+For every row this returns: the migration will not seed that event, so its crew card loses
+Company and Table unless the organiser edits the scan fields by hand. Decide, per event, before
+deploying — and tell the organiser, because otherwise the first they hear of it is a crew
+member at the door asking where the table number went.
 
 **Paste the numbered block below whole**, in one execution — the three sections are ordered
 (field definitions, then values, then scan fields) and none depends on the SQL editor's session
@@ -261,8 +301,41 @@ If any of the three comes back non-zero, statement 2 is idempotent — re-run th
 block and check again. If the count still doesn't come back to 0, stop. Do not proceed to
 deploy; report the count and the affected event before going further.
 
-and this must return one row per event that collects anything:
+That checks the values moved. Separately, statement 1 must have given every collected fact
+somewhere to land — a value with no field definition is a value `fieldValue()`'s `extra`-first
+branch can never surface, no matter how statement 2 went. This is the check the spec calls the
+counting verification, and it must also return 0:
+
+```sql
+select count(*) from events where collected_fields <> '{}'
+  and not (registration_questions || attendee_fields) @> '[{"key":"company"}]'
+  and 'company' = any(collected_fields);
+-- expect 0
+```
+
+If it doesn't, stop for the same reason as above — do not proceed to deploy.
+
+Optionally, eyeball what each event ended up with (raw jsonb, not a substitute for the count
+above):
 
 ```sql
 select slug, registration_questions, attendee_fields, scan_extra_fields from events;
 ```
+
+### Rolling back after 0014
+
+0014 is additive on purpose — the columns and `collected_fields` stay — which is what both this
+migration's header and the note above mean by "the deploy can be rolled back." Here is what that
+rollback actually looks like, so it doesn't come as a surprise on screen: rolling back means
+redeploying the code from before this change, with 0014 already applied and not undone.
+
+That old code still reads `collected_fields` to decide whether to render its hardcoded Mobile
+and Company inputs on the public registration form — and it also renders every question in
+`registration_questions`, which after 0014 already contains the seeded Mobile and Company
+questions under those same keys. An invitee sees two Mobile fields and two Company fields on one
+page, both posting under the same name. The admin attendee table doubles the same way: Company
+shows once as the old built-in column and once as the field 0014 created.
+
+Recoverable, not silent-data-loss — nothing is dropped, and redeploying the current code makes
+the doubling disappear again — but the operator should know to expect two of everything before
+they see it, not after.
