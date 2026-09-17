@@ -380,6 +380,12 @@ select slug, collected_fields, registration_questions, attendee_fields from even
 -- each, under registration_questions or attendee_fields
 ```
 
+Note the timestamp 0014 was applied — from the Supabase SQL editor's query history, or the deploy
+time of the release it shipped with — step 3's divergence check compares an attendee's
+`updated_at` against it.
+
+> Logged for this project: 0014 was applied to `wfmqwwcolfigjylkgrsv` on 17 September 2026.
+
 Why deploy before drop, specifically: every *read* path is safe whichever order these two land
 in — nothing has read `company`, `phone`, `table_no` or `collected_fields` off these tables since
 0014 ran; `extra` and the field definitions carry everything now. The one exception, confirmed in
@@ -452,10 +458,9 @@ select id, table_no, extra->>'table_no' as extra_table, updated_at from attendee
 -- expect no rows; a row here is one of two things below, and updated_at tells them apart
 ```
 
-`updated_at` splits a row into one of two cases, checked against when 0014 ran (its deploy-time
-gate is what pins down that moment — see the "Attendee fields: expand" section above). 0014's own
-backfill statement does not touch `updated_at`; only the app's own update path does, and every
-write since 0014 has gone through `extra`. So:
+`updated_at` splits a row into one of two cases, checked against the timestamp you noted in step 1
+when confirming 0014 ran. 0014's own backfill statement does not touch `updated_at`; only the
+app's own update path does, and every write since 0014 has gone through `extra`. So:
 
 - **`updated_at` after 0014 ran: an edit, not a loss.** Someone changed this attendee at the front
   desk or in the admin table since the expand deploy, and that write landed in `extra`, which is
