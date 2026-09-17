@@ -6,6 +6,7 @@ import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin } from "@/lib/db
 import { getCheckpoint } from "@/lib/db/checkpoints";
 import { extractToken, scanResultFields } from "@/lib/scan";
 import { fieldValue } from "@/lib/attendee-values";
+import { eventFields } from "@/lib/attendee-fields";
 import { crewLinkLive } from "@/lib/crew";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
@@ -99,14 +100,20 @@ export async function undoCheckinAction(eventId: string, checkpointId: string, a
 export async function searchAttendeesAction(eventId: string, q: string, checkpointId: string, crewToken?: string): Promise<SearchHit[]> {
   const auth = await authorise(eventId, crewToken);
   if ("error" in auth) return [];
+  const { ev } = auth;
   if (q.trim().length < 2) return [];
   const [rows, checkedIn] = await Promise.all([listAttendees(eventId, q), listCheckedInAttendeeIds(checkpointId)]);
+  // A fact this event does not collect must not reach a crew member's phone at all, rather
+  // than being filtered out once it is there. Whether it collects a fact is answered the
+  // same way everywhere else in this migration: whether a field for it exists.
+  const fields = eventFields(ev.registration_questions, ev.attendee_fields);
+  const has = (key: string) => fields.some((f) => f.key === key);
   return rows.slice(0, 20).map((a) => ({
     id: a.id,
     name: a.name,
-    company: fieldValue(a, "company") || null,
+    company: has("company") ? fieldValue(a, "company") || null : null,
     category: a.category,
-    table_no: fieldValue(a, "table_no") || null,
+    table_no: has("table_no") ? fieldValue(a, "table_no") || null : null,
     checkedIn: checkedIn.has(a.id),
   }));
 }
