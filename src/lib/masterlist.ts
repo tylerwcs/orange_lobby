@@ -5,8 +5,22 @@ import type { AttendeeField } from "@/lib/attendee-fields";
 export type MasterlistRow = { row: number } & AttendeeInput & { email: string | null; extra: Record<string, string> };
 export type MasterlistResult = { rows: MasterlistRow[]; skipped: { row: number; reason: string }[]; extraColumns: string[] };
 
+/**
+ * Headers that name the attendee row itself. Mobile, Company and Table are not here any
+ * more: they are fields, so they take the same path as Dietary — matched to one of the
+ * event's own columns by extraKeyFor, and stored in `extra`.
+ */
 const TEMPLATE: Record<string, keyof AttendeeInput> = {
-  name: "name", email: "email", phone: "phone", company: "company", category: "category", table: "table_no",
+  name: "name", email: "email", category: "category",
+};
+
+/**
+ * The spellings a spreadsheet uses for the three fields that used to be columns. An event
+ * that has defined them under its own labels is matched by extraKeyFor first; this is the
+ * fallback that keeps a client's existing template importing without being re-labelled.
+ */
+const LEGACY_HEADERS: Record<string, string> = {
+  mobile: "phone", phone: "phone", company: "company", table: "table_no", "table no": "table_no",
 };
 
 function cellText(v: ExcelJS.CellValue): string {
@@ -55,11 +69,13 @@ export async function parseMasterlist(buffer: ArrayBuffer | Buffer, fields: Atte
     if (!name) { skipped.push({ row: r, reason: "Name is blank" }); continue; }
     const pick = (key: string) => { const i = lower.indexOf(key); return i >= 0 && values[headers[i]] ? values[headers[i]] : null; };
     const extra: Record<string, string> = {};
-    for (const h of extraColumns) extra[extraKeyFor(h, fields)] = values[h] ?? "";
-    rows.push({
-      row: r, name, email: pick("email")?.toLowerCase() ?? null, phone: pick("phone"), company: pick("company"),
-      category: pick("category"), table_no: pick("table"), extra,
-    });
+    for (const h of extraColumns) {
+      const key = fields.some((f) => f.label.toLowerCase() === h.toLowerCase())
+        ? extraKeyFor(h, fields)
+        : LEGACY_HEADERS[h.toLowerCase()] ?? extraKeyFor(h, fields);
+      extra[key] = values[h] ?? "";
+    }
+    rows.push({ row: r, name, email: pick("email")?.toLowerCase() ?? null, category: pick("category"), extra });
   }
   return { rows, skipped, extraColumns };
 }

@@ -19,11 +19,15 @@ describe("parseMasterlist", () => {
       ["Bob", null, null, null, null, null, null, null],
     ]);
     const r = await parseMasterlist(buf);
-    expect(r.extraColumns).toEqual(["Seat", "Dietary"]);
+    expect(r.extraColumns).toEqual(["Phone", "Company", "Table", "Seat", "Dietary"]);
     expect(r.rows).toHaveLength(2);
-    // Seat is no longer a field of its own, so the column lands in `extra` like any
-    // other header the importer does not recognise.
-    expect(r.rows[0]).toEqual({ row: 2, name: "Ann Tan", email: "ann@x.com", phone: "60123", company: "Ecopia", category: "VIP", table_no: "12", extra: { Dietary: "Halal", Seat: "3" } });
+    // Phone, Company and Table are ordinary fields now: with no event fields passed, they
+    // fall through to their LEGACY_HEADERS spelling in `extra`, same as Seat and Dietary
+    // fall through to their own header.
+    expect(r.rows[0]).toEqual({
+      row: 2, name: "Ann Tan", email: "ann@x.com", category: "VIP",
+      extra: { phone: "60123", company: "Ecopia", table_no: "12", Seat: "3", Dietary: "Halal" },
+    });
     expect(r.rows[1].email).toBeNull();
     expect(r.skipped).toEqual([{ row: 3, reason: "Name is blank" }]);
   });
@@ -42,5 +46,24 @@ describe("parseMasterlist", () => {
 
   it("rejects a sheet without a Name header", async () => {
     await expect(parseMasterlist(await book([["Fullname"], ["x"]]))).rejects.toThrow(/Name/);
+  });
+
+  it("files Mobile, Company and Table into extra like any other column", async () => {
+    const buf = await book([
+      ["Name", "Email", "Mobile", "Company", "Table", "Category"],
+      ["Sam", "s@x.com", "012", "Ecopia", "7", "VIP"],
+    ]);
+    const res = await parseMasterlist(buf, [
+      { key: "phone", label: "Mobile", type: "phone" },
+      { key: "company", label: "Company", type: "text" },
+      { key: "table_no", label: "Table", type: "text" },
+    ]);
+    expect(res.rows[0]).toMatchObject({
+      name: "Sam",
+      email: "s@x.com",
+      category: "VIP",
+      extra: { phone: "012", company: "Ecopia", table_no: "7" },
+    });
+    expect(res.rows[0]).not.toHaveProperty("phone");
   });
 });

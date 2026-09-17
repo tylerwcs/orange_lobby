@@ -167,7 +167,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const toInsert: AttendeeInput[] = [];
   let updated = 0;
   for (const r of parsed.rows) {
-    const input: AttendeeInput = { name: r.name, email: r.email, phone: r.phone, company: r.company, category: r.category, table_no: r.table_no, extra: r.extra };
+    const input: AttendeeInput = { name: r.name, email: r.email, category: r.category, extra: r.extra };
     const key = input.email?.trim().toLowerCase();
     const existing = key ? existingByEmail.get(key) : undefined;
     if (existing) {
