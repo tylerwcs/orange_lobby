@@ -353,11 +353,54 @@ they see it, not after.
 
 ## Attendee fields: contract (migration 0015)
 
-`0015_fields_contract.sql` is the irreversible half of the pair. **Before running it**, re-run
-0014's six verification queries below and confirm all six return zero, right then — not from a
-memory of them passing when 0014 was applied. The data may have changed since: an attendee could
-have been added, edited or imported in the meantime, and this migration cannot tell a value that
-was never copied from a value that never existed.
+`0015_fields_contract.sql` is the irreversible half of the pair. This section is written in the
+order to run it — deploy, back up, verify, drop, confirm — because getting that order wrong is
+how "irreversible" turns into "already happened before you meant it to." Follow it top to bottom;
+do not skip ahead to the SQL.
+
+**Never run this during a live event.** `drop column` itself is fast, but it takes an ACCESS
+EXCLUSIVE lock on the table it touches. Anything that holds that lock open longer than expected —
+a stuck transaction, a slow client — queues every other reader of `attendees` behind it, the
+scanner included. Run this only in a maintenance window with no event live.
+
+### 1. Deploy the code, and confirm it actually landed
+
+Deploy the code that stops naming `company`, `phone`, `table_no` and `collected_fields` — commit
+`95b20a2` or later on `main` — before touching this migration. Then confirm, rather than assume:
+
+- **The deployed commit.** Check your hosting provider's deploy log (or whatever it reports as
+  currently live, against `git log`) shows `95b20a2` or later — not a memory of having merged it.
+- **That 0014 actually ran**, by its effect, not by recalling that someone ran it:
+
+```sql
+select slug, registration_questions, attendee_fields from events;
+-- expect every event that collected company, phone or table_no to carry a field definition for
+-- each, under registration_questions or attendee_fields
+```
+
+Why deploy before drop, specifically: every *read* path is safe whichever order these two land
+in — nothing has read `company`, `phone`, `table_no` or `collected_fields` off these tables since
+0014 ran; `extra` and the field definitions carry everything now. The one exception, confirmed in
+review, is `purgeAttendeePersonalData` — the only write path that still names `phone` and
+`company` in a build older than `95b20a2`. Drop the columns while that build is still live and
+its own update statement fails outright, breaking purge for archived events until the newer
+deploy lands.
+
+### 2. Take a backup — before anything else touches the schema
+
+Take a Supabase backup now: an on-demand backup from the project's Database settings, or, if the
+project instead relies on point-in-time recovery, confirm PITR is enabled and note the current
+time as your recovery target. Either way, write down the timestamp. **Do not run the SQL in step
+4 until that backup exists.** It is the only way back once this runs — see step 6 — and a backup
+taken after the drop recovers nothing.
+
+### 3. Run the verification queries — immediately before the drop, not from memory
+
+Re-run these nine queries right now, in the production Supabase SQL editor, even if they passed
+when 0014 was applied — an attendee can have been added, edited or imported since, and this
+migration cannot tell a value that was never copied from one that never existed.
+
+The first six are 0014's counting queries:
 
 ```sql
 select count(*) from attendees where nullif(company, '')  is not null and not extra ? 'company';
@@ -381,29 +424,61 @@ select count(*) from events where collected_fields <> '{}'
 -- expect 0
 ```
 
-If any of the six comes back non-zero, stop — do not run 0015. Re-run 0014 (statement 2 is
-idempotent) and check again; if a count still won't come back to 0, report it and the affected
-event rather than proceeding.
+If any of the **first three** is non-zero: statement 2 of 0014 is idempotent — re-run the whole
+numbered block in the 0014 section above and check again. If it still won't come back to 0, stop;
+do not proceed to the drop. Report the count and the affected event.
 
-**Deploy the code first, then run this.** Every read path is safe either way — nothing has read
-`company`, `phone`, `table_no` or `collected_fields` off these tables since 0014 ran; `extra` and
-the field definitions carry everything now. But `purgeAttendeePersonalData` in whatever build is
-currently deployed still names `phone` and `company` in its own update statement, and a database
-that no longer has those columns makes that update fail — so purging an archived event's personal
-data breaks until the deploy that stops naming them has landed.
+If any of the **last three** is non-zero: stop for the same reason — do not proceed to the drop.
+That gap is a missing field definition, not a values problem, and re-running 0014's statement 2
+does not fix it.
+
+A zero count on all six says every value has *a* home in `extra` — it does not say the value in
+`extra` still agrees with the column. 0014's backfill was `jsonb_build_object(...) || extra`, so
+an `extra` key that already existed before 0014 ran wins over the column, silently. Run these
+three as well. They report rather than gate — no re-run fixes a disagreement, only a per-row
+decision does:
+
+```sql
+select id, company, extra->>'company' as extra_company from attendees
+  where nullif(company,'') is not null and extra->>'company' is distinct from company;
+select id, phone, extra->>'phone' as extra_phone from attendees
+  where nullif(phone,'') is not null and extra->>'phone' is distinct from phone;
+select id, table_no, extra->>'table_no' as extra_table from attendees
+  where nullif(table_no,'') is not null and extra->>'table_no' is distinct from table_no;
+-- expect no rows; any row is a value that dies with the column, decide per row before continuing
+```
+
+Any row back means that attendee's column value is about to be discarded in favour of whatever is
+already in `extra` for that key. Resolve it by hand before the drop, or knowingly accept the
+loss — either way, decide it now, not after.
+
+### 4. Run the migration
+
+Run this in the production Supabase SQL editor, wrapped as written — the `begin`/`commit` means a
+dropped connection mid-statement leaves the schema exactly as it was, not half-contracted:
 
 ```sql
 -- Contract step: the columns migration 0014 emptied into `extra` are dropped.
 --
--- IRREVERSIBLE. Every value these columns held was copied into attendees.extra by 0014 and
--- verified there (see the runbook's six counting queries, all of which must return zero
--- before this runs). After this, `extra` is the only copy: recovering a mistake means a
--- database restore, not a re-read.
+-- IRREVERSIBLE. Every value these columns held that agreed with `extra` was already covered by
+-- 0014 and this section's own verification (see docs/runbook.md, "Attendee fields: contract
+-- (migration 0015)", for the nine queries — the counts and the three value-divergence checks —
+-- that must be re-run and checked immediately before this runs, and the backup step that must
+-- come before that). After this, `extra` is the only copy that survives: recovering a mistake
+-- means a database restore, not a re-read.
 --
--- Run this AFTER the code that stops naming these columns is deployed. Every read path is
--- safe either way — nothing has read a column since the expand step — but
--- purgeAttendeePersonalData in the previous build still names phone and company in its
--- update, so dropping first breaks purge for archived events until the deploy lands.
+-- Run this AFTER the code that stops naming these columns is deployed and confirmed live. Every
+-- read path is safe either way — nothing has read a column since the expand step — but
+-- purgeAttendeePersonalData in a build older than the one retiring these columns still names
+-- phone and company in its update, so dropping first breaks purge for archived events until
+-- that deploy lands.
+--
+-- Wrapped in a transaction so a dropped connection mid-run leaves the schema exactly as it was,
+-- not half-contracted. Not idempotent: a second run fails with `column "company" of relation
+-- "attendees" does not exist` — that failure is what success looks like the second time. The
+-- runbook's information_schema check is the authority on whether this ran, not this output.
+
+begin;
 
 alter table attendees
   drop column company,
@@ -412,21 +487,31 @@ alter table attendees
 
 -- The concept that gated those three. Nothing has read it since the expand step.
 alter table events drop column collected_fields;
+
+commit;
 ```
 
-Verify — must return no rows:
+This is not idempotent. Run it a second time and it fails with `column "company" of relation
+"attendees" does not exist` — that failure *is* success the second time around; it means the
+first run already committed. Trust the verification query below over the `alter` output either
+way.
+
+### 5. Verify the columns are gone
 
 ```sql
 select column_name from information_schema.columns
-where table_name = 'attendees' and column_name in ('company','phone','table_no')
+where table_schema = 'public' and table_name = 'attendees' and column_name in ('company','phone','table_no')
 union all
 select column_name from information_schema.columns
-where table_name = 'events' and column_name = 'collected_fields';
+where table_schema = 'public' and table_name = 'events' and column_name = 'collected_fields';
 -- expect no rows
 ```
 
-There is no rollback for the data this removes. Once this runs, `extra` and the field
-definitions are the only copies of what these columns held, and the only way back is restoring
-the project from a Supabase backup taken before this ran — so a backup taken immediately before
-running this is the only safety net there is, because nothing else recovers what a mistake here
-would lose.
+### 6. What rollback means now
+
+There is no rollback for the data this removes. `extra` is the only copy that *survives* the
+drop — not necessarily the only copy of what the column held: for any attendee the divergence
+checks in step 3 flagged, `extra` already held something else before this ran, and that is what
+remains. Past that, the only way back at all is restoring the project from the backup taken in
+step 2 — which is why that backup has to exist, timestamped, before the SQL runs, and why a
+backup taken after the drop is worth nothing.
