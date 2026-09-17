@@ -55,8 +55,8 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
   const { ev, a, cps, scans, crew, link, qr } = data;
   const firstScan = cps.map((c) => scans[c.id]?.at).filter(Boolean).sort()[0];
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
-  // `fieldValue`, not `a.extra` directly: company/phone/table may still live only in the
-  // legacy columns until migration 0014 runs, and the edit form has to show what is there.
+  // `fieldValue`, not `a.extra` directly: it trims, so the edit form never shows a value
+  // that is really just whitespace.
   const fieldValues = Object.fromEntries(fields.map((f) => [f.key, fieldValue(a, f.key)]));
 
   return (

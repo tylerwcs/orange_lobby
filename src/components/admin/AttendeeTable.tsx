@@ -17,9 +17,9 @@ import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AttendeeSource, Checkpoint } from "@/lib/types";
 
 // Exactly the fields this table renders — never the full `Attendee` shape, which carries
-// `token` (the bearer credential for the attendee portal link) and `phone`. `values` holds
-// only the event's *defined* columns, so an unmapped key an import left behind in `extra`
-// stays on the server.
+// `token` (the bearer credential for the attendee portal link) and `extra` unfiltered.
+// `values` holds only the event's *defined* columns, so an unmapped key an import left
+// behind in `extra` stays on the server.
 export type AttendeeRow = {
   id: string;
   name: string;

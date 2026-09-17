@@ -297,9 +297,11 @@ select count(*) from attendees where nullif(table_no, '') is not null and not ex
 -- expect 0
 ```
 
-If any of the three comes back non-zero, statement 2 is idempotent — re-run the whole numbered
-block and check again. If the count still doesn't come back to 0, stop. Do not proceed to
-deploy; report the count and the affected event before going further.
+If any of the three comes back non-zero, re-run statement 2 (it is idempotent) and check again —
+not the whole numbered block: statement 3 only seeds `scan_extra_fields` while it is still empty,
+so re-running it would overwrite an event whose organiser has since cleared that list on purpose.
+If the count still doesn't come back to 0, stop. Do not proceed to deploy; report the count and
+the affected event before going further.
 
 That checks the values moved. Separately, statement 1 must have given every collected fact
 somewhere to land — a value with no field definition is a value `fieldValue()`'s `extra`-first
@@ -373,7 +375,7 @@ Deploy the code that stops naming `company`, `phone`, `table_no` and `collected_
 - **That 0014 actually ran**, by its effect, not by recalling that someone ran it:
 
 ```sql
-select slug, registration_questions, attendee_fields from events;
+select slug, collected_fields, registration_questions, attendee_fields from events;
 -- expect every event that collected company, phone or table_no to carry a field definition for
 -- each, under registration_questions or attendee_fields
 ```
@@ -424,9 +426,11 @@ select count(*) from events where collected_fields <> '{}'
 -- expect 0
 ```
 
-If any of the **first three** is non-zero: statement 2 of 0014 is idempotent — re-run the whole
-numbered block in the 0014 section above and check again. If it still won't come back to 0, stop;
-do not proceed to the drop. Report the count and the affected event.
+If any of the **first three** is non-zero: re-run statement 2 of 0014 (it is idempotent) and check
+again — not the whole numbered block in the 0014 section above: statement 3 only seeds
+`scan_extra_fields` while it is still empty, so re-running it would overwrite an event whose
+organiser has since cleared that list on purpose. If it still won't come back to 0, stop; do not
+proceed to the drop. Report the count and the affected event.
 
 If any of the **last three** is non-zero: stop for the same reason — do not proceed to the drop.
 That gap is a missing field definition, not a values problem, and re-running 0014's statement 2
@@ -439,18 +443,30 @@ three as well. They report rather than gate — no re-run fixes a disagreement, 
 decision does:
 
 ```sql
-select id, company, extra->>'company' as extra_company from attendees
+select id, company, extra->>'company' as extra_company, updated_at from attendees
   where nullif(company,'') is not null and extra->>'company' is distinct from company;
-select id, phone, extra->>'phone' as extra_phone from attendees
+select id, phone, extra->>'phone' as extra_phone, updated_at from attendees
   where nullif(phone,'') is not null and extra->>'phone' is distinct from phone;
-select id, table_no, extra->>'table_no' as extra_table from attendees
+select id, table_no, extra->>'table_no' as extra_table, updated_at from attendees
   where nullif(table_no,'') is not null and extra->>'table_no' is distinct from table_no;
--- expect no rows; any row is a value that dies with the column, decide per row before continuing
+-- expect no rows; a row here is one of two things below, and updated_at tells them apart
 ```
 
-Any row back means that attendee's column value is about to be discarded in favour of whatever is
-already in `extra` for that key. Resolve it by hand before the drop, or knowingly accept the
-loss — either way, decide it now, not after.
+`updated_at` splits a row into one of two cases, checked against when 0014 ran (its deploy-time
+gate is what pins down that moment — see the "Attendee fields: expand" section above). 0014's own
+backfill statement does not touch `updated_at`; only the app's own update path does, and every
+write since 0014 has gone through `extra`. So:
+
+- **`updated_at` after 0014 ran: an edit, not a loss.** Someone changed this attendee at the front
+  desk or in the admin table since the expand deploy, and that write landed in `extra`, which is
+  now the newer, correct value — the column is the stale side. Leave it alone. This is the case a
+  divergence check run now will usually find, because the columns have been frozen since 0014 and
+  `extra` is where every write since has gone.
+- **`updated_at` at or before 0014 ran: 0014's genuine shadowing case.** An `extra` key already
+  existed for this attendee before the backfill ran, so `|| extra` let it win over the column
+  silently, and the column may hold a fact that never made it into `extra`. This one needs a
+  per-row decision: resolve it by hand before the drop, or knowingly accept the loss — either way,
+  decide it now, not after.
 
 ### 4. Run the migration
 
@@ -461,10 +477,10 @@ dropped connection mid-statement leaves the schema exactly as it was, not half-c
 -- Contract step: the columns migration 0014 emptied into `extra` are dropped.
 --
 -- IRREVERSIBLE. Every value these columns held that agreed with `extra` was already covered by
--- 0014 and this section's own verification (see docs/runbook.md, "Attendee fields: contract
--- (migration 0015)", for the nine queries — the counts and the three value-divergence checks —
+-- 0014 and the verification in docs/runbook.md's "Attendee fields: contract (migration 0015)"
+-- section — see there for the nine queries — the counts and the three value-divergence checks —
 -- that must be re-run and checked immediately before this runs, and the backup step that must
--- come before that). After this, `extra` is the only copy that survives: recovering a mistake
+-- come before that. After this, `extra` is the only copy that survives: recovering a mistake
 -- means a database restore, not a re-read.
 --
 -- Run this AFTER the code that stops naming these columns is deployed and confirmed live. Every
@@ -474,9 +490,11 @@ dropped connection mid-statement leaves the schema exactly as it was, not half-c
 -- that deploy lands.
 --
 -- Wrapped in a transaction so a dropped connection mid-run leaves the schema exactly as it was,
--- not half-contracted. Not idempotent: a second run fails with `column "company" of relation
--- "attendees" does not exist` — that failure is what success looks like the second time. The
--- runbook's information_schema check is the authority on whether this ran, not this output.
+-- not half-contracted. Written for the Supabase SQL editor: run this through `supabase db push`
+-- instead and the `begin` nests inside the runner's own transaction while the `commit` closes it
+-- early. Not idempotent: a second run fails with `column "company" of relation "attendees" does
+-- not exist` — that failure is what success looks like the second time. The runbook's
+-- information_schema check is the authority on whether this ran, not this output.
 
 begin;
 
@@ -506,6 +524,11 @@ select column_name from information_schema.columns
 where table_schema = 'public' and table_name = 'events' and column_name = 'collected_fields';
 -- expect no rows
 ```
+
+Supabase reloads PostgREST's schema cache on DDL, and the app selects `*` rather than naming these
+columns, so this is low risk — but if the very first request after the drop errors on a column
+that no longer exists, that cache is why: reload it by hand from Database → API in the dashboard,
+or `notify pgrst, 'reload schema';` in the SQL editor.
 
 ### 6. What rollback means now
 

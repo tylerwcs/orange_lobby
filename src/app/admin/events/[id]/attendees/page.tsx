@@ -184,8 +184,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           checkedInAt: earliestScan.get(a.id) ?? null,
           // Only the defined columns cross to the client: an unmapped header an import
           // left in `extra` has no column to land in and stays on the server. `fieldValue`
-          // rather than `a.extra` directly, so company/phone/table still show up while they
-          // live in the legacy columns, pre-migration.
+          // rather than `a.extra` directly, since it trims each value before it renders.
           values: {
             ...Object.fromEntries(allFields.map((f) => [f.key, fieldValue(a, f.key)])),
             // The assignment, not the spreadsheet value the import left in `extra` — those

@@ -1,10 +1,10 @@
 -- Contract step: the columns migration 0014 emptied into `extra` are dropped.
 --
 -- IRREVERSIBLE. Every value these columns held that agreed with `extra` was already covered by
--- 0014 and this section's own verification (see docs/runbook.md, "Attendee fields: contract
--- (migration 0015)", for the nine queries — the counts and the three value-divergence checks —
+-- 0014 and the verification in docs/runbook.md's "Attendee fields: contract (migration 0015)"
+-- section — see there for the nine queries — the counts and the three value-divergence checks —
 -- that must be re-run and checked immediately before this runs, and the backup step that must
--- come before that). After this, `extra` is the only copy that survives: recovering a mistake
+-- come before that. After this, `extra` is the only copy that survives: recovering a mistake
 -- means a database restore, not a re-read.
 --
 -- Run this AFTER the code that stops naming these columns is deployed and confirmed live. Every
@@ -14,9 +14,11 @@
 -- that deploy lands.
 --
 -- Wrapped in a transaction so a dropped connection mid-run leaves the schema exactly as it was,
--- not half-contracted. Not idempotent: a second run fails with `column "company" of relation
--- "attendees" does not exist` — that failure is what success looks like the second time. The
--- runbook's information_schema check is the authority on whether this ran, not this output.
+-- not half-contracted. Written for the Supabase SQL editor: run this through `supabase db push`
+-- instead and the `begin` nests inside the runner's own transaction while the `commit` closes it
+-- early. Not idempotent: a second run fails with `column "company" of relation "attendees" does
+-- not exist` — that failure is what success looks like the second time. The runbook's
+-- information_schema check is the authority on whether this ran, not this output.
 
 begin;
 

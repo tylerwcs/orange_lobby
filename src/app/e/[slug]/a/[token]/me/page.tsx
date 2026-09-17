@@ -36,8 +36,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
 
   // Everything the event asked this person, in the order it asked, with blanks dropped -
   // an attendee should not read a list of questions they left empty. `fieldValue`, not
-  // `extra` directly, so company/phone/table still show while they live only in the
-  // legacy columns, pre-migration.
+  // `extra` directly, so a value is trimmed before "left empty" is decided.
   //
   // company and table_no are excluded here on purpose — the identity card below already
   // shows both, and once migration 0014 seeds their definitions they would otherwise print

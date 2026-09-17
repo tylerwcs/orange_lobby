@@ -6,7 +6,7 @@ import { completionByAttendee } from "@/lib/booths";
 import { fieldValue } from "@/lib/attendee-values";
 import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 
-const LEGACY = new Set<string>(FORMER_BUILTIN_KEYS);
+const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 
 export type LinkRow = { name: string; email: string | null; company: string | null; category: string | null; table_no: string | null; link: string };
 
@@ -30,10 +30,10 @@ export function buildLinksWorkbook(rows: LinkRow[]): ExcelJS.Workbook {
  * would print every value twice.
  */
 export function attendanceExtraColumns(attendees: Pick<Attendee, "extra">[], fields: AttendeeField[]): { key: string; label: string }[] {
-  const relevant = fields.filter((f) => !LEGACY.has(f.key));
+  const relevant = fields.filter((f) => !FORMER_BUILTIN_KEY_SET.has(f.key));
   const defined = new Set(relevant.map((f) => f.key));
   const seen = Array.from(new Set(attendees.flatMap((a) => Object.keys(a.extra ?? {}))));
-  return [...relevant.map((f) => ({ key: f.key, label: f.label })), ...seen.filter((k) => !defined.has(k) && !LEGACY.has(k)).map((k) => ({ key: k, label: k }))];
+  return [...relevant.map((f) => ({ key: f.key, label: f.label })), ...seen.filter((k) => !defined.has(k) && !FORMER_BUILTIN_KEY_SET.has(k)).map((k) => ({ key: k, label: k }))];
 }
 
 /**
@@ -43,7 +43,7 @@ export function attendanceExtraColumns(attendees: Pick<Attendee, "extra">[], fie
  * have the three legacy keys filtered out (attendanceExtraColumns does that) or a value prints
  * twice.
  */
-export function attendeeSheetRow(a: Pick<Attendee, "name" | "email" | "category" | "source" | "extra"> & Record<string, unknown>, extraColumns: { key: string }[]): unknown[] {
+export function attendeeSheetRow(a: Pick<Attendee, "name" | "email" | "category" | "source" | "extra">, extraColumns: { key: string }[]): unknown[] {
   return [
     a.name, a.email, fieldValue(a, "phone"), fieldValue(a, "company"), a.category, fieldValue(a, "table_no"),
     a.source, ...extraColumns.map((c) => a.extra?.[c.key] ?? ""),

@@ -51,8 +51,8 @@ export function recentScans(checkins: Checkin[], attendees: Attendee[], limit: n
         checkinId: c.id,
         attendeeId: c.attendee_id,
         name: a?.name ?? "Removed attendee",
-        // `fieldValue`, not the columns directly: company and table_no may still live only
-        // in the legacy columns until migration 0014 runs.
+        // `fieldValue`, not `a.extra` directly: it trims, and it is the one place that
+        // knows how to read a field's value.
         company: a ? fieldValue(a, "company") : null,
         tableNo: a ? fieldValue(a, "table_no") : null,
         checkpointId: c.checkpoint_id,
