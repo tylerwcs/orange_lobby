@@ -1,7 +1,35 @@
 import { isValidToken } from "@/lib/tokens";
 import type { Attendee, Event } from "@/lib/types";
-import { eventFields } from "@/lib/attendee-fields";
+import { eventFields, type AttendeeField } from "@/lib/attendee-fields";
 import { fieldValue } from "@/lib/attendee-values";
+
+/**
+ * How many facts the card may carry besides the category. Four because the card used to
+ * show company, category and table by name plus two chosen extras; a cap of two would have
+ * cost crew lines they had been reading at a door for a year.
+ */
+export const MAX_SCAN_FIELDS = 4;
+
+/**
+ * The scan fields a save may store: the ones picked, in the order picked, minus repeats
+ * and anything this event has no field for, capped.
+ *
+ * A value is kept when it names a field by key OR by label, because the free-text box this
+ * replaced stored labels — dropping those on the first save through the picker would empty
+ * the card of an event that had configured it perfectly well.
+ */
+export function scanFieldsFromForm(posted: string[], fields: AttendeeField[]): string[] {
+  const out: string[] = [];
+  for (const raw of posted) {
+    const name = raw.trim();
+    if (!name || out.includes(name)) continue;
+    const known = fields.some((f) => f.key === name || f.label.toLowerCase() === name.toLowerCase());
+    if (!known) continue;
+    out.push(name);
+    if (out.length === MAX_SCAN_FIELDS) break;
+  }
+  return out;
+}
 
 export function extractToken(scanned: string): string | null {
   const s = scanned.trim();

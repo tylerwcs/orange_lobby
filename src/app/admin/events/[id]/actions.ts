@@ -95,7 +95,6 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }
-  const extras = (str(formData, "scan_extra_fields") ?? "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 2);
   await updateEvent(eventId, {
     name: str(formData, "name") ?? undefined,
     starts_on: str(formData, "starts_on"),
@@ -112,7 +111,6 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_open: formData.get("registration_open") === "on",
     registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
     registration_questions: questions,
-    scan_extra_fields: extras,
   });
   await deleteEventImage(logo.stale);
   await deleteEventImage(banner.stale);

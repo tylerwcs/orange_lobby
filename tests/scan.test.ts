@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractToken, scanResultFields } from "@/lib/scan";
+import { extractToken, scanResultFields, scanFieldsFromForm, MAX_SCAN_FIELDS } from "@/lib/scan";
 import type { Attendee, Event } from "@/lib/types";
 
 describe("extractToken", () => {
@@ -48,6 +48,38 @@ describe("scanResultFields", () => {
     const a = { name: "Ann", company: null, category: null, table_no: null, extra: {} } as unknown as Attendee;
     const e = { scan_extra_fields: ["Nothing"], attendee_fields: [] } as unknown as Event;
     expect(scanResultFields(a, e).at(-1)).toEqual({ label: "Nothing", value: "" });
+  });
+});
+
+describe("scanFieldsFromForm", () => {
+  const fields = [
+    { key: "company", label: "Company", type: "text" as const },
+    { key: "table_no", label: "Table", type: "text" as const },
+    { key: "shirt_size", label: "Shirt size", type: "text" as const },
+  ];
+
+  it("keeps the fields the event has, in the order they were picked", () => {
+    expect(scanFieldsFromForm(["table_no", "company"], fields)).toEqual(["table_no", "company"]);
+  });
+
+  it("drops a key the event has no field for", () => {
+    expect(scanFieldsFromForm(["company", "ghost"], fields)).toEqual(["company"]);
+  });
+
+  it("drops a repeat rather than showing the same line twice", () => {
+    expect(scanFieldsFromForm(["company", "company"], fields)).toEqual(["company"]);
+  });
+
+  it("stops at the cap", () => {
+    const many = ["company", "table_no", "shirt_size", "a", "b"];
+    const withAll = [...fields, { key: "a", label: "A", type: "text" as const }, { key: "b", label: "B", type: "text" as const }];
+    expect(scanFieldsFromForm(many, withAll)).toHaveLength(MAX_SCAN_FIELDS);
+  });
+
+  it("keeps a stored value that matches a field by label, as the old free-text box wrote them", () => {
+    // scanResultFields resolves by key or label, so a setting written before the picker
+    // existed must survive a save made through it.
+    expect(scanFieldsFromForm(["Shirt size"], fields)).toEqual(["Shirt size"]);
   });
 });
 
