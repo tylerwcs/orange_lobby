@@ -136,23 +136,52 @@ clears the image entirely.
 `0014_fields_expand.sql` turns company, phone and table_no from columns on `attendees` into
 ordinary event fields: each event gets real field definitions for whatever it already
 collects, every attendee's values move into `extra`, and the scan card is seeded with the two
-lines it used to print by name. Additive — the columns and `collected_fields` stay — so it may
-be applied after the deploy and the deploy may be rolled back without stranding any data.
+lines it used to print by name. Additive — the columns and `collected_fields` stay — so the SQL
+itself is safe to apply at any time, safe to re-run, and safe if interrupted partway.
 
-**Release gate — read this before running the migration, not after.** The code that reads
-`extra` first and falls back to the column is already committed, and it gates Company, Mobile
-and Table on whether the event has a field of that key. Deploy that code before applying this
-migration, never the other way round, and never leave the gap between the two open longer than
-it takes to run the SQL. Nothing is deployed yet as of this writing (main is ahead of origin,
-unpushed), so there is no live exposure today — but the day this deploys, this ordering stops
-being advice and becomes a release gate: get it backwards, or leave it open too long, and an
-event's data is intact but invisible until the migration runs.
+**Release gate — read this before running the migration, not after.** *When* this runs matters
+more than the SQL does. **Apply 0014 at deploy time, together with the code that retires the
+legacy company/phone/table_no inputs and column readers — not before that code ships, and not
+days after.** Until that code lands, the admin "add attendee" and attendee-detail forms still
+post straight to the `company`, `phone` and `table_no` columns, and several readers — the
+attendee table, the attendee's own seat page, the badge card, the attendance export — still
+read those columns directly, with no fallback to `extra`. Only `fieldValue()` (the scan card
+and the admin table's field-driven pins) reads `extra` first and falls back to the column. Run
+0014 while the old forms and column readers are still live and you get two writable homes for
+the same fact: an edit made at the front desk lands in `extra`, the legacy form and its readers
+keep showing the old column value, and the two silently disagree. That is a correctness bug,
+not a missing-migration problem, and no amount of re-running 0014 fixes it — only shipping the
+code that retires the legacy paths does.
 
-> Deploy the code first, then apply this migration. The deployed code reads `extra` and
-> falls back to the old column, so it is correct either side of the migration — but between
-> the deploy and the migration an event has no field definitions, so Company, Mobile and
-> Table are missing from the attendee table and the scan card. Keep that window to minutes,
-> and never open it during a live event.
+In the deploy-time window itself (0014 applied, legacy paths not yet retired), what's actually
+missing is: nothing. Every column still holds its value and every legacy reader still shows it.
+What breaks is a **pin**: migration 0006 pinned `table_no` for every event that seats anyone,
+`resolvePins()` drops a pin whose key has no matching field definition, and before this
+migration runs no field named `table_no` exists — so the attendee-facing badge card silently
+loses its table number. That's the surface nobody is watching on event day, because everyone's
+eyes are on the scanner and the admin table, not on an attendee's own phone.
+
+> Deploy the code that retires the legacy company/phone/table_no inputs and column readers
+> together with this migration, applying 0014 as part of that same deploy — never the
+> migration alone, before that code ships, and never left for days after. Keep the gap
+> between code and migration to minutes, and never open it during a live event.
+
+**Before running anything**, list the events this migration will do nothing for: an event that
+unticked one of the three facts in Settings has no `collected_fields` entry for it, so this
+migration gives it no field definition — and if that event still has a pin or a
+`scan_extra_fields` entry naming the key (left over from before it was unticked), that pin or
+scan line stays dead after 0014 runs, same as before. Nothing here fixes that; it is a
+pre-existing state this migration does not touch.
+
+```sql
+select slug, pinned_fields, scan_extra_fields, collected_fields from events
+where not (collected_fields @> array['company','phone','table_no']);
+```
+
+**Paste the numbered block below whole**, in one execution — the three sections are ordered
+(field definitions, then values, then scan fields) and none depends on the SQL editor's session
+state between statements, so there is no reason to split them up. If you do run them one at a
+time, run them in the order they appear.
 
 Run this in the production Supabase SQL editor:
 
@@ -179,20 +208,32 @@ where 'table_no' = any(collected_fields)
   and not attendee_fields        @> '[{"key":"table_no"}]'::jsonb;
 
 -- 2. The values. `|| extra` last means an existing extra key always wins over the column.
+--    Each column is wrapped in nullif(col, '') because jsonb_strip_nulls only drops a real
+--    null, not an empty string — and fieldValue() treats a present key as authoritative, so
+--    an unwrapped '' would permanently shadow the column instead of falling through to it.
+--    0006_pinned_fields.sql set the precedent: `table_no is not null and table_no <> ''`.
 update attendees set extra = jsonb_strip_nulls(jsonb_build_object(
-    'company', company, 'phone', phone, 'table_no', table_no)) || extra
+    'company', nullif(company, ''), 'phone', nullif(phone, ''), 'table_no', nullif(table_no, ''))) || extra
 where company is not null or phone is not null or table_no is not null;
 
 -- 3. The scan card showed Company, Category and Table by name. Category still shows; the
 --    other two are fields now, so seed them as this event's chosen scan fields — otherwise
---    crew lose two lines they have been reading all along.
+--    crew lose two lines they have been reading all along. `order by k` makes the result
+--    deterministic ({company,table_no}): array_agg without one is not guaranteed, and order
+--    decides which line the crew read first on the scan card.
 update events set scan_extra_fields = (
-  select array_agg(k) from (
+  select array_agg(k order by k) from (
     select unnest(array['company','table_no']) as k
   ) legacy where k = any(collected_fields)
 ) || scan_extra_fields
 where scan_extra_fields = '{}' and collected_fields && array['company','table_no'];
 ```
+
+Note on statement 2: it backfills `extra` from whichever columns are non-blank regardless of
+`collected_fields` — deliberate, since switching a field off has always hidden a value rather
+than deleted it, and this migration does not change that. One side effect: those keys can now
+show up in the "add a column" suggestions (`unclaimedKeys`) for an event that has the field
+switched off, since the key is present in `extra` with no field claiming it.
 
 Verify — the first three must all return 0:
 
@@ -201,6 +242,13 @@ select count(*) from attendees where company  is not null and not extra ? 'compa
 select count(*) from attendees where phone    is not null and not extra ? 'phone';
 select count(*) from attendees where table_no is not null and not extra ? 'table_no';
 ```
+
+If any of the three comes back non-zero, do not re-run statement 2 as a fix by itself — first
+check whether the mismatched rows have a blank string rather than null in the column (statement
+2 correctly skips those; the query above does too, since `is not null` on an empty string is
+still true — so a genuine non-zero count here means something else went wrong, e.g. the
+statement was interrupted or edited). Compare the specific attendee rows before re-running
+anything.
 
 and this must return one row per event that collects anything:
 

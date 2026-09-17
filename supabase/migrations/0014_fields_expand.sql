@@ -1,9 +1,10 @@
 -- Expand step: company, phone and table_no become ordinary event fields.
 --
--- Additive on purpose. The columns and events.collected_fields both stay, because the code
--- deployed alongside this reads `extra` first and falls back to the column — so this may be
--- applied after the deploy, and the deploy may be rolled back without stranding any data.
--- A later migration drops them, once the queries in the runbook come back zero.
+-- Additive on purpose: the columns and events.collected_fields both stay, so this SQL is
+-- safe to apply at any time and safe to re-run. That does not make *when* to apply it a free
+-- choice — see docs/runbook.md, "Attendee fields: expand (migration 0014)", for the deploy
+-- ordering this depends on before it is safe to run against a live event.
+-- A later migration drops the columns, once the queries in the runbook come back zero.
 
 -- 1. Field definitions. company and phone become registration questions, because that is
 --    what the public form asked for them until now; table_no becomes an attendee column,
@@ -27,15 +28,21 @@ where 'table_no' = any(collected_fields)
   and not attendee_fields        @> '[{"key":"table_no"}]'::jsonb;
 
 -- 2. The values. `|| extra` last means an existing extra key always wins over the column.
+--    Each column is wrapped in nullif(col, '') because jsonb_strip_nulls only drops a real
+--    null, not an empty string — and fieldValue() treats a present key as authoritative, so
+--    an unwrapped '' would permanently shadow the column instead of falling through to it.
+--    0006_pinned_fields.sql set the precedent: `table_no is not null and table_no <> ''`.
 update attendees set extra = jsonb_strip_nulls(jsonb_build_object(
-    'company', company, 'phone', phone, 'table_no', table_no)) || extra
+    'company', nullif(company, ''), 'phone', nullif(phone, ''), 'table_no', nullif(table_no, ''))) || extra
 where company is not null or phone is not null or table_no is not null;
 
 -- 3. The scan card showed Company, Category and Table by name. Category still shows; the
 --    other two are fields now, so seed them as this event's chosen scan fields — otherwise
---    crew lose two lines they have been reading all along.
+--    crew lose two lines they have been reading all along. `order by k` makes the result
+--    deterministic ({company,table_no}): array_agg without one is not guaranteed, and order
+--    decides which line the crew read first on the scan card.
 update events set scan_extra_fields = (
-  select array_agg(k) from (
+  select array_agg(k order by k) from (
     select unnest(array['company','table_no']) as k
   ) legacy where k = any(collected_fields)
 ) || scan_extra_fields
