@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Attendee } from "@/lib/types";
 import { pinScale, type ResolvedPin } from "@/lib/pinned-fields";
+import { fieldValue } from "@/lib/attendee-values";
 import { Icon } from "@/components/ui/icon";
 import { displayName } from "@/lib/text";
 
@@ -16,6 +17,7 @@ import { displayName } from "@/lib/text";
 export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins }: {
   attendee: Attendee; basePath: string; checkedInAt: string | null; floorPlan: boolean; pins: ResolvedPin[];
 }) {
+  const company = fieldValue(attendee, "company");
   return (
     <section className="@container flex flex-col gap-3 rounded-xl bg-foreground p-4 text-background">
       <div className="flex items-center gap-3.5">
@@ -24,7 +26,7 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins }: 
             ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-success-soft"><span aria-hidden="true" className="size-1.5 rounded-full bg-success-soft" />Checked in {checkedInAt}</span>
             : <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-background/70">Not checked in yet</span>}
           <div className="text-lg font-extrabold leading-tight text-balance @2xs:text-xl">{displayName(attendee.name)}</div>
-          {attendee.company && <div className="truncate text-xs font-medium text-background/70">{attendee.company}</div>}
+          {company && <div className="truncate text-xs font-medium text-background/70">{company}</div>}
         </div>
         <Link href={`${basePath}/me`} aria-label="My QR code" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-background text-foreground">
           <Icon name="qr" size={28} />

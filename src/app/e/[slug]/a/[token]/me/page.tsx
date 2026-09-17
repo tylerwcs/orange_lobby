@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { eventFields } from "@/lib/attendee-fields";
+import { fieldValue } from "@/lib/attendee-values";
 import { initials } from "@/lib/text";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
@@ -34,19 +35,18 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   const qr = await qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token));
 
   // Everything the event asked this person, in the order it asked, with blanks dropped -
-  // an attendee should not read a list of questions they left empty.
+  // an attendee should not read a list of questions they left empty. `fieldValue`, not
+  // `extra` directly, so company/phone/table still show while they live only in the
+  // legacy columns, pre-migration.
   const fields = eventFields(event.registration_questions, event.attendee_fields);
   const answered = fields
-    .map((f) => ({ label: f.label, value: attendee.extra?.[f.key] ?? "" }))
+    .map((f) => ({ label: f.label, value: fieldValue(attendee, f.key) }))
     .filter((f) => f.value.trim() !== "");
 
-  // Only what this event collects. Settings promises that switching a field off hides it
-  // everywhere, and an attendee's own profile is the most literal "everywhere" there is.
-  const collects = new Set<string>(event.collected_fields);
-  const contactDetails = [
-    attendee.email ? { label: "Email", value: attendee.email } : null,
-    attendee.phone && collects.has("phone") ? { label: "Mobile", value: attendee.phone } : null,
-  ].filter((x): x is { label: string; value: string } => x !== null);
+  // Company, phone and table are ordinary fields now, so they surface once, in the
+  // "answered" list above — the contact block keeps only what is not: the address this
+  // attendee's link was sent to.
+  const contactDetails = attendee.email ? [{ label: "Email", value: attendee.email }] : [];
 
   return (
     <PortalShell event={event} basePath={basePath} personal current="/me">
@@ -64,11 +64,11 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-xl font-extrabold leading-tight">{attendee.name}</div>
-              {attendee.company && collects.has("company") && <div className="text-sm text-muted-foreground">{attendee.company}</div>}
+              {fieldValue(attendee, "company") && <div className="text-sm text-muted-foreground">{fieldValue(attendee, "company")}</div>}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {attendee.category && <Badge variant="secondary">{attendee.category}</Badge>}
-              {attendee.table_no && collects.has("table_no") && <Badge>Table {attendee.table_no}</Badge>}
+              {fieldValue(attendee, "table_no") && <Badge>Table {fieldValue(attendee, "table_no")}</Badge>}
             </div>
 
             <Dialog>
