@@ -279,7 +279,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <ImageField label="Banner" name="banner" url={ev.banner_url} />
           </Section>
 
-          <Section title="Onsite scanner" hint="After a scan, crew see name, company, category and table. Add up to two more fields, for example shirt_size or dietary.">
+          <Section title="Onsite scanner" hint="After a scan, crew see name and category, plus whatever fields are listed here, for example company, table_no or dietary.">
             <div className="@xl:col-span-2"><Field label="Extra fields on the scan card" name="scan_extra_fields" defaultValue={ev.scan_extra_fields.join(", ")} placeholder="shirt_size, dietary" /></div>
           </Section>
         </div>

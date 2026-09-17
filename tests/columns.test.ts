@@ -181,4 +181,16 @@ describe("fields the event may or may not have", () => {
     expect(bulkFields([{ key: "table_no", label: "Table", type: "text" }]).map((f) => f.key))
       .toEqual(["category", "table_no"]);
   });
+
+  it("still shows company, mobile and table by default even though they are fields now, not built-ins", () => {
+    // A fresh browser on a new laptop at the registration desk must see them without anyone
+    // first opening the Columns menu, the same as before migration 0014.
+    const withLegacy = allColumns(
+      [{ key: "company", label: "Company", type: "text" }, { key: "phone", label: "Mobile", type: "phone" }],
+      [{ key: "table_no", label: "Table", type: "text" }],
+    );
+    expect(defaultHidden(withLegacy)).not.toContain("company");
+    expect(defaultHidden(withLegacy)).not.toContain("phone");
+    expect(defaultHidden(withLegacy)).not.toContain("table_no");
+  });
 });

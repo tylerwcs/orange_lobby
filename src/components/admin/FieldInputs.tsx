@@ -28,8 +28,9 @@ export function FieldInputs({ fields, values }: { fields: AttendeeField[]; value
               <input
                 name={`f_${f.key}`}
                 defaultValue={value}
-                type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
+                type={f.type === "date" ? "date" : f.type === "number" ? "number" : f.type === "phone" ? "tel" : "text"}
                 {...(f.type === "number" ? { step: "any", inputMode: "decimal" as const } : {})}
+                {...(f.type === "phone" ? { inputMode: "tel" as const } : {})}
                 className={control}
               />
             )}

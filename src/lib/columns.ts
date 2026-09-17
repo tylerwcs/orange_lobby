@@ -1,4 +1,5 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
+import { LEGACY_COLUMN_KEYS } from "@/lib/attendee-values";
 
 /**
  * Where a column comes from, which decides what its header menu may offer: a built-in is
@@ -85,17 +86,24 @@ export function defaultHidden(columns: ColumnDef[]): string[] {
     // the column exists so an organiser can see who is in which room without opening
     // anybody, and a hidden one is the same as no column at all.
     .filter((c) => c.source !== "breakout")
+    // Company, Mobile and Table left BUILTIN_COLUMNS when migration 0014 turned them into
+    // ordinary fields, but a viewer opening the table for the first time — a new laptop at
+    // the registration desk — still needs to see them without opening the Columns menu, the
+    // same as before the migration. EX_BUILTIN_KEYS is what keeps them out of this list.
     .filter((c) => c.source !== "builtin" || DEFAULT_HIDDEN_BUILTINS.has(c.key))
+    .filter((c) => !EX_BUILTIN_KEYS.has(c.key))
     .map((c) => c.key);
 }
 
+const EX_BUILTIN_KEYS = new Set<string>(LEGACY_COLUMN_KEYS);
+
 /**
- * Three of the attendee's own columns start hidden as well. `email` and `phone` are contact
- * details rendered under the name or on the attendee panel, where they identify a row
- * without costing a column; `source` records how somebody got on the list, which matters
- * when reconciling an import and never while working the door.
+ * Two of the attendee's own columns start hidden as well. `email` is a contact detail
+ * rendered under the name or on the attendee panel, where it identifies a row without
+ * costing a column; `source` records how somebody got on the list, which matters when
+ * reconciling an import and never while working the door.
  */
-const DEFAULT_HIDDEN_BUILTINS = new Set(["email", "phone", "source"]);
+const DEFAULT_HIDDEN_BUILTINS = new Set(["email", "source"]);
 
 export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], legacyHidden?: string): TablePrefs {
   const known = new Set(["name", ...columns.map((c) => c.key)]);
