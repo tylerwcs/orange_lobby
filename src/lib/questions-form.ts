@@ -4,6 +4,10 @@ import { slugify } from "@/lib/slug";
 
 export const MAX_QUESTIONS = 10;
 
+/** Every type the editor's `<select>` can post — anything else falls back to "text". */
+const QUESTION_TYPES = new Set<RegistrationQuestion["type"]>(["text", "phone", "number", "select"]);
+const isQuestionType = (v: string): v is RegistrationQuestion["type"] => QUESTION_TYPES.has(v as RegistrationQuestion["type"]);
+
 /** Builds the registration questions from the settings form's numbered rows (q_<n>_*). */
 export function questionsFromForm(get: (key: string) => string | null): RegistrationQuestion[] {
   const t = (k: string) => (get(k) ?? "").trim();
@@ -12,7 +16,8 @@ export function questionsFromForm(get: (key: string) => string | null): Registra
     const label = t(`q_${n}_label`), keyRaw = t(`q_${n}_key`) || label;
     if (!label && !keyRaw) continue;
     const key = slugify(keyRaw).replace(/-/g, "_");
-    const type = t(`q_${n}_type`) === "select" ? "select" : "text";
+    const typeRaw = t(`q_${n}_type`);
+    const type = isQuestionType(typeRaw) ? typeRaw : "text";
     const options = t(`q_${n}_options`).split(",").map((s) => s.trim()).filter(Boolean);
     const showKey = t(`q_${n}_show_key`), showValue = t(`q_${n}_show_value`);
     raw.push({

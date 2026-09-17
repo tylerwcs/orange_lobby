@@ -317,7 +317,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                       <td className="p-1.5"><input name={`q_${n}_label`} defaultValue={q?.label ?? ""} aria-label={`Question ${n} label`} className={input} /></td>
                       <td className="p-1.5"><input name={`q_${n}_key`} defaultValue={q?.key ?? ""} aria-label={`Question ${n} key`} placeholder="auto" className={`${input} font-mono text-xs`} /></td>
                       <td className="p-1.5">
-                        <select name={`q_${n}_type`} defaultValue={q?.type ?? "text"} aria-label={`Question ${n} type`} className={input}><option value="text">Text</option><option value="select">Choice</option></select>
+                        <select name={`q_${n}_type`} defaultValue={q?.type ?? "text"} aria-label={`Question ${n} type`} className={input}><option value="text">Text</option><option value="phone">Phone</option><option value="number">Number</option><option value="select">Choice</option></select>
                       </td>
                       <td className="p-1.5 pt-3 text-center"><input type="checkbox" name={`q_${n}_required`} defaultChecked={q?.required ?? false} aria-label={`Question ${n} required`} className="size-4 accent-primary" /></td>
                       <td className="p-1.5"><input name={`q_${n}_options`} defaultValue={q?.options?.join(", ") ?? ""} aria-label={`Question ${n} options`} className={input} /></td>

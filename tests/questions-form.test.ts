@@ -17,4 +17,15 @@ describe("questionsFromForm", () => {
   it("throws a readable error for a select without options", () => {
     expect(() => questionsFromForm(form({ q_1_key: "x", q_1_label: "X", q_1_type: "select" }))).toThrow(/options/);
   });
+  it("keeps a phone or number question's type through the form round trip", () => {
+    // The parser used to collapse anything that wasn't "select" down to "text", so a saved
+    // phone or number question reverted to text the next time Settings was saved for any
+    // unrelated reason — Event details and Registration share one SaveBar.
+    const qs = questionsFromForm(form({
+      q_1_key: "mobile", q_1_label: "Mobile", q_1_type: "phone",
+      q_2_key: "guests", q_2_label: "Guests", q_2_type: "number",
+    }));
+    expect(qs[0]).toMatchObject({ key: "mobile", type: "phone" });
+    expect(qs[1]).toMatchObject({ key: "guests", type: "number" });
+  });
 });
