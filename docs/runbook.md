@@ -350,3 +350,83 @@ shows once as the old built-in column and once as the field 0014 created.
 Recoverable, not silent-data-loss — nothing is dropped, and redeploying the current code makes
 the doubling disappear again — but the operator should know to expect two of everything before
 they see it, not after.
+
+## Attendee fields: contract (migration 0015)
+
+`0015_fields_contract.sql` is the irreversible half of the pair. **Before running it**, re-run
+0014's six verification queries below and confirm all six return zero, right then — not from a
+memory of them passing when 0014 was applied. The data may have changed since: an attendee could
+have been added, edited or imported in the meantime, and this migration cannot tell a value that
+was never copied from a value that never existed.
+
+```sql
+select count(*) from attendees where nullif(company, '')  is not null and not extra ? 'company';
+-- expect 0
+select count(*) from attendees where nullif(phone, '')    is not null and not extra ? 'phone';
+-- expect 0
+select count(*) from attendees where nullif(table_no, '') is not null and not extra ? 'table_no';
+-- expect 0
+
+select count(*) from events where collected_fields <> '{}'
+  and not (registration_questions || attendee_fields) @> '[{"key":"company"}]'
+  and 'company' = any(collected_fields);
+-- expect 0
+select count(*) from events where collected_fields <> '{}'
+  and not (registration_questions || attendee_fields) @> '[{"key":"phone"}]'
+  and 'phone' = any(collected_fields);
+-- expect 0
+select count(*) from events where collected_fields <> '{}'
+  and not (registration_questions || attendee_fields) @> '[{"key":"table_no"}]'
+  and 'table_no' = any(collected_fields);
+-- expect 0
+```
+
+If any of the six comes back non-zero, stop — do not run 0015. Re-run 0014 (statement 2 is
+idempotent) and check again; if a count still won't come back to 0, report it and the affected
+event rather than proceeding.
+
+**Deploy the code first, then run this.** Every read path is safe either way — nothing has read
+`company`, `phone`, `table_no` or `collected_fields` off these tables since 0014 ran; `extra` and
+the field definitions carry everything now. But `purgeAttendeePersonalData` in whatever build is
+currently deployed still names `phone` and `company` in its own update statement, and a database
+that no longer has those columns makes that update fail — so purging an archived event's personal
+data breaks until the deploy that stops naming them has landed.
+
+```sql
+-- Contract step: the columns migration 0014 emptied into `extra` are dropped.
+--
+-- IRREVERSIBLE. Every value these columns held was copied into attendees.extra by 0014 and
+-- verified there (see the runbook's six counting queries, all of which must return zero
+-- before this runs). After this, `extra` is the only copy: recovering a mistake means a
+-- database restore, not a re-read.
+--
+-- Run this AFTER the code that stops naming these columns is deployed. Every read path is
+-- safe either way — nothing has read a column since the expand step — but
+-- purgeAttendeePersonalData in the previous build still names phone and company in its
+-- update, so dropping first breaks purge for archived events until the deploy lands.
+
+alter table attendees
+  drop column company,
+  drop column phone,
+  drop column table_no;
+
+-- The concept that gated those three. Nothing has read it since the expand step.
+alter table events drop column collected_fields;
+```
+
+Verify — must return no rows:
+
+```sql
+select column_name from information_schema.columns
+where table_name = 'attendees' and column_name in ('company','phone','table_no')
+union all
+select column_name from information_schema.columns
+where table_name = 'events' and column_name = 'collected_fields';
+-- expect no rows
+```
+
+There is no rollback for the data this removes. Once this runs, `extra` and the field
+definitions are the only copies of what these columns held, and the only way back is restoring
+the project from a Supabase backup taken before this ran — so a backup taken immediately before
+running this is the only safety net there is, because nothing else recovers what a mistake here
+would lose.
