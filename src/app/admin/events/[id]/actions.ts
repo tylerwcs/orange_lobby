@@ -184,13 +184,15 @@ async function assignRoundsFromColumns(ev: Event, only: string | null, overwrite
   const lines: string[] = [];
   for (const slot of rounds) {
     const report = matchAssignments(attendees, slot);
-    const { fresh, alreadyPlaced } = splitByExisting(report.matched, existing);
-    // Overwrite sends every match back, because moving someone is the point of ticking it.
-    const rows = overwrite ? report.matched : fresh;
+    const { fresh, unchanged, conflicting } = splitByExisting(report.matched, existing);
+    // Overwrite sends the disagreements back too, because moving those people is the point
+    // of ticking it; the ones already in the right room are a no-op either way.
+    const rows = overwrite ? [...fresh, ...conflicting] : fresh;
     if (rows.length > 0) await assignMany(ev.id, rows, overwrite);
     const line = describeAssignment(slot.slot, {
-      fresh: overwrite ? report.matched.length : fresh.length,
-      alreadyPlaced: overwrite ? 0 : alreadyPlaced.length,
+      fresh: rows.length,
+      unchanged: unchanged.length,
+      conflicting: overwrite ? 0 : conflicting.length,
       report,
     }, overwriteHint);
     if (line) lines.push(line);

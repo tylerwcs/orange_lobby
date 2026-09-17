@@ -284,81 +284,97 @@ describe("agendaRows", () => {
 });
 
 describe("splitByExisting", () => {
-  const m = (attendeeId: string, itemId = "i1", slot = "Breakout 1") => ({ attendeeId, itemId, slot });
-  const held = (attendee_id: string, slot = "Breakout 1") => ({ attendee_id, slot });
+  const m = (attendeeId: string, itemId = "room-1", slot = "Breakout 1") => ({ attendeeId, itemId, slot });
+  const held = (attendee_id: string, agenda_item_id = "room-1", slot = "Breakout 1") => ({ attendee_id, agenda_item_id, slot });
 
   it("calls everyone fresh when nobody has a room yet", () => {
-    const { fresh, alreadyPlaced } = splitByExisting([m("a"), m("b")], []);
-    expect(fresh.map((x) => x.attendeeId)).toEqual(["a", "b"]);
-    expect(alreadyPlaced).toEqual([]);
+    const out = splitByExisting([m("a"), m("b")], []);
+    expect(out.fresh.map((x) => x.attendeeId)).toEqual(["a", "b"]);
+    expect(out.unchanged).toEqual([]);
+    expect(out.conflicting).toEqual([]);
   });
 
-  it("holds back anyone who already has a room in that round", () => {
-    // This is the count the import reports back. It is worked out here, from assignments read
-    // before the write, rather than inferred from the row count an ignoreDuplicates upsert
-    // happens to return — that number is the database's business, and this one is ours.
-    const { fresh, alreadyPlaced } = splitByExisting([m("a"), m("b")], [held("b")]);
-    expect(fresh.map((x) => x.attendeeId)).toEqual(["a"]);
-    expect(alreadyPlaced.map((x) => x.attendeeId)).toEqual(["b"]);
+  it("calls someone unchanged when the sheet names the room they are already in", () => {
+    // Nothing to do and nothing to say: re-importing the same file must not read as though
+    // it were held back from doing something.
+    const out = splitByExisting([m("a", "room-1")], [held("a", "room-1")]);
+    expect(out.fresh).toEqual([]);
+    expect(out.unchanged.map((x) => x.attendeeId)).toEqual(["a"]);
+    expect(out.conflicting).toEqual([]);
   });
 
-  it("holds them back even when the spreadsheet now names a different room", () => {
-    // The whole point of add-only: the desk moved this person at breakfast, and a re-import
-    // must not drag them back to whatever the client's sheet still says.
-    const { fresh, alreadyPlaced } = splitByExisting([m("a", "room-2")], [held("a")]);
-    expect(fresh).toEqual([]);
-    expect(alreadyPlaced.map((x) => x.itemId)).toEqual(["room-2"]);
+  it("calls someone conflicting when the sheet names a different room", () => {
+    // The only case where ticking Overwrite would change anything, and so the only case
+    // worth mentioning Overwrite for.
+    const out = splitByExisting([m("a", "room-2")], [held("a", "room-1")]);
+    expect(out.fresh).toEqual([]);
+    expect(out.unchanged).toEqual([]);
+    expect(out.conflicting.map((x) => x.itemId)).toEqual(["room-2"]);
   });
 
   it("ignores an assignment from a different round", () => {
-    const { fresh } = splitByExisting([m("a")], [held("a", "Breakout 2")]);
-    expect(fresh.map((x) => x.attendeeId)).toEqual(["a"]);
+    const out = splitByExisting([m("a")], [held("a", "room-9", "Breakout 2")]);
+    expect(out.fresh.map((x) => x.attendeeId)).toEqual(["a"]);
+  });
+
+  it("keeps a late addition fresh while everyone else sits unchanged", () => {
+    // The real case: one person gains a room code in the spreadsheet and is imported again.
+    const out = splitByExisting([m("a", "room-1"), m("late", "room-2")], [held("a", "room-1")]);
+    expect(out.fresh.map((x) => x.attendeeId)).toEqual(["late"]);
+    expect(out.unchanged.map((x) => x.attendeeId)).toEqual(["a"]);
+    expect(out.conflicting).toEqual([]);
   });
 });
 
 describe("describeAssignment", () => {
-  const report = (over: Partial<ReturnType<typeof matchAssignments>> = {}) =>
-    ({ matched: [], unmatched: [], blank: 0, ...over });
+  const out = (over: Partial<{ fresh: number; unchanged: number; conflicting: number; unmatched: { value: string; count: number }[]; blank: number }> = {}) => {
+    const o = { fresh: 0, unchanged: 0, conflicting: 0, unmatched: [], blank: 0, ...over };
+    return { fresh: o.fresh, unchanged: o.unchanged, conflicting: o.conflicting, report: { unmatched: o.unmatched, blank: o.blank } };
+  };
 
-  it("states what it wrote", () => {
-    expect(describeAssignment("Breakout 1", { fresh: 27, alreadyPlaced: 0, report: report({ blank: 5 }) }))
+  it("states what it placed, and how many rows had no room code", () => {
+    expect(describeAssignment("Breakout 1", out({ fresh: 27, blank: 5 })))
       .toBe("Breakout 1: 27 assigned, 5 blank.");
   });
 
-  it("says nothing about blanks when there are none", () => {
-    expect(describeAssignment("Breakout 1", { fresh: 3, alreadyPlaced: 0, report: report() }))
-      .toBe("Breakout 1: 3 assigned.");
+  it("reports a single late addition without mentioning overwriting", () => {
+    // The wart this rule exists to remove: adding one person used to be told to go and
+    // overwrite 27 others who were perfectly fine where they were.
+    expect(describeAssignment("Breakout 1", out({ fresh: 1, unchanged: 27, blank: 4 })))
+      .toBe("Breakout 1: 1 assigned, 4 blank.");
   });
 
-  it("points at the escape hatch when everyone already had a room", () => {
-    // A re-import that moves nobody is the confusing case: without this clause it reads as
-    // though the column was ignored.
-    expect(describeAssignment("Breakout 1", { fresh: 0, alreadyPlaced: 27, report: report() }))
-      .toBe("Breakout 1: 0 assigned, 27 already had a room — use Assign from column to overwrite.");
+  it("says nothing changed when everyone is already in the room the sheet names", () => {
+    expect(describeAssignment("Breakout 1", out({ unchanged: 27, blank: 5 })))
+      .toBe("Breakout 1: no change, all 27 already placed.");
   });
 
-  it("names a value no room answers to, with how many rows carry it", () => {
-    expect(describeAssignment("Breakout 1", { fresh: 1, alreadyPlaced: 0, report: report({ unmatched: [{ value: "Room 5", count: 2 }] }) }))
-      .toBe("Breakout 1: 1 assigned. No room matches: Room 5 (2).");
+  it("mentions overwriting only when the sheet disagrees with a stored room", () => {
+    expect(describeAssignment("Breakout 1", out({ conflicting: 3, unchanged: 24 })))
+      .toBe("Breakout 1: 3 in a different room to the sheet — use Assign from column to overwrite.");
   });
 
-  it("is empty for a round the data says nothing about, so the import stays quiet", () => {
-    expect(describeAssignment("Breakout 9", { fresh: 0, alreadyPlaced: 0, report: report({ blank: 32 }) })).toBe("");
-  });
-});
-
-describe("describeAssignment's overwrite hint", () => {
-  const outcome = { fresh: 0, alreadyPlaced: 27, report: { unmatched: [], blank: 0 } };
-
-  it("sends an importer to the control that can overwrite", () => {
-    expect(describeAssignment("Breakout 1", outcome, "use Assign from column to overwrite"))
-      .toBe("Breakout 1: 0 assigned, 27 already had a room — use Assign from column to overwrite.");
+  it("leads with what it placed when it both placed and disagreed", () => {
+    expect(describeAssignment("Breakout 1", out({ fresh: 2, conflicting: 3, unchanged: 22 })))
+      .toBe("Breakout 1: 2 assigned, 3 in a different room to the sheet — use Assign from column to overwrite.");
   });
 
   it("tells someone already at that control which tick to use", () => {
-    // Observed in the running app: sharing one sentence between the import and the manual
-    // button told a person standing in Assign from column to go to Assign from column.
-    expect(describeAssignment("Breakout 1", outcome, "tick Overwrite to move them"))
-      .toBe("Breakout 1: 0 assigned, 27 already had a room — tick Overwrite to move them.");
+    expect(describeAssignment("Breakout 1", out({ conflicting: 3 }), "tick Overwrite to move them"))
+      .toBe("Breakout 1: 3 in a different room to the sheet — tick Overwrite to move them.");
+  });
+
+  it("names a value no room answers to, with how many rows carry it", () => {
+    expect(describeAssignment("Breakout 1", out({ fresh: 1, unmatched: [{ value: "Room 5", count: 2 }] })))
+      .toBe("Breakout 1: 1 assigned. No room matches: Room 5 (2).");
+  });
+
+  it("reports a typo even when it placed nobody", () => {
+    expect(describeAssignment("Breakout 1", out({ unmatched: [{ value: "Room 5", count: 2 }] })))
+      .toBe("Breakout 1: No room matches: Room 5 (2).");
+  });
+
+  it("is empty for a round the data says nothing about, so the import stays quiet", () => {
+    expect(describeAssignment("Breakout 9", out({ blank: 32 }))).toBe("");
   });
 });

@@ -222,28 +222,35 @@ export function agendaRows(items: AgendaItem[]): AgendaRow[] {
 }
 
 /**
- * The matches that are genuinely new, and the ones whose attendee already has a room in
- * this round.
+ * Each match sorted by what it would actually do: place someone who has no room, leave
+ * someone who is already in the room the sheet names, or disagree with a room somebody
+ * already holds.
  *
  * Worked out from the assignments as they stood before the write, rather than from the row
  * count an `ignoreDuplicates` upsert returns: what "count" means there is the database
- * driver's business, and this number is reported to an organiser as fact.
+ * driver's business, and these numbers are reported to an organiser as fact.
  *
- * The second list is not a failure. It is the desk's manual moves surviving a re-import —
- * add-only is the whole point — and it is what the import's message points at when it tells
- * someone that overwriting needs the separate, deliberate control.
+ * `conflicting` is the only one that needs a decision from a person. It is the desk's manual
+ * move disagreeing with the client's spreadsheet, and add-only leaves it standing — which is
+ * why it is the only case that has anything to say about overwriting. Keeping it apart from
+ * `unchanged` is what stops a routine re-import from nagging about 27 people who are exactly
+ * where everyone wants them.
  */
 export function splitByExisting(
   matched: AssignMatch[],
-  existing: Pick<BreakoutAssignment, "attendee_id" | "slot">[],
-): { fresh: AssignMatch[]; alreadyPlaced: AssignMatch[] } {
-  const held = new Set(existing.map((e) => `${e.attendee_id}\u0000${e.slot}`));
+  existing: Pick<BreakoutAssignment, "attendee_id" | "agenda_item_id" | "slot">[],
+): { fresh: AssignMatch[]; unchanged: AssignMatch[]; conflicting: AssignMatch[] } {
+  const held = new Map(existing.map((e) => [`${e.attendee_id}\u0000${e.slot}`, e.agenda_item_id]));
   const fresh: AssignMatch[] = [];
-  const alreadyPlaced: AssignMatch[] = [];
+  const unchanged: AssignMatch[] = [];
+  const conflicting: AssignMatch[] = [];
   for (const m of matched) {
-    (held.has(`${m.attendeeId}\u0000${m.slot}`) ? alreadyPlaced : fresh).push(m);
+    const current = held.get(`${m.attendeeId}\u0000${m.slot}`);
+    if (current === undefined) fresh.push(m);
+    else if (current === m.itemId) unchanged.push(m);
+    else conflicting.push(m);
   }
-  return { fresh, alreadyPlaced };
+  return { fresh, unchanged, conflicting };
 }
 
 /**
@@ -255,24 +262,36 @@ export function splitByExisting(
  * needs to be told which tick to use. Observed the hard way — one shared sentence told a
  * person standing in Assign from column to go to Assign from column.
  *
- * Empty when the round has nothing to say: no one matched, no one was held back and nothing
- * was mistyped. An import into an event with three rounds and data for one of them should
- * mention one of them.
+ * Blanks are named only alongside a placement, where they answer "and the rest?". On a
+ * re-import that changed nothing they are the same five people as last time and say nothing
+ * new. Empty when the round has no data at all, so an event with three rounds and a column
+ * for one of them mentions one of them.
  */
 export function describeAssignment(
   slot: string,
-  outcome: { fresh: number; alreadyPlaced: number; report: Pick<AssignReport, "unmatched" | "blank"> },
+  outcome: {
+    fresh: number;
+    unchanged: number;
+    conflicting: number;
+    report: Pick<AssignReport, "unmatched" | "blank">;
+  },
   overwriteHint = "use Assign from column to overwrite",
 ): string {
-  const { fresh, alreadyPlaced, report } = outcome;
-  if (fresh === 0 && alreadyPlaced === 0 && report.unmatched.length === 0) return "";
-  const head = [
-    `${fresh} assigned`,
-    alreadyPlaced ? `${alreadyPlaced} already had a room — ${overwriteHint}` : "",
-    // Blanks are only worth a word while there is something to compare them against; once
-    // everyone is placed the count is noise.
-    !alreadyPlaced && report.blank ? `${report.blank} blank` : "",
-  ].filter(Boolean).join(", ");
+  const { fresh, unchanged, conflicting, report } = outcome;
   const misses = report.unmatched.map((u) => `${u.value} (${u.count})`).join(", ");
-  return `${slot}: ${head}.${misses ? ` No room matches: ${misses}.` : ""}`;
+  const tail = misses ? ` No room matches: ${misses}.` : "";
+
+  if (fresh === 0 && conflicting === 0) {
+    if (misses) return `${slot}:${tail}`;
+    // Nothing to do and nothing wrong: confirm the column was read rather than stay silent.
+    if (unchanged > 0) return `${slot}: no change, all ${unchanged} already placed.`;
+    return "";
+  }
+
+  const head = [
+    fresh ? `${fresh} assigned` : "",
+    conflicting ? `${conflicting} in a different room to the sheet — ${overwriteHint}` : "",
+    fresh && report.blank ? `${report.blank} blank` : "",
+  ].filter(Boolean).join(", ");
+  return `${slot}: ${head}.${tail}`;
 }
