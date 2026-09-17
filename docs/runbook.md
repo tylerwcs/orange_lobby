@@ -130,3 +130,80 @@ The bucket is public to read because the portal is open to anyone holding the li
 can write to it from the browser: uploads go through the Server Action under the service role.
 To replace an image, upload a new one — the old object is deleted on save, and "Remove on save"
 clears the image entirely.
+
+## Attendee fields: expand (migration 0014)
+
+`0014_fields_expand.sql` turns company, phone and table_no from columns on `attendees` into
+ordinary event fields: each event gets real field definitions for whatever it already
+collects, every attendee's values move into `extra`, and the scan card is seeded with the two
+lines it used to print by name. Additive — the columns and `collected_fields` stay — so it may
+be applied after the deploy and the deploy may be rolled back without stranding any data.
+
+**Release gate — read this before running the migration, not after.** The code that reads
+`extra` first and falls back to the column is already committed, and it gates Company, Mobile
+and Table on whether the event has a field of that key. Deploy that code before applying this
+migration, never the other way round, and never leave the gap between the two open longer than
+it takes to run the SQL. Nothing is deployed yet as of this writing (main is ahead of origin,
+unpushed), so there is no live exposure today — but the day this deploys, this ordering stops
+being advice and becomes a release gate: get it backwards, or leave it open too long, and an
+event's data is intact but invisible until the migration runs.
+
+> Deploy the code first, then apply this migration. The deployed code reads `extra` and
+> falls back to the old column, so it is correct either side of the migration — but between
+> the deploy and the migration an event has no field definitions, so Company, Mobile and
+> Table are missing from the attendee table and the scan card. Keep that window to minutes,
+> and never open it during a live event.
+
+Run this in the production Supabase SQL editor:
+
+```sql
+-- 1. Field definitions. company and phone become registration questions, because that is
+--    what the public form asked for them until now; table_no becomes an attendee column,
+--    because it is assigned after seating and imported, never asked at sign-up.
+update events set registration_questions = registration_questions ||
+  jsonb_build_object('key','company','label','Company','type','text','required',false)
+where 'company' = any(collected_fields)
+  and not registration_questions @> '[{"key":"company"}]'::jsonb
+  and not attendee_fields        @> '[{"key":"company"}]'::jsonb;
+
+update events set registration_questions = registration_questions ||
+  jsonb_build_object('key','phone','label','Mobile','type','phone','required',false)
+where 'phone' = any(collected_fields)
+  and not registration_questions @> '[{"key":"phone"}]'::jsonb
+  and not attendee_fields        @> '[{"key":"phone"}]'::jsonb;
+
+update events set attendee_fields = attendee_fields ||
+  jsonb_build_object('key','table_no','label','Table','type','text')
+where 'table_no' = any(collected_fields)
+  and not registration_questions @> '[{"key":"table_no"}]'::jsonb
+  and not attendee_fields        @> '[{"key":"table_no"}]'::jsonb;
+
+-- 2. The values. `|| extra` last means an existing extra key always wins over the column.
+update attendees set extra = jsonb_strip_nulls(jsonb_build_object(
+    'company', company, 'phone', phone, 'table_no', table_no)) || extra
+where company is not null or phone is not null or table_no is not null;
+
+-- 3. The scan card showed Company, Category and Table by name. Category still shows; the
+--    other two are fields now, so seed them as this event's chosen scan fields — otherwise
+--    crew lose two lines they have been reading all along.
+update events set scan_extra_fields = (
+  select array_agg(k) from (
+    select unnest(array['company','table_no']) as k
+  ) legacy where k = any(collected_fields)
+) || scan_extra_fields
+where scan_extra_fields = '{}' and collected_fields && array['company','table_no'];
+```
+
+Verify — the first three must all return 0:
+
+```sql
+select count(*) from attendees where company  is not null and not extra ? 'company';
+select count(*) from attendees where phone    is not null and not extra ? 'phone';
+select count(*) from attendees where table_no is not null and not extra ? 'table_no';
+```
+
+and this must return one row per event that collects anything:
+
+```sql
+select slug, registration_questions, attendee_fields, scan_extra_fields from events;
+```
