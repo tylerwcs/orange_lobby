@@ -123,7 +123,11 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <div className="flex flex-wrap gap-2">
               {STATUSES.map((s) => (
                 <form key={s.value} action={setStatusAction.bind(null, ev.id, s.value)}>
+                  {/* type="submit" is not decoration: Base UI's Button defaults to
+                      type="button", so without this the click submits nothing and the status
+                      never changes — silently, with no error anywhere. */}
                   <Button
+                    type="submit"
                     variant={ev.status === s.value ? "default" : "outline"}
                     aria-current={ev.status === s.value ? "true" : undefined}
                   >
