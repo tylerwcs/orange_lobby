@@ -20,7 +20,6 @@ import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder
 import { recordCheckins } from "@/lib/db/checkins";
 import { categoriesFromValues } from "@/lib/agenda";
 import { parseAgendaColour } from "@/lib/agenda-colours";
-import { collectedFromForm } from "@/lib/collected-fields";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
@@ -114,7 +113,6 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
     registration_questions: questions,
     scan_extra_fields: extras,
-    collected_fields: collectedFromForm(formData.getAll("collected_fields").map(String)),
   });
   await deleteEventImage(logo.stale);
   await deleteEventImage(banner.stale);

@@ -1,7 +1,6 @@
 import type { EventModule } from "@/lib/modules";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { PinnedField } from "@/lib/pinned-fields";
-import type { CollectedField } from "@/lib/collected-fields";
 
 export type EventStatus = "draft" | "live" | "archived";
 
@@ -46,8 +45,6 @@ export type Event = {
   scan_extra_fields: string[];
   /** Facts shown on the badge card, in order. The first gets the large treatment. */
   pinned_fields: PinnedField[];
-  /** Which of the optional attendee facts this event collects — company, phone, table. */
-  collected_fields: CollectedField[];
   /** How many stamps fill the Booth Passport. Null means every booth this event has. */
   stamps_required: number | null;
   /** What the passport says when it is full. Admin-authored, because the prize is decided late. */
