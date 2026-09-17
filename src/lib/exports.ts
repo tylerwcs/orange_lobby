@@ -3,9 +3,10 @@ import type { Attendee, Checkin, Checkpoint, Booth, BoothStamp } from "@/lib/typ
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { SlotRoster } from "@/lib/breakouts";
 import { completionByAttendee } from "@/lib/booths";
-import { fieldValue, LEGACY_COLUMN_KEYS } from "@/lib/attendee-values";
+import { fieldValue } from "@/lib/attendee-values";
+import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 
-const LEGACY = new Set<string>(LEGACY_COLUMN_KEYS);
+const LEGACY = new Set<string>(FORMER_BUILTIN_KEYS);
 
 export type LinkRow = { name: string; email: string | null; company: string | null; category: string | null; table_no: string | null; link: string };
 

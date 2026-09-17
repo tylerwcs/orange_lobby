@@ -18,7 +18,7 @@ export type ScanResult = {
   attendee?: Attendee; fields?: { label: string; value: string }[]; earlier?: { at: string }; message?: string;
 };
 
-export type SearchHit = Pick<Attendee, "id" | "name" | "company" | "category" | "table_no"> & { checkedIn: boolean };
+export type SearchHit = Pick<Attendee, "id" | "name" | "category"> & { company: string | null; table_no: string | null; checkedIn: boolean };
 
 /**
  * Two doors into the same scanner (D110).

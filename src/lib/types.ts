@@ -63,10 +63,7 @@ export type Attendee = {
   token: string;
   name: string;
   email: string | null;
-  phone: string | null;
-  company: string | null;
   category: string | null;
-  table_no: string | null;
   extra: Record<string, string>;
   source: AttendeeSource;
   status: string;

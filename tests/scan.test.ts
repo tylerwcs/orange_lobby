@@ -38,16 +38,6 @@ describe("scanResultFields", () => {
     ]);
   });
 
-  it("reads a value still sitting in the legacy column", () => {
-    const a = { category: "", company: "Ecopia", extra: {} } as never;
-    const e = {
-      scan_extra_fields: ["company"],
-      attendee_fields: [{ key: "company", label: "Company", type: "text" as const }],
-      registration_questions: [],
-    };
-    expect(scanResultFields(a, e)[1]).toEqual({ label: "Company", value: "Ecopia" });
-  });
-
   it("finds a defined column named by its label, whose storage key is the slug", () => {
     const a = { name: "Ann", company: null, category: null, table_no: null, extra: { room_no: "12A" } } as unknown as Attendee;
     const e = { scan_extra_fields: ["Room no"], attendee_fields: [{ key: "room_no", label: "Room no", type: "text" }] } as Event;

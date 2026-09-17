@@ -8,8 +8,8 @@ const scan = (id: string, at: string, attendee = "a1", checkpoint = "cp1", by: s
 });
 
 const attendee = (id: string, name: string, over: Partial<Attendee> = {}): Attendee => ({
-  id, org_id: "o1", event_id: "e1", token: `t-${id}`, name, email: null, phone: null,
-  company: "Ecopia Events", category: null, table_no: "12", extra: {},
+  id, org_id: "o1", event_id: "e1", token: `t-${id}`, name, email: null,
+  category: null, extra: {},
   source: "import", status: "active", ...over,
 });
 
@@ -37,7 +37,7 @@ describe("checkinStatus", () => {
 });
 
 describe("recentScans", () => {
-  const people = [attendee("a1", "CS Wong"), attendee("a2", "Priya Ramasamy", { company: "Ecopia Labs", table_no: "03" })];
+  const people = [attendee("a1", "CS Wong"), attendee("a2", "Priya Ramasamy", { extra: { table_no: "03" } })];
 
   it("returns newest first and honours the limit", () => {
     const rows = [
@@ -48,15 +48,11 @@ describe("recentScans", () => {
     const out = recentScans(rows, people, 2);
     expect(out.map((r) => r.checkinId)).toEqual(["c2", "c3"]);
     expect(out[0].name).toBe("Priya Ramasamy");
-    // a2's table_no of "03" lives only in the legacy column (extra: {}) — this is the
-    // pre-migration fallback path in `fieldValue`.
     expect(out[0].tableNo).toBe("03");
   });
 
-  it("reads company and table through `fieldValue`, preferring `extra` once migration 0014 seeds it", () => {
-    const migrated = attendee("a3", "Post-migration Pat", {
-      company: "Stale Co", table_no: "99", extra: { company: "Fresh Co", table_no: "07" },
-    });
+  it("reads company and table through `fieldValue`, out of extra", () => {
+    const migrated = attendee("a3", "Post-migration Pat", { extra: { company: "Fresh Co", table_no: "07" } });
     const out = recentScans([scan("c1", "2026-09-30T08:41:00+08:00", "a3")], [migrated], 10);
     expect(out[0].company).toBe("Fresh Co");
     expect(out[0].tableNo).toBe("07");

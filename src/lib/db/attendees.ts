@@ -7,8 +7,7 @@ import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
-  name: string; email?: string | null; phone?: string | null; company?: string | null;
-  category?: string | null; table_no?: string | null; extra?: Record<string, string>;
+  name: string; email?: string | null; category?: string | null; extra?: Record<string, string>;
 };
 
 export async function findByToken(eventId: string, token: string): Promise<Attendee | null> {
@@ -117,7 +116,7 @@ export async function purgeAttendeePersonalData(eventId: string): Promise<number
   const { data, error: selectError } = await db.from("attendees").select("id").eq("event_id", eventId);
   if (selectError) throw selectError;
   for (const row of data ?? []) {
-    const { error } = await db.from("attendees").update({ name: "Purged", email: null, phone: null, company: null, extra: {}, token: generateToken(), status: "purged", updated_at: new Date().toISOString() }).eq("id", row.id);
+    const { error } = await db.from("attendees").update({ name: "Purged", email: null, extra: {}, token: generateToken(), status: "purged", updated_at: new Date().toISOString() }).eq("id", row.id);
     if (error) throw error;
   }
   return data?.length ?? 0;

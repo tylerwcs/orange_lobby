@@ -1,5 +1,12 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
-import { LEGACY_COLUMN_KEYS } from "@/lib/attendee-values";
+
+/**
+ * The three facts that used to be columns on the attendee row, before migration 0014 made
+ * them ordinary fields. They are ordinary now in every respect but two: they are visible by
+ * default like the built-ins they replaced, and the exports keep them in their old fixed
+ * positions. Both of those are promises to people, not properties of the data.
+ */
+export const FORMER_BUILTIN_KEYS = ["company", "phone", "table_no"] as const;
 
 /**
  * Where a column comes from, which decides what its header menu may offer: a built-in is
@@ -95,7 +102,7 @@ export function defaultHidden(columns: ColumnDef[]): string[] {
     .map((c) => c.key);
 }
 
-const EX_BUILTIN_KEYS = new Set<string>(LEGACY_COLUMN_KEYS);
+const EX_BUILTIN_KEYS = new Set<string>(FORMER_BUILTIN_KEYS);
 
 /**
  * Two of the attendee's own columns start hidden as well. `email` is a contact detail

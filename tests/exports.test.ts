@@ -51,14 +51,6 @@ describe("exports", () => {
     expect(attendeeSheetRow(rows[0], [])).toEqual(["Sam", "s@x.com", "012", "Ecopia", "VIP", "7", undefined]);
   });
 
-  it("reads a legacy-column-only value through fieldValue, not just one already moved to extra", () => {
-    // Every other test in this file puts its value in extra, so they would all still pass if
-    // fieldValue's column fallback were deleted and replaced with a raw extra read. This is the
-    // one case that window is for: a row from before the backfill, where extra hasn't caught up.
-    const row = { name: "Sam", email: "s@x.com", category: "VIP", phone: "012", extra: {} } as never;
-    expect(attendeeSheetRow(row, [])).toEqual(["Sam", "s@x.com", "012", "", "VIP", "", undefined]);
-  });
-
   it("excludes company, phone and table_no from the extras block once they are fields, so nothing doubles up", () => {
     const fields: AttendeeField[] = [
       { key: "company", label: "Company", type: "text" },
@@ -134,8 +126,8 @@ describe("buildPassportWorkbook", () => {
     { id: "s2", org_id: "o", event_id: "e", booth_id: "b2", attendee_id: "a1", stamped_at: "2026-09-30T02:41:00Z" },
   ];
   const attendees = [
-    { id: "a1", name: "Aiman Zulkifli", email: "a@x.my", company: "Ecopia", category: "Management" },
-    { id: "a2", name: "Sarah Lim", email: "s@x.my", company: "Ecopia", category: "Crew" },
+    { id: "a1", name: "Aiman Zulkifli", email: "a@x.my", category: "Management", extra: { company: "Ecopia" } },
+    { id: "a2", name: "Sarah Lim", email: "s@x.my", category: "Crew", extra: { company: "Ecopia" } },
   ] as unknown as Parameters<typeof buildPassportWorkbook>[0];
 
   it("writes a column per booth plus a total and a completed flag", () => {

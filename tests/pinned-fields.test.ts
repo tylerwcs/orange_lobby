@@ -7,7 +7,7 @@ import type { Attendee } from "@/lib/types";
 
 const attendee = (over: Partial<Attendee> = {}): Attendee => ({
   id: "a1", org_id: "o", event_id: "e", token: "t", name: "Tan Ah Kow",
-  email: "t@x.test", phone: null, company: "Ecopia", category: "VIP", table_no: "12",
+  email: "t@x.test", category: "VIP",
   extra: { room_no: "1204", room_partner: "Ahmad Bin Hassan", dietary: "", shirt_size: "XL" },
   source: "import", status: "active", ...over,
 });
@@ -48,8 +48,12 @@ describe("parsePinnedFields", () => {
 });
 
 describe("resolvePins", () => {
-  it("reads a field still in its legacy column and one already in extra alike", () => {
-    const out = resolvePins([{ key: "table_no" }, { key: "room_no" }], attendee(), fields);
+  it("reads two fields, both out of extra", () => {
+    const out = resolvePins(
+      [{ key: "table_no" }, { key: "room_no" }],
+      attendee({ extra: { room_no: "1204", table_no: "12" } }),
+      fields,
+    );
     expect(out).toEqual([{ key: "table_no", label: "Table", value: "12" }, { key: "room_no", label: "Room number", value: "1204" }]);
   });
 
@@ -150,11 +154,6 @@ describe("hydratePins", () => {
 describe("pins without native company, phone or table", () => {
   it("resolves a pin stored as company out of extra", () => {
     const a = { extra: { company: "Ecopia" } } as never;
-    expect(pinValue(a, "company")).toBe("Ecopia");
-  });
-
-  it("still resolves a pin while the value is only in the legacy column", () => {
-    const a = { company: "Ecopia", extra: {} } as never;
     expect(pinValue(a, "company")).toBe("Ecopia");
   });
 
