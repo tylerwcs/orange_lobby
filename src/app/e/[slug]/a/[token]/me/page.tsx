@@ -38,8 +38,15 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   // an attendee should not read a list of questions they left empty. `fieldValue`, not
   // `extra` directly, so company/phone/table still show while they live only in the
   // legacy columns, pre-migration.
+  //
+  // company and table_no are excluded here on purpose — the identity card below already
+  // shows both, and once migration 0014 seeds their definitions they would otherwise print
+  // a second time in this list. Do not remove the filter to "fix" a missing row; add the
+  // fact to the card instead if it ever needs to leave this list.
+  const identityCardFields = new Set(["company", "table_no"]);
   const fields = eventFields(event.registration_questions, event.attendee_fields);
   const answered = fields
+    .filter((f) => !identityCardFields.has(f.key))
     .map((f) => ({ label: f.label, value: fieldValue(attendee, f.key) }))
     .filter((f) => f.value.trim() !== "");
 

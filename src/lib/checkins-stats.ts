@@ -1,4 +1,5 @@
 import type { Attendee, Checkin } from "@/lib/types";
+import { fieldValue } from "@/lib/attendee-values";
 
 export type CheckinState = { status: "checked_in" | "expected"; at: string | null };
 
@@ -50,8 +51,10 @@ export function recentScans(checkins: Checkin[], attendees: Attendee[], limit: n
         checkinId: c.id,
         attendeeId: c.attendee_id,
         name: a?.name ?? "Removed attendee",
-        company: a?.company ?? null,
-        tableNo: a?.table_no ?? null,
+        // `fieldValue`, not the columns directly: company and table_no may still live only
+        // in the legacy columns until migration 0014 runs.
+        company: a ? fieldValue(a, "company") : null,
+        tableNo: a ? fieldValue(a, "table_no") : null,
         checkpointId: c.checkpoint_id,
         at: c.scanned_at,
         duplicate: original.get(`${c.attendee_id} ${c.checkpoint_id}`)?.id !== c.id,
