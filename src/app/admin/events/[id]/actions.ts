@@ -13,8 +13,8 @@ import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem } from "@/lib/db/agenda";
-import { breakoutSlots, matchAssignments, breakoutSlotFromColumn, parseRoomCodes } from "@/lib/breakouts";
-import { assignMany, unassign, renameSlotAssignments } from "@/lib/db/breakouts";
+import { breakoutSlots, matchAssignments, breakoutSlotFromColumn, parseRoomCodes, splitByExisting, describeAssignment } from "@/lib/breakouts";
+import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
@@ -163,6 +163,41 @@ async function requireEventAttendee(eventId: string, attendeeId: string): Promis
   return a;
 }
 
+/**
+ * Places people into breakout rooms from the column the client's spreadsheet already carries,
+ * for one round or for every round the event has.
+ *
+ * The import runs this for every round, add-only. That reverses half of D83, which kept it out
+ * of the import because the masterlist is usually loaded before the agenda exists and an
+ * automatic pass would then assign nobody, silently. Two things make it safe now: it reports
+ * what it did, so a pass that placed nobody says so; and it never moves anyone who already has
+ * a room, so a re-import on the morning of day 2 cannot undo the desk's moves at breakfast.
+ * Overwriting is still a deliberate, separate act — the tick on Assign from column.
+ *
+ * `existing` is read BEFORE the write so "already had a room" is computed from data we hold
+ * rather than inferred from what an ignoreDuplicates upsert reports having written.
+ */
+async function assignRoundsFromColumns(ev: Event, only: string | null, overwrite: boolean, overwriteHint?: string): Promise<string[]> {
+  const rounds = breakoutSlots(await listAgenda(ev.id)).filter((s) => only === null || s.slot === only);
+  if (rounds.length === 0) return [];
+  const [attendees, existing] = await Promise.all([listAttendees(ev.id), listAssignments(ev.id)]);
+  const lines: string[] = [];
+  for (const slot of rounds) {
+    const report = matchAssignments(attendees, slot);
+    const { fresh, alreadyPlaced } = splitByExisting(report.matched, existing);
+    // Overwrite sends every match back, because moving someone is the point of ticking it.
+    const rows = overwrite ? report.matched : fresh;
+    if (rows.length > 0) await assignMany(ev.id, rows, overwrite);
+    const line = describeAssignment(slot.slot, {
+      fresh: overwrite ? report.matched.length : fresh.length,
+      alreadyPlaced: overwrite ? 0 : alreadyPlaced.length,
+      report,
+    }, overwriteHint);
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+
 export async function importMasterlistAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
@@ -197,12 +232,16 @@ export async function importMasterlistAction(eventId: string, formData: FormData
     if (key) queued.set(key, input);
   }
   const inserted = await createAttendees(ev, toInsert, "import");
+  // After the rows exist, not before: an assignment needs the attendee it belongs to.
+  const assigned = await assignRoundsFromColumns(ev, null, false);
   const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
+  const problems = parsed.skipped.length > 0 || assigned.some((l) => l.includes("No room matches"));
   revalidatePath(`/admin/events/${eventId}/attendees`);
+  revalidatePath(`/admin/events/${eventId}/agenda`);
   redirect(flashPath(
     `/admin/events/${eventId}/attendees`,
-    `Imported ${inserted}, updated ${updated}.${skipped ? ` Skipped — ${skipped}` : ""}`,
-    parsed.skipped.length > 0 ? "error" : "ok",
+    [`Imported ${inserted}, updated ${updated}.`, ...assigned, skipped ? `Skipped — ${skipped}` : ""].filter(Boolean).join(" "),
+    problems ? "error" : "ok",
   ));
 }
 
@@ -862,18 +901,14 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
   // read: the roster counts on the agenda are a summary of what this list already shows.
   const back = `/admin/events/${eventId}/attendees`;
 
-  const slot = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === wanted);
-  if (!slot) redirect(flashPath(back, "That breakout round no longer exists.", "error"));
+  const exists = breakoutSlots(await listAgenda(ev.id)).some((s) => s.slot === wanted);
+  if (!exists) redirect(flashPath(back, "That breakout round no longer exists.", "error"));
 
-  const report = matchAssignments(await listAttendees(ev.id), slot);
-  const written = await assignMany(ev.id, report.matched, overwrite);
-
-  const problems = report.unmatched.map((u) => `${u.value} (${u.count})`).join(", ");
-  const message = [
-    `${written} assigned to ${slot.slot}.`,
-    report.blank ? `${report.blank} blank.` : "",
-    problems ? `No room matches: ${problems}.` : "",
-  ].filter(Boolean).join(" ");
+  // Same runner and same wording as the import, so one round cannot be described two ways
+  // depending on which button placed the people in it.
+  // Read from inside Assign from column, so the hint names the tick rather than the dialog.
+  const lines = await assignRoundsFromColumns(ev, wanted, overwrite, "tick Overwrite to move them");
+  const message = lines.join(" ") || `${wanted}: nothing to assign — no attendee has a room code in that column.`;
   revalidatePath(`/admin/events/${eventId}/agenda`);
-  redirect(flashPath(back, message, report.unmatched.length ? "error" : "ok"));
+  redirect(flashPath(back, message, message.includes("No room matches") ? "error" : "ok"));
 }

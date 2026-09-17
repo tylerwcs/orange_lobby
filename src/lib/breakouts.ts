@@ -1,5 +1,5 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
-import type { AgendaItem, Attendee } from "@/lib/types";
+import type { AgendaItem, Attendee, BreakoutAssignment } from "@/lib/types";
 
 /**
  * Whether this agenda item is one room of a breakout round.
@@ -219,4 +219,60 @@ export function agendaRows(items: AgendaItem[]): AgendaRow[] {
     out.push(row);
   }
   return out;
+}
+
+/**
+ * The matches that are genuinely new, and the ones whose attendee already has a room in
+ * this round.
+ *
+ * Worked out from the assignments as they stood before the write, rather than from the row
+ * count an `ignoreDuplicates` upsert returns: what "count" means there is the database
+ * driver's business, and this number is reported to an organiser as fact.
+ *
+ * The second list is not a failure. It is the desk's manual moves surviving a re-import —
+ * add-only is the whole point — and it is what the import's message points at when it tells
+ * someone that overwriting needs the separate, deliberate control.
+ */
+export function splitByExisting(
+  matched: AssignMatch[],
+  existing: Pick<BreakoutAssignment, "attendee_id" | "slot">[],
+): { fresh: AssignMatch[]; alreadyPlaced: AssignMatch[] } {
+  const held = new Set(existing.map((e) => `${e.attendee_id}\u0000${e.slot}`));
+  const fresh: AssignMatch[] = [];
+  const alreadyPlaced: AssignMatch[] = [];
+  for (const m of matched) {
+    (held.has(`${m.attendeeId}\u0000${m.slot}`) ? alreadyPlaced : fresh).push(m);
+  }
+  return { fresh, alreadyPlaced };
+}
+
+/**
+ * One round's outcome, in the words the import flash and the Assign-from-column flash both
+ * use — one function so the two can never drift into describing the same event differently.
+ *
+ * `overwriteHint` is the only part that depends on where the reader is standing: an importer
+ * has to be sent to the control that can overwrite, while someone already at that control
+ * needs to be told which tick to use. Observed the hard way — one shared sentence told a
+ * person standing in Assign from column to go to Assign from column.
+ *
+ * Empty when the round has nothing to say: no one matched, no one was held back and nothing
+ * was mistyped. An import into an event with three rounds and data for one of them should
+ * mention one of them.
+ */
+export function describeAssignment(
+  slot: string,
+  outcome: { fresh: number; alreadyPlaced: number; report: Pick<AssignReport, "unmatched" | "blank"> },
+  overwriteHint = "use Assign from column to overwrite",
+): string {
+  const { fresh, alreadyPlaced, report } = outcome;
+  if (fresh === 0 && alreadyPlaced === 0 && report.unmatched.length === 0) return "";
+  const head = [
+    `${fresh} assigned`,
+    alreadyPlaced ? `${alreadyPlaced} already had a room — ${overwriteHint}` : "",
+    // Blanks are only worth a word while there is something to compare them against; once
+    // everyone is placed the count is noise.
+    !alreadyPlaced && report.blank ? `${report.blank} blank` : "",
+  ].filter(Boolean).join(", ");
+  const misses = report.unmatched.map((u) => `${u.value} (${u.count})`).join(", ");
+  return `${slot}: ${head}.${misses ? ` No room matches: ${misses}.` : ""}`;
 }

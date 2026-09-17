@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows } from "@/lib/breakouts";
+import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows, splitByExisting, describeAssignment } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
@@ -280,5 +280,85 @@ describe("agendaRows", () => {
     const other = item({ id: "x", slot: "Breakout 4", code: "1A", starts_at: "22:00" });
     const rows = agendaRows([a, other]);
     expect(rows.map((r) => r.kind === "round" && r.slot)).toEqual(["Breakout 3", "Breakout 4"]);
+  });
+});
+
+describe("splitByExisting", () => {
+  const m = (attendeeId: string, itemId = "i1", slot = "Breakout 1") => ({ attendeeId, itemId, slot });
+  const held = (attendee_id: string, slot = "Breakout 1") => ({ attendee_id, slot });
+
+  it("calls everyone fresh when nobody has a room yet", () => {
+    const { fresh, alreadyPlaced } = splitByExisting([m("a"), m("b")], []);
+    expect(fresh.map((x) => x.attendeeId)).toEqual(["a", "b"]);
+    expect(alreadyPlaced).toEqual([]);
+  });
+
+  it("holds back anyone who already has a room in that round", () => {
+    // This is the count the import reports back. It is worked out here, from assignments read
+    // before the write, rather than inferred from the row count an ignoreDuplicates upsert
+    // happens to return — that number is the database's business, and this one is ours.
+    const { fresh, alreadyPlaced } = splitByExisting([m("a"), m("b")], [held("b")]);
+    expect(fresh.map((x) => x.attendeeId)).toEqual(["a"]);
+    expect(alreadyPlaced.map((x) => x.attendeeId)).toEqual(["b"]);
+  });
+
+  it("holds them back even when the spreadsheet now names a different room", () => {
+    // The whole point of add-only: the desk moved this person at breakfast, and a re-import
+    // must not drag them back to whatever the client's sheet still says.
+    const { fresh, alreadyPlaced } = splitByExisting([m("a", "room-2")], [held("a")]);
+    expect(fresh).toEqual([]);
+    expect(alreadyPlaced.map((x) => x.itemId)).toEqual(["room-2"]);
+  });
+
+  it("ignores an assignment from a different round", () => {
+    const { fresh } = splitByExisting([m("a")], [held("a", "Breakout 2")]);
+    expect(fresh.map((x) => x.attendeeId)).toEqual(["a"]);
+  });
+});
+
+describe("describeAssignment", () => {
+  const report = (over: Partial<ReturnType<typeof matchAssignments>> = {}) =>
+    ({ matched: [], unmatched: [], blank: 0, ...over });
+
+  it("states what it wrote", () => {
+    expect(describeAssignment("Breakout 1", { fresh: 27, alreadyPlaced: 0, report: report({ blank: 5 }) }))
+      .toBe("Breakout 1: 27 assigned, 5 blank.");
+  });
+
+  it("says nothing about blanks when there are none", () => {
+    expect(describeAssignment("Breakout 1", { fresh: 3, alreadyPlaced: 0, report: report() }))
+      .toBe("Breakout 1: 3 assigned.");
+  });
+
+  it("points at the escape hatch when everyone already had a room", () => {
+    // A re-import that moves nobody is the confusing case: without this clause it reads as
+    // though the column was ignored.
+    expect(describeAssignment("Breakout 1", { fresh: 0, alreadyPlaced: 27, report: report() }))
+      .toBe("Breakout 1: 0 assigned, 27 already had a room — use Assign from column to overwrite.");
+  });
+
+  it("names a value no room answers to, with how many rows carry it", () => {
+    expect(describeAssignment("Breakout 1", { fresh: 1, alreadyPlaced: 0, report: report({ unmatched: [{ value: "Room 5", count: 2 }] }) }))
+      .toBe("Breakout 1: 1 assigned. No room matches: Room 5 (2).");
+  });
+
+  it("is empty for a round the data says nothing about, so the import stays quiet", () => {
+    expect(describeAssignment("Breakout 9", { fresh: 0, alreadyPlaced: 0, report: report({ blank: 32 }) })).toBe("");
+  });
+});
+
+describe("describeAssignment's overwrite hint", () => {
+  const outcome = { fresh: 0, alreadyPlaced: 27, report: { unmatched: [], blank: 0 } };
+
+  it("sends an importer to the control that can overwrite", () => {
+    expect(describeAssignment("Breakout 1", outcome, "use Assign from column to overwrite"))
+      .toBe("Breakout 1: 0 assigned, 27 already had a room — use Assign from column to overwrite.");
+  });
+
+  it("tells someone already at that control which tick to use", () => {
+    // Observed in the running app: sharing one sentence between the import and the manual
+    // button told a person standing in Assign from column to go to Assign from column.
+    expect(describeAssignment("Breakout 1", outcome, "tick Overwrite to move them"))
+      .toBe("Breakout 1: 0 assigned, 27 already had a room — tick Overwrite to move them.");
   });
 });
