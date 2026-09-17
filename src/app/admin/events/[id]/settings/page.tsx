@@ -18,7 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction } from "../actions";
+import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
@@ -26,6 +26,9 @@ import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
+import { FieldPicker } from "@/components/admin/FieldPicker";
+import { eventFields } from "@/lib/attendee-fields";
+import { MAX_SCAN_FIELDS } from "@/lib/scan";
 
 export const metadata = { title: "Settings · Orange Lobby" };
 
@@ -93,6 +96,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
   const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields);
   const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
+  const scanFields = eventFields(ev.registration_questions, ev.attendee_fields);
 
   return (
     <div className="flex flex-col gap-4">
@@ -216,6 +220,19 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Scan card fields</CardTitle>
+          <CardDescription>After a scan, crew see the attendee&apos;s name and category, plus the fields chosen here — up to {MAX_SCAN_FIELDS}.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={updateScanFieldsAction.bind(null, ev.id)} className="flex flex-col items-start gap-3">
+            <FieldPicker name="scan_extra_fields" fields={scanFields} selected={ev.scan_extra_fields} max={MAX_SCAN_FIELDS} />
+            <SubmitButton>Save scan card</SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
       </TabsContent>
 
       <TabsContent value="badge">
@@ -277,10 +294,6 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
             <ImageField label="Logo" name="logo" url={ev.logo_url} />
             <ImageField label="Banner" name="banner" url={ev.banner_url} />
-          </Section>
-
-          <Section title="Onsite scanner" hint="After a scan, crew see name and category, plus whatever fields are listed here, for example company, table_no or dietary.">
-            <div className="@xl:col-span-2"><Field label="Extra fields on the scan card" name="scan_extra_fields" defaultValue={ev.scan_extra_fields.join(", ")} placeholder="shirt_size, dietary" /></div>
           </Section>
         </div>
         <SaveBar />

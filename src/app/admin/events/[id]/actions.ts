@@ -28,6 +28,7 @@ import { flashPath } from "@/lib/flash";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { uploadEventImage, deleteEventImage } from "@/lib/db/media";
 import type { ImageKind } from "@/lib/storage";
+import { scanFieldsFromForm } from "@/lib/scan";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -116,6 +117,20 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   await deleteEventImage(banner.stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(`/admin/events/${eventId}/settings`, "Settings saved."));
+}
+
+/**
+ * The scan card's fields, saved from the Checkpoints tab. Its own action because that tab
+ * sits outside the one big settings form — see the SaveBar comment in settings/page.tsx.
+ */
+export async function updateScanFieldsAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const fields = eventFields(ev.registration_questions, ev.attendee_fields);
+  await updateEvent(eventId, { scan_extra_fields: scanFieldsFromForm(formData.getAll("scan_extra_fields").map(String), fields) });
+  const path = `/admin/events/${eventId}/settings`;
+  revalidatePath(path);
+  redirect(flashPath(path, "Scan card updated."));
 }
 
 export async function setStatusAction(eventId: string, status: EventStatus) {
