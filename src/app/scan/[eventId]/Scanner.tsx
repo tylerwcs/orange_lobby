@@ -128,7 +128,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
   const pickHref = crewToken ? `/crew/${crewToken}?pick=1` : `/scan/${eventId}?pick=1`;
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-3 p-3">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-3 p-3 lg:max-w-5xl lg:gap-4 lg:p-6">
       <header className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           {/* A link, styled as a button: it navigates, so it stays an <a>. Base UI's Button
@@ -154,132 +154,140 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
         />
       </header>
 
-      {/* The camera box keeps its measurements: html5-qrcode sizes the video itself, and the
-          crew are trained on this frame. Only its surface changed. */}
-      <div className="relative min-h-[240px] overflow-hidden rounded-xl bg-foreground">
-        <div id="reader" />
-        {camera.phase === "starting" && (
-          <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-background/70">Starting camera…</p>
-        )}
-        {camera.phase === "error" && camera.problem && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-background">
-            <CameraOff className="size-7 text-background/70" />
-            <p className="text-lg font-extrabold">{camera.problem.title}</p>
-            <p className="text-sm text-background/70">{camera.problem.hint}</p>
-            <Button type="button" variant="secondary" className="mt-2 h-11 px-4" onClick={() => { setCamera({ phase: "starting" }); startCamera(); }}>Retry camera</Button>
-          </div>
-        )}
-      </div>
-
-      {/*
-        A fixed height, not a box that grows with its contents. This panel sits directly
-        above the search field, and when it collapsed back to one line between scans the
-        field jumped up under a thumb already reaching for it. Reserving the space costs a
-        screenful of nothing on an idle scanner and buys a search box that never moves.
-      */}
-      <section
-        role="status"
-        aria-live="polite"
-        className={cn(
-          "flex min-h-44 flex-col justify-center rounded-xl p-4",
-          busy ? "bg-muted text-foreground" : result ? TONE[result.status] : "border border-border bg-card text-muted-foreground"
-        )}
-      >
-        {busy && (
-          <div className="flex items-center gap-2.5">
-            <Spinner className="size-4" />
-            <span className="text-sm font-bold">Checking…</span>
-          </div>
-        )}
-        {!busy && !result && <p className="text-sm">Point the camera at a badge, or search by name below.</p>}
-        {result && <span className="sr-only">{count} of {total} checked in.</span>}
-        {result && !busy && (
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-bold uppercase tracking-[0.08em]">
-              {LABEL[result.status]}
-              {result.status === "duplicate" && result.earlier && <> · since {shortTime(result.earlier.at)}</>}
-            </p>
-            {named
-              ? <p className="text-2xl font-extrabold leading-tight text-balance">{result.attendee!.name}</p>
-              : <p className="text-lg font-bold leading-snug text-balance">{result.message}</p>}
-            {named && result.fields && result.fields.some((f) => f.value) && (
-              <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                {result.fields.filter((f) => f.value).map((f) => (
-                  <div key={f.label}>
-                    <dt className="text-xs uppercase tracking-[0.08em] opacity-80">{f.label}</dt>
-                    <dd className="font-bold">{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {result.status === "ok" && undoLeft > 0 && (
-              <Button type="button" variant="outline" disabled={busy} className="mt-2 h-11 w-fit px-4 font-bold"
-                onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id, crewToken))}>
-                <Undo2 data-icon="inline-start" />
-                Undo · {undoLeft}s
-              </Button>
-            )}
-          </div>
-        )}
-      </section>
-
-      <div>
-        <label htmlFor="scan-search" className="sr-only">Search attendees by name, email or company</label>
-        <InputGroup className="h-12">
-          <InputGroupAddon><Search /></InputGroupAddon>
-          <InputGroupInput
-            id="scan-search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" enterKeyHint="search"
-            placeholder="Search name, email or company" className="h-12 text-base"
-          />
-          {/* Badges do not always scan, and the next person is waiting: clearing a search has to
-              be one tap rather than a held backspace. */}
-          {q.length > 0 && (
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton size="icon-sm" aria-label="Clear search" onClick={() => setQ("")}><X /></InputGroupButton>
-            </InputGroupAddon>
+      {/* Below lg this is just another flex-col in the stack — same gap, same order. At lg
+          it splits into two columns so a desk with real width isn't a phone strip with a
+          void either side: the camera grows on the left, the outcome and search sit right
+          where a mouse already is. */}
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-5">
+        {/* The camera box keeps its measurements: html5-qrcode sizes the video itself, and the
+            crew are trained on this frame. Only its surface changed. */}
+        <div className="relative min-h-[240px] overflow-hidden rounded-xl bg-foreground lg:min-h-[460px]">
+          <div id="reader" />
+          {camera.phase === "starting" && (
+            <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-background/70">Starting camera…</p>
           )}
-        </InputGroup>
+          {camera.phase === "error" && camera.problem && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-background">
+              <CameraOff className="size-7 text-background/70" />
+              <p className="text-lg font-extrabold">{camera.problem.title}</p>
+              <p className="text-sm text-background/70">{camera.problem.hint}</p>
+              <Button type="button" variant="secondary" className="mt-2 h-11 px-4" onClick={() => { setCamera({ phase: "starting" }); startCamera(); }}>Retry camera</Button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {/*
+            A fixed height, not a box that grows with its contents. This panel sits directly
+            above the search field, and when it collapsed back to one line between scans the
+            field jumped up under a thumb already reaching for it. Reserving the space costs a
+            screenful of nothing on an idle scanner and buys a search box that never moves.
+          */}
+          <section
+            role="status"
+            aria-live="polite"
+            className={cn(
+              "flex min-h-44 flex-col justify-center rounded-xl p-4",
+              busy ? "bg-muted text-foreground" : result ? TONE[result.status] : "border border-border bg-card text-muted-foreground"
+            )}
+          >
+            {busy && (
+              <div className="flex items-center gap-2.5">
+                <Spinner className="size-4" />
+                <span className="text-sm font-bold">Checking…</span>
+              </div>
+            )}
+            {!busy && !result && <p className="text-sm">Point the camera at a badge, or search by name below.</p>}
+            {result && <span className="sr-only">{count} of {total} checked in.</span>}
+            {result && !busy && (
+              <div className="flex flex-col gap-1">
+                <p className="text-xs font-bold uppercase tracking-[0.08em]">
+                  {LABEL[result.status]}
+                  {result.status === "duplicate" && result.earlier && <> · since {shortTime(result.earlier.at)}</>}
+                </p>
+                {named
+                  ? <p className="text-2xl font-extrabold leading-tight text-balance">{result.attendee!.name}</p>
+                  : <p className="text-lg font-bold leading-snug text-balance">{result.message}</p>}
+                {named && result.fields && result.fields.some((f) => f.value) && (
+                  <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                    {result.fields.filter((f) => f.value).map((f) => (
+                      <div key={f.label}>
+                        <dt className="text-xs uppercase tracking-[0.08em] opacity-80">{f.label}</dt>
+                        <dd className="font-bold">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {result.status === "ok" && undoLeft > 0 && (
+                  <Button type="button" variant="outline" disabled={busy} className="mt-2 h-11 w-fit px-4 font-bold"
+                    onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id, crewToken))}>
+                    <Undo2 data-icon="inline-start" />
+                    Undo · {undoLeft}s
+                  </Button>
+                )}
+              </div>
+            )}
+          </section>
+
+          <div>
+            <label htmlFor="scan-search" className="sr-only">Search attendees by name, email or company</label>
+            <InputGroup className="h-12">
+              <InputGroupAddon><Search /></InputGroupAddon>
+              <InputGroupInput
+                id="scan-search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" enterKeyHint="search"
+                placeholder="Search name, email or company" className="h-12 text-base"
+              />
+              {/* Badges do not always scan, and the next person is waiting: clearing a search has to
+                  be one tap rather than a held backspace. */}
+              {q.length > 0 && (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton size="icon-sm" aria-label="Clear search" onClick={() => setQ("")}><X /></InputGroupButton>
+                </InputGroupAddon>
+              )}
+            </InputGroup>
+          </div>
+
+          {hits.length > 0 && (
+            <ul className="flex flex-col gap-2">
+              {hits.map((h) => (
+                <li key={h.id}>
+                  <Button variant="outline" disabled={busy} onClick={() => handle(() => checkInByIdAction(eventId, checkpoint.id, h.id, crewToken))}
+                    className="h-auto min-h-14 w-full justify-start gap-3 px-4 py-2.5 text-left">
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-bold">{h.name}</span>
+                      <span className="truncate text-xs font-normal text-muted-foreground">{[h.company, h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</span>
+                    </span>
+                    {h.checkedIn ? <Badge variant="success">Already in</Badge> : <Badge>Check in</Badge>}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {q.trim().length >= 2 && hits.length === 0 && !busy && (
+            <Empty className="border border-dashed py-6">
+              <EmptyHeader>
+                <EmptyTitle>No one matches &ldquo;{q.trim()}&rdquo;</EmptyTitle>
+                <EmptyDescription>Try a shorter name, or part of their company.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {recent.length > 0 && (
+            <section className="mt-2 flex flex-col gap-1.5">
+              <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Recent</h2>
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-sm">
+                {recent.map((r, i) => (
+                  <li key={`${r.at}-${i}`} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                    <span className="truncate font-semibold">{r.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       </div>
-
-      {hits.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {hits.map((h) => (
-            <li key={h.id}>
-              <Button variant="outline" disabled={busy} onClick={() => handle(() => checkInByIdAction(eventId, checkpoint.id, h.id, crewToken))}
-                className="h-auto min-h-14 w-full justify-start gap-3 px-4 py-2.5 text-left">
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-bold">{h.name}</span>
-                  <span className="truncate text-xs font-normal text-muted-foreground">{[h.company, h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</span>
-                </span>
-                {h.checkedIn ? <Badge variant="success">Already in</Badge> : <Badge>Check in</Badge>}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {q.trim().length >= 2 && hits.length === 0 && !busy && (
-        <Empty className="border border-dashed py-6">
-          <EmptyHeader>
-            <EmptyTitle>No one matches &ldquo;{q.trim()}&rdquo;</EmptyTitle>
-            <EmptyDescription>Try a shorter name, or part of their company.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      )}
-
-      {recent.length > 0 && (
-        <section className="mt-2 flex flex-col gap-1.5">
-          <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Recent</h2>
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-sm">
-            {recent.map((r, i) => (
-              <li key={`${r.at}-${i}`} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                <span className="truncate font-semibold">{r.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </main>
   );
 }
