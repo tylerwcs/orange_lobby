@@ -66,4 +66,13 @@ describe("parseMasterlist", () => {
     });
     expect(res.rows[0]).not.toHaveProperty("phone");
   });
+
+  it("falls back to the mobile and table-no legacy spellings when the event has no fields of its own", async () => {
+    const buf = await book([
+      ["Name", "Mobile", "Table No"],
+      ["Sam", "012", "7"],
+    ]);
+    const res = await parseMasterlist(buf);
+    expect(res.rows[0].extra).toEqual({ phone: "012", table_no: "7" });
+  });
 });
