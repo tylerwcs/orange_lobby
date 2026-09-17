@@ -21,12 +21,12 @@ describe("parseMasterlist", () => {
     const r = await parseMasterlist(buf);
     expect(r.extraColumns).toEqual(["Phone", "Company", "Table", "Seat", "Dietary"]);
     expect(r.rows).toHaveLength(2);
-    // Phone, Company and Table are ordinary fields now: with no event fields passed, they
-    // fall through to their LEGACY_HEADERS spelling in `extra`, same as Seat and Dietary
-    // fall through to their own header.
+    // Phone and Table are ordinary fields now, but keep a LEGACY_HEADERS spelling so a
+    // client's existing template still imports. Company has no such spelling any more, so
+    // with no event fields passed it falls through to its own header, like Seat and Dietary.
     expect(r.rows[0]).toEqual({
       row: 2, name: "Ann Tan", email: "ann@x.com", category: "VIP",
-      extra: { phone: "60123", company: "Ecopia", table_no: "12", Seat: "3", Dietary: "Halal" },
+      extra: { phone: "60123", Company: "Ecopia", table_no: "12", Seat: "3", Dietary: "Halal" },
     });
     expect(r.rows[1].email).toBeNull();
     expect(r.skipped).toEqual([{ row: 3, reason: "Name is blank" }]);
@@ -65,6 +65,14 @@ describe("parseMasterlist", () => {
       extra: { phone: "012", company: "Ecopia", table_no: "7" },
     });
     expect(res.rows[0]).not.toHaveProperty("phone");
+  });
+
+  it("has no legacy spelling left for company, so an undefined Company column keeps its header", async () => {
+    // An event that defines Company still collects it by label match (the test above); one
+    // that does not gets the value stored verbatim and offered in the "add a column"
+    // suggestions, which is what happens to every other unrecognised header.
+    const buf = await book([["Name", "Company"], ["Sam", "Ecopia"]]);
+    expect((await parseMasterlist(buf)).rows[0].extra).toEqual({ Company: "Ecopia" });
   });
 
   it("falls back to the mobile and table-no legacy spellings when the event has no fields of its own", async () => {

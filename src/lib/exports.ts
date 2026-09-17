@@ -8,13 +8,13 @@ import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 
 const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 
-export type LinkRow = { name: string; email: string | null; company: string | null; category: string | null; table_no: string | null; link: string };
+export type LinkRow = { name: string; email: string | null; category: string | null; table_no: string | null; link: string };
 
 export function buildLinksWorkbook(rows: LinkRow[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Links");
-  ws.addRow(["Name", "Email", "Company", "Category", "Table", "Link"]);
-  for (const r of rows) ws.addRow([r.name, r.email, r.company, r.category, r.table_no, r.link]);
+  ws.addRow(["Name", "Email", "Category", "Table", "Link"]);
+  for (const r of rows) ws.addRow([r.name, r.email, r.category, r.table_no, r.link]);
   ws.columns?.forEach((c) => { c.width = 24; });
   return wb;
 }
@@ -25,9 +25,11 @@ export function buildLinksWorkbook(rows: LinkRow[]): ExcelJS.Workbook {
  * `extra` — a header an imported masterlist brought along that nobody declared — under
  * its raw key, so importing a spreadsheet and exporting it again is lossless.
  *
- * Company, phone and table_no are excluded even once they are ordinary fields: the sheet
- * already carries them as fixed columns (via attendeeSheetRow), so leaving them in here
- * would print every value twice.
+ * Phone and table_no are excluded even once they are ordinary fields: the sheet already
+ * carries them as fixed columns (via attendeeSheetRow), so leaving them in here would print
+ * every value twice. Company is not excluded — it has no fixed column any more, so this is
+ * the only path that can put it on the sheet, and it takes it on the same terms as Dietary
+ * or Shirt Size.
  */
 export function attendanceExtraColumns(attendees: Pick<Attendee, "extra">[], fields: AttendeeField[]): { key: string; label: string }[] {
   const relevant = fields.filter((f) => !FORMER_BUILTIN_KEY_SET.has(f.key));
@@ -38,14 +40,13 @@ export function attendanceExtraColumns(attendees: Pick<Attendee, "extra">[], fie
 
 /**
  * One attendee's row for the Attendance sheet, pulled out so the fixed-column assembly is
- * testable without building a workbook. Phone, Company and Table read through fieldValue so
- * they keep working once the columns they used to be are dropped; `extraColumns` must already
- * have the three legacy keys filtered out (attendanceExtraColumns does that) or a value prints
- * twice.
+ * testable without building a workbook. Phone and Table read through fieldValue so they keep
+ * working once the columns they used to be are dropped; `extraColumns` must already have
+ * those two keys filtered out (attendanceExtraColumns does that) or a value prints twice.
  */
 export function attendeeSheetRow(a: Pick<Attendee, "name" | "email" | "category" | "source" | "extra">, extraColumns: { key: string }[]): unknown[] {
   return [
-    a.name, a.email, fieldValue(a, "phone"), fieldValue(a, "company"), a.category, fieldValue(a, "table_no"),
+    a.name, a.email, fieldValue(a, "phone"), a.category, fieldValue(a, "table_no"),
     a.source, ...extraColumns.map((c) => a.extra?.[c.key] ?? ""),
   ];
 }
@@ -55,7 +56,7 @@ export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick
   const byKey = new Map(checkins.map((c) => [`${c.checkpoint_id}:${c.attendee_id}`, c]));
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Attendance");
-  ws.addRow(["Name", "Email", "Phone", "Company", "Category", "Table", "Source", ...extraColumns.map((c) => c.label), ...checkpoints.flatMap((c) => [`${c.name} checked in`, `${c.name} time`, `${c.name} scanned by`])]);
+  ws.addRow(["Name", "Email", "Phone", "Category", "Table", "Source", ...extraColumns.map((c) => c.label), ...checkpoints.flatMap((c) => [`${c.name} checked in`, `${c.name} time`, `${c.name} scanned by`])]);
   for (const a of attendees) {
     const row = attendeeSheetRow(a, extraColumns);
     for (const c of checkpoints) {
@@ -68,7 +69,7 @@ export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick
   return wb;
 }
 
-export type RosterPerson = { name: string; company: string | null; email: string | null };
+export type RosterPerson = { name: string; email: string | null };
 
 /**
  * A sheet name Excel will actually accept: no : \ / ? * [ ], 31 characters, and unique within
@@ -104,12 +105,12 @@ export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, Ros
     const name = rosterSheetName(slot, code, taken);
     taken.add(name);
     const ws = wb.addWorksheet(name);
-    ws.addRow(["Name", "Company", "Email"]);
+    ws.addRow(["Name", "Email"]);
     for (const id of ids) {
       const p = people.get(id);
-      if (p) ws.addRow([p.name, p.company, p.email]);
+      if (p) ws.addRow([p.name, p.email]);
     }
-    ws.columns = [{ width: 28 }, { width: 24 }, { width: 28 }];
+    ws.columns = [{ width: 28 }, { width: 28 }];
   };
   for (const s of slots) {
     for (const r of s.rooms) sheet(s.slot, r.code || "no code", r.attendeeIds);
@@ -131,11 +132,11 @@ export function buildPassportWorkbook(attendees: Attendee[], booths: Booth[], st
   const stamped = new Set(stamps.map((s) => `${s.booth_id}:${s.attendee_id}`));
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Booth Passport");
-  ws.addRow(["Name", "Email", "Company", "Category", ...booths.map((b) => b.name), "Stamps", "Completed"]);
+  ws.addRow(["Name", "Email", "Category", ...booths.map((b) => b.name), "Stamps", "Completed"]);
   for (const a of attendees) {
     const c = completion.get(a.id) ?? { collected: 0, complete: false };
     ws.addRow([
-      a.name, a.email, fieldValue(a, "company"), a.category,
+      a.name, a.email, a.category,
       ...booths.map((b) => (stamped.has(`${b.id}:${a.id}`) ? "Yes" : "No")),
       c.collected,
       c.complete ? "Yes" : "No",

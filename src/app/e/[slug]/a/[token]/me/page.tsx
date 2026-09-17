@@ -38,11 +38,13 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   // an attendee should not read a list of questions they left empty. `fieldValue`, not
   // `extra` directly, so a value is trimmed before "left empty" is decided.
   //
-  // company and table_no are excluded here on purpose — the identity card below already
-  // shows both, and once migration 0014 seeds their definitions they would otherwise print
-  // a second time in this list. Do not remove the filter to "fix" a missing row; add the
-  // fact to the card instead if it ever needs to leave this list.
-  const identityCardFields = new Set(["company", "table_no"]);
+  // table_no is excluded here on purpose — the identity card below shows it as a badge, and
+  // it would otherwise print a second time in this list. Do not remove the filter to "fix" a
+  // missing row; add the fact to the card instead if it ever needs to leave this list.
+  //
+  // company used to be excluded too, for the same reason. It no longer prints on the card,
+  // so it belongs in this list with every other answer the event collected.
+  const identityCardFields = new Set(["table_no"]);
   const fields = eventFields(event.registration_questions, event.attendee_fields);
   const answered = fields
     .filter((f) => !identityCardFields.has(f.key))
@@ -50,8 +52,8 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
     .filter((f) => f.value.trim() !== "");
 
   // Company, phone and table are ordinary fields now, so they surface once, in the
-  // "answered" list above — the contact block keeps only what is not: the address this
-  // attendee's link was sent to.
+  // "answered" list above (table as a badge on the card) — the contact block keeps only what
+  // is not: the address this attendee's link was sent to.
   const contactDetails = attendee.email ? [{ label: "Email", value: attendee.email }] : [];
 
   return (
@@ -70,7 +72,6 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-xl font-extrabold leading-tight">{attendee.name}</div>
-              {fieldValue(attendee, "company") && <div className="text-sm text-muted-foreground">{fieldValue(attendee, "company")}</div>}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {attendee.category && <Badge variant="secondary">{attendee.category}</Badge>}

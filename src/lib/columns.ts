@@ -1,12 +1,18 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
 
 /**
- * The three facts that used to be columns on the attendee row, before migration 0014 made
- * them ordinary fields. They are ordinary now in every respect but two: they are visible by
+ * The facts that used to be columns on the attendee row, before migration 0014 made them
+ * ordinary fields. They are ordinary now in every respect but two: they are visible by
  * default like the built-ins they replaced, and the exports keep them in their old fixed
  * positions. Both of those are promises to people, not properties of the data.
+ *
+ * Company was the third and is not here any more. It kept more of its old privileges than
+ * the other two — a line on the badge, the portal identity card, the crew search subtitle,
+ * a column in every export — and an event that does not collect a company paid for all of
+ * them. It is now a field like any other: shown where the event asks for it, absent where
+ * it does not.
  */
-export const FORMER_BUILTIN_KEYS = ["company", "phone", "table_no"] as const;
+export const FORMER_BUILTIN_KEYS = ["phone", "table_no"] as const;
 
 /**
  * Where a column comes from, which decides what its header menu may offer: a built-in is
@@ -49,7 +55,7 @@ export function allColumns(
   ];
 }
 
-/** The cookie is per event, so hiding Company on one event does not hide it on the next. */
+/** The cookie is per event, so hiding Table on one event does not hide it on the next. */
 export function columnsCookieName(eventId: string): string {
   return `ol-cols-${eventId}`;
 }
@@ -93,10 +99,11 @@ export function defaultHidden(columns: ColumnDef[]): string[] {
     // the column exists so an organiser can see who is in which room without opening
     // anybody, and a hidden one is the same as no column at all.
     .filter((c) => c.source !== "breakout")
-    // Company, Mobile and Table left BUILTIN_COLUMNS when migration 0014 turned them into
-    // ordinary fields, but a viewer opening the table for the first time — a new laptop at
-    // the registration desk — still needs to see them without opening the Columns menu, the
-    // same as before the migration. EX_BUILTIN_KEYS is what keeps them out of this list.
+    // Mobile and Table left BUILTIN_COLUMNS when migration 0014 turned them into ordinary
+    // fields, but a viewer opening the table for the first time — a new laptop at the
+    // registration desk — still needs to see them without opening the Columns menu, the same
+    // as before the migration. EX_BUILTIN_KEYS is what keeps them out of this list. Company
+    // was the third and gave the slot up: see FORMER_BUILTIN_KEYS.
     .filter((c) => c.source !== "builtin" || DEFAULT_HIDDEN_BUILTINS.has(c.key))
     .filter((c) => !EX_BUILTIN_KEYS.has(c.key))
     .map((c) => c.key);

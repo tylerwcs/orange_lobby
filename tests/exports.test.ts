@@ -9,19 +9,19 @@ describe("exports", () => {
     expect(safeFileName("Ann Tan / VIP", "1a2b3c4d-0000")).toBe("ann-tan-vip-1a2b3c.png");
   });
   it("builds a links workbook with header + rows", async () => {
-    const wb = buildLinksWorkbook([{ name: "A", email: "a@b.co", company: null, category: null, table_no: "1", link: "https://x/e/s/a/t" }]);
+    const wb = buildLinksWorkbook([{ name: "A", email: "a@b.co", category: null, table_no: "1", link: "https://x/e/s/a/t" }]);
     const ws = wb.getWorksheet("Links")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Company", "Category", "Table", "Link"]);
-    expect(ws.getRow(2).getCell(6).value).toBe("https://x/e/s/a/t");
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Table", "Link"]);
+    expect(ws.getRow(2).getCell(5).value).toBe("https://x/e/s/a/t");
   });
   it("builds attendance workbook with per-checkpoint columns", () => {
     const attendees = [{ id: "a1", name: "Ann", email: "a@b.co", phone: null, company: null, category: "VIP", table_no: "1", source: "import", extra: { Dietary: "Halal" } }] as never;
     const cps = [{ id: "c1", name: "Day 1" }, { id: "c2", name: "Day 2" }] as never;
     const cis = [{ checkpoint_id: "c1", attendee_id: "a1", scanned_at: "2026-09-30T01:00:00Z", scanned_by: "u1" }] as never;
     const ws = buildAttendanceWorkbook(attendees, cps, cis, { u1: "crew@ecopia" }).getWorksheet("Attendance")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Phone", "Company", "Category", "Table", "Source", "Dietary", "Day 1 checked in", "Day 1 time", "Day 1 scanned by", "Day 2 checked in", "Day 2 time", "Day 2 scanned by"]);
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Phone", "Category", "Table", "Source", "Dietary", "Day 1 checked in", "Day 1 time", "Day 1 scanned by", "Day 2 checked in", "Day 2 time", "Day 2 scanned by"]);
     const r = ws.getRow(2).values as unknown[];
-    expect(r[9]).toBe("Yes"); expect(r[11]).toBe("crew@ecopia"); expect(r[12]).toBe("No");
+    expect(r[8]).toBe("Yes"); expect(r[10]).toBe("crew@ecopia"); expect(r[11]).toBe("No");
   });
 
   it("leads with the event's own columns under their labels, then anything else in extra", () => {
@@ -42,30 +42,40 @@ describe("exports", () => {
     const fields: AttendeeField[] = [{ key: "room_no", label: "Room number", type: "text" }];
     const attendees = [{ id: "a1", name: "Ann", email: null, phone: null, company: null, category: null, table_no: null, source: "import", extra: { room_no: "12A" } }] as never;
     const ws = buildAttendanceWorkbook(attendees, [] as never, [] as never, {}, fields).getWorksheet("Attendance")!;
-    expect(ws.getRow(1).getCell(8).value).toBe("Room number");
-    expect(ws.getRow(2).getCell(8).value).toBe("12A");
+    expect(ws.getRow(1).getCell(7).value).toBe("Room number");
+    expect(ws.getRow(2).getCell(7).value).toBe("12A");
   });
 
-  it("keeps the sheet's column order after company became a field", () => {
+  it("keeps the sheet's fixed columns, which no longer include company", () => {
     const rows = [{ name: "Sam", email: "s@x.com", category: "VIP", extra: { phone: "012", company: "Ecopia", table_no: "7" } }] as never[];
-    expect(attendeeSheetRow(rows[0], [])).toEqual(["Sam", "s@x.com", "012", "Ecopia", "VIP", "7", undefined]);
+    expect(attendeeSheetRow(rows[0], [])).toEqual(["Sam", "s@x.com", "012", "VIP", "7", undefined]);
   });
 
-  it("excludes company, phone and table_no from the extras block once they are fields, so nothing doubles up", () => {
+  it("excludes phone and table_no from the extras block once they are fields, so nothing doubles up", () => {
     const fields: AttendeeField[] = [
-      { key: "company", label: "Company", type: "text" },
       { key: "phone", label: "Phone", type: "phone" },
       { key: "table_no", label: "Table", type: "text" },
       { key: "flight", label: "Flight", type: "text" },
     ];
     expect(attendanceExtraColumns([{ extra: {} }], fields)).toEqual([{ key: "flight", label: "Flight" }]);
   });
+
+  it("carries company through the extras block like any other defined column", () => {
+    // Company has no fixed column any more, so the only thing that can put it on the sheet
+    // is the ordinary path every other field takes - under the label the event gave it.
+    const fields: AttendeeField[] = [{ key: "company", label: "Employer", type: "text" }];
+    expect(attendanceExtraColumns([{ extra: { company: "Ecopia" } }], fields)).toEqual([{ key: "company", label: "Employer" }]);
+  });
+
+  it("carries an undeclared company value under its raw key, same as any other stray header", () => {
+    expect(attendanceExtraColumns([{ extra: { company: "Ecopia" } }], [])).toEqual([{ key: "company", label: "company" }]);
+  });
 });
 
 describe("roster workbook", () => {
   const people = new Map([
-    ["p1", { name: "Ann Tan", company: "Ecopia", email: "a@b.co" }],
-    ["p2", { name: "Bryan Koh", company: null, email: null }],
+    ["p1", { name: "Ann Tan", email: "a@b.co" }],
+    ["p2", { name: "Bryan Koh", email: null }],
   ]);
   const slots = [{
     slot: "Breakout 1",
@@ -76,7 +86,7 @@ describe("roster workbook", () => {
   it("gives each room its own sheet, headed and filled", () => {
     const wb = buildRosterWorkbook(slots, people);
     const ws = wb.getWorksheet("Breakout 1 · 3A")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Company", "Email"]);
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email"]);
     expect(ws.getRow(2).getCell(1).value).toBe("Ann Tan");
   });
 
@@ -132,25 +142,25 @@ describe("buildPassportWorkbook", () => {
 
   it("writes a column per booth plus a total and a completed flag", () => {
     const ws = buildPassportWorkbook(attendees, booths, stamps, null).getWorksheet("Booth Passport")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Company", "Category", "Operations", "Creative Studio", "Stamps", "Completed"]);
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Operations", "Creative Studio", "Stamps", "Completed"]);
   });
 
   it("marks who has been where, and who has finished", () => {
     const ws = buildPassportWorkbook(attendees, booths, stamps, null).getWorksheet("Booth Passport")!;
-    expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Ecopia", "Management", "Yes", "Yes", 2, "Yes"]);
-    expect(ws.getRow(3).values).toEqual([undefined, "Sarah Lim", "s@x.my", "Ecopia", "Crew", "No", "No", 0, "No"]);
+    expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Management", "Yes", "Yes", 2, "Yes"]);
+    expect(ws.getRow(3).values).toEqual([undefined, "Sarah Lim", "s@x.my", "Crew", "No", "No", 0, "No"]);
   });
 
   it("honours a target below the booth count", () => {
     const ws = buildPassportWorkbook(attendees, booths, stamps.slice(0, 1), 1).getWorksheet("Booth Passport")!;
-    expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Ecopia", "Management", "Yes", "No", 1, "Yes"]);
+    expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Management", "Yes", "No", 1, "Yes"]);
   });
 
-  it("reads company from extra once it becomes a field, not only the raw column", () => {
+  it("leaves company off the sheet even when the attendee has one", () => {
     const withFieldCompany = [
       { id: "a3", name: "Nadia Rahman", email: "n@x.my", category: "VIP", extra: { company: "Northwind" } },
     ] as unknown as Parameters<typeof buildPassportWorkbook>[0];
     const ws = buildPassportWorkbook(withFieldCompany, booths, [], null).getWorksheet("Booth Passport")!;
-    expect(ws.getRow(2).values).toEqual([undefined, "Nadia Rahman", "n@x.my", "Northwind", "VIP", "No", "No", 0, "No"]);
+    expect(ws.getRow(2).values).toEqual([undefined, "Nadia Rahman", "n@x.my", "VIP", "No", "No", 0, "No"]);
   });
 });

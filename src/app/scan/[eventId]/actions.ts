@@ -18,7 +18,7 @@ export type ScanResult = {
   attendee?: Attendee; fields?: { label: string; value: string }[]; earlier?: { at: string }; message?: string;
 };
 
-export type SearchHit = Pick<Attendee, "id" | "name" | "category"> & { company: string | null; table_no: string | null; checkedIn: boolean };
+export type SearchHit = Pick<Attendee, "id" | "name" | "category"> & { table_no: string | null; checkedIn: boolean };
 
 /**
  * Two doors into the same scanner (D110).
@@ -111,7 +111,6 @@ export async function searchAttendeesAction(eventId: string, q: string, checkpoi
   return rows.slice(0, 20).map((a) => ({
     id: a.id,
     name: a.name,
-    company: has("company") ? fieldValue(a, "company") || null : null,
     category: a.category,
     table_no: has("table_no") ? fieldValue(a, "table_no") || null : null,
     checkedIn: checkedIn.has(a.id),

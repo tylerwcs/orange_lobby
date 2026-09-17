@@ -182,15 +182,22 @@ describe("fields the event may or may not have", () => {
       .toEqual(["category", "table_no"]);
   });
 
-  it("still shows company, mobile and table by default even though they are fields now, not built-ins", () => {
+  it("still shows mobile and table by default even though they are fields now, not built-ins", () => {
     // A fresh browser on a new laptop at the registration desk must see them without anyone
     // first opening the Columns menu, the same as before migration 0014.
     const withLegacy = allColumns(
-      [{ key: "company", label: "Company", type: "text" }, { key: "phone", label: "Mobile", type: "phone" }],
+      [{ key: "phone", label: "Mobile", type: "phone" }],
       [{ key: "table_no", label: "Table", type: "text" }],
     );
-    expect(defaultHidden(withLegacy)).not.toContain("company");
     expect(defaultHidden(withLegacy)).not.toContain("phone");
     expect(defaultHidden(withLegacy)).not.toContain("table_no");
+  });
+
+  it("starts company hidden, like any other field the event happens to define", () => {
+    // Company kept its default-visible slot long after migration 0014 made it an ordinary
+    // field. It is ordinary in this respect too now: an event that wants it at the desk
+    // ticks it in the Columns menu, the same as Shirt Size or Department.
+    const cols = allColumns([{ key: "company", label: "Company", type: "text" }], []);
+    expect(defaultHidden(cols)).toContain("company");
   });
 });

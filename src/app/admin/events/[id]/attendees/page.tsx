@@ -37,7 +37,6 @@ const IMPORT_COLUMNS: [string, string][] = [
   ["Name", "Required. Blank rows are skipped and reported back."],
   ["Email", "Matches existing attendees. Rows with one update; rows without are always added."],
   ["Phone", "Kept as text, so leading zeros survive."],
-  ["Company", "Shown to crew on the scan card."],
   ["Category", "Drives which agenda sessions the attendee sees."],
   ["Table", "Shown to the attendee and on the crew scan card."],
   ["Anything else", "Kept under its own header. Add a column of the same name to edit it in the app."],

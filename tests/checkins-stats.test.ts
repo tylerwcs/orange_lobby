@@ -51,11 +51,18 @@ describe("recentScans", () => {
     expect(out[0].tableNo).toBe("03");
   });
 
-  it("reads company and table through `fieldValue`, out of extra", () => {
+  it("reads table through `fieldValue`, out of extra", () => {
     const migrated = attendee("a3", "Post-migration Pat", { extra: { company: "Fresh Co", table_no: "07" } });
     const out = recentScans([scan("c1", "2026-09-30T08:41:00+08:00", "a3")], [migrated], 10);
-    expect(out[0].company).toBe("Fresh Co");
     expect(out[0].tableNo).toBe("07");
+  });
+
+  it("does not carry company, which no row ever rendered", () => {
+    // The feed shows name, checkpoint and table. Company rode along in the row type without
+    // reaching a screen, so it went with the rest of company's built-in treatment.
+    const withCompany = attendee("a4", "Kavitha Subramaniam", { extra: { company: "Fresh Co" } });
+    const out = recentScans([scan("c1", "2026-09-30T08:41:00+08:00", "a4")], [withCompany], 10);
+    expect(out[0]).not.toHaveProperty("company");
   });
 
   it("marks the later of two scans at the same checkpoint as a duplicate", () => {
@@ -95,7 +102,6 @@ describe("recentScans", () => {
     const out = recentScans([scan("c1", "2026-09-30T08:41:00+08:00", "ghost")], people, 10);
     expect(out).toHaveLength(1);
     expect(out[0].name).toBe("Removed attendee");
-    expect(out[0].company).toBeNull();
     expect(out[0].tableNo).toBeNull();
   });
 });

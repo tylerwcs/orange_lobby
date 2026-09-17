@@ -23,12 +23,13 @@ const INPUT_TYPE: Record<string, string> = { phone: "tel", number: "number" };
 const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMode"]> = { phone: "tel", number: "decimal" };
 
 /**
- * Phone gets its autofill hint from the type, the same as INPUT_TYPE above. Company has no
- * type of its own — it is a plain text question — so it is matched by the key the migration
- * always seeds it under, the same key the old hardcoded field posted as.
+ * Autofill hints come from the question's type, the same as INPUT_TYPE above.
+ *
+ * Company used to be matched by key here and hinted as "organization" — the one question
+ * whose key the form knew by name. A hint is cheap to lose and the special case was not:
+ * a question type is the only thing this should read.
  */
 function autoCompleteFor(q: RegistrationQuestion): string | undefined {
-  if (q.key === "company") return "organization";
   return q.type === "phone" ? "tel" : undefined;
 }
 

@@ -14,7 +14,7 @@ export function checkinStatus(attendeeId: string, checkins: Checkin[]): CheckinS
 }
 
 export type ScanRow = {
-  checkinId: string; attendeeId: string; name: string; company: string | null;
+  checkinId: string; attendeeId: string; name: string;
   tableNo: string | null; checkpointId: string; at: string; duplicate: boolean;
 };
 
@@ -53,7 +53,6 @@ export function recentScans(checkins: Checkin[], attendees: Attendee[], limit: n
         name: a?.name ?? "Removed attendee",
         // `fieldValue`, not `a.extra` directly: it trims, and it is the one place that
         // knows how to read a field's value.
-        company: a ? fieldValue(a, "company") : null,
         tableNo: a ? fieldValue(a, "table_no") : null,
         checkpointId: c.checkpoint_id,
         at: c.scanned_at,

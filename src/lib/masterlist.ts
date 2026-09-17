@@ -15,12 +15,17 @@ const TEMPLATE: Record<string, keyof AttendeeInput> = {
 };
 
 /**
- * The spellings a spreadsheet uses for the three fields that used to be columns. An event
- * that has defined them under its own labels is matched by extraKeyFor first; this is the
- * fallback that keeps a client's existing template importing without being re-labelled.
+ * The spellings a spreadsheet uses for the fields that used to be columns. An event that has
+ * defined them under its own labels is matched by extraKeyFor first; this is the fallback
+ * that keeps a client's existing template importing without being re-labelled.
+ *
+ * Company is deliberately absent. An event that collects it defines it, and the label match
+ * finds it; an event that does not should get "Company" stored under its own header and
+ * offered in the "add a column" suggestions, exactly like Seat or Dietary. Reserving the key
+ * for a fact the event never asked for is the privilege company no longer has.
  */
 const LEGACY_HEADERS: Record<string, string> = {
-  mobile: "phone", phone: "phone", company: "company", table: "table_no", "table no": "table_no",
+  mobile: "phone", phone: "phone", table: "table_no", "table no": "table_no",
 };
 
 function cellText(v: ExcelJS.CellValue): string {

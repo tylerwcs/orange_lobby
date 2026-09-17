@@ -230,12 +230,12 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
           </section>
 
           <div>
-            <label htmlFor="scan-search" className="sr-only">Search attendees by name, email or company</label>
+            <label htmlFor="scan-search" className="sr-only">Search attendees by name or email</label>
             <InputGroup className="h-12">
               <InputGroupAddon><Search /></InputGroupAddon>
               <InputGroupInput
                 id="scan-search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" enterKeyHint="search"
-                placeholder="Search name, email or company" className="h-12 text-base"
+                placeholder="Search name or email" className="h-12 text-base"
               />
               {/* Badges do not always scan, and the next person is waiting: clearing a search has to
                   be one tap rather than a held backspace. */}
@@ -255,7 +255,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
                     className="h-auto min-h-14 w-full justify-start gap-3 px-4 py-2.5 text-left">
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-bold">{h.name}</span>
-                      <span className="truncate text-xs font-normal text-muted-foreground">{[h.company, h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</span>
+                      <span className="truncate text-xs font-normal text-muted-foreground">{[h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</span>
                     </span>
                     {h.checkedIn ? <Badge variant="success">Already in</Badge> : <Badge>Check in</Badge>}
                   </Button>
@@ -268,7 +268,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
             <Empty className="border border-dashed py-6">
               <EmptyHeader>
                 <EmptyTitle>No one matches &ldquo;{q.trim()}&rdquo;</EmptyTitle>
-                <EmptyDescription>Try a shorter name, or part of their company.</EmptyDescription>
+                <EmptyDescription>Try a shorter name, or the email they registered with.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}

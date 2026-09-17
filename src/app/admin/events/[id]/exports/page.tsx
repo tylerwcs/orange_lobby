@@ -27,7 +27,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
     },
     {
       href: `${b}/links.xlsx`, icon: "link", name: "Personal links",
-      what: "Name, email, company, category, table and each attendee's personal portal link. This is the sheet to mail-merge from.",
+      what: "Name, email, category, table and each attendee's personal portal link. This is the sheet to mail-merge from.",
     },
     {
       href: `${b}/qr.zip`, icon: "qr", name: "QR codes",
