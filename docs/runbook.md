@@ -146,9 +146,9 @@ days after.** Until that code lands, the admin "add attendee" and attendee-detai
 post straight to the `company`, `phone` and `table_no` columns, and several readers — the
 attendee table, the attendee's own seat page, the badge card, the attendance export — still
 read those columns directly, with no fallback to `extra`. Only `fieldValue()` (the scan card
-and the admin table's field-driven pins) reads `extra` first and falls back to the column. Run
-0014 while the old forms and column readers are still live and you get two writable homes for
-the same fact: an edit made at the front desk lands in `extra`, the legacy form and its readers
+and the attendee's own badge pins) reads `extra` first and falls back to the column. Run 0014
+while the old forms and column readers are still live and you get two writable homes for the
+same fact: an edit made at the front desk lands in `extra`, the legacy form and its readers
 keep showing the old column value, and the two silently disagree. That is a correctness bug,
 not a missing-migration problem, and no amount of re-running 0014 fixes it — only shipping the
 code that retires the legacy paths does.
@@ -160,6 +160,16 @@ What breaks is a **pin**: migration 0006 pinned `table_no` for every event that 
 migration runs no field named `table_no` exists — so the attendee-facing badge card silently
 loses its table number. That's the surface nobody is watching on event day, because everyone's
 eyes are on the scanner and the admin table, not on an attendee's own phone.
+
+The same window also **duplicates a column**, harmlessly: `buildAttendanceWorkbook` in
+`src/lib/exports.ts` prints fixed Phone/Company/Table columns straight from the attendee
+columns, then appends `attendanceExtraColumns(...)`, built from the event's field list — which,
+once 0014 defines company, phone and table_no as fields, now includes them too. Until the code
+that retires the fixed export columns ships, an attendance workbook shows Company, Mobile and
+Table twice. This is expected, not a bug: the pair agree, because both read the same values
+through the same window this whole gate is about, and they stop duplicating the moment the
+legacy export columns retire — the same reason this gate says to ship the code and the
+migration together rather than leaving days between them.
 
 > Deploy the code that retires the legacy company/phone/table_no inputs and column readers
 > together with this migration, applying 0014 as part of that same deploy — never the
@@ -235,20 +245,21 @@ than deleted it, and this migration does not change that. One side effect: those
 show up in the "add a column" suggestions (`unclaimedKeys`) for an event that has the field
 switched off, since the key is present in `extra` with no field claiming it.
 
-Verify — the first three must all return 0:
+Verify — mirror statement 2's own definition of "has a value" (`nullif(col, '')`, not bare
+`is not null`), so a blank string is not counted as a missed row. All three must return 0:
 
 ```sql
-select count(*) from attendees where company  is not null and not extra ? 'company';
-select count(*) from attendees where phone    is not null and not extra ? 'phone';
-select count(*) from attendees where table_no is not null and not extra ? 'table_no';
+select count(*) from attendees where nullif(company, '')  is not null and not extra ? 'company';
+-- expect 0
+select count(*) from attendees where nullif(phone, '')    is not null and not extra ? 'phone';
+-- expect 0
+select count(*) from attendees where nullif(table_no, '') is not null and not extra ? 'table_no';
+-- expect 0
 ```
 
-If any of the three comes back non-zero, do not re-run statement 2 as a fix by itself — first
-check whether the mismatched rows have a blank string rather than null in the column (statement
-2 correctly skips those; the query above does too, since `is not null` on an empty string is
-still true — so a genuine non-zero count here means something else went wrong, e.g. the
-statement was interrupted or edited). Compare the specific attendee rows before re-running
-anything.
+If any of the three comes back non-zero, statement 2 is idempotent — re-run the whole numbered
+block and check again. If the count still doesn't come back to 0, stop. Do not proceed to
+deploy; report the count and the affected event before going further.
 
 and this must return one row per event that collects anything:
 
