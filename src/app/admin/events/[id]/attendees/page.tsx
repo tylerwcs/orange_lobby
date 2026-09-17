@@ -22,6 +22,7 @@ import { AddColumnForm } from "@/components/admin/AddColumnForm";
 import { FieldInputs } from "@/components/admin/FieldInputs";
 import { allColumns, bulkFields, columnsCookieName, parseTablePrefs, tableCookieName } from "@/lib/columns";
 import { eventFields, fieldsFromQuestions, unclaimedKeys } from "@/lib/attendee-fields";
+import { fieldValue } from "@/lib/attendee-values";
 import { buttonVariants } from "@/components/ui/button";
 import { paginate } from "@/lib/paginate";
 
@@ -121,10 +122,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
             <Modal title="Add an attendee" hint="For someone who is not on the masterlist and is not registering themselves." trigger="Add attendee" icon="plus">
               <form action={addAttendeeAction.bind(null, ev.id)} className="grid gap-3 md:grid-cols-2">
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
-                {ev.collected_fields.includes("phone") && <Field label="Mobile" name="phone" />}
-                {ev.collected_fields.includes("company") && <Field label="Company" name="company" />}
                 <Field label="Category" name="category" />
-                {ev.collected_fields.includes("table_no") && <Field label="Table" name="table_no" />}
                 <FieldInputs fields={allFields} />
                 <input type="hidden" name="source" value="import" />
                 <div className="md:col-span-2"><SubmitButton>Add attendee</SubmitButton></div>
@@ -181,15 +179,15 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           id: a.id,
           name: a.name,
           email: a.email,
-          company: a.company,
           category: a.category,
-          table_no: a.table_no,
           source: a.source,
           checkedInAt: earliestScan.get(a.id) ?? null,
           // Only the defined columns cross to the client: an unmapped header an import
-          // left in `extra` has no column to land in and stays on the server.
+          // left in `extra` has no column to land in and stays on the server. `fieldValue`
+          // rather than `a.extra` directly, so company/phone/table still show up while they
+          // live in the legacy columns, pre-migration.
           values: {
-            ...Object.fromEntries(allFields.map((f) => [f.key, a.extra?.[f.key] ?? ""])),
+            ...Object.fromEntries(allFields.map((f) => [f.key, fieldValue(a, f.key)])),
             // The assignment, not the spreadsheet value the import left in `extra` — those
             // two disagree the moment somebody is moved, and the assignment is the one the
             // attendee's phone shows.

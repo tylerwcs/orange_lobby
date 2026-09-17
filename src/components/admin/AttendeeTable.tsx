@@ -24,9 +24,7 @@ export type AttendeeRow = {
   id: string;
   name: string;
   email: string | null;
-  company: string | null;
   category: string | null;
-  table_no: string | null;
   source: AttendeeSource;
   checkedInAt: string | null;
   values: Record<string, string>;
@@ -37,9 +35,9 @@ type TableAction = (formData: FormData) => void | Promise<void>;
 function cell(a: AttendeeRow, key: string) {
   switch (key) {
     case "email": return a.email;
-    case "company": return a.company;
     case "category": return a.category;
-    case "table_no": return a.table_no;
+    // company, phone and table_no are fields now — they arrive through `values`, which is
+    // built from the event's fields, exactly like Dietary.
     case "source": return <span className="text-muted-foreground">{a.source}</span>;
     case "checked_in":
       return a.checkedInAt

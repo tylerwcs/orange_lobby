@@ -10,7 +10,8 @@ import { isoToLocalInput } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { safeFileName } from "@/lib/filenames";
 import { scannerNames, shortScanner } from "@/lib/db/users";
-import { fieldsFromQuestions } from "@/lib/attendee-fields";
+import { eventFields } from "@/lib/attendee-fields";
+import { fieldValue } from "@/lib/attendee-values";
 import { Field } from "@/components/admin/Field";
 import { FieldInputs } from "@/components/admin/FieldInputs";
 import { CopyLink } from "@/components/admin/CopyLink";
@@ -53,11 +54,10 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
 export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
   const { ev, a, cps, scans, crew, link, qr } = data;
   const firstScan = cps.map((c) => scans[c.id]?.at).filter(Boolean).sort()[0];
-  // Two groups, because they are edited for different reasons: the first is what someone
-  // told you when they signed up, the second is what you learned since.
-  const registrationFields = fieldsFromQuestions(ev.registration_questions);
-  const claimed = new Set(registrationFields.map((f) => f.key));
-  const customFields = ev.attendee_fields.filter((f) => !claimed.has(f.key));
+  const fields = eventFields(ev.registration_questions, ev.attendee_fields);
+  // `fieldValue`, not `a.extra` directly: company/phone/table may still live only in the
+  // legacy columns until migration 0014 runs, and the edit form has to show what is there.
+  const fieldValues = Object.fromEntries(fields.map((f) => [f.key, fieldValue(a, f.key)]));
 
   return (
     <div>
@@ -71,7 +71,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
             {firstScan
               ? <Badge variant="success">In at {hhmm(firstScan)}</Badge>
               : <Badge variant="warning">Not checked in</Badge>}
-            {a.table_no && ev.collected_fields.includes("table_no") && <Badge variant="secondary">Table {a.table_no}</Badge>}
+            {fieldValue(a, "table_no") && <Badge variant="secondary">Table {fieldValue(a, "table_no")}</Badge>}
           </div>
           <a href={link} className="block break-all font-mono text-xs leading-relaxed text-primary">{link}</a>
           <div className="flex flex-wrap gap-2">
@@ -94,38 +94,14 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
               <h3 className={`${caption} mb-2.5`}>Details</h3>
               <div className="grid gap-3 @md:grid-cols-2">
                 <Field label="Name" name="name" defaultValue={a.name} /><Field label="Email" name="email" defaultValue={a.email} />
-                {/* Only what this event collects. A value already stored under a field that
-                    was switched off is kept, just not shown or editable here. */}
-                {ev.collected_fields.includes("phone") && <Field label="Mobile" name="phone" defaultValue={a.phone} />}
-                {ev.collected_fields.includes("company") && <Field label="Company" name="company" defaultValue={a.company} />}
                 <Field label="Category" name="category" defaultValue={a.category} />
-                {ev.collected_fields.includes("table_no") && <Field label="Table" name="table_no" defaultValue={a.table_no} />}
+                {/* Every other fact — company, phone, table and whatever the registration
+                    form or the organiser added — is a field now, so one list renders all
+                    of them rather than three sections that used to disagree about which
+                    was which. */}
+                <FieldInputs fields={fields} values={fieldValues} />
               </div>
             </section>
-
-            {registrationFields.length > 0 && (
-              <section>
-                <div className="mb-2.5 flex flex-wrap items-baseline gap-2.5">
-                  <h3 className={caption}>Registration</h3>
-                  <span className="text-xs text-muted-foreground">What the form asked</span>
-                </div>
-                <div className="grid gap-3 @md:grid-cols-2">
-                  <FieldInputs fields={registrationFields} values={a.extra} />
-                </div>
-              </section>
-            )}
-
-            {customFields.length > 0 && (
-              <section>
-                <div className="mb-2.5 flex flex-wrap items-baseline gap-2.5">
-                  <h3 className={caption}>Your columns</h3>
-                  <span className="text-xs text-muted-foreground">Added on the attendees table</span>
-                </div>
-                <div className="grid gap-3 @md:grid-cols-2">
-                  <FieldInputs fields={customFields} values={a.extra} />
-                </div>
-              </section>
-            )}
           </div>
 
           {/* A list of moments rather than a list of rows: the dot carries the state, and

@@ -207,9 +207,11 @@ function attendeeInputFrom(ev: Event, formData: FormData, existingExtra: Record<
     const v = formData.get(k);
     return typeof v === "string" ? v : null;
   });
+  // phone, company and table_no are no longer written here — they arrive in `values` as
+  // ordinary fields, in `extra`. Nothing writes the legacy columns any more.
   return {
-    name: str(formData, "name") ?? "", email: str(formData, "email"), phone: str(formData, "phone"), company: str(formData, "company"),
-    category: str(formData, "category"), table_no: str(formData, "table_no"), extra: mergeExtra(existingExtra, values),
+    name: str(formData, "name") ?? "", email: str(formData, "email"),
+    category: str(formData, "category"), extra: mergeExtra(existingExtra, values),
   };
 }
 
