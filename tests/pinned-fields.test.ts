@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parsePinnedFields, resolvePins, pinnableFields, addPin, removePin, reorderPins, pinScale, hydratePins, MAX_PINS } from "@/lib/pinned-fields";
+import {
+  parsePinnedFields, resolvePins, pinnableFields, addPin, removePin, reorderPins, pinScale, hydratePins, MAX_PINS,
+  pinValue, NATIVE_PINNABLE,
+} from "@/lib/pinned-fields";
 import type { Attendee } from "@/lib/types";
 
 const attendee = (over: Partial<Attendee> = {}): Attendee => ({
@@ -13,6 +16,8 @@ const fields = [
   { key: "room_no", label: "Room number", type: "text" as const },
   { key: "room_partner", label: "Hotel room partner", type: "text" as const },
   { key: "dietary", label: "Dietary", type: "text" as const },
+  // table_no is no longer native — an event pins it because it defined the field itself.
+  { key: "table_no", label: "Table", type: "text" as const },
 ];
 
 describe("parsePinnedFields", () => {
@@ -43,7 +48,7 @@ describe("parsePinnedFields", () => {
 });
 
 describe("resolvePins", () => {
-  it("reads a native column and an extra key alike", () => {
+  it("reads a field still in its legacy column and one already in extra alike", () => {
     const out = resolvePins([{ key: "table_no" }, { key: "room_no" }], attendee(), fields);
     expect(out).toEqual([{ key: "table_no", label: "Table", value: "12" }, { key: "room_no", label: "Room number", value: "1204" }]);
   });
@@ -69,7 +74,7 @@ describe("resolvePins", () => {
 describe("pinnableFields", () => {
   it("offers native columns and the event's own fields together", () => {
     const keys = pinnableFields([{ key: "shirt_size", label: "Shirt size", type: "text", required: false }], [{ key: "room_no", label: "Room number", type: "text" }]).map((f) => f.key);
-    expect(keys).toContain("table_no");
+    expect(keys).toContain("category");
     expect(keys).toContain("shirt_size");
     expect(keys).toContain("room_no");
   });
@@ -142,37 +147,18 @@ describe("hydratePins", () => {
   });
 });
 
-describe("pinnableFields and what the event collects", () => {
-  it("does not offer a field the event has switched off", () => {
-    const keys = pinnableFields([], [], ["company"]).map((f) => f.key);
-    expect(keys).toContain("company");
-    expect(keys).not.toContain("table_no");
-    expect(keys).not.toContain("phone");
+describe("pins without native company, phone or table", () => {
+  it("resolves a pin stored as company out of extra", () => {
+    const a = { extra: { company: "Ecopia" } } as never;
+    expect(pinValue(a, "company")).toBe("Ecopia");
   });
 
-  it("still offers the fields that carry behaviour", () => {
-    const keys = pinnableFields([], [], []).map((f) => f.key);
-    expect(keys).toEqual(expect.arrayContaining(["email", "category"]));
-  });
-});
-
-describe("resolvePins and what the event collects", () => {
-  it("drops a pin for a field the event has switched off", () => {
-    // Settings promises that switching a field off hides it everywhere. The badge is the
-    // most visible "everywhere" there is — an attendee's own phone.
-    const pins = [{ key: "table_no" }, { key: "room_no" }];
-    const out = resolvePins(pins, attendee(), fields, ["company"]);
-    expect(out.map((p) => p.key)).toEqual(["room_no"]);
+  it("still resolves a pin while the value is only in the legacy column", () => {
+    const a = { company: "Ecopia", extra: {} } as never;
+    expect(pinValue(a, "company")).toBe("Ecopia");
   });
 
-  it("keeps the pin itself, so turning the field back on restores the badge", () => {
-    // Only the rendering is suppressed; nothing rewrites events.pinned_fields.
-    const pins = [{ key: "table_no" }];
-    expect(resolvePins(pins, attendee(), fields, [])).toEqual([]);
-    expect(resolvePins(pins, attendee(), fields, ["table_no"])).toHaveLength(1);
-  });
-
-  it("never drops a field that carries behaviour", () => {
-    expect(resolvePins([{ key: "category" }], attendee(), fields, []).map((p) => p.key)).toEqual(["category"]);
+  it("offers only email and category natively — the rest are the event's fields", () => {
+    expect(NATIVE_PINNABLE.map((f) => f.key)).toEqual(["email", "category"]);
   });
 });

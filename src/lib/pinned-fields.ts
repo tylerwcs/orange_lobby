@@ -1,5 +1,5 @@
 import { eventFields, type AttendeeField } from "@/lib/attendee-fields";
-import { COLLECTED_FIELDS, type CollectedField } from "@/lib/collected-fields";
+import { fieldValue } from "@/lib/attendee-values";
 import type { Attendee, RegistrationQuestion } from "@/lib/types";
 
 /**
@@ -17,15 +17,14 @@ export type PinnedField = { key: string; label?: string };
 export const MAX_PINS = 3;
 
 /**
- * Native attendee columns that may be pinned. `name` is absent on purpose: it is the
- * heading of the card the pins sit under.
+ * Columns of the attendee row that may be pinned. company, phone and table_no are not
+ * here any more: they are the event's own fields, so they arrive through eventFields and
+ * are pinnable without being special. `name` is absent on purpose: it is the heading of
+ * the card the pins sit under.
  */
 export const NATIVE_PINNABLE: AttendeeField[] = [
-  { key: "company", label: "Company", type: "text" },
   { key: "email", label: "Email", type: "text" },
-  { key: "phone", label: "Mobile", type: "text" },
   { key: "category", label: "Category", type: "text" },
-  { key: "table_no", label: "Table", type: "text" },
 ];
 
 const NATIVE_KEYS = new Set(NATIVE_PINNABLE.map((f) => f.key));
@@ -51,13 +50,13 @@ export function parsePinnedFields(raw: unknown): PinnedField[] {
   return out;
 }
 
-/** The value behind a pin: a column on the row, or a key in `extra`. */
+/** The value behind a pin: a column the row still owns, or a field. */
 export function pinValue(attendee: Attendee, key: string): string {
   if (NATIVE_KEYS.has(key)) {
     const v = (attendee as unknown as Record<string, unknown>)[key];
     return typeof v === "string" ? v.trim() : "";
   }
-  return (attendee.extra?.[key] ?? "").trim();
+  return fieldValue(attendee, key);
 }
 
 export type ResolvedPin = { key: string; label: string; value: string };
@@ -73,18 +72,10 @@ export function resolvePins(
   pins: PinnedField[],
   attendee: Attendee,
   fields: AttendeeField[],
-  collected: CollectedField[] = [...COLLECTED_FIELDS],
 ): ResolvedPin[] {
   const known = new Map([...NATIVE_PINNABLE, ...fields].map((f) => [f.key, f]));
-  const uses = new Set<string>(collected);
-  const optional = new Set<string>(COLLECTED_FIELDS);
   const out: ResolvedPin[] = [];
   for (const pin of pins) {
-    // A field the event no longer collects stops rendering, but its pin is left in place:
-    // Settings promises switching one off hides it everywhere, and the badge on somebody's
-    // phone is the most public "everywhere" there is. Turning it back on restores the badge
-    // without anyone re-pinning.
-    if (optional.has(pin.key) && !uses.has(pin.key)) continue;
     const field = known.get(pin.key);
     if (!field) continue; // the column was deleted; the pin stops rendering
     const value = pinValue(attendee, pin.key);
@@ -102,15 +93,10 @@ export function resolvePins(
 export function pinnableFields(
   questions: RegistrationQuestion[],
   custom: AttendeeField[],
-  collected: CollectedField[] = [...COLLECTED_FIELDS],
 ): AttendeeField[] {
   const own = eventFields(questions, custom);
   const claimed = new Set(own.map((f) => f.key));
-  const uses = new Set<string>(collected);
-  const optional = new Set<string>(COLLECTED_FIELDS);
-  // A field the event does not collect is never offered for the badge: there would be
-  // nothing behind the pin for anybody.
-  return [...NATIVE_PINNABLE.filter((f) => !claimed.has(f.key) && (!optional.has(f.key) || uses.has(f.key))), ...own];
+  return [...NATIVE_PINNABLE.filter((f) => !claimed.has(f.key)), ...own];
 }
 
 export type PinResult = { ok: true; pins: PinnedField[] } | { ok: false; error: string };

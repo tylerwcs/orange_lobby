@@ -92,7 +92,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const days = eventDays(ev.starts_on, ev.ends_on);
   const crewExpiry = crewLinkLastDay(ev);
 
-  const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields, ev.collected_fields);
+  const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields);
   const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
 
   return (
