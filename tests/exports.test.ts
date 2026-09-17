@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook } from "@/lib/exports";
+import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook } from "@/lib/exports";
 import { safeFileName } from "@/lib/filenames";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Booth, BoothStamp } from "@/lib/types";
@@ -44,6 +44,21 @@ describe("exports", () => {
     const ws = buildAttendanceWorkbook(attendees, [] as never, [] as never, {}, fields).getWorksheet("Attendance")!;
     expect(ws.getRow(1).getCell(8).value).toBe("Room number");
     expect(ws.getRow(2).getCell(8).value).toBe("12A");
+  });
+
+  it("keeps the sheet's column order after company became a field", () => {
+    const rows = [{ name: "Sam", email: "s@x.com", category: "VIP", extra: { phone: "012", company: "Ecopia", table_no: "7" } }] as never[];
+    expect(attendeeSheetRow(rows[0], [])).toEqual(["Sam", "s@x.com", "012", "Ecopia", "VIP", "7", undefined]);
+  });
+
+  it("excludes company, phone and table_no from the extras block once they are fields, so nothing doubles up", () => {
+    const fields: AttendeeField[] = [
+      { key: "company", label: "Company", type: "text" },
+      { key: "phone", label: "Phone", type: "phone" },
+      { key: "table_no", label: "Table", type: "text" },
+      { key: "flight", label: "Flight", type: "text" },
+    ];
+    expect(attendanceExtraColumns([{ extra: {} }], fields)).toEqual([{ key: "flight", label: "Flight" }]);
   });
 });
 

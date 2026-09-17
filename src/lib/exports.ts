@@ -3,6 +3,9 @@ import type { Attendee, Checkin, Checkpoint, Booth, BoothStamp } from "@/lib/typ
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { SlotRoster } from "@/lib/breakouts";
 import { completionByAttendee } from "@/lib/booths";
+import { fieldValue, LEGACY_COLUMN_KEYS } from "@/lib/attendee-values";
+
+const LEGACY = new Set<string>(LEGACY_COLUMN_KEYS);
 
 export type LinkRow = { name: string; email: string | null; company: string | null; category: string | null; table_no: string | null; link: string };
 
@@ -20,11 +23,30 @@ export function buildLinksWorkbook(rows: LinkRow[]): ExcelJS.Workbook {
  * columns first, under their current labels, then anything else that turned up in
  * `extra` — a header an imported masterlist brought along that nobody declared — under
  * its raw key, so importing a spreadsheet and exporting it again is lossless.
+ *
+ * Company, phone and table_no are excluded even once they are ordinary fields: the sheet
+ * already carries them as fixed columns (via attendeeSheetRow), so leaving them in here
+ * would print every value twice.
  */
 export function attendanceExtraColumns(attendees: Pick<Attendee, "extra">[], fields: AttendeeField[]): { key: string; label: string }[] {
-  const defined = new Set(fields.map((f) => f.key));
+  const relevant = fields.filter((f) => !LEGACY.has(f.key));
+  const defined = new Set(relevant.map((f) => f.key));
   const seen = Array.from(new Set(attendees.flatMap((a) => Object.keys(a.extra ?? {}))));
-  return [...fields.map((f) => ({ key: f.key, label: f.label })), ...seen.filter((k) => !defined.has(k)).map((k) => ({ key: k, label: k }))];
+  return [...relevant.map((f) => ({ key: f.key, label: f.label })), ...seen.filter((k) => !defined.has(k) && !LEGACY.has(k)).map((k) => ({ key: k, label: k }))];
+}
+
+/**
+ * One attendee's row for the Attendance sheet, pulled out so the fixed-column assembly is
+ * testable without building a workbook. Phone, Company and Table read through fieldValue so
+ * they keep working once the columns they used to be are dropped; `extraColumns` must already
+ * have the three legacy keys filtered out (attendanceExtraColumns does that) or a value prints
+ * twice.
+ */
+export function attendeeSheetRow(a: Pick<Attendee, "name" | "email" | "category" | "source" | "extra"> & Record<string, unknown>, extraColumns: { key: string }[]): unknown[] {
+  return [
+    a.name, a.email, fieldValue(a, "phone"), fieldValue(a, "company"), a.category, fieldValue(a, "table_no"),
+    a.source, ...extraColumns.map((c) => a.extra?.[c.key] ?? ""),
+  ];
 }
 
 export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick<Checkpoint, "id" | "name">[], checkins: Pick<Checkin, "checkpoint_id" | "attendee_id" | "scanned_at" | "scanned_by">[], scannerNames: Record<string, string>, fields: AttendeeField[] = []): ExcelJS.Workbook {
@@ -34,7 +56,7 @@ export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick
   const ws = wb.addWorksheet("Attendance");
   ws.addRow(["Name", "Email", "Phone", "Company", "Category", "Table", "Source", ...extraColumns.map((c) => c.label), ...checkpoints.flatMap((c) => [`${c.name} checked in`, `${c.name} time`, `${c.name} scanned by`])]);
   for (const a of attendees) {
-    const row: (string | null)[] = [a.name, a.email, a.phone, a.company, a.category, a.table_no, a.source, ...extraColumns.map((c) => a.extra?.[c.key] ?? "")];
+    const row = attendeeSheetRow(a, extraColumns);
     for (const c of checkpoints) {
       const ci = byKey.get(`${c.id}:${a.id}`);
       row.push(ci ? "Yes" : "No", ci ? new Date(ci.scanned_at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" }) : "", ci?.scanned_by ? scannerNames[ci.scanned_by] ?? ci.scanned_by : "");
