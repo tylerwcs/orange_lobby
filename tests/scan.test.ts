@@ -76,10 +76,17 @@ describe("scanFieldsFromForm", () => {
     expect(scanFieldsFromForm(many, withAll)).toHaveLength(MAX_SCAN_FIELDS);
   });
 
-  it("keeps a stored value that matches a field by label, as the old free-text box wrote them", () => {
+  it("keeps a stored value that matches a field by label, as the old free-text box wrote them — normalised to the field's key", () => {
     // scanResultFields resolves by key or label, so a setting written before the picker
-    // existed must survive a save made through it.
-    expect(scanFieldsFromForm(["Shirt size"], fields)).toEqual(["Shirt size"]);
+    // existed must survive a save made through it. It comes back out as the key: a label
+    // is not a stable identity (renaming the field changes it), the key is.
+    expect(scanFieldsFromForm(["Shirt size"], fields)).toEqual(["shirt_size"]);
+  });
+
+  it("collapses both spellings of the same field into one entry", () => {
+    // The old free-text box stored labels; the picker stores keys. A save made partway
+    // through migrating must not print the same field twice on the card.
+    expect(scanFieldsFromForm(["Shirt size", "shirt_size"], fields)).toEqual(["shirt_size"]);
   });
 });
 

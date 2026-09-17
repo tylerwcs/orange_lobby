@@ -16,16 +16,19 @@ export const MAX_SCAN_FIELDS = 4;
  *
  * A value is kept when it names a field by key OR by label, because the free-text box this
  * replaced stored labels — dropping those on the first save through the picker would empty
- * the card of an event that had configured it perfectly well.
+ * the card of an event that had configured it perfectly well. It is stored as the field's
+ * key regardless of which spelling was posted: a label is not a stable identity (renaming
+ * the field changes it, a key survives), and normalising is what collapses "Shirt size" and
+ * "shirt_size" posted together into one entry instead of printing the field twice.
  */
 export function scanFieldsFromForm(posted: string[], fields: AttendeeField[]): string[] {
   const out: string[] = [];
   for (const raw of posted) {
     const name = raw.trim();
-    if (!name || out.includes(name)) continue;
-    const known = fields.some((f) => f.key === name || f.label.toLowerCase() === name.toLowerCase());
-    if (!known) continue;
-    out.push(name);
+    if (!name) continue;
+    const field = fields.find((f) => f.key === name || f.label.toLowerCase() === name.toLowerCase());
+    if (!field || out.includes(field.key)) continue;
+    out.push(field.key);
     if (out.length === MAX_SCAN_FIELDS) break;
   }
   return out;

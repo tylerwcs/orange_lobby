@@ -12,10 +12,11 @@ import { Button } from "@/components/ui/button";
  * Posts through hidden inputs, same reason as the agenda combos: the form is server-rendered
  * and posts to a server action, so what's chosen has to exist as a real field by submit time.
  *
- * A stored value that matches none of the event's fields still renders — as its own row,
- * ticked and labelled "(stored)" — so a name that predates a since-deleted field, or a
- * label typed into the old free-text box that this replaces, is not silently dropped on the
- * next save.
+ * A stored value that matches none of the event's fields (a field since deleted, or a
+ * spelling `scanFieldsFromForm` cannot resolve) still renders, as its own removable row —
+ * but it is not kept: scanFieldsFromForm drops anything it cannot resolve to a field, because
+ * printing it on the scan card would just be a labelled blank line at a door. The row says so,
+ * so what Save is about to do is visible rather than a silent loss the organiser finds later.
  */
 export function FieldPicker({ name, fields, selected, max }: {
   name: string;
@@ -70,7 +71,7 @@ export function FieldPicker({ name, fields, selected, max }: {
               {atCap && <p className="px-1.5 pb-1 text-xs text-muted-foreground">Up to {max} at a time — remove one to add another.</p>}
               <div className="max-h-64 overflow-y-auto">
                 {orphans.map((v) => (
-                  <Row key={v} label={`${v} (stored)`} on onPick={() => removeOrphan(v)} disabled={false} />
+                  <OrphanRow key={v} value={v} onPick={() => removeOrphan(v)} />
                 ))}
                 {visible.length === 0 && orphans.length === 0 && (
                   <p className="px-1.5 py-2 text-xs text-muted-foreground">No fields match &ldquo;{filter}&rdquo;.</p>
@@ -99,6 +100,24 @@ function Row({ label, on, onPick, disabled }: { label: string; on: boolean; onPi
     >
       <Check size={16} className={on ? "opacity-100" : "opacity-0"} aria-hidden="true" />
       <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+/**
+ * A stored value with no field behind it — unlike Row, no tick, because there is nothing
+ * being "kept" here. Its copy says outright that Save drops it, so a click here only does
+ * sooner what Save is about to do anyway, rather than the row implying the value survives.
+ */
+function OrphanRow({ value, onPick }: { value: string; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className="flex min-h-11 w-full flex-col justify-center gap-0 rounded-md px-2.5 text-left text-sm hover:bg-accent"
+    >
+      <span className="truncate">{value}</span>
+      <span className="truncate text-xs text-muted-foreground">Stored, but no longer a field on this event — Save will remove it. Tap to remove now.</span>
     </button>
   );
 }
