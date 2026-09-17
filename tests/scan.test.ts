@@ -12,13 +12,40 @@ describe("extractToken", () => {
 });
 
 describe("scanResultFields", () => {
-  it("returns fixed fields then configured extras", () => {
-    const a = { name: "Ann", company: "Ecopia", category: "VIP", table_no: "3", extra: { Dietary: "Halal" }, phone: "012" } as unknown as Attendee;
-    const e = { scan_extra_fields: ["Dietary", "phone"] } as Event;
+  it("shows category, then the fields the event chose, resolved by key", () => {
+    const a = { category: "VIP", extra: { company: "Ecopia" } } as never;
+    const e = {
+      scan_extra_fields: ["company"],
+      attendee_fields: [{ key: "company", label: "Company", type: "text" as const }],
+      registration_questions: [],
+    };
     expect(scanResultFields(a, e)).toEqual([
-      { label: "Company", value: "Ecopia" }, { label: "Category", value: "VIP" }, { label: "Table", value: "3" },
-      { label: "Dietary", value: "Halal" }, { label: "phone", value: "012" },
+      { label: "Category", value: "VIP" },
+      { label: "Company", value: "Ecopia" },
     ]);
+  });
+
+  it("still resolves a field configured by its label, as the old free-text box stored it", () => {
+    const a = { category: "", extra: { shirt_size: "L" } } as never;
+    const e = {
+      scan_extra_fields: ["Shirt size"],
+      attendee_fields: [{ key: "shirt_size", label: "Shirt size", type: "text" as const }],
+      registration_questions: [],
+    };
+    expect(scanResultFields(a, e)).toEqual([
+      { label: "Category", value: "" },
+      { label: "Shirt size", value: "L" },
+    ]);
+  });
+
+  it("reads a value still sitting in the legacy column", () => {
+    const a = { category: "", company: "Ecopia", extra: {} } as never;
+    const e = {
+      scan_extra_fields: ["company"],
+      attendee_fields: [{ key: "company", label: "Company", type: "text" as const }],
+      registration_questions: [],
+    };
+    expect(scanResultFields(a, e)[1]).toEqual({ label: "Company", value: "Ecopia" });
   });
 
   it("finds a defined column named by its label, whose storage key is the slug", () => {
@@ -47,24 +74,5 @@ describe("describeCameraError", () => {
     expect(describeCameraError({ name: "NotReadableError" }).title).toBe("Camera is in use");
     expect(describeCameraError("Error getting userMedia, error = NotAllowedError: Permission denied").title).toBe("Camera blocked");
     expect(describeCameraError(new Error("boom")).title).toBe("Camera unavailable");
-  });
-});
-
-describe("scanResultFields and what the event collects", () => {
-  const a = { name: "Ann", company: "Ecopia", category: "VIP", table_no: "3", extra: {} } as unknown as Attendee;
-
-  it("leaves off a field the event does not collect", () => {
-    const e = { scan_extra_fields: [], collected_fields: ["company"] } as unknown as Event;
-    expect(scanResultFields(a, e).map((f) => f.label)).toEqual(["Company", "Category"]);
-  });
-
-  it("keeps Category whatever is collected, because the agenda filters on it", () => {
-    const e = { scan_extra_fields: [], collected_fields: [] } as unknown as Event;
-    expect(scanResultFields(a, e).map((f) => f.label)).toEqual(["Category"]);
-  });
-
-  it("shows all three for an event row from before the column existed", () => {
-    const e = { scan_extra_fields: [] } as unknown as Event;
-    expect(scanResultFields(a, e).map((f) => f.label)).toEqual(["Company", "Category", "Table"]);
   });
 });

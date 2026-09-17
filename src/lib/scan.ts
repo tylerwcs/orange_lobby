@@ -1,7 +1,7 @@
 import { isValidToken } from "@/lib/tokens";
 import type { Attendee, Event } from "@/lib/types";
 import { eventFields } from "@/lib/attendee-fields";
-import { COLLECTED_FIELDS } from "@/lib/collected-fields";
+import { fieldValue } from "@/lib/attendee-values";
 
 export function extractToken(scanned: string): string | null {
   const s = scanned.trim();
@@ -10,25 +10,23 @@ export function extractToken(scanned: string): string | null {
   return m && isValidToken(m[1]) ? m[1] : null;
 }
 
-export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields" | "attendee_fields" | "registration_questions"> & Partial<Pick<Event, "collected_fields">>) {
-  // A field this event does not collect is left off the card entirely rather than shown
-  // blank: crew read this in a second at a door, and a line that is always empty costs
-  // them one of those seconds every time. An event row from before migration 0008 has no
-  // list, which reads as collecting all three — what every event did before.
-  const collects = new Set<string>(e.collected_fields ?? COLLECTED_FIELDS);
-  const out = [
-    ...(collects.has("company") ? [{ label: "Company", value: a.company ?? "" }] : []),
-    { label: "Category", value: a.category ?? "" },
-    ...(collects.has("table_no") ? [{ label: "Table", value: a.table_no ?? "" }] : []),
-  ];
-  for (const key of e.scan_extra_fields) {
-    const direct = (a as unknown as Record<string, unknown>)[key];
-    if (typeof direct === "string") { out.push({ label: key, value: direct }); continue; }
-    // A configured name may be a raw `extra` key from an import, or the label of one of
-    // the event's own columns — whose storage key is the slug, not the label the
-    // organiser typed. Try the key first, then match a defined column by name.
-    const field = eventFields(e.registration_questions ?? [], e.attendee_fields ?? []).find((f) => f.label.toLowerCase() === key.toLowerCase());
-    out.push({ label: field?.label ?? key, value: a.extra[key] ?? (field ? a.extra[field.key] ?? "" : "") });
+/**
+ * The lines on a crew member's card after a scan: the category, then whatever fields this
+ * event chose to show.
+ *
+ * Company and Table used to be printed here by name. They are ordinary fields now, so an
+ * event that wants them on the card names them in Settings — and migration 0014 seeded
+ * exactly that for every event that showed them before.
+ */
+export function scanResultFields(a: Attendee, e: Pick<Event, "scan_extra_fields" | "attendee_fields" | "registration_questions">) {
+  const fields = eventFields(e.registration_questions ?? [], e.attendee_fields ?? []);
+  const out = [{ label: "Category", value: a.category ?? "" }];
+  for (const name of e.scan_extra_fields) {
+    // A configured name may be a field's key (what the picker stores) or its label (what
+    // the old free-text box stored). Either must find the field, or the card shows a raw
+    // slug like shirt_size to someone standing at a door.
+    const field = fields.find((f) => f.key === name || f.label.toLowerCase() === name.toLowerCase());
+    out.push({ label: field?.label ?? name, value: field ? fieldValue(a, field.key) : fieldValue(a, name) });
   }
   return out;
 }

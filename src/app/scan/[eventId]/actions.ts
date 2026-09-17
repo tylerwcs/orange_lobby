@@ -5,6 +5,7 @@ import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
 import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin } from "@/lib/db/checkins";
 import { getCheckpoint } from "@/lib/db/checkpoints";
 import { extractToken, scanResultFields } from "@/lib/scan";
+import { fieldValue } from "@/lib/attendee-values";
 import { crewLinkLive } from "@/lib/crew";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
@@ -98,19 +99,14 @@ export async function undoCheckinAction(eventId: string, checkpointId: string, a
 export async function searchAttendeesAction(eventId: string, q: string, checkpointId: string, crewToken?: string): Promise<SearchHit[]> {
   const auth = await authorise(eventId, crewToken);
   if ("error" in auth) return [];
-  const { ev } = auth;
   if (q.trim().length < 2) return [];
   const [rows, checkedIn] = await Promise.all([listAttendees(eventId, q), listCheckedInAttendeeIds(checkpointId)]);
-  // A field this event does not collect never reaches the crew's phone at all, rather than
-  // being filtered out once it is there. The subtitle under a search hit is built from
-  // whatever survives, so nulling it here is enough — and it keeps the wire honest.
-  const collects = new Set<string>(ev.collected_fields);
   return rows.slice(0, 20).map((a) => ({
     id: a.id,
     name: a.name,
-    company: collects.has("company") ? a.company : null,
+    company: fieldValue(a, "company") || null,
     category: a.category,
-    table_no: collects.has("table_no") ? a.table_no : null,
+    table_no: fieldValue(a, "table_no") || null,
     checkedIn: checkedIn.has(a.id),
   }));
 }
