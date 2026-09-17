@@ -14,10 +14,10 @@ export function isSearchable(q: string): boolean {
   return clean(q).length >= 1;
 }
 
-/** Builds the `or(...)` filter body matching name, email or company. */
+/** Builds the `or(...)` filter body matching name, email or the company field. */
 export function buildAttendeeSearchFilter(q: string): string {
   const term = clean(q);
-  return `name.ilike.%${term}%,email.ilike.%${term}%,company.ilike.%${term}%`;
+  return `name.ilike.%${term}%,email.ilike.%${term}%,extra->>company.ilike.%${term}%`;
 }
 
 /**
