@@ -2,6 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
+import { dropBlankAnswers } from "@/lib/registration";
 import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
@@ -83,7 +84,10 @@ export async function updateAttendee(id: string, patch: Partial<AttendeeInput>):
 export async function upsertByEmail(event: Pick<Event, "id" | "org_id">, input: AttendeeInput & { email: string }, source: AttendeeSource) {
   const existing = await findByEmail(event.id, input.email);
   if (existing) {
-    const extra = mergeExtra(existing.extra, input.extra);
+    // A blank answer never erases a value already on file: an upsert is how a
+    // re-registration and a walk-in both arrive, and neither is a reason to drop what
+    // the masterlist supplied.
+    const extra = mergeExtra(existing.extra, dropBlankAnswers(input.extra ?? {}));
     await updateAttendee(existing.id, { ...input, extra });
     return { attendee: { ...existing, ...input, email: input.email.toLowerCase(), extra } as Attendee, created: false };
   }
