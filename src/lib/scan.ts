@@ -1,6 +1,6 @@
 import { isValidToken } from "@/lib/tokens";
 import type { Attendee, Event } from "@/lib/types";
-import { eventFields, type AttendeeField } from "@/lib/attendee-fields";
+import { eventFields, keyMatchesField, type AttendeeField } from "@/lib/attendee-fields";
 import { fieldValue } from "@/lib/attendee-values";
 
 /**
@@ -12,23 +12,30 @@ export const MAX_SCAN_FIELDS = 4;
 
 /**
  * The scan fields a save may store: the ones picked, in the order picked, minus repeats
- * and anything this event has no field for, capped.
+ * and anything past the cap.
  *
- * A value is kept when it names a field by key OR by label, because the free-text box this
- * replaced stored labels — dropping those on the first save through the picker would empty
- * the card of an event that had configured it perfectly well. It is stored as the field's
- * key regardless of which spelling was posted: a label is not a stable identity (renaming
- * the field changes it, a key survives), and normalising is what collapses "Shirt size" and
- * "shirt_size" posted together into one entry instead of printing the field twice.
+ * A name that resolves to no field is kept, not dropped: `scanResultFields` falls back to
+ * reading an unresolved name as a raw `extra` key, and import writes an unrecognised
+ * header verbatim, so a name with no field behind it can still carry a real value on the
+ * card. Scanner only ever renders a row that has a value (see Scanner.tsx's `.some((f) =>
+ * f.value)` gate), so keeping a name that turns out to resolve to nothing costs no visible
+ * line — dropping it can cost a working setting.
+ *
+ * A value that does resolve is stored as the field's key regardless of which spelling was
+ * posted — `keyMatchesField` treats key, label and slugged-label as the same field, and a
+ * label is not a stable identity (renaming the field changes it, a key survives). That is
+ * also what collapses "Shirt size" and "shirt_size" posted together into one entry instead
+ * of printing the field twice.
  */
 export function scanFieldsFromForm(posted: string[], fields: AttendeeField[]): string[] {
   const out: string[] = [];
   for (const raw of posted) {
     const name = raw.trim();
     if (!name) continue;
-    const field = fields.find((f) => f.key === name || f.label.toLowerCase() === name.toLowerCase());
-    if (!field || out.includes(field.key)) continue;
-    out.push(field.key);
+    const field = fields.find((f) => keyMatchesField(name, f));
+    const value = field ? field.key : name;
+    if (out.includes(value)) continue;
+    out.push(value);
     if (out.length === MAX_SCAN_FIELDS) break;
   }
   return out;

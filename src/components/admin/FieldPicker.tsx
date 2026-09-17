@@ -14,9 +14,9 @@ import { Button } from "@/components/ui/button";
  *
  * A stored value that matches none of the event's fields (a field since deleted, or a
  * spelling `scanFieldsFromForm` cannot resolve) still renders, as its own removable row —
- * but it is not kept: scanFieldsFromForm drops anything it cannot resolve to a field, because
- * printing it on the scan card would just be a labelled blank line at a door. The row says so,
- * so what Save is about to do is visible rather than a silent loss the organiser finds later.
+ * and Save keeps it. `scanResultFields` falls back to reading an unresolved name as a raw
+ * `extra` key, so a name with no field behind it can still carry a real value on the card.
+ * The row says what it actually is, so an organiser does not mistake it for a normal field.
  */
 export function FieldPicker({ name, fields, selected, max }: {
   name: string;
@@ -47,10 +47,10 @@ export function FieldPicker({ name, fields, selected, max }: {
   const labelFor = (value: string) => fields.find((f) => f.key === value || f.label.toLowerCase() === value.toLowerCase())?.label ?? value;
 
   return (
-    <div className="grid gap-2">
+    <div className="grid w-full gap-2 sm:max-w-sm">
       {chosen.map((v) => <input key={v} type="hidden" name={name} value={v} />)}
       <Popover>
-        <PopoverTrigger render={<Button type="button" variant="outline" className="w-full justify-between font-normal" />}>
+        <PopoverTrigger render={<Button type="button" variant="outline" aria-label="Fields shown on the scan card" className="w-full justify-between font-normal" />}>
           <span className="truncate">{chosen.length === 0 ? "None chosen" : chosen.map(labelFor).join(", ")}</span>
           <ChevronDown data-icon="inline-end" />
         </PopoverTrigger>
@@ -68,12 +68,16 @@ export function FieldPicker({ name, fields, selected, max }: {
                 aria-label="Filter fields"
                 className="mb-1"
               />
-              {atCap && <p className="px-1.5 pb-1 text-xs text-muted-foreground">Up to {max} at a time — remove one to add another.</p>}
+              {atCap && (
+                <p role="status" className="px-1.5 pb-1 text-xs text-muted-foreground">
+                  Up to {max} at a time — remove one to add another.
+                </p>
+              )}
               <div className="max-h-64 overflow-y-auto">
                 {orphans.map((v) => (
                   <OrphanRow key={v} value={v} onPick={() => removeOrphan(v)} />
                 ))}
-                {visible.length === 0 && orphans.length === 0 && (
+                {fields.length > 0 && visible.length === 0 && (
                   <p className="px-1.5 py-2 text-xs text-muted-foreground">No fields match &ldquo;{filter}&rdquo;.</p>
                 )}
                 {visible.map((f) => {
@@ -105,9 +109,10 @@ function Row({ label, on, onPick, disabled }: { label: string; on: boolean; onPi
 }
 
 /**
- * A stored value with no field behind it — unlike Row, no tick, because there is nothing
- * being "kept" here. Its copy says outright that Save drops it, so a click here only does
- * sooner what Save is about to do anyway, rather than the row implying the value survives.
+ * A stored value with no field behind it — unlike Row, no tick, because it was never
+ * "chosen" from the list below; it is just a name already sitting in scan_extra_fields.
+ * Save keeps it (it can still carry a real value on the card), so the copy says what it
+ * actually is rather than warning of a loss that will not happen.
  */
 function OrphanRow({ value, onPick }: { value: string; onPick: () => void }) {
   return (
@@ -117,7 +122,7 @@ function OrphanRow({ value, onPick }: { value: string; onPick: () => void }) {
       className="flex min-h-11 w-full flex-col justify-center gap-0 rounded-md px-2.5 text-left text-sm hover:bg-accent"
     >
       <span className="truncate">{value}</span>
-      <span className="truncate text-xs text-muted-foreground">Stored, but no longer a field on this event — Save will remove it. Tap to remove now.</span>
+      <span className="truncate text-xs text-muted-foreground">Stored under this name, not tied to a field — still shows on the card if attendees have a value here. Tap to remove.</span>
     </button>
   );
 }

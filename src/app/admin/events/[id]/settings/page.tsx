@@ -228,7 +228,13 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         </CardHeader>
         <CardContent>
           <form action={updateScanFieldsAction.bind(null, ev.id)} className="flex flex-col items-start gap-3">
-            <FieldPicker name="scan_extra_fields" fields={scanFields} selected={ev.scan_extra_fields} max={MAX_SCAN_FIELDS} />
+            <FieldPicker
+              key={ev.scan_extra_fields.join("␟")}
+              name="scan_extra_fields"
+              fields={scanFields}
+              selected={ev.scan_extra_fields}
+              max={MAX_SCAN_FIELDS}
+            />
             <SubmitButton>Save scan card</SubmitButton>
           </form>
         </CardContent>

@@ -62,18 +62,30 @@ describe("scanFieldsFromForm", () => {
     expect(scanFieldsFromForm(["table_no", "company"], fields)).toEqual(["table_no", "company"]);
   });
 
-  it("drops a key the event has no field for", () => {
-    expect(scanFieldsFromForm(["company", "ghost"], fields)).toEqual(["company"]);
+  it("keeps a value that matches no field — scanResultFields may still resolve it as a raw extra key", () => {
+    expect(scanFieldsFromForm(["company", "ghost"], fields)).toEqual(["company", "ghost"]);
   });
 
   it("drops a repeat rather than showing the same line twice", () => {
     expect(scanFieldsFromForm(["company", "company"], fields)).toEqual(["company"]);
   });
 
-  it("stops at the cap", () => {
+  it("pins the cap at 4", () => {
+    expect(MAX_SCAN_FIELDS).toBe(4);
+  });
+
+  it("keeps only the first MAX_SCAN_FIELDS, in posted order", () => {
     const many = ["company", "table_no", "shirt_size", "a", "b"];
     const withAll = [...fields, { key: "a", label: "A", type: "text" as const }, { key: "b", label: "B", type: "text" as const }];
-    expect(scanFieldsFromForm(many, withAll)).toHaveLength(MAX_SCAN_FIELDS);
+    expect(scanFieldsFromForm(many, withAll)).toEqual(["company", "table_no", "shirt_size", "a"]);
+  });
+
+  it("empties the card when nothing is posted", () => {
+    expect(scanFieldsFromForm([], fields)).toEqual([]);
+  });
+
+  it("drops whitespace-only entries", () => {
+    expect(scanFieldsFromForm(["   ", "\t", ""], fields)).toEqual([]);
   });
 
   it("keeps a stored value that matches a field by label, as the old free-text box wrote them — normalised to the field's key", () => {
