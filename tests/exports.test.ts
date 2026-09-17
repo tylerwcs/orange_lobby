@@ -51,6 +51,14 @@ describe("exports", () => {
     expect(attendeeSheetRow(rows[0], [])).toEqual(["Sam", "s@x.com", "012", "Ecopia", "VIP", "7", undefined]);
   });
 
+  it("reads a legacy-column-only value through fieldValue, not just one already moved to extra", () => {
+    // Every other test in this file puts its value in extra, so they would all still pass if
+    // fieldValue's column fallback were deleted and replaced with a raw extra read. This is the
+    // one case that window is for: a row from before the backfill, where extra hasn't caught up.
+    const row = { name: "Sam", email: "s@x.com", category: "VIP", phone: "012", extra: {} } as never;
+    expect(attendeeSheetRow(row, [])).toEqual(["Sam", "s@x.com", "012", "", "VIP", "", undefined]);
+  });
+
   it("excludes company, phone and table_no from the extras block once they are fields, so nothing doubles up", () => {
     const fields: AttendeeField[] = [
       { key: "company", label: "Company", type: "text" },

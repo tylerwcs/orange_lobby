@@ -22,6 +22,16 @@ const selectClass = "h-11 w-full rounded-lg border border-input bg-transparent p
 const INPUT_TYPE: Record<string, string> = { phone: "tel", number: "number" };
 const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMode"]> = { phone: "tel", number: "decimal" };
 
+/**
+ * Phone gets its autofill hint from the type, the same as INPUT_TYPE above. Company has no
+ * type of its own — it is a plain text question — so it is matched by the key the migration
+ * always seeds it under, the same key the old hardcoded field posted as.
+ */
+function autoCompleteFor(q: RegistrationQuestion): string | undefined {
+  if (q.key === "company") return "organization";
+  return q.type === "phone" ? "tel" : undefined;
+}
+
 function isShown(q: RegistrationQuestion, answers: Record<string, string>) {
   if (!q.show_when) return true;
   return (answers[q.show_when.key] ?? "").toLowerCase().includes(q.show_when.includes.toLowerCase());
@@ -117,7 +127,7 @@ export function RegisterForm({ slug, questions }: {
                       {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
                   ) : (
-                    <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                    <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
                       className="h-11" {...invalid(q.key, q.description ? `${id}-help` : undefined)} />
                   )}
                   <FieldError id={`${id}-error`}>{errors[q.key]}</FieldError>
