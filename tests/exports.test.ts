@@ -145,4 +145,12 @@ describe("buildPassportWorkbook", () => {
     const ws = buildPassportWorkbook(attendees, booths, stamps.slice(0, 1), 1).getWorksheet("Booth Passport")!;
     expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Ecopia", "Management", "Yes", "No", 1, "Yes"]);
   });
+
+  it("reads company from extra once it becomes a field, not only the raw column", () => {
+    const withFieldCompany = [
+      { id: "a3", name: "Nadia Rahman", email: "n@x.my", category: "VIP", extra: { company: "Northwind" } },
+    ] as unknown as Parameters<typeof buildPassportWorkbook>[0];
+    const ws = buildPassportWorkbook(withFieldCompany, booths, [], null).getWorksheet("Booth Passport")!;
+    expect(ws.getRow(2).values).toEqual([undefined, "Nadia Rahman", "n@x.my", "Northwind", "VIP", "No", "No", 0, "No"]);
+  });
 });

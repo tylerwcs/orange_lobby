@@ -134,7 +134,7 @@ export function buildPassportWorkbook(attendees: Attendee[], booths: Booth[], st
   for (const a of attendees) {
     const c = completion.get(a.id) ?? { collected: 0, complete: false };
     ws.addRow([
-      a.name, a.email, a.company, a.category,
+      a.name, a.email, fieldValue(a, "company"), a.category,
       ...booths.map((b) => (stamped.has(`${b.id}:${a.id}`) ? "Yes" : "No")),
       c.collected,
       c.complete ? "Yes" : "No",
