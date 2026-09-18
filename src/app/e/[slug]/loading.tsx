@@ -24,7 +24,7 @@ export default function PortalLoading() {
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-4 md:max-w-4xl md:px-6 md:pb-10 md:pt-6">
+      <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-4 md:max-w-4xl md:px-6 md:pb-10 md:pt-6">
         <div className="flex flex-col gap-3.5">
           <Skeleton className="h-[132px] rounded-[20px]" />
           <Skeleton className="h-[86px] rounded-xl" />
@@ -32,11 +32,10 @@ export default function PortalLoading() {
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[108px] rounded-xl" />)}
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Matches PortalChrome's mobile bottom bar footprint so the handoff at ~0.40s does not shift layout. */}
-      <nav
-        aria-label="Sections"
+      <div
         className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around bg-card px-2 py-2 shadow-[0_-1px_0_rgba(17,24,39,.08)] md:hidden"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
@@ -46,7 +45,7 @@ export default function PortalLoading() {
             <Skeleton className="h-2 w-8" />
           </div>
         ))}
-      </nav>
+      </div>
     </div>
   );
 }
