@@ -1,5 +1,4 @@
 import { loadPortalAttendee } from "@/lib/portal";
-import { PortalShell } from "@/components/portal/PortalShell";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +30,6 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 export default async function MePage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const basePath = `/e/${slug}/a/${token}`;
   const qr = await qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token));
 
   // Everything the event asked this person, in the order it asked, with blanks dropped -
@@ -57,7 +55,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   const contactDetails = attendee.email ? [{ label: "Email", value: attendee.email }] : [];
 
   return (
-    <PortalShell event={event} basePath={basePath} personal current="/me">
+    <>
       {/* Capped on desktop. A profile is a reading measure, not a dashboard: at the full
           896px the label and its value end up half a metre apart and the button stretches
           to 830px. */}
@@ -135,6 +133,6 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
         )}
 
       </div>
-    </PortalShell>
+    </>
   );
 }

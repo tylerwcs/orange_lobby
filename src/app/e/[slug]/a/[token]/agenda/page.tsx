@@ -4,7 +4,6 @@ import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { isBreakout } from "@/lib/breakouts";
 import { visibleTo, groupByDay, pickDay } from "@/lib/agenda";
 import { nowInKL } from "@/lib/time";
-import { PortalShell } from "@/components/portal/PortalShell";
 import { AgendaList } from "@/components/portal/AgendaList";
 
 export default async function PersonalAgenda({ params, searchParams }: { params: Promise<{ slug: string; token: string }>; searchParams: Promise<{ day?: string }> }) {
@@ -18,9 +17,9 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const now = nowInKL();
   const day = pickDay(days, requested, now.date);
   return (
-    <PortalShell event={event} basePath={basePath} personal current="/agenda">
+    <>
       <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />
-    </PortalShell>
+    </>
   );
 }

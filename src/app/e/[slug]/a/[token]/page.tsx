@@ -5,7 +5,6 @@ import { checkinStatus } from "@/lib/checkins-stats";
 import { isoToLocalInput } from "@/lib/time";
 import { myBreakouts } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
-import { PortalShell } from "@/components/portal/PortalShell";
 import { BadgeCard } from "@/components/portal/BadgeCard";
 import { BreakoutCard } from "@/components/portal/BreakoutCard";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
@@ -38,7 +37,7 @@ export default async function PersonalHome({ params, searchParams }: {
   const checkedInAt = state.at ? isoToLocalInput(state.at).split("T")[1] : null;
 
   return (
-    <PortalShell event={event} basePath={basePath} personal current="" hero dashboard>
+    <>
       <h1 className="sr-only">{event.name}</h1>
 
       {/*
@@ -95,6 +94,6 @@ export default async function PersonalHome({ params, searchParams }: {
         </div>
 
       </div>
-    </PortalShell>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { loadPortalAttendee } from "@/lib/portal";
-import { PortalShell } from "@/components/portal/PortalShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { floorPlanUrl } from "@/lib/modules";
 import { fieldValue } from "@/lib/attendee-values";
@@ -10,7 +9,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
   const plan = floorPlanUrl(event);
   const table = fieldValue(attendee, "table_no");
   return (
-    <PortalShell event={event} basePath={`/e/${slug}/a/${token}`} personal>
+    <>
       <h1 className="mb-3 text-xl font-extrabold">Floor plan</h1>
       {plan ? (
         <>
@@ -25,6 +24,6 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
         // shell rather than dead-ending on a 404.
         <Card><CardContent><p className="text-sm text-muted-foreground">The floor plan isn&apos;t available yet.</p></CardContent></Card>
       )}
-    </PortalShell>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { loadPortalAttendee } from "@/lib/portal";
-import { PortalShell } from "@/components/portal/PortalShell";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { floorPlanUrl } from "@/lib/modules";
@@ -11,7 +10,7 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
   const basePath = `/e/${slug}/a/${token}`;
   const table = fieldValue(attendee, "table_no");
   return (
-    <PortalShell event={event} basePath={basePath} personal>
+    <>
       <h1 className="mb-3 text-xl font-extrabold">My seat</h1>
       {table ? (
         <div className="mb-4 rounded-[14px] bg-foreground p-6 text-center text-white">
@@ -24,6 +23,6 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
       {floorPlanUrl(event) && (
         <Link href={`${basePath}/plan`} className={buttonVariants({ variant: "outline" })}>Open floor plan</Link>
       )}
-    </PortalShell>
+    </>
   );
 }

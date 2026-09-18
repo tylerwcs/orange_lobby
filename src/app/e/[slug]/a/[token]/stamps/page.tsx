@@ -1,7 +1,6 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { listBooths, stampsForAttendee } from "@/lib/db/booths";
 import { buildPassport } from "@/lib/booths";
-import { PortalShell } from "@/components/portal/PortalShell";
 import { PassportGrid } from "@/components/portal/PassportGrid";
 
 export const dynamic = "force-dynamic";
@@ -12,8 +11,8 @@ export default async function StampsPage({ params }: { params: Promise<{ slug: s
   const [booths, stamps] = await Promise.all([listBooths(event.id), stampsForAttendee(attendee.id)]);
   const passport = buildPassport(booths, stamps, event.stamps_required);
   return (
-    <PortalShell event={event} basePath={`/e/${slug}/a/${token}`} personal current={null}>
+    <>
       <PassportGrid passport={passport} message={event.stamps_message} attendeeName={attendee.name} />
-    </PortalShell>
+    </>
   );
 }

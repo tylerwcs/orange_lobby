@@ -1,6 +1,5 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { PortalShell } from "@/components/portal/PortalShell";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 
@@ -8,7 +7,7 @@ export default async function PersonalInfo({ params }: { params: Promise<{ slug:
   const { slug, token } = await params;
   const { event } = await loadPortalAttendee(slug, token);
   return (
-    <PortalShell event={event} basePath={`/e/${slug}/a/${token}`} personal>
+    <>
       <h1 className="mb-3 text-xl font-extrabold">{event.info_page_title}</h1>
       <div className="mb-4 flex flex-col gap-3">
         {event.venue_name && (
@@ -37,6 +36,6 @@ export default async function PersonalInfo({ params }: { params: Promise<{ slug:
         )}
       </div>
       <div className="prose prose-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.info_page_html ?? "") }} />
-    </PortalShell>
+    </>
   );
 }
