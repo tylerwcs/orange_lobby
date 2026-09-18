@@ -2,7 +2,7 @@
 
 Date: 2026-09-18
 Status: approved for implementation
-Extends `2026-09-07-orange-lobby-pilot.md`. Decisions D113–D119.
+Extends `2026-09-07-orange-lobby-pilot.md`. Decisions D113–D120.
 
 ## 1. Why
 
@@ -71,16 +71,16 @@ narrow layout — and are untouched.
   change doubles every portal request's database work: `getEventBySlug` plus `findByToken`, twice.
   This is a per-request memo, not a cross-request cache, so nothing goes stale.
 
-- **D119a** `PortalSkeleton` is **deleted**, not kept. It exists only because a `loading.tsx`
-  had no chrome to sit inside; once the chrome persists, redrawing it in a fallback would paint a
-  grey header underneath the real one. Its own doc comment already says to delete rather than
-  maintain it when this change lands. The three `loading.tsx` files render their body blocks
-  directly against the `Skeleton` primitive.
-
 - **D119** The draft "Coming soon" card moves to the **layout**, which renders it instead of
   `{children}`. Behaviour is unchanged from today, where `PortalShell`'s early return does the
   same thing. The page still executes and still loads its data — the layout can decline to render
   children but cannot stop the page component running — which is exactly what happens now.
+
+- **D120** `PortalSkeleton` is **deleted**, not kept. It exists only because a `loading.tsx`
+  had no chrome to sit inside; once the chrome persists, redrawing it in a fallback would paint a
+  grey header underneath the real one. Its own doc comment already says to delete rather than
+  maintain it when this change lands. The three `loading.tsx` files render their body blocks
+  directly against the `Skeleton` primitive.
 
 ## 4. What changes
 
