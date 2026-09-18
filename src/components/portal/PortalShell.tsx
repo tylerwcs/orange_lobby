@@ -24,8 +24,19 @@ export function PortalShell({ event, basePath, personal, children }: {
   dashboard?: boolean;
   children: React.ReactNode;
 }) {
+  const chromeEvent = {
+    name: event.name,
+    logo_url: event.logo_url,
+    starts_on: event.starts_on,
+    ends_on: event.ends_on,
+    venue_name: event.venue_name,
+    status: event.status,
+    primary_color: event.primary_color,
+    banner_url: event.banner_url,
+    info_page_html: event.info_page_html,
+  };
   return (
-    <PortalChrome event={event} basePath={basePath} personal={personal}>
+    <PortalChrome event={chromeEvent} basePath={basePath} personal={personal}>
       {children}
     </PortalChrome>
   );

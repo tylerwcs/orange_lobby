@@ -2,7 +2,7 @@
 
 Date: 2026-09-18
 Status: approved for implementation
-Extends `2026-09-07-orange-lobby-pilot.md`. Decisions D113–D120.
+Extends `2026-09-07-orange-lobby-pilot.md`. Decisions D113–D121.
 
 ## 1. Why
 
@@ -110,9 +110,32 @@ unchanged.
 ## 5a. Client-component compatibility
 
 Checked before committing to D115: nothing the chrome needs is server-only. `lib/text`,
-`lib/brand`, `PortalHeader` and `ui/icon` all import cleanly into a client component, and the
-`event` it receives is a plain object from the database. Server components passed as `children`
-through a client component are a supported pattern, so the anonymous pages keep working unchanged.
+`lib/brand`, `PortalHeader` and `ui/icon` all import cleanly into a client component. Server
+components passed as `children` through a client component are a supported pattern, so the
+anonymous pages keep working unchanged.
+
+The `event` prop is a different question from whether it *can* cross the boundary. A first pass
+here reasoned that `event` was fine to pass whole because it is "a plain object from the
+database" — true, but the wrong question. A client component's props are serialised into the
+page's HTML (the RSC flight payload), so whatever crosses is published to every visitor, not just
+kept in server memory. `Event` carries `crew_token` — the crew scanner's login-free authority,
+documented in `lib/types.ts` as "Never shown to attendees" — plus `org_id` and
+`active_checkpoint_id`. Passing the full row made `PortalChrome` leak `crew_token` into every
+portal page's HTML, including the anonymous `/e/[slug]` pages that need no token at all to open.
+This shipped and was caught in review, not before.
+
+`PortalChrome` therefore takes `ChromeEvent = Pick<Event, "name" | "logo_url" | "starts_on" |
+"ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "info_page_html">` — exactly
+the fields it reads — and both callers (`PortalShell`, `a/[token]/layout.tsx`) build that narrowed
+object explicitly rather than passing `event` through, so a future column added to `events` cannot
+silently start crossing the boundary again.
+
+- **D121** No full `Event` may cross into a client component. A client component that needs event
+  data takes a `Pick<Event, ...>` of exactly the fields it reads, named and exported so callers can
+  project onto it (the pattern `PortalHeader` already used for `HeaderEvent`). The question to ask
+  before adding an `Event`-shaped prop to a client component is not "can this serialise" — anything
+  in `Event` can — it is "should this reach the browser," and for `crew_token`, `org_id` and
+  `active_checkpoint_id` the answer is no.
 
 ## 6. Risks
 

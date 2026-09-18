@@ -40,13 +40,23 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
   <img src={url} alt="" className={className} />
 );
 
+/**
+ * Only what the chrome actually reads. `Event` also carries `crew_token`, `org_id` and
+ * `active_checkpoint_id` — a client component's props are serialised into the page, so passing
+ * the full row would publish the crew scanner's login-free authority to every visitor.
+ */
+export type ChromeEvent = Pick<
+  Event,
+  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "info_page_html"
+>;
+
 export function PortalChrome({ event, basePath, personal, children }: {
-  event: Event;
+  event: ChromeEvent;
   basePath: string;
   personal: boolean;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname() ?? basePath;
+  const pathname = usePathname();
   const current = activeNavHref(pathname, basePath);
   // `hero` and `dashboard` were only ever true together, on the home route.
   const home = isPortalHome(pathname, basePath);

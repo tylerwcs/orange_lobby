@@ -19,8 +19,15 @@ function normalise(pathname: string): string {
   return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
 }
 
-/** The part of the path below `basePath`, or null when the path is not under it. */
-function suffix(pathname: string, basePath: string): string | null {
+/**
+ * The part of the path below `basePath`, or null when the path is not under it.
+ *
+ * Exported (only) so the segment-boundary guard below is directly testable: every consumer
+ * pattern in `NAV_HREFS` starts with "/", so a `rest` that lacks a leading "/" can never match
+ * one — meaning `activeNavHref`/`isPortalHome` cannot distinguish `${base}/` from a bare `base`
+ * prefix check through their own return values. Testing this line requires calling it directly.
+ */
+export function suffix(pathname: string, basePath: string): string | null {
   const path = normalise(pathname);
   const base = normalise(basePath);
   if (path === base) return "";

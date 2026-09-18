@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
+import { activeNavHref, isPortalHome, suffix } from "@/lib/portal-nav";
 
 const BASE = "/e/ecpkom/a/6dv9gkdhpe99";
 
@@ -51,5 +51,29 @@ describe("activeNavHref", () => {
 
   it("returns null when the pathname is not under the base path at all", () => {
     expect(activeNavHref("/admin/events/123", BASE)).toBeNull();
+  });
+
+  it("does not match a nav href by prefix alone", () => {
+    // "/informationpack" starts with "/info" but is not "/info" or "/info/...".
+    expect(activeNavHref(`${BASE}/informationpack`, BASE)).toBeNull();
+  });
+
+  it("requires a segment boundary after the base path, not just a string prefix", () => {
+    // `${BASE}x` merely starts with BASE; it is a sibling path, not something under it.
+    // Every NAV_HREFS entry starts with "/", so this alone cannot fail on a `suffix` that
+    // dropped its "/" boundary check (a `rest` lacking a leading "/" never matches anyway) -
+    // the direct `suffix` test right below is what actually exercises that guard.
+    expect(activeNavHref(`${BASE}x/agenda`, BASE)).toBeNull();
+  });
+});
+
+describe("suffix", () => {
+  it("requires a segment boundary, not just a string prefix", () => {
+    // `${BASE}x/agenda` starts with BASE as a raw string, but the character right after BASE
+    // is "x", not "/" - it is a sibling path (e.g. a different, longer token), not something
+    // under BASE. This is the guard `activeNavHref`/`isPortalHome` cannot exercise on their
+    // own (see the test above): dropping the "/" here only changes `suffix`'s own return
+    // value, from null to "x/agenda", which happens not to match any nav href regardless.
+    expect(suffix(`${BASE}x/agenda`, BASE)).toBeNull();
   });
 });

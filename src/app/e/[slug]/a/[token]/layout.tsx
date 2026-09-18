@@ -15,8 +15,19 @@ export default async function PersonalLayout({ children, params }: {
 }) {
   const { slug, token } = await params;
   const { event } = await loadPortalAttendee(slug, token);
+  const chromeEvent = {
+    name: event.name,
+    logo_url: event.logo_url,
+    starts_on: event.starts_on,
+    ends_on: event.ends_on,
+    venue_name: event.venue_name,
+    status: event.status,
+    primary_color: event.primary_color,
+    banner_url: event.banner_url,
+    info_page_html: event.info_page_html,
+  };
   return (
-    <PortalChrome event={event} basePath={`/e/${slug}/a/${token}`} personal>
+    <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal>
       {children}
     </PortalChrome>
   );
