@@ -54,8 +54,9 @@ person who needs it is not.
   function; `unique (attendee_id, session_id)` stays, because booking the same session twice is a
   duplicate rather than a policy question.
 - **D129** An attendee may **switch freely**. A switch is one named booking moving to another
-  session — a cancel and a `book_session` — which matters when `max_per_attendee` is above one,
-  because "switch" must then say *which* of their bookings is moving. They may cancel outright only
+  session of the same activity, done atomically by `switch_session` (see §4) rather than as a
+  cancel followed by a booking; it must name *which* booking is moving when `max_per_attendee` is
+  above one. They may cancel outright only
   when the activity is optional: cancelling out of a required activity would put them in the state
   the activity exists to prevent, and the portal has somewhere better to send them — the other
   sessions. **Required means at least one booking in that activity**, not `max_per_attendee` of
@@ -186,8 +187,16 @@ book_session(p_session_id uuid, p_attendee_id uuid, p_ignore_open boolean) retur
 ```
 
 The lock is on the session row, so two people booking different sessions never wait on each other.
-Cancelling is an ordinary delete; switching is a delete plus a `book_session`. Only the insert
-contends.
+Cancelling is an ordinary delete.
+
+Switching is **not** a delete plus a `book_session`, and the first draft of this spec had it
+wrong. Two steps cannot work: an attendee in a required activity with a cap of one cannot cancel
+(D129) and so could never reach the second step, and even where the cancel is allowed, a target
+that fills between the two leaves them holding nothing — the state a required activity exists to
+prevent. So switching is its own function, `switch_session`, which locks both session rows in id
+order (so two people swapping in opposite directions cannot deadlock), checks the target, and then
+deletes and inserts in one transaction. The per-attendee cap needs no check there: both sessions
+belong to the same activity, so the count does not move.
 
 ## 5. Sequencing
 
