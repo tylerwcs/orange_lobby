@@ -1,0 +1,114 @@
+import type { ActivityState, SeatsForViewer } from "@/lib/activities";
+import type { ActivityChangeRequest } from "@/lib/types";
+
+/**
+ * What an attendee's Activities card offers, given what they hold and what they have asked
+ * for.
+ *
+ * Kept apart from `activityState` because the two answer different questions: that one is
+ * about seats, this one is about permission to change. It also keeps `src/lib/activities.ts`
+ * from taking on a third concern — it already holds seat derivation and form reading.
+ */
+export type PendingSummary = {
+  kind: ActivityChangeRequest["kind"];
+  /** The session they hold. Null only if it has been deleted under them. */
+  fromTitle: string | null;
+  /** Where they asked to go; null for a cancel, or if that session has been deleted. */
+  toTitle: string | null;
+};
+
+export type ActivityControls = {
+  /** Sessions offering a Book button. Empty while a request is open, or when at the cap. */
+  bookable: SeatsForViewer[];
+  /** The session this attendee holds, stated once below the sessions rather than inline. */
+  holding: SeatsForViewer | null;
+  /** Sessions they could ask to move to: not theirs, not full. Empty while a request is open. */
+  switchTargets: SeatsForViewer[];
+  canRequestCancel: boolean;
+  pending: PendingSummary | null;
+  /** The most recent decline to report, or null. See D153a. */
+  declined: PendingSummary | null;
+};
+
+/** This activity's open request, or null. At most one exists — the database enforces it (D146). */
+export function pendingFor(
+  requests: ActivityChangeRequest[],
+  activityId: string,
+): ActivityChangeRequest | null {
+  return requests.find((r) => r.activity_id === activityId && r.status === "pending") ?? null;
+}
+
+/**
+ * The latest decline for this activity, which is the only outcome the card has to report.
+ *
+ * An approval needs no announcement — the attendee is booked on the session they asked for
+ * and the card already says so. A decline would otherwise be invisible: the pending block
+ * vanishes and the card looks exactly as it did before they asked (D153a).
+ */
+export function lastDeclinedFor(
+  requests: ActivityChangeRequest[],
+  activityId: string,
+): ActivityChangeRequest | null {
+  return requests
+    .filter((r) => r.activity_id === activityId && r.status === "declined")
+    .sort((a, b) => (a.decided_at ?? "").localeCompare(b.decided_at ?? ""))
+    .at(-1) ?? null;
+}
+
+export function activityControls(
+  state: ActivityState,
+  pending: ActivityChangeRequest | null,
+  lastDeclined: ActivityChangeRequest | null = null,
+): ActivityControls {
+  const titleOf = (id: string | null): string | null =>
+    (id ? state.sessions.find((s) => s.session.id === id)?.session.title ?? null : null);
+  const summarise = (r: ActivityChangeRequest): PendingSummary =>
+    ({ kind: r.kind, fromTitle: titleOf(r.from_session_id), toTitle: titleOf(r.to_session_id) });
+
+  const holding = state.sessions.find((s) => s.mine) ?? null;
+
+  // While a request is open, nothing that changes a seat is offered (§7.4). Book is
+  // withheld too, not only the change controls: on an activity allowing more than one
+  // session, taking a second seat while asking to move the first hands the desk a request
+  // whose meaning has changed under them. Withdraw is always one tap away.
+  if (pending) {
+    // An open request is the latest word on the subject, so an older decline is no longer
+    // news and saying both at once would be noise.
+    return {
+      bookable: [],
+      holding,
+      switchTargets: [],
+      canRequestCancel: false,
+      pending: summarise(pending),
+      declined: null,
+    };
+  }
+
+  return {
+    declined: lastDeclined ? summarise(lastDeclined) : null,
+    bookable: state.canBookMore ? state.sessions.filter((s) => !s.mine && !s.full) : [],
+    holding,
+    // Asking is not taking a seat, so a closed activity still offers this (D157). A full
+    // session is never offered, because the approval would be refused (D144) and the desk
+    // would be deciding on something that cannot happen.
+    switchTargets: holding ? state.sessions.filter((s) => !s.mine && !s.full) : [],
+    // D148: a required activity's cancel never reaches the queue.
+    canRequestCancel: Boolean(holding) && !state.activity.required,
+    pending: null,
+  };
+}
+
+/**
+ * Open requests per activity id, for the count beside each row of the admin's activity list.
+ *
+ * An activity with none is absent rather than zero, so the caller writes `counts[id] ?? 0`
+ * and a zero never renders as a badge.
+ */
+export function pendingCountByActivity(requests: ActivityChangeRequest[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of requests) {
+    if (r.status !== "pending") continue;
+    out[r.activity_id] = (out[r.activity_id] ?? 0) + 1;
+  }
+  return out;
+}
