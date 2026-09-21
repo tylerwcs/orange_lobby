@@ -6,8 +6,9 @@ import { requireEvent } from "@/lib/db/events";
 import {
   createActivity, updateActivity, deleteActivity, getActivity,
   createSession, updateSession, deleteSession, setSessionOrder, bookSession, listSessions,
-  type BookResult,
+  type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
+import { getRequest, applyRequest, markDecided } from "@/lib/db/activity-requests";
 import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields } from "@/lib/activities";
 import { listAttendees } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
@@ -167,4 +168,66 @@ export async function placeAttendeesAction(eventId: string, activityId: string, 
   const { message, tone } = describePlacement(outcomes, session.title);
   revalidatePath(path);
   redirect(flashPath(path, message, tone));
+}
+
+/**
+ * Why an approval could not be carried out. `closed` is absent from the message an approval
+ * can actually reach — the approval passes `ignoreOpen` (D156), so a closed activity never
+ * refuses the desk — but it stays in this map because the type is `DecisionResult`, not
+ * `BookResult`: `applyRequest` also carries `CancelResult`, whose `required` can appear when
+ * an optional activity was made required after a cancel request was raised. Keying on the
+ * full union rather than hand-picking cases means a future result added to either type is a
+ * compile error here, not a silently missing message.
+ */
+const APPROVE_REFUSALS: Record<Exclude<DecisionResult, "ok">, string> = {
+  full: "That session is full now, so this cannot be approved. Decline it, or raise the capacity.",
+  closed: "Booking is closed for this activity.",
+  limit: "They already hold as many sessions as this activity allows.",
+  ineligible: "They are no longer eligible for that session.",
+  missing: "The session or the booking is gone.",
+  required: "This activity is now required, so they cannot be left with no session.",
+};
+
+/**
+ * Carries out a request, or explains why it cannot be.
+ *
+ * A refusal leaves the request PENDING. The desk has not decided anything — they have been
+ * told they cannot do it yet, usually because the target filled while the request waited
+ * (D144). Declining is the deliberate act and is a separate control.
+ *
+ * `requireAdmin()` runs twice on this path: once inside `event()`, and again here for
+ * `userId`, which `markDecided` needs for `decided_by`. `event()` is kept to its existing
+ * shape (just the event) rather than widened to return the whole `AdminContext`: nine other
+ * actions in this file already destructure its return as the event alone, and this is the one
+ * desk action that also needs "who decided" — it pays for one extra session lookup rather
+ * than reshaping a helper every other call site shares unchanged.
+ */
+export async function approveRequestAction(eventId: string, activityId: string, requestId: string) {
+  const ev = await event(eventId);
+  const { userId } = await requireAdmin();
+  const path = `/admin/events/${eventId}/activities/${activityId}`;
+  const request = await getRequest(requestId, ev.id);
+  if (!request || request.status !== "pending") {
+    redirect(flashPath(path, "That request is no longer waiting.", "error"));
+  }
+
+  const result = await applyRequest(request);
+  if (result !== "ok") {
+    revalidatePath(path);
+    redirect(flashPath(path, APPROVE_REFUSALS[result], "error"));
+  }
+
+  // Scoped by status inside the query, so two desks approving at once cannot both stamp it.
+  const stamped = await markDecided(request.id, ev.id, "approved", userId);
+  revalidatePath(path);
+  redirect(flashPath(path, stamped ? "Request approved." : "Approved, but somebody decided it first."));
+}
+
+export async function declineRequestAction(eventId: string, activityId: string, requestId: string) {
+  const ev = await event(eventId);
+  const { userId } = await requireAdmin();
+  const path = `/admin/events/${eventId}/activities/${activityId}`;
+  const stamped = await markDecided(requestId, ev.id, "declined", userId);
+  revalidatePath(path);
+  redirect(flashPath(path, stamped ? "Request declined." : "That request is no longer waiting.", stamped ? "ok" : "error"));
 }

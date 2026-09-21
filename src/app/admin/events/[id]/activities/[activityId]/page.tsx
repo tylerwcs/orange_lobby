@@ -2,18 +2,21 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getActivity, listSessions, listBookings, countBookingsBySession } from "@/lib/db/activities";
+import { listRequests } from "@/lib/db/activity-requests";
 import { listAttendees } from "@/lib/db/attendees";
+import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity } from "@/lib/activities";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SessionList } from "@/components/admin/SessionList";
 import { UnbookedPanel } from "@/components/admin/UnbookedPanel";
+import { RequestQueue } from "@/components/admin/RequestQueue";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   saveActivityAction, toggleBookingAction, deleteActivityAction, addSessionAction, saveSessionAction,
-  deleteSessionAction, reorderSessionsAction, placeAttendeesAction,
+  deleteSessionAction, reorderSessionsAction, placeAttendeesAction, approveRequestAction, declineRequestAction,
 } from "../actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -26,12 +29,23 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
   const activity = await getActivity(activityId, ev.id);
   if (!activity) notFound();
 
-  const [allSessions, bookings, counts, attendees] = await Promise.all([
-    listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id),
+  const [allSessions, bookings, counts, attendees, allRequests] = await Promise.all([
+    listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id),
   ]);
   const sessions = allSessions.filter((s) => s.activity_id === activity.id);
   const seats = sessions.map((s) => seatsFor(s, counts[s.id] ?? 0));
   const activityBookings = bookings.filter((b) => b.activity_id === activity.id);
+
+  // `listRequests` already orders by `created_at`, so pending stays oldest-first without a
+  // re-sort. "Decided" is everything else — approved, declined or withdrawn — which is what
+  // sits behind the queue's "Show decided" disclosure (the desk is working the queue, not
+  // reading the log).
+  const activityRequests = allRequests.filter((r) => r.activity_id === activity.id);
+  const pendingRequests = activityRequests.filter((r) => r.status === "pending");
+  const decidedRequests = activityRequests.filter((r) => r.status !== "pending");
+  const sessionTitleById = new Map(allSessions.map((s) => [s.id, s.title]));
+  // Only the ids `markDecided` actually stamped — pending and withdrawn requests carry none.
+  const deciderEmails = await scannerNames(decidedRequests.map((r) => r.decided_by));
 
   // Who still owes a choice: eligible, and holding nothing in THIS activity. Goes through the
   // same `unbookedByActivity` the xlsx export uses (D130) rather than computing it again here —
@@ -69,6 +83,16 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
             </form>
           </>
         }
+      />
+
+      <RequestQueue
+        pending={pendingRequests}
+        decided={decidedRequests}
+        sessionTitle={(sessionId) => sessionTitleById.get(sessionId) ?? "a deleted session"}
+        attendeeName={(attendeeId) => byId.get(attendeeId)?.name ?? "Unknown"}
+        deciderEmails={deciderEmails}
+        approve={approveRequestAction.bind(null, ev.id, activity.id)}
+        decline={declineRequestAction.bind(null, ev.id, activity.id)}
       />
 
       <Card className="overflow-hidden">

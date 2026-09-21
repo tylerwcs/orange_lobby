@@ -25,6 +25,12 @@ activity tables were confirmed empty across every event.
 - [x] Delete a session with bookings; the confirm dialog names them
 - [~] Activity rosters download opens in Excel; one sheet per session, names in alphabetical order
 - [ ] A session with no bookings still gets a sheet, with a header and no rows
+- [ ] A pending request appears on its activity's page with the attendee, what they asked for, and how long it has waited
+- [ ] Approve moves the booking and the request disappears from the queue
+- [ ] Approving into a session that filled meanwhile refuses, says the session is full, and leaves the request pending
+- [ ] Decline asks for confirmation, leaves the booking alone, and the request moves under "Show decided"
+- [ ] "Show decided" names who decided and when
+- [ ] Approving a switch works after booking has been closed
 
 ## What the partial items still owe
 
