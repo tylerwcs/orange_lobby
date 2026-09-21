@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:booking": "node --env-file=.env.local scripts/booking-concurrency.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
