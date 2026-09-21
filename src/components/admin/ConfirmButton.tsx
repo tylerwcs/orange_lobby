@@ -25,16 +25,22 @@ import { Button } from "@/components/ui/button";
  * Use DangerButton instead when there is no form to submit, or when the control has to sit
  * beside a Save button: forms cannot nest.
  */
-export function ConfirmButton({ message, children, className = "", confirmLabel = "Yes, continue" }: {
+export function ConfirmButton({
+  message, children, className = "", confirmLabel = "Yes, continue",
+  tone = "destructive", triggerVariant = "outline",
+}: {
   message: string;
   children: React.ReactNode;
   className?: string;
   confirmLabel?: string;
+  /** "destructive" paints the confirm red, for anything that removes something. */
+  tone?: "default" | "destructive";
+  triggerVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <AlertDialog>
-      <AlertDialogTrigger render={<Button ref={trigger} type="button" variant="outline" className={className} />}>
+      <AlertDialogTrigger render={<Button ref={trigger} type="button" variant={triggerVariant} className={className} />}>
         {children}
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -46,7 +52,7 @@ export function ConfirmButton({ message, children, className = "", confirmLabel 
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => trigger.current?.form?.requestSubmit()}
-            className="bg-destructive text-white hover:bg-destructive/90"
+            className={tone === "destructive" ? "bg-destructive text-white hover:bg-destructive/90" : undefined}
           >
             {confirmLabel}
           </AlertDialogAction>

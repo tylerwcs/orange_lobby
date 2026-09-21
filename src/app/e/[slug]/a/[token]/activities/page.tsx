@@ -2,7 +2,7 @@ import { loadPortalAttendee } from "@/lib/portal";
 import { listActivities, listSessions, countBookingsBySession, bookingsForAttendee } from "@/lib/db/activities";
 import { activityState } from "@/lib/activities";
 import { ActivityList } from "@/components/portal/ActivityList";
-import { bookAction, switchAction, cancelAction } from "./actions";
+import { bookAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +29,6 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ slu
       <ActivityList
         states={states}
         book={bookAction.bind(null, slug, token)}
-        switchTo={switchAction.bind(null, slug, token)}
-        cancel={cancelAction.bind(null, slug, token)}
       />
     </>
   );

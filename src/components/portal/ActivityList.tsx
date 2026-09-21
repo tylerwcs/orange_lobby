@@ -1,14 +1,12 @@
 import type { ActivityState } from "@/lib/activities";
-import { canCancel } from "@/lib/activities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SubmitButton } from "@/components/admin/SubmitButton";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { shortDate } from "@/lib/text";
 
-export function ActivityList({ states, book, switchTo, cancel }: {
+export function ActivityList({ states, book }: {
   states: ActivityState[];
   book: (sessionId: string) => Promise<void>;
-  switchTo: (fromSessionId: string, toSessionId: string) => Promise<void>;
-  cancel: (sessionId: string) => Promise<void>;
 }) {
   const open = states.filter((s) => s.eligible);
   if (open.length === 0) {
@@ -31,50 +29,41 @@ export function ActivityList({ states, book, switchTo, cancel }: {
             {state.closed && (
               <p className="text-sm text-muted-foreground">Booking is closed for this activity.</p>
             )}
-            {/*
-              The one booking a "switch here" button would move. Offered only when the
-              attendee holds exactly one session of this activity: with two, "switch" does
-              not say which one is moving (D129), and the honest control is to cancel the
-              one they mean — which the cap being full already allows, since held > 1 passes
-              canCancel even on a required activity.
-            */}
-            {state.sessions.map(({ session, left, full, mine }, _i, all) => {
-              const heldOne = state.held === 1 ? all.find((s) => s.mine)?.session.id ?? null : null;
-              return (
+            {state.sessions.map(({ session, left, full, mine }) => (
               <div key={session.id} className="flex items-center gap-3 border-t border-border pt-2.5 first:border-t-0 first:pt-0">
                 <div className="w-11 shrink-0 text-[13px] text-muted-foreground tabular-nums">
                   {session.starts_at}
                   {session.ends_at && <div className="text-[11px]">{session.ends_at}</div>}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[15px] font-bold">{session.title}</div>
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="text-[15px] font-bold">{session.title}</span>
+                    {!mine && !full && (
+                      <span className={`text-sm font-bold tabular-nums ${left <= 3 ? "text-warning" : "text-muted-foreground"}`}>
+                        {left} left
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    {session.location ? `${session.location} · ` : ""}
-                    {mine ? "You are booked" : full ? "No seats left" : `${left} left`}
+                    {mine ? "You are booked" : session.location}
                   </div>
                 </div>
-                {/* SubmitButton takes only children, className and variant — it has no size
-                    or pendingLabel prop, and says "Working…" while pending on its own. */}
-                {mine ? (
-                  canCancel(state.activity, state.held) ? (
-                    <form action={cancel.bind(null, session.id)}>
-                      <SubmitButton variant="outline">Cancel</SubmitButton>
-                    </form>
-                  ) : null
-                ) : full ? (
+                {mine ? null : full ? (
                   <span className="rounded-[10px] bg-muted px-3 py-1.5 text-xs text-muted-foreground">Full</span>
                 ) : state.canBookMore ? (
                   <form action={book.bind(null, session.id)}>
-                    <SubmitButton>Book</SubmitButton>
-                  </form>
-                ) : heldOne && !state.closed ? (
-                  <form action={switchTo.bind(null, heldOne, session.id)}>
-                    <SubmitButton variant="outline">Switch here</SubmitButton>
+                    <ConfirmButton
+                      tone="default"
+                      triggerVariant="default"
+                      confirmLabel="Book"
+                      message={`Book ${session.title}, ${shortDate(session.day)}, ${session.starts_at}${session.ends_at ? `–${session.ends_at}` : ""}${session.location ? `, ${session.location}` : ""}?`}
+                    >
+                      Book
+                    </ConfirmButton>
                   </form>
                 ) : null}
               </div>
-              );
-            })}
+            ))}
           </CardContent>
         </Card>
       ))}
