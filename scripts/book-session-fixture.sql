@@ -1,0 +1,268 @@
+-- Executable regression evidence for book_session and switch_session
+-- (supabase/migrations/0017_book_session.sql). Committed per controller ruling on the Task 2
+-- review: verification SQL a human may need to re-run lives in the repo, not a scratch file.
+--
+-- WHAT THIS PROVES, in order:
+--
+--   A. book_session's six return codes, exercised end to end: closed, ok, full, ineligible,
+--      ok (case-folded category match: ' vip ' against ['VIP']), limit.
+--
+--   B. switch_session's happy path (ok / moved / left), the same-session shortcut, and the
+--      LOAD-BEARING SAFETY PROPERTY the brief calls out by name: a switch refused purely on
+--      CAPACITY is a no-op — the attendee's source booking survives ("kept"). The activity used
+--      here carries no category restriction, so the capacity check is what actually fires; the
+--      first fixture written for this task set `categories = ['VIP']` on the activity two steps
+--      before its own refusal test and never cleared it, so that refusal returned 'ineligible'
+--      (switch_session's eligibility check runs before its capacity check) and never touched
+--      this property at all. See task-2-report.md, "Finding 1" fix, for the full story.
+--
+--   C. Every 'missing' return site in both functions that is reachable without breaking a
+--      foreign key: a nonexistent session (book_session, and both sides of switch_session), an
+--      attendee posted from another event (book_session directly, and switch_session via a
+--      hand-inserted booking row — see the note at C7), a cross-activity switch, and a switch
+--      attempted by an attendee who holds no booking in the source session at all.
+--      book_session's "activity not found" branch and switch_session's mirrored one are NOT
+--      exercised here: activity_sessions.activity_id is a NOT NULL foreign key to activities,
+--      so a session can't exist without its activity, and this script does not corrupt the
+--      schema just to walk a branch that constraint already makes unreachable.
+--
+--   D. The fix for Finding 2 (switch_session raising an unhandled unique-violation instead of
+--      returning a code): with max_per_attendee = 2, an attendee books both sessions of one
+--      activity, then switches from one into the other. Before the fix this raised a Postgres
+--      unique_violation instead of returning one of the six codes. It must now return 'ok', with
+--      the source booking deleted and the target booking left exactly once (not duplicated).
+--
+-- HOW TO RUN: paste this whole file into the Supabase SQL editor, or run it through the
+-- `execute_sql` MCP tool for this project, or `supabase db execute -f
+-- scripts/book-session-fixture.sql --project-ref <ref>`. It ends with a plain SELECT of every
+-- result row it collected — read that output, not `raise notice` (notices are not visible
+-- through the Supabase MCP tool).
+--
+-- SAFE TO RE-RUN: every event slug and attendee token this script creates includes a
+-- freshly generated suffix, so back-to-back runs never collide on events.slug or
+-- attendees.token (both `unique`). Each section deletes its own event at the end, which
+-- cascades every activity/session/attendee/booking it created.
+
+drop table if exists results;
+create temp table results (
+  id serial primary key,
+  step text,
+  value text
+);
+
+-- ============================================================================================
+-- Section A — book_session's six return codes.
+-- ============================================================================================
+do $$
+declare
+  v_org uuid;
+  v_event uuid;
+  v_act uuid;
+  v_sess uuid;
+  v_a1 uuid;
+  v_a2 uuid;
+  v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+  v_tok2 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+begin
+  select id into v_org from organisations limit 1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-a-' || v_tok1, 'Fixture A', 'draft') returning id into v_event;
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event, 'Workshops', true, false, 1) returning id into v_act;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Only seat', current_date, '09:30', 1) returning id into v_sess;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok1, 'First', 'walkin') returning id into v_a1;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok2, 'Second', 'walkin') returning id into v_a2;
+
+  insert into results (step, value) values ('A.closed', book_session(v_sess, v_a1, false));
+  insert into results (step, value) values ('A.ignored_open', book_session(v_sess, v_a1, true));
+  update activities set booking_open = true where id = v_act;
+  insert into results (step, value) values ('A.full', book_session(v_sess, v_a2, false));
+  update activity_sessions set capacity = 2 where id = v_sess;
+  insert into results (step, value) values ('A.ok', book_session(v_sess, v_a2, false));
+  update activities set categories = array['VIP'] where id = v_act;
+  delete from activity_bookings where attendee_id = v_a2;
+  insert into results (step, value) values ('A.ineligible', book_session(v_sess, v_a2, false));
+  update attendees set category = ' vip ' where id = v_a2;
+  insert into results (step, value) values ('A.folded_ok', book_session(v_sess, v_a2, false));
+  update activity_sessions set capacity = 3 where id = v_sess;
+  insert into results (step, value) values ('A.limit', book_session(v_sess, v_a2, false));
+
+  delete from events where id = v_event;
+end $$;
+
+-- ============================================================================================
+-- Section B — switch_session happy path, same-session shortcut, and the capacity-refusal
+-- no-op property with NO category restriction confounding the result.
+-- ============================================================================================
+do $$
+declare
+  v_org uuid;
+  v_event uuid;
+  v_act uuid;
+  v_sess1 uuid;
+  v_sess2 uuid;
+  v_sess3 uuid;
+  v_a1 uuid;
+  v_a2 uuid;
+  v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+  v_tok2 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+begin
+  select id into v_org from organisations limit 1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-b-' || v_tok1, 'Fixture B', 'draft') returning id into v_event;
+  -- No categories on this activity: isolates the capacity check in switch_session from the
+  -- eligibility check that pre-empted it in the original (uncommitted) fixture.
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event, 'Workshops', true, true, 1) returning id into v_act;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room A', current_date, '09:30', 1) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room B', current_date, '11:30', 1) returning id into v_sess2;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room C', current_date, '13:30', 1) returning id into v_sess3;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok1, 'First', 'walkin') returning id into v_a1;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok2, 'Second', 'walkin') returning id into v_a2;
+
+  -- Happy path: a1 books Room A, then switches into the empty Room C.
+  insert into results (step, value) values ('B.book_a1_roomA', book_session(v_sess1, v_a1, false));
+  insert into results (step, value) values ('B.switch_ok', switch_session(v_sess1, v_sess3, v_a1));
+  insert into results (step, value) values ('B.moved', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess3));
+  insert into results (step, value) values ('B.left', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess1));
+
+  -- Same-session shortcut: switching to the session already held is a no-op 'ok'.
+  insert into results (step, value) values ('B.same_session_ok', switch_session(v_sess3, v_sess3, v_a1));
+
+  -- The load-bearing property. a2 fills Room B; a1 (holding Room C) tries to switch into it.
+  -- No category restriction is in play, so this exercises the capacity check directly, not
+  -- eligibility — unlike the original fixture's equivalent step.
+  insert into results (step, value) values ('B.book_a2_roomB', book_session(v_sess2, v_a2, false));
+  insert into results (step, value) values ('B.refused_full', switch_session(v_sess3, v_sess2, v_a1));
+  insert into results (step, value) values ('B.kept', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess3));
+
+  delete from events where id = v_event;
+end $$;
+
+-- ============================================================================================
+-- Section C — 'missing' coverage for both functions.
+-- ============================================================================================
+do $$
+declare
+  v_org uuid;
+  v_event1 uuid;
+  v_event2 uuid;
+  v_act1 uuid;
+  v_act2 uuid;
+  v_sess1 uuid;
+  v_sess2 uuid;
+  v_sess_other_act uuid;
+  v_a1 uuid;
+  v_a_other_event uuid;
+  v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+  v_tok2 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+  v_nonexistent uuid := gen_random_uuid();
+begin
+  select id into v_org from organisations limit 1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-c-' || v_tok1, 'Fixture C', 'draft') returning id into v_event1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-c-other-' || v_tok1, 'Fixture C other event', 'draft') returning id into v_event2;
+
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event1, 'Activity 1', false, true, 1) returning id into v_act1;
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event1, 'Activity 2', false, true, 1) returning id into v_act2;
+
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event1, v_act1, 'Act1 Room', current_date, '09:30', 5) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event1, v_act1, 'Act1 Room 2', current_date, '10:30', 5) returning id into v_sess2;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event1, v_act2, 'Act2 Room', current_date, '09:30', 5) returning id into v_sess_other_act;
+
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event1, v_tok1, 'In event', 'walkin') returning id into v_a1;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event2, v_tok2, 'Other event', 'walkin') returning id into v_a_other_event;
+
+  -- C1: book_session against a session id that does not exist.
+  insert into results (step, value) values ('C1.book_missing_session', book_session(v_nonexistent, v_a1, false));
+
+  -- C2: book_session with an attendee whose event does not match the session's event.
+  insert into results (step, value) values ('C2.book_cross_event_attendee', book_session(v_sess1, v_a_other_event, false));
+
+  -- C3: switch_session where the FROM session does not exist.
+  insert into results (step, value) values ('C3.switch_missing_from', switch_session(v_nonexistent, v_sess1, v_a1));
+
+  -- C4: switch_session where the TO session does not exist.
+  insert into results (step, value) values ('C4.switch_missing_to', switch_session(v_sess1, v_nonexistent, v_a1));
+
+  -- C5: switch_session across two different activities.
+  insert into results (step, value) values ('C5.switch_cross_activity', switch_session(v_sess1, v_sess_other_act, v_a1));
+
+  -- C6: switch_session where the attendee holds no booking in the FROM session at all.
+  insert into results (step, value) values ('C6.switch_no_existing_booking', switch_session(v_sess1, v_sess2, v_a1));
+
+  -- C7: switch_session's cross-event attendee guard on the TO side. book_session refuses to
+  -- create a cross-event booking in the first place (see C2), so the only way to reach this
+  -- branch is a booking row that never went through the RPC — exactly the "posted id from
+  -- somewhere else" both functions guard against. We insert one directly, bypassing book_session
+  -- (as a caller with raw DB access could), to prove the guard fires: an attendee whose own
+  -- event does not match the target session's event is refused even though they hold a real
+  -- booking row naming the source session.
+  insert into activity_bookings (event_id, activity_id, session_id, attendee_id)
+    values (v_event1, v_act1, v_sess1, v_a_other_event);
+  insert into results (step, value) values ('C7.switch_cross_event_attendee', switch_session(v_sess1, v_sess2, v_a_other_event));
+
+  delete from events where id = v_event1;
+  delete from events where id = v_event2;
+end $$;
+
+-- ============================================================================================
+-- Section D — Finding 2 fix: switching into an already-held session must return 'ok', not raise.
+-- ============================================================================================
+do $$
+declare
+  v_org uuid;
+  v_event uuid;
+  v_act uuid;
+  v_sess1 uuid;
+  v_sess2 uuid;
+  v_a1 uuid;
+  v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+begin
+  select id into v_org from organisations limit 1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-d-' || v_tok1, 'Fixture D', 'draft') returning id into v_event;
+  -- max_per_attendee = 2: this attendee is allowed to hold both sessions of the activity at
+  -- once — the precondition that reached the unhandled unique-violation before the fix.
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event, 'Workshops', false, true, 2) returning id into v_act;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess2;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok1, 'Double booked', 'walkin') returning id into v_a1;
+
+  insert into results (step, value) values ('D.book_roomA', book_session(v_sess1, v_a1, false));
+  insert into results (step, value) values ('D.book_roomB', book_session(v_sess2, v_a1, false));
+  -- The attendee now holds BOTH sessions of the same activity. Before the fix, switching A -> B
+  -- raised an unhandled unique_violation here; it must now return 'ok'.
+  insert into results (step, value) values ('D.switch_into_already_held', switch_session(v_sess1, v_sess2, v_a1));
+  insert into results (step, value) values ('D.holds_roomA_after', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess1));
+  insert into results (step, value) values ('D.holds_roomB_after', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess2));
+
+  delete from events where id = v_event;
+end $$;
+
+select id, step, value from results order by id;

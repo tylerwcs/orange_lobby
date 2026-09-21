@@ -103,7 +103,14 @@ begin
      where session_id = p_from_session and attendee_id = p_attendee_id
   ) then return 'missing'; end if;
 
+  -- Mirrors book_session:27-28: `found` reflects only the immediately preceding statement, so
+  -- the activities lookup needs its own check rather than sharing the attendees one below it.
+  -- Unreachable today (the FK from activity_sessions to activities plus the row lock above
+  -- guarantee `a` exists), but a silently-skipped closed/eligibility check behind a coincidence
+  -- is not something to leave uncorrected once noticed.
   select * into a from activities where id = s_to.activity_id;
+  if not found then return 'missing'; end if;
+
   select * into att from attendees where id = p_attendee_id;
   if not found or att.event_id <> s_to.event_id then return 'missing'; end if;
 
@@ -123,8 +130,15 @@ begin
 
   delete from activity_bookings
    where session_id = p_from_session and attendee_id = p_attendee_id;
+  -- Same guard as book_session:57. With max_per_attendee > 1 an attendee can already hold both
+  -- p_from_session and p_to_session; without on conflict this insert would raise an unhandled
+  -- unique violation instead of returning one of the six codes. Choosing do-nothing over an
+  -- early 'ok' means the delete above still runs, so the end state is "holds p_to_session only"
+  -- (the from-session seat is actually released) rather than "holds both, untouched" — that
+  -- matches what switch is asked to do even when the target was already held.
   insert into activity_bookings (event_id, activity_id, session_id, attendee_id)
-  values (s_to.event_id, a.id, s_to.id, p_attendee_id);
+  values (s_to.event_id, a.id, s_to.id, p_attendee_id)
+  on conflict (attendee_id, session_id) do nothing;
 
   return 'ok';
 end;
