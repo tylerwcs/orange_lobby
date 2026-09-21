@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   seatsFor, eligible, activityState, canCancel, unbookedIds,
   bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, BOOKING_ROW_PREFIX,
+  readActivityPolicy, readNewActivity, type ActivityFormFields,
 } from "@/lib/activities";
 import { visibleTo } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
@@ -191,6 +192,53 @@ describe("mergeAgenda called on an already-filtered list", () => {
     const filtered: AgendaItem[] = [];
     const derived = bookedAgendaRows([session("s1")]);
     expect(mergeAgenda(filtered, derived).map((i) => i.id)).toEqual(["booking:s1"]);
+  });
+});
+
+describe("readActivityPolicy", () => {
+  const fields = (over: Partial<ActivityFormFields> = {}): ActivityFormFields => ({
+    name: "Workshops", description: "", required: false, max_per_attendee: "1", categories: "", ...over,
+  });
+
+  it("shapes valid input, parsing categories and coercing the cap to a number", () => {
+    expect(readActivityPolicy(fields({ description: "Pick a track", categories: "VIP, Staff" }))).toEqual({
+      name: "Workshops", description: "Pick a track", required: false, max_per_attendee: 1,
+      categories: ["VIP", "Staff"],
+    });
+  });
+
+  it("rejects an empty (or blank) name", () => {
+    expect(() => readActivityPolicy(fields({ name: "  " }))).toThrow("An activity needs a name");
+  });
+
+  it("rejects a cap outside 1..10, matching the database's check constraint", () => {
+    expect(() => readActivityPolicy(fields({ max_per_attendee: "0" }))).toThrow(/whole number between 1 and 10/);
+    expect(() => readActivityPolicy(fields({ max_per_attendee: "11" }))).toThrow(/whole number between 1 and 10/);
+    expect(() => readActivityPolicy(fields({ max_per_attendee: "abc" }))).toThrow(/whole number between 1 and 10/);
+  });
+
+  // The regression this reader exists to prevent (see its doc comment): the settings form
+  // has no booking_open field, so this must never read one back in — not even as `false` —
+  // or a Save would silently undo whatever the toggle button last set.
+  it("never returns a booking_open key, absent rather than false", () => {
+    const policy = readActivityPolicy(fields());
+    expect(policy).not.toHaveProperty("booking_open");
+    expect(Object.keys(policy).sort()).toEqual(
+      ["categories", "description", "max_per_attendee", "name", "required"].sort(),
+    );
+  });
+});
+
+describe("readNewActivity", () => {
+  it("carries booking_open through as given — only the create form may set an initial value", () => {
+    const fields = { name: "Workshops", description: "", required: false, max_per_attendee: "1", categories: "" };
+    expect(readNewActivity({ ...fields, booking_open: true }).booking_open).toBe(true);
+    expect(readNewActivity({ ...fields, booking_open: false }).booking_open).toBe(false);
+  });
+
+  it("still validates the shared policy fields", () => {
+    const fields = { name: "", description: "", required: false, max_per_attendee: "1", categories: "" };
+    expect(() => readNewActivity({ ...fields, booking_open: true })).toThrow("An activity needs a name");
   });
 });
 

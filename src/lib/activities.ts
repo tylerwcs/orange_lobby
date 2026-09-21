@@ -1,4 +1,4 @@
-import { categoryMatches, visibleTo, type AgendaViewer } from "@/lib/agenda";
+import { categoryMatches, parseCategories, visibleTo, type AgendaViewer } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
 
 /**
@@ -143,4 +143,61 @@ export function mergeAgenda(items: AgendaItem[], derived: AgendaItem[]): AgendaI
  */
 export function personalAgenda(allAgenda: AgendaItem[], viewer: AgendaViewer, bookedSessions: ActivitySession[]): AgendaItem[] {
   return mergeAgenda(visibleTo(allAgenda, viewer), bookedAgendaRows(bookedSessions));
+}
+
+/** The raw fields both the add form and the settings form post, already pulled out of FormData. */
+export type ActivityFormFields = {
+  name: string;
+  description: string;
+  required: boolean;
+  max_per_attendee: string;
+  categories: string;
+};
+
+/** Everything the add form and the settings form agree on. See the note below for what is left out and why. */
+export type ActivityPolicy = {
+  name: string;
+  description: string | null;
+  required: boolean;
+  max_per_attendee: number;
+  categories: string[] | null;
+};
+
+/**
+ * Validates and shapes the fields the add form and the settings form share. Deliberately does
+ * NOT touch `booking_open`: that column is owned by `toggleBookingAction` alone (D127), which
+ * is the one control the desk uses mid-event and must not need a Save. The settings form
+ * (Task 9) has no `booking_open` checkbox at all, so if this reader's output were fed straight
+ * into `updateActivity` with a `booking_open` key, its absence from that form would read as a
+ * deliberate "no" — the moment an organiser edits an activity's name and hits Save, booking
+ * would silently close for everyone, undoing whatever the toggle button last set. Keeping this
+ * reader's return type without a `booking_open` field at all makes that mistake impossible to
+ * reintroduce by accident; `readNewActivity` below is the one place that ever adds it back, for
+ * the one form that is allowed to set an initial value.
+ */
+export function readActivityPolicy(fields: ActivityFormFields): ActivityPolicy {
+  const name = fields.name.trim();
+  if (!name) throw new Error("An activity needs a name");
+  const raw = fields.max_per_attendee.trim() || "1";
+  const max = Number.parseInt(raw, 10);
+  if (!Number.isFinite(max) || max < 1 || max > 10) {
+    throw new Error("Sessions per person must be a whole number between 1 and 10");
+  }
+  return {
+    name,
+    description: fields.description.trim() || null,
+    required: fields.required,
+    max_per_attendee: max,
+    categories: parseCategories(fields.categories),
+  };
+}
+
+/**
+ * The full create payload: the shared policy plus `booking_open`, which only the create form
+ * may set — it is choosing an initial value for a column nothing has toggled yet, not
+ * overwriting one the desk may have changed since the page loaded. `saveActivityAction` must
+ * call `readActivityPolicy` directly instead, never this.
+ */
+export function readNewActivity(fields: ActivityFormFields & { booking_open: boolean }): ActivityPolicy & { booking_open: boolean } {
+  return { ...readActivityPolicy(fields), booking_open: fields.booking_open };
 }

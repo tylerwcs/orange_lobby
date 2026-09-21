@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { createActivity, updateActivity, deleteActivity, getActivity } from "@/lib/db/activities";
-import { parseCategories } from "@/lib/agenda";
+import { readActivityPolicy, readNewActivity, type ActivityFormFields } from "@/lib/activities";
 import { flashPath } from "@/lib/flash";
 
 async function event(eventId: string) {
@@ -15,34 +15,31 @@ async function event(eventId: string) {
 const text = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const checked = (fd: FormData, key: string) => fd.get(key) !== null;
 
-/** Shared by add and save so the two can never disagree about what a valid activity is. */
-function readActivity(fd: FormData) {
-  const name = text(fd, "name");
-  if (!name) throw new Error("An activity needs a name");
-  const raw = text(fd, "max_per_attendee") || "1";
-  const max = Number.parseInt(raw, 10);
-  if (!Number.isFinite(max) || max < 1 || max > 10) {
-    throw new Error("Sessions per person must be a whole number between 1 and 10");
-  }
+/** The fields the add form and the settings form share. `readActivityPolicy` in @/lib/activities validates them. */
+function policyFields(fd: FormData): ActivityFormFields {
   return {
-    name,
-    description: text(fd, "description") || null,
+    name: text(fd, "name"),
+    description: text(fd, "description"),
     required: checked(fd, "required"),
-    booking_open: checked(fd, "booking_open"),
-    max_per_attendee: max,
-    categories: parseCategories(text(fd, "categories")),
+    max_per_attendee: text(fd, "max_per_attendee"),
+    categories: text(fd, "categories"),
   };
 }
 
 export async function addActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
-  await createActivity(ev, readActivity(fd));
+  await createActivity(ev, readNewActivity({ ...policyFields(fd), booking_open: checked(fd, "booking_open") }));
   revalidatePath(`/admin/events/${eventId}/activities`);
 }
 
+/**
+ * Never touches `booking_open` (see `readActivityPolicy`'s note): the settings form this
+ * saves has no `booking_open` field, so reading one from `fd` would read its absence as a
+ * deliberate close and silently undo whatever `toggleBookingAction` last set.
+ */
 export async function saveActivityAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
-  await updateActivity(activityId, ev.id, readActivity(fd));
+  await updateActivity(activityId, ev.id, readActivityPolicy(policyFields(fd)));
   revalidatePath(`/admin/events/${eventId}/activities`);
   revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
   redirect(flashPath(`/admin/events/${eventId}/activities/${activityId}`, "Activity saved."));
