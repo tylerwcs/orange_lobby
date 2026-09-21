@@ -25,8 +25,14 @@ export type HomeData = {
   allAgenda: AgendaItem[];
   /** The breakout items this attendee is assigned to, exposed so the home page's breakouts card can reuse it rather than re-querying. */
   assignedItemIds: ReadonlySet<string>;
-  /** Required activities this attendee has booked nothing in. Drives the nag card (D129). */
-  mustPick: ActivityState[];
+  /**
+   * Every activity of the event, from this attendee's point of view - eligible or not, held
+   * or not. Drives `ActivitiesCard`, which needs more than "what must be picked" (D129: an
+   * attendee may switch freely, so it also has to surface what they already hold and any
+   * optional activity still open to them, or they would have no way back to the page after
+   * their first booking).
+   */
+  activities: ActivityState[];
   days: string[];
   /** The day the desktop home is showing - today when the event is running, else the first. */
   day: string | null;
@@ -76,7 +82,7 @@ export async function loadHomeData(
   const days = groupByDay(agenda).map((g) => g.day);
   return {
     tiles, banner, next, today: date,
-    agenda, allAgenda, assignedItemIds, mustPick: states.filter((s) => s.mustPick), days, day: pickDay(days, requestedDay, date),
+    agenda, allAgenda, assignedItemIds, activities: states, days, day: pickDay(days, requestedDay, date),
     announcements, now: { date, time },
   };
 }
