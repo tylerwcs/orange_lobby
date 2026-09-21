@@ -500,7 +500,9 @@ if (!url || !key) {
 }
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
-const fail = (message) => { console.error(`FAIL: ${message}`); process.exit(1); };
+// Throws rather than calling process.exit: an exit inside the try below skips the finally,
+// so a failing run would leak its event and 50 attendees into the database every time.
+const fail = (message) => { throw new Error(message); };
 
 const { data: org } = await db.from("organisations").select("id").limit(1).single();
 const { data: event } = await db.from("events")
@@ -539,6 +541,18 @@ try {
   await db.from("events").delete().eq("id", event.id);
 }
 ```
+
+Wrap the whole thing so a thrown failure still exits non-zero after the cleanup has run:
+
+```js
+// at the top level, around the try/finally above
+try { /* … */ } catch (err) {
+  console.error(`FAIL: ${err.message}`);
+  process.exitCode = 1;
+} finally { /* cleanup */ }
+```
+
+The exact arrangement is the implementer's to settle; what must hold is that the cleanup runs on the pass path, the fail path and the thrown-error path, and that the process still exits non-zero when the check fails.
 
 - [ ] **Step 2: Add the script entry**
 
