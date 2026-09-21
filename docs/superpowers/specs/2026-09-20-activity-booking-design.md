@@ -177,7 +177,8 @@ The booking function, in outline:
 
 ```
 book_session(p_session_id uuid, p_attendee_id uuid, p_ignore_open boolean) returns text
-  select ... from activity_sessions where id = p_session_id for update   -- serialise this session only
+  select ... from activity_sessions where id = p_session_id for update   -- the seat being taken
+  select ... from activities where id = s.activity_id for update         -- the cap being counted
   load the activity and the attendee
   if not p_ignore_open and not activity.booking_open                      -> 'closed'
   if activity.categories is non-empty and attendee.category is not in it  -> 'ineligible'
@@ -186,8 +187,21 @@ book_session(p_session_id uuid, p_attendee_id uuid, p_ignore_open boolean) retur
   insert; return 'ok'
 ```
 
-The lock is on the session row, so two people booking different sessions never wait on each other.
-Cancelling is an ordinary delete.
+Each function locks the session row it is about, and then the **activity** row, in that order.
+The activity lock is not decoration: `max_per_attendee` is a count across the activity, not the
+session, so locking only the session lets two concurrent bookings of two *different* sessions of
+one activity both read the same count and both pass the cap. The same hole, in the opposite
+direction, would let two concurrent cancels empty a required activity. Locking session-then-activity
+everywhere closes both and introduces no cycle, since nothing takes the locks the other way round.
+
+The cost is that two people acting on the same activity now wait on each other for the length of
+one function call, where previously only two people on the same session did. At an event of
+hundreds that is the right trade: the cap is a promise to the caterer and the room, and throughput
+here is measured in a handful of concurrent taps.
+
+Cancelling is not an ordinary delete either — it goes through `cancel_booking`, which holds the
+same locks, because "you may not cancel your last booking of a required activity" is a count over
+the activity and has exactly the same race if it is checked in application code.
 
 Switching is **not** a delete plus a `book_session`, and the first draft of this spec had it
 wrong. Two steps cannot work: an attendee in a required activity with a cap of one cannot cancel

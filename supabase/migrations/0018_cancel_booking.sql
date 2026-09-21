@@ -9,8 +9,13 @@
 -- feature (book_session, switch_session) is enforced under a row lock precisely because two
 -- phones race; this closes the one rule that was not.
 --
--- Shaped like book_session: lock the session row, load the activity, decide, act - one
--- statement from the caller's side, not three.
+-- Locks the session row exactly as book_session does, but that alone was not enough: `held`
+-- (below) counts bookings across the WHOLE activity, and two cancels on two DIFFERENT sessions
+-- of the same activity would lock two different rows and never wait on each other - each could
+-- still read the same held count and both pass "required and held<=1". The activity row is
+-- locked too, for the same reason book_session now locks it (see 0017_book_session.sql's
+-- header for the full argument, and its switch_session comment for why the lock order across
+-- all three functions - session(s) before activity, never the reverse - cannot deadlock).
 create or replace function cancel_booking(
   p_session_id uuid,
   p_attendee_id uuid
@@ -25,11 +30,13 @@ begin
   select * into s from activity_sessions where id = p_session_id for update;
   if not found then return 'missing'; end if;
 
-  -- Mirrors book_session:27-28 and switch_session:111-112: unreachable today (the FK from
-  -- activity_sessions to activities guarantees this row exists), kept for the same reason
-  -- those are - a silently-skipped guard behind a coincidence is not something to leave
-  -- uncorrected once noticed.
-  select * into a from activities where id = s.activity_id;
+  -- Locked, not merely selected: `held` below counts across every session of this activity, so
+  -- the activity row is what actually needs to serialise two different cancellers. The
+  -- `if not found` is still unreachable today (the FK from activity_sessions to activities
+  -- guarantees this row exists) - mirrors book_session's and switch_session's own copies of
+  -- this check, kept for the same reason: a silently-skipped guard behind a coincidence is not
+  -- something to leave uncorrected once noticed.
+  select * into a from activities where id = s.activity_id for update;
   if not found then return 'missing'; end if;
 
   -- Covers both a stale second tab re-cancelling a booking already gone, and a posted session

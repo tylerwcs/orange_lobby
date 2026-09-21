@@ -2,8 +2,18 @@
 --
 -- `count(*)` then `insert` is two statements and supabase-js has no transaction, so two phones
 -- at 29 of 30 both read 29 and the room seats 31. This locks the session row, re-counts under
--- that lock, and inserts or refuses (D125). The lock is per session, so two people booking
--- different sessions never wait on each other.
+-- that lock, and inserts or refuses (D125).
+--
+-- The activity row is locked too (below), not only the session. `held` counts bookings across
+-- every session of the activity, to enforce the per-attendee cap - and two different session
+-- rows do not serialise a count that spans the activity. Locking only the session closes the
+-- capacity race but leaves this one open: two attendees booking two different sessions of a
+-- one-per-attendee activity could each lock their own session, each read held=0, and both get
+-- in. So two people booking different sessions now DO wait on each other, briefly, whenever
+-- those sessions share an activity - that used not to be true, and is the correct trade: the
+-- per-attendee cap has to be right, and the lock is held for the length of one function call at
+-- an event of hundreds of people, not thousands hammering one row at once. A comment claiming
+-- otherwise would be wrong, so this replaces the one that used to say so.
 --
 -- Returns a reason code rather than a boolean (D140): the portal says different things for a
 -- session that filled and an activity the desk closed.
@@ -24,7 +34,10 @@ begin
   select * into s from activity_sessions where id = p_session_id for update;
   if not found then return 'missing'; end if;
 
-  select * into a from activities where id = s.activity_id;
+  -- Locked, not merely selected: `held` below counts across every session of this activity, so
+  -- the activity row is what actually needs to serialise two different bookers - see the
+  -- header for the full argument and the lock-order note that keeps this deadlock-free.
+  select * into a from activities where id = s.activity_id for update;
   if not found then return 'missing'; end if;
 
   select * into att from attendees where id = p_attendee_id;
@@ -69,7 +82,16 @@ $$;
 --
 -- Both session rows are locked in id order, so two people swapping in opposite directions
 -- cannot deadlock. The per-attendee cap needs no check: both sessions belong to the same
--- activity, so the count does not move.
+-- activity, so the count does not move - which is also why this function, alone of the three,
+-- never locks the activity row at all.
+--
+-- Lock order, across this file and cancel_booking (0018_cancel_booking.sql): every function
+-- that touches both tables locks its session row(s) first and the activity row second, never
+-- the reverse - book_session and cancel_booking both do; this one only ever takes session
+-- locks. A cycle needs two transactions each waiting on something the other already holds, and
+-- with a single consistent order that cannot happen: nothing here is ever blocked on an
+-- activity lock while holding one, because the only two functions that take an activity lock
+-- take their session lock(s) strictly first, and this function never takes one at all.
 create or replace function switch_session(
   p_from_session uuid,
   p_to_session uuid,
