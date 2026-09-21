@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook } from "@/lib/exports";
+import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook, buildActivityRostersWorkbook, activitySheetName, activityUnbookedSheetName } from "@/lib/exports";
 import { safeFileName } from "@/lib/filenames";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Booth, BoothStamp } from "@/lib/types";
@@ -112,6 +112,16 @@ describe("roster workbook", () => {
     expect(name).not.toMatch(/[:\\/?*[\]]/);
   });
 
+  it("treats sheet names that differ only in case as a collision, like ExcelJS itself does", () => {
+    // ExcelJS lowercases both sides of its own duplicate-name check (worksheet.js), so two
+    // rooms named "Morning" and "morning" would otherwise pass this check and throw inside
+    // addWorksheet, failing the whole download.
+    const taken = new Set<string>();
+    const first = rosterSheetName("Round 1", "Morning", taken);
+    const second = rosterSheetName("Round 1", "morning", taken);
+    expect(second.toLowerCase()).not.toBe(first.toLowerCase());
+  });
+
   it("gives two rooms distinct names even when their full names collide only after truncation", () => {
     // Both rooms share a slot name so long that it alone fills the 31-character limit, so the
     // untruncated names differ (different code) but the naive truncation would be identical.
@@ -162,5 +172,85 @@ describe("buildPassportWorkbook", () => {
     ] as unknown as Parameters<typeof buildPassportWorkbook>[0];
     const ws = buildPassportWorkbook(withFieldCompany, booths, [], null).getWorksheet("Booth Passport")!;
     expect(ws.getRow(2).values).toEqual([undefined, "Nadia Rahman", "n@x.my", "VIP", "No", "No", 0, "No"]);
+  });
+});
+
+describe("activity roster workbook", () => {
+  const people = new Map([
+    ["p1", { name: "Ann Tan", email: "a@b.co" }],
+    ["p2", { name: "Bryan Koh", email: null }],
+  ]);
+
+  it("gives a booked session its own sheet with header and rows", () => {
+    const sessions = [{ activityName: "Yoga", sessionTitle: "Morning", attendeeIds: ["p1"] }];
+    const ws = buildActivityRostersWorkbook(sessions, [], people).getWorksheet("Yoga — Morning")!;
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email"]);
+    expect(ws.getRow(2).values).toEqual([undefined, "Ann Tan", "a@b.co"]);
+  });
+
+  it("still gives an unbooked session a sheet, with a header and no rows", () => {
+    const sessions = [{ activityName: "Yoga", sessionTitle: "Evening", attendeeIds: [] }];
+    const wb = buildActivityRostersWorkbook(sessions, [], people);
+    const ws = wb.getWorksheet("Yoga — Evening")!;
+    expect(ws).toBeTruthy();
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email"]);
+    expect(ws.rowCount).toBe(1);
+  });
+
+  it("adds a not-booked sheet per required activity", () => {
+    const unbooked = [{ activityName: "Yoga", attendeeIds: ["p2"] }];
+    const ws = buildActivityRostersWorkbook([], unbooked, people).getWorksheet("Yoga — Not booked")!;
+    expect(ws.getRow(2).getCell(1).value).toBe("Bryan Koh");
+  });
+
+  it("does not let two sessions differing only in case collide and throw", () => {
+    const sessions = [
+      { activityName: "Yoga", sessionTitle: "Morning", attendeeIds: ["p1"] },
+      { activityName: "Yoga", sessionTitle: "morning", attendeeIds: ["p2"] },
+    ];
+    const wb = buildActivityRostersWorkbook(sessions, [], people);
+    expect(wb.worksheets.length).toBe(2);
+    const [first, second] = wb.worksheets;
+    expect(first.name.toLowerCase()).not.toBe(second.name.toLowerCase());
+  });
+
+  it("keeps two long session names distinct even when they collide after truncation", () => {
+    // Both sessions share an activity name so long that, combined with the separator, it alone
+    // fills the 31-character cap - the naive truncation would make them identical.
+    const activityName = "Regional teams offsite planning workshop";
+    const sessions = [
+      { activityName, sessionTitle: "Session A", attendeeIds: ["p1"] },
+      { activityName, sessionTitle: "Session B", attendeeIds: ["p2"] },
+    ];
+    const wb = buildActivityRostersWorkbook(sessions, [], people);
+    expect(wb.worksheets.length).toBe(2);
+    const [first, second] = wb.worksheets;
+    expect(first.name).not.toBe(second.name);
+    expect(first.name.length).toBeLessThanOrEqual(31);
+    expect(second.name.length).toBeLessThanOrEqual(31);
+  });
+
+  it("sanitises and caps a sheet name the same way rosterSheetName does", () => {
+    const taken = new Set<string>();
+    const name = activitySheetName("Team: Building / Trust?", "Round [1]", taken);
+    expect(name).not.toMatch(/[:\\/?*[\]]/);
+    expect(name.length).toBeLessThanOrEqual(31);
+  });
+
+  it("names the unbooked sheet after the activity, sanitised and capped", () => {
+    const taken = new Set<string>();
+    const name = activityUnbookedSheetName("A very long required activity name indeed", taken);
+    expect(name).not.toMatch(/[:\\/?*[\]]/);
+    expect(name.length).toBeLessThanOrEqual(31);
+  });
+
+  it("still writes one sheet when there are no sessions and no required activity to report", () => {
+    // A workbook with zero worksheets is not a valid xlsx - Excel refuses to open it, which
+    // would turn "nothing to print yet" into a download that silently fails.
+    const wb = buildActivityRostersWorkbook([], [], people);
+    expect(wb.worksheets.length).toBe(1);
+    const ws = wb.getWorksheet("No sessions")!;
+    expect(ws).toBeTruthy();
+    expect(ws.getRow(1).getCell(1).value).toBe("This event's activities have no sessions yet.");
   });
 });

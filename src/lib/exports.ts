@@ -71,20 +71,54 @@ export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick
 
 export type RosterPerson = { name: string; email: string | null };
 
+/** Strips every character Excel forbids in a sheet name: `: \ / ? * [ ]`. */
+export function sanitizeSheetNamePart(s: string): string {
+  return s.replace(/[:\\/?*[\]]/g, "-").trim();
+}
+
+/**
+ * Truncates an already-sanitised sheet name to Excel's 31-character cap and makes it unique
+ * against `taken`. Shared by every export that builds one sheet per room/session/etc., so a
+ * name collision after truncation (two long titles that agree on their first 31 characters)
+ * cannot silently make ExcelJS throw at the second `addWorksheet` — or, worse, silently drop
+ * a sheet by both call sites picking the same fallback independently.
+ *
+ * Checks and records `taken` case-insensitively, and does the recording itself (the caller
+ * never calls `taken.add`): ExcelJS's own duplicate-name check lowercases both sides
+ * (`worksheet.js`) before comparing, so "Morning" and "morning" are the same sheet name to it
+ * even though they are different strings to a case-sensitive `Set`. Two sessions named that way
+ * would have passed a case-sensitive check here and then thrown inside `addWorksheet`, failing
+ * the whole download.
+ */
+export function uniqueSheetName(base: string, taken: Set<string>): string {
+  const claim = (name: string): string => { taken.add(name.toLowerCase()); return name; };
+  const truncated = base.slice(0, 31);
+  if (!taken.has(truncated.toLowerCase())) return claim(truncated);
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${truncated.slice(0, 31 - String(n).length - 1)} ${n}`;
+    if (!taken.has(candidate.toLowerCase())) return claim(candidate);
+  }
+  return claim(truncated.slice(0, 29) + "~~");
+}
+
 /**
  * A sheet name Excel will actually accept: no : \ / ? * [ ], 31 characters, and unique within
  * the workbook. Two rooms called "3A" in rounds whose names collide after truncation would
  * otherwise make ExcelJS throw at the second one.
  */
 export function rosterSheetName(slot: string, code: string, taken: Set<string>): string {
-  const clean = (s: string) => s.replace(/[:\\/?*[\]]/g, "-").trim();
-  const base = `${clean(slot)} · ${clean(code) || "no code"}`.slice(0, 31);
-  if (!taken.has(base)) return base;
-  for (let n = 2; n < 100; n++) {
-    const candidate = `${base.slice(0, 31 - String(n).length - 1)} ${n}`;
-    if (!taken.has(candidate)) return candidate;
-  }
-  return base.slice(0, 29) + "~~";
+  const base = `${sanitizeSheetNamePart(slot)} · ${sanitizeSheetNamePart(code) || "no code"}`;
+  return uniqueSheetName(base, taken);
+}
+
+/** The title for one activity session's sheet: "<activity> — <session>", sanitised and unique. */
+export function activitySheetName(activityName: string, sessionTitle: string, taken: Set<string>): string {
+  return uniqueSheetName(`${sanitizeSheetNamePart(activityName)} — ${sanitizeSheetNamePart(sessionTitle)}`, taken);
+}
+
+/** The title for an activity's "who has not booked" sheet. */
+export function activityUnbookedSheetName(activityName: string, taken: Set<string>): string {
+  return uniqueSheetName(`${sanitizeSheetNamePart(activityName)} — Not booked`, taken);
 }
 
 /**
@@ -102,8 +136,8 @@ export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, Ros
   const wb = new ExcelJS.Workbook();
   const taken = new Set<string>();
   const sheet = (slot: string, code: string, ids: string[]) => {
+    // rosterSheetName (via uniqueSheetName) claims the name in `taken` itself.
     const name = rosterSheetName(slot, code, taken);
-    taken.add(name);
     const ws = wb.addWorksheet(name);
     ws.addRow(["Name", "Email"]);
     for (const id of ids) {
@@ -115,6 +149,55 @@ export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, Ros
   for (const s of slots) {
     for (const r of s.rooms) sheet(s.slot, r.code || "no code", r.attendeeIds);
     if (s.unassignedIds.length) sheet(s.slot, "unassigned", s.unassignedIds);
+  }
+  return wb;
+}
+
+export type ActivitySessionRoster = { activityName: string; sessionTitle: string; attendeeIds: string[] };
+export type ActivityUnbookedRoster = { activityName: string; attendeeIds: string[] };
+
+/**
+ * The door list: one printable sheet per session, titled "<activity> — <session>", plus one
+ * sheet per required activity listing whoever is eligible and has booked nothing.
+ *
+ * Same shape as `buildRosterWorkbook` on purpose — one sheet per bookable unit plus a sheet for
+ * whoever has none — and it reuses the same "Name"/"Email" columns a printed roster carries.
+ * `attendeeIds` on both inputs must already be in the order the caller wants printed (the
+ * route sorts into `listAttendees` order); this only writes rows.
+ *
+ * A session with no bookings still gets its sheet, header and all: an empty room is
+ * information the door list has to state, not a row this function is entitled to skip.
+ *
+ * When `sessions` and `unbooked` are both empty — an event whose activities have no sessions
+ * yet, or no required activity to report on — this still writes one sheet. A workbook with no
+ * worksheets is not a valid xlsx (Excel refuses to open it), which would turn "nothing to
+ * print yet" into a download that silently fails; a sheet that says so in words is the honest
+ * version of the same fact.
+ */
+export function buildActivityRostersWorkbook(
+  sessions: ActivitySessionRoster[],
+  unbooked: ActivityUnbookedRoster[],
+  people: Map<string, RosterPerson>,
+): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+  const taken = new Set<string>();
+  // activitySheetName / activityUnbookedSheetName (via uniqueSheetName) claim the name in
+  // `taken` themselves, so this closure only ever receives an already-unique name to write.
+  const sheet = (name: string, ids: string[]) => {
+    const ws = wb.addWorksheet(name);
+    ws.addRow(["Name", "Email"]);
+    for (const id of ids) {
+      const p = people.get(id);
+      if (p) ws.addRow([p.name, p.email]);
+    }
+    ws.columns = [{ width: 28 }, { width: 28 }];
+  };
+  for (const s of sessions) sheet(activitySheetName(s.activityName, s.sessionTitle, taken), s.attendeeIds);
+  for (const u of unbooked) sheet(activityUnbookedSheetName(u.activityName, taken), u.attendeeIds);
+  if (sessions.length === 0 && unbooked.length === 0) {
+    const ws = wb.addWorksheet("No sessions");
+    ws.addRow(["This event's activities have no sessions yet."]);
+    ws.columns = [{ width: 48 }];
   }
   return wb;
 }

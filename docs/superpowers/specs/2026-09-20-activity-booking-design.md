@@ -32,8 +32,11 @@ person who needs it is not.
   capacity, `activity_bookings` holds who has a seat.
 - **D124** The booking row carries a **denormalised `activity_id`**, for the same reason
   `breakout_assignments` carries `slot` (D80): the per-activity cap is counted without a join.
-  It brings the same trap — moving a session to another activity must update its bookings. One line
-  in that path, and a test that proves it.
+  It brings the same trap — moving a session to another activity would have to update its bookings
+  in the same breath. **Resolved by removing the move rather than by handling it:** `updateSession`
+  cannot change a session's `activity_id`, nothing in the admin offers a move, and the constraint is
+  documented at the function. If a move is ever wanted it belongs in a function of its own that
+  writes both tables, with a test proving the bookings followed.
 - **D125** Capacity is enforced by a **database function under a row lock**, called via `rpc`.
   `count(*)` then `insert` is two statements and supabase-js has no transaction, so two phones at
   29 of 30 both read 29 and the room seats 31. The function locks the session row, re-counts, and
@@ -100,8 +103,11 @@ person who needs it is not.
   the unbooked, in the shape D87 already established. An activity you cannot print a list for is
   hard to run at the door, but nothing else depends on it, so it is the first thing to cut if the
   work runs long.
-- **D140** The booking function returns a **reason code** — `ok`, `full`, `closed`, `limit`,
-  `ineligible` — not a boolean. The portal says different things for a session that filled and an
+- **D140** The booking functions return a **reason code**, not a boolean. Seven exist across the
+  three functions: `ok`, `full`, `closed`, `limit`, `ineligible`, `missing` (the row is gone, or
+  belongs to another event), and `required` (returned by `cancel_booking` alone, for the last
+  booking of a required activity). `switch_session` never returns `limit`, because both its
+  sessions belong to one activity so the count cannot move. The portal says different things for a session that filled and an
   activity the desk closed, and a boolean would make the portal guess.
 - **D141** Verification includes a **concurrency script**, not only unit tests. The suite is pure
   functions with no database, so the one rule this feature exists to enforce is the one it
@@ -177,7 +183,8 @@ The booking function, in outline:
 
 ```
 book_session(p_session_id uuid, p_attendee_id uuid, p_ignore_open boolean) returns text
-  select ... from activity_sessions where id = p_session_id for update   -- serialise this session only
+  select ... from activity_sessions where id = p_session_id for update   -- the seat being taken
+  select ... from activities where id = s.activity_id for update         -- the cap being counted
   load the activity and the attendee
   if not p_ignore_open and not activity.booking_open                      -> 'closed'
   if activity.categories is non-empty and attendee.category is not in it  -> 'ineligible'
@@ -186,8 +193,32 @@ book_session(p_session_id uuid, p_attendee_id uuid, p_ignore_open boolean) retur
   insert; return 'ok'
 ```
 
-The lock is on the session row, so two people booking different sessions never wait on each other.
-Cancelling is an ordinary delete.
+`book_session` and `cancel_booking` lock the session row they are about, and then the **activity**
+row, in that order. (`switch_session` locks its two session rows in id order and takes no explicit
+activity lock, because both its sessions belong to one activity so no count moves.)
+The activity lock is not decoration: `max_per_attendee` is a count across the activity, not the
+session, so locking only the session lets two concurrent bookings of two *different* sessions of
+one activity both read the same count and both pass the cap. The same hole, in the opposite
+direction, would let two concurrent cancels empty a required activity. Locking session-then-activity
+everywhere closes both, and none of the three functions takes the locks the other way round.
+
+One cycle does exist, and it is worth knowing about rather than claiming it away: a cascading
+delete goes the other direction — `delete from activities` locks the activity row and then
+cascades into its sessions, while a booking in flight holds a session row and waits for the
+activity. An admin deleting an activity at the same instant somebody books it can therefore
+deadlock. Postgres detects it, aborts one side with `40P01`, and nothing is corrupted; the
+attendee sees a failure rather than a reason code, and retrying works. Deleting an event does the
+same thing one level up. Not worth defending against in code — an admin deleting an activity
+mid-event is already destroying bookings on purpose — but it should not be a surprise.
+
+The cost is that two people acting on the same activity now wait on each other for the length of
+one function call, where previously only two people on the same session did. At an event of
+hundreds that is the right trade: the cap is a promise to the caterer and the room, and throughput
+here is measured in a handful of concurrent taps.
+
+Cancelling is not an ordinary delete either — it goes through `cancel_booking`, which holds the
+same locks, because "you may not cancel your last booking of a required activity" is a count over
+the activity and has exactly the same race if it is checked in application code.
 
 Switching is **not** a delete plus a `book_session`, and the first draft of this spec had it
 wrong. Two steps cannot work: an attendee in a required activity with a cap of one cannot cancel

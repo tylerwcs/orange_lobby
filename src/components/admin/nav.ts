@@ -22,6 +22,7 @@ export function groupsFor(ev: { id: string } | null | undefined): Group[] {
     ] },
     { title: "Portal", items: [
       { href: `${b}/agenda`, label: "Agenda", icon: "calendar" },
+      { href: `${b}/activities`, label: "Activities", icon: "flag" },
       { href: `${b}/announcements`, label: "Announcements", icon: "megaphone" },
       { href: `${b}/info`, label: "Info page", icon: "info" },
       { href: `${b}/modules`, label: "Modules", icon: "grid" },

@@ -68,6 +68,11 @@ item is pass-or-block for badge printing on 24 Sep.
 15. **Set a registration close time**, save, reload settings, confirm the same local time
     shows, and confirm the form actually closes at that Malaysia time.
 
+## Activities
+
+Not part of this dry run — see `docs/activities-verification.md`, which applies once the
+activity-booking branch is deployed.
+
 ## Known limitations parked until after the pilot
 
 - Re-import correctness relies on a 2,000-row attendee lookup; events above 2,000

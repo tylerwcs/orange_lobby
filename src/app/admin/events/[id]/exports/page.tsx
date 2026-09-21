@@ -3,6 +3,7 @@ import { requireEvent } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
 import { listAgenda } from "@/lib/db/agenda";
 import { listBooths } from "@/lib/db/booths";
+import { listActivities } from "@/lib/db/activities";
 import { breakoutSlots } from "@/lib/breakouts";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -16,7 +17,9 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [total, items, booths] = await Promise.all([countAttendees(ev.id), listAgenda(ev.id), listBooths(ev.id)]);
+  const [total, items, booths, activities] = await Promise.all([
+    countAttendees(ev.id), listAgenda(ev.id), listBooths(ev.id), listActivities(ev.id),
+  ]);
   const base = appBaseUrl();
   const b = `/admin/events/${ev.id}/export`;
 
@@ -40,6 +43,10 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
     ...(booths.length > 0 ? [{
       href: `${b}/passport.xlsx`, icon: "star" as IconName, name: "Booth Passport",
       what: "One row per attendee, one column per booth: who went where, how many stamps they collected, and whether their card is complete.",
+    }] : []),
+    ...(activities.length > 0 ? [{
+      href: `${b}/activities.xlsx`, icon: "file" as IconName, name: "Activity rosters",
+      what: "One sheet per session, plus who has not booked.",
     }] : []),
   ];
 

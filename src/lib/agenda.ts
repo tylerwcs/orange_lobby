@@ -5,16 +5,25 @@ import { isBreakout, breakoutSlots } from "@/lib/breakouts";
 export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlySet<string> } | null;
 
 /**
- * The category rule alone: an item with no categories is for everyone; otherwise the viewer's
- * category (case/whitespace-insensitive) must be one of the item's. This says nothing about
- * assignment — `visibleTo` ANDs that in separately, and `categoryVisibleBreakoutItems` below
- * uses this rule on its own, on purpose, to answer "was this round ever open to them" rather
- * than "do they have a room in it".
+ * The category rule alone, over a bare list: no categories means everyone; otherwise the
+ * viewer's category (case/whitespace-insensitive) must be one of the list's. This says nothing
+ * about assignment — `visibleTo` ANDs that in separately, and `categoryVisibleBreakoutItems`
+ * below uses this rule on its own, on purpose, to answer "was this round ever open to them"
+ * rather than "do they have a room in it".
+ *
+ * Extracted from `categoryVisible` so activities can hold to exactly the same rule (D131)
+ * without owning an `AgendaItem`. One rule, one place, one set of tests — the alternative
+ * was a second case-folding comparison that agrees today and drifts later.
  */
-export function categoryVisible(item: AgendaItem, category: string | null): boolean {
+export function categoryMatches(categories: string[] | null, category: string | null): boolean {
   const c = category?.trim().toLowerCase() ?? null;
-  return !item.categories || item.categories.length === 0
-    || (c !== null && item.categories.some((x) => x.trim().toLowerCase() === c));
+  return !categories || categories.length === 0
+    || (c !== null && categories.some((x) => x.trim().toLowerCase() === c));
+}
+
+/** The category rule applied to an `AgendaItem` — see `categoryMatches` for the rule itself. */
+export function categoryVisible(item: AgendaItem, category: string | null): boolean {
+  return categoryMatches(item.categories, category);
 }
 
 /**
