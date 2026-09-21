@@ -116,11 +116,12 @@ export function sessionRosters(
 export type ActivityUnbooked = { activityId: string; attendeeIds: string[] };
 
 /**
- * The not-booked list for every required activity (D129), computed one activity at a time
- * rather than pooled across them: an attendee who has booked activity A but not B still needs
- * to show up on B's list, so "already booked something" is never grounds to drop them from a
- * different activity's list. Optional activities get no list at all — nobody joining one is
- * not the desk's problem the way a required activity's empty seat is.
+ * The not-booked list for every activity (D130) — required or optional alike, since the desk
+ * chases an optional tour too, even though only a required activity's empty seat is a problem
+ * the desk actually has to solve before the event runs. Computed one activity at a time rather
+ * than pooled across them: an attendee who has booked activity A but not B still needs to show
+ * up on B's list, so "already booked something" is never grounds to drop them from a different
+ * activity's list.
  */
 export function unbookedByActivity(
   activities: Pick<Activity, "id" | "required" | "categories">[],
@@ -128,7 +129,7 @@ export function unbookedByActivity(
   attendeeIds: string[],
   categoryOf: (attendeeId: string) => string | null,
 ): ActivityUnbooked[] {
-  return activities.filter((a) => a.required).map((activity) => {
+  return activities.map((activity) => {
     const bookedIds = new Set(bookings.filter((b) => b.activity_id === activity.id).map((b) => b.attendee_id));
     return {
       activityId: activity.id,

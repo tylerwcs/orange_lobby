@@ -6,6 +6,7 @@ import { requireEvent } from "@/lib/db/events";
 import {
   createActivity, updateActivity, deleteActivity, getActivity,
   createSession, updateSession, deleteSession, setSessionOrder, bookSession, listSessions,
+  type BookResult,
 } from "@/lib/db/activities";
 import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields } from "@/lib/activities";
 import { listAttendees } from "@/lib/db/attendees";
@@ -151,7 +152,18 @@ export async function placeAttendeesAction(eventId: string, activityId: string, 
   const session = (await listSessions(ev.id)).find((s) => s.id === sessionId && s.activity_id === activityId);
   if (!session) redirect(flashPath(path, "That session no longer exists.", "error"));
 
-  const outcomes = await Promise.all(ids.map((id) => bookSession(session.id, id, true)));
+  // Sequential, deliberately: `bookSession` takes `FOR UPDATE` on this session row and then
+  // the activity row, so N concurrent calls would serialise inside Postgres anyway. Firing
+  // them all at once buys no throughput and only means each one sits holding an HTTP
+  // connection and a PostgREST pool slot while it waits its turn — a real stall risk for a
+  // pool shared with the whole attendee portal when a desk places 200 people at once.
+  // `setSessionOrder` (db/activities.ts) and the breakout bulk assign both write one at a time
+  // for the same reason; this is the one place that used to differ. Do not "optimise" this
+  // back into a `Promise.all` — the lock makes it free, and the pool makes it a liability.
+  const outcomes: BookResult[] = [];
+  for (const id of ids) {
+    outcomes.push(await bookSession(session.id, id, true));
+  }
   const { message, tone } = describePlacement(outcomes, session.title);
   revalidatePath(path);
   redirect(flashPath(path, message, tone));

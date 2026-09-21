@@ -3,15 +3,16 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getActivity, listSessions, listBookings, countBookingsBySession } from "@/lib/db/activities";
 import { listAttendees } from "@/lib/db/attendees";
-import { seatsFor, eligible, unbookedIds } from "@/lib/activities";
+import { seatsFor, unbookedByActivity } from "@/lib/activities";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SessionList } from "@/components/admin/SessionList";
 import { UnbookedPanel } from "@/components/admin/UnbookedPanel";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  saveActivityAction, toggleBookingAction, addSessionAction, saveSessionAction,
+  saveActivityAction, toggleBookingAction, deleteActivityAction, addSessionAction, saveSessionAction,
   deleteSessionAction, reorderSessionsAction, placeAttendeesAction,
 } from "../actions";
 
@@ -30,29 +31,43 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
   ]);
   const sessions = allSessions.filter((s) => s.activity_id === activity.id);
   const seats = sessions.map((s) => seatsFor(s, counts[s.id] ?? 0));
+  const activityBookings = bookings.filter((b) => b.activity_id === activity.id);
 
-  // Who still owes a choice: eligible, and holding nothing in THIS activity. `listAttendees`
-  // is already ordered by name, and unbookedIds keeps that order, which is what a list
+  // Who still owes a choice: eligible, and holding nothing in THIS activity. Goes through the
+  // same `unbookedByActivity` the xlsx export uses (D130) rather than computing it again here —
+  // two implementations of "who has not booked" is how they end up disagreeing. `listAttendees`
+  // is already ordered by name, and `unbookedByActivity` keeps that order, which is what a list
   // somebody reads down wants.
-  const booked = new Set(bookings.filter((b) => b.activity_id === activity.id).map((b) => b.attendee_id));
   const byId = new Map(attendees.map((a) => [a.id, a]));
-  const unbooked = unbookedIds(
-    attendees.map((a) => a.id),
-    (attendeeId) => eligible(activity, byId.get(attendeeId)?.category ?? null),
-    booked,
+  const [unbookedForActivity] = unbookedByActivity(
+    [activity], bookings, attendees.map((a) => a.id), (attendeeId) => byId.get(attendeeId)?.category ?? null,
   );
+  const unbooked = unbookedForActivity?.attendeeIds ?? [];
+  const bookedCount = new Set(activityBookings.map((b) => b.attendee_id)).size;
 
   return (
     <div className="flex flex-col gap-4">
       <AdminHeader
         title={activity.name}
-        subtitle={`${booked.size} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
+        subtitle={`${bookedCount} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
         actions={
-          <form action={toggleBookingAction.bind(null, ev.id, activity.id)}>
-            <SubmitButton variant={activity.booking_open ? "outline" : "default"}>
-              {activity.booking_open ? "Close booking" : "Open booking"}
-            </SubmitButton>
-          </form>
+          <>
+            <form action={toggleBookingAction.bind(null, ev.id, activity.id)}>
+              <SubmitButton variant={activity.booking_open ? "outline" : "default"}>
+                {activity.booking_open ? "Close booking" : "Open booking"}
+              </SubmitButton>
+            </form>
+            {/* Cascades sessions and bookings (D135), so the confirm dialog names both counts —
+                the organiser is cancelling people's afternoons, not just tidying a list. */}
+            <form action={deleteActivityAction.bind(null, ev.id, activity.id)}>
+              <ConfirmButton
+                message={`Delete ${activity.name}? Its ${sessions.length} session${sessions.length === 1 ? "" : "s"} and ${activityBookings.length} booking${activityBookings.length === 1 ? "" : "s"} go with it.`}
+                className="text-destructive"
+              >
+                Delete activity
+              </ConfirmButton>
+            </form>
+          </>
         }
       />
 

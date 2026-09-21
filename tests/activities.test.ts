@@ -163,10 +163,15 @@ describe("unbookedByActivity", () => {
     expect(out.find((u) => u.activityId === "B")?.attendeeIds).toEqual(["x", "y"]);
   });
 
-  it("skips activities that are not required", () => {
+  // D130: the desk chases an optional tour too, so an optional activity gets a list the same
+  // as a required one — only whether the desk is obligated to act on it differs, and this
+  // function does not decide that.
+  it("includes optional activities too, not only required ones", () => {
     const activities = [activity({ id: "A", required: false }), required("B")];
-    const out = unbookedByActivity(activities, [], ["x"], () => null);
-    expect(out.map((u) => u.activityId)).toEqual(["B"]);
+    const bookings = [{ activity_id: "A", attendee_id: "x" }];
+    const out = unbookedByActivity(activities, bookings, ["x", "y"], () => null);
+    expect(out.map((u) => u.activityId)).toEqual(["A", "B"]);
+    expect(out.find((u) => u.activityId === "A")?.attendeeIds).toEqual(["y"]);
   });
 
   it("excludes attendees outside the activity's categories", () => {
