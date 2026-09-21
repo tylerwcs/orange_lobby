@@ -16,12 +16,13 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const assignedItemIds = allAgenda.some(isBreakout) ? await assignedItemIdsFor(attendee.id) : new Set<string>();
   // Only touch the activity tables when this event actually runs activities - same guard
   // loadHomeData uses, so this page and the portal home never disagree about what a booked
-  // session looks like.
+  // session looks like. `listSessions` does not depend on `myBookings`, so the two run
+  // together rather than one after the other.
   const activities = await listActivities(event.id);
-  const myBookings = activities.length ? await bookingsForAttendee(attendee.id) : [];
-  const bookedSessions = myBookings.length
-    ? (await listSessions(event.id)).filter((s) => myBookings.some((b) => b.session_id === s.id))
-    : [];
+  const [myBookings, sessions] = activities.length
+    ? await Promise.all([bookingsForAttendee(attendee.id), listSessions(event.id)])
+    : [[], []];
+  const bookedSessions = sessions.filter((s) => myBookings.some((b) => b.session_id === s.id));
   // Same composition loadHomeData uses - see personalAgenda's own doc for the ordering.
   const items = personalAgenda(allAgenda, { category: attendee.category, assignedItemIds }, bookedSessions);
   const days = groupByDay(items).map((d) => d.day);

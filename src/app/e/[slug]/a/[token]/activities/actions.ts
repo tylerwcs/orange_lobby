@@ -80,6 +80,9 @@ export async function switchAction(slug: string, token: string, fromSessionId: s
     : flashPath(path, REFUSALS[result], "error"));
 }
 
+// Deliberately no archived-event guard here, unlike bookAction and switchAction: cancelling
+// releases a commitment rather than creating one, and trapping somebody in a booking they
+// cannot leave once an event is archived is the worse failure.
 export async function cancelAction(slug: string, token: string, sessionId: string) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const path = `/e/${slug}/a/${token}/activities`;

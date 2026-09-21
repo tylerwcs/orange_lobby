@@ -33,8 +33,13 @@ export type BookResult = "ok" | "full" | "closed" | "limit" | "ineligible" | "mi
  * or, if the raw Postgres error surfaces instead of PostgREST's translation of it, 42P01
  * (undefined_table). Either way the portal has nothing to show, not an error to raise, so this
  * is treated as "no activities" rather than a 500 for every attendee mid-event. Every other
- * function in this module still throws on any error: they are unreachable when there are no
- * activities, so there is nothing for them to tolerate.
+ * function in this module still throws on any error — this is the only one that tolerates a
+ * missing relation. They are NOT unreachable without the migration: the personal activities
+ * page (`src/app/e/[slug]/a/[token]/activities/page.tsx`) calls `listSessions`,
+ * `countBookingsBySession`, and `bookingsForAttendee` alongside this one in a single unguarded
+ * `Promise.all`, so that page assumes migration 0016 has already run and will 500 rather than
+ * degrade if it has not. Only `loadHomeData` earns the graceful path, by calling this function
+ * first and gating the other three on `activities.length`.
  */
 export async function listActivities(eventId: string): Promise<Activity[]> {
   const { data, error } = await serviceClient().from("activities").select("*")
