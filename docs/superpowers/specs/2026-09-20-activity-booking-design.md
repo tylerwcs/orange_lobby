@@ -32,8 +32,11 @@ person who needs it is not.
   capacity, `activity_bookings` holds who has a seat.
 - **D124** The booking row carries a **denormalised `activity_id`**, for the same reason
   `breakout_assignments` carries `slot` (D80): the per-activity cap is counted without a join.
-  It brings the same trap — moving a session to another activity must update its bookings. One line
-  in that path, and a test that proves it.
+  It brings the same trap — moving a session to another activity would have to update its bookings
+  in the same breath. **Resolved by removing the move rather than by handling it:** `updateSession`
+  cannot change a session's `activity_id`, nothing in the admin offers a move, and the constraint is
+  documented at the function. If a move is ever wanted it belongs in a function of its own that
+  writes both tables, with a test proving the bookings followed.
 - **D125** Capacity is enforced by a **database function under a row lock**, called via `rpc`.
   `count(*)` then `insert` is two statements and supabase-js has no transaction, so two phones at
   29 of 30 both read 29 and the room seats 31. The function locks the session row, re-counts, and
@@ -100,8 +103,11 @@ person who needs it is not.
   the unbooked, in the shape D87 already established. An activity you cannot print a list for is
   hard to run at the door, but nothing else depends on it, so it is the first thing to cut if the
   work runs long.
-- **D140** The booking function returns a **reason code** — `ok`, `full`, `closed`, `limit`,
-  `ineligible` — not a boolean. The portal says different things for a session that filled and an
+- **D140** The booking functions return a **reason code**, not a boolean. Seven exist across the
+  three functions: `ok`, `full`, `closed`, `limit`, `ineligible`, `missing` (the row is gone, or
+  belongs to another event), and `required` (returned by `cancel_booking` alone, for the last
+  booking of a required activity). `switch_session` never returns `limit`, because both its
+  sessions belong to one activity so the count cannot move. The portal says different things for a session that filled and an
   activity the desk closed, and a boolean would make the portal guess.
 - **D141** Verification includes a **concurrency script**, not only unit tests. The suite is pure
   functions with no database, so the one rule this feature exists to enforce is the one it
