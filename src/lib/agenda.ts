@@ -11,10 +11,21 @@ export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlyS
  * uses this rule on its own, on purpose, to answer "was this round ever open to them" rather
  * than "do they have a room in it".
  */
-export function categoryVisible(item: AgendaItem, category: string | null): boolean {
+/**
+ * The category rule on its own, over a bare list.
+ *
+ * Extracted from `categoryVisible` so activities can hold to exactly the same rule (D131)
+ * without owning an `AgendaItem`. One rule, one place, one set of tests — the alternative
+ * was a second case-folding comparison that agrees today and drifts later.
+ */
+export function categoryMatches(categories: string[] | null, category: string | null): boolean {
   const c = category?.trim().toLowerCase() ?? null;
-  return !item.categories || item.categories.length === 0
-    || (c !== null && item.categories.some((x) => x.trim().toLowerCase() === c));
+  return !categories || categories.length === 0
+    || (c !== null && categories.some((x) => x.trim().toLowerCase() === c));
+}
+
+export function categoryVisible(item: AgendaItem, category: string | null): boolean {
+  return categoryMatches(item.categories, category);
 }
 
 /**
