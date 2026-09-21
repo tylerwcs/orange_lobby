@@ -308,7 +308,11 @@ begin
      where session_id = p_from_session and attendee_id = p_attendee_id
   ) then return 'missing'; end if;
 
-  select * into a from activities where id = s_to.activity_id for update;
+  -- NOT `for update`, unlike book_session and cancel_booking. Both of this function's
+  -- sessions belong to one activity, so the per-attendee count cannot move and there is
+  -- nothing for an activity-row lock to serialise. Copy this line from 0017 rather than
+  -- from here, and do not add a lock it does not need.
+  select * into a from activities where id = s_to.activity_id;
   if not found then return 'missing'; end if;
   select * into att from attendees where id = p_attendee_id;
   if not found or att.event_id <> s_to.event_id then return 'missing'; end if;
