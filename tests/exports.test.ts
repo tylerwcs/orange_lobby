@@ -222,4 +222,14 @@ describe("activity roster workbook", () => {
     expect(name).not.toMatch(/[:\\/?*[\]]/);
     expect(name.length).toBeLessThanOrEqual(31);
   });
+
+  it("still writes one sheet when there are no sessions and no required activity to report", () => {
+    // A workbook with zero worksheets is not a valid xlsx - Excel refuses to open it, which
+    // would turn "nothing to print yet" into a download that silently fails.
+    const wb = buildActivityRostersWorkbook([], [], people);
+    expect(wb.worksheets.length).toBe(1);
+    const ws = wb.getWorksheet("No sessions")!;
+    expect(ws).toBeTruthy();
+    expect(ws.getRow(1).getCell(1).value).toBe("This event's activities have no sessions yet.");
+  });
 });

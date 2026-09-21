@@ -159,6 +159,12 @@ export type ActivityUnbookedRoster = { activityName: string; attendeeIds: string
  *
  * A session with no bookings still gets its sheet, header and all: an empty room is
  * information the door list has to state, not a row this function is entitled to skip.
+ *
+ * When `sessions` and `unbooked` are both empty — an event whose activities have no sessions
+ * yet, or no required activity to report on — this still writes one sheet. A workbook with no
+ * worksheets is not a valid xlsx (Excel refuses to open it), which would turn "nothing to
+ * print yet" into a download that silently fails; a sheet that says so in words is the honest
+ * version of the same fact.
  */
 export function buildActivityRostersWorkbook(
   sessions: ActivitySessionRoster[],
@@ -179,6 +185,11 @@ export function buildActivityRostersWorkbook(
   };
   for (const s of sessions) sheet(activitySheetName(s.activityName, s.sessionTitle, taken), s.attendeeIds);
   for (const u of unbooked) sheet(activityUnbookedSheetName(u.activityName, taken), u.attendeeIds);
+  if (sessions.length === 0 && unbooked.length === 0) {
+    const ws = wb.addWorksheet("No sessions");
+    ws.addRow(["This event's activities have no sessions yet."]);
+    ws.columns = [{ width: 48 }];
+  }
   return wb;
 }
 
