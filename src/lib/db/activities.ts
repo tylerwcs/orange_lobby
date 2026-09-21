@@ -177,9 +177,15 @@ export async function bookSession(sessionId: string, attendeeId: string, ignoreO
  * cap of one cannot cancel (D129), and a target that fills between the two steps would leave
  * them holding nothing. The database does both halves in one transaction or neither.
  */
-export async function switchSession(fromSessionId: string, toSessionId: string, attendeeId: string): Promise<BookResult> {
+export async function switchSession(
+  fromSessionId: string,
+  toSessionId: string,
+  attendeeId: string,
+  ignoreOpen = false,
+): Promise<BookResult> {
   const { data, error } = await serviceClient().rpc("switch_session", {
-    p_from_session: fromSessionId, p_to_session: toSessionId, p_attendee_id: attendeeId,
+    p_from_session: fromSessionId, p_to_session: toSessionId,
+    p_attendee_id: attendeeId, p_ignore_open: ignoreOpen,
   });
   if (error) throw error;
   return data as BookResult;
@@ -193,6 +199,13 @@ export async function switchSession(fromSessionId: string, toSessionId: string, 
  * requests the way an app-side read-then-delete could be.
  */
 export type CancelResult = "ok" | "missing" | "required";
+
+/**
+ * Every answer an approval can get. `switch_session` and `cancel_booking` do not return the
+ * same set — only a cancel can be refused as `required`, and only a switch can be `full`,
+ * `closed` or `limit` — so the desk's handler must cover the union of both.
+ */
+export type DecisionResult = BookResult | CancelResult;
 
 /**
  * The only way a booking is ever removed by the attendee themselves.
