@@ -366,9 +366,14 @@ $$;
 -- Postgres grants EXECUTE to public by default, and PostgREST exposes a function as an rpc
 -- endpoint. The anon key travels in the client bundle, so leaving the default would put a
 -- booking write behind a key everybody has. Same reasoning as 0011.
-revoke execute on function book_session(uuid, uuid, boolean) from public;
+-- `revoke ... from public` alone is NOT enough on a Supabase project: it provisions
+-- `alter default privileges in schema public grant execute on functions to anon,
+-- authenticated, service_role`, which fires at CREATE FUNCTION time and grants EXECUTE
+-- directly to those roles. Revoking public leaves those direct grants standing — verified
+-- live, `has_function_privilege('anon', …)` was still true after a public-only revoke.
+revoke execute on function book_session(uuid, uuid, boolean) from public, anon, authenticated;
 grant execute on function book_session(uuid, uuid, boolean) to service_role;
-revoke execute on function switch_session(uuid, uuid, uuid) from public;
+revoke execute on function switch_session(uuid, uuid, uuid) from public, anon, authenticated;
 grant execute on function switch_session(uuid, uuid, uuid) to service_role;
 ```
 
@@ -436,9 +441,11 @@ end $$;
 
 Add `v_sess2 uuid;` to the `declare` block above.
 
-Expected notices, in order: `closed`, `ok`, `full`, `ok`, `ineligible`, `ok`, `limit`, `switch -> ok`, `moved -> 1`, `left -> 0`, `refused -> full`, `kept -> 1`.
+Expected notices, in order: `closed`, `ok`, `full`, `ok`, `ineligible`, `ok`, `limit`, `switch -> ok`, `moved -> 1`, `left -> 0`, `refused -> ineligible`, `kept -> 1`.
 
-`kept -> 1` is the one that matters most. A refused switch must be a no-op: if it prints 0, the function deleted before it checked, and a full target has just cost somebody the seat they already had.
+Note the second-to-last: attendee 1 is refused for `ineligible`, not `full`. Two steps earlier the fixture gave the activity `categories = array['VIP']` and attendee 1 has no category, so eligibility fails before capacity is ever reached. To see `full` from a switch, run a separate case where the mover *is* eligible and the target is at capacity.
+
+`kept -> 1` is the one that matters most, and it holds whichever refusal fires. A refused switch must be a no-op: if it prints 0, the function deleted before it checked, and a refused target has just cost somebody the seat they already had.
 
 The last three are the ones worth reading twice: `ineligible` proves the category rule is enforced in the database and not only in the portal; `folded` proves `' vip '` matches `VIP`, matching `categoryVisible`; `limit` proves the per-activity cap holds when the session still has room.
 
