@@ -15,16 +15,16 @@
 -- alone does not remove those direct grants — 0017 documents this the hard way. Both roles
 -- must be named.
 --
--- The lock order and its deadlock/cycle argument — forty lines above the original definition
--- this migration drops, at 0017_book_session.sql:76-115 — apply unchanged to the body below:
--- both session rows are still locked in id order before either is read, the activity row is
--- still deliberately left unlocked here (relying on the final insert's implicit FOR KEY SHARE
--- via the activity_bookings.activity_id foreign key), and the file-wide rule that every one of
--- these three functions locks session(s) before activity, never the reverse, still holds.
--- Nothing in this migration changes what is locked, when, or in what order — see that comment
--- for why each piece is where it is, including the recorded 40P01 gap against a cascading
--- delete of an activity or its event. switch_session's live definition is now here, not there;
--- 0017 and 0018 have been updated to point at this file.
+-- The lock order and deadlock/cycle argument attached to switch_session's original definition
+-- in 0017_book_session.sql applies unchanged to the body below; nothing in this migration
+-- alters it. Both session rows are still locked in id order before either is read, the activity
+-- row is still deliberately left unlocked here (relying on the final insert's implicit FOR KEY
+-- SHARE via the activity_bookings.activity_id foreign key), and the file-wide rule that every
+-- one of these three functions locks session(s) before activity, never the reverse, still
+-- holds. Nothing in this migration changes what is locked, when, or in what order — see that
+-- comment for why each piece is where it is, including the recorded 40P01 gap against a
+-- cascading delete of an activity or its event. switch_session's live definition is now here,
+-- not there; 0017 and 0018 have been updated to point at this file.
 drop function if exists switch_session(uuid, uuid, uuid);
 
 create or replace function switch_session(
