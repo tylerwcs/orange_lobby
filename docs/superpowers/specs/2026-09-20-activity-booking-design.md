@@ -187,12 +187,23 @@ book_session(p_session_id uuid, p_attendee_id uuid, p_ignore_open boolean) retur
   insert; return 'ok'
 ```
 
-Each function locks the session row it is about, and then the **activity** row, in that order.
+`book_session` and `cancel_booking` lock the session row they are about, and then the **activity**
+row, in that order. (`switch_session` locks its two session rows in id order and takes no explicit
+activity lock, because both its sessions belong to one activity so no count moves.)
 The activity lock is not decoration: `max_per_attendee` is a count across the activity, not the
 session, so locking only the session lets two concurrent bookings of two *different* sessions of
 one activity both read the same count and both pass the cap. The same hole, in the opposite
 direction, would let two concurrent cancels empty a required activity. Locking session-then-activity
-everywhere closes both and introduces no cycle, since nothing takes the locks the other way round.
+everywhere closes both, and none of the three functions takes the locks the other way round.
+
+One cycle does exist, and it is worth knowing about rather than claiming it away: a cascading
+delete goes the other direction — `delete from activities` locks the activity row and then
+cascades into its sessions, while a booking in flight holds a session row and waits for the
+activity. An admin deleting an activity at the same instant somebody books it can therefore
+deadlock. Postgres detects it, aborts one side with `40P01`, and nothing is corrupted; the
+attendee sees a failure rather than a reason code, and retrying works. Deleting an event does the
+same thing one level up. Not worth defending against in code — an admin deleting an activity
+mid-event is already destroying bookings on purpose — but it should not be a surprise.
 
 The cost is that two people acting on the same activity now wait on each other for the length of
 one function call, where previously only two people on the same session did. At an event of
