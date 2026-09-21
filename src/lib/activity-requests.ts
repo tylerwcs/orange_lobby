@@ -18,7 +18,7 @@ export type PendingSummary = {
 };
 
 export type ActivityControls = {
-  /** Sessions offering a Book button. Empty while a request is open, or when at the cap. */
+  /** Sessions offering a Book button. Empty while a request is open, at the cap, or closed. */
   bookable: SeatsForViewer[];
   /** The session this attendee holds, stated once below the sessions rather than inline. */
   holding: SeatsForViewer | null;

@@ -74,6 +74,24 @@ describe("activityControls", () => {
     expect(c.pending).toEqual({ kind: "switch", fromTitle: "s1", toTitle: "s2" });
   });
 
+  // A cap of one already makes bookable empty on its own (see the test above), so that test
+  // alone cannot prove the pending branch is doing anything. This pair uses a cap of two,
+  // the one configuration the rule exists for: an attendee who could still take a second
+  // seat must not be offered it while a request about their first seat is open, because
+  // taking it would change what the desk is being asked to decide. Deleting the pending
+  // branch's `bookable: []` must fail the first of these two and pass the second.
+  it("withholds Book while pending even when the cap would still allow another seat", () => {
+    const twoSeats = { activity: activity({ max_per_attendee: 2 }), mine: ["s1"] };
+    const c = activityControls(state(twoSeats), request());
+    expect(c.bookable).toEqual([]);
+  });
+
+  it("offers Book for that same cap-of-two attendee once nothing is pending", () => {
+    const twoSeats = { activity: activity({ max_per_attendee: 2 }), mine: ["s1"] };
+    const c = activityControls(state(twoSeats), null);
+    expect(c.bookable.map((s) => s.session.id)).toEqual(["s2"]);
+  });
+
   it("summarises a pending cancel with no target", () => {
     const c = activityControls(state({ mine: ["s1"] }), request({ kind: "cancel", to_session_id: null }));
     expect(c.pending).toEqual({ kind: "cancel", fromTitle: "s1", toTitle: null });
