@@ -44,7 +44,11 @@
 --      ignore_open.sql), added so the desk can approve a queued switch after booking closes
 --      (D156). An attendee holding session A of a closed activity: switching without the flag
 --      is refused 'closed' and is a no-op (still holds A); switching with the flag set true
---      succeeds ('ok') and moves them onto B, capacity and eligibility still enforced.
+--      succeeds ('ok') and moves them onto B. Then, still with the flag set (the binding
+--      constraint: it bypasses open/closed and NOTHING else), a switch onto a FULL session
+--      still returns 'full', and a switch onto a session the attendee's category can't reach
+--      still returns 'ineligible' - both still no-ops, so capacity and eligibility are actually
+--      exercised under the flag, not merely asserted.
 --
 -- HOW TO RUN: paste this whole file into the Supabase SQL editor, or run it through the
 -- `execute_sql` MCP tool for this project, or `supabase db execute -f
@@ -337,9 +341,12 @@ begin
 end $$;
 
 -- ============================================================================================
--- Section F — switch_session's p_ignore_open (0020_switch_session_ignore_open.sql): a switch
--- refused for 'closed' without the flag must be a no-op, and must succeed with the flag set,
--- moving the attendee onto the target session.
+-- Section F — switch_session's p_ignore_open (0020_switch_session_ignore_open.sql). Proves the
+-- binding constraint from the spec, not just the happy path: the flag bypasses open/closed and
+-- NOTHING else. A switch refused for 'closed' without the flag is a no-op; with the flag it
+-- succeeds when nothing else refuses it, but still returns 'full' against a full target and
+-- 'ineligible' against a target the attendee's category can't reach - each of those refusals
+-- also a no-op.
 -- ============================================================================================
 do $$
 declare
@@ -348,26 +355,45 @@ declare
   v_act uuid;
   v_sess_a uuid;
   v_sess_b uuid;
+  v_sess_c uuid;
+  v_sess_d uuid;
   v_a1 uuid;
+  v_a2 uuid;
   v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+  v_tok2 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
 begin
   select id into v_org from organisations limit 1;
   insert into events (org_id, slug, name, status)
     values (v_org, 'fixture-f-' || v_tok1, 'Fixture F', 'draft') returning id into v_event;
-  -- booking_open starts true so book_session can place the attendee, then closes - mirroring
+  -- booking_open starts true so book_session can place the attendees, then closes - mirroring
   -- the desk's actual sequence: book while open, close at the headcount cut-off, work the
-  -- queue after.
+  -- queue after. No categories yet - added partway through, once the capacity case below is
+  -- done, for the same reason Section B keeps categories out of its capacity case: eligibility
+  -- runs before capacity inside switch_session, so a category restriction in place early would
+  -- pre-empt the capacity refusal and never let it fire.
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event, 'Workshops', false, true, 1) returning id into v_act;
   insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
     values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess_a;
   insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
     values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess_b;
+  -- Room C: capacity 1, filled by a second attendee below - the target for the capacity case.
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room C (full)', current_date, '13:30', 1) returning id into v_sess_c;
+  -- Room D: plenty of room, empty - the target for the eligibility case, so 'ineligible' is
+  -- what fires there and not 'full'.
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room D', current_date, '15:30', 5) returning id into v_sess_d;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'Queued switch', 'walkin') returning id into v_a1;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok2, 'Fills room C', 'walkin') returning id into v_a2;
 
   insert into results (step, value) values ('F.book_roomA', book_session(v_sess_a, v_a1, false));
   update activities set booking_open = false where id = v_act;
+  -- a2 is placed into the (soon to be) full Room C by the desk, same as a1's later switch: the
+  -- activity is already closed, so this also needs the flag.
+  insert into results (step, value) values ('F.book_roomC_a2', book_session(v_sess_c, v_a2, true));
 
   -- No flag: refused 'closed', and must be a no-op - still holds A, not B.
   insert into results (step, value) values ('F.switch_closed', switch_session(v_sess_a, v_sess_b, v_a1));
@@ -376,13 +402,31 @@ begin
   insert into results (step, value) values ('F.not_holding_roomB', (select count(*)::text from activity_bookings
                                   where attendee_id = v_a1 and session_id = v_sess_b));
 
-  -- Flag set: the desk approving the request. Succeeds despite booking_open = false; capacity
-  -- and eligibility are unaffected by the flag and simply pass here.
+  -- Flag set, nothing else refuses it: succeeds despite booking_open = false.
   insert into results (step, value) values ('F.switch_ignored_open', switch_session(v_sess_a, v_sess_b, v_a1, true));
   insert into results (step, value) values ('F.holds_roomB_after', (select count(*)::text from activity_bookings
                                   where attendee_id = v_a1 and session_id = v_sess_b));
   insert into results (step, value) values ('F.holds_roomA_after', (select count(*)::text from activity_bookings
                                   where attendee_id = v_a1 and session_id = v_sess_a));
+
+  -- Flag set, target is FULL (Room C, capacity 1, held by a2, no category restriction yet so
+  -- capacity is what actually fires): must still return 'full', and must still be a no-op - a1
+  -- keeps Room B, does not gain Room C.
+  insert into results (step, value) values ('F.switch_ignored_open_full', switch_session(v_sess_b, v_sess_c, v_a1, true));
+  insert into results (step, value) values ('F.kept_roomB_after_full', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_b));
+  insert into results (step, value) values ('F.not_holding_roomC', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_c));
+
+  -- Flag set, target is INELIGIBLE (Room D has plenty of capacity, so this isolates eligibility
+  -- from the capacity case above): a1's category is null, the activity now requires 'VIP', so
+  -- this must return 'ineligible', and must still be a no-op - a1 keeps Room B.
+  update activities set categories = array['VIP'] where id = v_act;
+  insert into results (step, value) values ('F.switch_ignored_open_ineligible', switch_session(v_sess_b, v_sess_d, v_a1, true));
+  insert into results (step, value) values ('F.kept_roomB_after_ineligible', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_b));
+  insert into results (step, value) values ('F.not_holding_roomD', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_d));
 
   delete from events where id = v_event;
 end $$;

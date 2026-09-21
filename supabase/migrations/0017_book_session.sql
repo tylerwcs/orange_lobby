@@ -37,6 +37,10 @@ begin
   -- Locked, not merely selected: `held` below counts across every session of this activity, so
   -- the activity row is what actually needs to serialise two different bookers - see the
   -- switch_session comment below for the lock-order argument this depends on, and its limit.
+  -- switch_session's LIVE definition is now supabase/migrations/0020_switch_session_ignore_
+  -- open.sql, which changes only a parameter and the closed check and carries this argument
+  -- forward unchanged - the comment below is superseded as the definition but not as the
+  -- argument.
   select * into a from activities where id = s.activity_id for update;
   if not found then return 'missing'; end if;
 

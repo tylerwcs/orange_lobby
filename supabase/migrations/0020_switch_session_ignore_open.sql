@@ -14,6 +14,17 @@
 -- anon, authenticated, service_role`, which fires at CREATE time. Revoking from `public`
 -- alone does not remove those direct grants — 0017 documents this the hard way. Both roles
 -- must be named.
+--
+-- The lock order and its deadlock/cycle argument — forty lines above the original definition
+-- this migration drops, at 0017_book_session.sql:76-115 — apply unchanged to the body below:
+-- both session rows are still locked in id order before either is read, the activity row is
+-- still deliberately left unlocked here (relying on the final insert's implicit FOR KEY SHARE
+-- via the activity_bookings.activity_id foreign key), and the file-wide rule that every one of
+-- these three functions locks session(s) before activity, never the reverse, still holds.
+-- Nothing in this migration changes what is locked, when, or in what order — see that comment
+-- for why each piece is where it is, including the recorded 40P01 gap against a cascading
+-- delete of an activity or its event. switch_session's live definition is now here, not there;
+-- 0017 and 0018 have been updated to point at this file.
 drop function if exists switch_session(uuid, uuid, uuid);
 
 create or replace function switch_session(
@@ -61,6 +72,10 @@ begin
   select * into att from attendees where id = p_attendee_id;
   if not found or att.event_id <> s_to.event_id then return 'missing'; end if;
 
+  -- D156: the desk approving a queued switch after booking has closed. Bypasses open/closed
+  -- ONLY — capacity and eligibility below are never bypassed by it. Keep this guard here, above
+  -- both of those checks, if this function is ever edited: moving it below either would let the
+  -- flag do more than it is meant to.
   if not p_ignore_open and not a.booking_open then return 'closed'; end if;
 
   if a.categories is not null and array_length(a.categories, 1) > 0 then
