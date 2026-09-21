@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   seatsFor, eligible, activityState, canCancel, unbookedIds,
-  bookedAgendaRows, mergeAgenda, isBookedRow, BOOKING_ROW_PREFIX,
+  bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, BOOKING_ROW_PREFIX,
 } from "@/lib/activities";
 import { visibleTo } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
@@ -181,12 +181,35 @@ describe("mergeAgenda", () => {
   });
 });
 
-describe("mergeAgenda with a filtered agenda", () => {
-  // The derived rows are already personal, so they are merged AFTER visibleTo and must
-  // survive it. This proves the merge does not depend on the agenda being unfiltered.
+describe("mergeAgenda called on an already-filtered list", () => {
+  // Merely an edge case of mergeAgenda in isolation - an empty `items` behaves like any other
+  // list. It does NOT prove anything about composing with visibleTo: bookedAgendaRows sets
+  // categories: null and slot: null, so a derived row is immune to both of visibleTo's filters
+  // no matter which side of the merge it runs on. See personalAgenda below for the real
+  // composition and why the order is still worth keeping despite that immunity.
   it("keeps a booked row that no agenda item corresponds to", () => {
     const filtered: AgendaItem[] = [];
     const derived = bookedAgendaRows([session("s1")]);
     expect(mergeAgenda(filtered, derived).map((i) => i.id)).toEqual(["booking:s1"]);
+  });
+});
+
+describe("personalAgenda", () => {
+  // The one thing worth pinning here is the composition, not the ordering: a sibling item this
+  // viewer's category cannot see is filtered out, while this viewer's own booking - which no
+  // filter has anything to say about - comes through regardless. Reordering filter and merge
+  // would not make this test fail (see the note on personalAgenda itself), so it is not a test
+  // of the ordering decision; it is a test that the composed function actually filters AND
+  // actually merges, which a refactor could still break independently of the ordering.
+  it("filters a sibling item by category while keeping this attendee's own booking", () => {
+    const visible = item("v1", "2026-10-01", "08:00");
+    const restricted = { ...item("r1", "2026-10-01", "09:00"), categories: ["VIP"] };
+    const booked = session("s1", { starts_at: "09:30" });
+    const result = personalAgenda(
+      [visible, restricted],
+      { category: "Delegate", assignedItemIds: new Set() },
+      [booked],
+    );
+    expect(result.map((i) => i.id)).toEqual(["v1", `${BOOKING_ROW_PREFIX}s1`]);
   });
 });

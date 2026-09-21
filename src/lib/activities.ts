@@ -1,4 +1,4 @@
-import { categoryMatches } from "@/lib/agenda";
+import { categoryMatches, visibleTo, type AgendaViewer } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
 
 /**
@@ -125,4 +125,22 @@ export function mergeAgenda(items: AgendaItem[], derived: AgendaItem[]): AgendaI
   if (derived.length === 0) return items;
   return [...items, ...derived].sort((a, b) =>
     a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at) || a.sort_order - b.sort_order);
+}
+
+/**
+ * The one agenda this attendee is shown: the organiser's programme filtered to them, with
+ * their own booked sessions folded in. The portal home and the personal agenda page both call
+ * this rather than each composing `visibleTo` and `mergeAgenda` themselves, so the ordering
+ * decision below lives in exactly one place.
+ *
+ * A derived row is immune to both of `visibleTo`'s filters by construction, not as a side
+ * effect of running this filter-then-merge: `bookedAgendaRows` sets `categories: null`, so
+ * `categoryMatches` always passes it, and `slot: null`, so `isBreakout` is always false for it.
+ * Filtering before merging therefore changes nothing about today's output — merging first would
+ * produce the same result. It is still done in this order on purpose: it means a future filter
+ * dimension that is *not* immune the same way runs before the merge too, and so cannot silently
+ * drop somebody's own booking just because it was added after the merge already happened.
+ */
+export function personalAgenda(allAgenda: AgendaItem[], viewer: AgendaViewer, bookedSessions: ActivitySession[]): AgendaItem[] {
+  return mergeAgenda(visibleTo(allAgenda, viewer), bookedAgendaRows(bookedSessions));
 }

@@ -3,8 +3,8 @@ import { listAgenda } from "@/lib/db/agenda";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { listActivities, listSessions, bookingsForAttendee } from "@/lib/db/activities";
 import { isBreakout } from "@/lib/breakouts";
-import { visibleTo, groupByDay, pickDay } from "@/lib/agenda";
-import { bookedAgendaRows, mergeAgenda } from "@/lib/activities";
+import { groupByDay, pickDay } from "@/lib/agenda";
+import { personalAgenda } from "@/lib/activities";
 import { nowInKL } from "@/lib/time";
 import { AgendaList } from "@/components/portal/AgendaList";
 
@@ -22,12 +22,8 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const bookedSessions = myBookings.length
     ? (await listSessions(event.id)).filter((s) => myBookings.some((b) => b.session_id === s.id))
     : [];
-  // Merged AFTER visibleTo: these rows are this attendee's own bookings, so no category or
-  // assignment filter has anything to say about them (D133).
-  const items = mergeAgenda(
-    visibleTo(allAgenda, { category: attendee.category, assignedItemIds }),
-    bookedAgendaRows(bookedSessions),
-  );
+  // Same composition loadHomeData uses - see personalAgenda's own doc for the ordering.
+  const items = personalAgenda(allAgenda, { category: attendee.category, assignedItemIds }, bookedSessions);
   const days = groupByDay(items).map((d) => d.day);
   const now = nowInKL();
   const day = pickDay(days, requested, now.date);

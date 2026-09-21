@@ -3,9 +3,9 @@ import { listAgenda } from "@/lib/db/agenda";
 import { listAnnouncements } from "@/lib/db/announcements";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { listActivities, listSessions, countBookingsBySession, bookingsForAttendee } from "@/lib/db/activities";
-import { visibleTo, nextSession, groupByDay, pickDay } from "@/lib/agenda";
+import { nextSession, groupByDay, pickDay } from "@/lib/agenda";
 import { isBreakout } from "@/lib/breakouts";
-import { activityState, bookedAgendaRows, mergeAgenda, type ActivityState } from "@/lib/activities";
+import { activityState, personalAgenda, type ActivityState } from "@/lib/activities";
 import { nowInKL } from "@/lib/time";
 import { resolveTiles, type Tile } from "@/lib/modules";
 import type { AgendaItem, Announcement, Attendee, Event } from "@/lib/types";
@@ -46,9 +46,11 @@ export async function loadHomeData(
   // the migration adding that table has been applied.
   const hasBreakouts = allAgenda.some(isBreakout);
   const assignedItemIds = attendee && hasBreakouts ? await assignedItemIdsFor(attendee.id) : new Set<string>();
-  // Only touch the activity tables when this event actually runs activities. Every event
-  // that exists today has none, and skipping the queries keeps their portal working even
-  // before migration 0016 has been applied — the same guard `hasBreakouts` gives above.
+  // Unlike hasBreakouts above, there is no free signal for "this event has activities" - it
+  // takes a real query to find out, and listActivities is written to answer "none" rather than
+  // throw when migration 0016 has not landed yet. What this guard buys is skipping the three
+  // heavier queries below (every session, every booking, this attendee's bookings) for every
+  // event that has nothing to do with this feature, which today is all of them.
   const activities = attendee ? await listActivities(event.id) : [];
   const [sessions, counts, myBookings] = activities.length && attendee
     ? await Promise.all([listSessions(event.id), countBookingsBySession(event.id), bookingsForAttendee(attendee.id)])
@@ -63,14 +65,11 @@ export async function loadHomeData(
   })) : [];
   const bookedSessions = sessions.filter((s) => mineBySession.has(s.id));
   const { date, time } = nowInKL();
-  // Filtered once, here: everything downstream - the next card, the day tabs and the
-  // desktop agenda column - must agree about what this attendee is allowed to see.
-  // Merged AFTER visibleTo: these rows are this attendee's own bookings, so no category or
-  // assignment filter has anything to say about them (D133).
-  const agenda = mergeAgenda(
-    visibleTo(allAgenda, attendee ? { category: attendee.category, assignedItemIds } : null),
-    bookedAgendaRows(bookedSessions),
-  );
+  // Computed once, here: everything downstream - the next card, the day tabs and the desktop
+  // agenda column - must agree about what this attendee is allowed to see, bookings included.
+  // See personalAgenda's own doc for why the filter-then-merge order is safe today and why it
+  // is kept anyway.
+  const agenda = personalAgenda(allAgenda, attendee ? { category: attendee.category, assignedItemIds } : null, bookedSessions);
   const next = nextSession(agenda, date, time);
   const banner = announcements.find((a) => a.pinned) ?? announcements[0] ?? null;
   const tiles = resolveTiles({ event, basePath });
