@@ -68,6 +68,13 @@ item is pass-or-block for badge printing on 24 Sep.
 15. **Set a registration close time**, save, reload settings, confirm the same local time
     shows, and confirm the form actually closes at that Malaysia time.
 
+## Activities (admin — needs a logged-in organiser)
+
+- [ ] Activities appears in the Portal group of the sidebar
+- [ ] Add an activity with two sessions; the list shows 0 / <capacity> seats
+- [ ] Booking open / Closed toggles and the badge follows
+- [ ] Deleting an activity removes its sessions and bookings
+
 ## Known limitations parked until after the pilot
 
 - Re-import correctness relies on a 2,000-row attendee lookup; events above 2,000
