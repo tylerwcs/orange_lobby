@@ -1,8 +1,10 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { listAgenda } from "@/lib/db/agenda";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
+import { listActivities, listSessions, bookingsForAttendee } from "@/lib/db/activities";
 import { isBreakout } from "@/lib/breakouts";
 import { visibleTo, groupByDay, pickDay } from "@/lib/agenda";
+import { bookedAgendaRows, mergeAgenda } from "@/lib/activities";
 import { nowInKL } from "@/lib/time";
 import { AgendaList } from "@/components/portal/AgendaList";
 
@@ -12,7 +14,20 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const basePath = `/e/${slug}/a/${token}`;
   const allAgenda = await listAgenda(event.id);
   const assignedItemIds = allAgenda.some(isBreakout) ? await assignedItemIdsFor(attendee.id) : new Set<string>();
-  const items = visibleTo(allAgenda, { category: attendee.category, assignedItemIds });
+  // Only touch the activity tables when this event actually runs activities - same guard
+  // loadHomeData uses, so this page and the portal home never disagree about what a booked
+  // session looks like.
+  const activities = await listActivities(event.id);
+  const myBookings = activities.length ? await bookingsForAttendee(attendee.id) : [];
+  const bookedSessions = myBookings.length
+    ? (await listSessions(event.id)).filter((s) => myBookings.some((b) => b.session_id === s.id))
+    : [];
+  // Merged AFTER visibleTo: these rows are this attendee's own bookings, so no category or
+  // assignment filter has anything to say about them (D133).
+  const items = mergeAgenda(
+    visibleTo(allAgenda, { category: attendee.category, assignedItemIds }),
+    bookedAgendaRows(bookedSessions),
+  );
   const days = groupByDay(items).map((d) => d.day);
   const now = nowInKL();
   const day = pickDay(days, requested, now.date);

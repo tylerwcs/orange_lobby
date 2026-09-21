@@ -180,3 +180,13 @@ describe("mergeAgenda", () => {
     expect(mergeAgenda(items, [])).toEqual(items);
   });
 });
+
+describe("mergeAgenda with a filtered agenda", () => {
+  // The derived rows are already personal, so they are merged AFTER visibleTo and must
+  // survive it. This proves the merge does not depend on the agenda being unfiltered.
+  it("keeps a booked row that no agenda item corresponds to", () => {
+    const filtered: AgendaItem[] = [];
+    const derived = bookedAgendaRows([session("s1")]);
+    expect(mergeAgenda(filtered, derived).map((i) => i.id)).toEqual(["booking:s1"]);
+  });
+});
