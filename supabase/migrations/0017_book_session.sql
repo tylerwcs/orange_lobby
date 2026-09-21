@@ -36,7 +36,7 @@ begin
 
   -- Locked, not merely selected: `held` below counts across every session of this activity, so
   -- the activity row is what actually needs to serialise two different bookers - see the
-  -- header for the full argument and the lock-order note that keeps this deadlock-free.
+  -- switch_session comment below for the lock-order argument this depends on, and its limit.
   select * into a from activities where id = s.activity_id for update;
   if not found then return 'missing'; end if;
 
@@ -82,16 +82,37 @@ $$;
 --
 -- Both session rows are locked in id order, so two people swapping in opposite directions
 -- cannot deadlock. The per-attendee cap needs no check: both sessions belong to the same
--- activity, so the count does not move - which is also why this function, alone of the three,
--- never locks the activity row at all.
+-- activity, so the count does not move - which is also why this function is the only one of
+-- the three that never requests an explicit lock on the activity row. Its final insert still
+-- takes an implicit FOR KEY SHARE lock on the activity row, because activity_bookings.activity_id
+-- is a foreign key to it - that lock is compatible with another FOR KEY SHARE, but not with
+-- book_session's or cancel_booking's FOR UPDATE, so this function's insert can now wait behind
+-- either of them. It happens after both session locks are already held, so it does not change
+-- the ordering argument below.
 --
 -- Lock order, across this file and cancel_booking (0018_cancel_booking.sql): every function
 -- that touches both tables locks its session row(s) first and the activity row second, never
--- the reverse - book_session and cancel_booking both do; this one only ever takes session
--- locks. A cycle needs two transactions each waiting on something the other already holds, and
--- with a single consistent order that cannot happen: nothing here is ever blocked on an
--- activity lock while holding one, because the only two functions that take an activity lock
--- take their session lock(s) strictly first, and this function never takes one at all.
+-- the reverse - book_session and cancel_booking both do explicitly; this one only ever does so
+-- implicitly, via its insert. Among these three functions a cycle needs two transactions each
+-- waiting on something the other already holds, and with a single consistent order that cannot
+-- happen.
+--
+-- That is true of these three functions - it is NOT true of the database as a whole. Deleting
+-- an activity (deleteActivity, src/lib/db/activities.ts) or its event locks the activity (or
+-- event) row and cascades into activity_sessions (0016_activities.sql's `on delete cascade`),
+-- which needs the child session row - the reverse of the order above. A book_session or
+-- cancel_booking call already holding its session lock and waiting on the activity lock, racing
+-- an admin's delete of that same activity (or event) which holds the activity lock and needs
+-- the session row to cascade, is a genuine cycle. Postgres detects it after `deadlock_timeout`
+-- and aborts one side with error 40P01, which `bookSession`/`cancelBooking`
+-- (src/lib/db/activities.ts) currently rethrow as an unhandled error rather than one of the
+-- reason codes above. This did not used to be reachable - book_session never waited on the
+-- activity row before this fix. It is low probability (an admin's delete and an attendee's
+-- booking or cancel would have to land in the same instant), self-detecting (Postgres breaks
+-- the cycle itself, nothing here has to notice it), and non-corrupting (the loser's transaction
+-- is rolled back whole, not left half-applied) - the loser can simply be retried. No retry or
+-- special handling for 40P01 is implemented; that is a deliberate, recorded gap, not an
+-- oversight.
 create or replace function switch_session(
   p_from_session uuid,
   p_to_session uuid,
