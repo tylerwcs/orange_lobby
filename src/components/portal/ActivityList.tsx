@@ -81,9 +81,10 @@ export function ActivityList({ entries, book, requestSwitch, requestCancel, with
               ))}
               <ActivityBooking
                 controls={controls}
+                pendingId={pendingId}
                 requestSwitch={requestSwitch}
                 requestCancel={requestCancel}
-                withdraw={pendingId ? withdraw.bind(null, pendingId) : async () => {}}
+                withdraw={withdraw}
               />
             </CardContent>
           </Card>

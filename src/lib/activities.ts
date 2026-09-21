@@ -65,16 +65,6 @@ export function activityState(input: StateInput): ActivityState {
 }
 
 /**
- * Whether this attendee may drop the booking they are looking at.
- *
- * Cancelling out of a required activity would put them in the state the activity exists to
- * prevent, and the portal has somewhere better to send them — the other sessions (D129).
- */
-export function canCancel(activity: Pick<Activity, "required">, held: number): boolean {
-  return !activity.required || held > 1;
-}
-
-/**
  * The people the desk has to chase: eligible, and holding nothing.
  *
  * Order is the caller's, which is `listAttendees` order — already alphabetical, which is what

@@ -194,9 +194,9 @@ export async function switchSession(
 /**
  * Every answer `cancel_booking` can give. `missing` covers both a stale second tab re-cancelling
  * a booking already gone and a session the attendee never held; `required` is the same rule
- * `canCancel` decides in the UI, re-enforced under the same row lock `book_session` and
- * `switch_session` use, so the check and the delete cannot be pulled apart by two overlapping
- * requests the way an app-side read-then-delete could be.
+ * `activityControls.canRequestCancel` decides in the UI, re-enforced under the same row lock
+ * `book_session` and `switch_session` use, so the check and the delete cannot be pulled apart by
+ * two overlapping requests the way an app-side read-then-delete could be.
  */
 export type CancelResult = "ok" | "missing" | "required";
 

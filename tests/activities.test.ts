@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  seatsFor, eligible, activityState, canCancel, unbookedIds, sessionRosters, unbookedByActivity,
+  seatsFor, eligible, activityState, unbookedIds, sessionRosters, unbookedByActivity,
   bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, BOOKING_ROW_PREFIX,
   readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields,
 } from "@/lib/activities";
@@ -106,19 +106,6 @@ describe("activityState", () => {
   });
 });
 
-describe("canCancel", () => {
-  it("lets anyone leave an optional activity", () => {
-    expect(canCancel(activity({ required: false }), 1)).toBe(true);
-  });
-
-  it("refuses the last booking of a required activity", () => {
-    expect(canCancel(activity({ required: true }), 1)).toBe(false);
-  });
-
-  it("allows dropping a second booking of a required activity", () => {
-    expect(canCancel(activity({ required: true }), 2)).toBe(true);
-  });
-});
 
 describe("unbookedIds", () => {
   it("lists the eligible people who hold nothing, in the order given", () => {

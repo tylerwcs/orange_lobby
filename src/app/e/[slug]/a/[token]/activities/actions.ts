@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { loadPortalAttendee } from "@/lib/portal";
 import { bookSession, getActivity, listSessions, bookingsForAttendee } from "@/lib/db/activities";
-import { createRequest, withdrawRequest } from "@/lib/db/activity-requests";
+import { createRequest, withdrawRequest, requestsForAttendee } from "@/lib/db/activity-requests";
 import { flashPath } from "@/lib/flash";
 import { allow } from "@/lib/ratelimit";
 import type { BookResult } from "@/lib/db/activities";
@@ -44,6 +44,20 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   const session = sessions.find((s) => s.id === sessionId);
   if (!session) redirect(flashPath(path, REFUSALS.missing, "error"));
 
+  // A pending request on this activity means its meaning is no longer settled — taking a
+  // second seat underneath it would hand the desk a request whose premise changed while it
+  // sat in the queue. `controls.bookable` already hides Book for this case; this is what makes
+  // that enforcement rather than decoration against a direct POST.
+  const requests = await requestsForAttendee(attendee.id);
+  const hasPending = requests.some((r) => r.activity_id === session.activity_id && r.status === "pending");
+  if (hasPending) {
+    redirect(flashPath(
+      path,
+      "You have a change waiting for approval, so you cannot book another session of this activity yet.",
+      "error",
+    ));
+  }
+
   const result = await bookSession(session.id, attendee.id);
   redirect(result === "ok"
     ? flashPath(path, `Booked: ${session.title}.`)
@@ -72,8 +86,12 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
   const from = sessions.find((s) => s.id === fromSessionId);
   const to = sessions.find((s) => s.id === toSessionId);
   // Both event-scoped, and both must belong to one activity — a switch across activities is
-  // two decisions, not one, and the database would refuse it at approval time anyway.
-  if (!from || !to || from.activity_id !== to.activity_id) {
+  // two decisions, not one, and the database would refuse it at approval time anyway. A
+  // self-targeting switch (to === from) is refused here too: it is not the same as a full
+  // target, which we deliberately let through for approval to refuse — this one would sit in
+  // the attendee's one open-request slot forever doing nothing, and block their real request
+  // as a duplicate until somebody withdrew the nonsense one.
+  if (!from || !to || from.activity_id !== to.activity_id || to.id === from.id) {
     redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
   }
 
@@ -86,7 +104,7 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
     fromSessionId: from.id, toSessionId: to.id,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to move to ${to.title}. The desk will confirm.`)
+    ? flashPath(path, `Asked to move to ${to.title}. The desk will decide.`)
     : flashPath(path, ASK_REFUSALS.duplicate, "error"));
 }
 
@@ -116,7 +134,7 @@ export async function requestCancelAction(slug: string, token: string, fromSessi
     fromSessionId: from.id, toSessionId: null,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to cancel ${from.title}. The desk will confirm.`)
+    ? flashPath(path, `Asked to cancel ${from.title}. The desk will decide.`)
     : flashPath(path, ASK_REFUSALS.duplicate, "error"));
 }
 
