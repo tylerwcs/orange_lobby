@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ActivityState } from "@/lib/activities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
@@ -16,12 +17,14 @@ const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foregr
  * because it now also carries what the attendee already holds and any optional activity still
  * open to them.
  *
- * Required-and-unpicked leads, because that is the one a nag is for; everything else follows
- * as a plain way back to the page rather than a demand. Renders nothing when there is nothing
- * to show, so every event that runs no activities - or none this attendee's category can see -
- * sees no change. Mirrors BreakoutCard, which solves the same problem from the other
- * direction: that card says where you have been put, this one is the way back to where you
- * choose.
+ * Required-and-unpicked leads, because that is the one a nag is for, AND carries the same
+ * "Pick one" badge `ActivityList` puts on it there — sort order alone is too quiet a signal
+ * that a choice is owed, and the two surfaces have to agree on what "owed" looks like.
+ * Everything else follows as a plain way back to the page rather than a demand. Renders
+ * nothing when there is nothing to show, so every event that runs no activities - or none this
+ * attendee's category can see - sees no change. Mirrors BreakoutCard, which solves the same
+ * problem from the other direction: that card says where you have been put, this one is the
+ * way back to where you choose.
  */
 export function ActivitiesCard({ states, basePath }: { states: ActivityState[]; basePath: string }) {
   const eligible = states.filter((s) => s.eligible);
@@ -47,8 +50,13 @@ export function ActivitiesCard({ states, basePath }: { states: ActivityState[]; 
       <CardContent>
         <ul className="divide-y text-sm">
           {[...mustPick, ...rest].map((s) => (
-            <li key={s.activity.id} className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5 py-2.5">
-              <span className="font-medium">{s.activity.name}</span>
+            <li key={s.activity.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-2.5">
+              <span className="flex items-center gap-2 font-medium">
+                {s.activity.name}
+                {/* Matches ActivityList's own "Pick one" badge (D129): the two places an
+                    attendee sees this activity must not disagree about whether it is owed. */}
+                {s.mustPick && <Badge variant="secondary">Pick one</Badge>}
+              </span>
               <span className="ml-auto text-muted-foreground">{status(s)}</span>
             </li>
           ))}

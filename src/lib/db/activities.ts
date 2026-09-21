@@ -38,8 +38,10 @@ export type BookResult = "ok" | "full" | "closed" | "limit" | "ineligible" | "mi
  * page (`src/app/e/[slug]/a/[token]/activities/page.tsx`) calls `listSessions`,
  * `countBookingsBySession`, and `bookingsForAttendee` alongside this one in a single unguarded
  * `Promise.all`, so that page assumes migration 0016 has already run and will 500 rather than
- * degrade if it has not. Only `loadHomeData` earns the graceful path, by calling this function
- * first and gating the other three on `activities.length`.
+ * degrade if it has not. Only the callers that call this function first and gate the rest of
+ * their queries on `activities.length` earn the graceful path — `loadHomeData` and the
+ * personal agenda page both do this; a caller added later has to do the same, deliberately,
+ * rather than inherit it for free.
  */
 export async function listActivities(eventId: string): Promise<Activity[]> {
   const { data, error } = await serviceClient().from("activities").select("*")
