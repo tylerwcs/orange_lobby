@@ -174,3 +174,27 @@ export type ActivityBooking = {
   attendee_id: string;
   created_at: string;
 };
+
+export type ActivityRequestKind = "switch" | "cancel";
+export type ActivityRequestStatus = "pending" | "approved" | "declined" | "withdrawn";
+
+/**
+ * A change an attendee has asked for. The booking it refers to does not move until the
+ * desk approves it (D143), so this row never affects a seat count on its own.
+ */
+export type ActivityChangeRequest = {
+  id: string;
+  event_id: string;
+  activity_id: string;
+  attendee_id: string;
+  kind: ActivityRequestKind;
+  /** The booking they hold now. */
+  from_session_id: string;
+  /** Where they want to go. Null for a cancel — the database enforces the pairing. */
+  to_session_id: string | null;
+  status: ActivityRequestStatus;
+  created_at: string;
+  decided_at: string | null;
+  /** An `auth.users` id, as `checkins.scanned_by` is. */
+  decided_by: string | null;
+};
