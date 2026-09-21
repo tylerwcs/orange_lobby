@@ -1,7 +1,8 @@
 "use server";
 import { redirect } from "next/navigation";
 import { loadPortalAttendee } from "@/lib/portal";
-import { bookSession, switchSession, cancelBooking, getActivity, listSessions } from "@/lib/db/activities";
+import { bookSession, getActivity, listSessions, bookingsForAttendee } from "@/lib/db/activities";
+import { createRequest, withdrawRequest } from "@/lib/db/activity-requests";
 import { flashPath } from "@/lib/flash";
 import { allow } from "@/lib/ratelimit";
 import type { BookResult } from "@/lib/db/activities";
@@ -49,14 +50,47 @@ export async function bookAction(slug: string, token: string, sessionId: string)
     : flashPath(path, REFUSALS[result], "error"));
 }
 
-/**
- * Moves one booking to another session of the same activity.
- *
- * Its own action rather than a cancel then a book, because a required activity with a cap of
- * one refuses the cancel (D129) and would otherwise be unchangeable — and because a target
- * that fills in between must not leave this attendee with nothing.
- */
-export async function switchAction(slug: string, token: string, fromSessionId: string, toSessionId: string) {
+const ASK_REFUSALS = {
+  duplicate: "You already have a change waiting for approval. Withdraw it first.",
+  missing: "That session is no longer on the programme.",
+  notYours: "You are not booked on that session.",
+  required: "This activity needs a choice. Ask to switch instead.",
+} as const;
+
+export async function requestSwitchAction(slug: string, token: string, fromSessionId: string, fd: FormData) {
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const path = `/e/${slug}/a/${token}/activities`;
+  if (event.status === "archived") redirect(flashPath(path, ARCHIVED, "error"));
+  if (!allow(`book:${token}`, 20, 60_000)) {
+    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+  }
+
+  // The target comes from the form's own select, not from a bound argument: a form action
+  // receives FormData and nothing else.
+  const toSessionId = String(fd.get("to") ?? "");
+  const sessions = await listSessions(event.id);
+  const from = sessions.find((s) => s.id === fromSessionId);
+  const to = sessions.find((s) => s.id === toSessionId);
+  // Both event-scoped, and both must belong to one activity — a switch across activities is
+  // two decisions, not one, and the database would refuse it at approval time anyway.
+  if (!from || !to || from.activity_id !== to.activity_id) {
+    redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
+  }
+
+  // Re-checked rather than trusted from the page: a second tab still has a live button.
+  const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
+  if (!holds) redirect(flashPath(path, ASK_REFUSALS.notYours, "error"));
+
+  const result = await createRequest({
+    eventId: event.id, activityId: from.activity_id, attendeeId: attendee.id,
+    fromSessionId: from.id, toSessionId: to.id,
+  });
+  redirect(result === "ok"
+    ? flashPath(path, `Asked to move to ${to.title}. The desk will confirm.`)
+    : flashPath(path, ASK_REFUSALS.duplicate, "error"));
+}
+
+export async function requestCancelAction(slug: string, token: string, fromSessionId: string) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const path = `/e/${slug}/a/${token}/activities`;
   if (event.status === "archived") redirect(flashPath(path, ARCHIVED, "error"));
@@ -65,56 +99,37 @@ export async function switchAction(slug: string, token: string, fromSessionId: s
   }
 
   const sessions = await listSessions(event.id);
-  // Both ends are posted values and neither is trusted at face value: `switch_session` closes
-  // the hole either way (it refuses a `fromSessionId` this attendee does not hold), but that
-  // makes this file's safety depend on a guarantee two files away rather than checking the
-  // session list it already has in hand.
-  const source = sessions.find((s) => s.id === fromSessionId);
-  if (!source) redirect(flashPath(path, REFUSALS.missing, "error"));
-  const target = sessions.find((s) => s.id === toSessionId);
-  if (!target) redirect(flashPath(path, REFUSALS.missing, "error"));
+  const from = sessions.find((s) => s.id === fromSessionId);
+  if (!from) redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
 
-  const result = await switchSession(source.id, target.id, attendee.id);
+  const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
+  if (!holds) redirect(flashPath(path, ASK_REFUSALS.notYours, "error"));
+
+  // D148: a required activity's cancel never reaches the queue. The control is hidden, and
+  // this is the check that makes hiding it enforcement rather than decoration.
+  const activity = await getActivity(from.activity_id, event.id);
+  if (!activity) redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
+  if (activity.required) redirect(flashPath(path, ASK_REFUSALS.required, "error"));
+
+  const result = await createRequest({
+    eventId: event.id, activityId: activity.id, attendeeId: attendee.id,
+    fromSessionId: from.id, toSessionId: null,
+  });
   redirect(result === "ok"
-    ? flashPath(path, `Moved to ${target.title}.`)
-    : flashPath(path, REFUSALS[result], "error"));
+    ? flashPath(path, `Asked to cancel ${from.title}. The desk will confirm.`)
+    : flashPath(path, ASK_REFUSALS.duplicate, "error"));
 }
 
-// Deliberately no archived-event guard here, unlike bookAction and switchAction: cancelling
-// releases a commitment rather than creating one, and trapping somebody in a booking they
-// cannot leave once an event is archived is the worse failure.
-export async function cancelAction(slug: string, token: string, sessionId: string) {
-  const { event, attendee } = await loadPortalAttendee(slug, token);
+export async function withdrawRequestAction(slug: string, token: string, requestId: string) {
+  const { attendee } = await loadPortalAttendee(slug, token);
   const path = `/e/${slug}/a/${token}/activities`;
   if (!allow(`book:${token}`, 20, 60_000)) {
     redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
   }
-
-  const sessions = await listSessions(event.id);
-  const session = sessions.find((s) => s.id === sessionId);
-  if (!session) redirect(flashPath(path, REFUSALS.missing, "error"));
-
-  // `cancel_booking` is the enforcement (D129, under the same row lock `book_session` and
-  // `switch_session` use, so the read of "how many does this attendee hold" and the delete
-  // cannot be pulled apart by two overlapping requests). `canCancel` in ActivityList only
-  // decides whether to show the button - the affordance, not the guarantee - so a stale
-  // second tab with a live Cancel button still gets re-checked here, in the database, not in
-  // this file.
-  const result = await cancelBooking(session.id, attendee.id);
-  if (result === "ok") redirect(flashPath(path, `Cancelled: ${session.title}.`));
-  if (result === "missing") {
-    // A stale second tab re-cancelling a booking the first tab already cancelled, or a posted
-    // session id this attendee never held - either way nothing happened, and saying so beats
-    // claiming a cancellation that did not occur.
-    redirect(flashPath(path, "You were not booked on that session.", "error"));
-  }
-
-  // result === "required": fetched only to name the activity in the message, never to decide
-  // anything - the decision already happened inside cancel_booking.
-  const activity = await getActivity(session.activity_id, event.id);
-  redirect(flashPath(
-    path,
-    `${activity?.name ?? "That activity"} needs a choice. Switch to another session instead.`,
-    "error",
-  ));
+  // Scoped by attendee inside the query, so a posted id belonging to somebody else
+  // withdraws nothing and says so.
+  const gone = await withdrawRequest(requestId, attendee.id);
+  redirect(gone
+    ? flashPath(path, "Request withdrawn.")
+    : flashPath(path, "That request is no longer waiting.", "error"));
 }
