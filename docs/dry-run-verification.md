@@ -74,6 +74,13 @@ item is pass-or-block for badge printing on 24 Sep.
 - [ ] Add an activity with two sessions; the list shows 0 / <capacity> seats
 - [ ] Booking open / Closed toggles and the badge follows
 - [ ] Deleting an activity removes its sessions and bookings
+- [ ] Add a session; it appears with 0 / <capacity>
+- [ ] Reorder sessions with the drag handle, then with the keyboard
+- [ ] Not-booked list shows the right people and excludes anyone outside the categories
+- [ ] Place three people into a session; the flash counts them
+- [ ] Place people into a session with one seat left; the flash says how many were refused
+- [ ] Close booking, then place somebody — placement still works
+- [ ] Delete a session with bookings; the confirm dialog names them
 
 ## Known limitations parked until after the pilot
 

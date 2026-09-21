@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   seatsFor, eligible, activityState, canCancel, unbookedIds,
   bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, BOOKING_ROW_PREFIX,
-  readActivityPolicy, readNewActivity, type ActivityFormFields,
+  readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields,
 } from "@/lib/activities";
 import { visibleTo } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
@@ -239,6 +239,36 @@ describe("readNewActivity", () => {
   it("still validates the shared policy fields", () => {
     const fields = { name: "", description: "", required: false, max_per_attendee: "1", categories: "" };
     expect(() => readNewActivity({ ...fields, booking_open: true })).toThrow("An activity needs a name");
+  });
+});
+
+describe("describePlacement", () => {
+  it("reports a clean placement in a positive tone", () => {
+    expect(describePlacement(["ok", "ok", "ok"], "Workshop A")).toEqual({
+      message: "3 placed in Workshop A.",
+      tone: "ok",
+    });
+  });
+
+  it("counts refusals separately and flags the tone as error", () => {
+    expect(describePlacement(["ok", "ok", "full"], "Workshop A")).toEqual({
+      message: "2 placed in Workshop A, 1 refused — the session is full.",
+      tone: "error",
+    });
+  });
+
+  it("groups every other outcome as 'could not be placed' rather than naming it", () => {
+    expect(describePlacement(["ok", "closed", "ineligible", "missing"], "Workshop A")).toEqual({
+      message: "1 placed in Workshop A, 3 could not be placed.",
+      tone: "error",
+    });
+  });
+
+  it("still reports zero placed rather than staying silent", () => {
+    expect(describePlacement(["full", "full"], "Workshop A")).toEqual({
+      message: "0 placed in Workshop A, 2 refused — the session is full.",
+      tone: "error",
+    });
   });
 });
 

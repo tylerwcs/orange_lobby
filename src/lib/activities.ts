@@ -1,5 +1,7 @@
 import { categoryMatches, parseCategories, visibleTo, type AgendaViewer } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
+import type { BookResult } from "@/lib/db/activities";
+import type { FlashTone } from "@/lib/flash";
 
 /**
  * Everything about one session that a screen needs and a database row does not carry: how
@@ -200,4 +202,27 @@ export function readActivityPolicy(fields: ActivityFormFields): ActivityPolicy {
  */
 export function readNewActivity(fields: ActivityFormFields & { booking_open: boolean }): ActivityPolicy & { booking_open: boolean } {
   return { ...readActivityPolicy(fields), booking_open: fields.booking_open };
+}
+
+/**
+ * Turns the desk's placement batch into the sentence the organiser needs.
+ *
+ * Follows `describeAssignment` in `@/lib/breakouts.ts`: the outcome is counted, not assumed.
+ * "12 placed, 3 refused — the session is full" is what tells the organiser three people still
+ * need somewhere to go; "Placed." would hide that. `bookSession` (with `ignoreOpen`) is the
+ * only thing that can refuse a placement (capacity, D126/D130) — every outcome that is not
+ * "ok" or "full" is grouped as "could not be placed" rather than named individually, because
+ * "closed"/"limit"/"ineligible"/"missing" would only ever be a race against something the page
+ * had no way to warn about a render ago.
+ */
+export function describePlacement(outcomes: BookResult[], sessionTitle: string): { message: string; tone: FlashTone } {
+  const placed = outcomes.filter((o) => o === "ok").length;
+  const full = outcomes.filter((o) => o === "full").length;
+  const other = outcomes.length - placed - full;
+  const message = [
+    `${placed} placed in ${sessionTitle}`,
+    full ? `${full} refused — the session is full` : "",
+    other ? `${other} could not be placed` : "",
+  ].filter(Boolean).join(", ") + ".";
+  return { message, tone: full || other ? "error" : "ok" };
 }
