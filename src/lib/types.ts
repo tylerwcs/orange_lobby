@@ -136,3 +136,41 @@ export type BoothStamp = {
   attendee_id: string;
   stamped_at: string;
 };
+
+export type Activity = {
+  id: string;
+  org_id: string;
+  event_id: string;
+  name: string;
+  description: string | null;
+  /** At least one booking is expected. Never max_per_attendee of them (D129). */
+  required: boolean;
+  booking_open: boolean;
+  max_per_attendee: number;
+  /** Null or empty means everyone, exactly as on an agenda item. */
+  categories: string[] | null;
+  sort_order: number;
+};
+
+export type ActivitySession = {
+  id: string;
+  event_id: string;
+  activity_id: string;
+  title: string;
+  day: string;          // YYYY-MM-DD
+  starts_at: string;    // HH:MM
+  ends_at: string | null;
+  location: string | null;
+  capacity: number;
+  sort_order: number;
+};
+
+export type ActivityBooking = {
+  id: string;
+  event_id: string;
+  /** Copied from the session so the per-activity cap counts without a join (D124). */
+  activity_id: string;
+  session_id: string;
+  attendee_id: string;
+  created_at: string;
+};
