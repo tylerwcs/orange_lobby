@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   seatsFor, eligible, activityState, canCancel, unbookedIds,
-  bookedAgendaRows, mergeAgenda, isBookedRow,
+  bookedAgendaRows, mergeAgenda, isBookedRow, BOOKING_ROW_PREFIX,
 } from "@/lib/activities";
+import { visibleTo } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
 
 const activity = (over: Partial<Activity> = {}): Activity => ({
@@ -132,9 +133,13 @@ describe("bookedAgendaRows", () => {
   it("turns a booked session into an agenda row carrying its own time and place", () => {
     const [row] = bookedAgendaRows([session("s1")]);
     expect(row).toMatchObject({
-      id: "booking:s1", day: "2026-10-01", starts_at: "09:30", ends_at: "11:00",
+      id: `${BOOKING_ROW_PREFIX}s1`, day: "2026-10-01", starts_at: "09:30", ends_at: "11:00",
       title: "s1", location: "Room 2A", slot: null, code: null,
     });
+    // The field that makes the row personal (D133) — asserted on its own, not folded into the
+    // toMatchObject above, so a regression that starts copying the session's categories fails
+    // loudly here rather than silently passing every other assertion.
+    expect(row.categories).toBeNull();
   });
 
   it("marks its rows and only its rows", () => {
@@ -142,19 +147,32 @@ describe("bookedAgendaRows", () => {
     expect(isBookedRow(row)).toBe(true);
     expect(isBookedRow(item("x", "2026-10-01", "09:00"))).toBe(false);
   });
+
+  // This is the test that actually encodes the design decision (D133): a derived row must
+  // survive every filter, because it is already personal — this attendee's own booking, not
+  // something a category restriction ever applied to. `categories: null` is the entire
+  // mechanism; proving it merely equals null (above) doesn't prove it does its job, so this
+  // runs a row through the real filter with a viewer category that would hide an ordinary
+  // restricted item, and checks it is not dropped.
+  it("keeps a derived row visible under a category filter that would hide a restricted item", () => {
+    const [row] = bookedAgendaRows([session("s1")]);
+    const restricted = item("r1", "2026-10-01", "09:00");
+    const seen = visibleTo([row, { ...restricted, categories: ["VIP"] }], { category: "Staff", assignedItemIds: new Set() });
+    expect(seen.map((i) => i.id)).toEqual([row.id]);
+  });
 });
 
 describe("mergeAgenda", () => {
   it("interleaves derived rows by day and time", () => {
     const items = [item("i1", "2026-10-01", "09:00"), item("i2", "2026-10-01", "14:00")];
     const derived = bookedAgendaRows([session("s1", { starts_at: "11:30" })]);
-    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual(["i1", "booking:s1", "i2"]);
+    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual(["i1", `${BOOKING_ROW_PREFIX}s1`, "i2"]);
   });
 
   it("sorts across days, not only within one", () => {
     const items = [item("i1", "2026-10-02", "09:00")];
     const derived = bookedAgendaRows([session("s1", { day: "2026-10-01", starts_at: "18:00" })]);
-    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual(["booking:s1", "i1"]);
+    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual([`${BOOKING_ROW_PREFIX}s1`, "i1"]);
   });
 
   it("leaves the agenda untouched when nothing is booked", () => {
