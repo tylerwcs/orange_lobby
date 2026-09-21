@@ -24,11 +24,14 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ slu
     category: attendee.category,
   }));
   return (
-    <ActivityList
-      states={states}
-      book={bookAction.bind(null, slug, token)}
-      switchTo={switchAction.bind(null, slug, token)}
-      cancel={cancelAction.bind(null, slug, token)}
-    />
+    <>
+      <h1 className="mb-3 text-xl font-extrabold">Activities</h1>
+      <ActivityList
+        states={states}
+        book={bookAction.bind(null, slug, token)}
+        switchTo={switchAction.bind(null, slug, token)}
+        cancel={cancelAction.bind(null, slug, token)}
+      />
+    </>
   );
 }

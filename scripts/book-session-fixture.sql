@@ -32,6 +32,14 @@
 --      unique_violation instead of returning one of the six codes. It must now return 'ok', with
 --      the source booking deleted and the target booking left exactly once (not duplicated).
 --
+--   E. cancel_booking (supabase/migrations/0018_cancel_booking.sql), added for the Task 6
+--      review's Important finding: cancelAction's required-activity guard used to be an app-side
+--      check-then-act with nothing serialising the read and the delete. An attendee holding two
+--      sessions of a required activity (max_per_attendee = 2) cancels the first (held 2 -> 1,
+--      allowed) then the second (held would drop to 0, refused with 'required' - the case the
+--      whole fix exists for), and 'missing' is exercised both for a session id that does not
+--      exist and for a real session this attendee never held a booking on.
+--
 -- HOW TO RUN: paste this whole file into the Supabase SQL editor, or run it through the
 -- `execute_sql` MCP tool for this project, or `supabase db execute -f
 -- scripts/book-session-fixture.sql --project-ref <ref>`. It ends with a plain SELECT of every
@@ -261,6 +269,63 @@ begin
                                   where attendee_id = v_a1 and session_id = v_sess1));
   insert into results (step, value) values ('D.holds_roomB_after', (select count(*)::text from activity_bookings
                                   where attendee_id = v_a1 and session_id = v_sess2));
+
+  delete from events where id = v_event;
+end $$;
+
+-- ============================================================================================
+-- Section E — cancel_booking: the 'required' guard fires only once held would drop to zero,
+-- and 'missing' covers both a nonexistent session and a session this attendee never held.
+-- ============================================================================================
+do $$
+declare
+  v_org uuid;
+  v_event uuid;
+  v_act uuid;
+  v_sess1 uuid;
+  v_sess2 uuid;
+  v_sess3 uuid;
+  v_a1 uuid;
+  v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+  v_nonexistent uuid := gen_random_uuid();
+begin
+  select id into v_org from organisations limit 1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-e-' || v_tok1, 'Fixture E', 'draft') returning id into v_event;
+  -- max_per_attendee = 2 and required: this attendee is allowed to hold both sessions at once,
+  -- which is the precondition for the guard to ever say 'ok' at all - with a cap of one,
+  -- required and held<=1 would refuse the very first cancel forever (D129: at least one
+  -- booking, never max_per_attendee of them).
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event, 'Workshops', true, true, 2) returning id into v_act;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess2;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room C (never booked)', current_date, '13:30', 5) returning id into v_sess3;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok1, 'Needs a choice', 'walkin') returning id into v_a1;
+
+  insert into results (step, value) values ('E.book_roomA', book_session(v_sess1, v_a1, false));
+  insert into results (step, value) values ('E.book_roomB', book_session(v_sess2, v_a1, false));
+
+  -- Holds two sessions of a required activity: cancelling one is allowed (held drops 2 -> 1).
+  insert into results (step, value) values ('E.cancel_first_ok', cancel_booking(v_sess1, v_a1));
+
+  -- Now holds exactly one. This is the case the whole fix is for: refused, not silently
+  -- reducing the attendee to zero sessions of an activity that requires at least one.
+  insert into results (step, value) values ('E.cancel_second_refused', cancel_booking(v_sess2, v_a1));
+  insert into results (step, value) values ('E.still_holds_roomB', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess2));
+
+  -- 'missing': a session id that does not exist at all.
+  insert into results (step, value) values ('E.cancel_missing_session', cancel_booking(v_nonexistent, v_a1));
+
+  -- 'missing': a real session this attendee never booked - not the same branch as a
+  -- nonexistent session, but the same code, exactly so the caller cannot tell them apart and
+  -- has no need to.
+  insert into results (step, value) values ('E.cancel_no_existing_booking', cancel_booking(v_sess3, v_a1));
 
   delete from events where id = v_event;
 end $$;

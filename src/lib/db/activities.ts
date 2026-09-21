@@ -178,10 +178,27 @@ export async function switchSession(fromSessionId: string, toSessionId: string, 
   return data as BookResult;
 }
 
-/** Returns whether a row was deleted, so the caller can tell a cancel from a double tap. */
-export async function cancelBooking(sessionId: string, attendeeId: string): Promise<boolean> {
-  const { data, error } = await serviceClient().from("activity_bookings").delete()
-    .eq("session_id", sessionId).eq("attendee_id", attendeeId).select("id");
+/**
+ * Every answer `cancel_booking` can give. `missing` covers both a stale second tab re-cancelling
+ * a booking already gone and a session the attendee never held; `required` is the same rule
+ * `canCancel` decides in the UI, re-enforced under the same row lock `book_session` and
+ * `switch_session` use, so the check and the delete cannot be pulled apart by two overlapping
+ * requests the way an app-side read-then-delete could be.
+ */
+export type CancelResult = "ok" | "missing" | "required";
+
+/**
+ * The only way a booking is ever removed by the attendee themselves.
+ *
+ * Not a plain `delete`: whether cancelling is even allowed (required activity, one booking
+ * left) used to be decided in the app from a count read a moment earlier, which is a
+ * check-then-act race the same way an uncontrolled `count` then `insert` would be for capacity.
+ * `cancel_booking` locks the session row and re-derives the held count itself before deciding.
+ */
+export async function cancelBooking(sessionId: string, attendeeId: string): Promise<CancelResult> {
+  const { data, error } = await serviceClient().rpc("cancel_booking", {
+    p_session_id: sessionId, p_attendee_id: attendeeId,
+  });
   if (error) throw error;
-  return (data?.length ?? 0) > 0;
+  return data as CancelResult;
 }

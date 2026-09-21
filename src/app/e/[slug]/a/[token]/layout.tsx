@@ -34,13 +34,13 @@ export default async function PersonalLayout({ children, params }: {
       <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal>
         {children}
       </PortalChrome>
-      {/* This is the only part of the portal with attendee-facing write actions (activities'
-          book/switch/cancel today), so it is the only portal layout that needs to turn a
-          flashPath() redirect into something on screen. Kept a sibling of PortalChrome, not
-          nested inside its children, because PortalChrome's draft-event branch does not render
-          children at all - nesting here would silently stop announcing anything for a draft
-          event. `useSearchParams` needs a boundary it can suspend at; the toast stack itself is
-          not tied to the URL and mounts outside it. */}
+      {/* This is the only part of the portal that announces results through flashPath() today
+          (registration writes too, but from a page outside this layout), so it is the only
+          portal layout that needs to turn a flashPath() redirect into something on screen.
+          Kept a sibling of PortalChrome, not nested inside its children, because PortalChrome's
+          draft-event branch does not render children at all - nesting here would silently stop
+          announcing anything for a draft event. `useSearchParams` needs a boundary it can
+          suspend at; the toast stack itself is not tied to the URL and mounts outside it. */}
       <Suspense fallback={null}><Flash /></Suspense>
       <Toaster />
     </>
