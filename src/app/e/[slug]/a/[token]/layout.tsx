@@ -42,7 +42,15 @@ export default async function PersonalLayout({ children, params }: {
           announcing anything for a draft event. `useSearchParams` needs a boundary it can
           suspend at; the toast stack itself is not tied to the URL and mounts outside it. */}
       <Suspense fallback={null}><Flash /></Suspense>
-      <Toaster />
+      {/* PortalChrome's mobile nav (PortalChrome.tsx:130-133) is fixed to the bottom and
+          visible below `md`, the same breakpoint the nav itself hides at (`md:hidden`). The
+          toast's own default `bottom-4` sits underneath it there, so this attendee's only
+          channel for "that booking was refused" would be covered by the very bar they might
+          reach for next. `bottom-24` matches the clearance <main> already gives the page body
+          for this exact nav (`pb-24 ... md:pb-10` above), rather than a new guessed value; it
+          collapses back to the default at `md`, where the nav is hidden and nothing needs
+          clearing. Admin passes no className, so its toast is unaffected (see Toaster.tsx). */}
+      <Toaster className="bottom-24 md:bottom-4" />
     </>
   );
 }

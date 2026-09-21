@@ -2,6 +2,7 @@
 import { useSyncExternalStore } from "react";
 import { Check, Info, X } from "lucide-react";
 import { dismissToast, getServerToasts, getToasts, subscribeToasts } from "@/lib/toast-store";
+import { cn } from "@/lib/utils";
 
 const TONE = {
   ok: "bg-foreground text-background",
@@ -22,14 +23,17 @@ const TONE = {
  * store and the Flash component that feeds it, for no visual gain, on the surface that
  * reports whether a save worked. The styling is shadcn's; the plumbing stays.
  */
-export function Toaster() {
+export function Toaster({ className }: { className?: string } = {}) {
   const toasts = useSyncExternalStore(subscribeToasts, getToasts, getServerToasts);
   if (toasts.length === 0) return null;
 
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end"
+      className={cn(
+        "pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end",
+        className,
+      )}
     >
       {toasts.map((t) => (
         <div
