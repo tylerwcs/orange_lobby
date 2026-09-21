@@ -81,6 +81,8 @@ item is pass-or-block for badge printing on 24 Sep.
 - [ ] Place people into a session with one seat left; the flash says how many were refused
 - [ ] Close booking, then place somebody — placement still works
 - [ ] Delete a session with bookings; the confirm dialog names them
+- [ ] Activity rosters download opens in Excel; one sheet per session, names in alphabetical order
+- [ ] A session with no bookings still gets a sheet, with a header and no rows
 
 ## Known limitations parked until after the pilot
 
