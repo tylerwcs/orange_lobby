@@ -40,6 +40,12 @@
 --      whole fix exists for), and 'missing' is exercised both for a session id that does not
 --      exist and for a real session this attendee never held a booking on.
 --
+--   F. switch_session's new p_ignore_open parameter (supabase/migrations/0020_switch_session_
+--      ignore_open.sql), added so the desk can approve a queued switch after booking closes
+--      (D156). An attendee holding session A of a closed activity: switching without the flag
+--      is refused 'closed' and is a no-op (still holds A); switching with the flag set true
+--      succeeds ('ok') and moves them onto B, capacity and eligibility still enforced.
+--
 -- HOW TO RUN: paste this whole file into the Supabase SQL editor, or run it through the
 -- `execute_sql` MCP tool for this project, or `supabase db execute -f
 -- scripts/book-session-fixture.sql --project-ref <ref>`. It ends with a plain SELECT of every
@@ -326,6 +332,57 @@ begin
   -- nonexistent session, but the same code, exactly so the caller cannot tell them apart and
   -- has no need to.
   insert into results (step, value) values ('E.cancel_no_existing_booking', cancel_booking(v_sess3, v_a1));
+
+  delete from events where id = v_event;
+end $$;
+
+-- ============================================================================================
+-- Section F — switch_session's p_ignore_open (0020_switch_session_ignore_open.sql): a switch
+-- refused for 'closed' without the flag must be a no-op, and must succeed with the flag set,
+-- moving the attendee onto the target session.
+-- ============================================================================================
+do $$
+declare
+  v_org uuid;
+  v_event uuid;
+  v_act uuid;
+  v_sess_a uuid;
+  v_sess_b uuid;
+  v_a1 uuid;
+  v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+begin
+  select id into v_org from organisations limit 1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-f-' || v_tok1, 'Fixture F', 'draft') returning id into v_event;
+  -- booking_open starts true so book_session can place the attendee, then closes - mirroring
+  -- the desk's actual sequence: book while open, close at the headcount cut-off, work the
+  -- queue after.
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event, 'Workshops', false, true, 1) returning id into v_act;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess_a;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess_b;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok1, 'Queued switch', 'walkin') returning id into v_a1;
+
+  insert into results (step, value) values ('F.book_roomA', book_session(v_sess_a, v_a1, false));
+  update activities set booking_open = false where id = v_act;
+
+  -- No flag: refused 'closed', and must be a no-op - still holds A, not B.
+  insert into results (step, value) values ('F.switch_closed', switch_session(v_sess_a, v_sess_b, v_a1));
+  insert into results (step, value) values ('F.still_holds_roomA', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_a));
+  insert into results (step, value) values ('F.not_holding_roomB', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_b));
+
+  -- Flag set: the desk approving the request. Succeeds despite booking_open = false; capacity
+  -- and eligibility are unaffected by the flag and simply pass here.
+  insert into results (step, value) values ('F.switch_ignored_open', switch_session(v_sess_a, v_sess_b, v_a1, true));
+  insert into results (step, value) values ('F.holds_roomB_after', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_b));
+  insert into results (step, value) values ('F.holds_roomA_after', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_a));
 
   delete from events where id = v_event;
 end $$;
