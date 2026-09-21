@@ -82,15 +82,23 @@ export function sanitizeSheetNamePart(s: string): string {
  * name collision after truncation (two long titles that agree on their first 31 characters)
  * cannot silently make ExcelJS throw at the second `addWorksheet` — or, worse, silently drop
  * a sheet by both call sites picking the same fallback independently.
+ *
+ * Checks and records `taken` case-insensitively, and does the recording itself (the caller
+ * never calls `taken.add`): ExcelJS's own duplicate-name check lowercases both sides
+ * (`worksheet.js`) before comparing, so "Morning" and "morning" are the same sheet name to it
+ * even though they are different strings to a case-sensitive `Set`. Two sessions named that way
+ * would have passed a case-sensitive check here and then thrown inside `addWorksheet`, failing
+ * the whole download.
  */
 export function uniqueSheetName(base: string, taken: Set<string>): string {
+  const claim = (name: string): string => { taken.add(name.toLowerCase()); return name; };
   const truncated = base.slice(0, 31);
-  if (!taken.has(truncated)) return truncated;
+  if (!taken.has(truncated.toLowerCase())) return claim(truncated);
   for (let n = 2; n < 100; n++) {
     const candidate = `${truncated.slice(0, 31 - String(n).length - 1)} ${n}`;
-    if (!taken.has(candidate)) return candidate;
+    if (!taken.has(candidate.toLowerCase())) return claim(candidate);
   }
-  return truncated.slice(0, 29) + "~~";
+  return claim(truncated.slice(0, 29) + "~~");
 }
 
 /**
@@ -128,8 +136,8 @@ export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, Ros
   const wb = new ExcelJS.Workbook();
   const taken = new Set<string>();
   const sheet = (slot: string, code: string, ids: string[]) => {
+    // rosterSheetName (via uniqueSheetName) claims the name in `taken` itself.
     const name = rosterSheetName(slot, code, taken);
-    taken.add(name);
     const ws = wb.addWorksheet(name);
     ws.addRow(["Name", "Email"]);
     for (const id of ids) {
@@ -173,8 +181,9 @@ export function buildActivityRostersWorkbook(
 ): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const taken = new Set<string>();
+  // activitySheetName / activityUnbookedSheetName (via uniqueSheetName) claim the name in
+  // `taken` themselves, so this closure only ever receives an already-unique name to write.
   const sheet = (name: string, ids: string[]) => {
-    taken.add(name);
     const ws = wb.addWorksheet(name);
     ws.addRow(["Name", "Email"]);
     for (const id of ids) {

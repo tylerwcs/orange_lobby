@@ -112,6 +112,16 @@ describe("roster workbook", () => {
     expect(name).not.toMatch(/[:\\/?*[\]]/);
   });
 
+  it("treats sheet names that differ only in case as a collision, like ExcelJS itself does", () => {
+    // ExcelJS lowercases both sides of its own duplicate-name check (worksheet.js), so two
+    // rooms named "Morning" and "morning" would otherwise pass this check and throw inside
+    // addWorksheet, failing the whole download.
+    const taken = new Set<string>();
+    const first = rosterSheetName("Round 1", "Morning", taken);
+    const second = rosterSheetName("Round 1", "morning", taken);
+    expect(second.toLowerCase()).not.toBe(first.toLowerCase());
+  });
+
   it("gives two rooms distinct names even when their full names collide only after truncation", () => {
     // Both rooms share a slot name so long that it alone fills the 31-character limit, so the
     // untruncated names differ (different code) but the naive truncation would be identical.
@@ -191,6 +201,17 @@ describe("activity roster workbook", () => {
     const unbooked = [{ activityName: "Yoga", attendeeIds: ["p2"] }];
     const ws = buildActivityRostersWorkbook([], unbooked, people).getWorksheet("Yoga — Not booked")!;
     expect(ws.getRow(2).getCell(1).value).toBe("Bryan Koh");
+  });
+
+  it("does not let two sessions differing only in case collide and throw", () => {
+    const sessions = [
+      { activityName: "Yoga", sessionTitle: "Morning", attendeeIds: ["p1"] },
+      { activityName: "Yoga", sessionTitle: "morning", attendeeIds: ["p2"] },
+    ];
+    const wb = buildActivityRostersWorkbook(sessions, [], people);
+    expect(wb.worksheets.length).toBe(2);
+    const [first, second] = wb.worksheets;
+    expect(first.name.toLowerCase()).not.toBe(second.name.toLowerCase());
   });
 
   it("keeps two long session names distinct even when they collide after truncation", () => {

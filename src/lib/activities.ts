@@ -1,5 +1,5 @@
 import { categoryMatches, parseCategories, visibleTo, type AgendaViewer } from "@/lib/agenda";
-import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
+import type { Activity, ActivityBooking, ActivitySession, AgendaItem } from "@/lib/types";
 import type { BookResult } from "@/lib/db/activities";
 import type { FlashTone } from "@/lib/flash";
 
@@ -86,6 +86,55 @@ export function unbookedIds(
   bookedIds: ReadonlySet<string>,
 ): string[] {
   return attendeeIds.filter((id) => eligibleFor(id) && !bookedIds.has(id));
+}
+
+/**
+ * Every session's booked attendee ids, sorted into `attendeeIds`' own order rather than the
+ * order bookings happen to arrive in (`listBookings` has no `ORDER BY`). The same trick
+ * `rosters()` in `src/lib/breakouts.ts` plays for breakout rooms: `attendeeIds` is expected to
+ * already be alphabetical (`listAttendees`'s order), so ranking bookings into it makes every
+ * session's list both deterministic and printable as-is.
+ *
+ * Every id in `sessionIds` gets an entry, even one with zero bookings — an empty room is still
+ * a room the door list has to name, not one this function is entitled to drop from the map.
+ */
+export function sessionRosters(
+  sessionIds: string[],
+  bookings: Pick<ActivityBooking, "session_id" | "attendee_id">[],
+  attendeeIds: string[],
+): Map<string, string[]> {
+  const rank = new Map(attendeeIds.map((id, i) => [id, i]));
+  const bySession = new Map<string, string[]>(sessionIds.map((id) => [id, []]));
+  for (const b of bookings) {
+    const list = bySession.get(b.session_id);
+    if (list) list.push(b.attendee_id);
+  }
+  for (const list of bySession.values()) list.sort((x, y) => (rank.get(x) ?? Infinity) - (rank.get(y) ?? Infinity));
+  return bySession;
+}
+
+export type ActivityUnbooked = { activityId: string; attendeeIds: string[] };
+
+/**
+ * The not-booked list for every required activity (D129), computed one activity at a time
+ * rather than pooled across them: an attendee who has booked activity A but not B still needs
+ * to show up on B's list, so "already booked something" is never grounds to drop them from a
+ * different activity's list. Optional activities get no list at all — nobody joining one is
+ * not the desk's problem the way a required activity's empty seat is.
+ */
+export function unbookedByActivity(
+  activities: Pick<Activity, "id" | "required" | "categories">[],
+  bookings: Pick<ActivityBooking, "activity_id" | "attendee_id">[],
+  attendeeIds: string[],
+  categoryOf: (attendeeId: string) => string | null,
+): ActivityUnbooked[] {
+  return activities.filter((a) => a.required).map((activity) => {
+    const bookedIds = new Set(bookings.filter((b) => b.activity_id === activity.id).map((b) => b.attendee_id));
+    return {
+      activityId: activity.id,
+      attendeeIds: unbookedIds(attendeeIds, (id) => eligible(activity, categoryOf(id)), bookedIds),
+    };
+  });
 }
 
 /** Marks an agenda row that came from a booking rather than from `agenda_items`. */

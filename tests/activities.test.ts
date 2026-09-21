@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  seatsFor, eligible, activityState, canCancel, unbookedIds,
+  seatsFor, eligible, activityState, canCancel, unbookedIds, sessionRosters, unbookedByActivity,
   bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, BOOKING_ROW_PREFIX,
   readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields,
 } from "@/lib/activities";
@@ -127,6 +127,54 @@ describe("unbookedIds", () => {
 
   it("leaves out people the activity was never open to", () => {
     expect(unbookedIds(["a1", "a2"], (id) => id === "a1", new Set())).toEqual(["a1"]);
+  });
+});
+
+describe("sessionRosters", () => {
+  it("sorts each session's attendees into the roster's own order, not booking order", () => {
+    // Bookings arrive attendee c, then a, then b - the reverse of the alphabetical attendeeIds
+    // order listAttendees would hand this in. The output must follow the latter.
+    const bookings = [
+      { session_id: "s1", attendee_id: "c" },
+      { session_id: "s1", attendee_id: "a" },
+      { session_id: "s1", attendee_id: "b" },
+    ];
+    const byId = sessionRosters(["s1"], bookings, ["a", "b", "c"]);
+    expect(byId.get("s1")).toEqual(["a", "b", "c"]);
+  });
+
+  it("gives a session with no bookings an empty list rather than dropping it", () => {
+    const byId = sessionRosters(["s1", "s2"], [{ session_id: "s1", attendee_id: "a" }], ["a"]);
+    expect(byId.has("s2")).toBe(true);
+    expect(byId.get("s2")).toEqual([]);
+  });
+});
+
+describe("unbookedByActivity", () => {
+  const required = (id: string) => activity({ id, required: true });
+
+  it("computes the not-booked list per activity rather than pooling across them", () => {
+    // x has booked A but not B; if the computation pooled bookings across activities, x would
+    // wrongly disappear from B's own list just for having booked something else.
+    const activities = [required("A"), required("B")];
+    const bookings = [{ activity_id: "A", attendee_id: "x" }];
+    const out = unbookedByActivity(activities, bookings, ["x", "y"], () => null);
+    expect(out.find((u) => u.activityId === "A")?.attendeeIds).toEqual(["y"]);
+    expect(out.find((u) => u.activityId === "B")?.attendeeIds).toEqual(["x", "y"]);
+  });
+
+  it("skips activities that are not required", () => {
+    const activities = [activity({ id: "A", required: false }), required("B")];
+    const out = unbookedByActivity(activities, [], ["x"], () => null);
+    expect(out.map((u) => u.activityId)).toEqual(["B"]);
+  });
+
+  it("excludes attendees outside the activity's categories", () => {
+    const activities = [required("A")];
+    Object.assign(activities[0], { categories: ["VIP"] });
+    const category = new Map([["x", "VIP"], ["y", "Crew"]]);
+    const out = unbookedByActivity(activities, [], ["x", "y"], (id) => category.get(id) ?? null);
+    expect(out[0].attendeeIds).toEqual(["x"]);
   });
 });
 
