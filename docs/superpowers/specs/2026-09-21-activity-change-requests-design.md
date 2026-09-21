@@ -66,6 +66,14 @@ so the control that undoes your afternoon looks exactly like the control that ma
   notification channel — no email on write, no push — and inventing one for this is a larger
   feature than the one being built. The consequence to accept is that a decision made at 2pm may
   not be seen until the attendee looks, so the desk should assume nothing has been read.
+- **D153a** A **decline is shown; an approval is not.** An approved switch announces itself — the
+  attendee is now booked on the session they asked for, and the card says so. A decline leaves no
+  trace at all: the pending block simply vanishes and the card looks exactly as it did before they
+  ever asked, which reads as the request having been lost. So the card carries the most recent
+  declined request for that activity — "The desk declined your request to move to Afternoon" —
+  until the attendee raises another one. There is no dismiss control and no seen-flag: both are
+  state to store for a line of text, and the line stops being shown the moment it stops being the
+  latest word on the subject.
 - **D154** Approval and decline write through the **existing database functions**, never through a
   direct insert or delete. Everything the feature promises about capacity holds only because those
   functions are the single write path (D125), and an approval that bypassed them would be the one
