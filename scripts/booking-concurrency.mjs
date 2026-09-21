@@ -16,7 +16,11 @@ if (!url || !key) {
 }
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
-const fail = (message) => { console.error(`FAIL: ${message}`); process.exit(1); };
+// A plain throw, not process.exit(): process.exit() terminates immediately and does not run
+// a pending `finally` block, which would skip the event cleanup below on exactly the failure
+// path (an assertion catching a real problem) where leaving orphan test data behind matters
+// most. Throwing lets `finally` run first; the outer catch turns it into the non-zero exit.
+const fail = (message) => { throw new Error(message); };
 
 // Unique per run: attendees.token and events.slug are both globally unique, so fixed values
 // would collide with leftovers from a run that died before its own cleanup ran.
@@ -28,33 +32,38 @@ const { data: event } = await db.from("events")
   .select("id").single();
 
 try {
-  const { data: activity } = await db.from("activities")
-    .insert({ org_id: org.id, event_id: event.id, name: "Race", booking_open: true, max_per_attendee: 1 })
-    .select("id").single();
-  const { data: session } = await db.from("activity_sessions")
-    .insert({ event_id: event.id, activity_id: activity.id, title: "One seat", day: "2026-10-01", starts_at: "09:00", capacity: 1 })
-    .select("id").single();
+  try {
+    const { data: activity } = await db.from("activities")
+      .insert({ org_id: org.id, event_id: event.id, name: "Race", booking_open: true, max_per_attendee: 1 })
+      .select("id").single();
+    const { data: session } = await db.from("activity_sessions")
+      .insert({ event_id: event.id, activity_id: activity.id, title: "One seat", day: "2026-10-01", starts_at: "09:00", capacity: 1 })
+      .select("id").single();
 
-  const people = Array.from({ length: PARALLEL }, (_, i) => ({
-    org_id: org.id, event_id: event.id, token: `race-${runId}-${String(i).padStart(4, "0")}`, name: `Racer ${i}`, source: "walkin",
-  }));
-  const { data: attendees } = await db.from("attendees").insert(people).select("id");
+    const people = Array.from({ length: PARALLEL }, (_, i) => ({
+      org_id: org.id, event_id: event.id, token: `race-${runId}-${String(i).padStart(4, "0")}`, name: `Racer ${i}`, source: "walkin",
+    }));
+    const { data: attendees } = await db.from("attendees").insert(people).select("id");
 
-  const results = await Promise.all(attendees.map((a) =>
-    db.rpc("book_session", { p_session_id: session.id, p_attendee_id: a.id, p_ignore_open: false })
-      .then((r) => (r.error ? `error:${r.error.message}` : r.data))));
+    const results = await Promise.all(attendees.map((a) =>
+      db.rpc("book_session", { p_session_id: session.id, p_attendee_id: a.id, p_ignore_open: false })
+        .then((r) => (r.error ? `error:${r.error.message}` : r.data))));
 
-  const tally = results.reduce((acc, r) => ({ ...acc, [r]: (acc[r] ?? 0) + 1 }), {});
-  const { count } = await db.from("activity_bookings")
-    .select("id", { count: "exact", head: true }).eq("session_id", session.id);
+    const tally = results.reduce((acc, r) => ({ ...acc, [r]: (acc[r] ?? 0) + 1 }), {});
+    const { count } = await db.from("activity_bookings")
+      .select("id", { count: "exact", head: true }).eq("session_id", session.id);
 
-  console.log(`${PARALLEL} parallel calls ->`, tally);
-  console.log(`rows in activity_bookings: ${count}`);
+    console.log(`${PARALLEL} parallel calls ->`, tally);
+    console.log(`rows in activity_bookings: ${count}`);
 
-  if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
-  if (tally.full !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} 'full', got ${tally.full ?? 0}`);
-  if (count !== 1) fail(`expected 1 booking row, found ${count}`);
-  console.log("PASS: one seat, one winner.");
-} finally {
-  await db.from("events").delete().eq("id", event.id);
+    if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
+    if (tally.full !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} 'full', got ${tally.full ?? 0}`);
+    if (count !== 1) fail(`expected 1 booking row, found ${count}`);
+    console.log("PASS: one seat, one winner.");
+  } finally {
+    await db.from("events").delete().eq("id", event.id);
+  }
+} catch (err) {
+  console.error(`FAIL: ${err.message}`);
+  process.exit(1);
 }
