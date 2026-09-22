@@ -36,6 +36,41 @@
 -- this migration (D144-style — the desk has not decided anything, they have been told they cannot
 -- do it yet).
 --
+-- "A refusal writes nothing" is only true because `switch_session` and `cancel_booking` are
+-- themselves write-free on every non-'ok' path — both do their delete/insert strictly after
+-- every refusal check, today. That is a property of THEIR bodies, not of this function: a
+-- nested refusal returns a plain text value, it does not raise, so this function has no way to
+-- detect or roll back a write a future edit to either of them might make before returning
+-- something other than 'ok'. If that guarantee is ever loosened in 0017/0020's definitions,
+-- this function's "refused means untouched" claim breaks silently along with it.
+--
+-- LOCK ORDER. This is the first function to lock `activity_change_requests`, which none of
+-- `book_session`, `switch_session` or `cancel_booking` (0017/0018/0020) ever touch. It takes
+-- that lock FIRST, via the `for update` select above, before either of those functions is ever
+-- called — so from this function's own body, the order is request row, then whatever session(s)
+-- and activity row the nested call locks in ITS already-established order (session(s) before
+-- activity, per 0017/0020's header). A lock that every member of this function family takes
+-- strictly before any lock the others take cannot itself be part of a cycle among them: nothing
+-- else in the family ever waits on a request row while holding a session or activity row, so
+-- there is nothing for this function's own request-row lock to deadlock against.
+--
+-- That is NOT the whole deadlock picture, for the same reason 0017's header already records for
+-- the other three functions: it is true of the four RPCs, not of the database as a whole.
+-- `activity_change_requests` cascades from `events`, `activities`, `attendees`, and both
+-- `from_session_id`/`to_session_id` (0019_activity_change_requests.sql), and `deleteActivity`
+-- (src/lib/db/activities.ts) is a plain delete relying on that cascade — it never calls this
+-- function. So an admin deleting an activity, holding the activity row and cascading a delete
+-- into its pending requests, can now meet an in-flight `decide_request` approve that holds a
+-- request row and is waiting on that same activity row (via the nested `switch_session`/
+-- `cancel_booking` call) — the reverse of this function's own order, and a genuine new cycle this
+-- migration introduces. Same disposition as the gap 0017 already records for book_session/
+-- switch_session/cancel_booking against a cascading delete: low probability (an admin's delete
+-- and an in-flight approve landing in the same instant), self-detecting (Postgres's own deadlock
+-- detector breaks the cycle, nothing here has to notice it), non-corrupting (the loser's
+-- transaction rolls back whole, not half-applied), and deliberately not handled with a retry —
+-- the loser can simply be retried by the caller. Recorded here, not silently left for the one
+-- lock-discipline migration in this feature to say nothing about it.
+--
 -- Same grant story as every write path in this feature: a fresh `create function` inherits no
 -- grants from any function it replaces, and Supabase's default privileges hand EXECUTE to `anon`
 -- and `authenticated` directly at CREATE TIME, not through the `public` pseudo-role — 0017

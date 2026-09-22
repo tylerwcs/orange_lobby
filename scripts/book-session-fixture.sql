@@ -54,17 +54,24 @@
 --      review's Important finding: approve-then-stamp used to be two separate statements, so a
 --      concurrent decline could win the stamp after an approve's booking write had already
 --      landed, leaving the record permanently reading 'declined' for a change that actually
---      happened. THIS SECTION IS SEQUENTIAL AND CANNOT DEMONSTRATE THE CONCURRENT INTERLEAVING
---      ITSELF — that needs two live connections racing on the same row, which a single script
---      issuing statements one after another can never open. What it proves instead is the status
---      guard the row lock is built on: approve a pending switch request (succeeds, moves the
---      booking, stamps 'approved'), then call decide_request AGAIN on that same now-decided row
---      (a decline, standing in for desk B arriving after desk A already won the lock). The second
---      call must return 'gone', the row must still read 'approved' — not overwritten — and the
---      booking must have moved exactly once (present on the target session, absent from the
---      source, and not duplicated). The row lock is the argument for why two REAL concurrent
---      calls resolve this same way instead of racing; this fixture is the evidence that the
---      guard behind that argument actually holds.
+--      happened. THE FIRST PART OF THIS SECTION IS SEQUENTIAL AND CANNOT DEMONSTRATE THE
+--      CONCURRENT INTERLEAVING ITSELF — that needs two live connections racing on the same row,
+--      which a single script issuing statements one after another can never open. What it proves
+--      instead is the status guard the row lock is built on: approve a pending switch request
+--      (succeeds, moves the booking, stamps 'approved'), then call decide_request AGAIN on that
+--      same now-decided row (a decline, standing in for desk B arriving after desk A already won
+--      the lock). The second call must return 'gone', the row must still read 'approved' — not
+--      overwritten — and the booking must have moved exactly once (present on the target
+--      session, absent from the source, and not duplicated). The row lock is the argument for
+--      why two REAL concurrent calls resolve this same way instead of racing; this fixture is
+--      the evidence that the guard behind that argument actually holds.
+--
+--      The rest of the section covers what the status-guard case does not: a refused approval
+--      (target session full) must leave the request genuinely untouched — still 'pending',
+--      decided_at and decided_by still null, the booking still on its original session, not
+--      moved to the full target — and a cancel request approved end to end through
+--      decide_request's OTHER branch (cancel_booking), which nothing before this section had
+--      exercised via decide_request itself (Section E calls cancel_booking directly).
 --
 -- HOW TO RUN: paste this whole file into the Supabase SQL editor, or run it through the
 -- `execute_sql` MCP tool for this project, or `supabase db execute -f
@@ -448,8 +455,9 @@ begin
 end $$;
 
 -- ============================================================================================
--- Section G — decide_request's status guard, sequentially. See the header note above for
--- exactly what this can and cannot demonstrate about the concurrent race the migration closes.
+-- Section G — decide_request's status guard, a refused approval's untouched-pending guarantee,
+-- and the cancel-approve branch end to end. See the header note above for exactly what the
+-- first part can and cannot demonstrate about the concurrent race the migration closes.
 -- ============================================================================================
 do $$
 declare
@@ -459,14 +467,27 @@ declare
   v_act uuid;
   v_sess_a uuid;
   v_sess_b uuid;
+  v_sess_c uuid;
   v_a1 uuid;
+  v_a2 uuid;
   v_req uuid;
+  v_req2 uuid;
+  v_req3 uuid;
   v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+  v_tok2 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
 begin
   select id into v_org from organisations limit 1;
   -- Any real auth.users row will do: decided_by is a foreign key to auth.users(id), and this
   -- fixture is proving decide_request's status guard, not who a real desk account resolves to.
+  -- Fails loudly rather than leaving v_user null: a null decided_by would make
+  -- 'decided_by = v_user' compare null = null (itself null, never true), so every "stamped the
+  -- right user" assertion below would silently read 'false' instead of catching that this
+  -- environment has no auth.users row to test against at all.
   select id into v_user from auth.users limit 1;
+  if v_user is null then
+    raise exception 'fixture Section G requires at least one auth.users row to exist';
+  end if;
+
   insert into events (org_id, slug, name, status)
     values (v_org, 'fixture-g-' || v_tok1, 'Fixture G', 'draft') returning id into v_event;
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
@@ -475,10 +496,17 @@ begin
     values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess_a;
   insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
     values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess_b;
+  -- Room C: capacity 1, filled by a second attendee below — the target for the refused-approval
+  -- case, so 'full' is what decide_request's nested switch_session call actually returns.
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room C (full)', current_date, '13:30', 1) returning id into v_sess_c;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'Queued switch', 'walkin') returning id into v_a1;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok2, 'Fills room C', 'walkin') returning id into v_a2;
 
   insert into results (step, value) values ('G.book_roomA', book_session(v_sess_a, v_a1, false));
+  insert into results (step, value) values ('G.book_roomC_a2', book_session(v_sess_c, v_a2, false));
 
   -- The pending request, inserted directly the way createRequest (src/lib/db/activity-
   -- requests.ts) would: this fixture proves decide_request in isolation, not request creation,
@@ -506,6 +534,48 @@ begin
   insert into results (step, value) values ('G.decline_after_approve_is_gone', decide_request(v_req, 'declined', v_user));
   insert into results (step, value) values ('G.status_still_approved',
     (select status from activity_change_requests where id = v_req));
+
+  -- A REFUSED approval must leave the request genuinely untouched, not merely "still say
+  -- pending". a1 now holds Room B (from the approve above); a new pending request asks to move
+  -- into Room C, which a2 has already filled to capacity. decide_request's nested
+  -- switch_session call must refuse 'full', and NOTHING about the request row may change as a
+  -- result — same status, same (null) decided_at/decided_by — and the booking must not have
+  -- moved either.
+  insert into activity_change_requests (event_id, activity_id, attendee_id, kind, from_session_id, to_session_id)
+    values (v_event, v_act, v_a1, 'switch', v_sess_b, v_sess_c) returning id into v_req2;
+  insert into results (step, value) values ('G.refused_full', decide_request(v_req2, 'approved', v_user));
+  insert into results (step, value) values ('G.refused_still_pending',
+    (select status from activity_change_requests where id = v_req2));
+  insert into results (step, value) values ('G.refused_decided_at_null',
+    (select (decided_at is null)::text from activity_change_requests where id = v_req2));
+  insert into results (step, value) values ('G.refused_decided_by_null',
+    (select (decided_by is null)::text from activity_change_requests where id = v_req2));
+  insert into results (step, value) values ('G.refused_kept_roomB', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_b));
+  insert into results (step, value) values ('G.refused_not_roomC', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_c));
+
+  -- Clears the still-pending refused request before raising a new one: the one-open-request-
+  -- per-activity index (0019) would otherwise refuse the cancel request's insert below outright
+  -- rather than let decide_request's cancel branch be reached at all. Declining it here is also
+  -- a realistic next step for the desk after a refused approval, and exercises the decline path
+  -- once more on a row this section has not already decided.
+  insert into results (step, value) values ('G.refused_then_declined', decide_request(v_req2, 'declined', v_user));
+
+  -- A CANCEL request approved end to end through decide_request's other branch. Section E
+  -- already proves cancel_booking itself; nothing before this exercised it THROUGH
+  -- decide_request, which is the only path the admin actions actually call.
+  insert into activity_change_requests (event_id, activity_id, attendee_id, kind, from_session_id, to_session_id)
+    values (v_event, v_act, v_a1, 'cancel', v_sess_b, null) returning id into v_req3;
+  insert into results (step, value) values ('G.cancel_approve_ok', decide_request(v_req3, 'approved', v_user));
+  insert into results (step, value) values ('G.cancel_status_approved',
+    (select status from activity_change_requests where id = v_req3));
+  insert into results (step, value) values ('G.cancel_decided_at_set',
+    (select (decided_at is not null)::text from activity_change_requests where id = v_req3));
+  insert into results (step, value) values ('G.cancel_decided_by_is_user',
+    (select (decided_by = v_user)::text from activity_change_requests where id = v_req3));
+  insert into results (step, value) values ('G.cancel_booking_gone', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_b));
 
   delete from events where id = v_event;
 end $$;
