@@ -16,8 +16,9 @@ export async function listForms(eventId: string): Promise<Form[]> {
 }
 
 export async function getForm(id: string, eventId: string): Promise<Form | null> {
-  const { data } = await serviceClient().from("forms").select("*")
+  const { data, error } = await serviceClient().from("forms").select("*")
     .eq("id", id).eq("event_id", eventId).maybeSingle();
+  if (error) throw error;
   return (data as Form) ?? null;
 }
 
@@ -34,18 +35,25 @@ export async function createForm(eventId: string, orgId: string, input: NewForm)
  * — the same contract `updateSession` carries, and the same trap: a caller that omits a
  * field is asking for it to be nulled, not left alone.
  *
- * Turning `per_day` on rewrites the form's existing submissions, because the flag is
- * denormalised onto them (D165). That write can violate the partial unique index if somebody
- * already submitted twice in a day, which is why the caller must handle the throw rather
- * than assume it cannot happen.
+ * Two statements, no transaction — supabase-js gives us none, and a genuinely atomic version
+ * would need its own database function, which is not worth growing this task for. The
+ * submissions sync goes first, deliberately, because it is the one write that can actually
+ * fail: `per_day` is denormalised onto every submission so the partial unique index can see
+ * it without a join (D165), and syncing it can collide with that index if an attendee already
+ * has two submissions in one day. The `forms` column update essentially cannot fail. Doing the
+ * risky write first means a thrown error leaves both tables exactly as they were before this
+ * call — coherent, and retryable once the organiser deletes the offending duplicate — instead
+ * of leaving `forms.per_day = true` above submission rows still marked false and invisible to
+ * the index. The caller still has to handle the throw; this ordering only makes the failure
+ * safe to retry, not impossible.
  */
 export async function updateForm(id: string, eventId: string, patch: NewForm): Promise<void> {
   const db = serviceClient();
-  const { error } = await db.from("forms").update(patch).eq("id", id).eq("event_id", eventId);
-  if (error) throw error;
   const { error: syncError } = await db.from("form_submissions")
     .update({ per_day: patch.per_day }).eq("form_id", id);
   if (syncError) throw syncError;
+  const { error } = await db.from("forms").update(patch).eq("id", id).eq("event_id", eventId);
+  if (error) throw error;
 }
 
 export async function deleteForm(id: string, eventId: string): Promise<void> {
@@ -82,5 +90,5 @@ export async function submitForm(
     p_form_id: formId, p_attendee_id: attendeeId, p_answers: answers, p_today: today,
   });
   if (error) throw error;
-  return (data as SubmitCode) ?? "missing";
+  return data as SubmitCode;
 }
