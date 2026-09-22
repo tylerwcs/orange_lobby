@@ -11,7 +11,7 @@ import {
 import { signOut } from "@/app/login/actions";
 import { groupsFor, type Item } from "./nav";
 
-type Event = { id: string; name: string; status: string };
+type Event = { id: string; name: string; status: string; check_in_enabled: boolean };
 
 const STATUS_VARIANT: Record<string, "success" | "secondary" | "default"> = {
   live: "success",

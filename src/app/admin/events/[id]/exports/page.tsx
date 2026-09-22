@@ -24,10 +24,10 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   const b = `/admin/events/${ev.id}/export`;
 
   const files: { href: string; icon: IconName; name: string; what: string }[] = [
-    {
-      href: `${b}/attendance.xlsx`, icon: "file", name: "Attendance",
+    ...(ev.check_in_enabled ? [{
+      href: `${b}/attendance.xlsx`, icon: "file" as IconName, name: "Attendance",
       what: "One row per attendee, with three columns for every checkpoint: whether they were checked in, the time, and which crew account scanned them. Includes any extra scan fields you configured.",
-    },
+    }] : []),
     {
       href: `${b}/links.xlsx`, icon: "link", name: "Personal links",
       what: "Name, email, category, table and each attendee's personal portal link. This is the sheet to mail-merge from.",

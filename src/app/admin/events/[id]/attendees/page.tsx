@@ -47,7 +47,15 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const sp = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [rows, total, checkins, cps, agenda, jar] = await Promise.all([listAttendees(ev.id, sp.q), countAttendees(ev.id), listCheckinsForEvent(ev.id), listCheckpoints(ev.id), listAgenda(ev.id), cookies()]);
+  // With check-in off the two check-in queries are skipped and the rest of the page carries
+  // on unchanged: `BulkBar` already hides its check-in menu when handed no checkpoints, and
+  // an empty `checkins` leaves every row simply un-scanned (D159).
+  const [rows, total, checkins, cps, agenda, jar] = await Promise.all([
+    listAttendees(ev.id, sp.q), countAttendees(ev.id),
+    ev.check_in_enabled ? listCheckinsForEvent(ev.id) : [],
+    ev.check_in_enabled ? listCheckpoints(ev.id) : [],
+    listAgenda(ev.id), cookies(),
+  ]);
   // Each breakout round is offered as a column in the bulk editor, so putting people in a
   // room is the same gesture as setting their table. Only an event that runs breakouts
   // grows those columns.

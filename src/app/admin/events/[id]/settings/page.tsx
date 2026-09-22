@@ -18,7 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { updateSettingsAction, setStatusAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
+import { updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
@@ -38,6 +38,11 @@ const STATUSES: { value: EventStatus; label: string; what: string }[] = [
   { value: "draft", label: "Draft", what: "Every link shows “Coming soon”." },
   { value: "live", label: "Live", what: "The portal is open to attendees." },
   { value: "archived", label: "Archived", what: "Read-only, and personal data can be purged." },
+];
+
+const CHECK_IN_CHOICES: { value: boolean; label: string; what: string }[] = [
+  { value: true, label: "This event has check-in", what: "Crew scan attendees at the doors you set up below." },
+  { value: false, label: "No check-in", what: "Nothing is scanned. Anything already recorded is kept, not deleted — switch back on and it returns." },
 ];
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -154,6 +159,43 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
       </TabsContent>
 
       <TabsContent value="checkpoints" className="flex flex-col gap-4 @container">
+      {/* Above the checkpoint list because it governs it: an organiser who has just read
+          "this event has no door" should not then be invited to add one. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Check-in</CardTitle>
+          <CardDescription>
+            Some events have no door — a wellness fair people wander into, a programme that runs for weeks.
+            Switching this off hides the Scanner, the arrival counts and the attendance export. Applies the
+            moment you choose it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {CHECK_IN_CHOICES.map((c) => (
+              <form key={String(c.value)} action={setCheckInEnabledAction.bind(null, ev.id, c.value)}>
+                {/* type="submit" for the same reason the status buttons carry it: Base UI's
+                    Button defaults to type="button", and without it the click does nothing. */}
+                <Button
+                  type="submit"
+                  variant={ev.check_in_enabled === c.value ? "default" : "outline"}
+                  aria-current={ev.check_in_enabled === c.value ? "true" : undefined}
+                >
+                  {c.label}
+                </Button>
+              </form>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {CHECK_IN_CHOICES.find((c) => c.value === ev.check_in_enabled)?.what}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Checkpoints, the crew link and the scan card are all doors. With check-in off they
+          are three cards configuring something that does not happen. */}
+      {ev.check_in_enabled && (
+      <>
       <Card>
         <CardHeader>
           <CardTitle>Checkpoints</CardTitle>
@@ -243,6 +285,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </form>
         </CardContent>
       </Card>
+      </>
+      )}
       </TabsContent>
 
       <TabsContent value="badge">

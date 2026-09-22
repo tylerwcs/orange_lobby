@@ -133,6 +133,26 @@ export async function updateScanFieldsAction(eventId: string, formData: FormData
   redirect(flashPath(path, "Scan card updated."));
 }
 
+/**
+ * Turns this event's door on or off (D159).
+ *
+ * Applies on the click, like the status buttons beside it, because there is nothing to
+ * fill in — and it deliberately leaves every checkpoint and checkin row alone. An
+ * organiser who switches it off after a morning of scanning, then changes their mind,
+ * gets their morning back.
+ *
+ * Revalidates the event root rather than the settings path alone: the flag decides what
+ * the Overview renders and whether the sidebar carries a Scanner, so the pages that must
+ * notice are the ones outside Settings.
+ */
+export async function setCheckInEnabledAction(eventId: string, enabled: boolean) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  await updateEvent(eventId, { check_in_enabled: enabled });
+  revalidatePath(`/admin/events/${eventId}`, "layout");
+  redirect(flashPath(`/admin/events/${eventId}/settings`, enabled ? "Check-in is on." : "Check-in is off."));
+}
+
 export async function setStatusAction(eventId: string, status: EventStatus) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
@@ -311,6 +331,9 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
 export async function markCheckedInAction(eventId: string, formData: FormData) {
   const { orgId, userId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
+  // The bulk bar hides itself when this event has no checkpoints to offer, but a posted
+  // form is not the bar; refuse the write itself the way doCheckin does (D159).
+  if (!ev.check_in_enabled) redirect(flashPath(`/admin/events/${ev.id}/attendees`, "Check-in is off for this event.", "error"));
   const checkpointId = String(formData.get("checkpoint_id") ?? "");
   const onEvent = (await listCheckpoints(ev.id)).some((c) => c.id === checkpointId);
   if (!onEvent) redirect(flashPath(`/admin/events/${ev.id}/attendees`, "Pick a checkpoint first.", "error"));

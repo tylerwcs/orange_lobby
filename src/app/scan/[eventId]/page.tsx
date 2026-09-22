@@ -15,6 +15,31 @@ import { ChevronRight, Flag } from "lucide-react";
 export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string; pick?: string }> }) {
   const { eventId } = await params; const { cp, pick } = await searchParams;
   const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
+
+  // Refused here, not merely hidden from the sidebar (D159). The scanner is reached by a
+  // bookmark and a shared link as often as by the nav, and a stale one must not go on
+  // writing checkins into an event that has switched its door off — rows nobody will ever
+  // look at, which would reappear as history the day somebody switches it back on.
+  if (!ev.check_in_enabled) {
+    return (
+      <main className="mx-auto flex max-w-md flex-col gap-4 p-4">
+        <header>
+          <h1 className="text-lg font-extrabold leading-tight">{ev.name}</h1>
+        </header>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><Flag /></EmptyMedia>
+            <EmptyTitle>Check-in is off for this event</EmptyTitle>
+            <EmptyDescription>Nobody is scanned here. An organiser can switch it on under Settings &rsaquo; Checkpoints.</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <a href={`/admin/events/${ev.id}`} className={buttonVariants()}>Back to the event</a>
+          </EmptyContent>
+        </Empty>
+      </main>
+    );
+  }
+
   const [cps, counts, total] = await Promise.all([listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id)]);
   const today = nowInKL().date;
   // Crew open the scanner and start scanning: it lands on whatever Settings says the event

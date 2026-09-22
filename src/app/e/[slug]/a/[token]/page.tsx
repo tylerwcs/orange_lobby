@@ -18,10 +18,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { floorPlanUrl } from "@/lib/modules";
 import { resolvePins } from "@/lib/pinned-fields";
 import { eventFields } from "@/lib/attendee-fields";
+import type { Event } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
+
+/**
+ * The time this attendee was scanned in, for the line on their badge — or null when this
+ * event has no door at all (D159).
+ *
+ * The flag is checked before the query rather than after it, so an event with check-in off
+ * never loads its checkins. `BadgeCard` already treats null as "nothing to show", which is
+ * why turning the door off needs no change there.
+ */
+async function arrivalTime(event: Pick<Event, "id" | "check_in_enabled">, attendeeId: string): Promise<string | null> {
+  if (!event.check_in_enabled) return null;
+  const state = checkinStatus(attendeeId, await listCheckinsForEvent(event.id));
+  return state.at ? isoToLocalInput(state.at).split("T")[1] : null;
+}
 
 export default async function PersonalHome({ params, searchParams }: {
   params: Promise<{ slug: string; token: string }>;
@@ -33,9 +48,10 @@ export default async function PersonalHome({ params, searchParams }: {
   const basePath = `/e/${slug}/a/${token}`;
   const { tiles, banner, next, today, agenda, allAgenda, assignedItemIds, activities, days, day, announcements, now } =
     await loadHomeData(event, attendee, basePath, requestedDay);
-  const checkins = await listCheckinsForEvent(event.id);
-  const state = checkinStatus(attendee.id, checkins);
-  const checkedInAt = state.at ? isoToLocalInput(state.at).split("T")[1] : null;
+  // Skipped, not just hidden: an event with no door never reads its checkins at all (D159).
+  // On a programme running for weeks this is the largest table on the page, fetched to
+  // answer a question the badge is no longer asking.
+  const checkedInAt = await arrivalTime(event, attendee.id);
 
   return (
     <>

@@ -37,6 +37,12 @@ export type Event = {
   info_page_html: string | null;
   registration_open: boolean;
   registration_closes_at: string | null;
+  /**
+   * Whether this event has a door at all (D159). Off hides the Scanner, the arrival stats,
+   * the attendance export and the attendee's own arrival line; it never deletes a
+   * checkpoint or a checkin, so switching it back on restores the event as it was.
+   */
+  check_in_enabled: boolean;
   /** The checkpoint the event is running right now; every surface follows it. */
   active_checkpoint_id: string | null;
   registration_questions: RegistrationQuestion[];

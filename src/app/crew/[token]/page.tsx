@@ -23,6 +23,24 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
   if (!ev) notFound();
 
   const today = nowInKL().date;
+
+  // Checked before the expiry, because it is the truer answer: a link to an event that has
+  // no door is not a link that ran out, and telling crew to ask for "a new link" would send
+  // them chasing one that cannot exist (D159).
+  if (!ev.check_in_enabled) {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-4 p-6">
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><Flag /></EmptyMedia>
+            <EmptyTitle>Check-in is off for this event</EmptyTitle>
+            <EmptyDescription>{ev.name} does not scan anyone in. Nothing to do here — check with the organiser if you were expecting a door.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </main>
+    );
+  }
+
   // An expired link says so rather than 404ing: the crew member holding it did nothing wrong,
   // and "ask the organiser for a new link" is the action they need.
   if (!crewLinkLive(ev, today)) {

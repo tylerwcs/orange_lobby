@@ -60,6 +60,11 @@ async function authorise(eventId: string, crewToken?: string): Promise<{ ev: Eve
 
 async function doCheckin(ev: Event, userId: string | null, checkpointId: string, attendee: Attendee): Promise<ScanResult> {
   if (ev.status === "archived") return { status: "error", message: "This event is archived, so check-in is closed." };
+  // Beside the archived check because it is the same kind of refusal, and here rather than
+  // only on the page because this is the one place a checkin is written (D159). The page
+  // refuses a reader; this refuses a POST — a crew phone with the scanner still open when
+  // the organiser switches check-in off would otherwise keep recording.
+  if (!ev.check_in_enabled) return { status: "error", message: "Check-in is off for this event." };
   const checkpoint = await getCheckpoint(checkpointId, ev.id);
   if (!checkpoint) return { status: "error", message: "This checkpoint no longer exists. Go back and pick another." };
   const r = await recordCheckin(ev, checkpointId, attendee.id, userId);

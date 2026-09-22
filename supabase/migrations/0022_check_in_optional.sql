@@ -1,0 +1,14 @@
+-- Not every event has a door. A wellness fair runs for weeks and people wander in; there is
+-- no registration desk, nobody scans a badge, and the Overview's arrival counts, the Scanner
+-- and the attendance export are all answering a question nobody asked (D159).
+--
+-- The flag is what an event with no checkpoints already half-said. Six surfaces already
+-- degrade when `checkpoints` is empty, but every one of them says "No checkpoints YET" —
+-- the language of an unfinished setup. This turns that into a deliberate "not applicable".
+--
+-- Defaulting to true is the whole migration strategy: every event that exists keeps its
+-- check-in exactly as it is, and the flag only matters where an organiser turns it off.
+--
+-- Turning it off hides surfaces; it never deletes a checkpoint or a checkin row. Switch it
+-- back on and the event is as it was.
+alter table events add column if not exists check_in_enabled boolean not null default true;

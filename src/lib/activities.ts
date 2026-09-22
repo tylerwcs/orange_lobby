@@ -128,6 +128,58 @@ export function unbookedByActivity(
   });
 }
 
+export type ActivitySummary = {
+  activityId: string;
+  name: string;
+  required: boolean;
+  sessions: number;
+  capacity: number;
+  booked: number;
+  left: number;
+  /** Eligible attendees holding nothing in this activity. */
+  unbooked: number;
+};
+
+/**
+ * One line per activity for the Overview an event without check-in shows instead of
+ * arrivals (D159).
+ *
+ * Every number here comes from `seatsFor` and `unbookedByActivity` rather than from
+ * arithmetic of its own, for the reason the activity detail page already gives about
+ * counting the unbooked: two implementations of the same count are how they end up
+ * disagreeing. This function only groups and adds.
+ *
+ * An activity with no sessions yet keeps its row, showing zeros. It is exactly the
+ * activity an organiser most needs to see from the Overview — the one nobody can book.
+ */
+export function activitySummaries(
+  activities: Activity[],
+  sessions: ActivitySession[],
+  counts: Record<string, number>,
+  bookings: Pick<ActivityBooking, "activity_id" | "attendee_id">[],
+  attendeeIds: string[],
+  categoryOf: (attendeeId: string) => string | null,
+): ActivitySummary[] {
+  const unbooked = new Map(
+    unbookedByActivity(activities, bookings, attendeeIds, categoryOf).map((u) => [u.activityId, u.attendeeIds.length]),
+  );
+  return activities.map((activity) => {
+    const seats = sessions
+      .filter((s) => s.activity_id === activity.id)
+      .map((s) => seatsFor(s, counts[s.id] ?? 0));
+    return {
+      activityId: activity.id,
+      name: activity.name,
+      required: activity.required,
+      sessions: seats.length,
+      capacity: seats.reduce((n, s) => n + s.session.capacity, 0),
+      booked: seats.reduce((n, s) => n + s.booked, 0),
+      left: seats.reduce((n, s) => n + s.left, 0),
+      unbooked: unbooked.get(activity.id) ?? 0,
+    };
+  });
+}
+
 /** Marks an agenda row that came from a booking rather than from `agenda_items`. */
 export const BOOKING_ROW_PREFIX = "booking:";
 

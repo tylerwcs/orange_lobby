@@ -9,14 +9,18 @@ export type Group = { title: string; items: Item[] };
  * sits under Onsite because it is the roster you work during the event. Import and
  * Checkpoints are gone from here: import is a modal on the attendee list, and
  * checkpoints are configured in Settings.
+ *
+ * The Scanner comes and goes with `check_in_enabled` (D159). Everything else in Onsite
+ * stands on its own without check-in: booths keep stamping and the roster is still the
+ * roster, which is why only this one item is conditional.
  */
-export function groupsFor(ev: { id: string } | null | undefined): Group[] {
+export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined): Group[] {
   if (!ev) return [{ title: "Events", items: [{ href: "/admin/events", label: "All events", icon: "layers" }] }];
   const b = `/admin/events/${ev.id}`;
   return [
     { title: "Onsite", items: [
       { href: b, label: "Overview", icon: "home" },
-      { href: `/scan/${ev.id}`, label: "Scanner", icon: "scan" },
+      ...(ev.check_in_enabled ? [{ href: `/scan/${ev.id}`, label: "Scanner", icon: "scan" as IconName }] : []),
       { href: `${b}/booths`, label: "Booths", icon: "star" },
       { href: `${b}/attendees`, label: "Attendees", icon: "users" },
     ] },

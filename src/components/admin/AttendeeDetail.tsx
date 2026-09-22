@@ -36,7 +36,11 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
   const ev = await requireEvent(eventId, orgId);
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== ev.id) return null;
-  const [cps, checkins] = await Promise.all([listCheckpoints(ev.id), listCheckinsForEvent(ev.id)]);
+  // No door, no queries. `cps` empty is already the panel's "nothing to show" case; what
+  // changes with the flag is only what it says about why (D159).
+  const [cps, checkins] = ev.check_in_enabled
+    ? await Promise.all([listCheckpoints(ev.id), listCheckinsForEvent(ev.id)])
+    : [[], []];
   const scans = attendeeCheckins(a.id, checkins);
   const link = attendeeLink(appBaseUrl(), ev.slug, a.token);
   // Only this attendee's own scanners, so the lookup is one or two calls rather than one
@@ -111,7 +115,13 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
           <aside className="@3xl:border-l @3xl:pl-6">
             <h3 className={`${caption} mb-3`}>Check-in</h3>
             {cps.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No checkpoints yet. Add them under Settings.</p>
+              <p className="text-sm text-muted-foreground">
+                {/* "Yet" is a promise, and it is the wrong one to make about an event that
+                    has deliberately switched its door off. */}
+                {ev.check_in_enabled
+                  ? "No checkpoints yet. Add them under Settings."
+                  : "This event has no check-in."}
+              </p>
             ) : (
               <ul className="flex flex-col gap-3.5">
                 {checkpointsByDay(cps).flatMap((g) => g.items.map((cp) => {

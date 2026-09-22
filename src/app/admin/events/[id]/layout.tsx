@@ -9,7 +9,7 @@ export default async function EventLayout({ children, params }: { children: Reac
   const ev = await requireEvent(id, orgId);
   return (
     <>
-      <AppSidebar email={email} event={{ id: ev.id, name: ev.name, status: ev.status }} />
+      <AppSidebar email={email} event={{ id: ev.id, name: ev.name, status: ev.status, check_in_enabled: ev.check_in_enabled }} />
       <SidebarInset id="main" className="min-w-0 p-4 pt-6 lg:p-6 lg:pt-8 2xl:p-8">
         {children}
       </SidebarInset>
