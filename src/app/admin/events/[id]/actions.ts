@@ -648,7 +648,7 @@ export async function deleteCheckpointAction(eventId: string, cpId: string) {
 export async function purgeEventAction(eventId: string) {
   const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
   if (ev.status !== "archived") redirect(flashPath(`/admin/events/${eventId}/settings`, "Archive the event first.", "error"));
-  await purgeAttendeePersonalData(eventId);
+  await purgeAttendeePersonalData(eventId, orgId);
   revalidatePath(`/admin/events/${eventId}`); redirect(flashPath(`/admin/events/${eventId}/settings`, "Personal data purged."));
 }
 

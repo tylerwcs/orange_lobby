@@ -4,8 +4,7 @@ import { generateToken, freshTokens } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { dropBlankAnswers } from "@/lib/registration";
 import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
-import { filePathsForEvent } from "@/lib/db/forms";
-import { deleteSubmissionFiles } from "@/lib/db/media";
+import { sweepSubmissionPrefix } from "@/lib/db/media";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -139,10 +138,18 @@ export async function deleteAttendee(id: string): Promise<void> {
  * here throws before the RPC is ever called: the database stays exactly as it was, the
  * organiser sees an error instead of a false "Personal data purged", and retrying is safe
  * because a path already removed from the bucket is simply not found again.
+ *
+ * Swept by PREFIX (`sweepSubmissionPrefix`, src/lib/db/media.ts) — `<orgId>/<eventId>/`,
+ * every form this event has, not by reading file answers off submissions' current question
+ * keys. A key can be renamed in the admin editor after the file was uploaded under the old
+ * one; deriving the sweep from current keys would then miss exactly the objects a rename made
+ * unrecognisable, leaving them in the bucket while the database reports a clean purge (D169).
+ * `orgId` is a caller-supplied argument rather than a lookup here so this stays one round trip
+ * fewer for the one caller that already has the event row in hand.
  */
-export async function purgeAttendeePersonalData(eventId: string): Promise<number> {
+export async function purgeAttendeePersonalData(eventId: string, orgId: string): Promise<number> {
   const db = serviceClient();
-  await deleteSubmissionFiles(await filePathsForEvent(eventId));
+  await sweepSubmissionPrefix(`${orgId}/${eventId}`);
   const { count, error: countError } = await db
     .from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
   if (countError) throw countError;

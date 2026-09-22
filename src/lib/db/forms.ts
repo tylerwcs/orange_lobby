@@ -65,21 +65,18 @@ export async function deleteForm(id: string, eventId: string): Promise<void> {
  * The keys of this form's `file` questions — the only questions whose answers are object
  * paths rather than free text. Reading every answer as a path would try to delete objects
  * named after whatever an attendee typed into a text field.
+ *
+ * Only ever safe to use for questions CURRENTLY on the form — labelling a signed link in the
+ * export, say. It must never be used to decide which objects a delete or a purge removes: a
+ * question's key is mutable (the admin editor lets an organiser rename it, or clear the key
+ * box so it re-derives from the label), while an answer is immutable and stays filed under
+ * whatever key it was submitted with (D166). A rename would then make an old answer invisible
+ * to this function forever, stranding the object it names outside any cleanup keyed off
+ * "current" questions. `sweepSubmissionPrefix` (src/lib/db/media.ts) is the fix: it sweeps by
+ * the object's PATH, which a key rename never touches.
  */
 export function fileQuestionKeys(questions: RegistrationQuestion[]): string[] {
   return questions.filter((q) => q.type === "file").map((q) => q.key);
-}
-
-/**
- * Every object path a `file` answer holds anywhere in this event, across every one of its
- * forms — the purge clears a whole event at once, not one form at a time. Used by
- * `purgeAttendeePersonalData` (src/lib/db/attendees.ts) to empty the bucket before the
- * database function deletes the rows that named these paths.
- */
-export async function filePathsForEvent(eventId: string): Promise<string[]> {
-  const [forms, subs] = await Promise.all([listForms(eventId), listSubmissions(eventId)]);
-  const keysByForm = new Map(forms.map((f) => [f.id, fileQuestionKeys(f.questions)]));
-  return subs.flatMap((s) => (keysByForm.get(s.form_id) ?? []).map((k) => s.answers[k]).filter(Boolean));
 }
 
 export async function listSubmissions(eventId: string): Promise<FormSubmission[]> {

@@ -210,18 +210,50 @@ export function buildActivityRostersWorkbook(
  * One row per attendee, one column per booth, then the two numbers anyone actually reads —
  * how many stamps, and whether the card is full.
  */
-export type FormExportRow = { name: string; email: string | null; category: string | null; submittedOn: string; answers: Record<string, string> };
+export type FormExportRow = { name: string; email: string | null; category: string | null; submittedOn: string; createdAt: string; answers: Record<string, string> };
 export type FormSheet = { formName: string; questions: { key: string; label: string }[]; rows: FormExportRow[] };
 
 /**
- * One sheet per form, named after it, fixed columns first (Name, Email, Category, Submitted)
- * then one column per question in the order the form declares them.
+ * Every answer key that turns up in `answerSets` but is not among `currentKeys`, in the order
+ * each was first seen — a RETIRED question: the admin editor lets an organiser rename a
+ * question's key (or clear the box so it re-derives from the label) after submissions already
+ * exist under the old one, and an answer never moves once written (D166). Both read surfaces
+ * — this export and `SubmissionTable` — share this rather than each recomputing it, so the two
+ * cannot quietly drift on what counts as retired, the same reasoning `attendanceExtraColumns`
+ * already carries for attendee columns.
+ */
+export function retiredAnswerKeys(currentKeys: Iterable<string>, answerSets: Record<string, string>[]): string[] {
+  const current = new Set(currentKeys);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const answers of answerSets) {
+    for (const key of Object.keys(answers)) {
+      if (current.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      out.push(key);
+    }
+  }
+  return out;
+}
+
+/**
+ * One sheet per form, named after it, fixed columns first (Name, Email, Category, Submitted,
+ * Timestamp — spec §6: "attendee, email, category, the day, the timestamp") then one column
+ * per question in the order the form declares them, then one column per RETIRED key: an
+ * answer key that shows up in the data but not in `questions` any more, because the admin
+ * editor lets an organiser rename a question's key (or clear the box so it re-derives from
+ * the label) after submissions already exist under the old one.
  *
  * Every answer is looked up **by key**, never by position: a form whose questions were
  * reordered, or had one removed, since a given submission was made would otherwise file that
  * submission's answers under the wrong headings — silently, since the sheet would still have
  * the right shape. `answers[q.key] ?? ""` is the whole of that lookup; there is no zip against
  * `questions` by index anywhere here.
+ *
+ * The retired columns exist so that rename never makes a real, immutable answer (D166)
+ * unreachable through this export — dropping it silently would be worse than a column headed
+ * plainly as retired. Headed `<key> (retired)` rather than a stored label, because the label
+ * that went with that key does not exist here any more either.
  *
  * A workbook with no worksheets is not a valid xlsx (buildActivityRostersWorkbook's note
  * applies here too), so an event with no forms still gets one sheet that says so in words
@@ -237,10 +269,19 @@ export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
   }
   const taken = new Set<string>();
   for (const f of forms) {
+    const retiredKeys = retiredAnswerKeys(f.questions.map((q) => q.key), f.rows.map((r) => r.answers));
     const ws = wb.addWorksheet(uniqueSheetName(sanitizeSheetNamePart(f.formName), taken));
-    ws.addRow(["Name", "Email", "Category", "Submitted", ...f.questions.map((q) => q.label)]);
+    ws.addRow([
+      "Name", "Email", "Category", "Submitted", "Timestamp",
+      ...f.questions.map((q) => q.label),
+      ...retiredKeys.map((k) => `${k} (retired)`),
+    ]);
     for (const r of f.rows) {
-      ws.addRow([r.name, r.email, r.category, r.submittedOn, ...f.questions.map((q) => r.answers[q.key] ?? "")]);
+      ws.addRow([
+        r.name, r.email, r.category, r.submittedOn, r.createdAt,
+        ...f.questions.map((q) => r.answers[q.key] ?? ""),
+        ...retiredKeys.map((k) => r.answers[k] ?? ""),
+      ]);
     }
     ws.columns?.forEach((c) => { c.width = 24; });
   }

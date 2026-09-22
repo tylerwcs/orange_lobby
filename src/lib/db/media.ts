@@ -108,3 +108,69 @@ export async function deleteSubmissionFiles(paths: string[]): Promise<void> {
   const { error } = await serviceClient().storage.from(SUBMISSION_BUCKET).remove(paths);
   if (error) throw error;
 }
+
+/** `.list()`'s default page, and the size this walk pages by explicitly rather than trust the default. */
+const LIST_PAGE = 100;
+
+/**
+ * Every object path under `prefix`, walking as deep as Storage's `.list()` requires.
+ *
+ * `.list()` is NOT recursive the way a filesystem `find` is: given `<org>/<event>`, it hands
+ * back one entry named `<formId>` per form — a pseudo-folder, not the files inside it. Proven
+ * against the live bucket rather than assumed: a folder entry comes back with `id: null`
+ * (Storage never assigns an object id to a prefix, only to a real object), while a leaf file
+ * entry always carries one. That is the one reliable way to tell "descend again" from "this is
+ * an object", so every entry is checked rather than guessed from its name.
+ *
+ * `.list()` also pages (100 per call by default) rather than returning everything at once, so
+ * a form with more than a page of uploads needs the offset loop below — stopping only once a
+ * page comes back short, not after a fixed number of calls.
+ */
+async function listAllObjectPaths(bucket: string, prefix: string): Promise<string[]> {
+  const storage = serviceClient().storage.from(bucket);
+  const paths: string[] = [];
+  for (let offset = 0; ; offset += LIST_PAGE) {
+    const { data, error } = await storage.list(prefix, { limit: LIST_PAGE, offset });
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const entry of data) {
+      const path = `${prefix}/${entry.name}`;
+      if (entry.id === null) paths.push(...(await listAllObjectPaths(bucket, path)));
+      else paths.push(path);
+    }
+    if (data.length < LIST_PAGE) break;
+  }
+  return paths;
+}
+
+/**
+ * Removes every object under `prefix` from `form-uploads` — a sweep by object PATH rather
+ * than by known answer, unlike deleteSubmissionFiles.
+ *
+ * Why this has to exist: answers are immutable (D166), but a question's KEY is not — the
+ * admin editor lets an organiser rename a `file` question's key, or clear the key box so it
+ * re-derives from the label. `fileQuestionKeys`/`filePathsForEvent` (src/lib/db/forms.ts) read
+ * the form's CURRENT questions, so a rename stops them from recognising an OLD answer as a
+ * file path at all — the object such an answer names would then never be handed to
+ * deleteSubmissionFiles, and would sit in the bucket forever with nothing in the database
+ * naming it. Deriving the sweep from `questions` some other way (e.g. unioning current keys
+ * with whatever keys stored answers happen to use) only narrows the window: a key is mutable
+ * by design, so anything keyed off it is one more rename away from the same bug.
+ *
+ * The object's PATH never moves when a key is renamed — `submissionObjectPath` builds it from
+ * `<orgId>/<eventId>/<formId>/submission-<id>.<ext>` (src/lib/storage.ts), none of which is a
+ * question key — so sweeping by prefix finds every object a form (or an event) ever produced
+ * regardless of what its answer is keyed under today.
+ *
+ * Throws on a failed removal, like deleteSubmissionFiles and for the same reason: callers run
+ * this before the write that makes the objects unfindable again (the form-delete, or the purge
+ * RPC), specifically so a failure here stops that write from ever running. A swallowed failure
+ * would report a clean purge or delete while orphaned files sat in the bucket with no row left
+ * to name them by.
+ */
+export async function sweepSubmissionPrefix(prefix: string): Promise<void> {
+  const paths = await listAllObjectPaths(SUBMISSION_BUCKET, prefix);
+  if (paths.length === 0) return;
+  const { error } = await serviceClient().storage.from(SUBMISSION_BUCKET).remove(paths);
+  if (error) throw error;
+}

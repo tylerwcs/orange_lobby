@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { createForm, updateForm, deleteForm, getForm, submissionsForForm, fileQuestionKeys, type NewForm } from "@/lib/db/forms";
-import { deleteSubmissionFiles } from "@/lib/db/media";
+import { createForm, updateForm, deleteForm, getForm, type NewForm } from "@/lib/db/forms";
+import { sweepSubmissionPrefix } from "@/lib/db/media";
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_FORM_QUESTIONS } from "@/lib/forms";
@@ -141,15 +141,22 @@ export async function toggleFormOpenAction(eventId: string, formId: string) {
  * Cascades its submissions (the same shape of decision `deleteActivityAction` makes), so the
  * confirm dialog says how many go with it.
  *
- * The submissions' uploaded files are gathered and removed from the bucket BEFORE the form
- * row is deleted: the cascade takes `form_submissions` with it, and once that has happened
- * there is nothing left in the database to ask which files were this form's.
+ * The submissions' uploaded files are swept from the bucket BEFORE the form row is deleted:
+ * the cascade takes `form_submissions` with it, and once that has happened there is nothing
+ * left in the database to ask which files were this form's.
+ *
+ * Swept by PREFIX (`sweepSubmissionPrefix`, src/lib/db/media.ts), not by reading file answers
+ * off the submissions' current keys: a question's key can be renamed in the editor after
+ * attendees have already uploaded under the old one, which would leave those objects unnamed
+ * by anything the database still remembers (the bug D169 exists to prevent). The prefix is
+ * built only from `ev.org_id`, `ev.id` and `formId` — the id `getForm` already confirmed
+ * belongs to this event — never from anything a caller could tamper with.
  */
 export async function deleteFormAction(eventId: string, formId: string) {
   const ev = await event(eventId);
-  const [form, subs] = await Promise.all([getForm(formId, ev.id), submissionsForForm(formId)]);
-  const fileKeys = fileQuestionKeys(form?.questions ?? []);
-  await deleteSubmissionFiles(subs.flatMap((s) => fileKeys.map((k) => s.answers[k]).filter(Boolean)));
+  const form = await getForm(formId, ev.id);
+  if (!form) redirect(flashPath(path(eventId), "That form no longer exists.", "error"));
+  await sweepSubmissionPrefix(`${ev.org_id}/${ev.id}/${form.id}`);
   await deleteForm(formId, ev.id);
   revalidatePath(path(eventId));
   redirect(flashPath(path(eventId), "Form deleted."));

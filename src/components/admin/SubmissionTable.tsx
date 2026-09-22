@@ -1,6 +1,7 @@
 import type { FormSubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate } from "@/lib/text";
 import { signedSubmissionUrl } from "@/lib/db/media";
+import { retiredAnswerKeys } from "@/lib/exports";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
@@ -34,6 +35,15 @@ export async function SubmissionTable({ submissions, questions, submitterFor }: 
   }
 
   const isFile = (key: string) => questions.find((q) => q.key === key)?.type === "file";
+  // Keys present in the data but no longer among `questions` — see retiredAnswerKeys
+  // (src/lib/exports.ts). Those answers are real and immutable (D166); dropping them from
+  // this table because their key retired would make them unreachable through the one admin
+  // surface that shows them. Its own trailing column, headed plainly as retired, rather than
+  // folded into `questions`' columns: there is no label to show for a key nothing declares
+  // any more, and no way to know it was ever a `file` answer, so it always renders as plain
+  // text.
+  const retiredKeys = retiredAnswerKeys(questions.map((q) => q.key), submissions.map((s) => s.answers));
+
   const rows = await Promise.all(submissions.map(async (s) => {
     const who = submitterFor(s.attendee_id);
     const cells = await Promise.all(questions.map(async (q) => {
@@ -41,7 +51,8 @@ export async function SubmissionTable({ submissions, questions, submitterFor }: 
       if (!isFile(q.key)) return { key: q.key, value, href: null as string | null };
       return { key: q.key, value, href: value ? await signedSubmissionUrl(value) : null };
     }));
-    return { submission: s, who, cells };
+    const retiredCells = retiredKeys.map((key) => ({ key, value: s.answers[key] ?? "" }));
+    return { submission: s, who, cells, retiredCells };
   }));
 
   return (
@@ -52,10 +63,11 @@ export async function SubmissionTable({ submissions, questions, submitterFor }: 
           <TableHead>Attendee</TableHead>
           <TableHead>Category</TableHead>
           {questions.map((q) => <TableHead key={q.key}>{q.label}</TableHead>)}
+          {retiredKeys.map((k) => <TableHead key={k}>{k} (retired)</TableHead>)}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map(({ submission, who, cells }) => (
+        {rows.map(({ submission, who, cells, retiredCells }) => (
           <TableRow key={submission.id}>
             <TableCell className="whitespace-nowrap text-muted-foreground">{shortDate(submission.submitted_on)}</TableCell>
             <TableCell>
@@ -77,6 +89,9 @@ export async function SubmissionTable({ submissions, questions, submitterFor }: 
                   value || <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
+            ))}
+            {retiredCells.map(({ key, value }) => (
+              <TableCell key={key} className="text-muted-foreground">{value || "—"}</TableCell>
             ))}
           </TableRow>
         ))}

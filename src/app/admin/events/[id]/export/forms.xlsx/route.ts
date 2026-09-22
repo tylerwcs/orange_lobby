@@ -43,7 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       }
       return {
         name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null,
-        submittedOn: s.submitted_on, answers,
+        submittedOn: s.submitted_on, createdAt: s.created_at, answers,
       };
     }));
     return { formName: f.name, questions, rows };
