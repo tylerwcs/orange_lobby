@@ -14,7 +14,7 @@ export const MEDIA_BUCKET = "event-media";
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** What an uploaded image is for. Also the first half of its object name. */
-export type ImageKind = "logo" | "banner" | "floor-plan";
+export type ImageKind = "logo" | "banner" | "floor-plan" | "agenda" | "agenda-banner" | "info";
 
 /**
  * The extension each accepted type is stored under. Browsers send `image/jpg` as well as

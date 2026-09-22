@@ -1,6 +1,7 @@
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { CategoryCombo, ColourCombo } from "@/components/admin/AgendaCombos";
+import { ImageField } from "@/components/admin/ImageField";
 import { addAgendaItemAction, addBreakoutRoundAction, updateAgendaItemAction, updateBreakoutRoundAction } from "@/app/admin/events/[id]/actions";
 import type { AgendaItem } from "@/lib/types";
 
@@ -34,6 +35,14 @@ export function SessionForm({ eventId, categories, item, startsOn }: {
       <Field label="Description" name="description" textarea defaultValue={item?.description} />
       <CategoryCombo categories={categories} defaultValue={item?.categories ?? []} />
       <ColourCombo defaultValue={item?.color ?? null} />
+      {/* Only the session form carries one. A breakout round is many rooms on a single
+          form, so a picker there would set one picture for all of them (D160). */}
+      <ImageField
+        label="Image"
+        name="image"
+        url={item?.image_url}
+        description="A speaker, a poster, the room. Shown as a thumbnail on the agenda, full size when tapped."
+      />
       <SubmitButton>{item ? "Save session" : "Add session"}</SubmitButton>
     </form>
   );

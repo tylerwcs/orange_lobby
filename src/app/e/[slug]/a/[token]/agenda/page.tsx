@@ -30,6 +30,16 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const day = pickDay(days, requested, now.date);
   return (
     <>
+      {/* Above the heading, edge to edge within the page's column: a masthead sits over
+          the agenda, not between its title and its first day (D160). */}
+      {event.agenda_banner_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={event.agenda_banner_url}
+          alt=""
+          className="mb-3 h-28 w-full rounded-[14px] border border-border object-cover sm:h-36"
+        />
+      )}
       <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />
     </>

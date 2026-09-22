@@ -6,7 +6,7 @@ import type { AgendaItem, Attendee } from "@/lib/types";
 const item = (over: Partial<AgendaItem>): AgendaItem => ({
   id: "i1", event_id: "e", day: "2026-09-30", starts_at: "13:30", ends_at: "15:00",
   title: "Breakout", description: null, location: null, categories: null,
-  slot: null, code: null, color: null, sort_order: 0, ...over,
+  slot: null, code: null, color: null, image_url: null, sort_order: 0, ...over,
 });
 
 describe("isBreakout", () => {

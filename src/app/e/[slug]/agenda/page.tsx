@@ -15,6 +15,17 @@ export default async function GenericAgenda({ params, searchParams }: { params: 
   const day = pickDay(days, requested, now.date);
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="/agenda">
+      {/* The public agenda gets the same masthead as the personal one — it is the event's
+          agenda either way, and an attendee who has not opened their link yet should see
+          the same page dressed the same (D160). */}
+      {event.agenda_banner_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={event.agenda_banner_url}
+          alt=""
+          className="mb-3 h-28 w-full rounded-[14px] border border-border object-cover sm:h-36"
+        />
+      )}
       <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />
     </PortalShell>

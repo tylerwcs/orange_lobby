@@ -17,7 +17,7 @@ const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySessi
 });
 const item = (id: string, day: string, starts_at: string): AgendaItem => ({
   id, event_id: "e", day, starts_at, ends_at: null, title: id, description: null, location: null,
-  categories: null, slot: null, code: null, color: null, sort_order: 0,
+  categories: null, slot: null, code: null, color: null, image_url: null, sort_order: 0,
 });
 
 describe("seatsFor", () => {
@@ -186,6 +186,15 @@ describe("bookedAgendaRows", () => {
     const [row] = bookedAgendaRows([session("s1")]);
     expect(isBookedRow(row)).toBe(true);
     expect(isBookedRow(item("x", "2026-10-01", "09:00"))).toBe(false);
+  });
+
+  // A session an attendee booked is not an agenda item and has no picture of its own: the
+  // image belongs to `agenda_items`, and these rows are built from `activity_sessions`.
+  // Explicitly null rather than left off, so the row is a complete AgendaItem and the
+  // portal's thumbnail has one thing to check rather than two.
+  it("carries no image", () => {
+    const [row] = bookedAgendaRows([session("s1")]);
+    expect(row.image_url).toBeNull();
   });
 
   // This is the test that actually encodes the design decision (D133): a derived row must

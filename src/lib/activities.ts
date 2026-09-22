@@ -210,6 +210,9 @@ export function bookedAgendaRows(sessions: ActivitySession[]): AgendaItem[] {
     slot: null,
     code: null,
     color: null,
+    // Not an agenda item: the picture belongs to `agenda_items`, and this row was built
+    // from an `activity_sessions` row that has no column for one (D160).
+    image_url: null,
     sort_order: s.sort_order,
   }));
 }

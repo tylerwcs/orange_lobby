@@ -5,6 +5,7 @@ import { agendaAccentClass } from "@/lib/agenda-colours";
 import { isBreakout } from "@/lib/breakouts";
 import { isBookedRow } from "@/lib/activities";
 import { Badge } from "@/components/ui/badge";
+import { AgendaImage } from "./AgendaImage";
 import { shortDate } from "@/lib/text";
 
 export function AgendaList({ items, day, days, basePath, now, dayHref }: {
@@ -53,6 +54,9 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
               {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Badge variant="secondary">{i.categories.join(", ")}</Badge></div>}
               {isBookedRow(i) && <div className="mt-1.5"><Badge>Booked</Badge></div>}
             </div>
+            {/* Trailing edge, after the text: the leading edge already belongs to the time
+                and the colour bar, and a picture must not push the hour off the row. */}
+            {i.image_url && <AgendaImage src={i.image_url} title={i.title} />}
           </div>
         );
       })}

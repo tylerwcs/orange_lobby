@@ -29,6 +29,7 @@ import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules"
 import { uploadEventImage, deleteEventImage } from "@/lib/db/media";
 import type { ImageKind } from "@/lib/storage";
 import { scanFieldsFromForm } from "@/lib/scan";
+import { appendImage } from "@/lib/info-page";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -459,6 +460,14 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
   const starts_at = str(formData, "starts_at");
   const title = str(formData, "title");
   if (!day || !starts_at || !title) redirect(flashPath(`/admin/events/${eventId}/agenda`, "A session needs a day, a start time and a title.", "error"));
+  // Uploaded before the row is written, as Settings does it: a file we will not take must
+  // leave nothing behind rather than a session with half its fields.
+  let image: ImageChange = { url: null, stale: null };
+  try {
+    image = await nextImage(formData, "image", null, { orgId, eventId, kind: "agenda" });
+  } catch (e) {
+    redirect(flashPath(`/admin/events/${eventId}/agenda`, (e as Error).message, "error"));
+  }
   await createAgendaItem(ev, {
     day,
     starts_at,
@@ -470,6 +479,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
     slot: null,
     code: null,
     color: parseAgendaColour(str(formData, "color")),
+    image_url: image.url,
     // Sessions at the same time now order by when they were added, so nothing to collect.
     sort_order: 0,
   });
@@ -477,10 +487,37 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
   redirect(flashPath(`/admin/events/${eventId}/agenda`, `“${title}” added.`));
 }
 
+/**
+ * The masthead above the portal agenda (D160).
+ *
+ * Its own small form rather than a field on the session forms, because it belongs to the
+ * page rather than to any session on it. Same three-case upload as everywhere else: a new
+ * file replaces, the remove checkbox clears, and an untouched input says nothing and leaves
+ * the stored URL alone.
+ */
+export async function updateAgendaBannerAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/agenda`;
+  let banner: ImageChange = { url: ev.agenda_banner_url, stale: null };
+  try {
+    banner = await nextImage(formData, "agenda_banner", ev.agenda_banner_url, { orgId, eventId, kind: "agenda-banner" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  await updateEvent(eventId, { agenda_banner_url: banner.url });
+  await deleteEventImage(banner.stale);
+  revalidatePath(back);
+  redirect(flashPath(back, banner.url ? "Agenda banner saved." : "Agenda banner removed."));
+}
+
 export async function deleteAgendaItemAction(eventId: string, itemId: string) {
   const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  const ev = await requireEvent(eventId, orgId);
+  // Read before the delete, because afterwards there is no row to ask.
+  const doomed = (await listAgenda(ev.id)).find((i) => i.id === itemId);
   await deleteAgendaItem(itemId, eventId);
+  await deleteEventImage(doomed?.image_url);
   revalidatePath(`/admin/events/${eventId}/agenda`);
 }
 
@@ -508,6 +545,39 @@ export async function saveInfoPageAction(eventId: string, formData: FormData) {
   await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info", info_page_html: str(formData, "info_page_html") });
   revalidatePath(`/admin/events/${eventId}/info`);
   redirect(flashPath(`/admin/events/${eventId}/info`, "Info page saved."));
+}
+
+/**
+ * Uploads one image and puts an <img> tag for it at the end of the info page (D160).
+ *
+ * A second submit button on the SAME form as "Save page", not a form of its own, and this
+ * is the whole reason it works: the appended tag is added to the HTML the textarea is
+ * holding right now, which the form posts alongside the file. An uploader sitting in its
+ * own form would have to append to the STORED html instead, quietly throwing away whatever
+ * the organiser had typed and not yet saved.
+ *
+ * The title rides along for the same reason.
+ */
+export async function addInfoImageAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/info`;
+  const file = formData.get("info_image");
+  if (!(file instanceof File) || file.size === 0) redirect(flashPath(back, "Choose an image first.", "error"));
+
+  let url: string;
+  try {
+    url = await uploadEventImage({ orgId, eventId, kind: "info", file });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+
+  await updateEvent(eventId, {
+    info_page_title: str(formData, "info_page_title") ?? "Info",
+    info_page_html: appendImage(str(formData, "info_page_html"), url, str(formData, "info_image_alt") ?? ""),
+  });
+  revalidatePath(back);
+  redirect(flashPath(back, "Image added to the end of the page."));
 }
 
 export async function addCheckpointAction(eventId: string, formData: FormData) {
@@ -749,6 +819,9 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
     categories: null,
     slot,
     color: parseAgendaColour(str(formData, "color")),
+    // A round is many rooms sharing one form, so there is nowhere to put a picture that
+    // would mean anything — the image belongs to a session, not to a round (D160).
+    image_url: null,
     sort_order: 0,
   };
   for (const code of fresh) await createAgendaItem(ev, { ...shared, code });
@@ -804,6 +877,7 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
     categories: null,
     slot: nextSlot,
     color: parseAgendaColour(str(formData, "color")),
+    image_url: null,
     sort_order: 0,
   };
 
@@ -822,7 +896,10 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
     // be handed an undefined that `updateAgendaItem` would drop from the payload — the one
     // place that function is documented to send every column explicitly.
     const nextCode = code === "" ? room.code : (wanted.get(code.toLowerCase()) ?? code);
-    await updateAgendaItem(room.id, ev.id, { ...shared, code: nextCode });
+    // `shared` carries image_url: null for the create path below; a room being UPDATED keeps
+    // whatever it has. This function sends every column explicitly, so inheriting that null
+    // would silently clear an image this form never offered to change.
+    await updateAgendaItem(room.id, ev.id, { ...shared, code: nextCode, image_url: room.image_url });
     if (nextSlot !== slot) {
       try {
         await renameSlotAssignments(room.id, nextSlot);
@@ -881,6 +958,17 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
   const code = isBreakout ? str(formData, "code") : item.code;
   if (isBreakout && (!slot || !code)) redirect(flashPath(back, "A breakout room needs a round and a room.", "error"));
 
+  // The breakout form has no picker, so it must pass the stored value through untouched
+  // rather than let `nextImage` read a field that is not on its form.
+  let image: ImageChange = { url: item.image_url, stale: null };
+  if (!isBreakout) {
+    try {
+      image = await nextImage(formData, "image", item.image_url, { orgId, eventId, kind: "agenda" });
+    } catch (e) {
+      redirect(flashPath(back, (e as Error).message, "error"));
+    }
+  }
+
   await updateAgendaItem(itemId, ev.id, {
     day,
     starts_at,
@@ -892,8 +980,11 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
     slot,
     code,
     color: parseAgendaColour(str(formData, "color")),
+    image_url: image.url,
     sort_order: item.sort_order,
   });
+  // Only after the row naming the new object is written, exactly as Settings orders it.
+  await deleteEventImage(image.stale);
 
   if (isBreakout && slot && slot !== item.slot) {
     try {

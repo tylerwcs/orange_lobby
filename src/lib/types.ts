@@ -43,6 +43,8 @@ export type Event = {
    * checkpoint or a checkin, so switching it back on restores the event as it was.
    */
   check_in_enabled: boolean;
+  /** The masthead above the portal agenda. One per event, not one per day (D160). */
+  agenda_banner_url: string | null;
   /** The checkpoint the event is running right now; every surface follows it. */
   active_checkpoint_id: string | null;
   registration_questions: RegistrationQuestion[];
@@ -91,6 +93,12 @@ export type AgendaItem = {
   code: string | null;
   /** A palette key from src/lib/agenda-colours.ts, or null. Decoration; nothing reads it back. */
   color: string | null;
+  /**
+   * A picture for this session — a speaker, a room, a poster (D160). Null on most items,
+   * and always null on the rows `bookedAgendaRows` derives from a booking, which are not
+   * agenda items and have no image of their own.
+   */
+  image_url: string | null;
   sort_order: number;
 };
 

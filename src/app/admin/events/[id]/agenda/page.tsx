@@ -9,7 +9,9 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteAgendaItemAction, deleteBreakoutRoundAction } from "../actions";
+import { deleteAgendaItemAction, deleteBreakoutRoundAction, updateAgendaBannerAction } from "../actions";
+import { ImageField } from "@/components/admin/ImageField";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { SessionForm, BreakoutForm } from "@/components/admin/AgendaForms";
@@ -66,6 +68,19 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
             variant="outline"
           >
             <BreakoutForm eventId={ev.id} startsOn={ev.starts_on} />
+          </Modal>
+          {/* The banner belongs to the page, not to any session on it, so it lives beside
+              the two "add" buttons rather than inside either form (D160). */}
+          <Modal title="Agenda banner" hint="One image above the agenda, on every day of the event." trigger="Banner" icon="file" variant="outline">
+            <form action={updateAgendaBannerAction.bind(null, ev.id)} className="grid gap-4 p-1">
+              <ImageField
+                label="Banner"
+                name="agenda_banner"
+                url={ev.agenda_banner_url}
+                description="Shown across the top of the portal agenda. Wide images work best."
+              />
+              <SubmitButton>Save banner</SubmitButton>
+            </form>
           </Modal>
         </div>
       </div>
