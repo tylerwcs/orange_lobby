@@ -38,6 +38,39 @@ export type RegistrationResult = { ok: true; data: RegistrationData } | { ok: fa
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export type AnswersResult =
+  | { ok: true; answers: Record<string, string> }
+  | { ok: false; errors: Record<string, string> };
+
+/**
+ * The question half of a submitted form: every answer trimmed, every rule checked.
+ *
+ * Lifted out of `validateRegistration` so a form submission and a registration are checked
+ * by the same code rather than by two versions of it that agree until one is edited. What
+ * stays in `validateRegistration` is only what is specific to registering: a name and an
+ * email address.
+ *
+ * A question hidden by its `show_when` stores `""` rather than being skipped, which is what
+ * clears an answer somebody gave before changing the answer above it.
+ */
+export function validateAnswers(
+  input: Record<string, string>,
+  questions: RegistrationQuestion[],
+): AnswersResult {
+  const errors: Record<string, string> = {};
+  const answers: Record<string, string> = {};
+  const get = (k: string) => (input[k] ?? "").trim();
+  for (const q of questions) {
+    const v = get(q.key);
+    const shown = !q.show_when || get(q.show_when.key).toLowerCase().includes(q.show_when.includes.toLowerCase());
+    if (!shown) { answers[q.key] = ""; continue; }
+    if (q.required && !v) errors[q.key] = `${q.label} is required`;
+    else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = "Choose one of the listed options";
+    answers[q.key] = v;
+  }
+  return Object.keys(errors).length ? { ok: false, errors } : { ok: true, answers };
+}
+
 export function validateRegistration(input: Record<string, string>, questions: RegistrationQuestion[]): RegistrationResult {
   const errors: Record<string, string> = {};
   const get = (k: string) => (input[k] ?? "").trim();
@@ -45,17 +78,12 @@ export function validateRegistration(input: Record<string, string>, questions: R
   const email = get("email").toLowerCase();
   if (!name) errors.name = "Name is required";
   if (!EMAIL_RE.test(email)) errors.email = "Enter a valid email";
-  const extra: Record<string, string> = {};
-  for (const q of questions) {
-    const v = get(q.key);
-    const shown = !q.show_when || get(q.show_when.key).toLowerCase().includes(q.show_when.includes.toLowerCase());
-    if (!shown) { extra[q.key] = ""; continue; }
-    if (q.required && !v) errors[q.key] = `${q.label} is required`;
-    else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = `Choose one of the listed options`;
-    extra[q.key] = v;
-  }
+  const answered = validateAnswers(input, questions);
+  if (!answered.ok) Object.assign(errors, answered.errors);
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, data: { name, email, extra } };
+  // The ternary is not defensive: TypeScript cannot see that the early return above
+  // ruled out the failure case, so this is how the union gets narrowed.
+  return { ok: true, data: { name, email, extra: answered.ok ? answered.answers : {} } };
 }
 
 /**
