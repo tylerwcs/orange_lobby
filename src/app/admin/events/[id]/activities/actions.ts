@@ -8,7 +8,7 @@ import {
   createSession, updateSession, deleteSession, setSessionOrder, bookSession, listSessions,
   type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
-import { getRequest, applyRequest, markDecided } from "@/lib/db/activity-requests";
+import { getRequest, decideRequest } from "@/lib/db/activity-requests";
 import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields } from "@/lib/activities";
 import { listAttendees } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
@@ -171,13 +171,16 @@ export async function placeAttendeesAction(eventId: string, activityId: string, 
 }
 
 /**
- * Why an approval could not be carried out. `closed` is absent from the message an approval
- * can actually reach — the approval passes `ignoreOpen` (D156), so a closed activity never
- * refuses the desk — but it stays in this map because the type is `DecisionResult`, not
- * `BookResult`: `applyRequest` also carries `CancelResult`, whose `required` can appear when
- * an optional activity was made required after a cancel request was raised. Keying on the
- * full union rather than hand-picking cases means a future result added to either type is a
- * compile error here, not a silently missing message.
+ * Why an approval could not be carried out. Two of these six keys are dead today, kept only
+ * because the map is typed against the full `DecisionResult` union rather than hand-picked
+ * cases, so a future result added to either half of that union is a compile error here, not a
+ * silently missing message:
+ * - `closed` — the approval passes `ignoreOpen` (D156), so a closed activity never refuses.
+ * - `limit` — only reachable via `BookResult`'s cap check, and neither `switch_session` (same
+ *   activity in and out, so the per-attendee count never moves) nor `cancel_booking` (which
+ *   only ever returns `CancelResult`) can produce it. `required` is the mirror case: it can
+ *   only come from `cancel_booking`, if an optional activity was made required after a cancel
+ *   request was raised.
  */
 const APPROVE_REFUSALS: Record<Exclude<DecisionResult, "ok">, string> = {
   full: "That session is full now, so this cannot be approved. Decline it, or raise the capacity.",
@@ -188,15 +191,34 @@ const APPROVE_REFUSALS: Record<Exclude<DecisionResult, "ok">, string> = {
   required: "This activity is now required, so they cannot be left with no session.",
 };
 
+const REQUEST_GONE = "That request is no longer waiting.";
+
 /**
  * Carries out a request, or explains why it cannot be.
  *
- * A refusal leaves the request PENDING. The desk has not decided anything — they have been
- * told they cannot do it yet, usually because the target filled while the request waited
- * (D144). Declining is the deliberate act and is a separate control.
+ * Approve and decline both resolve to one call to `decideRequest` (`decide_request` in
+ * 0021_decide_request.sql), which locks the request row, applies it through the same locked
+ * `switch_session`/`cancel_booking` functions, and stamps the decision — all inside one
+ * transaction. That atomicity is what makes "somebody decided it first" and "refused, stays
+ * pending" mutually exclusive outcomes rather than a race two desks could tear apart: the
+ * earlier two-call version (apply, then a separately-scoped stamp) let an approve's booking
+ * move while a concurrent decline's stamp won the row, leaving the record permanently reading
+ * "declined" for a change that had actually happened (Task 7 review's Important finding).
+ *
+ * A refusal (anything the RPC returns other than `'ok'`) leaves the request PENDING. The desk
+ * has not decided anything — they have been told they cannot do it yet, usually because the
+ * target filled while the request waited (D144). Declining is the deliberate act and is a
+ * separate control.
+ *
+ * `getRequest` runs first purely to scope the posted id to this event before it is ever acted
+ * on — `event_id` never changes on a request row, so this check races nothing `decide_request`
+ * itself guards (only the row's STATUS is racy, and the RPC's own row lock is what serialises
+ * that). Without it, a posted `requestId` belonging to a different event — even a different
+ * org's — would still be decided, because `decide_request` itself takes no event id to scope
+ * by; only `event(eventId)` stands between an admin and someone else's request.
  *
  * `requireAdmin()` runs twice on this path: once inside `event()`, and again here for
- * `userId`, which `markDecided` needs for `decided_by`. `event()` is kept to its existing
+ * `userId`, which `decideRequest` needs for `decided_by`. `event()` is kept to its existing
  * shape (just the event) rather than widened to return the whole `AdminContext`: nine other
  * actions in this file already destructure its return as the event alone, and this is the one
  * desk action that also needs "who decided" — it pays for one extra session lookup rather
@@ -207,27 +229,39 @@ export async function approveRequestAction(eventId: string, activityId: string, 
   const { userId } = await requireAdmin();
   const path = `/admin/events/${eventId}/activities/${activityId}`;
   const request = await getRequest(requestId, ev.id);
-  if (!request || request.status !== "pending") {
-    redirect(flashPath(path, "That request is no longer waiting.", "error"));
+  if (!request) {
+    revalidatePath(path);
+    redirect(flashPath(path, REQUEST_GONE, "error"));
   }
 
-  const result = await applyRequest(request);
+  const result = await decideRequest(requestId, "approved", userId);
+  if (result === "gone") {
+    revalidatePath(path);
+    redirect(flashPath(path, REQUEST_GONE, "error"));
+  }
   if (result !== "ok") {
     revalidatePath(path);
     redirect(flashPath(path, APPROVE_REFUSALS[result], "error"));
   }
 
-  // Scoped by status inside the query, so two desks approving at once cannot both stamp it.
-  const stamped = await markDecided(request.id, ev.id, "approved", userId);
   revalidatePath(path);
-  redirect(flashPath(path, stamped ? "Request approved." : "Approved, but somebody decided it first."));
+  redirect(flashPath(path, "Request approved."));
 }
 
 export async function declineRequestAction(eventId: string, activityId: string, requestId: string) {
   const ev = await event(eventId);
   const { userId } = await requireAdmin();
   const path = `/admin/events/${eventId}/activities/${activityId}`;
-  const stamped = await markDecided(requestId, ev.id, "declined", userId);
+  // Same event-scoping note as approveRequestAction: this exists so a posted id from outside
+  // this event can't be decided through it at all, before decide_request's own row lock ever
+  // gets a chance to resolve its status.
+  const request = await getRequest(requestId, ev.id);
+  if (!request) {
+    revalidatePath(path);
+    redirect(flashPath(path, REQUEST_GONE, "error"));
+  }
+
+  const result = await decideRequest(requestId, "declined", userId);
   revalidatePath(path);
-  redirect(flashPath(path, stamped ? "Request declined." : "That request is no longer waiting.", stamped ? "ok" : "error"));
+  redirect(flashPath(path, result === "ok" ? "Request declined." : REQUEST_GONE, result === "ok" ? "ok" : "error"));
 }

@@ -44,7 +44,7 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
   const pendingRequests = activityRequests.filter((r) => r.status === "pending");
   const decidedRequests = activityRequests.filter((r) => r.status !== "pending");
   const sessionTitleById = new Map(allSessions.map((s) => [s.id, s.title]));
-  // Only the ids `markDecided` actually stamped — pending and withdrawn requests carry none.
+  // Only the ids `decide_request` actually stamped — pending and withdrawn requests carry none.
   const deciderEmails = await scannerNames(decidedRequests.map((r) => r.decided_by));
 
   // Who still owes a choice: eligible, and holding nothing in THIS activity. Goes through the

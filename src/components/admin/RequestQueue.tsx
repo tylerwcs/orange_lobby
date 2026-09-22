@@ -14,9 +14,10 @@ function describe(request: Pick<ActivityChangeRequest, "kind">, fromTitle: strin
  * The desk's own queue: what attendees have asked to change on this activity, waiting for a
  * decision.
  *
- * Approve and Decline are both bound server actions that write through `applyRequest` and
- * `markDecided` (D154) — this component only renders the choice and never moves a booking or
- * stamps a decision itself.
+ * Approve and Decline are both bound server actions that write through `decideRequest`
+ * (`decide_request` in 0021_decide_request.sql — one atomic call, so a concurrent approve and
+ * decline on the same request can no longer disagree with each other, D154) — this component
+ * only renders the choice and never moves a booking or stamps a decision itself.
  *
  * Renders nothing at all when there is neither a pending nor a decided request, so an activity
  * nobody has asked anything about looks exactly as it does today. Decided requests sit behind

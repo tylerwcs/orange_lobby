@@ -1,6 +1,5 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
-import { switchSession, cancelBooking } from "@/lib/db/activities";
 import type { DecisionResult } from "@/lib/db/activities";
 import type { ActivityChangeRequest } from "@/lib/types";
 
@@ -70,35 +69,39 @@ export async function withdrawRequest(id: string, attendeeId: string): Promise<b
 }
 
 /**
- * Stamps the decision. Scoped by `status = 'pending'` so two desks clicking Approve at once
- * cannot both record a decision — the second updates no rows and the caller reports that.
- *
- * This does NOT move the booking. The caller has already called switch_session or
- * cancel_booking and only reaches here on 'ok' (D154).
+ * Every answer `decide_request` can give. `gone` covers a request that no longer exists, is
+ * no longer `pending`, or lost a race to another decision on the same row — the three are
+ * indistinguishable from here and the caller has no need to tell them apart.
  */
-export async function markDecided(
-  id: string,
-  eventId: string,
-  status: "approved" | "declined",
-  userId: string,
-): Promise<boolean> {
-  const { data, error } = await serviceClient().from("activity_change_requests")
-    .update({ status, decided_at: new Date().toISOString(), decided_by: userId })
-    .eq("id", id).eq("event_id", eventId).eq("status", "pending").select("id");
-  if (error) throw error;
-  return (data?.length ?? 0) > 0;
-}
+export type DecideResult = DecisionResult | "gone";
 
 /**
- * Carries out an approved request against the database, without recording anything.
+ * Carries out a decision — approve or decline — as ONE atomic step (0021_decide_request.sql).
  *
- * Goes through the locked functions rather than writing bookings itself (D154): they are the
- * only callers that hold the session and activity row locks, and an approval that bypassed
- * them would be the one path in the system that can overbook. `ignoreOpen` is true because
- * the desk works the queue after booking has closed (D156) — it does not bypass capacity.
+ * This used to be two separate calls from the app: apply the request (switch_session /
+ * cancel_booking), then stamp it via a `status = 'pending'`-scoped update. Nothing serialised
+ * those two statements against a concurrent decision on the same row, so an approve whose RPC
+ * was still in flight could lose its own stamp to a decline racing in behind it — the booking
+ * had genuinely moved, but the persisted record ended up reading "declined" (Task 7 review's
+ * Important finding). `decide_request` selects the request `for update` before touching
+ * anything, so a second call for the same id — another approve, another decline, a retry —
+ * blocks on that lock instead of racing past it; whichever call wins decides the whole thing,
+ * inside one transaction, in the database, exactly where every other seat-affecting rule in
+ * this feature already lives (D154).
+ *
+ * For an approve, the nested `switch_session`/`cancel_booking` call runs `ignoreOpen = true`
+ * for a switch, because the desk works the queue after booking has closed (D156) — it never
+ * bypasses capacity or eligibility. If that call refuses (anything but `'ok'`), the request is
+ * left `pending` and the refusal code is returned unstamped, same as before this migration.
  */
-export async function applyRequest(request: ActivityChangeRequest): Promise<DecisionResult> {
-  return request.kind === "switch" && request.to_session_id
-    ? switchSession(request.from_session_id, request.to_session_id, request.attendee_id, true)
-    : cancelBooking(request.from_session_id, request.attendee_id);
+export async function decideRequest(
+  requestId: string,
+  status: "approved" | "declined",
+  userId: string,
+): Promise<DecideResult> {
+  const { data, error } = await serviceClient().rpc("decide_request", {
+    p_request_id: requestId, p_status: status, p_user: userId,
+  });
+  if (error) throw error;
+  return data as DecideResult;
 }

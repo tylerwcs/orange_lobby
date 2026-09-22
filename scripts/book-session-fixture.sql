@@ -50,6 +50,22 @@
 --      still returns 'ineligible' - both still no-ops, so capacity and eligibility are actually
 --      exercised under the flag, not merely asserted.
 --
+--   G. decide_request (supabase/migrations/0021_decide_request.sql), added for the Task 7
+--      review's Important finding: approve-then-stamp used to be two separate statements, so a
+--      concurrent decline could win the stamp after an approve's booking write had already
+--      landed, leaving the record permanently reading 'declined' for a change that actually
+--      happened. THIS SECTION IS SEQUENTIAL AND CANNOT DEMONSTRATE THE CONCURRENT INTERLEAVING
+--      ITSELF — that needs two live connections racing on the same row, which a single script
+--      issuing statements one after another can never open. What it proves instead is the status
+--      guard the row lock is built on: approve a pending switch request (succeeds, moves the
+--      booking, stamps 'approved'), then call decide_request AGAIN on that same now-decided row
+--      (a decline, standing in for desk B arriving after desk A already won the lock). The second
+--      call must return 'gone', the row must still read 'approved' — not overwritten — and the
+--      booking must have moved exactly once (present on the target session, absent from the
+--      source, and not duplicated). The row lock is the argument for why two REAL concurrent
+--      calls resolve this same way instead of racing; this fixture is the evidence that the
+--      guard behind that argument actually holds.
+--
 -- HOW TO RUN: paste this whole file into the Supabase SQL editor, or run it through the
 -- `execute_sql` MCP tool for this project, or `supabase db execute -f
 -- scripts/book-session-fixture.sql --project-ref <ref>`. It ends with a plain SELECT of every
@@ -427,6 +443,69 @@ begin
                                   where attendee_id = v_a1 and session_id = v_sess_b));
   insert into results (step, value) values ('F.not_holding_roomD', (select count(*)::text from activity_bookings
                                   where attendee_id = v_a1 and session_id = v_sess_d));
+
+  delete from events where id = v_event;
+end $$;
+
+-- ============================================================================================
+-- Section G — decide_request's status guard, sequentially. See the header note above for
+-- exactly what this can and cannot demonstrate about the concurrent race the migration closes.
+-- ============================================================================================
+do $$
+declare
+  v_org uuid;
+  v_user uuid;
+  v_event uuid;
+  v_act uuid;
+  v_sess_a uuid;
+  v_sess_b uuid;
+  v_a1 uuid;
+  v_req uuid;
+  v_tok1 text := left(replace(gen_random_uuid()::text, '-', ''), 16);
+begin
+  select id into v_org from organisations limit 1;
+  -- Any real auth.users row will do: decided_by is a foreign key to auth.users(id), and this
+  -- fixture is proving decide_request's status guard, not who a real desk account resolves to.
+  select id into v_user from auth.users limit 1;
+  insert into events (org_id, slug, name, status)
+    values (v_org, 'fixture-g-' || v_tok1, 'Fixture G', 'draft') returning id into v_event;
+  insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
+    values (v_org, v_event, 'Workshops', false, true, 1) returning id into v_act;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess_a;
+  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
+    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess_b;
+  insert into attendees (org_id, event_id, token, name, source)
+    values (v_org, v_event, v_tok1, 'Queued switch', 'walkin') returning id into v_a1;
+
+  insert into results (step, value) values ('G.book_roomA', book_session(v_sess_a, v_a1, false));
+
+  -- The pending request, inserted directly the way createRequest (src/lib/db/activity-
+  -- requests.ts) would: this fixture proves decide_request in isolation, not request creation,
+  -- which is already covered by the app-level tests in tests/activity-requests.test.ts.
+  insert into activity_change_requests (event_id, activity_id, attendee_id, kind, from_session_id, to_session_id)
+    values (v_event, v_act, v_a1, 'switch', v_sess_a, v_sess_b) returning id into v_req;
+
+  -- First call: approve. Must succeed, actually move the booking, and stamp the row as the
+  -- winner of the (uncontested, here) row lock.
+  insert into results (step, value) values ('G.approve_ok', decide_request(v_req, 'approved', v_user));
+  insert into results (step, value) values ('G.status_after_approve',
+    (select status from activity_change_requests where id = v_req));
+  insert into results (step, value) values ('G.decided_by_is_user',
+    (select (decided_by = v_user)::text from activity_change_requests where id = v_req));
+  insert into results (step, value) values ('G.moved_to_roomB', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_b));
+  insert into results (step, value) values ('G.left_roomA', (select count(*)::text from activity_bookings
+                                  where attendee_id = v_a1 and session_id = v_sess_a));
+  insert into results (step, value) values ('G.total_bookings_for_attendee',
+    (select count(*)::text from activity_bookings where attendee_id = v_a1));
+
+  -- Second call, on the SAME row, now already decided: a decline arriving after the fact — the
+  -- sequential stand-in for desk B losing the row lock to desk A's approve. Must be refused
+  -- outright, not silently applied or allowed to overwrite the first decision.
+  insert into results (step, value) values ('G.decline_after_approve_is_gone', decide_request(v_req, 'declined', v_user));
+  insert into results (step, value) values ('G.status_still_approved',
+    (select status from activity_change_requests where id = v_req));
 
   delete from events where id = v_event;
 end $$;
