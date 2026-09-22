@@ -1,6 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
-import { generateToken } from "@/lib/tokens";
+import { generateToken, freshTokens } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { dropBlankAnswers } from "@/lib/registration";
 import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
@@ -111,15 +111,34 @@ export async function deleteAttendee(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Anonymises every attendee of one event, irreversibly: names replaced, emails and seats
+ * cleared, every registration answer dropped, and every personal link reissued so the old
+ * ones stop working. The rows themselves stay, so attendance and booking counts survive —
+ * which is what the purge card promises, and why `category` is deliberately left alone
+ * (D173).
+ *
+ * One statement, in a database function (D172). It used to be a loop of one UPDATE per
+ * attendee, and supabase-js has no transaction, so a failure partway left an event half
+ * purged with nothing to say so. Tokens are minted here rather than in SQL so
+ * `TOKEN_ALPHABET` stays the only definition of what a token looks like.
+ *
+ * A few spare tokens are sent because the count and the update are separate statements: an
+ * attendee created in between would otherwise be handed a NULL token and roll the purge
+ * back. The slack makes that vanishingly unlikely, and the function still refuses loudly
+ * rather than purging some of them.
+ */
 export async function purgeAttendeePersonalData(eventId: string): Promise<number> {
   const db = serviceClient();
-  const { data, error: selectError } = await db.from("attendees").select("id").eq("event_id", eventId);
-  if (selectError) throw selectError;
-  for (const row of data ?? []) {
-    const { error } = await db.from("attendees").update({ name: "Purged", email: null, extra: {}, token: generateToken(), status: "purged", updated_at: new Date().toISOString() }).eq("id", row.id);
-    if (error) throw error;
-  }
-  return data?.length ?? 0;
+  const { count, error: countError } = await db
+    .from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
+  if (countError) throw countError;
+  const { data, error } = await db.rpc("purge_event_personal_data", {
+    p_event_id: eventId,
+    p_tokens: freshTokens((count ?? 0) + 8),
+  });
+  if (error) throw error;
+  return data ?? 0;
 }
 
 /**

@@ -18,3 +18,21 @@ const TOKEN_RE = new RegExp(`^[${TOKEN_ALPHABET}]{${TOKEN_LENGTH}}$`);
 export function isValidToken(s: string): boolean {
   return TOKEN_RE.test(s);
 }
+
+/**
+ * `n` distinct tokens, for a caller that has to hand them all over at once.
+ *
+ * The purge reissues every attendee's token in a single statement (D172), so it cannot mint
+ * them one at a time and cannot retry a clash halfway through. `attendees.token` is UNIQUE,
+ * so two equal tokens in one batch would fail the whole purge on a collision nobody could
+ * reproduce — a Set is cheap insurance against a one-in-astronomical event that would be
+ * maddening to diagnose.
+ *
+ * Minting them here rather than in SQL keeps TOKEN_ALPHABET the single source of truth. A
+ * second implementation in plpgsql would not learn about a change to this one.
+ */
+export function freshTokens(n: number): string[] {
+  const out = new Set<string>();
+  while (out.size < n) out.add(generateToken());
+  return [...out];
+}
