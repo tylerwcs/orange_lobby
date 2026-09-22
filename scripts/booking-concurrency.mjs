@@ -27,6 +27,14 @@
 //     held<=1" - leaving zero bookings for an activity whose whole point is holding one.
 //     cancel_booking now also locks the activity row: exactly 9 calls win ('ok'), the last one is
 //     refused ('required'), and exactly one booking row survives.
+//   - Scenario 4 (two approvals racing for one seat): two attendees hold the same source
+//     session and each has a pending switch request into the same one-seat target session.
+//     The desk approves both requests at once through decide_request (0021_decide_request.sql)
+//     - the only path that decides a request. decide_request's own row lock only serialises two
+//     calls against the SAME request row, which these are not; what has to hold here is
+//     switch_session's session-row lock, taken inside the transaction each decide_request call
+//     opens. Exactly one call returns 'ok' and moves its attendee into the target, the other
+//     returns 'full' and is a no-op, and exactly one booking row lands in the target session.
 //
 // HOW TO RUN: npm run check:booking (equivalent to
 // `node --env-file=.env.local scripts/booking-concurrency.mjs`). Requires .env.local with
@@ -246,10 +254,106 @@ async function scenarioRequiredCancelAcrossSessions() {
   }
 }
 
+/**
+ * The queue's own contended path, exercised through the one function that ever decides a
+ * request (decide_request, 0021_decide_request.sql) rather than switch_session directly.
+ * Two attendees hold the same source session; each has a pending switch request into the
+ * same one-seat target. The desk approves both at once.
+ *
+ * decide_request selects each request row `for update` before doing anything else, but that
+ * lock only serialises two calls against the SAME row - these are two DIFFERENT rows, one per
+ * attendee, so that lock never contends here. What has to hold instead is switch_session's own
+ * session-row lock (0017/0020's `for update` over both session ids, in id order), taken inside
+ * the same transaction each decide_request call opens for its nested approve. This proves that
+ * chain end to end through the real admin path: exactly one approval wins ('ok') and moves its
+ * attendee into the target, the other is refused ('full') and is a no-op - the attendee it
+ * belongs to still holds the source session - and exactly one booking row lands in the target.
+ */
+async function scenarioApprovalsRaceForSeat() {
+  console.log("\n--- Scenario 4: two approvals racing for one seat ---");
+
+  // Nothing created yet if this fails, so a direct FAIL + exit is enough - same reasoning as
+  // the org lookup above. decided_by is a foreign key to auth.users(id) (activity_change_
+  // requests.decided_by, 0019_activity_change_requests.sql); any real row will do, the way
+  // book-session-fixture.sql's Section G picks one, and this fails loudly rather than silently
+  // if the target environment has no auth.users row to test against at all.
+  const { data: userList, error: userErr } = await db.auth.admin.listUsers({ page: 1, perPage: 1 });
+  if (userErr) { console.error(`FAIL: ${userErr.message}`); process.exit(1); }
+  const decidedBy = userList.users[0]?.id;
+  if (!decidedBy) { console.error("FAIL: no auth.users row exists to use as decided_by"); process.exit(1); }
+
+  const { data: event, error: eventErr } = await db.from("events")
+    .insert({ org_id: org.id, slug: `concurrency-4-${runId}`, name: "Concurrency check 4", status: "draft" })
+    .select("id").single();
+  if (eventErr) fail(eventErr.message);
+
+  try {
+    const { data: activity, error: activityErr } = await db.from("activities")
+      .insert({ org_id: org.id, event_id: event.id, name: "Queue race", booking_open: true, max_per_attendee: 1 })
+      .select("id").single();
+    if (activityErr) fail(activityErr.message);
+
+    const { data: sessionA, error: sessionAErr } = await db.from("activity_sessions")
+      .insert({ event_id: event.id, activity_id: activity.id, title: "Source", day: "2026-10-01", starts_at: "09:00", capacity: 2 })
+      .select("id").single();
+    if (sessionAErr) fail(sessionAErr.message);
+
+    const { data: sessionB, error: sessionBErr } = await db.from("activity_sessions")
+      .insert({ event_id: event.id, activity_id: activity.id, title: "Target", day: "2026-10-01", starts_at: "09:00", capacity: 1 })
+      .select("id").single();
+    if (sessionBErr) fail(sessionBErr.message);
+
+    const { data: attendees, error: attendeesErr } = await db.from("attendees").insert([
+      { org_id: org.id, event_id: event.id, token: `queue-x-${runId}`, name: "Racer X", source: "walkin" },
+      { org_id: org.id, event_id: event.id, token: `queue-y-${runId}`, name: "Racer Y", source: "walkin" },
+    ]).select("id");
+    if (attendeesErr) fail(attendeesErr.message);
+    const [attendeeX, attendeeY] = attendees;
+
+    // Setup, not the race: both attendees booked into the source session one after another, so
+    // each reliably holds a seat there before their switch requests are raised.
+    for (const a of [attendeeX, attendeeY]) {
+      const { data, error } = await db.rpc("book_session", { p_session_id: sessionA.id, p_attendee_id: a.id, p_ignore_open: false });
+      if (error) fail(error.message);
+      if (data !== "ok") fail(`setup booking failed: expected 'ok', got '${data}'`);
+    }
+
+    // Also setup: raising the requests is not the race, deciding them concurrently is. One
+    // open request per attendee per activity is all either insert needs to satisfy
+    // (activity_change_requests_one_open, 0019_activity_change_requests.sql).
+    const { data: requests, error: requestsErr } = await db.from("activity_change_requests").insert([
+      { event_id: event.id, activity_id: activity.id, attendee_id: attendeeX.id, kind: "switch", from_session_id: sessionA.id, to_session_id: sessionB.id },
+      { event_id: event.id, activity_id: activity.id, attendee_id: attendeeY.id, kind: "switch", from_session_id: sessionA.id, to_session_id: sessionB.id },
+    ]).select("id");
+    if (requestsErr) fail(requestsErr.message);
+
+    const results = await Promise.all(requests.map((r) =>
+      db.rpc("decide_request", { p_request_id: r.id, p_status: "approved", p_user: decidedBy })
+        .then((res) => (res.error ? `error:${res.error.message}` : res.data))));
+
+    const tally = tallyOf(results);
+    const { count, error: countErr } = await db.from("activity_bookings")
+      .select("id", { count: "exact", head: true }).eq("session_id", sessionB.id);
+    if (countErr) fail(countErr.message);
+
+    console.log("2 concurrent decide_request approvals, same target session ->", tally);
+    console.log(`rows in activity_bookings for the target session: ${count}`);
+
+    if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
+    if (tally.full !== 1) fail(`expected exactly 1 'full', got ${tally.full ?? 0}`);
+    if (count !== 1) fail(`expected 1 booking row in the target session, found ${count}`);
+    console.log("PASS: one seat, one winner, through the real admin approval path.");
+  } finally {
+    const { error: delErr } = await db.from("events").delete().eq("id", event.id);
+    if (delErr) console.error(`WARNING: failed to clean up event ${event.id}: ${delErr.message}`);
+  }
+}
+
 try {
   await scenarioCapacityOneSeat();
   await scenarioCapAcrossSessions();
   await scenarioRequiredCancelAcrossSessions();
+  await scenarioApprovalsRaceForSeat();
   console.log("\nALL PASS");
 } catch (err) {
   console.error(`\nFAIL: ${err.message}`);

@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listActivities, listSessions, countBookingsBySession } from "@/lib/db/activities";
+import { listRequests } from "@/lib/db/activity-requests";
+import { pendingCountByActivity } from "@/lib/activity-requests";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
@@ -18,8 +20,8 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [activities, sessions, bookings] = await Promise.all([
-    listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id),
+  const [activities, sessions, bookings, requests] = await Promise.all([
+    listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id),
   ]);
 
   // Rolled up from the sessions already loaded rather than queried per activity: the page
@@ -30,6 +32,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
     counts[s.activity_id] = (counts[s.activity_id] ?? 0) + (bookings[s.id] ?? 0);
     seats[s.activity_id] = (seats[s.activity_id] ?? 0) + s.capacity;
   }
+  const pending = pendingCountByActivity(requests);
 
   return (
     <div className="flex flex-col gap-4">
@@ -65,7 +68,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
       <Card className="overflow-hidden">
         <CardHeader className="border-b"><CardTitle>Activities</CardTitle></CardHeader>
         <CardContent className="px-6">
-          <ActivityRows items={activities} counts={counts} seats={seats} basePath={`/admin/events/${ev.id}`} />
+          <ActivityRows items={activities} counts={counts} seats={seats} pending={pending} basePath={`/admin/events/${ev.id}`} />
         </CardContent>
       </Card>
     </div>

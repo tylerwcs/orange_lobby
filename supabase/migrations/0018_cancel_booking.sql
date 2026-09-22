@@ -14,11 +14,14 @@
 -- of the same activity would lock two different rows and never wait on each other - each could
 -- still read the same held count and both pass "required and held<=1". The activity row is
 -- locked too, for the same reason book_session now locks it (see 0017_book_session.sql's
--- header for the full argument, and its switch_session comment for the lock order across all
--- three functions - session(s) before activity, never the reverse - and for the one place that
--- order does NOT hold: a cascading delete of an activity or its event, which can deadlock
+-- header for the full argument, and the switch_session comment there for the lock order across
+-- all three functions - session(s) before activity, never the reverse - and for the one place
+-- that order does NOT hold: a cascading delete of an activity or its event, which can deadlock
 -- against an in-flight book_session or cancel_booking call. Low probability, self-detecting,
--- non-corrupting, and deliberately not handled here - see that comment for the full argument).
+-- non-corrupting, and deliberately not handled here - see that comment for the full argument.
+-- switch_session's LIVE definition is now supabase/migrations/0020_switch_session_ignore_
+-- open.sql, which carries this lock-order argument forward unchanged - 0017's comment is
+-- superseded as the definition but not as the argument).
 create or replace function cancel_booking(
   p_session_id uuid,
   p_attendee_id uuid
