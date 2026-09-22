@@ -237,11 +237,17 @@ export type Form = {
   submissions_open: boolean;
   /** Null or empty means everyone, exactly as on an agenda item or an activity. */
   categories: string[] | null;
-  /** The total one attendee may ever submit. Null means no total limit (D171). */
+  /**
+   * The total one attendee may ever submit. Null means no total limit (D171).
+   * When set, must be between 1 and 366 — the database check constraint enforces this, not
+   * this type, so a caller writing 0 or 500 gets a raw Postgres constraint violation rather
+   * than a handled error.
+   */
   max_per_attendee: number | null;
   /** At most one submission per Malaysian calendar day, on top of any total (D171). */
   per_day: boolean;
   sort_order: number;
+  created_at: string;
 };
 
 export type FormSubmission = {
@@ -252,7 +258,7 @@ export type FormSubmission = {
   /** Question key to answer. A `file` answer holds an object path, never a URL (D167). */
   answers: Record<string, string>;
   /** The Malaysian calendar day this counts against (D165). */
-  submitted_on: string;
+  submitted_on: string; // YYYY-MM-DD
   /** Room for a review queue that is not built yet; nothing branches on it (D170). */
   status: string;
   /** Denormalised from the form so the partial unique index needs no join (D165). */
