@@ -1,23 +1,24 @@
-import { parseQuestions } from "@/lib/registration";
-import type { RegistrationQuestion } from "@/lib/types";
+import { parseQuestions, REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
+import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 import { slugify } from "@/lib/slug";
 
 export const MAX_QUESTIONS = 10;
 
-/** Every type the editor's `<select>` can post — anything else falls back to "text". */
-const QUESTION_TYPES = new Set<RegistrationQuestion["type"]>(["text", "phone", "number", "select"]);
-const isQuestionType = (v: string): v is RegistrationQuestion["type"] => QUESTION_TYPES.has(v as RegistrationQuestion["type"]);
-
-/** Builds the registration questions from the settings form's numbered rows (q_<n>_*). */
-export function questionsFromForm(get: (key: string) => string | null): RegistrationQuestion[] {
+export function questionsFromForm(
+  get: (key: string) => string | null,
+  allowed: readonly QuestionType[] = REGISTRATION_QUESTION_TYPES,
+  max = MAX_QUESTIONS,
+): RegistrationQuestion[] {
+  const allowedSet = new Set<string>(allowed);
+  const isQuestionType = (v: string): v is QuestionType => allowedSet.has(v);
   const t = (k: string) => (get(k) ?? "").trim();
   const raw: unknown[] = [];
-  for (let n = 1; n <= MAX_QUESTIONS; n++) {
+  for (let n = 1; n <= max; n++) {
     const label = t(`q_${n}_label`), keyRaw = t(`q_${n}_key`) || label;
     if (!label && !keyRaw) continue;
     const key = slugify(keyRaw).replace(/-/g, "_");
     const typeRaw = t(`q_${n}_type`);
-    const type = isQuestionType(typeRaw) ? typeRaw : "text";
+    const type: QuestionType = isQuestionType(typeRaw) ? typeRaw : "text";
     const options = t(`q_${n}_options`).split(",").map((s) => s.trim()).filter(Boolean);
     const showKey = t(`q_${n}_show_key`), showValue = t(`q_${n}_show_value`);
     raw.push({
@@ -27,5 +28,5 @@ export function questionsFromForm(get: (key: string) => string | null): Registra
       ...(showKey && showValue ? { show_when: { key: slugify(showKey).replace(/-/g, "_"), includes: showValue } } : {}),
     });
   }
-  return parseQuestions(raw);
+  return parseQuestions(raw, allowed);
 }

@@ -1,22 +1,30 @@
 import { z } from "zod";
-import type { RegistrationQuestion } from "@/lib/types";
+import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 
-const questionSchema = z.object({
+/** What registration may ask. A file has no attendee row to attach to yet (D164). */
+export const REGISTRATION_QUESTION_TYPES = ["text", "phone", "number", "select"] as const satisfies readonly QuestionType[];
+/** What a form may ask. */
+export const FORM_QUESTION_TYPES = ["text", "phone", "number", "select", "textarea", "file"] as const satisfies readonly QuestionType[];
+
+const schemaFor = (allowed: readonly QuestionType[]) => z.object({
   key: z.string().regex(/^[a-z0-9_]+$/, "key must be lowercase letters, digits, underscores"),
   label: z.string().min(1, "label is required"),
-  type: z.enum(["text", "phone", "number", "select"]),
+  type: z.enum(allowed as unknown as [QuestionType, ...QuestionType[]]),
   required: z.boolean().default(false),
   options: z.array(z.string().min(1)).optional(),
   description: z.string().optional(),
   show_when: z.object({ key: z.string().min(1), includes: z.string().min(1) }).optional(),
 }).refine((q) => q.type !== "select" || (q.options && q.options.length > 0), { message: "select questions need options" });
 
-export function parseQuestions(input: string | unknown): RegistrationQuestion[] {
+export function parseQuestions(
+  input: string | unknown,
+  allowed: readonly QuestionType[] = REGISTRATION_QUESTION_TYPES,
+): RegistrationQuestion[] {
   let raw: unknown = input;
   if (typeof input === "string") {
     try { raw = JSON.parse(input); } catch { throw new Error("Registration questions must be valid JSON"); }
   }
-  const res = z.array(questionSchema).safeParse(raw);
+  const res = z.array(schemaFor(allowed)).safeParse(raw);
   if (!res.success) {
     const i = res.error.issues[0];
     const field = i.path[i.path.length - 1] ?? i.path[0] ?? "?";

@@ -4,10 +4,17 @@ import type { PinnedField } from "@/lib/pinned-fields";
 
 export type EventStatus = "draft" | "live" | "archived";
 
+export type QuestionType = "text" | "phone" | "number" | "select" | "textarea" | "file";
+
 export type RegistrationQuestion = {
   key: string;
   label: string;
-  type: "text" | "phone" | "number" | "select";
+  /**
+   * Which of these a given context actually allows is decided by the allowlist
+   * `parseQuestions` is called with, not by this union (D164). Registration keeps the
+   * original four; forms add textarea and file.
+   */
+  type: QuestionType;
   required: boolean;
   options?: string[];
   description?: string;

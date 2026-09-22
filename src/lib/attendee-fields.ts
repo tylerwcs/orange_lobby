@@ -217,6 +217,10 @@ export function labelFromKey(key: string): string {
  * under the question key, so they are columns whether or not anyone declares them — which
  * is why they are derived here rather than added by hand. A `select` that lost its
  * choices falls back to free text so the answer stays editable.
+ *
+ * `QuestionType` (D164) is wider than `AttendeeFieldType` — registration itself still
+ * only ever produces the original four, but textarea and file exist for forms and have no
+ * column type here, so they fall back to text the same way an emptied-out select does.
  */
 export function fieldsFromQuestions(questions: RegistrationQuestion[]): AttendeeField[] {
   return questions.map((q) => {
@@ -224,6 +228,7 @@ export function fieldsFromQuestions(questions: RegistrationQuestion[]): Attendee
     if (q.type === "select" && options.length > 0) return { key: q.key, label: q.label, type: "select" as const, options };
     // A select that lost its choices falls back to free text so the answer stays editable.
     if (q.type === "select") return { key: q.key, label: q.label, type: "text" as const };
+    if (q.type === "textarea" || q.type === "file") return { key: q.key, label: q.label, type: "text" as const };
     return { key: q.key, label: q.label, type: q.type };
   });
 }
