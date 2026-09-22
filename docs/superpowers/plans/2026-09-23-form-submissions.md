@@ -31,7 +31,7 @@
 **Created**
 - `supabase/migrations/0025_forms.sql` — both tables, indexes, RLS
 - `supabase/migrations/0026_submit_form.sql` — the `submit_form` function
-- `src/lib/forms.ts` — pure form logic: `canSubmit`, `formFromForm`
+- `src/lib/forms.ts` — pure form logic: `canSubmit`, `capSummary`, `MAX_FORM_QUESTIONS`
 - `src/lib/db/forms.ts` — all Supabase access for forms and submissions
 - `src/components/admin/FormList.tsx`, `src/components/admin/QuestionEditor.tsx`
 - `src/app/admin/events/[id]/forms/page.tsx`, `.../forms/[formId]/page.tsx`, `.../forms/actions.ts`
@@ -47,7 +47,7 @@
 - `src/lib/questions-form.ts` — editor reads the allowlist
 - `src/lib/storage.ts` — `submissionObjectPath`, `acceptUpload`
 - `src/lib/db/media.ts` — `uploadSubmissionFile`, `signedSubmissionUrl`, `deleteSubmissionFiles`
-- `src/lib/db/attendees.ts` + `0027_purge_submissions.sql` — purge takes submissions too
+- `src/lib/db/attendees.ts` + `0028_purge_submissions.sql` — purge takes submissions too
 - `src/lib/exports.ts` — `buildFormsWorkbook`
 - `src/components/admin/nav.ts` — Forms under *Portal*
 - `src/lib/modules.ts` — `TILE_ROUTES` + `TILE_ROUTE_LABELS` gain `forms`
@@ -369,10 +369,10 @@ export function validateRegistration(input: Record<string, string>, questions: R
   const answered = validateAnswers(input, questions);
   if (!answered.ok) Object.assign(errors, answered.errors);
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, data: { name, email, extra: answered.ok ? answers(answered) : {} } };
+  // The ternary is not defensive: TypeScript cannot see that the early return above
+  // ruled out the failure case, so this is how the union gets narrowed.
+  return { ok: true, data: { name, email, extra: answered.ok ? answered.answers : {} } };
 }
-
-const answers = (r: Extract<AnswersResult, { ok: true }>) => r.answers;
 ```
 
 - [ ] **Step 4: Run the suite**
@@ -931,11 +931,36 @@ try {
 
 Questions are read with `questionsFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; }, FORM_QUESTION_TYPES, MAX_FORM_QUESTIONS)`. Define `export const MAX_FORM_QUESTIONS = 20;` in `src/lib/forms.ts`.
 
-- [ ] **Step 4: Build the page**
+- [ ] **Step 4: Add `capSummary`, test first**
+
+`capSummary` is pure logic and gets the same treatment as `canSubmit`. Add to
+`tests/forms.test.ts`, run it, watch it fail, then implement in `src/lib/forms.ts`:
+
+```typescript
+describe("capSummary", () => {
+  it("says unlimited when there is no cap and no daily rule", () => {
+    expect(capSummary(form())).toBe("Unlimited");
+  });
+  it("says once a day for a per_day form with no total", () => {
+    expect(capSummary(form({ per_day: true }))).toBe("Once a day");
+  });
+  it("names both dials when a per_day form also has a total", () => {
+    expect(capSummary(form({ per_day: true, max_per_attendee: 5 }))).toBe("Once a day, up to 5");
+  });
+  it("says once for a form capped at one", () => {
+    expect(capSummary(form({ max_per_attendee: 1 }))).toBe("Once");
+  });
+  it("names the total for a capped form", () => {
+    expect(capSummary(form({ max_per_attendee: 5 }))).toBe("Up to 5");
+  });
+});
+```
+
+- [ ] **Step 5: Build the page**
 
 Create the list page: `AdminHeader` with a count subtitle, a "New form" `Modal`, and one `Card` per form showing its name, whether it is open, its cap in words (use a helper `capSummary(form)` in `src/lib/forms.ts` returning e.g. `"Once a day"`, `"Up to 5"`, `"Unlimited"`), an open/close `SubmitButton`, an edit `Modal`, and a `ConfirmButton` delete naming the submission count.
 
-- [ ] **Step 5: Add the nav entry**
+- [ ] **Step 6: Add the nav entry**
 
 In `src/components/admin/nav.ts`, in the *Portal* group after Activities:
 
@@ -945,11 +970,11 @@ In `src/components/admin/nav.ts`, in the *Portal* group after Activities:
 
 `tests/nav.test.ts` asserts the Scanner is the only conditional item — check it still passes.
 
-- [ ] **Step 6: Verify in the browser**
+- [ ] **Step 7: Verify in the browser**
 
 Start the preview, create a form with one `select` and one `textarea` question, toggle it open, reload, confirm it persisted. Screenshot it.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/app/admin/events/\[id\]/forms src/components/admin/QuestionEditor.tsx src/components/admin/nav.ts src/lib/forms.ts
