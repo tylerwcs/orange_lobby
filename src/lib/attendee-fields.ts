@@ -1,5 +1,5 @@
 import { slugify } from "@/lib/slug";
-import type { RegistrationQuestion } from "@/lib/types";
+import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 
 /**
  * Columns an organiser adds to the attendee table after registration has closed — room
@@ -213,23 +213,46 @@ export function labelFromKey(key: string): string {
 }
 
 /**
+ * `QuestionType` (D164) is wider than `AttendeeFieldType`: registration itself still only
+ * ever produces the original four, but textarea and file exist for forms and have no column
+ * type here. Written as a switch over every `QuestionType` member, with a `never` default,
+ * so a seventh question type is a compile error here rather than a silent "text" — the
+ * mapping has to be a decision, not a fallback.
+ */
+function attendeeFieldTypeFor(type: QuestionType): AttendeeFieldType {
+  switch (type) {
+    case "text":
+    case "phone":
+    case "number":
+    case "select":
+      return type;
+    // Neither has a column type here — textarea and file exist for forms, not the attendee
+    // table — so they fall back to text the same way an emptied-out select does below.
+    case "textarea":
+    case "file":
+      return "text";
+    default: {
+      const exhaustive: never = type;
+      throw new Error(`Unhandled question type: ${String(exhaustive)}`);
+    }
+  }
+}
+
+/**
  * The registration form's questions, as columns. Their answers already live in `extra`
  * under the question key, so they are columns whether or not anyone declares them — which
  * is why they are derived here rather than added by hand. A `select` that lost its
  * choices falls back to free text so the answer stays editable.
- *
- * `QuestionType` (D164) is wider than `AttendeeFieldType` — registration itself still
- * only ever produces the original four, but textarea and file exist for forms and have no
- * column type here, so they fall back to text the same way an emptied-out select does.
  */
 export function fieldsFromQuestions(questions: RegistrationQuestion[]): AttendeeField[] {
   return questions.map((q) => {
     const options = q.options?.map((o) => o.trim()).filter(Boolean) ?? [];
-    if (q.type === "select" && options.length > 0) return { key: q.key, label: q.label, type: "select" as const, options };
-    // A select that lost its choices falls back to free text so the answer stays editable.
-    if (q.type === "select") return { key: q.key, label: q.label, type: "text" as const };
-    if (q.type === "textarea" || q.type === "file") return { key: q.key, label: q.label, type: "text" as const };
-    return { key: q.key, label: q.label, type: q.type };
+    if (q.type === "select" && options.length === 0) {
+      // A select that lost its choices falls back to free text so the answer stays editable.
+      return { key: q.key, label: q.label, type: "text" as const };
+    }
+    const type = attendeeFieldTypeFor(q.type);
+    return type === "select" ? { key: q.key, label: q.label, type, options } : { key: q.key, label: q.label, type };
   });
 }
 
