@@ -176,7 +176,12 @@ alter table form_submissions enable row level security;
 
   Returns a **reason code**, not a boolean, for the reason D140 gives: the portal says
   different things for a form the desk closed and a form this person has already filled in
-  today. Codes: `ok`, `missing`, `closed`, `ineligible`, `limit`, `duplicate`.
+  today. Codes: `ok`, `missing`, `closed`, `ineligible`, `limit`, `today`.
+
+  The last one was `duplicate` in this spec's first draft, which named the mechanism — an
+  index fired — rather than the situation the attendee is in. The portal has to turn the
+  code into a sentence, and "you have already submitted today" is what that sentence says,
+  so the code the page reads and the code the database returns are now the same word.
 
   Eligibility uses the same trimmed, case-folded category comparison `book_session` uses,
   because these values are typed by hand.
