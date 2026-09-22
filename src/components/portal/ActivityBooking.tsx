@@ -3,11 +3,17 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 
 /**
- * The attendee's own seat in one activity, and the only controls that act on it.
+ * The attendee's own seats in one activity, and the only controls that act on them.
  *
  * Separated from the session rows deliberately: the control that undoes your afternoon used
  * to sit in the same column, in the same shape, as the control that booked it. Here there is
  * one statement of what you hold and one place to change it.
+ *
+ * One block per held seat. `max_per_attendee` runs to 10, and an earlier version bound both
+ * request controls to the first held seat only, so a second seat was stranded — its row said
+ * "You are booked" and offered nothing anywhere on the page. The pending and declined states
+ * stay per-activity, not per-seat, because D146's index allows only one open request per
+ * attendee per activity: while one is open, no seat offers controls.
  */
 export function ActivityBooking({ controls, pendingId, requestSwitch, requestCancel, withdraw }: {
   controls: ActivityControls;
@@ -22,8 +28,8 @@ export function ActivityBooking({ controls, pendingId, requestSwitch, requestCan
   requestCancel: (fromSessionId: string) => Promise<void>;
   withdraw: (requestId: string) => Promise<void>;
 }) {
-  const { holding, pending, declined, switchTargets, canRequestCancel } = controls;
-  if (!holding && !pending && !declined) return null;
+  const { held, pending, declined, switchTargets, canRequestCancel } = controls;
+  if (held.length === 0 && !pending && !declined) return null;
 
   if (pending) {
     return (
@@ -54,18 +60,19 @@ export function ActivityBooking({ controls, pendingId, requestSwitch, requestCan
             : `The desk declined your request to move to ${declined.toTitle ?? "another session"}.`}
         </p>
       )}
-      {holding && (
-        <>
-          <p className="text-sm font-bold">You are booked on {holding.session.title}.</p>
+      {held.map((seat) => (
+        <div key={seat.session.id} className="flex flex-col gap-2">
+          <p className="text-sm font-bold">You are booked on {seat.session.title}.</p>
           {switchTargets.length === 0 ? (
             <p className="text-sm text-muted-foreground">No other session has room right now.</p>
           ) : (
-            <form action={requestSwitch.bind(null, holding.session.id)} className="flex flex-wrap items-center gap-2">
-              {/* Scoped to the held session's id: a page with two such activities would
-                  otherwise render this pair's id twice, leaving every select after the first
-                  without an accessible name. */}
-              <label htmlFor={`to-${holding.session.id}`} className="sr-only">Move to</label>
-              <select id={`to-${holding.session.id}`} name="to" className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 text-sm">
+            <form action={requestSwitch.bind(null, seat.session.id)} className="flex flex-wrap items-center gap-2">
+              {/* Scoped to the held session's id: a page with two such activities — or one
+                  activity this attendee holds two seats in — would otherwise render this
+                  pair's id twice, leaving every select after the first without an accessible
+                  name. */}
+              <label htmlFor={`to-${seat.session.id}`} className="sr-only">Move out of {seat.session.title} to</label>
+              <select id={`to-${seat.session.id}`} name="to" className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 text-sm">
                 {switchTargets.map((t) => (
                   <option key={t.session.id} value={t.session.id}>
                     {t.session.title} · {t.session.starts_at} · {t.left} left
@@ -75,25 +82,25 @@ export function ActivityBooking({ controls, pendingId, requestSwitch, requestCan
               <ConfirmButton
                 tone="default"
                 confirmLabel="Send request"
-                message="Your current seat is held until the desk agrees, so nothing changes yet."
+                message={`Ask the desk to move you out of ${seat.session.title}? Your current seat is held until they agree, so nothing changes yet.`}
               >
                 Request switch
               </ConfirmButton>
             </form>
           )}
           {canRequestCancel && (
-            <form action={requestCancel.bind(null, holding.session.id)}>
+            <form action={requestCancel.bind(null, seat.session.id)}>
               <ConfirmButton
                 tone="default"
                 confirmLabel="Send request"
-                message={`Ask the desk to cancel ${holding.session.title}? Your seat is held until they agree.`}
+                message={`Ask the desk to cancel ${seat.session.title}? Your seat is held until they agree.`}
               >
                 Request cancel
               </ConfirmButton>
             </form>
           )}
-        </>
-      )}
+        </div>
+      ))}
     </div>
   );
 }

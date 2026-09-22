@@ -42,16 +42,46 @@ describe("activityControls", () => {
   it("offers Book on a free session when nothing is held", () => {
     const c = activityControls(state(), null);
     expect(c.bookable.map((s) => s.session.id)).toEqual(["s1", "s2"]);
-    expect(c.holding).toBeNull();
+    expect(c.held).toEqual([]);
     expect(c.switchTargets).toEqual([]);
     expect(c.canRequestCancel).toBe(false);
   });
 
   it("names the held session and offers the others as switch targets", () => {
     const c = activityControls(state({ mine: ["s1"] }), null);
-    expect(c.holding?.session.id).toBe("s1");
+    expect(c.held.map((s) => s.session.id)).toEqual(["s1"]);
     expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
     expect(c.bookable).toEqual([]);
+  });
+
+  // An attendee at `max_per_attendee = 2` holding both sessions: every seat gets its own
+  // controls, or one of them is stranded — its row reads "You are booked" with no action
+  // anywhere on the page. `main` gave each held row its own Cancel, and D129's revision made
+  // that a request rather than a removal; it did not take the second seat's control away.
+  it("offers controls for every held seat, not just the first", () => {
+    const twoSeats = { activity: activity({ max_per_attendee: 2 }), mine: ["s1", "s2"] };
+    const c = activityControls(state(twoSeats), null);
+    expect(c.held.map((s) => s.session.id)).toEqual(["s1", "s2"]);
+    expect(c.canRequestCancel).toBe(true);
+    // Nothing is left to switch into: both sessions are theirs, and `switchTargets` excludes
+    // every held session rather than only the one a control moves out of.
+    expect(c.switchTargets).toEqual([]);
+    expect(c.bookable).toEqual([]);
+  });
+
+  it("offers a third session as a switch target to an attendee holding two", () => {
+    const c = activityControls(
+      activityState({
+        activity: activity({ max_per_attendee: 2 }),
+        sessions: [session("s1"), session("s2", { starts_at: "11:30" }), session("s3", { starts_at: "14:00" })],
+        counts: {},
+        mine: new Set(["s1", "s2"]),
+        category: null,
+      }),
+      null,
+    );
+    expect(c.held.map((s) => s.session.id)).toEqual(["s1", "s2"]);
+    expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s3"]);
   });
 
   // D148: a required activity's cancel never reaches the queue, so the control is absent.
@@ -123,8 +153,8 @@ describe("activityControls", () => {
 describe("lastDeclinedFor", () => {
   it("finds the most recent decline for this activity", () => {
     const rs = [
-      request({ id: "old", status: "declined", decided_at: "2026-09-21T01:00:00Z" }),
-      request({ id: "new", status: "declined", decided_at: "2026-09-21T03:00:00Z" }),
+      request({ id: "old", status: "declined", created_at: "2026-09-21T01:00:00Z", decided_at: "2026-09-21T01:30:00Z" }),
+      request({ id: "new", status: "declined", created_at: "2026-09-21T03:00:00Z", decided_at: "2026-09-21T03:30:00Z" }),
     ];
     expect(lastDeclinedFor(rs, "act1")?.id).toBe("new");
   });
@@ -133,6 +163,38 @@ describe("lastDeclinedFor", () => {
     expect(lastDeclinedFor([request({ status: "approved" })], "act1")).toBeNull();
     expect(lastDeclinedFor([request({ status: "withdrawn" })], "act1")).toBeNull();
     expect(lastDeclinedFor([request({ status: "declined", activity_id: "act2" })], "act1")).toBeNull();
+  });
+
+  // The case the line used to get flatly wrong: asked to move, declined; asked again,
+  // approved. The attendee is now booked on the session they asked for, and D153a's own
+  // wording stops the line "the moment it stops being the latest word on the subject" — a
+  // later approval is a later word, so the card must not print the decline above the booking
+  // that disproves it.
+  it("says nothing once a later request was approved", () => {
+    const rs = [
+      request({ id: "declined", status: "declined", created_at: "2026-09-21T01:00:00Z", decided_at: "2026-09-21T01:30:00Z" }),
+      request({ id: "approved", status: "approved", created_at: "2026-09-21T02:00:00Z", decided_at: "2026-09-21T02:30:00Z" }),
+    ];
+    expect(lastDeclinedFor(rs, "act1")).toBeNull();
+  });
+
+  // Same expression, the withdraw case: they changed their mind about asking again, which is
+  // also a later word than the decline.
+  it("says nothing once a later request was withdrawn", () => {
+    const rs = [
+      request({ id: "declined", status: "declined", created_at: "2026-09-21T01:00:00Z", decided_at: "2026-09-21T01:30:00Z" }),
+      request({ id: "withdrawn", status: "withdrawn", created_at: "2026-09-21T02:00:00Z" }),
+    ];
+    expect(lastDeclinedFor(rs, "act1")).toBeNull();
+  });
+
+  // ...and the decline still shows when it IS the latest, whatever came before it.
+  it("still reports a decline that is the newest request", () => {
+    const rs = [
+      request({ id: "approved", status: "approved", created_at: "2026-09-21T01:00:00Z", decided_at: "2026-09-21T01:30:00Z" }),
+      request({ id: "declined", status: "declined", created_at: "2026-09-21T02:00:00Z", decided_at: "2026-09-21T02:30:00Z" }),
+    ];
+    expect(lastDeclinedFor(rs, "act1")?.id).toBe("declined");
   });
 });
 

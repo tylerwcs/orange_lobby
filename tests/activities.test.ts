@@ -106,7 +106,6 @@ describe("activityState", () => {
   });
 });
 
-
 describe("unbookedIds", () => {
   it("lists the eligible people who hold nothing, in the order given", () => {
     expect(unbookedIds(["a1", "a2", "a3"], () => true, new Set(["a2"]))).toEqual(["a1", "a3"]);
