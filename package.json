@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "check:booking": "node --env-file=.env.local scripts/booking-concurrency.mjs"
+    "check:booking": "node --env-file=.env.local scripts/booking-concurrency.mjs",
+    "check:submit": "node --env-file=.env.local scripts/submit-concurrency.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
