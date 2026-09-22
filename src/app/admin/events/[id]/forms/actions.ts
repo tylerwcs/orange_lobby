@@ -21,6 +21,26 @@ const text = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const checked = (fd: FormData, key: string) => fd.get(key) !== null;
 
 /**
+ * True only when `e` is `form_submissions_one_a_day` (0025_forms.sql) refusing a write —
+ * never any other unique violation, and never a network failure, an outage, or anything
+ * else `updateForm` might throw. Scoped to that one constraint by name, the same reasoning
+ * `submit_form`'s exception handler gives (0026_submit_form.sql): 23505 alone is not enough,
+ * because `form_submissions_pkey` fires the same error class, and reporting an unrelated
+ * failure as "someone already submitted twice today" sends the organiser hunting for a
+ * duplicate that does not exist.
+ *
+ * supabase-js's `PostgrestError` carries `code`, `message`, `details` and `hint` — no
+ * separate constraint-name field — so the constraint name is read out of `message`, which is
+ * Postgres's own text (`duplicate key value violates unique constraint "…"`) forwarded
+ * verbatim by PostgREST.
+ */
+function isPerDayCollision(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const { code, message } = e as { code?: unknown; message?: unknown };
+  return code === "23505" && typeof message === "string" && message.includes("form_submissions_one_a_day");
+}
+
+/**
  * The fields the add form and the edit form share — everything but `submissions_open`
  * (owned by `toggleFormOpenAction` alone, the same reason `readActivityPolicy` leaves
  * `booking_open` out) and `sort_order` (nothing here reorders forms). Throws on anything
@@ -70,8 +90,8 @@ export async function addFormAction(eventId: string, fd: FormData) {
  *
  * `updateForm` (src/lib/db/forms.ts) rewrites every one of this form's submissions' `per_day`
  * before it writes `forms` itself, so it can throw on the partial unique index if somebody
- * already submitted twice in one day. That throw is caught here and turned into a sentence
- * naming what to fix, not a 500 (D165).
+ * already submitted twice in one day. `isPerDayCollision` narrows that specific throw to a
+ * sentence naming what to fix rather than a 500 (D165); anything else re-raises.
  */
 export async function saveFormAction(eventId: string, formId: string, fd: FormData) {
   const ev = await event(eventId);
@@ -85,9 +105,13 @@ export async function saveFormAction(eventId: string, formId: string, fd: FormDa
   if (!current) redirect(flashPath(path(eventId), "That form no longer exists.", "error"));
   try {
     await updateForm(formId, ev.id, { ...policy, submissions_open: current.submissions_open, sort_order: current.sort_order });
-  } catch {
+  } catch (e) {
     // updateForm rewrites its submissions' per_day; the partial unique index refuses if
-    // somebody already submitted twice on one day. Say so rather than showing a 500 (D165).
+    // somebody already submitted twice on one day. Say so rather than showing a 500 (D165) —
+    // but only for that specific refusal. Anything else (an outage, a network failure, some
+    // other constraint) re-throws, so it surfaces as a real failure instead of a misleading
+    // flash the organiser cannot act on.
+    if (!isPerDayCollision(e)) throw e;
     redirect(flashPath(path(eventId), "Someone has already submitted twice in one day, so this form cannot become once-a-day. Delete the extra submission first.", "error"));
   }
   revalidatePath(path(eventId));

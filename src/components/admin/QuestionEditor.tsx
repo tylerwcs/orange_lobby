@@ -13,15 +13,24 @@ const TYPE_LABELS: Record<QuestionType, string> = {
 };
 
 /**
- * The question editor rows, lifted out of the registration table in the settings page
- * (search `q_${n}_` there) so a form's editor and registration's editor share one
- * implementation. The `<select>` is built from `types` alone, so a form can offer `file`
- * and registration cannot (D164) — nothing here decides that, the caller does.
+ * The question editor rows, extracted from the registration table's markup in the settings
+ * page (search `q_${n}_` in `src/app/admin/events/[id]/settings/page.tsx`) so a form's
+ * editor can offer more types than registration does. The `<select>` is built from `types`
+ * alone, so a form can offer `file` and registration cannot (D164) — nothing here decides
+ * that, the caller does.
+ *
+ * This is an extraction, not a shared implementation: the settings page still has its own
+ * inline copy of this same table, hardcoded to `REGISTRATION_QUESTION_TYPES`'s four types,
+ * because unifying it would mean touching a business-critical page with no test covering
+ * its markup — out of scope for the task that added this component (Task 7). The two must
+ * be kept in sync by hand until someone does that unification: a change to one of these
+ * rows (a new column, a relabelled type, an aria-label tweak) needs the same change made in
+ * settings/page.tsx, and nothing enforces that today.
  *
  * Reads exactly like the settings table: `q_${n}_label`, `q_${n}_key`, `q_${n}_type`,
  * `q_${n}_required`, `q_${n}_options`, `q_${n}_description`, `q_${n}_show_key` and
  * `q_${n}_show_value`, for `n` from 1 to `max`. `questionsFromForm` (src/lib/questions-form.ts)
- * is the reader that turns those fields back into `RegistrationQuestion[]`.
+ * is the reader that turns those fields back into `RegistrationQuestion[]`, for both copies.
  */
 export function QuestionEditor({ questions, types, max }: {
   questions: RegistrationQuestion[];
