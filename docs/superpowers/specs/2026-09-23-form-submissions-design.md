@@ -223,11 +223,13 @@ alter table form_submissions enable row level security;
   `deleteAgendaItemAction` uses (D160), and for the same reason: afterwards there is nothing
   left to ask which files were ours.
 
-  **`purgeAttendeePersonalData` must purge submissions too.** Today it blanks name, email and
-  `extra` and rotates the token, and it would walk straight past a table full of that
-  person's answers and photographs. It gains: delete this attendee's submission files from
-  the bucket, then delete their `form_submissions` rows. A purge that leaves the personal
-  data in a second table is not a purge.
+  **`purgeAttendeePersonalData` must purge submissions too.** As of D172 it clears name,
+  email, seat and every registration answer in one atomic statement — but it knows only
+  about the `attendees` table, and would walk straight past a table full of that person's
+  answers and photographs. It gains: delete this attendee's submission files from the
+  bucket, then delete their `form_submissions` rows, inside the same function so the
+  all-or-nothing guarantee D172 just bought is not given back. A purge that leaves the
+  personal data in a second table is not a purge.
 
 ## 6. Surfaces
 
