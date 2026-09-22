@@ -1,6 +1,9 @@
 import { categoryMatches } from "@/lib/agenda";
 import type { Form, FormSubmission } from "@/lib/types";
 
+/** How many questions a form's editor offers, mirroring `MAX_QUESTIONS` for registration. */
+export const MAX_FORM_QUESTIONS = 20;
+
 export type SubmitReason = "ok" | "closed" | "ineligible" | "limit" | "today";
 export type SubmitState = { can: boolean; reason: SubmitReason; used: number };
 
@@ -27,4 +30,17 @@ export function canSubmit(
   if (form.max_per_attendee !== null && used >= form.max_per_attendee) return { can: false, reason: "limit", used };
   if (form.per_day && mine.some((s) => s.submitted_on === today)) return { can: false, reason: "today", used };
   return { can: true, reason: "ok", used };
+}
+
+/**
+ * The cap in words, for the card an organiser scans rather than the two raw columns behind it
+ * (D171's two independent dials, `per_day` and `max_per_attendee`). "Once" is called out
+ * specially from "Up to 1" for the same reason `describePlacement` spells out a count instead
+ * of leaving it to arithmetic: a form capped at exactly one submission is a different policy
+ * from one merely capped low, and the word should say so.
+ */
+export function capSummary(form: Pick<Form, "per_day" | "max_per_attendee">): string {
+  const total = form.max_per_attendee === null ? "" : form.max_per_attendee === 1 ? "Once" : `Up to ${form.max_per_attendee}`;
+  if (form.per_day) return total ? `Once a day, ${total.toLowerCase()}` : "Once a day";
+  return total || "Unlimited";
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSubmit } from "@/lib/forms";
+import { canSubmit, capSummary } from "@/lib/forms";
 import type { Form, FormSubmission } from "@/lib/types";
 
 const form = (over: Partial<Form> = {}): Form => ({
@@ -62,5 +62,23 @@ describe("canSubmit", () => {
   it("reports closed before any other reason", () => {
     const r = canSubmit(form({ submissions_open: false, categories: ["VIP"] }), [sub(TODAY)], "Delegate", TODAY);
     expect(r.reason).toBe("closed");
+  });
+});
+
+describe("capSummary", () => {
+  it("says unlimited when there is no cap and no daily rule", () => {
+    expect(capSummary(form())).toBe("Unlimited");
+  });
+  it("says once a day for a per_day form with no total", () => {
+    expect(capSummary(form({ per_day: true }))).toBe("Once a day");
+  });
+  it("names both dials when a per_day form also has a total", () => {
+    expect(capSummary(form({ per_day: true, max_per_attendee: 5 }))).toBe("Once a day, up to 5");
+  });
+  it("says once for a form capped at one", () => {
+    expect(capSummary(form({ max_per_attendee: 1 }))).toBe("Once");
+  });
+  it("names the total for a capped form", () => {
+    expect(capSummary(form({ max_per_attendee: 5 }))).toBe("Up to 5");
   });
 });
