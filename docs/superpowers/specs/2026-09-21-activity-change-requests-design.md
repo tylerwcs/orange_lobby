@@ -2,7 +2,7 @@
 
 Date: 2026-09-21
 Status: awaiting user review
-Extends `2026-09-20-activity-booking-design.md`. Revises D129 and D134. Decisions D142–D157.
+Extends `2026-09-20-activity-booking-design.md`. Revises D129 and D134. Decisions D142–D158.
 
 ## 1. Why
 
@@ -97,6 +97,26 @@ so the control that undoes your afternoon looks exactly like the control that ma
   seat is blocked when closed, as today. Asking is not a write anybody has committed against, and
   a desk that has shut booking is precisely the desk that wants the requests in front of it rather
   than in a phone call.
+- **D158** Deciding a request is **its own database function**, `decide_request`
+  (`0021_decide_request.sql`), not the sequence of calls in a server action this design first
+  specified. The original shape — load the request and check it is pending, call
+  `switch_session`/`cancel_booking`, then stamp the row with an update scoped to
+  `status = 'pending'` — is three statements with nothing serialising them against a concurrent
+  *decline*, which only ever ran the third. The failure it allows: desk A's approve moves the
+  booking and, while it is in flight, desk B's decline wins the scoped update; A's own stamp then
+  matches zero rows. Both desks are told something locally true, and the record permanently reads
+  `declined` for a change that actually happened — in the one table whose entire purpose is
+  answering, in November, who decided what (D142, D155). Considered and rejected: narrowing the
+  stamp further, which cannot cover the *apply* call it has to be atomic with; and an advisory
+  lock taken around the action, which is a second lock discipline for one write path and invisible
+  to anyone reading the SQL these writes actually go through. What it costs: a fourth function
+  that calls the other three, so a signature change to `switch_session` or `cancel_booking` now
+  breaks it too; the decision logic moves out of reviewable TypeScript into a migration; and it
+  introduces a new lock order — the request row is taken **first**, before any session or activity
+  row — which every future writer touching this table has to honour. It also has to return a
+  refusal *code* rather than raise, so `'ok'` is the only outcome that stamps anything, and
+  "refused means untouched" holds only while `switch_session` and `cancel_booking` stay write-free
+  on every non-`'ok'` path (recorded in 0021's own header).
 
 ## 3. What this revises
 
@@ -148,8 +168,13 @@ create unique index activity_change_requests_one_open
   on activity_change_requests (attendee_id, activity_id)
   where status = 'pending';
 
+-- The desk's queue: one activity's pending rows, oldest first.
 create index activity_change_requests_activity_idx
   on activity_change_requests (activity_id, status, created_at);
+
+-- The portal's hot path: this attendee's own requests, read on every activities page load.
+create index activity_change_requests_attendee_idx
+  on activity_change_requests (attendee_id, status);
 
 alter table activity_change_requests enable row level security;
 ```
@@ -161,26 +186,43 @@ RLS enabled with no policies, as every table since `0001_init.sql`.
 
 ## 6. The approval path
 
-Approving is not a new database function. It is, in one server action:
+Approving and declining are **one database function**, `decide_request`
+(`0021_decide_request.sql`), not a sequence of calls in a server action (D158):
 
 ```
-approve(requestId):
-  requireAdmin + requireEvent
-  load the request, event-scoped; refuse unless status = 'pending'
-  switch  -> result = switch_session(from, to, attendee, p_ignore_open => true)   -- D156
-  cancel  -> result = cancel_booking(from, attendee)
-  if result = 'ok'  -> status = 'approved',  decided_at, decided_by
-  else              -> leave status = 'pending', flash the reason code
+decide_request(request_id, status, user):
+  select * from activity_change_requests where id = request_id FOR UPDATE
+      -- the lock everything below depends on: a second call for this id waits here
+  not found, or status <> 'pending'  -> 'gone'
+  declined ->                           stamp declined, decided_at, decided_by; 'ok'
+  approved, switch -> outcome := switch_session(from, to, attendee, p_ignore_open => true)  -- D156
+  approved, cancel -> outcome := cancel_booking(from, attendee)
+  outcome <> 'ok'  ->                   return outcome UNSTAMPED; the request stays pending
+  outcome  = 'ok'  ->                   stamp approved, decided_at, decided_by; 'ok'
 ```
 
-The refusal codes are the ones that already exist. `closed` is not among them on this path, since
-D156 passes `p_ignore_open`; what remains reachable is `full` (the target filled while the request
-waited), `missing` (the session or booking has since gone), `ineligible` (the activity's categories
-were narrowed under them), and `required` — which can only appear if an optional activity was made
-required *after* a cancel request was raised, since D148 means a required activity never offers
-cancel in the first place. A refused approval **leaves the request pending**, because the desk has not decided
-anything; they have been told they cannot do it yet. Declining is the deliberate act, and it is a
-separate control that writes `declined` and touches no booking.
+The nested `switch_session` / `cancel_booking` call is plpgsql calling plpgsql: it joins the
+caller's transaction rather than opening a round trip of its own, so applying the change and
+stamping the decision commit together or not at all. That is the whole point — a decline arriving
+mid-approval waits on the request row's lock, and by the time it has it the approval has either
+committed (the row is no longer pending, so the decline gets `'gone'`) or been refused with
+nothing stamped (so the decline proceeds normally). There is exactly one true story because only
+one transaction can hold the lock first.
+
+The server action's remaining job is scoping and wording: `requireAdmin` + `requireEvent`, a
+`getRequest` proving the posted id belongs to **this event and this activity** before it is acted
+on, then a flash message per return code. `'gone'` covers both a stale click and a two-desk race,
+which are indistinguishable from the caller's side and need not be told apart.
+
+The refusal codes are the ones that already exist, returned by the nested function unchanged.
+`closed` is not among them on this path, since D156 passes `p_ignore_open`; what remains reachable
+is `full` (the target filled while the request waited), `missing` (the session or booking has since
+gone), `ineligible` (the activity's categories were narrowed under them), and `required` — which
+can only appear if an optional activity was made required *after* a cancel request was raised,
+since D148 means a required activity never offers cancel in the first place. A refused approval
+**leaves the request pending** and stamps nothing, because the desk has not decided anything; they
+have been told they cannot do it yet. Declining is the deliberate act, and it is a separate control
+that writes `declined` and touches no booking.
 
 Withdrawing is the attendee's equivalent: status `withdrawn`, no booking touched, rate limited
 through `allow()` on the token like every other portal write (D137).
@@ -249,7 +291,18 @@ lifecycle and can land first if a partial deploy is ever wanted.
   rollup, and the decline/approve outcome wording.
 - A SQL fixture proving the partial unique index actually refuses a second pending request, and
   that the `kind`/`to_session_id` check rejects a malformed row. `scripts/book-session-fixture.sql`
-  is the precedent.
+  is the precedent, and is where the new sections live:
+  - **Section F** — `switch_session`'s `p_ignore_open` (D156, 0020): refused `'closed'` without
+    the flag and a no-op; `'ok'` with it; and, still with the flag set, `'full'` and `'ineligible'`
+    still refuse and still leave the seat where it was. The flag bypasses open/closed and nothing
+    else, and that is exercised rather than asserted.
+  - **Section G** — `decide_request` (D158, 0021): an approve carries the booking and stamps
+    `'approved'`; a second decision on that same row returns `'gone'`, leaves the row reading
+    `'approved'`, and leaves the booking moved exactly once. Then a refused approval (a full
+    target) leaves the request genuinely untouched — still `'pending'`, nothing stamped, the
+    booking still on its original session — and a cancel request is approved end to end through
+    the other branch, `cancel_booking`. A single script cannot interleave two live connections, so
+    this is the evidence for the status guard the row lock is built on, not for the race itself.
 - An addition to `scripts/booking-concurrency.mjs`: two approvals of two requests into a one-seat
   target, concurrently — exactly one `ok`, one refusal, one booking row.
 - Portal driven in the browser pane: request, pending state, withdraw, and the confirmation on Book.
