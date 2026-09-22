@@ -413,7 +413,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <CardHeader>
               <CardTitle className="text-destructive">Purge personal data</CardTitle>
               <CardDescription>
-                Replaces names, emails, seats, phones, companies and every registration answer across this event, and reissues every personal link so the old ones stop working. Attendance counts and categories are kept. This cannot be undone.
+                Replaces names, emails, seats, phones, companies and every registration answer across this event, and reissues every personal link so the old ones stop working. Every form submission goes too, including any files attendees uploaded. Attendance counts and categories are kept. This cannot be undone.
               </CardDescription>
             </CardHeader>
             <CardContent>

@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { createForm, updateForm, deleteForm, getForm, type NewForm } from "@/lib/db/forms";
+import { createForm, updateForm, deleteForm, getForm, submissionsForForm, fileQuestionKeys, type NewForm } from "@/lib/db/forms";
+import { deleteSubmissionFiles } from "@/lib/db/media";
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_FORM_QUESTIONS } from "@/lib/forms";
@@ -136,9 +137,19 @@ export async function toggleFormOpenAction(eventId: string, formId: string) {
   redirect(flashPath(path(eventId), form.submissions_open ? "Form closed." : "Form open."));
 }
 
-/** Cascades its submissions (the same shape of decision `deleteActivityAction` makes), so the confirm dialog says how many go with it. */
+/**
+ * Cascades its submissions (the same shape of decision `deleteActivityAction` makes), so the
+ * confirm dialog says how many go with it.
+ *
+ * The submissions' uploaded files are gathered and removed from the bucket BEFORE the form
+ * row is deleted: the cascade takes `form_submissions` with it, and once that has happened
+ * there is nothing left in the database to ask which files were this form's.
+ */
 export async function deleteFormAction(eventId: string, formId: string) {
   const ev = await event(eventId);
+  const [form, subs] = await Promise.all([getForm(formId, ev.id), submissionsForForm(formId)]);
+  const fileKeys = fileQuestionKeys(form?.questions ?? []);
+  await deleteSubmissionFiles(subs.flatMap((s) => fileKeys.map((k) => s.answers[k]).filter(Boolean)));
   await deleteForm(formId, ev.id);
   revalidatePath(path(eventId));
   redirect(flashPath(path(eventId), "Form deleted."));

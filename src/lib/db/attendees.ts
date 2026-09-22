@@ -4,6 +4,8 @@ import { generateToken, freshTokens } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { dropBlankAnswers } from "@/lib/registration";
 import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
+import { filePathsForEvent } from "@/lib/db/forms";
+import { deleteSubmissionFiles } from "@/lib/db/media";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -114,7 +116,8 @@ export async function deleteAttendee(id: string): Promise<void> {
 /**
  * Anonymises every attendee of one event, irreversibly: names replaced, emails and seats
  * cleared, every registration answer dropped, and every personal link reissued so the old
- * ones stop working. The rows themselves stay, so attendance and booking counts survive —
+ * ones stop working. Every form submission for the event is dropped too, uploaded files
+ * included (D169) — the rows themselves stay, so attendance and booking counts survive —
  * which is what the purge card promises, and why `category` is deliberately left alone
  * (D173).
  *
@@ -127,9 +130,19 @@ export async function deleteAttendee(id: string): Promise<void> {
  * attendee created in between would otherwise be handed a NULL token and roll the purge
  * back. The slack makes that vanishingly unlikely, and the function still refuses loudly
  * rather than purging some of them.
+ *
+ * Uploaded files go first, and from here rather than from the SQL function: Storage is not
+ * reachable from plpgsql. First is deliberate, not incidental. If the RPC ran first and the
+ * file deletion afterwards then failed, the database would already say "purged" while orphaned
+ * files sat in the bucket with no `form_submissions` row left to name them by — a half-purged
+ * event with no way even to notice, let alone retry. Doing the files first means a failure
+ * here throws before the RPC is ever called: the database stays exactly as it was, the
+ * organiser sees an error instead of a false "Personal data purged", and retrying is safe
+ * because a path already removed from the bucket is simply not found again.
  */
 export async function purgeAttendeePersonalData(eventId: string): Promise<number> {
   const db = serviceClient();
+  await deleteSubmissionFiles(await filePathsForEvent(eventId));
   const { count, error: countError } = await db
     .from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
   if (countError) throw countError;

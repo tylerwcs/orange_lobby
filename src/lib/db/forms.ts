@@ -1,6 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
-import type { Form, FormSubmission } from "@/lib/types";
+import type { Form, FormSubmission, RegistrationQuestion } from "@/lib/types";
 
 /** `created_at` is excluded too, on top of the brief's Omit (Task 6 brief correction): the row's creation time is the database's to set, never a caller's. */
 export type NewForm = Omit<Form, "id" | "org_id" | "event_id" | "created_at">;
@@ -59,6 +59,27 @@ export async function updateForm(id: string, eventId: string, patch: NewForm): P
 export async function deleteForm(id: string, eventId: string): Promise<void> {
   const { error } = await serviceClient().from("forms").delete().eq("id", id).eq("event_id", eventId);
   if (error) throw error;
+}
+
+/**
+ * The keys of this form's `file` questions — the only questions whose answers are object
+ * paths rather than free text. Reading every answer as a path would try to delete objects
+ * named after whatever an attendee typed into a text field.
+ */
+export function fileQuestionKeys(questions: RegistrationQuestion[]): string[] {
+  return questions.filter((q) => q.type === "file").map((q) => q.key);
+}
+
+/**
+ * Every object path a `file` answer holds anywhere in this event, across every one of its
+ * forms — the purge clears a whole event at once, not one form at a time. Used by
+ * `purgeAttendeePersonalData` (src/lib/db/attendees.ts) to empty the bucket before the
+ * database function deletes the rows that named these paths.
+ */
+export async function filePathsForEvent(eventId: string): Promise<string[]> {
+  const [forms, subs] = await Promise.all([listForms(eventId), listSubmissions(eventId)]);
+  const keysByForm = new Map(forms.map((f) => [f.id, fileQuestionKeys(f.questions)]));
+  return subs.flatMap((s) => (keysByForm.get(s.form_id) ?? []).map((k) => s.answers[k]).filter(Boolean));
 }
 
 export async function listSubmissions(eventId: string): Promise<FormSubmission[]> {
