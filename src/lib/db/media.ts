@@ -92,8 +92,19 @@ export async function signedSubmissionUrl(path: string, seconds = 60): Promise<s
 /**
  * Removes submitted files from the bucket outright — unlike deleteEventImage there is no URL
  * to parse a path out of first, because nothing here ever stored one.
+ *
+ * Throws on a returned Storage error, unlike deleteEventImage: that function's silent-failure
+ * choice is right for one replaceable logo, but wrong here. One of this function's callers is
+ * the purge (src/lib/db/attendees.ts), which runs this before an irreversible database RPC
+ * specifically so a failure here stops that RPC from ever running. A remove() that returns an
+ * `error` instead of throwing one would defeat that ordering exactly as thoroughly as a remove()
+ * that threw — the database would still end up saying "purged" over files still sitting in the
+ * bucket, now with no submission row left to point at them. The other caller (the orphaned-
+ * upload cleanup in the portal forms action) already wraps its own call in a try/catch that
+ * swallows on purpose, so surfacing the error here changes nothing for it.
  */
 export async function deleteSubmissionFiles(paths: string[]): Promise<void> {
   if (paths.length === 0) return;
-  await serviceClient().storage.from(SUBMISSION_BUCKET).remove(paths);
+  const { error } = await serviceClient().storage.from(SUBMISSION_BUCKET).remove(paths);
+  if (error) throw error;
 }
