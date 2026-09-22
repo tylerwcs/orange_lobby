@@ -210,6 +210,43 @@ export function buildActivityRostersWorkbook(
  * One row per attendee, one column per booth, then the two numbers anyone actually reads —
  * how many stamps, and whether the card is full.
  */
+export type FormExportRow = { name: string; email: string | null; category: string | null; submittedOn: string; answers: Record<string, string> };
+export type FormSheet = { formName: string; questions: { key: string; label: string }[]; rows: FormExportRow[] };
+
+/**
+ * One sheet per form, named after it, fixed columns first (Name, Email, Category, Submitted)
+ * then one column per question in the order the form declares them.
+ *
+ * Every answer is looked up **by key**, never by position: a form whose questions were
+ * reordered, or had one removed, since a given submission was made would otherwise file that
+ * submission's answers under the wrong headings — silently, since the sheet would still have
+ * the right shape. `answers[q.key] ?? ""` is the whole of that lookup; there is no zip against
+ * `questions` by index anywhere here.
+ *
+ * A workbook with no worksheets is not a valid xlsx (buildActivityRostersWorkbook's note
+ * applies here too), so an event with no forms still gets one sheet that says so in words
+ * rather than a download that fails silently.
+ */
+export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+  if (forms.length === 0) {
+    const ws = wb.addWorksheet("No forms");
+    ws.addRow(["This event has no forms yet."]);
+    ws.columns = [{ width: 48 }];
+    return wb;
+  }
+  const taken = new Set<string>();
+  for (const f of forms) {
+    const ws = wb.addWorksheet(uniqueSheetName(sanitizeSheetNamePart(f.formName), taken));
+    ws.addRow(["Name", "Email", "Category", "Submitted", ...f.questions.map((q) => q.label)]);
+    for (const r of f.rows) {
+      ws.addRow([r.name, r.email, r.category, r.submittedOn, ...f.questions.map((q) => r.answers[q.key] ?? "")]);
+    }
+    ws.columns?.forEach((c) => { c.width = 24; });
+  }
+  return wb;
+}
+
 export function buildPassportWorkbook(attendees: Attendee[], booths: Booth[], stamps: BoothStamp[], required: number | null): ExcelJS.Workbook {
   const completion = completionByAttendee(booths, stamps, required);
   const stamped = new Set(stamps.map((s) => `${s.booth_id}:${s.attendee_id}`));

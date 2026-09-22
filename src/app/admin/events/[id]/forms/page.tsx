@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listForms, listSubmissions } from "@/lib/db/forms";
@@ -96,14 +97,16 @@ export default async function FormsPage({ params }: { params: Promise<{ id: stri
               <CardHeader className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <CardTitle className="flex flex-wrap items-center gap-2">
-                    {f.name}
+                    <Link href={`/admin/events/${ev.id}/forms/${f.id}`} className="hover:underline">{f.name}</Link>
                     <Badge variant={f.submissions_open ? "default" : "outline"}>{f.submissions_open ? "Open" : "Closed"}</Badge>
                     <Badge variant="secondary">{capSummary(f)}</Badge>
                   </CardTitle>
                   {f.description && <p className="text-sm text-muted-foreground">{f.description}</p>}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <span className="text-sm text-muted-foreground tabular-nums">{used} submission{used === 1 ? "" : "s"}</span>
+                  <Link href={`/admin/events/${ev.id}/forms/${f.id}`} className="text-sm text-muted-foreground tabular-nums hover:underline">
+                    {used} submission{used === 1 ? "" : "s"}
+                  </Link>
                   <form action={toggleFormOpenAction.bind(null, ev.id, f.id)}>
                     <SubmitButton variant="outline">{f.submissions_open ? "Close" : "Open"}</SubmitButton>
                   </form>
