@@ -10,7 +10,10 @@
 -- this one row.
 --
 -- Returns a reason code rather than a boolean (D140): the portal says different things for a
--- form the desk closed and one this person has already filled in today.
+-- form the desk closed and one this person has already filled in today. One of
+-- ok | missing | closed | ineligible | limit | today - the same vocabulary canSubmit
+-- (src/lib/forms.ts) uses for the identical situations, deliberately (D167): "today" names the
+-- situation the attendee is in, not the mechanism (an index or an explicit check) that caught it.
 --
 -- p_today is passed in rather than read from current_date, so which Malaysian day it is gets
 -- decided in one place (nowInKL) instead of depending on the database server's timezone (D165).
@@ -26,6 +29,7 @@ declare
   f forms%rowtype;
   att attendees%rowtype;
   used int;
+  v_constraint text;
 begin
   select * into f from forms where id = p_form_id for update;
   if not found then return 'missing'; end if;
@@ -57,7 +61,7 @@ begin
     select 1 from form_submissions
      where form_id = f.id and attendee_id = p_attendee_id and submitted_on = p_today
   ) then
-    return 'duplicate';
+    return 'today';
   end if;
 
   insert into form_submissions (event_id, form_id, attendee_id, answers, submitted_on, per_day)
@@ -65,9 +69,19 @@ begin
 
   return 'ok';
 exception
-  -- The partial unique index is the real authority on one-a-day. The check above is the
-  -- fast, friendly path; this is what catches the race the check cannot.
-  when unique_violation then return 'duplicate';
+  -- The partial unique index (form_submissions_one_a_day, 0025_forms.sql) is the real
+  -- authority on one-a-day; the explicit check above it is only the fast, friendlier path that
+  -- avoids reaching this handler on the common case. Scoped to that one constraint by name, not
+  -- to unique_violation in general: form_submissions_pkey fires the same error class, and any
+  -- unique constraint added to this table later would too - reporting those as an ordinary
+  -- 'today' refusal would silently hide a real fault behind a friendly reason code. Anything
+  -- else re-raises.
+  when unique_violation then
+    get stacked diagnostics v_constraint = constraint_name;
+    if v_constraint = 'form_submissions_one_a_day' then
+      return 'today';
+    end if;
+    raise;
 end;
 $$;
 

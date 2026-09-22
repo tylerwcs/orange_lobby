@@ -16,7 +16,7 @@
 //     is the same read-then-write shape as the cap check above and races the same way; the
 //     partial unique index (form_submissions_one_a_day, 0025_forms.sql) is the backstop the
 //     unique_violation handler turns back into a reason code. Exactly one call wins ('ok'), the
-//     other 19 are refused ('duplicate'), and exactly one row lands in form_submissions.
+//     other 19 are refused ('today'), and exactly one row lands in form_submissions.
 //
 // HOW TO RUN: npm run check:submit (equivalent to
 // `node --env-file=.env.local scripts/submit-concurrency.mjs`). Requires .env.local with
@@ -128,8 +128,12 @@ async function scenarioTotalCap() {
  * simultaneous submit_form calls from one attendee for the same p_today. The explicit
  * "already submitted today" check races exactly like the total-cap check above; the partial
  * unique index (form_submissions_one_a_day) is what actually stops a second row from landing
- * if two callers both pass the check, and the unique_violation handler turns that into
- * 'duplicate' rather than an unhandled error.
+ * if two callers both pass the check, and the unique_violation handler - scoped to that one
+ * constraint by name, so a genuine fault elsewhere in the table still re-raises - turns that
+ * into 'today' rather than an unhandled error. 'today' names the situation the attendee is in,
+ * the same word canSubmit (src/lib/forms.ts) uses for it, not 'duplicate' (the mechanism that
+ * caught it) - the two vocabularies must agree, since the portal turns this code into a
+ * sentence (D167).
  */
 async function scenarioPerDay() {
   console.log(`\n--- Scenario 2: per_day=true, ${PARALLEL}-way contention, same day ---`);
@@ -162,7 +166,7 @@ async function scenarioPerDay() {
     console.log(`rows in form_submissions: ${count}`);
 
     if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
-    if (tally.duplicate !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} 'duplicate', got ${tally.duplicate ?? 0}`);
+    if (tally.today !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} 'today', got ${tally.today ?? 0}`);
     if (count !== 1) fail(`expected 1 submission row, found ${count}`);
     console.log("PASS: one-a-day held, one winner.");
   } finally {
