@@ -63,8 +63,13 @@
 -- into its pending requests, can now meet an in-flight `decide_request` approve that holds a
 -- request row and is waiting on that same activity row (via the nested `switch_session`/
 -- `cancel_booking` call) — the reverse of this function's own order, and a genuine new cycle this
--- migration introduces. Same disposition as the gap 0017 already records for book_session/
--- switch_session/cancel_booking against a cascading delete: low probability (an admin's delete
+-- migration introduces. `deleteSession` is the likelier half of that same cycle, and the one to
+-- picture: it is a one-click control the desk uses mid-event, not a rare teardown, and it cascades
+-- requests through BOTH `from_session_id` and `to_session_id` — so it can collide with an
+-- in-flight `decide_request` over requests it is not even obviously related to, including the
+-- target session an approve is waiting on inside `switch_session`. Same disposition for both as
+-- the gap 0017 already records for book_session/switch_session/cancel_booking against a
+-- cascading delete: low probability (an admin's delete
 -- and an in-flight approve landing in the same instant), self-detecting (Postgres's own deadlock
 -- detector breaks the cycle, nothing here has to notice it), non-corrupting (the loser's
 -- transaction rolls back whole, not half-applied), and deliberately not handled with a retry —

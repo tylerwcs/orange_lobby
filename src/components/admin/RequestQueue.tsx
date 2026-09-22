@@ -1,7 +1,6 @@
 import type { ActivityChangeRequest } from "@/lib/types";
 import { elapsed, shortDateTime } from "@/lib/text";
 import { shortScanner } from "@/lib/db/users";
-import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -56,10 +55,27 @@ export function RequestQueue({
                     <div className="text-xs font-semibold text-muted-foreground">{what} · {elapsed(r.created_at)}</div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <form action={() => approve(r.id)}>
-                      <SubmitButton>Approve</SubmitButton>
+                    {/* `.bind`, not `() => approve(r.id)`: this is a server component, and a
+                        plain closure is not a server reference — React's Flight serializer
+                        refuses to pass it to the client form and the whole activity page 500s
+                        the moment one request exists. `approve`/`decline` arrive already bound
+                        once (to event and activity) from the page; binding the request id on
+                        top of a server reference yields another server reference. */}
+                    <form action={approve.bind(null, r.id)}>
+                      {/* Approve is the one with no undo: it moves a real seat, and the desk
+                          cannot raise a request on somebody's behalf to put it back (a
+                          re-placement hits `'limit'` at a cap of one). Decline touches
+                          nothing, and is confirmed only because it closes the request. */}
+                      <ConfirmButton
+                        tone="default"
+                        triggerVariant="default"
+                        confirmLabel="Approve"
+                        message={`Approve ${name}'s request — ${what}? Their seat moves now, and you cannot undo it from here.`}
+                      >
+                        Approve
+                      </ConfirmButton>
                     </form>
-                    <form action={() => decline(r.id)}>
+                    <form action={decline.bind(null, r.id)}>
                       <ConfirmButton message={`Decline ${name}'s request — ${what}?`}>
                         Decline
                       </ConfirmButton>

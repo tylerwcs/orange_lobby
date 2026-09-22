@@ -210,12 +210,17 @@ const REQUEST_GONE = "That request is no longer waiting.";
  * target filled while the request waited (D144). Declining is the deliberate act and is a
  * separate control.
  *
- * `getRequest` runs first purely to scope the posted id to this event before it is ever acted
- * on — `event_id` never changes on a request row, so this check races nothing `decide_request`
- * itself guards (only the row's STATUS is racy, and the RPC's own row lock is what serialises
- * that). Without it, a posted `requestId` belonging to a different event — even a different
- * org's — would still be decided, because `decide_request` itself takes no event id to scope
- * by; only `event(eventId)` stands between an admin and someone else's request.
+ * `getRequest` runs first purely to scope the posted id to this event AND this activity before
+ * it is ever acted on — neither `event_id` nor `activity_id` ever changes on a request row, so
+ * this check races nothing `decide_request` itself guards (only the row's STATUS is racy, and
+ * the RPC's own row lock is what serialises that). Without the event check, a posted
+ * `requestId` belonging to a different event — even a different org's — would still be
+ * decided, because `decide_request` itself takes no event id to scope by; only `event(eventId)`
+ * stands between an admin and someone else's request. The activity check crosses no privilege
+ * boundary (a sibling activity in the same event is this admin's to decide anyway), but it is
+ * the same guard `reorderSessionsAction` applies for the same reason: a posted id belongs to
+ * the page it was posted from, and deciding it through the wrong activity's page redirects and
+ * revalidates the wrong path, so the desk watches a queue that did not change.
  *
  * `requireAdmin()` runs twice on this path: once inside `event()`, and again here for
  * `userId`, which `decideRequest` needs for `decided_by`. `event()` is kept to its existing
@@ -229,7 +234,7 @@ export async function approveRequestAction(eventId: string, activityId: string, 
   const { userId } = await requireAdmin();
   const path = `/admin/events/${eventId}/activities/${activityId}`;
   const request = await getRequest(requestId, ev.id);
-  if (!request) {
+  if (!request || request.activity_id !== activityId) {
     revalidatePath(path);
     redirect(flashPath(path, REQUEST_GONE, "error"));
   }
@@ -252,11 +257,11 @@ export async function declineRequestAction(eventId: string, activityId: string, 
   const ev = await event(eventId);
   const { userId } = await requireAdmin();
   const path = `/admin/events/${eventId}/activities/${activityId}`;
-  // Same event-scoping note as approveRequestAction: this exists so a posted id from outside
-  // this event can't be decided through it at all, before decide_request's own row lock ever
-  // gets a chance to resolve its status.
+  // Same event- and activity-scoping note as approveRequestAction: this exists so a posted id
+  // from outside this event, or from a sibling activity in it, can't be decided through this
+  // page at all, before decide_request's own row lock ever gets a chance to resolve its status.
   const request = await getRequest(requestId, ev.id);
-  if (!request) {
+  if (!request || request.activity_id !== activityId) {
     revalidatePath(path);
     redirect(flashPath(path, REQUEST_GONE, "error"));
   }
