@@ -219,3 +219,43 @@ export type ActivityChangeRequest = {
   /** An `auth.users` id, as `checkins.scanned_by` is. */
   decided_by: string | null;
 };
+
+/**
+ * A set of questions an eligible attendee may answer, possibly more than once (D161).
+ *
+ * The policy fields mirror `activities` — categories, an open flag, a per-attendee cap —
+ * because that is the half of activities forms actually branch from. There is no session
+ * and no capacity: a submission is not a seat.
+ */
+export type Form = {
+  id: string;
+  org_id: string;
+  event_id: string;
+  name: string;
+  description: string | null;
+  questions: RegistrationQuestion[];
+  submissions_open: boolean;
+  /** Null or empty means everyone, exactly as on an agenda item or an activity. */
+  categories: string[] | null;
+  /** The total one attendee may ever submit. Null means no total limit (D171). */
+  max_per_attendee: number | null;
+  /** At most one submission per Malaysian calendar day, on top of any total (D171). */
+  per_day: boolean;
+  sort_order: number;
+};
+
+export type FormSubmission = {
+  id: string;
+  event_id: string;
+  form_id: string;
+  attendee_id: string;
+  /** Question key to answer. A `file` answer holds an object path, never a URL (D167). */
+  answers: Record<string, string>;
+  /** The Malaysian calendar day this counts against (D165). */
+  submitted_on: string;
+  /** Room for a review queue that is not built yet; nothing branches on it (D170). */
+  status: string;
+  /** Denormalised from the form so the partial unique index needs no join (D165). */
+  per_day: boolean;
+  created_at: string;
+};
