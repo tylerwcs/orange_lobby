@@ -7,12 +7,14 @@ import { Badge } from "@/components/ui/badge";
  * no reorder or delete controls here — those live on the per-activity page (Task 9), since
  * this list's job is to get the organiser to the right activity, not to edit one inline.
  */
-export function ActivityRows({ items, counts, seats, basePath }: {
+export function ActivityRows({ items, counts, seats, pending, basePath }: {
   items: Activity[];
   /** Bookings per activity id. */
   counts: Record<string, number>;
   /** Total capacity per activity id. */
   seats: Record<string, number>;
+  /** Open requests per activity id. Absent, not zero, for an activity with nothing waiting. */
+  pending: Record<string, number>;
   basePath: string;
 }) {
   if (items.length === 0) {
@@ -29,6 +31,7 @@ export function ActivityRows({ items, counts, seats, basePath }: {
           <Badge variant={a.booking_open ? "default" : "outline"}>
             {a.booking_open ? "Booking open" : "Closed"}
           </Badge>
+          {pending[a.id] ? <Badge variant="secondary">{pending[a.id]} waiting</Badge> : null}
           <span className="text-sm text-muted-foreground tabular-nums">
             {counts[a.id] ?? 0} / {seats[a.id] ?? 0} seats
           </span>

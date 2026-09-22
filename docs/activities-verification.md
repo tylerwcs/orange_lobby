@@ -33,6 +33,7 @@ activity tables were confirmed empty across every event.
 - [ ] Approving a switch works after booking has been closed
 - [ ] Approving a cancel request removes the booking and reads "Cancel {session}" in the queue, not the switch copy
 - [ ] Declining a cancel request leaves the booking in place and reads "Cancel {session}" under "Show decided"
+- [ ] An activity with pending requests shows a waiting count on the list; one without shows nothing
 
 ## What the partial items still owe
 
