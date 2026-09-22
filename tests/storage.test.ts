@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { acceptImage, mediaObjectPath, mediaPathFromUrl, IMAGE_ACCEPT, MAX_IMAGE_BYTES } from "@/lib/storage";
+import {
+  acceptImage,
+  acceptUpload,
+  mediaObjectPath,
+  mediaPathFromUrl,
+  submissionObjectPath,
+  IMAGE_ACCEPT,
+  MAX_IMAGE_BYTES,
+} from "@/lib/storage";
 
 const SUPABASE = "https://abc.supabase.co";
 const img = (type: string, size = 1024) => ({ type, size });
@@ -63,5 +71,25 @@ describe("IMAGE_ACCEPT", () => {
     const offered = IMAGE_ACCEPT.split(",");
     expect(offered.length).toBeGreaterThan(0);
     for (const type of offered) expect(() => acceptImage(img(type))).not.toThrow();
+  });
+});
+
+describe("acceptUpload", () => {
+  it("takes a PDF, which acceptImage must not", () => {
+    expect(acceptUpload({ type: "application/pdf", size: 1000 })).toBe("pdf");
+    expect(() => acceptImage({ type: "application/pdf", size: 1000 })).toThrow();
+  });
+
+  it("refuses a file over 10 MB", () => {
+    expect(() => acceptUpload({ type: "image/png", size: 10 * 1024 * 1024 + 1 })).toThrow(/10 MB/);
+  });
+
+  it("refuses an empty file", () => {
+    expect(() => acceptUpload({ type: "image/png", size: 0 })).toThrow();
+  });
+
+  it("puts a submission's file under its own event and form", () => {
+    const path = submissionObjectPath({ orgId: "o", eventId: "e", formId: "f", ext: "png" }, "abc123");
+    expect(path).toBe("o/e/f/submission-abc123.png");
   });
 });

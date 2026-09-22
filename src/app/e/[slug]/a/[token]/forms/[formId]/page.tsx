@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { loadPortalAttendee } from "@/lib/portal";
 import { getForm, submissionsForAttendee } from "@/lib/db/forms";
 import { canSubmit, type SubmitReason } from "@/lib/forms";
+import { UPLOAD_ACCEPT } from "@/lib/storage";
 import { nowInKL } from "@/lib/time";
 import type { RegistrationQuestion } from "@/lib/types";
 import { submitFormAction } from "../actions";
@@ -22,10 +23,7 @@ const REFUSAL: Record<Exclude<SubmitReason, "ok">, string> = {
   today: "You have already submitted today. Come back tomorrow.",
 };
 
-/**
- * One question, switched on `q.type`. `file` is not wired yet (Task 9) — it renders disabled
- * with a note, rather than pretending an upload works.
- */
+/** One question, switched on `q.type`. */
 function renderQuestion(q: RegistrationQuestion) {
   const id = `q-${q.key}`;
   if (q.type === "select") {
@@ -41,10 +39,14 @@ function renderQuestion(q: RegistrationQuestion) {
   }
   if (q.type === "file") {
     return (
-      <div className="flex flex-col gap-1.5">
-        <input id={id} type="file" disabled className={inputClass} />
-        <FieldDescription>File questions are not ready yet</FieldDescription>
-      </div>
+      <input
+        id={id}
+        name={q.key}
+        type="file"
+        accept={UPLOAD_ACCEPT}
+        required={q.required}
+        className={`${inputClass} file:mr-3 file:rounded-[8px] file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-white`}
+      />
     );
   }
   const type = q.type === "phone" ? "tel" : q.type === "number" ? "number" : "text";

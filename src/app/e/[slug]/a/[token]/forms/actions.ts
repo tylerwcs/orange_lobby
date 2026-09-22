@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { loadPortalAttendee } from "@/lib/portal";
 import { getForm, submitForm, type SubmitCode } from "@/lib/db/forms";
+import { uploadSubmissionFile } from "@/lib/db/media";
 import { validateAnswers } from "@/lib/registration";
 import { nowInKL } from "@/lib/time";
 import { flashPath } from "@/lib/flash";
@@ -40,7 +41,26 @@ export async function submitFormAction(slug: string, token: string, formId: stri
   if (!form) redirect(flashPath(listPath, RESULT_MESSAGES.missing, "error"));
 
   const input: Record<string, string> = {};
-  for (const q of form.questions) input[q.key] = String(fd.get(q.key) ?? "");
+  for (const q of form.questions) {
+    if (q.type === "file") continue; // a posted `file` question is a File, not a string — handled below
+    input[q.key] = String(fd.get(q.key) ?? "");
+  }
+
+  // Uploaded before validateAnswers ever runs: a `file` answer stores the object path the
+  // upload returns (D168), never the File itself, and a file we will not take must abort the
+  // whole submission rather than let it through with some other answer stored around it.
+  try {
+    for (const q of form.questions) {
+      if (q.type !== "file") continue;
+      const file = fd.get(q.key);
+      input[q.key] = file instanceof File && file.size > 0
+        ? await uploadSubmissionFile({ orgId: form.org_id, eventId: form.event_id, formId: form.id, file })
+        : "";
+    }
+  } catch (e) {
+    redirect(flashPath(path, (e as Error).message, "error"));
+  }
+
   const validated = validateAnswers(input, form.questions);
   if (!validated.ok) {
     const first = Object.values(validated.errors)[0];

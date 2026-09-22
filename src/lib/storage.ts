@@ -78,3 +78,62 @@ export function mediaPathFromUrl(url: string, supabaseUrl: string): string | nul
  * the upload gate reads, so the file chooser can never offer a type the save would reject.
  */
 export const IMAGE_ACCEPT = Object.keys(EXTENSIONS).join(",");
+
+/**
+ * The one bucket every submitted `file` answer lives in. Private, unlike MEDIA_BUCKET (D168):
+ * an attendee's photo or receipt is not a logo, and "nobody will guess the filename" is not
+ * access control. Reads go through signedSubmissionUrl instead — see media.ts.
+ */
+export const SUBMISSION_BUCKET = "form-uploads";
+
+/** Per file. Generous next to MAX_IMAGE_BYTES because a receipt scan is not a logo. */
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+/**
+ * The extension each accepted submission type is stored under. Kept apart from EXTENSIONS —
+ * see acceptUpload — even though it happens to be a superset today: the two lists answer
+ * different questions and must be free to diverge.
+ */
+const UPLOAD_EXTENSIONS: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+
+/**
+ * The gate every submitted `file` answer passes: returns the extension to store the file
+ * under, or throws the sentence the attendee will read in the red flash.
+ *
+ * Deliberately a separate list from acceptImage rather than a widening of it: a PDF is a
+ * reasonable thing to attach to a form, but an event logo must never be one. Merging the two
+ * accept lists would let somebody upload a PDF as a logo the moment this function existed.
+ */
+export function acceptUpload(file: { type: string; size: number }): string {
+  if (file.size === 0) throw new Error("Choose a file first.");
+  const ext = UPLOAD_EXTENSIONS[file.type.toLowerCase()];
+  if (!ext) throw new Error("Files must be PNG, JPEG, WebP or PDF.");
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Files must be 10 MB or smaller.");
+  return ext;
+}
+
+/**
+ * Where one submitted file lives in the bucket — under its own event and form, so two forms
+ * on the same event never collide and a form's files are easy to find (and delete) together.
+ *
+ * `id` is supplied by the caller for the same reason mediaObjectPath's is: a pure function is
+ * the wrong place for randomness.
+ */
+export function submissionObjectPath(
+  input: { orgId: string; eventId: string; formId: string; ext: string },
+  id: string,
+): string {
+  return `${input.orgId}/${input.eventId}/${input.formId}/submission-${id}.${input.ext}`;
+}
+
+/**
+ * The `accept` attribute for every file picker on a `file` question. Derived from the same
+ * map acceptUpload reads, so the picker can never offer a type the upload would reject.
+ */
+export const UPLOAD_ACCEPT = Object.keys(UPLOAD_EXTENSIONS).join(",");
