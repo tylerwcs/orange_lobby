@@ -3,6 +3,7 @@ import { useActionState, useEffect, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { registerAction, type RegisterState } from "./actions";
 import type { RegistrationQuestion } from "@/lib/types";
+import { isQuestionShown } from "@/lib/show-when";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -31,11 +32,6 @@ const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMo
  */
 function autoCompleteFor(q: RegistrationQuestion): string | undefined {
   return q.type === "phone" ? "tel" : undefined;
-}
-
-function isShown(q: RegistrationQuestion, answers: Record<string, string>) {
-  if (!q.show_when) return true;
-  return (answers[q.show_when.key] ?? "").toLowerCase().includes(q.show_when.includes.toLowerCase());
 }
 
 export function RegisterForm({ slug, questions }: {
@@ -116,7 +112,7 @@ export function RegisterForm({ slug, questions }: {
           <FieldGroup>
             {questions.map((q) => {
               const id = `reg-${q.key}`;
-              if (!isShown(q, answers)) return <input key={q.key} type="hidden" name={q.key} value="" />;
+              if (!isQuestionShown(q, answers)) return <input key={q.key} type="hidden" name={q.key} value="" />;
               return (
                 <Field key={q.key} data-invalid={!!errors[q.key]}>
                   <FieldLabel htmlFor={id}>{q.label}{!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>

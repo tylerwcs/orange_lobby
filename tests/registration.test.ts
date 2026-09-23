@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dropBlankAnswers, parseQuestions, validateRegistration } from "@/lib/registration";
+import { dropBlankAnswers, isQuestionShown, parseQuestions, validateRegistration } from "@/lib/registration";
 
 const qs = parseQuestions(JSON.stringify([
   { key: "tshirt", label: "T-shirt", type: "select", required: true, options: ["S", "M"] },
@@ -89,6 +89,26 @@ describe("show_when", () => {
     const shown = validateRegistration({ name: "A", email: "a@b.co", stay: "Yes – Twin" }, qs2);
     expect(shown.ok).toBe(false);
     if (!shown.ok) expect(shown.errors.partner).toMatch(/required/);
+  });
+});
+
+describe("isQuestionShown", () => {
+  const ready = { key: "ready", label: "Ready?", type: "select" as const, required: true, options: ["Yes", "No"] };
+  const category = { key: "category", label: "Category", type: "select" as const, required: false, options: ["L1"], show_when: { key: "ready", includes: "Yes" } };
+
+  it("always shows a question with no show_when", () => {
+    expect(isQuestionShown(ready, {})).toBe(true);
+  });
+  it("hides a dependent question until its parent is answered", () => {
+    expect(isQuestionShown(category, {})).toBe(false);
+    expect(isQuestionShown(category, { ready: "" })).toBe(false);
+  });
+  it("hides it when the parent's answer does not match", () => {
+    expect(isQuestionShown(category, { ready: "No" })).toBe(false);
+  });
+  it("shows it when the parent's answer contains the value, ignoring case and spaces", () => {
+    expect(isQuestionShown(category, { ready: "Yes" })).toBe(true);
+    expect(isQuestionShown(category, { ready: " yes " })).toBe(true);
   });
 });
 

@@ -1,5 +1,8 @@
 import { z } from "zod";
 import type { QuestionType, RegistrationQuestion } from "@/lib/types";
+import { isQuestionShown } from "@/lib/show-when";
+
+export { isQuestionShown };
 
 /** What registration may ask. A file has no attendee row to attach to yet (D164). */
 export const REGISTRATION_QUESTION_TYPES = ["text", "phone", "number", "select"] as const satisfies readonly QuestionType[];
@@ -62,8 +65,7 @@ export function validateAnswers(
   const get = (k: string) => (input[k] ?? "").trim();
   for (const q of questions) {
     const v = get(q.key);
-    const shown = !q.show_when || get(q.show_when.key).toLowerCase().includes(q.show_when.includes.toLowerCase());
-    if (!shown) { answers[q.key] = ""; continue; }
+    if (!isQuestionShown(q, input)) { answers[q.key] = ""; continue; }
     if (q.required && !v) errors[q.key] = `${q.label} is required`;
     else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = "Choose one of the listed options";
     answers[q.key] = v;
