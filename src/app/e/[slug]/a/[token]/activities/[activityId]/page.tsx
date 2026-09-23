@@ -52,7 +52,7 @@ export default async function ActivityPage({ params, searchParams }: {
       <Link href={`${basePath}/activities`} className="mb-3 inline-flex items-center gap-1.5 self-start text-sm font-bold text-muted-foreground hover:text-foreground">
         <ArrowLeft aria-hidden className="size-4" />Activities
       </Link>
-      <ActivityCover activity={activity} variant="hero" className="-mx-4 w-[calc(100%+2rem)] max-w-none md:mx-0 md:w-full md:rounded-2xl" />
+      <ActivityCover activity={activity} variant="hero" />
       <h1 className="py-4 text-xl font-extrabold leading-tight">{activity.name}</h1>
       {booking
         ? <BookingBody entry={booking} slug={slug} token={token} />

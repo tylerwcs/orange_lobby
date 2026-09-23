@@ -40,6 +40,14 @@ export function MetaLine({ meta }: { meta: NonNullable<CardView["meta"]> }) {
 }
 
 /**
+ * On a phone the page's picture runs edge to edge, out through <main>'s 16px gutters; from md
+ * it sits inside the column with rounded corners. Owned here rather than passed in: an <img>
+ * needs its width stated to fill the bleed, and a caller's width class next to this
+ * component's own `w-full` is two widths with no telling which the stylesheet lets win.
+ */
+const HERO_BLEED = "-mx-4 md:mx-0 md:rounded-2xl";
+
+/**
  * The activity's picture: the organiser's image, or - when there is none - a panel in the
  * event's own brand colour carrying the activity's name, so a card never looks broken for the
  * want of a poster.
@@ -60,14 +68,14 @@ export function ActivityCover({ activity, variant, className = "" }: {
       <img
         src={activity.image_url}
         alt=""
-        className={`${variant === "card" ? "aspect-[2/1] w-full object-cover" : "block h-auto w-full"} bg-muted ${className}`}
+        className={`${variant === "card" ? "aspect-[2/1] w-full object-cover" : `block h-auto ${HERO_BLEED} w-[calc(100%+2rem)] max-w-none md:w-full`} bg-muted ${className}`}
       />
     );
   }
   return (
     <div
       aria-hidden
-      className={`flex items-end justify-between gap-3 bg-brand p-4 text-brand-foreground ${variant === "card" ? "aspect-[3/1]" : "aspect-[3/1] md:aspect-[5/1]"} ${className}`}
+      className={`flex items-end justify-between gap-3 bg-brand p-4 text-brand-foreground ${variant === "card" ? "aspect-[3/1]" : `aspect-[3/1] md:aspect-[5/1] ${HERO_BLEED}`} ${className}`}
     >
       <span className={`font-extrabold leading-tight ${variant === "card" ? "text-lg" : "text-2xl"}`}>{activity.name}</span>
       <Ticket className={`shrink-0 opacity-80 ${variant === "card" ? "size-6" : "size-8"}`} />
