@@ -3,7 +3,7 @@ import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { BadgeQrDialog } from "@/components/portal/BadgeQrDialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { eventFields } from "@/lib/attendee-fields";
@@ -76,17 +76,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
               {fieldValue(attendee, "table_no") && <Badge>Table {fieldValue(attendee, "table_no")}</Badge>}
             </div>
 
-            <Dialog>
-              <DialogTrigger render={<Button className="mt-1 w-full sm:w-64" />}>Show my badge</DialogTrigger>
-              <DialogContent className="sm:max-w-sm">
-                <DialogTitle className="text-center">{attendee.name}</DialogTitle>
-                <DialogDescription className="text-center">
-                  Show this at check-in if you do not have your printed badge.
-                </DialogDescription>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qr} alt="Your QR code" width={240} height={240} className="mx-auto size-60 rounded-lg" />
-              </DialogContent>
-            </Dialog>
+            <BadgeQrDialog qr={qr} name={attendee.name} trigger={<Button className="mt-1 w-full sm:w-64">Show my badge</Button>} />
           </CardContent>
         </Card>
 

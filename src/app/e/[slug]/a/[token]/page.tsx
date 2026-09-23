@@ -17,6 +17,8 @@ import { floorPlanUrl } from "@/lib/modules";
 import { resolvePins } from "@/lib/pinned-fields";
 import { eventFields } from "@/lib/attendee-fields";
 import type { Event } from "@/lib/types";
+import { appBaseUrl, attendeeLink } from "@/lib/links";
+import { qrDataUrl } from "@/lib/qr";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +52,8 @@ export default async function PersonalHome({ params, searchParams }: {
   // On a programme running for weeks this is the largest table on the page, fetched to
   // answer a question the badge is no longer asking.
   const checkedInAt = await arrivalTime(event, attendee.id);
+  // Made here so the badge's QR button opens the code in place, with nothing left to fetch.
+  const qr = await qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token));
 
   return (
     <>
@@ -66,7 +70,7 @@ export default async function PersonalHome({ params, searchParams }: {
       <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
         <div className="flex flex-col gap-4 md:gap-5">
-          <BadgeCard attendee={attendee} basePath={basePath} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
+          <BadgeCard attendee={attendee} basePath={basePath} qr={qr} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
         </div>
