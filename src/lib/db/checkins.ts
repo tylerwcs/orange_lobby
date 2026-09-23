@@ -33,6 +33,19 @@ export async function listCheckinsForEvent(eventId: string): Promise<Checkin[]> 
   return data as Checkin[];
 }
 
+/**
+ * When one attendee was first scanned in, at any checkpoint, or null if never. One row back
+ * rather than the event's whole checkins table - which is what the badge used to read to answer
+ * this, and which grows with every scan of the event.
+ */
+export async function firstCheckinAt(eventId: string, attendeeId: string): Promise<string | null> {
+  const { data, error } = await serviceClient().from("checkins").select("scanned_at")
+    .eq("event_id", eventId).eq("attendee_id", attendeeId)
+    .order("scanned_at").limit(1).maybeSingle();
+  if (error) throw error;
+  return (data?.scanned_at as string | undefined) ?? null;
+}
+
 export async function countCheckinsByCheckpoint(eventId: string): Promise<Record<string, number>> {
   const rows = await listCheckinsForEvent(eventId);
   return rows.reduce<Record<string, number>>((acc, r) => { acc[r.checkpoint_id] = (acc[r.checkpoint_id] ?? 0) + 1; return acc; }, {});

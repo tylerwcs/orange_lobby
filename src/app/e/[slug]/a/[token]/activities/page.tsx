@@ -1,5 +1,5 @@
-import { loadPortalAttendee } from "@/lib/portal";
-import { listActivities, listSessions, countBookingsBySession, bookingsForAttendee, submissionsForAttendee } from "@/lib/db/activities";
+import { loadPortalAttendee, portalActivities, portalBookings } from "@/lib/portal";
+import { listSessions, countBookingsBySession, submissionsForAttendee } from "@/lib/db/activities";
 import { requestsForAttendee } from "@/lib/db/activity-requests";
 import { activityState } from "@/lib/activities";
 import { activityControls, pendingFor, lastDeclinedFor } from "@/lib/activity-requests";
@@ -20,10 +20,10 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ slu
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const [activities, sessions, counts, mine, requests, submissions] = await Promise.all([
-    listActivities(event.id),
+    portalActivities(event.id),
     listSessions(event.id),
     countBookingsBySession(event.id),
-    bookingsForAttendee(attendee.id),
+    portalBookings(attendee.id),
     requestsForAttendee(attendee.id),
     submissionsForAttendee(attendee.id),
   ]);

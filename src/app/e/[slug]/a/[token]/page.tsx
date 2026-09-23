@@ -1,7 +1,6 @@
 import { loadPortalAttendee } from "@/lib/portal";
 import { loadHomeData } from "@/lib/portal-home";
-import { listCheckinsForEvent } from "@/lib/db/checkins";
-import { checkinStatus } from "@/lib/checkins-stats";
+import { firstCheckinAt } from "@/lib/db/checkins";
 import { isoToLocalInput } from "@/lib/time";
 import { myBreakouts } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
@@ -29,13 +28,13 @@ const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foregr
  * event has no door at all (D159).
  *
  * The flag is checked before the query rather than after it, so an event with check-in off
- * never loads its checkins. `BadgeCard` already treats null as "nothing to show", which is
+ * never touches its checkins. `BadgeCard` already treats null as "nothing to show", which is
  * why turning the door off needs no change there.
  */
 async function arrivalTime(event: Pick<Event, "id" | "check_in_enabled">, attendeeId: string): Promise<string | null> {
   if (!event.check_in_enabled) return null;
-  const state = checkinStatus(attendeeId, await listCheckinsForEvent(event.id));
-  return state.at ? isoToLocalInput(state.at).split("T")[1] : null;
+  const at = await firstCheckinAt(event.id, attendeeId);
+  return at ? isoToLocalInput(at).split("T")[1] : null;
 }
 
 export default async function PersonalHome({ params, searchParams }: {
@@ -46,14 +45,18 @@ export default async function PersonalHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
-  const { tiles, banner, agenda, allAgenda, assignedItemIds, days, day, announcements, now } =
-    await loadHomeData(event, attendee, basePath, requestedDay);
-  // Skipped, not just hidden: an event with no door never reads its checkins at all (D159).
-  // On a programme running for weeks this is the largest table on the page, fetched to
-  // answer a question the badge is no longer asking.
-  const checkedInAt = await arrivalTime(event, attendee.id);
-  // Made here so the badge's QR button opens the code in place, with nothing left to fetch.
-  const qr = await qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token));
+  // None of these three depends on another, so they run together rather than in turn.
+  // `arrivalTime` is skipped, not just hidden, when the event has no door (D159). The QR is
+  // made here so the badge's QR button opens the code in place, with nothing left to fetch.
+  const [
+    { tiles, banner, agenda, allAgenda, assignedItemIds, days, day, announcements, now },
+    checkedInAt,
+    qr,
+  ] = await Promise.all([
+    loadHomeData(event, attendee, basePath, requestedDay),
+    arrivalTime(event, attendee.id),
+    qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token)),
+  ]);
 
   return (
     <>

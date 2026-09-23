@@ -3,6 +3,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
+import { listActivities, bookingsForAttendee } from "@/lib/db/activities";
 import { isValidToken } from "@/lib/tokens";
 import type { Attendee, Event } from "@/lib/types";
 
@@ -20,6 +21,13 @@ export const loadPortalEvent = cache(async (slug: string): Promise<Event> => {
   if (!ev) notFound();
   return ev;
 });
+
+/**
+ * The same per-request memo for the two activity reads the layout's Activities slot and the
+ * page below it both need: without it, every portal page paid for them twice.
+ */
+export const portalActivities = cache((eventId: string) => listActivities(eventId));
+export const portalBookings = cache((attendeeId: string) => bookingsForAttendee(attendeeId));
 
 export const loadPortalAttendee = cache(
   async (slug: string, token: string): Promise<{ event: Event; attendee: Attendee }> => {

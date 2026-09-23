@@ -2,7 +2,8 @@ import "server-only";
 import { listAgenda } from "@/lib/db/agenda";
 import { listAnnouncements } from "@/lib/db/announcements";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
-import { listActivities, listSessions, bookingsForAttendee } from "@/lib/db/activities";
+import { listSessions } from "@/lib/db/activities";
+import { portalActivities, portalBookings } from "@/lib/portal";
 import { groupByDay, pickDay } from "@/lib/agenda";
 import { isBreakout } from "@/lib/breakouts";
 import { eligible, personalAgenda } from "@/lib/activities";
@@ -37,22 +38,29 @@ export async function loadHomeData(
   basePath: string,
   requestedDay?: string,
 ): Promise<HomeData> {
-  const [allAgenda, announcements] = await Promise.all([listAgenda(event.id), listAnnouncements(event.id)]);
+  // Two round trips, not four: everything that decides what else to read goes in the first,
+  // and every read that depends on it goes together in the second.
+  const [allAgenda, announcements, activities] = await Promise.all([
+    listAgenda(event.id),
+    listAnnouncements(event.id),
+    attendee ? portalActivities(event.id) : [],
+  ]);
   // Only touch breakout_assignments when this event actually has breakout rows: every event
   // that exists today has none, and skipping the query keeps their portal working even before
   // the migration adding that table has been applied.
   const hasBreakouts = allAgenda.some(isBreakout);
-  const assignedItemIds = attendee && hasBreakouts ? await assignedItemIdsFor(attendee.id) : new Set<string>();
-  // Unlike hasBreakouts above, there is no free signal for "this event has activities" - it
-  // takes a real query to find out, and listActivities is written to answer "none" rather than
-  // throw when migration 0016 has not landed yet. What this guard buys is skipping the two
-  // queries below (every session, this attendee's bookings) for every event that has nothing
-  // to do with this feature. Only the attendee's own booked sessions are needed here - they
-  // fold into the agenda. Seat counts belong to the Activities tab, which loads its own.
-  const activities = attendee ? await listActivities(event.id) : [];
-  const [sessions, myBookings] = activities.length && attendee
-    ? await Promise.all([listSessions(event.id), bookingsForAttendee(attendee.id)])
-    : [[], []];
+  // Unlike hasBreakouts, there is no free signal for "this event has activities" - it takes a
+  // real query to find out, and listActivities is written to answer "none" rather than throw
+  // when migration 0016 has not landed yet. What this guard buys is skipping two queries
+  // (every session, this attendee's bookings) for every event that has nothing to do with
+  // this feature. Only the attendee's own booked sessions are needed here - they fold into
+  // the agenda. Seat counts belong to the Activities tab, which loads its own.
+  const hasActivities = activities.length > 0 && attendee !== null;
+  const [assignedItemIds, sessions, myBookings] = await Promise.all([
+    attendee && hasBreakouts ? assignedItemIdsFor(attendee.id) : new Set<string>(),
+    hasActivities ? listSessions(event.id) : [],
+    hasActivities ? portalBookings(attendee.id) : [],
+  ]);
   const mineBySession = new Set(myBookings.map((b) => b.session_id));
   const bookedSessions = sessions.filter((s) => mineBySession.has(s.id));
   const { date, time } = nowInKL();
@@ -82,11 +90,12 @@ export async function loadHomeData(
  * Kept to the queries the answer needs: `listActivities` alone decides whether there is a tab,
  * and this attendee's bookings are fetched only when a required activity they can see might be
  * owed - the one case the dot depends on. Every event without activities pays one query, the
- * same one `loadHomeData` already guards on.
+ * same one `loadHomeData` already guards on - and both reads are memoised with the page's, so
+ * the slot costs the page below it nothing extra.
  */
 export async function loadActivityNav(event: Pick<Event, "id">, attendee: Pick<Attendee, "id" | "category">): Promise<ActivityNav> {
-  const activities = await listActivities(event.id);
+  const activities = await portalActivities(event.id);
   const mayOwe = activities.some((a) => a.kind === "booking" && a.required && eligible(a, attendee.category));
-  const held = mayOwe ? new Set((await bookingsForAttendee(attendee.id)).map((b) => b.activity_id)) : new Set<string>();
+  const held = mayOwe ? new Set((await portalBookings(attendee.id)).map((b) => b.activity_id)) : new Set<string>();
   return activityNav(activities, attendee.category, held);
 }

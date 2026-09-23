@@ -18,7 +18,10 @@ export async function proxy(req: NextRequest) {
       },
     },
   );
-  const { data: { user } } = await supabase.auth.getUser();
+  // Verified locally against the project's JWKS (asymmetric signing keys), and still
+  // refreshes an expired session - see requireAdmin for what getUser() would add.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
   const path = req.nextUrl.pathname;
   const protectedPath = path.startsWith("/admin") || path.startsWith("/scan");
   if (protectedPath && !user) {

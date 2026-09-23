@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { serviceClient } from "@/lib/supabase/service";
 import type { Event, EventStatus } from "@/lib/types";
@@ -59,11 +60,12 @@ export async function rotateCrewToken(eventId: string): Promise<string> {
   return crew_token;
 }
 
-export async function requireEvent(id: string, orgId: string): Promise<Event> {
+/** Memoised per request, like requireAdmin: the event layout and the page below it both load it. */
+export const requireEvent = cache(async (id: string, orgId: string): Promise<Event> => {
   const ev = await getEvent(id);
   if (!ev || ev.org_id !== orgId) notFound();
   return ev;
-}
+});
 
 export async function createEvent(orgId: string, input: { name: string; slug: string }): Promise<Event> {
   const { data, error } = await serviceClient().from("events").insert({ org_id: orgId, ...input }).select("*").single();
