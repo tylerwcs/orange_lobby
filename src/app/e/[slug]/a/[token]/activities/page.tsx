@@ -5,17 +5,16 @@ import { activityState } from "@/lib/activities";
 import { activityControls, pendingFor, lastDeclinedFor } from "@/lib/activity-requests";
 import { canSubmit } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
-import { ActivityList } from "@/components/portal/ActivityList";
-import { SubmissionList } from "@/components/portal/SubmissionList";
+import { ActivitiesTab } from "@/components/portal/ActivitiesTab";
 import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Both kinds of activity, on the one page an attendee has always had (D178). A booking activity
- * still books inline through `ActivityList`, exactly as before the merge; a submission activity
- * renders through `SubmissionList` (was `FormList`) and links out to its own page, also exactly
- * as before — the merge only put both lists behind one route instead of two.
+ * The bar's Activities tab: both kinds of activity on one page (D178), sorted into To choose,
+ * Booked and Open to you by `ActivitiesTab`. A booking activity opens its sessions in a sheet
+ * and books from there through the same server actions as before; a submission activity links
+ * out to its own page, as it always has.
  */
 export default async function ActivitiesPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -54,23 +53,19 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ slu
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <h1 className="text-xl font-extrabold">Activities</h1>
-      {bookingActivities.length > 0 && (
-        <ActivityList
-          entries={bookingEntries}
-          book={bookAction.bind(null, slug, token)}
-          requestSwitch={requestSwitchAction.bind(null, slug, token)}
-          requestCancel={requestCancelAction.bind(null, slug, token)}
-          withdraw={withdrawRequestAction.bind(null, slug, token)}
-        />
-      )}
-      {submissionActivities.length > 0 && (
-        <SubmissionList entries={submissionEntries} basePath={`/e/${slug}/a/${token}/activities`} />
-      )}
-      {bookingActivities.length === 0 && submissionActivities.length === 0 && (
-        <p className="text-sm text-muted-foreground">There is nothing here for this event yet.</p>
-      )}
+      <ActivitiesTab
+        bookings={bookingEntries}
+        submissions={submissionEntries}
+        basePath={`/e/${slug}/a/${token}`}
+        actions={{
+          book: bookAction.bind(null, slug, token),
+          requestSwitch: requestSwitchAction.bind(null, slug, token),
+          requestCancel: requestCancelAction.bind(null, slug, token),
+          withdraw: withdrawRequestAction.bind(null, slug, token),
+        }}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import {
-  Armchair, Bell, Calendar, Check, ChevronDown, Clock, Download, Filter, Flag,
+  Armchair, Bell, Calendar, Check, ChevronDown, Clock, Ticket, Download, Filter, Flag,
   Grid3x3, GripVertical, Home, Info, Layers, LogOut, Megaphone, MessageSquare, Mic,
   Phone, Plus, QrCode, Scan, Search, Settings, Star, User, Users, X,
   File as FileIcon, Link as LinkIcon, Map as MapIcon,
@@ -47,6 +47,7 @@ export const ICONS = {
   grip: GripVertical,
   close: X,
   clock: Clock,
+  ticket: Ticket,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

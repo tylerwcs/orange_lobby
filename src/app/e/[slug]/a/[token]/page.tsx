@@ -7,10 +7,8 @@ import { myBreakouts } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import { BadgeCard } from "@/components/portal/BadgeCard";
 import { BreakoutCard } from "@/components/portal/BreakoutCard";
-import { ActivitiesCard } from "@/components/portal/ActivitiesCard";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { TileGrid } from "@/components/portal/TileGrid";
-import { NowCard } from "@/components/portal/NowCard";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { VenueCard } from "@/components/portal/VenueCard";
@@ -46,7 +44,7 @@ export default async function PersonalHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const basePath = `/e/${slug}/a/${token}`;
-  const { tiles, banner, next, today, agenda, allAgenda, assignedItemIds, activities, days, day, announcements, now } =
+  const { tiles, banner, agenda, allAgenda, assignedItemIds, days, day, announcements, now } =
     await loadHomeData(event, attendee, basePath, requestedDay);
   // Skipped, not just hidden: an event with no door never reads its checkins at all (D159).
   // On a programme running for weeks this is the largest table on the page, fetched to
@@ -62,23 +60,21 @@ export default async function PersonalHome({ params, searchParams }: {
         Two at md, one on a phone - where the agenda and announcement columns are hidden
         entirely rather than stacked. A phone showing eight sessions and three
         announcements under a badge is a scroll, not a home screen; that is what the
-        bottom bar's Agenda and Info are for.
+        bottom bar's Info slot and the announcement banner's dialog are for. Activities
+        are not on this page at any width: they have their own slot in the bar.
       */}
       <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
         <div className="flex flex-col gap-4 md:gap-5">
           <BadgeCard attendee={attendee} basePath={basePath} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
-          <ActivitiesCard states={activities} basePath={basePath} />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
         </div>
 
         <div className="flex flex-col gap-4 md:gap-5">
-          {/* Phone: the one next thing. Desktop: the whole day, below. */}
-          <div className="flex flex-col gap-4 md:hidden">
-            {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
-            <NowCard next={next} href={`${basePath}/agenda`} today={today} />
-          </div>
+          {/* Phone: the latest announcement, opening all of them. No "next session" card -
+              the bar's Info slot is one tap from the whole agenda. Desktop: the whole day, below. */}
+          {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
 
           <Card className="hidden md:block">
             <CardHeader>

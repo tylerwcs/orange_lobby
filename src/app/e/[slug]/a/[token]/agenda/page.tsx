@@ -7,6 +7,7 @@ import { groupByDay, pickDay } from "@/lib/agenda";
 import { personalAgenda } from "@/lib/activities";
 import { nowInKL } from "@/lib/time";
 import { AgendaList } from "@/components/portal/AgendaList";
+import { AgendaInfoSwitch } from "@/components/portal/AgendaInfoSwitch";
 
 export default async function PersonalAgenda({ params, searchParams }: { params: Promise<{ slug: string; token: string }>; searchParams: Promise<{ day?: string }> }) {
   const { slug, token } = await params; const { day: requested } = await searchParams;
@@ -30,6 +31,7 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const day = pickDay(days, requested, now.date);
   return (
     <>
+      {event.info_page_html && <AgendaInfoSwitch basePath={basePath} current="agenda" />}
       {/* Above the heading, edge to edge within the page's column: a masthead sits over
           the agenda, not between its title and its first day (D160). */}
       {event.agenda_banner_url && (
@@ -40,7 +42,8 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
           className="mb-3 h-28 w-full rounded-[14px] border border-border object-cover sm:h-36"
         />
       )}
-      <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
+      {/* With an info page the switch names this tab, so the heading only needs to be heard. */}
+      <h1 className={event.info_page_html ? "sr-only" : "mb-3 text-xl font-extrabold"}>Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />
     </>
   );

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { loadPortalAttendee } from "@/lib/portal";
+import { loadActivityNav } from "@/lib/portal-home";
 import { PortalChrome } from "@/components/portal/PortalChrome";
 import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
@@ -17,7 +18,8 @@ export default async function PersonalLayout({ children, params }: {
   params: Promise<{ slug: string; token: string }>;
 }) {
   const { slug, token } = await params;
-  const { event } = await loadPortalAttendee(slug, token);
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const activities = await loadActivityNav(event, attendee);
   const chromeEvent = {
     name: event.name,
     logo_url: event.logo_url,
@@ -31,7 +33,7 @@ export default async function PersonalLayout({ children, params }: {
   };
   return (
     <>
-      <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal>
+      <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal activities={activities}>
         {children}
       </PortalChrome>
       {/* This is the only part of the portal that announces results through flashPath() today

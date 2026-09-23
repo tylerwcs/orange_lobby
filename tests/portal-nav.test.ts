@@ -28,8 +28,17 @@ describe("activeNavHref", () => {
 
   it("marks each nav destination", () => {
     expect(activeNavHref(`${BASE}/agenda`, BASE)).toBe("/agenda");
-    expect(activeNavHref(`${BASE}/info`, BASE)).toBe("/info");
+    expect(activeNavHref(`${BASE}/activities`, BASE)).toBe("/activities");
     expect(activeNavHref(`${BASE}/me`, BASE)).toBe("/me");
+  });
+
+  it("marks Agenda on the info page, because the two share one nav item", () => {
+    expect(activeNavHref(`${BASE}/info`, BASE)).toBe("/agenda");
+    expect(activeNavHref(`${BASE}/info?x=1`, BASE)).toBe("/agenda");
+  });
+
+  it("marks Activities on one activity's own page", () => {
+    expect(activeNavHref(`${BASE}/activities/0b7c2f`, BASE)).toBe("/activities");
   });
 
   it("marks nothing on a page that is not in the nav", () => {

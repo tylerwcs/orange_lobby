@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { loadPortalAttendee } from "@/lib/portal";
 import {
   bookSession, getActivity, listSessions, bookingsForAttendee,
@@ -64,6 +65,10 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   }
 
   const result = await bookSession(session.id, attendee.id);
+  // The bar's Activities dot lives in the portal layout, which a redirect back to this page
+  // does not re-render. A booking is the one thing an attendee does that can settle a required
+  // activity, so it is the one place the layout has to be told its dot may be stale.
+  if (result === "ok") revalidatePath(`/e/${slug}/a/${token}`, "layout");
   redirect(result === "ok"
     ? flashPath(path, `Booked: ${session.title}.`)
     : flashPath(path, REFUSALS[result], "error"));

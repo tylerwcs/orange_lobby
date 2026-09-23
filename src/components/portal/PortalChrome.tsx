@@ -7,33 +7,51 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
 import { brandStyle } from "@/lib/brand";
 import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
+import type { ActivityNav } from "@/lib/portal-activities";
 import { Mark, PortalHeader } from "./PortalHeader";
 
-type NavItem = { href: string; label: string; icon: IconName };
+type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
 
 /**
- * Info is in the nav rather than being a tile: it is one of the few destinations every
- * attendee wants at some point, and a tile for it was a second route to a page the nav
- * could hold permanently. It only appears when the event actually has an info page -
- * a nav slot leading to an empty screen is worse than no slot.
+ * The agenda and the info page share one slot. Both are "about the event" rather than about
+ * you, and giving each its own slot pushed the bar to five items once Activities joined it.
+ * The slot is called Info when the event has an info page - the agenda is the first tab
+ * inside it, with a switch to the info tab at the top of both pages - and stays Agenda when
+ * it has none, because then the agenda is all it leads to.
+ *
+ * Activities is a slot only for somebody who can see at least one, the same rule Info always
+ * followed: a slot leading to an empty screen is worse than no slot. Its dot is the "Pick
+ * one" nag the home card used to carry, moved to where the choosing happens.
  */
-const nav = (personal: boolean, hasInfo: boolean): NavItem[] => [
+const nav = (personal: boolean, hasInfo: boolean, activities: ActivityNav | undefined): NavItem[] => [
   { href: "", label: "Home", icon: "grid" },
-  { href: "/agenda", label: "Agenda", icon: "calendar" },
-  ...(hasInfo ? [{ href: "/info", label: "Info", icon: "info" as IconName }] : []),
+  hasInfo
+    ? { href: "/agenda", label: "Info", icon: "info" }
+    : { href: "/agenda", label: "Agenda", icon: "calendar" },
+  ...(personal && activities?.show
+    ? [{ href: "/activities", label: "Activities", icon: "ticket" as IconName, dot: activities.owed }]
+    : []),
   ...(personal ? [{ href: "/me", label: "Me", icon: "user" as IconName }] : []),
 ];
 
 /**
  * The desktop home carries the agenda and the venue summary on the page itself, so a
  * header link to either would be a second route to what the reader is already looking at -
- * the same reason those stopped being tiles. The phone home cannot show them, so its bar
- * keeps them.
+ * the same reason those stopped being tiles. Activities is not on that page, so it stays.
+ * The phone home cannot show any of them, so its bar keeps them all.
  *
  * `dashboard` is therefore about what is ON this page, not about screen width.
  */
 const desktopNav = (items: NavItem[], dashboard: boolean): NavItem[] =>
-  dashboard ? items.filter((n) => n.href === "" || n.href === "/me") : items;
+  dashboard ? items.filter((n) => n.href !== "/agenda") : items;
+
+/** The dot, and the words a screen reader hears in its place. */
+const Owed = ({ className }: { className: string }) => (
+  <>
+    <span aria-hidden className={`size-2 rounded-full bg-primary ${className}`} />
+    <span className="sr-only">, a choice is waiting</span>
+  </>
+);
 
 const Banner = ({ url, className }: { url: string; className: string }) => (
   // eslint-disable-next-line @next/next/no-img-element
@@ -50,10 +68,12 @@ export type ChromeEvent = Pick<
   "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "info_page_html"
 >;
 
-export function PortalChrome({ event, basePath, personal, children }: {
+export function PortalChrome({ event, basePath, personal, activities, children }: {
   event: ChromeEvent;
   basePath: string;
   personal: boolean;
+  /** Whether this attendee gets an Activities slot, and whether it carries a dot. */
+  activities?: ActivityNav;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -65,7 +85,7 @@ export function PortalChrome({ event, basePath, personal, children }: {
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
-  const items = nav(personal, hasInfo);
+  const items = nav(personal, hasInfo, activities);
   const headerItems = desktopNav(items, home);
   const shellWidth = home ? "max-w-md md:max-w-4xl xl:max-w-[1200px]" : "max-w-md md:max-w-4xl";
 
@@ -111,6 +131,7 @@ export function PortalChrome({ event, basePath, personal, children }: {
                     className={`flex min-h-11 items-center gap-2 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-accent font-bold text-primary" : "font-semibold text-muted-foreground hover:bg-muted"}`}
                   >
                     <Icon name={n.icon} size={18} />{n.label}
+                    {n.dot && <Owed className="-ml-0.5" />}
                   </Link>
                 );
               })}
@@ -136,7 +157,11 @@ export function PortalChrome({ event, basePath, personal, children }: {
           const active = n.href === current;
           return (
             <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "font-bold text-primary" : "font-semibold text-muted-foreground"}`}>
-              <Icon name={n.icon} size={22} /><span>{n.label}</span>
+              <span className="relative">
+                <Icon name={n.icon} size={22} />
+                {n.dot && <Owed className="absolute -right-1 top-0 ring-2 ring-card" />}
+              </span>
+              <span>{n.label}</span>
             </Link>
           );
         })}

@@ -4,6 +4,7 @@ import { visibleTo, groupByDay, pickDay } from "@/lib/agenda";
 import { nowInKL } from "@/lib/time";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { AgendaList } from "@/components/portal/AgendaList";
+import { AgendaInfoSwitch } from "@/components/portal/AgendaInfoSwitch";
 
 export default async function GenericAgenda({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ day?: string }> }) {
   const { slug } = await params; const { day: requested } = await searchParams;
@@ -15,6 +16,7 @@ export default async function GenericAgenda({ params, searchParams }: { params: 
   const day = pickDay(days, requested, now.date);
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="/agenda">
+      {event.info_page_html && <AgendaInfoSwitch basePath={basePath} current="agenda" />}
       {/* The public agenda gets the same masthead as the personal one — it is the event's
           agenda either way, and an attendee who has not opened their link yet should see
           the same page dressed the same (D160). */}
@@ -26,7 +28,8 @@ export default async function GenericAgenda({ params, searchParams }: { params: 
           className="mb-3 h-28 w-full rounded-[14px] border border-border object-cover sm:h-36"
         />
       )}
-      <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
+      {/* With an info page the switch names this tab, so the heading only needs to be heard. */}
+      <h1 className={event.info_page_html ? "sr-only" : "mb-3 text-xl font-extrabold"}>Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />
     </PortalShell>
   );

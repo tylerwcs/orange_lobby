@@ -3,7 +3,6 @@ import { loadHomeData } from "@/lib/portal-home";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { TileGrid } from "@/components/portal/TileGrid";
-import { NowCard } from "@/components/portal/NowCard";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { VenueCard } from "@/components/portal/VenueCard";
@@ -22,7 +21,7 @@ export default async function GenericHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const event = await loadPortalEvent(slug);
   const basePath = `/e/${slug}`;
-  const { tiles, banner, next, today, agenda, days, day, announcements, now } =
+  const { tiles, banner, agenda, days, day, announcements, now } =
     await loadHomeData(event, null, basePath, requestedDay);
 
   return (
@@ -47,10 +46,7 @@ export default async function GenericHome({ params, searchParams }: {
         </div>
 
         <div className="flex flex-col gap-4 md:gap-5">
-          <div className="flex flex-col gap-4 md:hidden">
-            {banner && <AnnouncementBanner a={banner} href={`${basePath}/announcements`} />}
-            <NowCard next={next} href={`${basePath}/agenda`} today={today} />
-          </div>
+          {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
 
           <Card className="hidden md:block">
             <CardHeader>
