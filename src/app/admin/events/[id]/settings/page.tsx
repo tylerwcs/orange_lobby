@@ -25,6 +25,8 @@ import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
 import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
+import { QuestionEditor } from "@/components/admin/QuestionEditor";
+import { REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
 import type { EventStatus } from "@/lib/types";
 import { FieldPicker } from "@/components/admin/FieldPicker";
 import { eventFields } from "@/lib/attendee-fields";
@@ -368,39 +370,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <h3 className="text-sm font-extrabold">Questions</h3>
           <p className="text-xs text-muted-foreground">Name, email, mobile and department are always asked. Add up to {MAX_QUESTIONS} more. Leave a row blank to remove it. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead>
-                <tr className="text-left text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                  <th className="p-1.5">#</th><th className="p-1.5">Label</th><th className="p-1.5">Key</th><th className="p-1.5">Type</th><th className="p-1.5">Required</th><th className="p-1.5">Options (comma separated)</th><th className="p-1.5">Help text</th><th className="p-1.5">Show only when</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: MAX_QUESTIONS }, (_, i) => i + 1).map((n) => {
-                  const q = qs[n - 1];
-                  return (
-                    <tr key={n} className="border-t border-border align-top">
-                      <td className="p-1.5 pt-3 text-xs text-muted-foreground">{n}</td>
-                      <td className="p-1.5"><input name={`q_${n}_label`} defaultValue={q?.label ?? ""} aria-label={`Question ${n} label`} className={input} /></td>
-                      <td className="p-1.5"><input name={`q_${n}_key`} defaultValue={q?.key ?? ""} aria-label={`Question ${n} key`} placeholder="auto" className={`${input} font-mono text-xs`} /></td>
-                      <td className="p-1.5">
-                        <select name={`q_${n}_type`} defaultValue={q?.type ?? "text"} aria-label={`Question ${n} type`} className={input}><option value="text">Text</option><option value="phone">Phone</option><option value="number">Number</option><option value="select">Choice</option></select>
-                      </td>
-                      <td className="p-1.5 pt-3 text-center"><input type="checkbox" name={`q_${n}_required`} defaultChecked={q?.required ?? false} aria-label={`Question ${n} required`} className="size-4 accent-primary" /></td>
-                      <td className="p-1.5"><input name={`q_${n}_options`} defaultValue={q?.options?.join(", ") ?? ""} aria-label={`Question ${n} options`} className={input} /></td>
-                      <td className="p-1.5"><input name={`q_${n}_description`} defaultValue={q?.description ?? ""} aria-label={`Question ${n} help text`} className={input} /></td>
-                      <td className="p-1.5">
-                        <div className="flex gap-1">
-                          <input name={`q_${n}_show_key`} defaultValue={q?.show_when?.key ?? ""} aria-label={`Question ${n} depends on key`} placeholder="key" className={`${input} font-mono text-xs`} />
-                          <input name={`q_${n}_show_value`} defaultValue={q?.show_when?.includes ?? ""} aria-label={`Question ${n} depends on value`} placeholder="contains" className={input} />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <QuestionEditor questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS} />
           </CardContent>
         </Card>
         <SaveBar />

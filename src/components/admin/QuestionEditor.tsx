@@ -13,24 +13,22 @@ const TYPE_LABELS: Record<QuestionType, string> = {
 };
 
 /**
- * The question editor rows, extracted from the registration table's markup in the settings
- * page (search `q_${n}_` in `src/app/admin/events/[id]/settings/page.tsx`) so a form's
- * editor can offer more types than registration does. The `<select>` is built from `types`
- * alone, so a form can offer `file` and registration cannot (D164) — nothing here decides
- * that, the caller does.
+ * The one question editor, used by both the registration form in Settings and a form's own
+ * editor (D174).
  *
- * This is an extraction, not a shared implementation: the settings page still has its own
- * inline copy of this same table, hardcoded to `REGISTRATION_QUESTION_TYPES`'s four types,
- * because unifying it would mean touching a business-critical page with no test covering
- * its markup — out of scope for the task that added this component (Task 7). The two must
- * be kept in sync by hand until someone does that unification: a change to one of these
- * rows (a new column, a relabelled type, an aria-label tweak) needs the same change made in
- * settings/page.tsx, and nothing enforces that today.
+ * What differs between the two is only which types the `<select>` offers, and that is the
+ * `types` prop, not a decision made here: registration passes `REGISTRATION_QUESTION_TYPES`
+ * and cannot offer `file`, a form passes `FORM_QUESTION_TYPES` and can (D164). Everything
+ * else — the columns, the field names, the aria labels — is necessarily identical for both,
+ * because `questionsFromForm` is the single reader that parses what either one posts.
  *
- * Reads exactly like the settings table: `q_${n}_label`, `q_${n}_key`, `q_${n}_type`,
- * `q_${n}_required`, `q_${n}_options`, `q_${n}_description`, `q_${n}_show_key` and
- * `q_${n}_show_value`, for `n` from 1 to `max`. `questionsFromForm` (src/lib/questions-form.ts)
- * is the reader that turns those fields back into `RegistrationQuestion[]`, for both copies.
+ * That shared reader is why this had to stop being two copies. The fields are a contract
+ * between the markup and the parser, and a contract written out twice is one an edit can
+ * break on one side only: a renamed input here and the questions silently stop saving
+ * there, with nothing failing to say so.
+ *
+ * Emits `q_${n}_label`, `q_${n}_key`, `q_${n}_type`, `q_${n}_required`, `q_${n}_options`,
+ * `q_${n}_description`, `q_${n}_show_key` and `q_${n}_show_value`, for `n` from 1 to `max`.
  */
 export function QuestionEditor({ questions, types, max }: {
   questions: RegistrationQuestion[];
