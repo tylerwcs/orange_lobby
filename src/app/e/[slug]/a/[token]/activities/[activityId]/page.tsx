@@ -10,6 +10,8 @@ import { SubmissionHistory } from "@/components/portal/SubmissionHistory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +47,12 @@ function renderQuestion(q: RegistrationQuestion) {
         type="file"
         accept={UPLOAD_ACCEPT}
         required={q.required}
-        className={`${inputClass} file:mr-3 file:rounded-[8px] file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-white`}
+        /* `flex items-center` is the fix for the button sitting high in the box. `inputClass`
+           sets a 44px height with no vertical padding, and a file input lays its shadow button
+           out on a baseline-aligned line box — unlike a text input, which browsers centre
+           internally as a special case. Flex makes the centring explicit instead of hoping the
+           line box lands in the middle. */
+        className={`${inputClass} flex items-center file:mr-3 file:rounded-[8px] file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-white`}
       />
     );
   }
@@ -53,8 +60,12 @@ function renderQuestion(q: RegistrationQuestion) {
   return <input id={id} name={q.key} type={type} required={q.required} className={inputClass} />;
 }
 
-export default async function ActivitySubmissionPage({ params }: { params: Promise<{ slug: string; token: string; activityId: string }> }) {
+export default async function ActivitySubmissionPage({ params, searchParams }: {
+  params: Promise<{ slug: string; token: string; activityId: string }>;
+  searchParams: Promise<{ new?: string }>;
+}) {
   const { slug, token, activityId } = await params;
+  const { new: writing } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   const activity = await getActivity(activityId, event.id);
   // A booking activity has no questions and no answers — this route is a submission's alone
@@ -66,6 +77,12 @@ export default async function ActivitySubmissionPage({ params }: { params: Promi
   const today = nowInKL().date;
   const state = canSubmit(activity, mine, attendee.category, today);
 
+  const base = `/e/${slug}/a/${token}/activities/${activity.id}`;
+  // What an attendee comes back to is what they have already sent, so that is the page. The
+  // form is somewhere you GO — a URL, not a piece of client state, so the back button works,
+  // a reload keeps its place, and none of this needs to become a client component.
+  const composing = writing === "1" && state.can;
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -73,35 +90,59 @@ export default async function ActivitySubmissionPage({ params }: { params: Promi
         {activity.description && <p className="text-sm text-muted-foreground">{activity.description}</p>}
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <form action={submitAnswersAction.bind(null, slug, token, activity.id)} className="flex flex-col gap-6">
-            {activity.questions.length > 0 && (
-              <FieldSet>
-                <FieldGroup>
-                  {activity.questions.map((q) => (
-                    <Field key={q.key}>
-                      <FieldLabel htmlFor={`q-${q.key}`}>
-                        {q.label}
-                        {!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}
-                      </FieldLabel>
-                      {q.description && <FieldDescription>{q.description}</FieldDescription>}
-                      {renderQuestion(q)}
-                    </Field>
-                  ))}
-                </FieldGroup>
-              </FieldSet>
-            )}
-            {state.can ? (
-              <Button type="submit" className="h-12 w-full text-base font-bold">Submit</Button>
-            ) : (
-              <p className="text-sm text-muted-foreground">{REFUSAL[state.reason as Exclude<SubmitReason, "ok">]}</p>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+      {composing ? (
+        <>
+          <Card>
+            <CardContent className="pt-6">
+              <form action={submitAnswersAction.bind(null, slug, token, activity.id)} className="flex flex-col gap-6">
+                {activity.questions.length > 0 && (
+                  <FieldSet>
+                    <FieldGroup>
+                      {activity.questions.map((q) => (
+                        <Field key={q.key}>
+                          <FieldLabel htmlFor={`q-${q.key}`}>
+                            {q.label}
+                            {!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}
+                          </FieldLabel>
+                          {q.description && <FieldDescription>{q.description}</FieldDescription>}
+                          {renderQuestion(q)}
+                        </Field>
+                      ))}
+                    </FieldGroup>
+                  </FieldSet>
+                )}
+                <Button type="submit" className="h-12 w-full text-base font-bold">Submit</Button>
+              </form>
+            </CardContent>
+          </Card>
+          <Link href={base} className="self-start text-sm font-bold text-primary underline-offset-4 hover:underline">
+            Cancel
+          </Link>
+        </>
+      ) : (
+        <>
+          <SubmissionHistory submissions={mine} questions={activity.questions} />
 
-      <SubmissionHistory submissions={mine} questions={activity.questions} />
+          {/* The reason lives here rather than on a disabled button: when they cannot send
+              another there is no button at all, and a sentence saying why is more use than a
+              control that refuses. */}
+          {!state.can && (
+            <p className="text-sm text-muted-foreground">{REFUSAL[state.reason as Exclude<SubmitReason, "ok">]}</p>
+          )}
+
+          {state.can && (
+            <Link
+              href={`${base}?new=1`}
+              aria-label={mine.length === 0 ? "Send your first submission" : "Send another submission"}
+              /* bottom-24 clears the portal's fixed bottom nav at the same breakpoint the nav
+                 itself uses, the clearance <main> and the toaster already agree on. */
+              className="fixed bottom-24 right-4 z-10 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:bottom-8 md:right-8"
+            >
+              <Plus className="size-6" aria-hidden="true" />
+            </Link>
+          )}
+        </>
+      )}
     </div>
   );
 }
