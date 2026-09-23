@@ -4,6 +4,7 @@ import { listAttendees } from "@/lib/db/attendees";
 import { listForms, listSubmissions, fileQuestionKeys } from "@/lib/db/forms";
 import { signedSubmissionUrl } from "@/lib/db/media";
 import { buildFormsWorkbook, type FormSheet } from "@/lib/exports";
+import { missingFrom } from "@/lib/forms";
 
 // Seven days: long enough that a spreadsheet downloaded today still opens its photographs
 // next week, short enough that the bucket stays private in spirit, not just in policy.
@@ -46,7 +47,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         submittedOn: s.submitted_on, createdAt: s.created_at, answers,
       };
     }));
-    return { formName: f.name, questions, rows };
+    // `null` for the day: the download has no day context, so this is who has NEVER
+    // submitted (D175). `listAttendees` order is alphabetical and `missingFrom` keeps it.
+    const missing = missingFrom(f, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, null)
+      .map((aid) => {
+        const a = attendeeById.get(aid);
+        return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null };
+      });
+
+    return { formName: f.name, questions, rows, missing };
   }));
 
   const buf = await buildFormsWorkbook(sheets).xlsx.writeBuffer();

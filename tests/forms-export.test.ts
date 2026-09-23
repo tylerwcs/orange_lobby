@@ -78,3 +78,45 @@ describe("retiredAnswerKeys", () => {
     expect(retiredAnswerKeys([], [{ b: "1" }, { a: "1", b: "2" }, { c: "1" }])).toEqual(["b", "a", "c"]);
   });
 });
+
+/**
+ * The chasing list, as its own sheet per form — mirroring how the activity rosters export
+ * appends an unbooked sheet beside each session's.
+ */
+describe("buildFormsWorkbook — not-submitted sheets", () => {
+  const withMissing = {
+    ...sheet,
+    missing: [
+      { name: "Siti Nurhaliza", email: "siti@example.com", category: "VIP" },
+      { name: "Raj Kumar", email: null, category: null },
+    ],
+  };
+
+  it("adds a second sheet per form, named distinctly from the submissions sheet", () => {
+    const names = buildFormsWorkbook([withMissing]).worksheets.map((w) => w.name);
+    expect(names).toHaveLength(2);
+    expect(names[0]).toBe("Daily check-in");
+    expect(names[1]).not.toBe(names[0]);
+    expect(names[1]).toMatch(/not submitted/i);
+  });
+
+  it("lists who is missing, with the columns a desk would chase from", () => {
+    const ws = buildFormsWorkbook([withMissing]).worksheets[1];
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category"]);
+    expect(ws.getRow(2).values).toEqual([undefined, "Siti Nurhaliza", "siti@example.com", "VIP"]);
+  });
+
+  it("writes an attendee with no email or category as blanks, not as the word null", () => {
+    const ws = buildFormsWorkbook([withMissing]).worksheets[1];
+    expect(ws.getRow(3).values).toEqual([undefined, "Raj Kumar", "", ""]);
+  });
+
+  // A form everyone has answered should not grow an empty sheet nobody opens.
+  it("omits the sheet entirely when nobody is missing", () => {
+    expect(buildFormsWorkbook([{ ...sheet, missing: [] }]).worksheets).toHaveLength(1);
+  });
+
+  it("still works for a form sheet that carries no missing list at all", () => {
+    expect(buildFormsWorkbook([sheet]).worksheets).toHaveLength(1);
+  });
+});

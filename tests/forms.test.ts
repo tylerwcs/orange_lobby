@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSubmit, capSummary } from "@/lib/forms";
+import { canSubmit, capSummary, missingFrom } from "@/lib/forms";
 import type { Form, FormSubmission } from "@/lib/types";
 
 const form = (over: Partial<Form> = {}): Form => ({
@@ -80,5 +80,58 @@ describe("capSummary", () => {
   });
   it("names the total for a capped form", () => {
     expect(capSummary(form({ max_per_attendee: 5 }))).toBe("Up to 5");
+  });
+});
+
+/**
+ * The chasing list. Mirrors `unbookedByActivity` for activities, with one dimension that
+ * has no equivalent there: a daily form's answer depends on WHICH day you ask about.
+ */
+describe("missingFrom", () => {
+  const by = (id: string) => (id === "vip" ? "VIP" : "Delegate");
+  const subFor = (attendee_id: string, day: string): FormSubmission =>
+    ({ ...sub(day), id: `${attendee_id}-${day}`, attendee_id });
+
+  it("lists everyone when nobody has submitted", () => {
+    expect(missingFrom(form(), [], ["a1", "a2"], () => null, null)).toEqual(["a1", "a2"]);
+  });
+
+  it("leaves out whoever has submitted", () => {
+    expect(missingFrom(form(), [subFor("a1", TODAY)], ["a1", "a2"], () => null, null)).toEqual(["a2"]);
+  });
+
+  it("keeps the order it was given, so the list reads top to bottom", () => {
+    expect(missingFrom(form(), [], ["c", "a", "b"], () => null, null)).toEqual(["c", "a", "b"]);
+  });
+
+  it("leaves out attendees the form's categories exclude", () => {
+    expect(missingFrom(form({ categories: ["VIP"] }), [], ["vip", "other"], by, null)).toEqual(["vip"]);
+  });
+
+  it("treats no categories as everyone", () => {
+    expect(missingFrom(form({ categories: [] }), [], ["vip", "other"], by, null)).toEqual(["vip", "other"]);
+  });
+
+  // The whole point of the day argument: yesterday's check-in does not answer for today.
+  it("counts someone who submitted on a DIFFERENT day as missing today", () => {
+    expect(missingFrom(form({ per_day: true }), [subFor("a1", "2026-09-27")], ["a1"], () => null, TODAY)).toEqual(["a1"]);
+  });
+
+  it("leaves out someone who submitted on the day asked about", () => {
+    expect(missingFrom(form({ per_day: true }), [subFor("a1", TODAY)], ["a1"], () => null, TODAY)).toEqual([]);
+  });
+
+  // A null day is "has never submitted", which is what a once-only form means.
+  it("accepts any day's submission when asked about no day in particular", () => {
+    expect(missingFrom(form(), [subFor("a1", "2026-01-01")], ["a1"], () => null, null)).toEqual([]);
+  });
+
+  it("ignores submissions belonging to another form", () => {
+    const other = { ...subFor("a1", TODAY), form_id: "f2" };
+    expect(missingFrom(form(), [other], ["a1"], () => null, null)).toEqual(["a1"]);
+  });
+
+  it("returns nothing for an event with no attendees, rather than throwing", () => {
+    expect(missingFrom(form(), [], [], () => null, null)).toEqual([]);
   });
 });

@@ -121,6 +121,11 @@ export function activityUnbookedSheetName(activityName: string, taken: Set<strin
   return uniqueSheetName(`${sanitizeSheetNamePart(activityName)} — Not booked`, taken);
 }
 
+/** The same shape for a form's chasing list, claimed from the same `taken` set. */
+export function formMissingSheetName(formName: string, taken: Set<string>): string {
+  return uniqueSheetName(`${sanitizeSheetNamePart(formName)} — Not submitted`, taken);
+}
+
 /**
  * One printable sheet per room, plus one per round listing whoever has no room.
  *
@@ -211,7 +216,18 @@ export function buildActivityRostersWorkbook(
  * how many stamps, and whether the card is full.
  */
 export type FormExportRow = { name: string; email: string | null; category: string | null; submittedOn: string; createdAt: string; answers: Record<string, string> };
-export type FormSheet = { formName: string; questions: { key: string; label: string }[]; rows: FormExportRow[] };
+export type FormMissingRow = { name: string; email: string | null; category: string | null };
+export type FormSheet = {
+  formName: string;
+  questions: { key: string; label: string }[];
+  rows: FormExportRow[];
+  /**
+   * Who has NEVER submitted to this form — not who missed a particular day. The download has
+   * no day context, and a spreadsheet opened next week wants the durable answer; "who missed
+   * today" is a desk question and lives on the screen where you picked the day (D175).
+   */
+  missing?: FormMissingRow[];
+};
 
 /**
  * Every answer key that turns up in `answerSets` but is not among `currentKeys`, in the order
@@ -284,6 +300,15 @@ export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
       ]);
     }
     ws.columns?.forEach((c) => { c.width = 24; });
+
+    // Only when there is somebody to chase. A form everyone has answered would otherwise
+    // grow an empty sheet that says nothing and still has to be clicked past.
+    if (f.missing && f.missing.length > 0) {
+      const missing = wb.addWorksheet(formMissingSheetName(f.formName, taken));
+      missing.addRow(["Name", "Email", "Category"]);
+      for (const m of f.missing) missing.addRow([m.name, m.email ?? "", m.category ?? ""]);
+      missing.columns = [{ width: 28 }, { width: 28 }, { width: 18 }];
+    }
   }
   return wb;
 }
