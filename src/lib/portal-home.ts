@@ -60,7 +60,12 @@ export async function loadHomeData(
   // agenda column - must agree about what this attendee is allowed to see, bookings included.
   // See personalAgenda's own doc for why the filter-then-merge order is safe today and why it
   // is kept anyway.
-  const agenda = personalAgenda(allAgenda, attendee ? { category: attendee.category, assignedItemIds } : null, bookedSessions);
+  const agenda = personalAgenda(
+    allAgenda,
+    attendee ? { category: attendee.category, assignedItemIds } : null,
+    bookedSessions,
+    new Map(activities.map((a) => [a.id, a.name])),
+  );
   const banner = announcements.find((a) => a.pinned) ?? announcements[0] ?? null;
   const tiles = resolveTiles({ event, basePath });
   const days = groupByDay(agenda).map((g) => g.day);

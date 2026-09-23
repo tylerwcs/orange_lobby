@@ -192,7 +192,6 @@ export type ActivitySession = {
   id: string;
   event_id: string;
   activity_id: string;
-  title: string;
   day: string;          // YYYY-MM-DD
   starts_at: string;    // HH:MM
   ends_at: string | null;

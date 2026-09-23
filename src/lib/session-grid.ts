@@ -4,10 +4,8 @@ import type { SeatsForViewer } from "@/lib/activities";
  * How the booking sheet lays out an activity's sessions: one tab per day, and within a day a
  * grid of start times split into parts of the day. Time is what an attendee chooses by, so it
  * is the only thing every slot carries; everything else is said once, and only when it helps.
+ * Sessions have no titles (migration 0032): the activity is the name, a slot is only a time.
  *
- * - A session's title prints only when titles differ within its day. InBody's titles are the
- *   date ("Mon 28 Sep"), which the day tab already says; Health Screening's are "Morning" and
- *   "Afternoon", which are how the attendee tells the two apart.
  * - The room prints once for the activity when every session shares it; when they differ, the
  *   sheet names it for the selected session instead.
  * - The length prints once when every session has the same one.
@@ -24,8 +22,6 @@ export function periodOf(hhmm: string): Period {
 export type GridDay<T extends SeatsForViewer = SeatsForViewer> = {
   day: string;
   periods: { period: Period; slots: T[] }[];
-  /** Titles differ within this day, so each slot shows its own. */
-  titled: boolean;
   /** The attendee holds a seat on this day. */
   mine: boolean;
   /** A slot on this day could still be taken by this attendee. */
@@ -60,7 +56,6 @@ export function sessionGrid<T extends SeatsForViewer>(seats: T[]): SessionGrid<T
     periods: PERIODS
       .map((period) => ({ period, slots: slots.filter((s) => periodOf(s.session.starts_at) === period) }))
       .filter((p) => p.slots.length > 0),
-    titled: new Set(slots.map((s) => s.session.title)).size > 1,
     mine: slots.some((s) => s.mine),
     open: slots.some((s) => !s.mine && !s.full),
   }));

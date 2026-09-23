@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSessions, listBookings } from "@/lib/db/activities";
-import { sessionRosters, unbookedByActivity } from "@/lib/activities";
+import { sessionRosters, unbookedByActivity, sessionLabel } from "@/lib/activities";
 import { buildActivityRostersWorkbook, type ActivitySessionRoster, type ActivityUnbookedRoster, type RosterPerson } from "@/lib/exports";
 
 // Same shape as rosters.xlsx: the whole door list, not a selection, so there is no `ids` param
@@ -25,7 +25,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const sessionRows: ActivitySessionRoster[] = activities.flatMap((activity) =>
     sessions.filter((s) => s.activity_id === activity.id).map((s) => ({
-      activityName: activity.name, sessionTitle: s.title, attendeeIds: bySession.get(s.id) ?? [],
+      activityName: activity.name, session: sessionLabel(s, { weekday: false }), attendeeIds: bySession.get(s.id) ?? [],
     })),
   );
   const unbookedRows: ActivityUnbookedRoster[] = unbookedByActivityId.map((u) => ({

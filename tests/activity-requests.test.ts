@@ -9,7 +9,8 @@ const activity = (over: Partial<Activity> = {}): Activity => ({
   questions: [], per_day: false, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
-  id, event_id: "e", activity_id: "act1", title: id, day: "2026-10-01", starts_at: "09:30",
+  // A start time per id ("s1" at 10:30, "s2" at 11:30), so each session's label is its own.
+  id, event_id: "e", activity_id: "act1", day: "2026-10-01", starts_at: `${9 + (Number(id.replace(/\D/g, "")) || 0)}:30`.padStart(5, "0"),
   ends_at: "11:00", location: "Room 2A", capacity: 30, sort_order: 0, ...over,
 });
 const request = (over: Partial<ActivityChangeRequest> = {}): ActivityChangeRequest => ({
@@ -102,7 +103,7 @@ describe("activityControls", () => {
     expect(c.bookable).toEqual([]);
     expect(c.switchTargets).toEqual([]);
     expect(c.canRequestCancel).toBe(false);
-    expect(c.pending).toEqual({ kind: "switch", fromTitle: "s1", toTitle: "s2" });
+    expect(c.pending).toEqual({ kind: "switch", fromLabel: "Thu 1 Oct · 10:30", toLabel: "Thu 1 Oct · 11:30" });
   });
 
   // A cap of one already makes bookable empty on its own (see the test above), so that test
@@ -125,14 +126,14 @@ describe("activityControls", () => {
 
   it("summarises a pending cancel with no target", () => {
     const c = activityControls(state({ mine: ["s1"] }), request({ kind: "cancel", to_session_id: null }));
-    expect(c.pending).toEqual({ kind: "cancel", fromTitle: "s1", toTitle: null });
+    expect(c.pending).toEqual({ kind: "cancel", fromLabel: "Thu 1 Oct · 10:30", toLabel: null });
   });
 
   // The request outlives the session it names only until the cascade runs, but a page can
   // render in between. Falling back to the id would show a uuid to an attendee.
   it("survives a pending request naming a session that is gone", () => {
     const c = activityControls(state({ mine: ["s1"] }), request({ to_session_id: "vanished" }));
-    expect(c.pending).toEqual({ kind: "switch", fromTitle: "s1", toTitle: null });
+    expect(c.pending).toEqual({ kind: "switch", fromLabel: "Thu 1 Oct · 10:30", toLabel: null });
   });
 
   it("offers nothing bookable when the activity is closed", () => {
@@ -203,7 +204,7 @@ describe("activityControls with a decline to report", () => {
   it("reports the decline when nothing is pending", () => {
     const declined = request({ status: "declined", decided_at: "2026-09-21T03:00:00Z" });
     const c = activityControls(state({ mine: ["s1"] }), null, declined);
-    expect(c.declined).toEqual({ kind: "switch", fromTitle: "s1", toTitle: "s2" });
+    expect(c.declined).toEqual({ kind: "switch", fromLabel: "Thu 1 Oct · 10:30", toLabel: "Thu 1 Oct · 11:30" });
     // The controls are otherwise untouched — a decline is news, not a restriction.
     expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
   });

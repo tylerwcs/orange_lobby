@@ -91,7 +91,7 @@ async function scenarioCapacityOneSeat() {
     if (activityErr) fail(activityErr.message);
 
     const { data: session, error: sessionErr } = await db.from("activity_sessions")
-      .insert({ event_id: event.id, activity_id: activity.id, title: "One seat", day: "2026-10-01", starts_at: "09:00", capacity: 1 })
+      .insert({ event_id: event.id, activity_id: activity.id, day: "2026-10-01", starts_at: "09:00", capacity: 1 })
       .select("id").single();
     if (sessionErr) fail(sessionErr.message);
 
@@ -153,7 +153,7 @@ async function scenarioCapAcrossSessions() {
     // Plenty of room in each session: this scenario is about the per-attendee CAP, not
     // per-session capacity, so capacity must never be the thing that refuses any call.
     const sessionRows = Array.from({ length: CAP_RACE_SESSIONS }, (_, i) => ({
-      event_id: event.id, activity_id: activity.id, title: `Room ${i}`,
+      event_id: event.id, activity_id: activity.id,
       day: "2026-10-01", starts_at: "09:00", capacity: 5,
     }));
     const { data: sessions, error: sessionsErr } = await db.from("activity_sessions").insert(sessionRows).select("id");
@@ -213,7 +213,7 @@ async function scenarioRequiredCancelAcrossSessions() {
     if (activityErr) fail(activityErr.message);
 
     const sessionRows = Array.from({ length: REQUIRED_RACE_SESSIONS }, (_, i) => ({
-      event_id: event.id, activity_id: activity.id, title: `Room ${i}`,
+      event_id: event.id, activity_id: activity.id,
       day: "2026-10-01", starts_at: "09:00", capacity: 5,
     }));
     const { data: sessions, error: sessionsErr } = await db.from("activity_sessions").insert(sessionRows).select("id");
@@ -294,12 +294,12 @@ async function scenarioApprovalsRaceForSeat() {
     if (activityErr) fail(activityErr.message);
 
     const { data: sessionA, error: sessionAErr } = await db.from("activity_sessions")
-      .insert({ event_id: event.id, activity_id: activity.id, title: "Source", day: "2026-10-01", starts_at: "09:00", capacity: 2 })
+      .insert({ event_id: event.id, activity_id: activity.id, day: "2026-10-01", starts_at: "09:00", capacity: 2 })
       .select("id").single();
     if (sessionAErr) fail(sessionAErr.message);
 
     const { data: sessionB, error: sessionBErr } = await db.from("activity_sessions")
-      .insert({ event_id: event.id, activity_id: activity.id, title: "Target", day: "2026-10-01", starts_at: "09:00", capacity: 1 })
+      .insert({ event_id: event.id, activity_id: activity.id, day: "2026-10-01", starts_at: "09:00", capacity: 1 })
       .select("id").single();
     if (sessionBErr) fail(sessionBErr.message);
 

@@ -5,7 +5,7 @@ import { getActivity, listSessions, listBookings, countBookingsBySession, submis
 import { listRequests } from "@/lib/db/activity-requests";
 import { listAttendees } from "@/lib/db/attendees";
 import { scannerNames } from "@/lib/db/users";
-import { seatsFor, unbookedByActivity } from "@/lib/activities";
+import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
 import { capSummary, missingFrom, participation } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
 import type { Activity, Event } from "@/lib/types";
@@ -65,7 +65,7 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
   const activityRequests = allRequests.filter((r) => r.activity_id === activity.id);
   const pendingRequests = activityRequests.filter((r) => r.status === "pending");
   const decidedRequests = activityRequests.filter((r) => r.status !== "pending");
-  const sessionTitleById = new Map(allSessions.map((s) => [s.id, s.title]));
+  const sessionLabelById = new Map(allSessions.map((s) => [s.id, sessionLabel(s)]));
   // Only the ids `decide_request` actually stamped — pending and withdrawn requests carry none.
   const deciderEmails = await scannerNames(decidedRequests.map((r) => r.decided_by));
 
@@ -110,7 +110,7 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
       <RequestQueue
         pending={pendingRequests}
         decided={decidedRequests}
-        sessionTitle={(sessionId) => sessionTitleById.get(sessionId) ?? "a deleted session"}
+        sessionTitle={(sessionId) => sessionLabelById.get(sessionId) ?? "a deleted session"}
         attendeeName={(attendeeId) => byId.get(attendeeId)?.name ?? "Unknown"}
         deciderEmails={deciderEmails}
         approve={approveRequestAction.bind(null, ev.id, activity.id)}
@@ -142,7 +142,7 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
             })}
             options={seats.filter((s) => !s.full).map((s) => ({
               id: s.session.id,
-              label: `${s.session.title} · ${s.session.starts_at}`,
+              label: sessionLabel(s.session),
               left: s.left,
             }))}
             place={placeAttendeesAction.bind(null, ev.id, activity.id)}

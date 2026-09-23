@@ -1,4 +1,4 @@
-import type { ActivityState, SeatsForViewer } from "@/lib/activities";
+import { sessionLabel, type ActivityState, type SeatsForViewer } from "@/lib/activities";
 import type { ActivityChangeRequest } from "@/lib/types";
 
 /**
@@ -11,10 +11,10 @@ import type { ActivityChangeRequest } from "@/lib/types";
  */
 export type PendingSummary = {
   kind: ActivityChangeRequest["kind"];
-  /** The session they hold. Null only if it has been deleted under them. */
-  fromTitle: string | null;
+  /** The session they hold, as `sessionLabel` names it. Null only if it has been deleted under them. */
+  fromLabel: string | null;
   /** Where they asked to go; null for a cancel, or if that session has been deleted. */
-  toTitle: string | null;
+  toLabel: string | null;
 };
 
 export type ActivityControls = {
@@ -79,10 +79,12 @@ export function activityControls(
   pending: ActivityChangeRequest | null,
   lastDeclined: ActivityChangeRequest | null = null,
 ): ActivityControls {
-  const titleOf = (id: string | null): string | null =>
-    (id ? state.sessions.find((s) => s.session.id === id)?.session.title ?? null : null);
+  const labelOf = (id: string | null): string | null => {
+    const s = id ? state.sessions.find((x) => x.session.id === id) : undefined;
+    return s ? sessionLabel(s.session) : null;
+  };
   const summarise = (r: ActivityChangeRequest): PendingSummary =>
-    ({ kind: r.kind, fromTitle: titleOf(r.from_session_id), toTitle: titleOf(r.to_session_id) });
+    ({ kind: r.kind, fromLabel: labelOf(r.from_session_id), toLabel: labelOf(r.to_session_id) });
 
   const held = state.sessions.filter((s) => s.mine);
 

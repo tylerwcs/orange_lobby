@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ActivityState, SeatsForViewer } from "@/lib/activities";
+import { sessionLabel, type ActivityState, type SeatsForViewer } from "@/lib/activities";
 import type { ActivityControls } from "@/lib/activity-requests";
 import { sessionGrid, startDay } from "@/lib/session-grid";
 import { shortDate } from "@/lib/text";
@@ -96,7 +96,7 @@ export function ActivitySessions({ entry: { state, controls, pendingId }, action
       {current?.periods.map(({ period, slots }) => (
         <section key={period} className="flex flex-col gap-2">
           <h3 className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{period}</h3>
-          <div className={`grid gap-2 ${current.titled ? "grid-cols-2" : "grid-cols-4"}`}>
+          <div className="grid grid-cols-4 gap-2">
             {slots.map((s) => {
               const pickable = canPick(s);
               const on = selected?.session.id === s.session.id;
@@ -114,11 +114,10 @@ export function ActivitySessions({ entry: { state, controls, pendingId }, action
                   disabled={!pickable}
                   aria-pressed={on}
                   onClick={() => setPicked(on ? null : s.session.id)}
-                  aria-label={`${s.session.starts_at}${current.titled ? `, ${s.session.title}` : ""}${s.mine ? ", your booking" : s.full ? ", full" : `, ${s.left} left`}`}
+                  aria-label={`${s.session.starts_at}${s.mine ? ", your booking" : s.full ? ", full" : `, ${s.left} left`}`}
                   className={`relative flex min-h-11 flex-col items-center justify-center rounded-[10px] border px-1 py-1.5 tabular-nums outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 ${look}`}
                 >
                   <span className="text-sm font-extrabold">{s.session.starts_at}</span>
-                  {current.titled && <span className="max-w-full truncate text-[11px] font-semibold">{s.session.title}{s.mine ? " · yours" : ""}</span>}
                   {few && (
                     <span className="absolute -top-2 -right-1 rounded-full bg-warning-soft px-1.5 text-[10px] font-bold text-warning no-underline">
                       {s.left} left
@@ -131,7 +130,7 @@ export function ActivitySessions({ entry: { state, controls, pendingId }, action
         </section>
       ))}
 
-      {selected && <ActionBar seat={selected} titled={!!current?.titled} showRoom={grid.location === null} controls={controls} book={book} requestSwitch={requestSwitch} />}
+      {selected && <ActionBar seat={selected} showRoom={grid.location === null} controls={controls} book={book} requestSwitch={requestSwitch} />}
     </div>
   );
 }
@@ -141,9 +140,8 @@ export function ActivitySessions({ entry: { state, controls, pendingId }, action
  * otherwise, holding one already, a request to move it there. Both keep the confirmation the
  * row buttons had.
  */
-function ActionBar({ seat, titled, showRoom, controls, book, requestSwitch }: {
+function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
   seat: SeatsForViewer;
-  titled: boolean;
   showRoom: boolean;
   controls: ActivityControls;
   book: BookingActions["book"];
@@ -151,8 +149,7 @@ function ActionBar({ seat, titled, showRoom, controls, book, requestSwitch }: {
 }) {
   const { session } = seat;
   const when = `${shortDate(session.day)} · ${session.starts_at}${session.ends_at ? `–${session.ends_at}` : ""}`;
-  const name = titled ? `${session.title}, ` : "";
-  const detail = [titled ? session.title : null, showRoom ? session.location : null, `${seat.left} seat${seat.left === 1 ? "" : "s"} left`]
+  const detail = [showRoom ? session.location : null, `${seat.left} seat${seat.left === 1 ? "" : "s"} left`]
     .filter(Boolean).join(" · ");
   const isBook = controls.bookable.some((s) => s.session.id === session.id);
   const [from, setFrom] = useState(controls.held[0]?.session.id ?? "");
@@ -170,7 +167,7 @@ function ActionBar({ seat, titled, showRoom, controls, book, requestSwitch }: {
             tone="default"
             triggerVariant="default"
             confirmLabel="Book"
-            message={`Book ${name}${when}${session.location ? `, ${session.location}` : ""}?`}
+            message={`Book ${when}${session.location ? `, ${session.location}` : ""}?`}
           >
             Book
           </ConfirmButton>
@@ -184,7 +181,7 @@ function ActionBar({ seat, titled, showRoom, controls, book, requestSwitch }: {
             <>
               <label htmlFor={`from-${session.id}`} className="sr-only">Move which booking</label>
               <select id={`from-${session.id}`} value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-md border border-input bg-transparent px-2 text-sm">
-                {controls.held.map((h) => <option key={h.session.id} value={h.session.id}>{shortDate(h.session.day)} {h.session.starts_at}</option>)}
+                {controls.held.map((h) => <option key={h.session.id} value={h.session.id}>{sessionLabel(h.session)}</option>)}
               </select>
             </>
           )}
@@ -192,7 +189,7 @@ function ActionBar({ seat, titled, showRoom, controls, book, requestSwitch }: {
             tone="default"
             triggerVariant="default"
             confirmLabel="Send request"
-            message={`Ask the desk to move you from ${fromSeat ? `${shortDate(fromSeat.session.day)} ${fromSeat.session.starts_at}` : "your session"} to ${name}${when}? Your current seat is held until they agree, so nothing changes yet.`}
+            message={`Ask the desk to move you from ${fromSeat ? sessionLabel(fromSeat.session) : "your session"} to ${when}? Your current seat is held until they agree, so nothing changes yet.`}
           >
             Request switch
           </ConfirmButton>

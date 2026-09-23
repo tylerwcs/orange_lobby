@@ -11,6 +11,7 @@ import { uploadSubmissionFile, deleteSubmissionFiles } from "@/lib/db/media";
 import { validateAnswers } from "@/lib/registration";
 import { nowInKL } from "@/lib/time";
 import { flashPath } from "@/lib/flash";
+import { sessionLabel } from "@/lib/activities";
 import { allow } from "@/lib/ratelimit";
 
 /**
@@ -70,7 +71,7 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   // activity, so it is the one place the layout has to be told its dot may be stale.
   if (result === "ok") revalidatePath(`/e/${slug}/a/${token}`, "layout");
   redirect(result === "ok"
-    ? flashPath(path, `Booked: ${session.title}.`)
+    ? flashPath(path, `Booked: ${sessionLabel(session)}.`)
     : flashPath(path, REFUSALS[result], "error"));
 }
 
@@ -114,7 +115,7 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
     fromSessionId: from.id, toSessionId: to.id,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to move to ${to.title}. The desk will decide.`)
+    ? flashPath(path, `Asked to move to ${sessionLabel(to)}. The desk will decide.`)
     : flashPath(path, ASK_REFUSALS.duplicate, "error"));
 }
 
@@ -144,7 +145,7 @@ export async function requestCancelAction(slug: string, token: string, fromSessi
     fromSessionId: from.id, toSessionId: null,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to cancel ${from.title}. The desk will decide.`)
+    ? flashPath(path, `Asked to cancel ${sessionLabel(from)}. The desk will decide.`)
     : flashPath(path, ASK_REFUSALS.duplicate, "error"));
 }
 

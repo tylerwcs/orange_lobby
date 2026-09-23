@@ -9,7 +9,7 @@ const activity = (over: Partial<Activity> = {}): Activity => ({
   questions: [], per_day: false, sort_order: 0, ...over,
 });
 const session = (id: string): ActivitySession => ({
-  id, event_id: "e", activity_id: "act1", title: id, day: "2026-09-30", starts_at: "08:00",
+  id, event_id: "e", activity_id: "act1", day: "2026-09-30", starts_at: "08:00",
   ends_at: "09:00", location: "Clubhouse", capacity: 4, sort_order: 0,
 });
 const state = (over: Partial<Activity> = {}, mine: string[] = [], category: string | null = null) =>

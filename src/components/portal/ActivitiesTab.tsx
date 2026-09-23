@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Activity } from "@/lib/types";
 import type { SubmitState } from "@/lib/submissions";
 import { bookingSection } from "@/lib/portal-activities";
-import { shortDate } from "@/lib/text";
+import { sessionLabel } from "@/lib/activities";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { ActivitySheet } from "./ActivitySheet";
@@ -154,8 +154,7 @@ function BookedFace({ entry: { state, controls } }: { entry: ActivityEntry }) {
         </div>
         {mine.map(({ session }) => (
           <div key={session.id} className="mt-0.5 text-xs text-muted-foreground">
-            {[session.title !== state.activity.name ? session.title : null, shortDate(session.day), session.starts_at, session.location]
-              .filter(Boolean).join(" · ")}
+            {[sessionLabel(session), session.location].filter(Boolean).join(" · ")}
           </div>
         ))}
         {!controls.pending && ask && <div className="mt-2 text-xs font-bold text-primary">{ask}</div>}

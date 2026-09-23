@@ -2,6 +2,7 @@ import { categoryMatches, parseCategories, visibleTo, type AgendaViewer } from "
 import type { Activity, ActivityBooking, ActivitySession, AgendaItem } from "@/lib/types";
 import type { BookResult, NewActivity } from "@/lib/db/activities";
 import type { FlashTone } from "@/lib/flash";
+import { shortDate } from "@/lib/text";
 
 /**
  * Everything about one session that a screen needs and a database row does not carry: how
@@ -11,6 +12,19 @@ import type { FlashTone } from "@/lib/flash";
  * `book_session` is the only authority; this decides what to draw, never what to allow.
  */
 export type SessionSeats = { session: ActivitySession; booked: number; left: number; full: boolean };
+
+/**
+ * How a session is named anywhere it has to be named: its day and start time.
+ *
+ * Sessions carry no title of their own (dropped in migration 0032). The activity is the name -
+ * "InBody Scan" - and a session is only when it happens, so a title either repeated the date
+ * or invented a label the time already gave. Where the activity is not obvious from context,
+ * the caller puts its name in front.
+ */
+export function sessionLabel(s: Pick<ActivitySession, "day" | "starts_at">, { weekday = true } = {}): string {
+  const date = shortDate(s.day);
+  return `${weekday ? date : date.slice(date.indexOf(" ") + 1)} · ${s.starts_at}`;
+}
 
 export function seatsFor(session: ActivitySession, booked: number): SessionSeats {
   // An organiser may lower a capacity below the bookings already taken. Clamping at zero
@@ -198,14 +212,16 @@ export function isBookedRow(item: AgendaItem): boolean {
  * ids: it keeps the row inside the existing type while staying recognisable to the one
  * component that renders it differently.
  */
-export function bookedAgendaRows(sessions: ActivitySession[]): AgendaItem[] {
+export function bookedAgendaRows(sessions: ActivitySession[], activityNames: ReadonlyMap<string, string>): AgendaItem[] {
   return sessions.map((s) => ({
     id: `${BOOKING_ROW_PREFIX}${s.id}`,
     event_id: s.event_id,
     day: s.day,
     starts_at: s.starts_at,
     ends_at: s.ends_at,
-    title: s.title,
+    // The activity's name: on an agenda the row has to say what it is, and the session's own
+    // time is already the row's time.
+    title: activityNames.get(s.activity_id) ?? "Booked session",
     description: null,
     location: s.location,
     // Already personal: these rows are this attendee's bookings, so no filter may remove them.
@@ -241,8 +257,13 @@ export function mergeAgenda(items: AgendaItem[], derived: AgendaItem[]): AgendaI
  * dimension that is *not* immune the same way runs before the merge too, and so cannot silently
  * drop somebody's own booking just because it was added after the merge already happened.
  */
-export function personalAgenda(allAgenda: AgendaItem[], viewer: AgendaViewer, bookedSessions: ActivitySession[]): AgendaItem[] {
-  return mergeAgenda(visibleTo(allAgenda, viewer), bookedAgendaRows(bookedSessions));
+export function personalAgenda(
+  allAgenda: AgendaItem[],
+  viewer: AgendaViewer,
+  bookedSessions: ActivitySession[],
+  activityNames: ReadonlyMap<string, string>,
+): AgendaItem[] {
+  return mergeAgenda(visibleTo(allAgenda, viewer), bookedAgendaRows(bookedSessions, activityNames));
 }
 
 /** The raw fields both the add form and the settings form post, already pulled out of FormData. */

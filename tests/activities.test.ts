@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  seatsFor, eligible, activityState, unbookedIds, sessionRosters, unbookedByActivity,
+  seatsFor, eligible, activityState, sessionLabel, unbookedIds, sessionRosters, unbookedByActivity,
   bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, BOOKING_ROW_PREFIX,
   readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields,
 } from "@/lib/activities";
@@ -13,7 +13,7 @@ const activity = (over: Partial<Activity> = {}): Activity => ({
   questions: [], per_day: false, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
-  id, event_id: "e", activity_id: "act1", title: id, day: "2026-10-01", starts_at: "09:30",
+  id, event_id: "e", activity_id: "act1", day: "2026-10-01", starts_at: "09:30",
   ends_at: "11:00", location: "Room 2A", capacity: 30, sort_order: 0, ...over,
 });
 const item = (id: string, day: string, starts_at: string): AgendaItem => ({
@@ -170,12 +170,14 @@ describe("unbookedByActivity", () => {
   });
 });
 
+const NAMES = new Map([["act1", "InBody Scan"]]);
+
 describe("bookedAgendaRows", () => {
   it("turns a booked session into an agenda row carrying its own time and place", () => {
-    const [row] = bookedAgendaRows([session("s1")]);
+    const [row] = bookedAgendaRows([session("s1")], NAMES);
     expect(row).toMatchObject({
       id: `${BOOKING_ROW_PREFIX}s1`, day: "2026-10-01", starts_at: "09:30", ends_at: "11:00",
-      title: "s1", location: "Room 2A", slot: null, code: null,
+      title: "InBody Scan", location: "Room 2A", slot: null, code: null,
     });
     // The field that makes the row personal (D133) — asserted on its own, not folded into the
     // toMatchObject above, so a regression that starts copying the session's categories fails
@@ -184,7 +186,7 @@ describe("bookedAgendaRows", () => {
   });
 
   it("marks its rows and only its rows", () => {
-    const [row] = bookedAgendaRows([session("s1")]);
+    const [row] = bookedAgendaRows([session("s1")], NAMES);
     expect(isBookedRow(row)).toBe(true);
     expect(isBookedRow(item("x", "2026-10-01", "09:00"))).toBe(false);
   });
@@ -194,7 +196,7 @@ describe("bookedAgendaRows", () => {
   // Explicitly null rather than left off, so the row is a complete AgendaItem and the
   // portal's thumbnail has one thing to check rather than two.
   it("carries no image", () => {
-    const [row] = bookedAgendaRows([session("s1")]);
+    const [row] = bookedAgendaRows([session("s1")], NAMES);
     expect(row.image_url).toBeNull();
   });
 
@@ -205,7 +207,7 @@ describe("bookedAgendaRows", () => {
   // runs a row through the real filter with a viewer category that would hide an ordinary
   // restricted item, and checks it is not dropped.
   it("keeps a derived row visible under a category filter that would hide a restricted item", () => {
-    const [row] = bookedAgendaRows([session("s1")]);
+    const [row] = bookedAgendaRows([session("s1")], NAMES);
     const restricted = item("r1", "2026-10-01", "09:00");
     const seen = visibleTo([row, { ...restricted, categories: ["VIP"] }], { category: "Staff", assignedItemIds: new Set() });
     expect(seen.map((i) => i.id)).toEqual([row.id]);
@@ -215,13 +217,13 @@ describe("bookedAgendaRows", () => {
 describe("mergeAgenda", () => {
   it("interleaves derived rows by day and time", () => {
     const items = [item("i1", "2026-10-01", "09:00"), item("i2", "2026-10-01", "14:00")];
-    const derived = bookedAgendaRows([session("s1", { starts_at: "11:30" })]);
+    const derived = bookedAgendaRows([session("s1", { starts_at: "11:30" })], NAMES);
     expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual(["i1", `${BOOKING_ROW_PREFIX}s1`, "i2"]);
   });
 
   it("sorts across days, not only within one", () => {
     const items = [item("i1", "2026-10-02", "09:00")];
-    const derived = bookedAgendaRows([session("s1", { day: "2026-10-01", starts_at: "18:00" })]);
+    const derived = bookedAgendaRows([session("s1", { day: "2026-10-01", starts_at: "18:00" })], NAMES);
     expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual([`${BOOKING_ROW_PREFIX}s1`, "i1"]);
   });
 
@@ -239,7 +241,7 @@ describe("mergeAgenda called on an already-filtered list", () => {
   // composition and why the order is still worth keeping despite that immunity.
   it("keeps a booked row that no agenda item corresponds to", () => {
     const filtered: AgendaItem[] = [];
-    const derived = bookedAgendaRows([session("s1")]);
+    const derived = bookedAgendaRows([session("s1")], NAMES);
     expect(mergeAgenda(filtered, derived).map((i) => i.id)).toEqual(["booking:s1"]);
   });
 });
@@ -336,7 +338,14 @@ describe("personalAgenda", () => {
       [visible, restricted],
       { category: "Delegate", assignedItemIds: new Set() },
       [booked],
+      NAMES,
     );
     expect(result.map((i) => i.id)).toEqual(["v1", `${BOOKING_ROW_PREFIX}s1`]);
+  });
+});
+
+describe("sessionLabel", () => {
+  it("names a slot by its day and start time", () => {
+    expect(sessionLabel({ day: "2026-09-28", starts_at: "11:30" })).toBe("Mon 28 Sep · 11:30");
   });
 });

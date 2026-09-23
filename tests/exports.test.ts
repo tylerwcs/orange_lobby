@@ -182,14 +182,14 @@ describe("activity roster workbook", () => {
   ]);
 
   it("gives a booked session its own sheet with header and rows", () => {
-    const sessions = [{ activityName: "Yoga", sessionTitle: "Morning", attendeeIds: ["p1"] }];
+    const sessions = [{ activityName: "Yoga", session: "Morning", attendeeIds: ["p1"] }];
     const ws = buildActivityRostersWorkbook(sessions, [], people).getWorksheet("Yoga — Morning")!;
     expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email"]);
     expect(ws.getRow(2).values).toEqual([undefined, "Ann Tan", "a@b.co"]);
   });
 
   it("still gives an unbooked session a sheet, with a header and no rows", () => {
-    const sessions = [{ activityName: "Yoga", sessionTitle: "Evening", attendeeIds: [] }];
+    const sessions = [{ activityName: "Yoga", session: "Evening", attendeeIds: [] }];
     const wb = buildActivityRostersWorkbook(sessions, [], people);
     const ws = wb.getWorksheet("Yoga — Evening")!;
     expect(ws).toBeTruthy();
@@ -203,10 +203,20 @@ describe("activity roster workbook", () => {
     expect(ws.getRow(2).getCell(1).value).toBe("Bryan Koh");
   });
 
+  it("shortens the activity's name, never the session's time, to fit Excel's 31 characters", () => {
+    const sessions = [
+      { activityName: "InBody Composition Scan", session: "28 Sep · 11:30", attendeeIds: [] },
+      { activityName: "InBody Composition Scan", session: "28 Sep · 11:45", attendeeIds: [] },
+    ];
+    const names = buildActivityRostersWorkbook(sessions, [], people).worksheets.map((w) => w.name);
+    expect(names).toEqual(["InBody Composi — 28 Sep · 11-30", "InBody Composi — 28 Sep · 11-45"]);
+    expect(names.every((n) => n.length <= 31)).toBe(true);
+  });
+
   it("does not let two sessions differing only in case collide and throw", () => {
     const sessions = [
-      { activityName: "Yoga", sessionTitle: "Morning", attendeeIds: ["p1"] },
-      { activityName: "Yoga", sessionTitle: "morning", attendeeIds: ["p2"] },
+      { activityName: "Yoga", session: "Morning", attendeeIds: ["p1"] },
+      { activityName: "Yoga", session: "morning", attendeeIds: ["p2"] },
     ];
     const wb = buildActivityRostersWorkbook(sessions, [], people);
     expect(wb.worksheets.length).toBe(2);
@@ -219,8 +229,8 @@ describe("activity roster workbook", () => {
     // fills the 31-character cap - the naive truncation would make them identical.
     const activityName = "Regional teams offsite planning workshop";
     const sessions = [
-      { activityName, sessionTitle: "Session A", attendeeIds: ["p1"] },
-      { activityName, sessionTitle: "Session B", attendeeIds: ["p2"] },
+      { activityName, session: "Session A", attendeeIds: ["p1"] },
+      { activityName, session: "Session B", attendeeIds: ["p2"] },
     ];
     const wb = buildActivityRostersWorkbook(sessions, [], people);
     expect(wb.worksheets.length).toBe(2);

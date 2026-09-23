@@ -2,7 +2,7 @@ import type { ActivityControls } from "@/lib/activity-requests";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Icon } from "@/components/ui/icon";
-import { shortDate } from "@/lib/text";
+import { sessionLabel } from "@/lib/activities";
 
 /**
  * The attendee's own seats in one activity: what they hold, any request waiting on the desk,
@@ -37,8 +37,8 @@ export function ActivityBooking({ controls, pendingId, requestCancel, withdraw }
       <div className="rounded-[12px] bg-accent p-3 text-sm">
         <p className="font-bold text-accent-foreground">
           {pending.kind === "cancel"
-            ? `Waiting for approval: cancel ${pending.fromTitle ?? "your session"}`
-            : `Waiting for approval: move to ${pending.toTitle ?? "another session"}`}
+            ? `Waiting for approval: cancel ${pending.fromLabel ?? "your session"}`
+            : `Waiting for approval: move to ${pending.toLabel ?? "another session"}`}
         </p>
         <p className="mt-1 text-muted-foreground">
           Your seat is held until the desk agrees, so nothing has changed yet.
@@ -57,15 +57,15 @@ export function ActivityBooking({ controls, pendingId, requestCancel, withdraw }
       {declined && (
         <p className="text-sm text-warning">
           {declined.kind === "cancel"
-            ? `The desk declined your request to cancel ${declined.fromTitle ?? "that session"}.`
-            : `The desk declined your request to move to ${declined.toTitle ?? "another session"}.`}
+            ? `The desk declined your request to cancel ${declined.fromLabel ?? "that session"}.`
+            : `The desk declined your request to move to ${declined.toLabel ?? "another session"}.`}
         </p>
       )}
       {held.map((seat) => (
         <div key={seat.session.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-success-soft px-3 py-2 text-sm text-success-strong">
           <span className="flex items-center gap-1.5 font-bold">
             <Icon name="check" size={16} />
-            You&apos;re booked {shortDate(seat.session.day)} · {seat.session.starts_at}
+            You&apos;re booked {sessionLabel(seat.session)}
           </span>
           {canRequestCancel && (
             <form action={requestCancel.bind(null, seat.session.id)}>
@@ -74,7 +74,7 @@ export function ActivityBooking({ controls, pendingId, requestCancel, withdraw }
                 triggerVariant="link"
                 className="h-auto p-0 text-success-strong underline"
                 confirmLabel="Send request"
-                message={`Ask the desk to cancel ${seat.session.title}? Your seat is held until they agree.`}
+                message={`Ask the desk to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
               >
                 Ask to cancel
               </ConfirmButton>

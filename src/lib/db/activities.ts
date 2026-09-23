@@ -18,7 +18,6 @@ export type NewActivity = {
 };
 
 export type NewSession = {
-  title: string;
   day: string;
   starts_at: string;
   ends_at: string | null;

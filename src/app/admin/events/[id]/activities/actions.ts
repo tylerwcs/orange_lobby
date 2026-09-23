@@ -9,7 +9,7 @@ import {
   syncSubmissionPerDay, type NewActivity, type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
 import { getRequest, decideRequest } from "@/lib/db/activity-requests";
-import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields } from "@/lib/activities";
+import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields, sessionLabel } from "@/lib/activities";
 import { listAttendees } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
@@ -219,14 +219,12 @@ export async function deleteSubmissionActivityAction(eventId: string, activityId
 }
 
 function readSession(fd: FormData) {
-  const title = text(fd, "title");
-  if (!title) throw new Error("A session needs a title");
   const day = text(fd, "day");
   const starts_at = text(fd, "starts_at");
   if (!day || !starts_at) throw new Error("A session needs a day and a start time");
   const capacity = Number.parseInt(text(fd, "capacity") || "0", 10);
   if (!Number.isFinite(capacity) || capacity < 1) throw new Error("Capacity must be at least 1");
-  return { title, day, starts_at, ends_at: text(fd, "ends_at") || null, location: text(fd, "location") || null, capacity };
+  return { day, starts_at, ends_at: text(fd, "ends_at") || null, location: text(fd, "location") || null, capacity };
 }
 
 export async function addSessionAction(eventId: string, activityId: string, fd: FormData) {
@@ -309,7 +307,7 @@ export async function placeAttendeesAction(eventId: string, activityId: string, 
   for (const id of ids) {
     outcomes.push(await bookSession(session.id, id, true));
   }
-  const { message, tone } = describePlacement(outcomes, session.title);
+  const { message, tone } = describePlacement(outcomes, sessionLabel(session));
   revalidatePath(path);
   redirect(flashPath(path, message, tone));
 }

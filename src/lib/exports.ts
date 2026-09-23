@@ -111,9 +111,17 @@ export function rosterSheetName(slot: string, code: string, taken: Set<string>):
   return uniqueSheetName(base, taken);
 }
 
-/** The title for one activity session's sheet: "<activity> — <session>", sanitised and unique. */
-export function activitySheetName(activityName: string, sessionTitle: string, taken: Set<string>): string {
-  return uniqueSheetName(`${sanitizeSheetNamePart(activityName)} — ${sanitizeSheetNamePart(sessionTitle)}`, taken);
+/**
+ * The title for one activity session's sheet: "<activity> — <when>", sanitised and unique.
+ *
+ * Excel stops at 31 characters, and the session's part is what tells InBody's 32 sheets
+ * apart, so the activity's name is what gets shortened: "InBody Scan — 28 Sep · 11-30",
+ * never "InBody Scan — Mon 28 Sep · 11-3" with the minute cut off.
+ */
+export function activitySheetName(activityName: string, session: string, taken: Set<string>): string {
+  const when = sanitizeSheetNamePart(session);
+  const room = Math.max(1, 31 - when.length - 3);
+  return uniqueSheetName(`${sanitizeSheetNamePart(activityName).slice(0, room).trim()} — ${when}`, taken);
 }
 
 /** The title for an activity's "who has not booked" sheet. */
@@ -158,7 +166,7 @@ export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, Ros
   return wb;
 }
 
-export type ActivitySessionRoster = { activityName: string; sessionTitle: string; attendeeIds: string[] };
+export type ActivitySessionRoster = { activityName: string; session: string; attendeeIds: string[] };
 export type ActivityUnbookedRoster = { activityName: string; attendeeIds: string[] };
 
 /**
@@ -197,7 +205,7 @@ export function buildActivityRostersWorkbook(
     }
     ws.columns = [{ width: 28 }, { width: 28 }];
   };
-  for (const s of sessions) sheet(activitySheetName(s.activityName, s.sessionTitle, taken), s.attendeeIds);
+  for (const s of sessions) sheet(activitySheetName(s.activityName, s.session, taken), s.attendeeIds);
   for (const u of unbooked) sheet(activityUnbookedSheetName(u.activityName, taken), u.attendeeIds);
   if (sessions.length === 0 && unbooked.length === 0) {
     const ws = wb.addWorksheet("No sessions");

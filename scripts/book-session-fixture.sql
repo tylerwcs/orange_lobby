@@ -110,8 +110,8 @@ begin
     values (v_org, 'fixture-a-' || v_tok1, 'Fixture A', 'draft') returning id into v_event;
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event, 'Workshops', true, false, 1) returning id into v_act;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Only seat', current_date, '09:30', 1) returning id into v_sess;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '09:30', 1) returning id into v_sess;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'First', 'walkin') returning id into v_a1;
   insert into attendees (org_id, event_id, token, name, source)
@@ -158,12 +158,12 @@ begin
   -- eligibility check that pre-empted it in the original (uncommitted) fixture.
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event, 'Workshops', true, true, 1) returning id into v_act;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room A', current_date, '09:30', 1) returning id into v_sess1;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room B', current_date, '11:30', 1) returning id into v_sess2;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room C', current_date, '13:30', 1) returning id into v_sess3;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '09:30', 1) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '11:30', 1) returning id into v_sess2;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '13:30', 1) returning id into v_sess3;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'First', 'walkin') returning id into v_a1;
   insert into attendees (org_id, event_id, token, name, source)
@@ -221,12 +221,12 @@ begin
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event1, 'Activity 2', false, true, 1) returning id into v_act2;
 
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event1, v_act1, 'Act1 Room', current_date, '09:30', 5) returning id into v_sess1;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event1, v_act1, 'Act1 Room 2', current_date, '10:30', 5) returning id into v_sess2;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event1, v_act2, 'Act2 Room', current_date, '09:30', 5) returning id into v_sess_other_act;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event1, v_act1, current_date, '09:30', 5) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event1, v_act1, current_date, '10:30', 5) returning id into v_sess2;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event1, v_act2, current_date, '09:30', 5) returning id into v_sess_other_act;
 
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event1, v_tok1, 'In event', 'walkin') returning id into v_a1;
@@ -286,10 +286,10 @@ begin
   -- once — the precondition that reached the unhandled unique-violation before the fix.
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event, 'Workshops', false, true, 2) returning id into v_act;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess1;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess2;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '09:30', 5) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '11:30', 5) returning id into v_sess2;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'Double booked', 'walkin') returning id into v_a1;
 
@@ -331,12 +331,12 @@ begin
   -- booking, never max_per_attendee of them).
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event, 'Workshops', true, true, 2) returning id into v_act;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess1;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess2;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room C (never booked)', current_date, '13:30', 5) returning id into v_sess3;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '09:30', 5) returning id into v_sess1;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '11:30', 5) returning id into v_sess2;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '13:30', 5) returning id into v_sess3;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'Needs a choice', 'walkin') returning id into v_a1;
 
@@ -396,17 +396,17 @@ begin
   -- pre-empt the capacity refusal and never let it fire.
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event, 'Workshops', false, true, 1) returning id into v_act;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess_a;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess_b;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '09:30', 5) returning id into v_sess_a;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '11:30', 5) returning id into v_sess_b;
   -- Room C: capacity 1, filled by a second attendee below - the target for the capacity case.
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room C (full)', current_date, '13:30', 1) returning id into v_sess_c;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '13:30', 1) returning id into v_sess_c;
   -- Room D: plenty of room, empty - the target for the eligibility case, so 'ineligible' is
   -- what fires there and not 'full'.
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room D', current_date, '15:30', 5) returning id into v_sess_d;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '15:30', 5) returning id into v_sess_d;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'Queued switch', 'walkin') returning id into v_a1;
   insert into attendees (org_id, event_id, token, name, source)
@@ -492,14 +492,14 @@ begin
     values (v_org, 'fixture-g-' || v_tok1, 'Fixture G', 'draft') returning id into v_event;
   insert into activities (org_id, event_id, name, required, booking_open, max_per_attendee)
     values (v_org, v_event, 'Workshops', false, true, 1) returning id into v_act;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room A', current_date, '09:30', 5) returning id into v_sess_a;
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room B', current_date, '11:30', 5) returning id into v_sess_b;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '09:30', 5) returning id into v_sess_a;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '11:30', 5) returning id into v_sess_b;
   -- Room C: capacity 1, filled by a second attendee below — the target for the refused-approval
   -- case, so 'full' is what decide_request's nested switch_session call actually returns.
-  insert into activity_sessions (event_id, activity_id, title, day, starts_at, capacity)
-    values (v_event, v_act, 'Room C (full)', current_date, '13:30', 1) returning id into v_sess_c;
+  insert into activity_sessions (event_id, activity_id, day, starts_at, capacity)
+    values (v_event, v_act, current_date, '13:30', 1) returning id into v_sess_c;
   insert into attendees (org_id, event_id, token, name, source)
     values (v_org, v_event, v_tok1, 'Queued switch', 'walkin') returning id into v_a1;
   insert into attendees (org_id, event_id, token, name, source)

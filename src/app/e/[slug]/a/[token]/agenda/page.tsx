@@ -25,7 +25,12 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
     : [[], []];
   const bookedSessions = sessions.filter((s) => myBookings.some((b) => b.session_id === s.id));
   // Same composition loadHomeData uses - see personalAgenda's own doc for the ordering.
-  const items = personalAgenda(allAgenda, { category: attendee.category, assignedItemIds }, bookedSessions);
+  const items = personalAgenda(
+    allAgenda,
+    { category: attendee.category, assignedItemIds },
+    bookedSessions,
+    new Map(activities.map((a) => [a.id, a.name])),
+  );
   const days = groupByDay(items).map((d) => d.day);
   const now = nowInKL();
   const day = pickDay(days, requested, now.date);

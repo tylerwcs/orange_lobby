@@ -5,7 +5,7 @@ import type { SeatsForViewer } from "@/lib/activities";
 let n = 0;
 const seat = (day: string, starts_at: string, over: Partial<SeatsForViewer["session"]> = {}, state: Partial<Omit<SeatsForViewer, "session">> = {}): SeatsForViewer => ({
   session: {
-    id: `s${n++}`, event_id: "e", activity_id: "a", title: "Mon 28 Sep", day, starts_at,
+    id: `s${n++}`, event_id: "e", activity_id: "a", day, starts_at,
     ends_at: addMinutes(starts_at, 15), location: "Gardensby17", capacity: 3, sort_order: 0, ...over,
   },
   booked: 0, left: 3, full: false, mine: false, ...state,
@@ -33,17 +33,6 @@ describe("sessionGrid", () => {
     const mon = g.days[0];
     expect(mon.periods.map((p) => p.period)).toEqual(["Morning", "Afternoon"]);
     expect(mon.periods[0].slots.map((s) => s.session.starts_at)).toEqual(["11:00", "11:15"]);
-  });
-
-  it("hides titles when every session that day carries the same one", () => {
-    // InBody's titles are the date, which the day tab already says.
-    const g = sessionGrid([seat("2026-09-28", "11:00"), seat("2026-09-28", "11:15")]);
-    expect(g.days[0].titled).toBe(false);
-  });
-
-  it("shows titles when they tell sessions apart", () => {
-    const g = sessionGrid([seat("2026-09-22", "16:20", { title: "Morning" }), seat("2026-09-22", "19:20", { title: "Afternoon" })]);
-    expect(g.days[0].titled).toBe(true);
   });
 
   it("names the room once when every session shares it, and not at all when they differ", () => {

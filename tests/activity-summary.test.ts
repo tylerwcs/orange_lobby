@@ -8,7 +8,7 @@ const activity = (over: Partial<Activity> = {}): Activity => ({
   questions: [], per_day: false, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
-  id, event_id: "e", activity_id: "act1", title: id, day: "2026-09-28", starts_at: "11:00",
+  id, event_id: "e", activity_id: "act1", day: "2026-09-28", starts_at: "11:00",
   ends_at: "11:15", location: "Gardensby17", capacity: 3, sort_order: 0, ...over,
 });
 const booking = (activity_id: string, session_id: string, attendee_id: string): ActivityBooking =>

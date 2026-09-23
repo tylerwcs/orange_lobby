@@ -1,6 +1,6 @@
 "use client";
 import { useOptimistic, useRef, useState, useTransition } from "react";
-import type { SessionSeats } from "@/lib/activities";
+import { sessionLabel, type SessionSeats } from "@/lib/activities";
 import { meterPercent } from "@/lib/meter";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
@@ -50,7 +50,7 @@ export function SessionList({ items, addSession, saveSession, deleteSession, reo
     const next = moveItem(order, from, to);
     startTransition(async () => {
       setOrder(next);
-      setMessage(`${moved.session.title} moved to position ${next.indexOf(moved) + 1} of ${next.length}`);
+      setMessage(`${sessionLabel(moved.session)} moved to position ${next.indexOf(moved) + 1} of ${next.length}`);
       await reorder(next.map((item) => item.session.id));
     });
   };
@@ -60,7 +60,6 @@ export function SessionList({ items, addSession, saveSession, deleteSession, reo
       <div className="flex justify-end py-3">
         <Modal title="Add a session" trigger="Add session" icon="plus">
           <form action={addSession} className="grid gap-4">
-            <Field label="Title" name="title" placeholder="Morning track" />
             <div className="grid grid-cols-2 gap-4">
               <Field label="Day" name="day" type="date" />
               <Field label="Capacity" name="capacity" type="number" defaultValue="20" />
@@ -81,7 +80,10 @@ export function SessionList({ items, addSession, saveSession, deleteSession, reo
         <ul className="divide-y divide-border" aria-busy={pending}>
           {order.map((item, i) => {
             const { session } = item;
-            const when = [session.day, session.ends_at ? `${session.starts_at}–${session.ends_at}` : session.starts_at]
+            // No title: a session is named by when it runs (sessionLabel), and the row's second
+            // line adds what the label leaves out - the end time and the room.
+            const label = sessionLabel(session);
+            const detail = [session.ends_at ? `${session.starts_at}–${session.ends_at}` : null, session.location]
               .filter(Boolean).join(" · ");
             return (
               <li
@@ -100,7 +102,7 @@ export function SessionList({ items, addSession, saveSession, deleteSession, reo
                     replaces. */}
                 <button
                   type="button"
-                  aria-label={`Reorder ${session.title}. Position ${i + 1} of ${order.length}. Use the arrow keys to move it.`}
+                  aria-label={`Reorder ${label}. Position ${i + 1} of ${order.length}. Use the arrow keys to move it.`}
                   onKeyDown={(e) => {
                     const to = e.key === "ArrowUp" ? i - 1 : e.key === "ArrowDown" ? i + 1 : null;
                     if (to === null) return;
@@ -113,11 +115,8 @@ export function SessionList({ items, addSession, saveSession, deleteSession, reo
                 </button>
 
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-bold">{session.title}</div>
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    {when}
-                    {session.location ? ` · ${session.location}` : ""}
-                  </div>
+                  <div className="text-sm font-bold tabular-nums">{label}</div>
+                  {detail && <div className="text-xs font-semibold text-muted-foreground tabular-nums">{detail}</div>}
                 </div>
 
                 <div className="flex w-40 shrink-0 flex-col gap-1">
@@ -128,9 +127,8 @@ export function SessionList({ items, addSession, saveSession, deleteSession, reo
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <Modal title={`Edit ${session.title}`} trigger="Edit" variant="outline">
+                  <Modal title={`Edit ${label}`} trigger="Edit" variant="outline">
                     <form action={saveSession.bind(null, session.id)} className="grid gap-4">
-                      <Field label="Title" name="title" defaultValue={session.title} />
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Day" name="day" type="date" defaultValue={session.day} />
                         <Field label="Capacity" name="capacity" type="number" defaultValue={String(session.capacity)} />
@@ -146,7 +144,7 @@ export function SessionList({ items, addSession, saveSession, deleteSession, reo
 
                   <form action={() => deleteSession(session.id)}>
                     <ConfirmButton
-                      message={`Delete ${session.title}? Its ${item.booked} booking${item.booked === 1 ? "" : "s"} go with it.`}
+                      message={`Delete ${label}? Its ${item.booked} booking${item.booked === 1 ? "" : "s"} go with it.`}
                       className="text-destructive"
                     >
                       Delete
