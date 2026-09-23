@@ -15,8 +15,15 @@
 -- booking is a seat in a session and a submission is a set of answers. They keep their own
 -- tables, their own write functions and their own races.
 --
--- Safe to run because `forms` is empty (no event has used one yet). The INSERT below is written
--- correctly regardless, so this migration is not silently dependent on that being true.
+-- The INSERT below carries every existing form across. An earlier draft of this comment said
+-- `forms` was empty and that the INSERT was belt-and-braces; that was wrong. ECP KOM 2026 had
+-- FTFORWARD, with two questions and a real submission carrying an uploaded file, and it came
+-- through intact only because the INSERT was written as though it mattered. Verified after the
+-- fact: both questions, the select's options and description, the submission, and the object
+-- path matching the file still in the bucket.
+--
+-- The lesson is the one that keeps being relearned here: write the migration for the data that
+-- might exist, not the data you believe exists.
 
 alter table activities
   -- 'booking' is the default so every existing row keeps its meaning without a backfill.

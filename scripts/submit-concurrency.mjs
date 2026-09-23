@@ -1,22 +1,22 @@
-// Executable regression evidence that the row lock in submit_form actually enforces its
-// invariants under contention (supabase/migrations/0026_submit_form.sql). Committed for the
+// Executable regression evidence that the row lock in submit_answers actually enforces its
+// invariants under contention (supabase/migrations/0030_kind_aware_writes.sql). Committed for the
 // same reason as scripts/booking-concurrency.mjs: vitest has no database (D141), and a
 // sequential fixture is structurally unable to prove serialisation at all — two calls made one
 // after the other can never race, no matter what the SQL does. Only a real concurrent run can
 // show that.
 //
 // WHAT THIS PROVES:
-//   - Scenario 1 (total cap): a form with max_per_attendee=1 gets 20 simultaneous submit_form
+//   - Scenario 1 (total cap): a submission activity with max_per_attendee=1 gets 20 simultaneous submit_answers
 //     calls from the same attendee. `count(*)` then `insert` is two statements, and without the
 //     form-row lock, enough parallel callers can all read "0 used" before any of them inserts.
 //     Locking the form row and re-counting under that lock means exactly one of the 20 wins
-//     ('ok'), the other 19 are refused ('limit'), and exactly one row lands in form_submissions.
+//     ('ok'), the other 19 are refused ('limit'), and exactly one row lands in activity_submissions.
 //   - Scenario 2 (one-a-day): a form with per_day=true and no total cap gets 20 simultaneous
-//     submit_form calls from the same attendee for the same p_today. The explicit per_day check
+//     submit_answers calls from the same attendee for the same p_today. The explicit per_day check
 //     is the same read-then-write shape as the cap check above and races the same way; the
-//     partial unique index (form_submissions_one_a_day, 0025_forms.sql) is the backstop the
+//     partial unique index (activity_submissions_one_a_day, 0025_forms.sql, renamed in 0029) is the backstop the
 //     unique_violation handler turns back into a reason code. Exactly one call wins ('ok'), the
-//     other 19 are refused ('today'), and exactly one row lands in form_submissions.
+//     other 19 are refused ('today'), and exactly one row lands in activity_submissions.
 //
 // HOW TO RUN: npm run check:submit (equivalent to
 // `node --env-file=.env.local scripts/submit-concurrency.mjs`). Requires .env.local with
@@ -31,7 +31,7 @@
 // still cleans up after itself before the process exits non-zero, but later scenarios do not run.
 //
 // SCOPE: every statement this script issues is scoped to the throwaway event it creates for
-// that scenario (by event_id, form_id or attendee_id all rooted in that event). It never reads
+// that scenario (by event_id, activity_id or attendee_id all rooted in that event). It never reads
 // or writes any pre-existing event, attendee, form or submission.
 import { randomUUID, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
@@ -78,7 +78,7 @@ const tallyOf = (results) => results.reduce((acc, r) => ({ ...acc, [r]: (acc[r] 
 /**
  * The hole a check-then-insert without a lock leaves open: `used >= max_per_attendee` reads a
  * stale count for every caller that arrives before the first insert commits. One attendee
- * fires submit_form at the same form 20 times at once; if the form row is not locked, enough
+ * fires submit_answers at the same activity 20 times at once; if the activity row is not locked, enough
  * of those 20 can each read "0 used" and all insert. Locking the form row and re-counting under
  * it means only the first to acquire the lock ever sees "0 used" — everyone behind it sees "1
  * used" once it commits.
@@ -91,8 +91,8 @@ async function scenarioTotalCap() {
   if (eventErr) fail(eventErr.message);
 
   try {
-    const { data: form, error: formErr } = await db.from("forms")
-      .insert({ org_id: ORG_ID, event_id: event.id, name: "Cap race", submissions_open: true, max_per_attendee: 1 })
+    const { data: form, error: formErr } = await db.from("activities")
+      .insert({ org_id: ORG_ID, event_id: event.id, name: "Cap race", kind: "submission", is_open: true, max_per_attendee: 1 })
       .select("id").single();
     if (formErr) fail(formErr.message);
 
@@ -102,16 +102,16 @@ async function scenarioTotalCap() {
     if (attendeeErr) fail(attendeeErr.message);
 
     const results = await Promise.all(Array.from({ length: PARALLEL }, () =>
-      db.rpc("submit_form", { p_form_id: form.id, p_attendee_id: attendee.id, p_answers: {}, p_today: "2026-10-01" })
+      db.rpc("submit_answers", { p_activity_id: form.id, p_attendee_id: attendee.id, p_answers: {}, p_today: "2026-10-01" })
         .then((r) => (r.error ? `error:${r.error.message}` : r.data))));
 
     const tally = tallyOf(results);
-    const { count, error: countErr } = await db.from("form_submissions")
-      .select("id", { count: "exact", head: true }).eq("form_id", form.id).eq("attendee_id", attendee.id);
+    const { count, error: countErr } = await db.from("activity_submissions")
+      .select("id", { count: "exact", head: true }).eq("activity_id", form.id).eq("attendee_id", attendee.id);
     if (countErr) fail(countErr.message);
 
     console.log(`${PARALLEL} parallel calls ->`, tally);
-    console.log(`rows in form_submissions: ${count}`);
+    console.log(`rows in activity_submissions: ${count}`);
 
     if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
     if (tally.limit !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} 'limit', got ${tally.limit ?? 0}`);
@@ -125,9 +125,9 @@ async function scenarioTotalCap() {
 
 /**
  * The same shape, on the daily cap: a form with per_day=true and no total cap gets 20
- * simultaneous submit_form calls from one attendee for the same p_today. The explicit
+ * simultaneous submit_answers calls from one attendee for the same p_today. The explicit
  * "already submitted today" check races exactly like the total-cap check above; the partial
- * unique index (form_submissions_one_a_day) is what actually stops a second row from landing
+ * unique index (activity_submissions_one_a_day) is what actually stops a second row from landing
  * if two callers both pass the check, and the unique_violation handler - scoped to that one
  * constraint by name, so a genuine fault elsewhere in the table still re-raises - turns that
  * into 'today' rather than an unhandled error. 'today' names the situation the attendee is in,
@@ -143,8 +143,8 @@ async function scenarioPerDay() {
   if (eventErr) fail(eventErr.message);
 
   try {
-    const { data: form, error: formErr } = await db.from("forms")
-      .insert({ org_id: ORG_ID, event_id: event.id, name: "Daily race", submissions_open: true, max_per_attendee: null, per_day: true })
+    const { data: form, error: formErr } = await db.from("activities")
+      .insert({ org_id: ORG_ID, event_id: event.id, name: "Daily race", kind: "submission", is_open: true, max_per_attendee: null, per_day: true })
       .select("id").single();
     if (formErr) fail(formErr.message);
 
@@ -154,16 +154,16 @@ async function scenarioPerDay() {
     if (attendeeErr) fail(attendeeErr.message);
 
     const results = await Promise.all(Array.from({ length: PARALLEL }, () =>
-      db.rpc("submit_form", { p_form_id: form.id, p_attendee_id: attendee.id, p_answers: {}, p_today: "2026-10-01" })
+      db.rpc("submit_answers", { p_activity_id: form.id, p_attendee_id: attendee.id, p_answers: {}, p_today: "2026-10-01" })
         .then((r) => (r.error ? `error:${r.error.message}` : r.data))));
 
     const tally = tallyOf(results);
-    const { count, error: countErr } = await db.from("form_submissions")
-      .select("id", { count: "exact", head: true }).eq("form_id", form.id).eq("attendee_id", attendee.id);
+    const { count, error: countErr } = await db.from("activity_submissions")
+      .select("id", { count: "exact", head: true }).eq("activity_id", form.id).eq("attendee_id", attendee.id);
     if (countErr) fail(countErr.message);
 
     console.log(`${PARALLEL} parallel calls ->`, tally);
-    console.log(`rows in form_submissions: ${count}`);
+    console.log(`rows in activity_submissions: ${count}`);
 
     if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
     if (tally.today !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} 'today', got ${tally.today ?? 0}`);
