@@ -18,6 +18,7 @@ import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
 import { parseCategories } from "@/lib/agenda";
+import { cleanRichText } from "@/lib/rich-text";
 
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
@@ -42,7 +43,15 @@ function policyFields(fd: FormData): ActivityFormFields {
 
 export async function addActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
-  await createActivity(ev, readNewActivity({ ...policyFields(fd), is_open: checked(fd, "is_open") }));
+  const input = readNewActivity({ ...policyFields(fd), is_open: checked(fd, "is_open") });
+  // After the fields are read, so a form refused for its text never leaves a picture behind.
+  let image: ImageChange = { url: null, stale: null };
+  try {
+    image = await nextImage(fd, "image", null, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  await createActivity(ev, { ...input, image_url: image.url });
   revalidatePath(`/admin/events/${eventId}/activities`);
 }
 
@@ -53,7 +62,19 @@ export async function addActivityAction(eventId: string, fd: FormData) {
  */
 export async function saveActivityAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
-  await updateActivity(activityId, ev.id, readActivityPolicy(policyFields(fd)));
+  const back = `${listPath(eventId)}/${activityId}`;
+  const policy = readActivityPolicy(policyFields(fd));
+  const current = await getActivity(activityId, ev.id);
+  if (!current) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  let image: ImageChange = { url: current.image_url, stale: null };
+  try {
+    image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  await updateActivity(activityId, ev.id, { ...policy, image_url: image.url });
+  // Only once the row names the new picture (or none) is the old one safe to throw away.
+  await deleteEventImage(image.stale);
   revalidatePath(`/admin/events/${eventId}/activities`);
   revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
   redirect(flashPath(`/admin/events/${eventId}/activities/${activityId}`, "Activity saved."));
@@ -89,7 +110,10 @@ export async function toggleOpenAction(eventId: string, activityId: string) {
 /** Cascades sessions and bookings (D135), so the confirm dialog says how many seats go with it. */
 export async function deleteActivityAction(eventId: string, activityId: string) {
   const ev = await event(eventId);
+  // Read before the delete, because afterwards there is no row to ask for its picture.
+  const doomed = await getActivity(activityId, ev.id);
   await deleteActivity(activityId, ev.id);
+  await deleteEventImage(doomed?.image_url);
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Activity deleted."));
 }
@@ -139,7 +163,7 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
   );
   return {
     name,
-    description: text(fd, "description") || null,
+    description: cleanRichText(text(fd, "description")),
     categories: parseCategories(text(fd, "categories")),
     max_per_attendee,
     per_day: checked(fd, "per_day"),

@@ -9,9 +9,13 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { QuestionEditor } from "@/components/admin/QuestionEditor";
 import { ImageField } from "@/components/admin/ImageField";
+import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";
+
+/** The hint under every activity's image field, both kinds. */
+export const COVER_HINT = "The picture on the activity's card and across the top of its page. The card crops it to a wide strip; the page shows it whole. Wide images suit both.";
 
 /**
  * The fields the add-submission form and its own edit form share. `readSubmissionPolicy` in
@@ -23,12 +27,12 @@ export function SubmissionFields({ activity }: { activity?: Activity }) {
   return (
     <>
       <Field label="Name" name="name" defaultValue={activity?.name} placeholder="Feedback" />
-      <Field label="Description (optional)" name="description" textarea defaultValue={activity?.description} placeholder="Tell us how today went." />
+      <RichTextEditor name="description" label="Description (optional)" defaultValue={activity?.description} description={SECTIONS_HINT} />
       <ImageField
         label="Image (optional)"
         name="image"
         url={activity?.image_url}
-        description="A poster or the rules, shown above the form at its own size, never cropped."
+        description={COVER_HINT}
       />
       <Field label="Categories (optional)" name="categories" defaultValue={activity?.categories?.join(", ")} placeholder="VIP, Management"
         description="Comma separated. Leave blank to offer it to everyone." />
@@ -116,7 +120,7 @@ export function ActivityRows({ items, counts, seats, pending, submissionCounts, 
               <SubmitButton variant="outline">{a.is_open ? "Close" : "Open"}</SubmitButton>
             </form>
             <Modal title={`Edit ${a.name}`} trigger="Edit" variant="outline">
-              <form action={saveSubmission.bind(null, a.id)} className="grid gap-4">
+              <form action={saveSubmission.bind(null, a.id)} className="grid grid-cols-1 gap-4">
                 <SubmissionFields activity={a} />
                 <SubmitButton>Save</SubmitButton>
               </form>

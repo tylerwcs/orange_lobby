@@ -1,102 +1,61 @@
 import Link from "next/link";
-import type { Activity } from "@/lib/types";
-import type { SubmitState } from "@/lib/submissions";
 import { bookingSection } from "@/lib/portal-activities";
-import { sessionLabel } from "@/lib/activities";
-import { Badge } from "@/components/ui/badge";
-import { Icon } from "@/components/ui/icon";
-import { ActivitySheet } from "./ActivitySheet";
-import { ActivitySessions, type ActivityEntry, type BookingActions } from "./ActivitySessions";
-
-export type SubmissionEntry = { form: Activity; state: SubmitState };
+import { bookingCard, formCard, type CardView } from "@/lib/activity-card";
+import type { ActivityEntry, SubmissionEntry } from "@/lib/portal-activity-entries";
+import type { Activity } from "@/lib/types";
+import { ActivityCover, KindTag, MetaLine, StatusChip } from "./ActivityParts";
 
 const caption = "px-0.5 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
-const Chevron = () => <Icon name="chevron" size={18} className="-rotate-90 shrink-0 text-muted-foreground" />;
 
 /**
- * The Activities tab: every activity this attendee can see, sorted by what they need to do
- * about it (`bookingSection`) - To choose, Booked, Open to you. A section with nothing in it is
- * not drawn.
+ * The Activities tab: every activity this attendee can see, as a card with its picture, sorted
+ * by what they need to do about it (`bookingSection`) - To choose, Booked, Open to you. A
+ * section with nothing in it is not drawn.
  *
- * Each booking activity is a short card that opens `ActivitySessions` in a sheet; the card
- * says only enough to decide whether to tap. A submission activity links to its own page, as it
- * always has, and sits under Open to you: it has no seat to hold, and a form already sent is
- * still somewhere to go back to (D167 lets some take more than one).
+ * Every card goes to the activity's own page, whichever kind it is: that is where the poster is
+ * read in full, the sections are, and the booking or the form happens. The card says only
+ * enough to decide whether to tap - `bookingCard` and `formCard` decide what.
+ *
+ * A stacked list, not the reference app's carousel: an event has a handful of activities, and
+ * a carousel of two hides one of them for no reason.
  */
-export function ActivitiesTab({ bookings, submissions, actions, basePath }: {
+export function ActivitiesTab({ bookings, submissions, basePath }: {
   bookings: ActivityEntry[];
   submissions: SubmissionEntry[];
-  actions: BookingActions;
   basePath: string;
 }) {
   const placed = bookings.map((entry) => ({ entry, section: bookingSection(entry.state, entry.controls.pending !== null) }));
-  const choose = placed.filter((p) => p.section === "choose").map((p) => p.entry);
-  const booked = placed.filter((p) => p.section === "booked").map((p) => p.entry);
-  const openBookings = placed.filter((p) => p.section === "open").map((p) => p.entry);
-  // Same rule SubmissionList applied: a closed form still shows to somebody outside its
-  // categories, because `canSubmit` reports closed first; only "ineligible" hides one.
-  const openForms = submissions.filter((s) => s.state.reason !== "ineligible");
+  const pick = (section: string) => placed.filter((p) => p.section === section).map((p) => p.entry);
+  const choose = pick("choose");
+  const booked = pick("booked");
+  const openBookings = pick("open");
+  // A closed form still shows to somebody outside its categories, because `canSubmit` reports
+  // closed first; only "ineligible" hides one.
+  const forms = submissions.filter((s) => s.state.reason !== "ineligible");
 
-  if (choose.length + booked.length + openBookings.length + openForms.length === 0) {
+  if (choose.length + booked.length + openBookings.length + forms.length === 0) {
     return <p className="text-sm text-muted-foreground">There is nothing here for this event yet.</p>;
   }
 
-  const sheet = (entry: ActivityEntry, face: React.ReactNode, emphasis = false) => (
-    <ActivitySheet
+  const bookingItem = (entry: ActivityEntry, emphasis = false) => (
+    <ActivityCard
       key={entry.state.activity.id}
-      face={face}
-      title={entry.state.activity.name}
-      badge={entry.state.mustPick ? <Badge variant="secondary">Pick one</Badge> : undefined}
-      description={entry.state.mustPick ? "Choose one session. The desk can move you later." : undefined}
+      activity={entry.state.activity}
+      view={bookingCard({ state: entry.state, pending: entry.controls.pending !== null })}
+      href={`${basePath}/activities/${entry.state.activity.id}`}
       emphasis={emphasis}
-    >
-      <ActivitySessions entry={entry} actions={actions} />
-    </ActivitySheet>
+    />
   );
 
   return (
-    <div className="flex flex-col gap-5">
-      {(choose.length > 0 || booked.length > 0) && (
-        <div className="-mt-2 flex flex-wrap gap-2">
-          {choose.length > 0 && <Badge variant="secondary">{choose.length} to choose</Badge>}
-          {booked.length > 0 && <Badge variant="outline">{booked.length} booked</Badge>}
-        </div>
-      )}
-
-      {choose.length > 0 && (
-        <Section title="To choose">
-          {choose.map((entry) => sheet(entry, <ChooseFace entry={entry} />, true))}
-        </Section>
-      )}
-
-      {booked.length > 0 && (
-        <Section title="Booked">
-          {booked.map((entry) => sheet(entry, <BookedFace entry={entry} />))}
-        </Section>
-      )}
-
-      {openBookings.length + openForms.length > 0 && (
+    <div className="flex flex-col gap-6">
+      {choose.length > 0 && <Section title="To choose">{choose.map((e) => bookingItem(e, true))}</Section>}
+      {booked.length > 0 && <Section title="Booked">{booked.map((e) => bookingItem(e))}</Section>}
+      {openBookings.length + forms.length > 0 && (
         <Section title="Open to you">
-          {openBookings.map((entry) => sheet(entry, <OpenFace entry={entry} />))}
-          {openForms.map(({ form, state }) => (
-            <Link
-              key={form.id}
-              href={`${basePath}/activities/${form.id}`}
-              className="flex items-center gap-3 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-background"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="text-[15px] font-bold">{form.name}</div>
-                {state.used > 0 && (
-                  <div className="text-xs text-muted-foreground tabular-nums">
-                    {state.used} submission{state.used === 1 ? "" : "s"} sent
-                  </div>
-                )}
-              </div>
-              <span className={`text-sm font-bold ${state.can ? "text-primary" : "text-muted-foreground"}`}>
-                {state.can ? "Fill in" : state.reason === "closed" ? "Closed" : "View"}
-              </span>
-              <Chevron />
-            </Link>
+          {openBookings.map((e) => bookingItem(e))}
+          {forms.map(({ form, state }) => (
+            <ActivityCard key={form.id} activity={form} view={formCard({ form, state })} href={`${basePath}/activities/${form.id}`} />
           ))}
         </Section>
       )}
@@ -106,73 +65,45 @@ export function ActivitiesTab({ bookings, submissions, actions, basePath }: {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="flex flex-col gap-3">
       <h2 className={caption}>{title}</h2>
-      {children}
+      <div className="grid gap-4 md:grid-cols-2">{children}</div>
     </section>
   );
 }
 
-const seatsLeft = (entry: ActivityEntry) => entry.state.sessions.reduce((n, s) => n + s.left, 0);
-
-function ChooseFace({ entry }: { entry: ActivityEntry }) {
-  const { state } = entry;
-  const n = state.sessions.length;
+/**
+ * One activity as a card. The whole card is the link; the pill on the right is what tapping
+ * it will do, drawn as a button so it reads as one, but it is not a second target.
+ */
+function ActivityCard({ activity, view, href, emphasis = false }: {
+  activity: Activity;
+  view: CardView;
+  href: string;
+  /** Required and not yet chosen: ringed in the brand colour so it is the card the eye lands on. */
+  emphasis?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[15px] font-bold">{state.activity.name}</span>
-          <Badge variant="secondary">Pick one</Badge>
+    <Link
+      href={href}
+      className={`group flex flex-col overflow-hidden rounded-2xl bg-card outline-none transition-transform active:scale-[0.99] focus-visible:ring-3 focus-visible:ring-ring/50 ${emphasis ? "ring-2 ring-primary" : "ring-1 ring-foreground/10"}`}
+    >
+      <ActivityCover activity={activity} variant="card" />
+      <div className="flex flex-1 flex-col gap-2 p-3.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <KindTag kind={activity.kind} />
+          {view.status && <StatusChip status={view.status} />}
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
-          {state.closed
-            ? "Booking closed — see the desk"
-            : `Required · ${n} session${n === 1 ? "" : "s"} · ${seatsLeft(entry)} seats left`}
+        <div className="text-[15px] font-bold leading-snug">{activity.name}</div>
+        <div className="mt-auto flex items-center justify-between gap-3">
+          {view.meta ? <MetaLine meta={view.meta} /> : <span />}
+          <span
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold ${view.action.primary ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}
+          >
+            {view.action.label}
+          </span>
         </div>
       </div>
-      <Chevron />
-    </div>
-  );
-}
-
-function BookedFace({ entry: { state, controls } }: { entry: ActivityEntry }) {
-  const mine = state.sessions.filter((s) => s.mine);
-  // What tapping offers, named: the attendee is asking, not changing (D129 as revised).
-  const ask = controls.switchTargets.length > 0 && controls.canRequestCancel
-    ? "Ask to switch or cancel"
-    : controls.switchTargets.length > 0 ? "Ask to switch"
-    : controls.canRequestCancel ? "Ask to cancel" : null;
-  return (
-    <div className="flex items-start gap-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[15px] font-bold">{state.activity.name}</span>
-          {controls.pending
-            ? <span className="text-xs font-bold text-muted-foreground">Waiting for the desk</span>
-            : <span className="flex items-center gap-1 text-xs font-bold text-success-strong"><Icon name="check" size={14} />Booked</span>}
-        </div>
-        {mine.map(({ session }) => (
-          <div key={session.id} className="mt-0.5 text-xs text-muted-foreground">
-            {[sessionLabel(session), session.location].filter(Boolean).join(" · ")}
-          </div>
-        ))}
-        {!controls.pending && ask && <div className="mt-2 text-xs font-bold text-primary">{ask}</div>}
-      </div>
-    </div>
-  );
-}
-
-function OpenFace({ entry }: { entry: ActivityEntry }) {
-  const { state } = entry;
-  const left = seatsLeft(entry);
-  return (
-    <div className="flex items-center gap-3">
-      <div className="min-w-0 flex-1 text-[15px] font-bold">{state.activity.name}</div>
-      <span className="text-sm text-muted-foreground tabular-nums">
-        {state.closed ? "Closed" : left === 0 ? "Full" : `${left} left`}
-      </span>
-      <Chevron />
-    </div>
+    </Link>
   );
 }

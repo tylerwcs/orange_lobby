@@ -1,4 +1,4 @@
-const ALLOWED = new Set(["p", "h2", "h3", "ul", "ol", "li", "a", "img", "strong", "em", "br"]);
+const ALLOWED = new Set(["p", "h2", "h3", "ul", "ol", "li", "a", "img", "strong", "em", "br", "blockquote"]);
 const SAFE_URL = /^(https?:\/\/|mailto:|tel:)/i;
 
 export function sanitizeHtml(html: string): string {
@@ -10,7 +10,9 @@ export function sanitizeHtml(html: string): string {
     const closing = _m.startsWith("</");
     if (closing) return `</${tag}>`;
     let out = `<${tag}`;
-    if (tag === "a") { const h = /href\s*=\s*"([^"]*)"/i.exec(attrs)?.[1]; if (h && SAFE_URL.test(h)) out += ` href="${h}"`; }
+    // Every link opens in a new tab: an attendee who follows one should not lose the portal
+    // behind it. Written here rather than trusted from the editor, which is only a suggestion.
+    if (tag === "a") { const h = /href\s*=\s*"([^"]*)"/i.exec(attrs)?.[1]; if (h && SAFE_URL.test(h)) out += ` href="${h}" target="_blank" rel="noopener noreferrer"`; }
     if (tag === "img") {
       const src = /src\s*=\s*"([^"]*)"/i.exec(attrs)?.[1]; const alt = /alt\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ?? "";
       if (src && SAFE_URL.test(src)) out += ` src="${src}" alt="${alt.replace(/"/g, "")}"`; else return "";

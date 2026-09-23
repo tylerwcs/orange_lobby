@@ -8,6 +8,9 @@ import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ActivityRows, SubmissionFields } from "@/components/admin/ActivityRows";
+import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
+import { ImageField } from "@/components/admin/ImageField";
+import { COVER_HINT } from "@/components/admin/ActivityRows";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   addActivityAction, addSubmissionActivityAction, saveSubmissionActivityAction,
@@ -52,9 +55,10 @@ export default async function Activities({ params }: { params: Promise<{ id: str
         actions={
           <>
             <Modal title="Add a booking activity" hint="Add its sessions once it exists." trigger="New booking" icon="plus">
-              <form action={addActivityAction.bind(null, ev.id)} className="grid gap-4">
+              <form action={addActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
                 <Field label="Name" name="name" placeholder="Workshops" />
-                <Field label="Description (optional)" name="description" textarea placeholder="Pick the track you want to join on Friday morning." />
+                <RichTextEditor name="description" label="Description (optional)" description={SECTIONS_HINT} />
+                <ImageField label="Image (optional)" name="image" description={COVER_HINT} />
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
                   <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
@@ -74,7 +78,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
               </form>
             </Modal>
             <Modal title="Add a submission activity" hint="Add its questions now, or come back and edit them later." trigger="New submission" icon="plus">
-              <form action={addSubmissionActivityAction.bind(null, ev.id)} className="grid gap-4">
+              <form action={addSubmissionActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
                 <SubmissionFields />
                 <label className={check}>
                   <input type="checkbox" name="submissions_open" className="size-4" />

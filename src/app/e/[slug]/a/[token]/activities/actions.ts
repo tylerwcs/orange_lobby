@@ -30,9 +30,18 @@ const REFUSALS: Record<Exclude<BookResult, "ok">, string> = {
 
 const ARCHIVED = "This event is archived, so booking is closed.";
 
+/**
+ * Where a booking action sends the attendee back to: the activity's own page once the session
+ * (or request) it acted on says which activity that is, the Activities tab before then.
+ * Worked out here from rows the database returned, never taken from the form, so a posted
+ * value cannot send anybody anywhere else.
+ */
+const listPathFor = (slug: string, token: string) => `/e/${slug}/a/${token}/activities`;
+const activityPathFor = (slug: string, token: string, activityId: string) => `${listPathFor(slug, token)}/${activityId}`;
+
 export async function bookAction(slug: string, token: string, sessionId: string) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const path = `/e/${slug}/a/${token}/activities`;
+  let path = listPathFor(slug, token);
 
   // A link into an archived event still resolves - only `draft` gets the portal's "coming
   // soon" screen - so this is the only thing stopping a direct POST from reserving a seat in
@@ -50,6 +59,7 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   const sessions = await listSessions(event.id);
   const session = sessions.find((s) => s.id === sessionId);
   if (!session) redirect(flashPath(path, REFUSALS.missing, "error"));
+  path = activityPathFor(slug, token, session.activity_id);
 
   // A pending request on this activity means its meaning is no longer settled — taking a
   // second seat underneath it would hand the desk a request whose premise changed while it
@@ -84,7 +94,7 @@ const ASK_REFUSALS = {
 
 export async function requestSwitchAction(slug: string, token: string, fromSessionId: string, fd: FormData) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const path = `/e/${slug}/a/${token}/activities`;
+  let path = listPathFor(slug, token);
   if (event.status === "archived") redirect(flashPath(path, ARCHIVED, "error"));
   if (!allow(`book:${token}`, 20, 60_000)) {
     redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
@@ -105,6 +115,7 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
   if (!from || !to || from.activity_id !== to.activity_id || to.id === from.id) {
     redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
   }
+  path = activityPathFor(slug, token, from.activity_id);
 
   // Re-checked rather than trusted from the page: a second tab still has a live button.
   const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
@@ -121,7 +132,7 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
 
 export async function requestCancelAction(slug: string, token: string, fromSessionId: string) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const path = `/e/${slug}/a/${token}/activities`;
+  let path = listPathFor(slug, token);
   if (event.status === "archived") redirect(flashPath(path, ARCHIVED, "error"));
   if (!allow(`book:${token}`, 20, 60_000)) {
     redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
@@ -130,6 +141,7 @@ export async function requestCancelAction(slug: string, token: string, fromSessi
   const sessions = await listSessions(event.id);
   const from = sessions.find((s) => s.id === fromSessionId);
   if (!from) redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
+  path = activityPathFor(slug, token, from.activity_id);
 
   const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
   if (!holds) redirect(flashPath(path, ASK_REFUSALS.notYours, "error"));
@@ -151,12 +163,15 @@ export async function requestCancelAction(slug: string, token: string, fromSessi
 
 export async function withdrawRequestAction(slug: string, token: string, requestId: string) {
   const { attendee } = await loadPortalAttendee(slug, token);
-  const path = `/e/${slug}/a/${token}/activities`;
+  let path = listPathFor(slug, token);
   if (!allow(`book:${token}`, 20, 60_000)) {
     redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
   }
-  // Scoped by attendee inside the query, so a posted id belonging to somebody else
-  // withdraws nothing and says so.
+  // Read first only to know which activity's page to return to; the withdraw below is still
+  // what decides, scoped by attendee inside the query, so a posted id belonging to somebody
+  // else withdraws nothing and says so.
+  const request = (await requestsForAttendee(attendee.id)).find((r) => r.id === requestId);
+  if (request) path = activityPathFor(slug, token, request.activity_id);
   const gone = await withdrawRequest(requestId, attendee.id);
   redirect(gone
     ? flashPath(path, "Request withdrawn.")

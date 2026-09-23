@@ -42,7 +42,7 @@ export function InfoPage({ event, basePath }: {
           </p>
         )}
       </div>
-      <div className="prose prose-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.info_page_html ?? "") }} />
+      <div className="rich-text prose prose-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.info_page_html ?? "") }} />
     </>
   );
 }

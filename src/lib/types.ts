@@ -185,7 +185,7 @@ export type Activity = {
   questions: RegistrationQuestion[];
   /** Submission kind only. At most one submission per Malaysian calendar day (D171). */
   per_day: boolean;
-  /** Submission kind only. The organiser's picture for the form - a poster, the rules - shown whole above it. */
+  /** The organiser's picture for the activity - a poster, the rules: cropped on its card, whole across the top of its page. Either kind. */
   image_url: string | null;
   sort_order: number;
 };

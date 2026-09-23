@@ -28,7 +28,7 @@ import { flashPath } from "@/lib/flash";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
-import { appendImage } from "@/lib/info-page";
+import { cleanRichText } from "@/lib/rich-text";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -511,42 +511,30 @@ export async function deleteAnnouncementAction(eventId: string, annId: string) {
 export async function saveInfoPageAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
-  await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info", info_page_html: str(formData, "info_page_html") });
+  await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info", info_page_html: cleanRichText(str(formData, "info_page_html")) });
   revalidatePath(`/admin/events/${eventId}/info`);
   redirect(flashPath(`/admin/events/${eventId}/info`, "Info page saved."));
 }
 
 /**
- * Uploads one image and puts an <img> tag for it at the end of the info page (D160).
+ * Uploads one image for the info page's editor and hands back its URL; the editor puts it
+ * where the cursor was (D160 said "at the end", because a textarea could not say where the
+ * cursor was - the editor can).
  *
- * A second submit button on the SAME form as "Save page", not a form of its own, and this
- * is the whole reason it works: the appended tag is added to the HTML the textarea is
- * holding right now, which the form posts alongside the file. An uploader sitting in its
- * own form would have to append to the STORED html instead, quietly throwing away whatever
- * the organiser had typed and not yet saved.
- *
- * The title rides along for the same reason.
+ * Returns rather than redirects: it is called from the editor while the page is still being
+ * written, and a redirect would throw away everything typed and not yet saved. Nothing is
+ * written to the event here - the image only becomes part of the page when the page is saved.
  */
-export async function addInfoImageAction(eventId: string, formData: FormData) {
+export async function uploadInfoImageAction(eventId: string, formData: FormData): Promise<{ url: string } | { error: string }> {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
-  const back = `/admin/events/${eventId}/info`;
-  const file = formData.get("info_image");
-  if (!(file instanceof File) || file.size === 0) redirect(flashPath(back, "Choose an image first.", "error"));
-
-  let url: string;
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image first." };
   try {
-    url = await uploadEventImage({ orgId, eventId, kind: "info", file });
+    return { url: await uploadEventImage({ orgId, eventId, kind: "info", file }) };
   } catch (e) {
-    redirect(flashPath(back, (e as Error).message, "error"));
+    return { error: (e as Error).message };
   }
-
-  await updateEvent(eventId, {
-    info_page_title: str(formData, "info_page_title") ?? "Info",
-    info_page_html: appendImage(str(formData, "info_page_html"), url, str(formData, "info_image_alt") ?? ""),
-  });
-  revalidatePath(back);
-  redirect(flashPath(back, "Image added to the end of the page."));
 }
 
 export async function addCheckpointAction(eventId: string, formData: FormData) {

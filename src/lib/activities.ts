@@ -3,6 +3,7 @@ import type { Activity, ActivityBooking, ActivitySession, AgendaItem } from "@/l
 import type { BookResult, NewActivity } from "@/lib/db/activities";
 import type { FlashTone } from "@/lib/flash";
 import { shortDate } from "@/lib/text";
+import { cleanRichText } from "@/lib/rich-text";
 
 /**
  * Everything about one session that a screen needs and a database row does not carry: how
@@ -306,7 +307,7 @@ export function readActivityPolicy(fields: ActivityFormFields): ActivityPolicy {
   }
   return {
     name,
-    description: fields.description.trim() || null,
+    description: cleanRichText(fields.description),
     required: fields.required,
     max_per_attendee: max,
     categories: parseCategories(fields.categories),

@@ -1,15 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { sessionLabel, type ActivityState, type SeatsForViewer } from "@/lib/activities";
+import { sessionLabel, type SeatsForViewer } from "@/lib/activities";
+import type { ActivityEntry } from "@/lib/portal-activity-entries";
 import type { ActivityControls } from "@/lib/activity-requests";
 import { sessionGrid, startDay } from "@/lib/session-grid";
 import { shortDate } from "@/lib/text";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Icon } from "@/components/ui/icon";
 import { ActivityBooking } from "./ActivityBooking";
 
-export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null };
 
 export type BookingActions = {
   book: (sessionId: string) => Promise<void>;
@@ -22,8 +21,9 @@ export type BookingActions = {
 const FEW = 3;
 
 /**
- * One booking activity, as the sheet on the Activities tab shows it: a tab per day, a grid of
- * start times, and a bar that books - or asks to switch to - the time you picked.
+ * One booking activity's sessions, on the activity's own page: a tab per day, a grid of start
+ * times, and a bar that books - or asks to switch to - the time you picked. The page above it
+ * already says what the activity is, where and for how long.
  *
  * Time leads because it is what people choose by; `sessionGrid` decides what else each slot
  * has to say. Picking a time only selects it. The bar's button does the work, behind the same
@@ -51,16 +51,8 @@ export function ActivitySessions({ entry: { state, controls, pendingId }, action
   const selected = state.sessions.find((s) => s.session.id === picked && canPick(s)) ?? null;
   const current = grid.days.find((d) => d.day === day) ?? grid.days[0];
 
-  const meta = [grid.location, grid.minutes ? `${grid.minutes} min each` : null].filter(Boolean).join(" · ");
-
   return (
     <div className="flex flex-col gap-3">
-      {state.activity.description && <p className="text-sm text-muted-foreground">{state.activity.description}</p>}
-      {meta && (
-        <p className="-mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-          <Icon name="map" size={14} />{meta}
-        </p>
-      )}
       {state.closed && <p className="text-sm text-muted-foreground">Booking is closed for this activity.</p>}
 
       <ActivityBooking controls={controls} pendingId={pendingId} requestCancel={requestCancel} withdraw={withdraw} />
@@ -156,7 +148,9 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
   const fromSeat = controls.held.find((h) => h.session.id === from);
 
   return (
-    <div className="sticky bottom-0 -mx-4 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border bg-popover px-4 py-3">
+    // Floats above the portal's bottom bar on a phone (bottom-20 clears it, the same clearance
+    // the toaster and <main> use) and sits at the foot of the page from md, where there is none.
+    <div className="sticky bottom-20 z-10 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-popover px-4 py-3 shadow-lg md:bottom-4">
       <div className="min-w-0 flex-1">
         <div className="text-sm font-extrabold">{isBook ? when : `Move to ${when}`}</div>
         <div className="truncate text-xs text-muted-foreground">{detail}</div>

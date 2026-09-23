@@ -15,7 +15,7 @@ export type NewActivity = {
   /** Empty on a booking activity. */
   questions: RegistrationQuestion[];
   per_day: boolean;
-  /** Submission kind only; left out, the column's null stands. */
+  /** Left out, the column's null stands. */
   image_url?: string | null;
 };
 

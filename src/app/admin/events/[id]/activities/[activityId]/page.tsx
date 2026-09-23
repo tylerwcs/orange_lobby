@@ -1,4 +1,7 @@
 import { notFound } from "next/navigation";
+import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
+import { ImageField } from "@/components/admin/ImageField";
+import { COVER_HINT } from "@/components/admin/ActivityRows";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getActivity, listSessions, listBookings, countBookingsBySession, submissionsForActivity } from "@/lib/db/activities";
@@ -156,9 +159,10 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
       <Card className="overflow-hidden">
         <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
         <CardContent className="px-6 py-4">
-          <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid gap-4">
+          <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
             <Field label="Name" name="name" defaultValue={activity.name} />
-            <Field label="Description (optional)" name="description" textarea defaultValue={activity.description} />
+            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} />
+            <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
             <div className="flex flex-col gap-1.5">
               <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
               <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}

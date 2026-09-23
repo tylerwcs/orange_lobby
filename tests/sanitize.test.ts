@@ -7,16 +7,22 @@ describe("sanitizeHtml", () => {
     expect(out).not.toContain("script");
     expect(out).not.toContain("onclick");
     expect(out).not.toContain("javascript:");
-    expect(out).toContain('<a href="https://ok.com">ok</a>');
+    expect(out).toContain('<a href="https://ok.com" target="_blank" rel="noopener noreferrer">ok</a>');
   });
   it("drops unknown tags but keeps their text", () => {
     expect(sanitizeHtml("<div><span>text</span></div>")).toBe("text");
   });
   it("does not truncate a tag at a > inside a quoted attribute", () => {
-    expect(sanitizeHtml('<a href="https://ok.com" title="a>b">link</a>')).toBe('<a href="https://ok.com">link</a>');
+    expect(sanitizeHtml('<a href="https://ok.com" title="a>b">link</a>')).toBe('<a href="https://ok.com" target="_blank" rel="noopener noreferrer">link</a>');
   });
   it("does not promote tag-like text inside an attribute into an element", () => {
     const out = sanitizeHtml('<img src="https://ok.com/x.png" title="a><img src=\"https://evil.com/y.png\" onerror=\"alert(1)\">">');
     expect(out).toBe('<img src="https://ok.com/x.png" alt="">');
+  });
+  it("keeps a highlight box, which the editor writes as a blockquote", () => {
+    expect(sanitizeHtml('<blockquote class="x"><p>3,000 = 1 point</p></blockquote>')).toBe("<blockquote><p>3,000 = 1 point</p></blockquote>");
+  });
+  it("opens every link in a new tab, whatever target the editor wrote", () => {
+    expect(sanitizeHtml('<a target="_self" rel="nofollow" href="https://ok.com">x</a>')).toBe('<a href="https://ok.com" target="_blank" rel="noopener noreferrer">x</a>');
   });
 });

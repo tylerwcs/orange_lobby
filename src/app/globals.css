@@ -161,6 +161,20 @@ input, textarea { touch-action: manipulation; }
 /* Numbers that line up in tables, counters and times. */
 .tabular-nums, table, dl { font-variant-numeric: tabular-nums; }
 
+/* Organiser-written long-form text (src/lib/rich-text.ts), on top of Tailwind's prose. The
+   editor writes a highlight box as a <blockquote>; it is drawn as a grey panel for figures and
+   rules, not as a quotation, so prose's italics, rule and quote marks all go. Shared by the
+   editor and every page that shows the text, so what the organiser sees is what attendees get. */
+.rich-text blockquote { font-style: normal; font-weight: 400; color: inherit; quotes: none; border: 0; background: var(--muted); border-radius: var(--radius-lg); padding: 0.75rem 1rem; }
+.rich-text blockquote p::before, .rich-text blockquote p::after { content: none; }
+.rich-text blockquote > :first-child { margin-top: 0; }
+.rich-text blockquote > :last-child { margin-bottom: 0; }
+.rich-text img { border-radius: var(--radius-lg); }
+/* The editor wraps each list item's text in a <p>; without this every item carries a paragraph's gap. */
+.rich-text li > p { margin-top: 0; margin-bottom: 0; }
+.rich-text li { margin-top: 0.25em; margin-bottom: 0.25em; }
+.rich-text a { color: var(--primary); }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
