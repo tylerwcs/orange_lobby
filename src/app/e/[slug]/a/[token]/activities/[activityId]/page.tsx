@@ -50,6 +50,17 @@ export default async function ActivitySubmissionPage({ params, searchParams }: {
         <h1 className="text-xl font-extrabold">{activity.name}</h1>
         {activity.description && <p className="text-sm text-muted-foreground">{activity.description}</p>}
       </div>
+      {/* The organiser's poster or rules. Above both the history and the form, so it stays in
+          view while the attendee answers; shown whole like the agenda image - never cropped,
+          only shrunk when it is wider than the column. */}
+      {activity.image_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={activity.image_url}
+          alt=""
+          className="mx-auto block h-auto max-w-full rounded-[14px] border border-border"
+        />
+      )}
 
       {composing ? (
         <>

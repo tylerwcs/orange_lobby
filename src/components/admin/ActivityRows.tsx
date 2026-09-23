@@ -8,6 +8,7 @@ import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { QuestionEditor } from "@/components/admin/QuestionEditor";
+import { ImageField } from "@/components/admin/ImageField";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";
@@ -23,6 +24,12 @@ export function SubmissionFields({ activity }: { activity?: Activity }) {
     <>
       <Field label="Name" name="name" defaultValue={activity?.name} placeholder="Feedback" />
       <Field label="Description (optional)" name="description" textarea defaultValue={activity?.description} placeholder="Tell us how today went." />
+      <ImageField
+        label="Image (optional)"
+        name="image"
+        url={activity?.image_url}
+        description="A poster or the rules, shown above the form at its own size, never cropped."
+      />
       <Field label="Categories (optional)" name="categories" defaultValue={activity?.categories?.join(", ")} placeholder="VIP, Management"
         description="Comma separated. Leave blank to offer it to everyone." />
       <div className="flex flex-col gap-1.5">

@@ -5,6 +5,7 @@ import {
   mediaObjectPath,
   mediaPathFromUrl,
   submissionObjectPath,
+  imageIntent,
   IMAGE_ACCEPT,
   MAX_IMAGE_BYTES,
 } from "@/lib/storage";
@@ -43,6 +44,38 @@ describe("acceptImage", () => {
 describe("mediaObjectPath", () => {
   it("files the object under its org and event, named for what it is", () => {
     expect(mediaObjectPath({ orgId: "org1", eventId: "ev1", kind: "logo", ext: "png" }, "a1b2c3")).toBe("org1/ev1/logo-a1b2c3.png");
+  });
+});
+
+describe("imageIntent", () => {
+  const form = (entries: [string, string | File][]) => {
+    const fd = new FormData();
+    for (const [k, v] of entries) fd.append(k, v);
+    return fd;
+  };
+  const png = new File(["x"], "poster.png", { type: "image/png" });
+
+  it("uploads a picked file", () => {
+    expect(imageIntent(form([["image", png]]), "image")).toEqual({ action: "upload", file: png });
+  });
+
+  it("keeps the stored image when the file input posts nothing", () => {
+    expect(imageIntent(form([["image", new File([], "", { type: "application/octet-stream" })]]), "image")).toEqual({ action: "keep" });
+    expect(imageIntent(form([]), "image")).toEqual({ action: "keep" });
+  });
+
+  it("removes it when the remove box is ticked and nothing new was picked", () => {
+    expect(imageIntent(form([["image_remove", "on"]]), "image")).toEqual({ action: "remove" });
+  });
+
+  it("lets a new file win over a ticked remove box", () => {
+    expect(imageIntent(form([["image", png], ["image_remove", "on"]]), "image")).toEqual({ action: "upload", file: png });
+  });
+});
+
+describe("mediaObjectPath for an activity", () => {
+  it("names the object for the activity kind", () => {
+    expect(mediaObjectPath({ orgId: "org1", eventId: "ev1", kind: "activity", ext: "jpg" }, "a1b2c3")).toBe("org1/ev1/activity-a1b2c3.jpg");
   });
 });
 

@@ -13,7 +13,7 @@ import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFo
 import { listAttendees } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
-import { sweepSubmissionPrefix } from "@/lib/db/media";
+import { sweepSubmissionPrefix, nextImage, deleteEventImage, type ImageChange } from "@/lib/db/media";
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
@@ -155,7 +155,15 @@ export async function addSubmissionActivityAction(eventId: string, fd: FormData)
   } catch (e) {
     redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
   }
-  await createActivity(ev, { ...policy, kind: "submission", required: false, is_open: checked(fd, "submissions_open") });
+  // Uploaded only once everything typed has been accepted, so a refused form never leaves a
+  // picture behind in the bucket.
+  let image: ImageChange = { url: null, stale: null };
+  try {
+    image = await nextImage(fd, "image", null, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  await createActivity(ev, { ...policy, kind: "submission", required: false, is_open: checked(fd, "submissions_open"), image_url: image.url });
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Form added."));
 }
@@ -178,9 +186,19 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
   }
   const current = await getActivity(activityId, ev.id);
   if (!current) redirect(flashPath(listPath(eventId), "That form no longer exists.", "error"));
+  // Before syncSubmissionPerDay rather than after it: that call rewrites the submissions
+  // themselves, so a picture refused after it would leave them out of step with the form.
+  let image: ImageChange = { url: current.image_url, stale: null };
+  try {
+    image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
   try {
     await syncSubmissionPerDay(activityId, policy.per_day);
   } catch (e) {
+    // Nothing is saved on either path below, so a picture uploaded for this save goes too.
+    if (image.url !== current.image_url) await deleteEventImage(image.url);
     // The partial unique index refuses if somebody already submitted twice on one day. Say so
     // rather than showing a 500 (D165) — but only for that specific refusal. Anything else (an
     // outage, a network failure, some other constraint) re-throws, so it surfaces as a real
@@ -188,7 +206,9 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
     if (!isPerDayCollision(e)) throw e;
     redirect(flashPath(listPath(eventId), "Someone has already submitted twice in one day, so this form cannot become once-a-day. Delete the extra submission first.", "error"));
   }
-  await updateActivity(activityId, ev.id, policy);
+  await updateActivity(activityId, ev.id, { ...policy, image_url: image.url });
+  // Only now that the row names the new picture (or none) is the old one safe to throw away.
+  await deleteEventImage(image.stale);
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Form saved."));
 }
@@ -214,6 +234,9 @@ export async function deleteSubmissionActivityAction(eventId: string, activityId
   if (!activity) redirect(flashPath(listPath(eventId), "That form no longer exists.", "error"));
   await sweepSubmissionPrefix(`${ev.org_id}/${ev.id}/${activity.id}`);
   await deleteActivity(activityId, ev.id);
+  // After the row, like every other image here: a delete that failed must not leave the form
+  // pointing at a picture that is already gone.
+  await deleteEventImage(activity.image_url);
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Form deleted."));
 }

@@ -5,6 +5,7 @@ import {
   SUBMISSION_BUCKET,
   acceptImage,
   acceptUpload,
+  imageIntent,
   mediaObjectPath,
   mediaPathFromUrl,
   submissionObjectPath,
@@ -35,6 +36,33 @@ export async function uploadEventImage(input: {
   const { error } = await storage.upload(path, input.file, { contentType: input.file.type, cacheControl: "31536000", upsert: false });
   if (error) throw new Error("Could not upload that image. Try again.");
   return storage.getPublicUrl(path).data.publicUrl;
+}
+
+/**
+ * What one image field on a saved form means: the URL the column should hold, and the
+ * object the save leaves behind once it lands. `imageIntent` decides which of upload,
+ * remove or keep the form asked for.
+ *
+ * `stale` is handed back rather than deleted here because the order matters. Nothing is
+ * removed from the bucket until the row naming it has actually been written: a save that
+ * fails after the upload must leave the page showing the image it showed before, not a
+ * URL whose object we already threw away.
+ *
+ * Lives here rather than beside the actions that call it: a "use server" file exports only
+ * Server Actions, and this is not one anybody should be able to call from a browser.
+ */
+export type ImageChange = { url: string | null; stale: string | null };
+
+export async function nextImage(
+  formData: FormData,
+  name: string,
+  current: string | null,
+  where: { orgId: string; eventId: string; kind: ImageKind },
+): Promise<ImageChange> {
+  const intent = imageIntent(formData, name);
+  if (intent.action === "upload") return { url: await uploadEventImage({ ...where, file: intent.file }), stale: current };
+  if (intent.action === "remove") return { url: null, stale: current };
+  return { url: current, stale: null };
 }
 
 /**

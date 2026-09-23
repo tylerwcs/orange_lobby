@@ -26,8 +26,7 @@ import { moduleFromForm, upsertModule, removeModule, reorderModules } from "@/li
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
-import { uploadEventImage, deleteEventImage } from "@/lib/db/media";
-import type { ImageKind } from "@/lib/storage";
+import { deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { appendImage } from "@/lib/info-page";
 
@@ -38,36 +37,6 @@ const str = (fd: FormData, k: string) => {
 
 /** The map URL is rendered as an href, so only http(s) is stored — never javascript: or data:. */
 const httpUrl = (v: string | null) => (v && /^https?:\/\//i.test(v) ? v : null);
-
-/**
- * What one image field on a saved form means: the URL the column should hold, and the
- * object the save leaves behind once it lands.
- *
- * Three cases, and the third is the one worth naming: a form that posts an untouched file
- * input is saying nothing about that image, so the stored URL survives. Without this the
- * Settings save — which writes every column every time — would blank the logo of any event
- * whose owner only came to change the venue.
- *
- * `stale` is handed back rather than deleted here because the order matters. Nothing is
- * removed from the bucket until the row naming it has actually been written: a save that
- * fails after the upload must leave the event showing the image it showed before, not a
- * URL whose object we already threw away.
- */
-type ImageChange = { url: string | null; stale: string | null };
-
-async function nextImage(
-  formData: FormData,
-  name: string,
-  current: string | null,
-  where: { orgId: string; eventId: string; kind: ImageKind },
-): Promise<ImageChange> {
-  const file = formData.get(name);
-  if (file instanceof File && file.size > 0) {
-    return { url: await uploadEventImage({ ...where, file }), stale: current };
-  }
-  if (formData.get(`${name}_remove`) === "on") return { url: null, stale: current };
-  return { url: current, stale: null };
-}
 
 export async function createEventAction(formData: FormData) {
   const { orgId } = await requireAdmin();

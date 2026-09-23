@@ -14,7 +14,7 @@ export const MEDIA_BUCKET = "event-media";
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** What an uploaded image is for. Also the first half of its object name. */
-export type ImageKind = "logo" | "banner" | "floor-plan" | "agenda" | "agenda-banner" | "info";
+export type ImageKind = "logo" | "banner" | "floor-plan" | "agenda" | "agenda-banner" | "info" | "activity";
 
 /**
  * The extension each accepted type is stored under. Browsers send `image/jpg` as well as
@@ -43,6 +43,24 @@ export function acceptImage(file: { type: string; size: number }): string {
   if (!ext) throw new Error("Images must be PNG, JPEG, WebP or SVG.");
   if (file.size > MAX_IMAGE_BYTES) throw new Error("Images must be 4 MB or smaller.");
   return ext;
+}
+
+/**
+ * What one image field on a saved form asks for. Three answers, and the third is the one
+ * worth naming: a form that posts an untouched file input is saying nothing about that image,
+ * so the stored one survives - without this, a form that writes every column every time would
+ * blank the image of anyone who only came to change the text beside it.
+ *
+ * A picked file wins over a ticked remove box: `ImageField` gives Remove way to a replacement,
+ * and a replacement is the newer of the two answers.
+ */
+export type ImageIntent = { action: "upload"; file: File } | { action: "remove" } | { action: "keep" };
+
+export function imageIntent(formData: FormData, name: string): ImageIntent {
+  const file = formData.get(name);
+  if (file instanceof File && file.size > 0) return { action: "upload", file };
+  if (formData.get(`${name}_remove`) === "on") return { action: "remove" };
+  return { action: "keep" };
 }
 
 /**
