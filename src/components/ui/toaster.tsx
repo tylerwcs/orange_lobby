@@ -22,6 +22,11 @@ const TONE = {
  * in the URL, not from a click handler. Adopting shadcn's toast would mean rewriting that
  * store and the Flash component that feeds it, for no visual gain, on the surface that
  * reports whether a save worked. The styling is shadcn's; the plumbing stays.
+ *
+ * One layer above every dialog, sheet and menu (all z-50). A result often lands while one
+ * is still open - a booking refused as full comes back to the sheet it was made from - and
+ * at the same z-50 the sheet, portalled later in the document, painted over the one
+ * message that said why nothing happened.
  */
 export function Toaster({ className }: { className?: string } = {}) {
   const toasts = useSyncExternalStore(subscribeToasts, getToasts, getServerToasts);
@@ -31,7 +36,7 @@ export function Toaster({ className }: { className?: string } = {}) {
     <div
       aria-live="polite"
       className={cn(
-        "pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end",
+        "pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end",
         className,
       )}
     >
