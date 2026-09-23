@@ -30,6 +30,16 @@ is a status column (which **is** included here, see D170) plus a screen. Each ge
 brainstorm against a foundation that exists, which is a much sharper conversation once a week
 of real submissions is in the database.
 
+**Status, 23 Sep 2026.** 2 and 3 are built — `missingFrom` and the Not-submitted card
+(D175), `participation` and the Participation card (D176). **4 is deliberately not built**
+(D177): asked what reviewing a submission should cause to happen, the answer was that there
+is no concrete case yet. A status with no consequence is a read receipt, and whether this
+wants a read receipt, a triage flag for a check-in that needs a human, or a real approval
+that grants something are three different screens with three different data shapes. The
+column stays, unread, costing nothing; the queue gets designed when a real need names which
+of the three it is. Shipping a button nobody presses would have been the more expensive
+answer, because the wrong shape is harder to remove than an absent one.
+
 Also deliberately out of scope: anonymous forms (incompatible with a per-attendee cap — see
 D163), editing or deleting a submission (D166), scheduled open/close (D127 already decided
 this for activities: flipped by hand), and multi-value answers.
