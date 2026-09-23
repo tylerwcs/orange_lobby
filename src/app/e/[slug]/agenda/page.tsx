@@ -25,7 +25,7 @@ export default async function GenericAgenda({ params, searchParams }: { params: 
         <img
           src={event.agenda_banner_url}
           alt=""
-          className="mb-3 h-28 w-full rounded-[14px] border border-border object-cover sm:h-36"
+          className="mx-auto mb-3 block h-auto max-w-full rounded-[14px] border border-border"
         />
       )}
       {/* With an info page the switch names this tab, so the heading only needs to be heard. */}

@@ -69,17 +69,17 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
           >
             <BreakoutForm eventId={ev.id} startsOn={ev.starts_on} />
           </Modal>
-          {/* The banner belongs to the page, not to any session on it, so it lives beside
+          {/* The image belongs to the page, not to any session on it, so it lives beside
               the two "add" buttons rather than inside either form (D160). */}
-          <Modal title="Agenda banner" hint="One image above the agenda, on every day of the event." trigger="Banner" icon="file" variant="outline">
+          <Modal title="Agenda image" hint="One image above the agenda, on every day of the event." trigger="Image" icon="file" variant="outline">
             <form action={updateAgendaBannerAction.bind(null, ev.id)} className="grid gap-4 p-1">
               <ImageField
-                label="Banner"
+                label="Image"
                 name="agenda_banner"
                 url={ev.agenda_banner_url}
-                description="Shown across the top of the portal agenda. Wide images work best."
+                description="Shown above the portal agenda at its own size, never cropped. Wider than the page, it is scaled down to fit."
               />
-              <SubmitButton>Save banner</SubmitButton>
+              <SubmitButton>Save image</SubmitButton>
             </form>
           </Modal>
         </div>

@@ -508,7 +508,7 @@ export async function updateAgendaBannerAction(eventId: string, formData: FormDa
   await updateEvent(eventId, { agenda_banner_url: banner.url });
   await deleteEventImage(banner.stale);
   revalidatePath(back);
-  redirect(flashPath(back, banner.url ? "Agenda banner saved." : "Agenda banner removed."));
+  redirect(flashPath(back, banner.url ? "Agenda image saved." : "Agenda image removed."));
 }
 
 export async function deleteAgendaItemAction(eventId: string, itemId: string) {
