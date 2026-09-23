@@ -1,9 +1,13 @@
 import type { ActivityControls } from "@/lib/activity-requests";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { Icon } from "@/components/ui/icon";
+import { shortDate } from "@/lib/text";
 
 /**
- * The attendee's own seats in one activity, and the only controls that act on them.
+ * The attendee's own seats in one activity: what they hold, any request waiting on the desk,
+ * and the cancel control. Asking to switch moved to the sheet's time grid - picking another
+ * time there is the switch - so this no longer carries a session dropdown.
  *
  * Separated from the session rows deliberately: the control that undoes your afternoon used
  * to sit in the same column, in the same shape, as the control that booked it. Here there is
@@ -15,16 +19,13 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
  * stay per-activity, not per-seat, because D146's index allows only one open request per
  * attendee per activity: while one is open, no seat offers controls.
  */
-export function ActivityBooking({ controls, pendingId, requestSwitch, requestCancel, withdraw }: {
+export function ActivityBooking({ controls, pendingId, requestCancel, withdraw }: {
   controls: ActivityControls;
   // The raw pending request's id: `controls.pending` (a `PendingSummary`) deliberately carries
   // no id — it is for rendering, not addressing — so the id travels alongside it. Bound here,
   // not by the caller, so a caller whose `pendingId` ever drifts from `controls.pending` gets a
   // form with no action (a harmless no-op reload) instead of a crash at render.
   pendingId: string | null;
-  // Bound with the from-session only: the target session travels as the form's own `to`
-  // field, so what remains after binding is a plain form action, `(fd: FormData) => ...`.
-  requestSwitch: (fromSessionId: string, fd: FormData) => Promise<void>;
   requestCancel: (fromSessionId: string) => Promise<void>;
   withdraw: (requestId: string) => Promise<void>;
 }) {
@@ -50,7 +51,7 @@ export function ActivityBooking({ controls, pendingId, requestSwitch, requestCan
   }
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border pt-2.5">
+    <div className="flex flex-col gap-2">
       {/* D153a: an approval needs no announcement — they are simply booked on the session
           they asked for. A decline would otherwise leave no trace at all. */}
       {declined && (
@@ -61,46 +62,33 @@ export function ActivityBooking({ controls, pendingId, requestSwitch, requestCan
         </p>
       )}
       {held.map((seat) => (
-        <div key={seat.session.id} className="flex flex-col gap-2">
-          <p className="text-sm font-bold">You are booked on {seat.session.title}.</p>
-          {switchTargets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No other session has room right now.</p>
-          ) : (
-            <form action={requestSwitch.bind(null, seat.session.id)} className="flex flex-wrap items-center gap-2">
-              {/* Scoped to the held session's id: a page with two such activities — or one
-                  activity this attendee holds two seats in — would otherwise render this
-                  pair's id twice, leaving every select after the first without an accessible
-                  name. */}
-              <label htmlFor={`to-${seat.session.id}`} className="sr-only">Move out of {seat.session.title} to</label>
-              <select id={`to-${seat.session.id}`} name="to" className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 text-sm">
-                {switchTargets.map((t) => (
-                  <option key={t.session.id} value={t.session.id}>
-                    {t.session.title} · {t.session.starts_at} · {t.left} left
-                  </option>
-                ))}
-              </select>
-              <ConfirmButton
-                tone="default"
-                confirmLabel="Send request"
-                message={`Ask the desk to move you out of ${seat.session.title}? Your current seat is held until they agree, so nothing changes yet.`}
-              >
-                Request switch
-              </ConfirmButton>
-            </form>
-          )}
+        <div key={seat.session.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-success-soft px-3 py-2 text-sm text-success-strong">
+          <span className="flex items-center gap-1.5 font-bold">
+            <Icon name="check" size={16} />
+            You&apos;re booked {shortDate(seat.session.day)} · {seat.session.starts_at}
+          </span>
           {canRequestCancel && (
             <form action={requestCancel.bind(null, seat.session.id)}>
               <ConfirmButton
                 tone="default"
+                triggerVariant="link"
+                className="h-auto p-0 text-success-strong underline"
                 confirmLabel="Send request"
                 message={`Ask the desk to cancel ${seat.session.title}? Your seat is held until they agree.`}
               >
-                Request cancel
+                Ask to cancel
               </ConfirmButton>
             </form>
           )}
         </div>
       ))}
+      {/* Moving is done from the grid now: pick another time and the sheet's bar offers the
+          switch. This line only says so, or says why it cannot. */}
+      {held.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {switchTargets.length > 0 ? "To move, pick another time below. The desk approves it." : "No other session has room right now."}
+        </p>
+      )}
     </div>
   );
 }
