@@ -1,4 +1,5 @@
 "use client";
+import { PendingLink } from "@/components/PendingNav";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
 import { CameraOff, ChevronLeft, Search, Undo2, X } from "lucide-react";
@@ -132,11 +133,12 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
       <header className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           {/* A link, styled as a button: it navigates, so it stays an <a>. Base UI's Button
-              would announce it as a button and take open-in-new-tab away from the crew. */}
-          <a href={pickHref} className={cn(buttonVariants({ variant: "ghost" }), "-ml-2 h-11 gap-1 px-2 text-base font-extrabold")}>
+              would announce it as a button and take open-in-new-tab away from the crew.
+              PendingLink is still an <a>; it only adds the skeleton while the list loads. */}
+          <PendingLink href={pickHref} className={cn(buttonVariants({ variant: "ghost" }), "-ml-2 h-11 gap-1 px-2 text-base font-extrabold")}>
             <ChevronLeft data-icon="inline-start" />
             <span className="truncate">{checkpoint.name}</span>
-          </a>
+          </PendingLink>
           <p className="flex shrink-0 items-baseline gap-1.5">
             <span className="text-2xl font-extrabold leading-none tabular-nums">{count}</span>
             <span className="text-xs font-semibold text-muted-foreground">of {total} in</span>

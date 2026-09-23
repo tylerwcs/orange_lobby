@@ -6,10 +6,11 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialog, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -87,7 +88,7 @@ export function ColumnMenu({ column, onHide, renameColumn, deleteColumn }: {
             </Field>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
-              <Button type="submit">Rename</Button>
+              <SubmitButton>Rename</SubmitButton>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -105,9 +106,11 @@ export function ColumnMenu({ column, onHide, renameColumn, deleteColumn }: {
             <AlertDialogCancel>Keep it</AlertDialogCancel>
             <form action={deleteColumn}>
               <input type="hidden" name="key" value={column.key} />
-              <AlertDialogAction render={<button type="submit" />} className="bg-destructive text-white hover:bg-destructive/90">
+              {/* The dialog's own action is only a Button, so a SubmitButton in its place
+                  is the same control plus the working state. */}
+              <SubmitButton className="bg-destructive text-white hover:bg-destructive/90">
                 Delete column
-              </AlertDialogAction>
+              </SubmitButton>
             </form>
           </AlertDialogFooter>
         </AlertDialogContent>

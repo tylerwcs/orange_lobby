@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { AgendaItem } from "@/lib/types";
 import { isNow } from "@/lib/agenda";
 import { agendaAccentClass } from "@/lib/agenda-colours";
@@ -7,6 +6,15 @@ import { isBookedRow } from "@/lib/activities";
 import { Badge } from "@/components/ui/badge";
 import { AgendaImage } from "./AgendaImage";
 import { shortDate } from "@/lib/text";
+import { Skeleton } from "@/components/ui/skeletons";
+import { PendingLink, PendingScope, PendingSwap } from "@/components/PendingNav";
+
+/** What a day looks like while the next one loads: the shape of a few sessions. */
+const DaySkeleton = () => (
+  <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label="Loading the day">
+    {["h-[76px]", "h-[116px]", "h-[76px]"].map((h, i) => <Skeleton key={i} className={`${h} rounded-[14px]`} />)}
+  </div>
+);
 
 export function AgendaList({ items, day, days, basePath, now, dayHref }: {
   items: AgendaItem[];
@@ -21,14 +29,27 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
   if (!day) return <p className="text-sm text-muted-foreground">Agenda will be published soon.</p>;
   const todays = items.filter((i) => i.day === day);
   return (
+    // The day tabs change only `?day=`, which no loading.tsx sees; the scope moves the
+    // underline at once and swaps the sessions for a skeleton until the day arrives.
+    <PendingScope>
     <div className="flex flex-col gap-3">
       {days.length > 1 && (
         <div className="flex gap-5 border-b border-border">
           {days.map((d) => (
-            <Link key={d} href={hrefForDay(d)} className={`-mb-px border-b-[3px] pb-2 text-[13px] ${d === day ? "border-primary font-extrabold text-primary" : "border-transparent font-semibold text-muted-foreground"}`}>{shortDate(d)}</Link>
+            <PendingLink
+              key={d}
+              href={hrefForDay(d)}
+              selected={d === day}
+              className="-mb-px border-b-[3px] pb-2 text-[13px]"
+              selectedClassName="border-primary font-extrabold text-primary"
+              unselectedClassName="border-transparent font-semibold text-muted-foreground"
+            >
+              {shortDate(d)}
+            </PendingLink>
           ))}
         </div>
       )}
+      <PendingSwap fallback={<DaySkeleton />}>
       {todays.map((i) => {
         const live = isNow(i, now.date, now.time);
         const accent = agendaAccentClass(i.color);
@@ -61,6 +82,8 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
         );
       })}
       {todays.length === 0 && <p className="text-sm text-muted-foreground">Nothing scheduled on this day.</p>}
+      </PendingSwap>
     </div>
+    </PendingScope>
   );
 }

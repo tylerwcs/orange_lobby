@@ -10,7 +10,9 @@ import {
   DropdownMenuLabel, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import type { AttendeeField } from "@/lib/attendee-fields";
@@ -59,7 +61,7 @@ export function BulkBar({
   const [confirmingClear, setConfirmingClear] = useState(false);
   const editForm = useRef<HTMLFormElement>(null);
   const confirmed = useRef(false);
-  const [, startCheckIn] = useTransition();
+  const [checkingIn, startCheckIn] = useTransition();
 
   if (ids.length === 0) return null;
 
@@ -133,7 +135,7 @@ export function BulkBar({
                   )}
                 </Field>
 
-                <Button type="submit" className="w-full">Update {people}</Button>
+                <SubmitButton className="w-full">Update {people}</SubmitButton>
               </form>
             </PopoverContent>
           </Popover>
@@ -141,9 +143,11 @@ export function BulkBar({
 
         {checkpoints.length > 0 && (
           <DropdownMenu>
-              <DropdownMenuTrigger render={<Button size="sm" className={onDark} />}>
-                <ScanLine data-icon="inline-start" />
-                Check in
+              {/* The menu closes as soon as a door is picked, so the trigger is what says the
+                  check-in is still running. */}
+              <DropdownMenuTrigger render={<Button size="sm" className={onDark} disabled={checkingIn} aria-busy={checkingIn} />}>
+                {checkingIn ? <Spinner data-icon="inline-start" /> : <ScanLine data-icon="inline-start" />}
+                {checkingIn ? "Checking in…" : "Check in"}
                 <ChevronDown data-icon="inline-end" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center">

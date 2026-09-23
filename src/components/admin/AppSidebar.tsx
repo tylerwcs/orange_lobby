@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useFormStatus } from "react-dom";
 import { ChevronRight, LogOut } from "lucide-react";
 import { Icon } from "@/components/ui/icon";
+import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -78,14 +80,22 @@ export function AppSidebar({ email, event }: { email: string; event?: Event | nu
         <form action={signOut}>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton type="submit" tooltip="Sign out" className="text-muted-foreground">
-                <LogOut />
-                <span className="truncate">{email}</span>
-              </SidebarMenuButton>
+              <SignOutButton email={email} />
             </SidebarMenuItem>
           </SidebarMenu>
         </form>
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+/** Its own component because `useFormStatus` only reads the form it is rendered inside. */
+function SignOutButton({ email }: { email: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <SidebarMenuButton type="submit" tooltip="Sign out" disabled={pending} aria-busy={pending} className="text-muted-foreground">
+      {pending ? <Spinner /> : <LogOut />}
+      <span className="truncate">{pending ? "Signing out…" : email}</span>
+    </SidebarMenuButton>
   );
 }

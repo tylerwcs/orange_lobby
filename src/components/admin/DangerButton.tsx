@@ -1,5 +1,5 @@
 "use client";
-import { useTransition } from "react";
+import { useTransition, useState } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,8 +20,11 @@ export function DangerButton({ action, message, children }: {
   children: React.ReactNode;
 }) {
   const [pending, startTransition] = useTransition();
+  // Closed on confirm, as in ConfirmButton: the action is not a Close, and a dialog left open
+  // while the delete runs is a second "Yes, delete" waiting to be pressed.
+  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger render={<Button type="button" variant="destructive" disabled={pending} aria-busy={pending} />}>
         {pending && <Spinner data-icon="inline-start" />}
         {pending ? "Working…" : children}
@@ -35,7 +38,7 @@ export function DangerButton({ action, message, children }: {
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-white hover:bg-destructive/90"
-            onClick={() => startTransition(() => action())}
+            onClick={() => { setOpen(false); startTransition(() => action()); }}
           >
             Yes, delete
           </AlertDialogAction>

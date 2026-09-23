@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { PendingLink, PendingScope, PendingSwap } from "@/components/PendingNav";
+import { SkeletonCard, SkeletonRows } from "@/components/ui/skeletons";
 import { cookies } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
@@ -179,6 +180,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         }
       />
       <SearchInput initial={sp.q ?? ""} matches={rows.length} total={total} />
+      {/* Previous and Next change only `?page=`, which the route's loading.tsx never sees.
+          The scope swaps the table for its skeleton while the next page loads. Search keeps
+          its own spinner instead: a skeleton flashing on every keystroke would be worse. */}
+      <PendingScope>
+      <PendingSwap fallback={<SkeletonCard><SkeletonRows rows={12} /></SkeletonCard>}>
       <AttendeeTable
         key={`${page}:${sp.q ?? ""}`}
         eventId={ev.id}
@@ -214,18 +220,20 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
       />
+      </PendingSwap>
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span className="tabular-nums">Showing {from}–{to} of {rows.length}</span>
         <div className="flex items-center gap-2">
           {page > 1
-            ? <Link href={pageHref(page - 1)} className={buttonVariants({ variant: "outline" })}>Previous</Link>
+            ? <PendingLink href={pageHref(page - 1)} className={buttonVariants({ variant: "outline" })}>Previous</PendingLink>
             : <span className={`${buttonVariants({ variant: "outline" })} opacity-50`} aria-disabled="true">Previous</span>}
           <span className="tabular-nums">Page {page} of {pages}</span>
           {page < pages
-            ? <Link href={pageHref(page + 1)} className={buttonVariants({ variant: "outline" })}>Next</Link>
+            ? <PendingLink href={pageHref(page + 1)} className={buttonVariants({ variant: "outline" })}>Next</PendingLink>
             : <span className={`${buttonVariants({ variant: "outline" })} opacity-50`} aria-disabled="true">Next</span>}
         </div>
       </div>
+      </PendingScope>
     </div>
   );
 }

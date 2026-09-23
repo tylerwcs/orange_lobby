@@ -6,9 +6,9 @@ import { UPLOAD_ACCEPT } from "@/lib/storage";
 import { nowInKL } from "@/lib/time";
 import type { RegistrationQuestion } from "@/lib/types";
 import { submitAnswersAction } from "../actions";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SubmissionHistory } from "@/components/portal/SubmissionHistory";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -111,7 +111,7 @@ export default async function ActivitySubmissionPage({ params, searchParams }: {
                     </FieldGroup>
                   </FieldSet>
                 )}
-                <Button type="submit" className="h-12 w-full text-base font-bold">Submit</Button>
+                <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
               </form>
             </CardContent>
           </Card>

@@ -16,7 +16,6 @@ import { CopyButton } from "@/components/admin/CopyButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
@@ -130,16 +129,15 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <div className="flex flex-wrap gap-2">
               {STATUSES.map((s) => (
                 <form key={s.value} action={setStatusAction.bind(null, ev.id, s.value)}>
-                  {/* type="submit" is not decoration: Base UI's Button defaults to
-                      type="button", so without this the click submits nothing and the status
-                      never changes — silently, with no error anywhere. */}
-                  <Button
-                    type="submit"
+                  {/* SubmitButton, not a bare Button: it carries type="submit" (Base UI's
+                      Button defaults to type="button", which submits nothing) and shows the
+                      form working while the status changes. */}
+                  <SubmitButton
                     variant={ev.status === s.value ? "default" : "outline"}
                     aria-current={ev.status === s.value ? "true" : undefined}
                   >
                     {s.label}
-                  </Button>
+                  </SubmitButton>
                 </form>
               ))}
             </div>
@@ -176,15 +174,13 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <div className="flex flex-wrap gap-2">
             {CHECK_IN_CHOICES.map((c) => (
               <form key={String(c.value)} action={setCheckInEnabledAction.bind(null, ev.id, c.value)}>
-                {/* type="submit" for the same reason the status buttons carry it: Base UI's
-                    Button defaults to type="button", and without it the click does nothing. */}
-                <Button
-                  type="submit"
+                {/* SubmitButton for the same reason the status buttons use it. */}
+                <SubmitButton
                   variant={ev.check_in_enabled === c.value ? "default" : "outline"}
                   aria-current={ev.check_in_enabled === c.value ? "true" : undefined}
                 >
                   {c.label}
-                </Button>
+                </SubmitButton>
               </form>
             ))}
           </div>

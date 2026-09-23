@@ -1,6 +1,7 @@
 "use client";
+import { usePathname } from "next/navigation";
+import { PendingLink } from "@/components/PendingNav";
 import { useOptimistic, useRef, useState, useTransition } from "react";
-import Link from "next/link";
 import type { Booth } from "@/lib/types";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
@@ -29,6 +30,7 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
   renameBooth: Rename;
   deleteBooth: Delete;
 }) {
+  const pathname = usePathname();
   const [order, setOrder] = useOptimistic(items);
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -90,10 +92,12 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
               <Badge variant="secondary" className="tabular-nums">{n} stamp{n === 1 ? "" : "s"}</Badge>
 
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <Link href={`?qr=${b.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                {/* Opens the QR dialog by changing `?qr=` only, which no loading.tsx sees; the
+                    link shows its own spinner until the dialog arrives. */}
+                <PendingLink href={`${pathname}?qr=${b.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
                   <Icon name="qr" size={14} />
                   Scanner QR
-                </Link>
+                </PendingLink>
 
                 <Modal title={`Rename ${b.name}`} trigger="Rename" variant="outline">
                   <form action={renameBooth.bind(null, b.id)} className="grid gap-4">

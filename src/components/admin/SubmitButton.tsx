@@ -18,15 +18,15 @@ type Variant = React.ComponentProps<typeof Button>["variant"];
  * shows its working state together. That is the honest reading: the form is submitting, and
  * which button started it does not change what the organiser should wait for.
  */
-export function SubmitButton({ children, className = "", variant = "default", formAction }: {
+export function SubmitButton({ children, className = "", variant = "default", formAction, ...rest }: {
   children: React.ReactNode;
   className?: string;
   variant?: Variant;
   formAction?: (formData: FormData) => void | Promise<void>;
-}) {
+} & Pick<React.ComponentProps<typeof Button>, "size" | "aria-current">) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" formAction={formAction} variant={variant} disabled={pending} aria-busy={pending} className={className}>
+    <Button type="submit" formAction={formAction} variant={variant} disabled={pending} aria-busy={pending} className={className} {...rest}>
       {pending && <Spinner data-icon="inline-start" />}
       {pending ? "Working…" : children}
     </Button>

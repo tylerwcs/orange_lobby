@@ -1,4 +1,7 @@
+import Form from "next/form";
+import Link from "next/link";
 import { shortDate } from "@/lib/text";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 
 export type MissingPerson = { id: string; name: string; category: string | null };
 
@@ -11,8 +14,10 @@ export type MissingPerson = { id: string; name: string; category: string | null 
  * a form is not — the answers are the attendee's own — so there is nothing to offer here
  * beyond the names (D175).
  *
- * The day form is a plain GET so the chosen day lives in the URL: a desk working through
- * the morning can bookmark it, reload it, or send it to a colleague and get the same list.
+ * The day form is a GET so the chosen day lives in the URL: a desk working through the
+ * morning can bookmark it, reload it, or send it to a colleague and get the same list. It is
+ * `next/form` rather than a bare <form> so Show navigates in place - the page's keyed
+ * Suspense puts up a skeleton - instead of reloading the whole admin.
  */
 export function MissingPanel({ people, day, today, basePath }: {
   people: MissingPerson[];
@@ -24,7 +29,7 @@ export function MissingPanel({ people, day, today, basePath }: {
   return (
     <div className="flex flex-col gap-3">
       {day !== null && (
-        <form method="GET" action={basePath} className="flex flex-wrap items-end gap-2">
+        <Form action={basePath} className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">Day</span>
             <input
@@ -32,11 +37,11 @@ export function MissingPanel({ people, day, today, basePath }: {
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </label>
-          <button type="submit" className="h-9 rounded-md border border-input px-3 text-sm font-bold hover:bg-muted">Show</button>
+          <SubmitButton variant="outline">Show</SubmitButton>
           {day !== today && (
-            <a href={basePath} className="text-sm font-bold text-primary underline-offset-4 hover:underline">Back to today</a>
+            <Link href={basePath} className="text-sm font-bold text-primary underline-offset-4 hover:underline">Back to today</Link>
           )}
-        </form>
+        </Form>
       )}
 
       {people.length === 0 ? (

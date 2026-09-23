@@ -1,11 +1,13 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * A submit guarded by a confirmation. It used to be window.confirm, which cannot be
@@ -24,6 +26,10 @@ import { Button } from "@/components/ui/button";
  *
  * Use DangerButton instead when there is no form to submit, or when the control has to sit
  * beside a Save button: forms cannot nest.
+ *
+ * Once confirmed, the trigger shows the form's working state the way `SubmitButton` does.
+ * Before it did, the dialog closed and the page sat unchanged until the redirect landed - on a
+ * phone at an event venue that is long enough to press Book twice.
  */
 export function ConfirmButton({
   message, children, className = "", confirmLabel = "Yes, continue",
@@ -38,10 +44,16 @@ export function ConfirmButton({
   triggerVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
+  const { pending } = useFormStatus();
+  // Controlled so confirming can close it. The action is a plain Button, not a Close, so the
+  // dialog used to stay up - with its confirm still live - until the redirect unmounted it,
+  // and a second press submitted the form again.
+  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog>
-      <AlertDialogTrigger render={<Button ref={trigger} type="button" variant={triggerVariant} className={className} />}>
-        {children}
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger render={<Button ref={trigger} type="button" variant={triggerVariant} className={className} disabled={pending} aria-busy={pending} />}>
+        {pending && <Spinner data-icon="inline-start" />}
+        {pending ? "Working…" : children}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -51,7 +63,7 @@ export function ConfirmButton({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => trigger.current?.form?.requestSubmit()}
+            onClick={() => { setOpen(false); trigger.current?.form?.requestSubmit(); }}
             className={tone === "destructive" ? "bg-destructive text-white hover:bg-destructive/90" : undefined}
           >
             {confirmLabel}

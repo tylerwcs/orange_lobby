@@ -1,3 +1,4 @@
+import { PendingLink } from "@/components/PendingNav";
 import { notFound } from "next/navigation";
 import { getEventByCrewToken } from "@/lib/db/events";
 import { listCheckpoints } from "@/lib/db/checkpoints";
@@ -91,7 +92,7 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
                 <ul className="flex flex-col gap-2">
                   {g.items.map((c) => (
                     <li key={c.id}>
-                      <a href={`/crew/${token}?cp=${c.id}`}
+                      <PendingLink href={`/crew/${token}?cp=${c.id}`}
                         className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-4 transition-colors hover:bg-muted active:bg-muted">
                         <Flag className="size-5 shrink-0 text-primary" />
                         <span className="flex min-w-0 flex-1 flex-col">
@@ -100,7 +101,7 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
                         </span>
                         <Badge variant="secondary" className="shrink-0 tabular-nums">{counts[c.id] ?? 0}/{total}</Badge>
                         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                      </a>
+                      </PendingLink>
                     </li>
                   ))}
                 </ul>

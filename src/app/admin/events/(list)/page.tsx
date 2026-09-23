@@ -2,13 +2,11 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { listEvents } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
-import { AppSidebar } from "@/components/admin/AppSidebar";
-import { SidebarInset } from "@/components/ui/sidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { createEventAction } from "./[id]/actions";
+import { createEventAction } from "../[id]/actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -17,13 +15,11 @@ import { formatDateRange } from "@/lib/text";
 export const metadata = { title: "All events · Orange Lobby" };
 
 export default async function AdminHome() {
-  const { orgId, email } = await requireAdmin();
+  const { orgId } = await requireAdmin();
   const events = await listEvents(orgId);
   const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
   return (
     <>
-      <AppSidebar email={email} />
-      <SidebarInset id="main" className="min-w-0 p-4 pt-6 lg:p-6 lg:pt-8 2xl:p-8">
         <AdminHeader
           title="Events"
           actions={
@@ -65,7 +61,6 @@ export default async function AdminHome() {
           )}
         </div>
         </div>
-      </SidebarInset>
     </>
   );
 }
