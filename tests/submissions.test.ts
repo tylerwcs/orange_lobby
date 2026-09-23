@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { canSubmit, capSummary, missingFrom, participation } from "@/lib/submissions";
+import { readSubmissionDetails, submitLabel } from "@/lib/submissions";
 import type { Activity, ActivitySubmission } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}): Activity => ({
   id: "f1", org_id: "o", event_id: "e", name: "Daily check-in", description: null,
   kind: "submission", required: false, is_open: true, categories: null,
-  max_per_attendee: null, questions: [], per_day: false, image_url: null, sort_order: 0, ...over,
+  max_per_attendee: null, questions: [], per_day: false, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, sort_order: 0, ...over,
 });
 const sub = (day: string): ActivitySubmission => ({
   id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", answers: {},
@@ -209,5 +210,34 @@ describe("participation", () => {
     const twice = [on("a1", TODAY), { ...on("a1", TODAY), id: "second" }];
     const [row] = participation(form(), twice, ["a1"], () => null, TODAY, 3);
     expect(row.count).toBe(1);
+  });
+});
+
+describe("submitLabel", () => {
+  it("says Submit unless the organiser chose other words", () => {
+    expect(submitLabel({ action_label: null })).toBe("Submit");
+    expect(submitLabel({ action_label: "  " })).toBe("Submit");
+    expect(submitLabel({ action_label: " Join now " })).toBe("Join now");
+  });
+});
+
+describe("readSubmissionDetails", () => {
+  const read = (v: Record<string, string>) => readSubmissionDetails((k) => v[k] ?? null);
+  it("stores what was filled in, and null for what was not", () => {
+    expect(read({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: " Level 3 gym ", action_label: "Join now" }))
+      .toEqual({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: "Level 3 gym", action_label: "Join now" });
+    expect(read({})).toEqual({ starts_on: null, ends_on: null, venue: null, action_label: null });
+  });
+  it("drops an end date equal to the start, which is one day", () => {
+    expect(read({ starts_on: "2026-09-28", ends_on: "2026-09-28" }).ends_on).toBeNull();
+  });
+  it("refuses an end before the start", () => {
+    expect(() => read({ starts_on: "2026-10-02", ends_on: "2026-09-28" })).toThrow(/end date/i);
+  });
+  it("refuses an end date with no start date", () => {
+    expect(() => read({ ends_on: "2026-10-02" })).toThrow(/start date/i);
+  });
+  it("refuses a button label too long for a button", () => {
+    expect(() => read({ action_label: "x".repeat(25) })).toThrow(/24/);
   });
 });

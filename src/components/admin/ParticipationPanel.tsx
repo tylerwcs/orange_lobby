@@ -30,7 +30,7 @@ export function ParticipationPanel({ people, windowDays, today }: {
   today: string;
 }) {
   if (people.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nobody is eligible for this form yet.</p>;
+    return <p className="text-sm text-muted-foreground">Nobody is eligible for this submission yet.</p>;
   }
 
   return (

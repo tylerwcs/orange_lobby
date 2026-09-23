@@ -49,7 +49,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
       what: "One sheet per session, plus who has not booked.",
     }] : []),
     ...(forms.length > 0 ? [{
-      href: `${b}/submissions.xlsx`, icon: "file" as IconName, name: "Form submissions",
+      href: `${b}/submissions.xlsx`, icon: "file" as IconName, name: "Submissions",
       what: "One sheet per submission activity: who submitted, when, and every answer. File answers are links that expire after seven days.",
     }] : []),
   ];

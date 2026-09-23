@@ -7,7 +7,6 @@ import type { ActivityControls } from "@/lib/activity-requests";
 import { sessionGrid, startDay } from "@/lib/session-grid";
 import { shortDate } from "@/lib/text";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { ActivityBooking } from "./ActivityBooking";
 
 
 export type BookingActions = {
@@ -21,9 +20,10 @@ export type BookingActions = {
 const FEW = 3;
 
 /**
- * One booking activity's sessions, on the activity's own page: a tab per day, a grid of start
- * times, and a bar that books - or asks to switch to - the time you picked. The page above it
- * already says what the activity is, where and for how long.
+ * One booking activity's sessions, in the dialog the activity page's "Book your session"
+ * button opens: a tab per day, a grid of start times, and a bar that books - or asks to switch
+ * to - the time you picked. What the attendee already holds, and the cancel and withdraw
+ * controls, stay on the page itself (`ActivityBooking`).
  *
  * Time leads because it is what people choose by; `sessionGrid` decides what else each slot
  * has to say. Picking a time only selects it. The bar's button does the work, behind the same
@@ -35,9 +35,9 @@ const FEW = 3;
  *
  * Was the body of `ActivityList`, one row per session with its own Book button.
  */
-export function ActivitySessions({ entry: { state, controls, pendingId }, actions: { book, requestSwitch, requestCancel, withdraw } }: {
-  entry: ActivityEntry;
-  actions: BookingActions;
+export function ActivitySessions({ entry: { state, controls }, actions: { book, requestSwitch } }: {
+  entry: Pick<ActivityEntry, "state" | "controls">;
+  actions: Pick<BookingActions, "book" | "requestSwitch">;
 }) {
   const grid = useMemo(() => sessionGrid(state.sessions), [state.sessions]);
   const [day, setDay] = useState(() => startDay(grid.days));
@@ -53,10 +53,6 @@ export function ActivitySessions({ entry: { state, controls, pendingId }, action
 
   return (
     <div className="flex flex-col gap-3">
-      {state.closed && <p className="text-sm text-muted-foreground">Booking is closed for this activity.</p>}
-
-      <ActivityBooking controls={controls} pendingId={pendingId} requestCancel={requestCancel} withdraw={withdraw} />
-
       {grid.days.length === 0 && <p className="text-sm text-muted-foreground">No sessions have been added yet.</p>}
 
       {grid.days.length > 0 && (
@@ -148,9 +144,9 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
   const fromSeat = controls.held.find((h) => h.session.id === from);
 
   return (
-    // Floats above the portal's bottom bar on a phone (bottom-20 clears it, the same clearance
-    // the toaster and <main> use) and sits at the foot of the page from md, where there is none.
-    <div className="sticky bottom-20 z-10 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-popover px-4 py-3 shadow-lg md:bottom-4">
+    // Docked to the foot of the dialog, which is what scrolls: -bottom-4 and the negative
+    // margins cancel the dialog's own padding so the bar sits flush with its edge.
+    <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border bg-popover px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="text-sm font-extrabold">{isBook ? when : `Move to ${when}`}</div>
         <div className="truncate text-xs text-muted-foreground">{detail}</div>

@@ -15,7 +15,7 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
 const check = "flex items-center gap-2 text-sm font-bold";
 
 /** The hint under every activity's image field, both kinds. */
-export const COVER_HINT = "The picture on the activity's card and across the top of its page. The card crops it to a wide strip; the page shows it whole. Wide images suit both.";
+export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 KB. The card crops it to a 2:1 strip and the page shows it whole, so at 2:1 nothing is cut off.";
 
 /**
  * The fields the add-submission form and its own edit form share. `readSubmissionPolicy` in
@@ -34,6 +34,15 @@ export function SubmissionFields({ activity }: { activity?: Activity }) {
         url={activity?.image_url}
         description={COVER_HINT}
       />
+      {/* When and where: a booking's come from its sessions, a submission has none, so it says
+          them here. Shown on the card and the page the way a booking's are. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Start date (optional)" name="starts_on" type="date" defaultValue={activity?.starts_on} />
+        <Field label="End date (optional)" name="ends_on" type="date" defaultValue={activity?.ends_on} description="Leave blank for a single day." />
+      </div>
+      <Field label="Venue (optional)" name="venue" defaultValue={activity?.venue} placeholder="Level 3 gym" />
+      <Field label="Button wording (optional)" name="action_label" defaultValue={activity?.action_label} placeholder="Submit"
+        description="What the button on the attendee's page says, like Join now or Upload results. Leave blank for Submit." />
       <Field label="Categories (optional)" name="categories" defaultValue={activity?.categories?.join(", ")} placeholder="VIP, Management"
         description="Comma separated. Leave blank to offer it to everyone." />
       <div className="flex flex-col gap-1.5">

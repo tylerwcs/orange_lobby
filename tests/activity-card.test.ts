@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingCard, dayRange, formCard, type BookingCardInput } from "@/lib/activity-card";
+import { bookingCard, dayRange, formCard, type BookingCardInput, type FormCardInput } from "@/lib/activity-card";
 import type { SeatsForViewer } from "@/lib/activities";
 
 const seat = (day: string, starts_at: string, left: number, mine = false, location: string | null = "Gardensby17"): SeatsForViewer => ({
@@ -75,35 +75,37 @@ describe("bookingCard", () => {
 });
 
 describe("formCard", () => {
-  const form = (max_per_attendee: number | null = 1, per_day = false) => ({ max_per_attendee, per_day });
-  it("invites a first answer, counting against the cap", () => {
-    expect(formCard({ form: form(), state: { can: true, reason: "ok", used: 0 } })).toEqual({
+  const form = (over: Partial<FormCardInput["form"]> = {}): FormCardInput["form"] =>
+    ({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: "Level 3 gym", action_label: null, ...over });
+  const open = { can: true, reason: "ok" as const, used: 0 };
+
+  it("invites a first answer with the dates and place, under the organiser's button wording", () => {
+    expect(formCard({ form: form({ action_label: "Join now" }), state: open })).toEqual({
       status: { label: "Open", tone: "primary" },
-      meta: { icon: "send", text: "0 of 1 sent" },
-      action: { label: "Fill in", primary: true },
+      meta: { icon: "calendar", text: "28 Sep – 2 Oct · Level 3 gym" },
+      action: { label: "Join now", primary: true },
     });
   });
-  it("counts without a cap", () => {
-    expect(formCard({ form: form(null), state: { can: true, reason: "ok", used: 2 } }).meta).toEqual({ icon: "send", text: "2 sent" });
+  it("says Submit when the organiser chose no wording", () => {
+    expect(formCard({ form: form(), state: open }).action).toEqual({ label: "Submit", primary: true });
   });
-  it("says a daily form is once a day before anything is sent", () => {
-    expect(formCard({ form: form(null, true), state: { can: true, reason: "ok", used: 0 } }).meta).toEqual({ icon: "send", text: "Once a day" });
+  it("shows the place alone when there are no dates, and nothing when there is neither", () => {
+    expect(formCard({ form: form({ starts_on: null, ends_on: null }), state: open }).meta).toEqual({ icon: "pin", text: "Level 3 gym" });
+    expect(formCard({ form: form({ starts_on: null, ends_on: null, venue: null }), state: open }).meta).toBeNull();
   });
-  it("shows a finished form as sent", () => {
-    expect(formCard({ form: form(), state: { can: false, reason: "limit", used: 1 } })).toEqual({
-      status: { label: "Sent", tone: "success" },
-      meta: { icon: "send", text: "1 of 1 sent" },
+  it("names a single day in full", () => {
+    expect(formCard({ form: form({ ends_on: null, venue: null }), state: open }).meta).toEqual({ icon: "calendar", text: "Mon 28 Sep" });
+  });
+  it("marks a finished submission as done", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "limit", used: 1 } })).toMatchObject({
+      status: { label: "Submission done", tone: "success" },
       action: { label: "View", primary: false },
     });
   });
-  it("tells a daily form to come back tomorrow", () => {
-    expect(formCard({ form: form(null, true), state: { can: false, reason: "today", used: 3 } })).toEqual({
-      status: { label: "Sent today", tone: "success" },
-      meta: { icon: "clock", text: "Come back tomorrow" },
-      action: { label: "View", primary: false },
-    });
+  it("marks a daily one as done for today", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "today", used: 3 } }).status).toEqual({ label: "Done for today", tone: "success" });
   });
-  it("marks a closed form", () => {
+  it("marks a closed one", () => {
     expect(formCard({ form: form(), state: { can: false, reason: "closed", used: 0 } }).status).toEqual({ label: "Closed", tone: "muted" });
   });
 });

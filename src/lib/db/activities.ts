@@ -15,8 +15,12 @@ export type NewActivity = {
   /** Empty on a booking activity. */
   questions: RegistrationQuestion[];
   per_day: boolean;
-  /** Left out, the column's null stands. */
+  /** Left out, the column's null stands - as for the four submission details below. */
   image_url?: string | null;
+  starts_on?: string | null;
+  ends_on?: string | null;
+  venue?: string | null;
+  action_label?: string | null;
 };
 
 export type NewSession = {

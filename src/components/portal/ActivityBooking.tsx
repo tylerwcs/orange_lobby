@@ -82,11 +82,11 @@ export function ActivityBooking({ controls, pendingId, requestCancel, withdraw }
           )}
         </div>
       ))}
-      {/* Moving is done from the grid now: pick another time and the sheet's bar offers the
-          switch. This line only says so, or says why it cannot. */}
+      {/* Moving is done from the grid in the page's dialog: pick another time and its bar
+          offers the switch. This line only says so, or says why it cannot. */}
       {held.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {switchTargets.length > 0 ? "To move, pick another time below. The desk approves it." : "No other session has room right now."}
+          {switchTargets.length > 0 ? "To move, tap Change session and pick another time. The desk approves it." : "No other session has room right now."}
         </p>
       )}
     </div>

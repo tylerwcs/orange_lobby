@@ -165,3 +165,28 @@ export function participation(
 export function fileQuestionKeys(questions: RegistrationQuestion[]): string[] {
   return questions.filter((q) => q.type === "file").map((q) => q.key);
 }
+
+/** What a submission activity's button says: the organiser's words, or "Submit". */
+export function submitLabel(activity: Pick<Activity, "action_label">): string {
+  return activity.action_label?.trim() || "Submit";
+}
+
+/** Long enough for "Upload my results", short enough to stay one line on a phone's button. */
+const MAX_LABEL = 24;
+
+/**
+ * The when, where and button wording of a submission activity, read from its admin form.
+ * Throws the sentence the organiser reads for a date range that cannot be right. An end date
+ * the same as the start is one day, and is stored as no end date at all.
+ */
+export function readSubmissionDetails(get: (key: string) => string | null): Pick<Activity, "starts_on" | "ends_on" | "venue" | "action_label"> {
+  const val = (k: string) => get(k)?.trim() || null;
+  const starts_on = val("starts_on");
+  let ends_on = val("ends_on");
+  if (ends_on && !starts_on) throw new Error("Add a start date, or clear the end date.");
+  if (starts_on && ends_on && ends_on < starts_on) throw new Error("The end date is before the start date.");
+  if (ends_on === starts_on) ends_on = null;
+  const action_label = val("action_label");
+  if (action_label && action_label.length > MAX_LABEL) throw new Error(`Keep the button wording to ${MAX_LABEL} characters or fewer.`);
+  return { starts_on, ends_on, venue: val("venue"), action_label };
+}

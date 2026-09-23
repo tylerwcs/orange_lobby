@@ -1,5 +1,5 @@
 import { sessionLabel, type ActivityState } from "@/lib/activities";
-import type { SubmitState } from "@/lib/submissions";
+import { submitLabel, type SubmitState } from "@/lib/submissions";
 import type { Activity } from "@/lib/types";
 import { shortDate } from "@/lib/text";
 
@@ -15,7 +15,7 @@ export type CardTone = "primary" | "success" | "warning" | "muted";
 
 export type CardView = {
   status: { label: string; tone: CardTone } | null;
-  meta: { icon: "calendar" | "send" | "clock"; text: string } | null;
+  meta: { icon: "calendar" | "pin" | "clock"; text: string } | null;
   action: { label: string; primary: boolean };
 };
 
@@ -61,19 +61,21 @@ export function bookingCard({ state, pending }: BookingCardInput): CardView {
 }
 
 export type FormCardInput = {
-  form: Pick<Activity, "max_per_attendee" | "per_day">;
+  form: Pick<Activity, "starts_on" | "ends_on" | "venue" | "action_label">;
   state: SubmitState;
 };
 
+/**
+ * A submission activity's card. Its line says when and where, like a booking's - how many the
+ * attendee has sent is theirs to see on the page, not something the list needs to shout.
+ */
 export function formCard({ form, state }: FormCardInput): CardView {
-  const { used } = state;
-  const count = form.max_per_attendee !== null
-    ? `${used} of ${form.max_per_attendee} sent`
-    : used === 0 && form.per_day ? "Once a day" : `${used} sent`;
-  const sent = { icon: "send" as const, text: count };
+  const dates = form.starts_on ? dayRange([form.starts_on, form.ends_on ?? form.starts_on]) : null;
+  const where = [dates, form.venue].filter(Boolean).join(" · ");
+  const meta = where ? { icon: dates ? ("calendar" as const) : ("pin" as const), text: where } : null;
 
-  if (state.can) return { status: { label: "Open", tone: "primary" }, meta: sent, action: { label: "Fill in", primary: true } };
-  if (state.reason === "today") return { status: { label: "Sent today", tone: "success" }, meta: { icon: "clock", text: "Come back tomorrow" }, action: view };
-  if (state.reason === "limit") return { status: { label: "Sent", tone: "success" }, meta: sent, action: view };
-  return { status: { label: "Closed", tone: "muted" }, meta: sent, action: view };
+  if (state.can) return { status: { label: "Open", tone: "primary" }, meta, action: { label: submitLabel(form), primary: true } };
+  if (state.reason === "today") return { status: { label: "Done for today", tone: "success" }, meta, action: view };
+  if (state.reason === "limit") return { status: { label: "Submission done", tone: "success" }, meta, action: view };
+  return { status: { label: "Closed", tone: "muted" }, meta, action: view };
 }

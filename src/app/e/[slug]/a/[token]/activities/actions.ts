@@ -187,10 +187,10 @@ export async function withdrawRequestAction(slug: string, token: string, request
  */
 const SUBMIT_RESULT_MESSAGES: Record<SubmitCode, string> = {
   ok: "Submitted. Thanks!",
-  missing: "This form is no longer available.",
-  closed: "This form is closed.",
-  ineligible: "This form is not open to your group.",
-  limit: "You have sent all the entries this form takes.",
+  missing: "This submission is no longer available.",
+  closed: "Submissions for this are closed.",
+  ineligible: "This is not open to your group.",
+  limit: "Submission done. There is nothing more to send.",
   today: "You have already submitted today. Come back tomorrow.",
 };
 

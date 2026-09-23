@@ -286,8 +286,8 @@ export function retiredAnswerKeys(currentKeys: Iterable<string>, answerSets: Rec
 export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   if (forms.length === 0) {
-    const ws = wb.addWorksheet("No forms");
-    ws.addRow(["This event has no forms yet."]);
+    const ws = wb.addWorksheet("No submissions");
+    ws.addRow(["This event has no submission activities yet."]);
     ws.columns = [{ width: 48 }];
     return wb;
   }

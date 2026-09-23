@@ -84,7 +84,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
                   <input type="checkbox" name="submissions_open" className="size-4" />
                   Open for submissions now
                 </label>
-                <SubmitButton>Add form</SubmitButton>
+                <SubmitButton>Add submission</SubmitButton>
               </form>
             </Modal>
           </>

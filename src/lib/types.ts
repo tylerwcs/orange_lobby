@@ -187,6 +187,14 @@ export type Activity = {
   per_day: boolean;
   /** The organiser's picture for the activity - a poster, the rules: cropped on its card, whole across the top of its page. Either kind. */
   image_url: string | null;
+  /** Submission kind only - a booking's dates and place come from its sessions. YYYY-MM-DD. */
+  starts_on: string | null;
+  /** Optional; with no end date the activity is the one day `starts_on`. */
+  ends_on: string | null;
+  /** Submission kind only. Free text, shown like a booking's location. */
+  venue: string | null;
+  /** Submission kind only. The attendee's button; "Submit" when null (`submitLabel`). */
+  action_label: string | null;
   sort_order: number;
 };
 

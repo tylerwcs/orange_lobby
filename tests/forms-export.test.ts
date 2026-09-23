@@ -30,10 +30,10 @@ describe("buildFormsWorkbook", () => {
     expect(ws.getRow(2).getCell(5).value).toBe("2026-09-28T01:23:45.000Z");
   });
 
-  it("says so rather than writing an empty file when there are no forms", () => {
+  it("says so rather than writing an empty file when there are no submission activities", () => {
     const wb = buildFormsWorkbook([]);
     expect(wb.worksheets).toHaveLength(1);
-    expect(wb.worksheets[0].getRow(1).getCell(1).value).toMatch(/no forms/i);
+    expect(wb.worksheets[0].getRow(1).getCell(1).value).toMatch(/no submission activities/i);
   });
 
   // A question's key can be renamed in the admin editor after submissions already exist under

@@ -16,7 +16,7 @@ import { flashPath } from "@/lib/flash";
 import { sweepSubmissionPrefix, nextImage, deleteEventImage, type ImageChange } from "@/lib/db/media";
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
-import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
+import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails } from "@/lib/submissions";
 import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
 
@@ -103,7 +103,7 @@ export async function toggleOpenAction(eventId: string, activityId: string) {
   const opened = !activity.is_open;
   const label = activity.kind === "booking"
     ? (opened ? "Booking open." : "Booking closed.")
-    : (opened ? "Form open." : "Form closed.");
+    : (opened ? "Submissions open." : "Submissions closed.");
   redirect(flashPath(path, label));
 }
 
@@ -145,9 +145,10 @@ function isPerDayCollision(e: unknown): boolean {
  * from creation onward. Throws on anything invalid; both actions below catch that and turn it
  * into a flash rather than a 500.
  */
-function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions"> {
+function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label"> {
   const name = text(fd, "name");
-  if (!name) throw new Error("A form needs a name");
+  if (!name) throw new Error("A submission needs a name");
+  const details = readSubmissionDetails((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; });
   const maxRaw = text(fd, "max_per_attendee");
   let max_per_attendee: number | null = null;
   if (maxRaw) {
@@ -168,6 +169,7 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
     max_per_attendee,
     per_day: checked(fd, "per_day"),
     questions,
+    ...details,
   };
 }
 
@@ -189,7 +191,7 @@ export async function addSubmissionActivityAction(eventId: string, fd: FormData)
   }
   await createActivity(ev, { ...policy, kind: "submission", required: false, is_open: checked(fd, "submissions_open"), image_url: image.url });
   revalidatePath(listPath(eventId));
-  redirect(flashPath(listPath(eventId), "Form added."));
+  redirect(flashPath(listPath(eventId), "Submission added."));
 }
 
 /**
@@ -209,7 +211,7 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
     redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
   }
   const current = await getActivity(activityId, ev.id);
-  if (!current) redirect(flashPath(listPath(eventId), "That form no longer exists.", "error"));
+  if (!current) redirect(flashPath(listPath(eventId), "That submission no longer exists.", "error"));
   // Before syncSubmissionPerDay rather than after it: that call rewrites the submissions
   // themselves, so a picture refused after it would leave them out of step with the form.
   let image: ImageChange = { url: current.image_url, stale: null };
@@ -228,13 +230,13 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
     // outage, a network failure, some other constraint) re-throws, so it surfaces as a real
     // failure instead of a misleading flash the organiser cannot act on.
     if (!isPerDayCollision(e)) throw e;
-    redirect(flashPath(listPath(eventId), "Someone has already submitted twice in one day, so this form cannot become once-a-day. Delete the extra submission first.", "error"));
+    redirect(flashPath(listPath(eventId), "Someone has already submitted twice in one day, so this submission cannot become once-a-day. Delete the extra submission first.", "error"));
   }
   await updateActivity(activityId, ev.id, { ...policy, image_url: image.url });
   // Only now that the row names the new picture (or none) is the old one safe to throw away.
   await deleteEventImage(image.stale);
   revalidatePath(listPath(eventId));
-  redirect(flashPath(listPath(eventId), "Form saved."));
+  redirect(flashPath(listPath(eventId), "Submission saved."));
 }
 
 /**
@@ -255,14 +257,14 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
 export async function deleteSubmissionActivityAction(eventId: string, activityId: string) {
   const ev = await event(eventId);
   const activity = await getActivity(activityId, ev.id);
-  if (!activity) redirect(flashPath(listPath(eventId), "That form no longer exists.", "error"));
+  if (!activity) redirect(flashPath(listPath(eventId), "That submission no longer exists.", "error"));
   await sweepSubmissionPrefix(`${ev.org_id}/${ev.id}/${activity.id}`);
   await deleteActivity(activityId, ev.id);
   // After the row, like every other image here: a delete that failed must not leave the form
   // pointing at a picture that is already gone.
   await deleteEventImage(activity.image_url);
   revalidatePath(listPath(eventId));
-  redirect(flashPath(listPath(eventId), "Form deleted."));
+  redirect(flashPath(listPath(eventId), "Submission deleted."));
 }
 
 function readSession(fd: FormData) {

@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Send, Ticket } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Ticket } from "lucide-react";
 import type { CardTone, CardView } from "@/lib/activity-card";
 import type { Activity } from "@/lib/types";
 
@@ -22,12 +22,12 @@ export function StatusChip({ status }: { status: NonNullable<CardView["status"]>
 export function KindTag({ kind }: { kind: Activity["kind"] }) {
   return (
     <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.04em] text-muted-foreground">
-      {kind === "booking" ? "Sessions" : "Form"}
+      {kind === "booking" ? "Sessions" : "Submission"}
     </span>
   );
 }
 
-const META_ICONS = { calendar: CalendarDays, send: Send, clock: Clock } as const;
+const META_ICONS = { calendar: CalendarDays, pin: MapPin, clock: Clock } as const;
 
 export function MetaLine({ meta }: { meta: NonNullable<CardView["meta"]> }) {
   const Icon = META_ICONS[meta.icon];

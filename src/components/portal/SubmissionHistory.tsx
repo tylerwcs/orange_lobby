@@ -17,7 +17,7 @@ export async function SubmissionHistory({ submissions, questions }: {
   questions: RegistrationQuestion[];
 }) {
   if (submissions.length === 0) {
-    return <p className="text-sm text-muted-foreground">You have not sent anything to this form yet.</p>;
+    return <p className="text-sm text-muted-foreground">You have not submitted anything yet.</p>;
   }
   const labelFor = (key: string) => questions.find((q) => q.key === key)?.label ?? key;
   const isFile = (key: string) => questions.find((q) => q.key === key)?.type === "file";
