@@ -1,4 +1,5 @@
 import { categoryMatches } from "@/lib/agenda";
+import { lastDays, daysBetween } from "@/lib/time";
 import type { Form, FormSubmission } from "@/lib/types";
 
 /** How many questions a form's editor offers, mirroring `MAX_QUESTIONS` for registration. */
@@ -73,4 +74,83 @@ export function missingFrom(
       .map((s) => s.attendee_id),
   );
   return attendeeIds.filter((id) => categoryMatches(form.categories, categoryOf(id)) && !answered.has(id));
+}
+
+export type ParticipationDay = { day: string; submitted: boolean };
+export type ParticipationRow = {
+  attendeeId: string;
+  /** One entry per day of the window, oldest first. */
+  days: ParticipationDay[];
+  /** How many days OF THE WINDOW they submitted on — never more than the window's length. */
+  count: number;
+  /** Their most recent submission ever, not merely within the window. Null if they never have. */
+  lastDay: string | null;
+  /** Whole days from `lastDay` to `today`. Null when they have never submitted. */
+  daysSince: number | null;
+};
+
+/**
+ * Who is drifting: each eligible attendee's last `windowDays` as a strip of marks, with the
+ * gap since they last submitted at all.
+ *
+ * The ordering is the feature, not a detail, which is why it lives here under test rather
+ * than in the page's JSX. Two rules, and the second is a deliberate departure from "sort by
+ * the longest gap":
+ *
+ *   1. Among people who HAVE submitted, longest gap first — somebody who answered every day
+ *      until Tuesday and then stopped is exactly who this screen exists to surface, and an
+ *      alphabetical list would bury them.
+ *   2. Everyone who has NEVER submitted goes below all of them, in the order given.
+ *      Treating "never" as the largest gap is arithmetically tidy and useless in practice:
+ *      on a young form almost nobody has started, so the drifter this screen is for would
+ *      sit under forty rows of people who simply have not begun — and those people are
+ *      already the chasing list (`missingFrom`).
+ *
+ * `count` is bounded by the window; `daysSince` deliberately is not. Somebody whose last
+ * submission predates the window has an empty strip AND a large gap, and both facts are
+ * true and worth seeing.
+ */
+export function participation(
+  form: Pick<Form, "id" | "categories">,
+  submissions: Pick<FormSubmission, "form_id" | "attendee_id" | "submitted_on">[],
+  attendeeIds: string[],
+  categoryOf: (attendeeId: string) => string | null,
+  today: string,
+  windowDays: number,
+): ParticipationRow[] {
+  const window = lastDays(today, windowDays);
+  const mine = submissions.filter((s) => s.form_id === form.id);
+
+  // A Set per attendee, so a form that allows two submissions in one day still marks that
+  // day once — the strip answers "did they take part", not "how many times".
+  const byAttendee = new Map<string, Set<string>>();
+  for (const s of mine) {
+    const seen = byAttendee.get(s.attendee_id) ?? new Set<string>();
+    seen.add(s.submitted_on);
+    byAttendee.set(s.attendee_id, seen);
+  }
+
+  const rows = attendeeIds
+    .filter((id) => categoryMatches(form.categories, categoryOf(id)))
+    .map((attendeeId) => {
+      const seen = byAttendee.get(attendeeId) ?? new Set<string>();
+      const days = window.map((day) => ({ day, submitted: seen.has(day) }));
+      const lastDay = [...seen].sort().at(-1) ?? null;
+      return {
+        attendeeId,
+        days,
+        count: days.filter((d) => d.submitted).length,
+        lastDay,
+        daysSince: lastDay === null ? null : daysBetween(lastDay, today),
+      };
+    });
+
+  // Stable by construction: `rows` is already in `attendeeIds` order, and Array#sort is
+  // stable, so people who have never submitted keep that order among themselves.
+  return rows.sort((a, b) => {
+    if (a.daysSince === null && b.daysSince === null) return 0;
+    if (a.daysSince === null) return 1;
+    if (b.daysSince === null) return -1;
+    return b.daysSince - a.daysSince;
+  });
 }

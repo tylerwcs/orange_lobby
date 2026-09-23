@@ -3,10 +3,11 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getForm, submissionsForForm } from "@/lib/db/forms";
 import { listAttendees } from "@/lib/db/attendees";
-import { capSummary, missingFrom } from "@/lib/forms";
+import { capSummary, missingFrom, participation } from "@/lib/forms";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SubmissionTable } from "@/components/admin/SubmissionTable";
 import { MissingPanel } from "@/components/admin/MissingPanel";
+import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
@@ -43,6 +44,17 @@ export default async function FormDetail({ params, searchParams }: {
       const a = attendeeById.get(aid)!;
       return { id: a.id, name: a.name, category: a.category };
     });
+
+  // Only a per-day form has a pattern over time worth drawing: on a once-only form every
+  // row would be a single mark, which is a fact the submissions table already carries.
+  const PARTICIPATION_DAYS = 14;
+  const drifting = form.per_day
+    ? participation(form, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, today, PARTICIPATION_DAYS)
+        .map((r) => {
+          const a = attendeeById.get(r.attendeeId)!;
+          return { ...r, name: a.name, category: a.category };
+        })
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -82,6 +94,15 @@ export default async function FormDetail({ params, searchParams }: {
           />
         </CardContent>
       </Card>
+
+      {drifting && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b"><CardTitle>Participation</CardTitle></CardHeader>
+          <CardContent className="px-6 py-4">
+            <ParticipationPanel people={drifting} windowDays={PARTICIPATION_DAYS} today={today} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

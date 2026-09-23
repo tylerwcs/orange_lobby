@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSubmit, capSummary, missingFrom } from "@/lib/forms";
+import { canSubmit, capSummary, missingFrom, participation } from "@/lib/forms";
 import type { Form, FormSubmission } from "@/lib/types";
 
 const form = (over: Partial<Form> = {}): Form => ({
@@ -133,5 +133,81 @@ describe("missingFrom", () => {
 
   it("returns nothing for an event with no attendees, rather than throwing", () => {
     expect(missingFrom(form(), [], [], () => null, null)).toEqual([]);
+  });
+});
+
+/**
+ * Who is drifting. The ordering IS the feature — an alphabetical list would bury the one
+ * person who submitted every day until Tuesday and then stopped.
+ */
+describe("participation", () => {
+  const on = (attendee_id: string, day: string): FormSubmission =>
+    ({ ...sub(day), id: `${attendee_id}-${day}`, attendee_id });
+  const ids = (rows: ReturnType<typeof participation>) => rows.map((r) => r.attendeeId);
+
+  it("draws one cell per day in the window, oldest first", () => {
+    const [row] = participation(form(), [], ["a1"], () => null, TODAY, 3);
+    expect(row.days.map((d) => d.day)).toEqual(["2026-09-26", "2026-09-27", "2026-09-28"]);
+    expect(row.days.every((d) => !d.submitted)).toBe(true);
+  });
+
+  it("marks the days they submitted on", () => {
+    const [row] = participation(form(), [on("a1", "2026-09-27")], ["a1"], () => null, TODAY, 3);
+    expect(row.days.map((d) => d.submitted)).toEqual([false, true, false]);
+    expect(row.count).toBe(1);
+  });
+
+  it("counts only days inside the window", () => {
+    const subs = [on("a1", "2026-09-01"), on("a1", TODAY)];
+    expect(participation(form(), subs, ["a1"], () => null, TODAY, 3)[0].count).toBe(1);
+  });
+
+  // The gap is measured from their LAST submission ever, not from the window's edge:
+  // somebody who stopped a month ago is more adrift than somebody who stopped last week.
+  it("measures the gap from their last submission even when it predates the window", () => {
+    const [row] = participation(form(), [on("a1", "2026-09-18")], ["a1"], () => null, TODAY, 3);
+    expect(row.lastDay).toBe("2026-09-18");
+    expect(row.daysSince).toBe(10);
+    expect(row.count).toBe(0);
+  });
+
+  it("reports no last day and no gap for somebody who never submitted", () => {
+    const [row] = participation(form(), [], ["a1"], () => null, TODAY, 3);
+    expect(row.lastDay).toBeNull();
+    expect(row.daysSince).toBeNull();
+  });
+
+  it("puts the longest gap first among people who have submitted", () => {
+    const subs = [on("recent", TODAY), on("lapsed", "2026-09-20"), on("middling", "2026-09-25")];
+    expect(ids(participation(form(), subs, ["recent", "middling", "lapsed"], () => null, TODAY, 14)))
+      .toEqual(["lapsed", "middling", "recent"]);
+  });
+
+  // The deviation that matters: on a young form almost nobody has submitted, and sorting
+  // "never" as the largest gap would bury the actual drifter under everyone who never began.
+  it("puts everyone who has submitted above everyone who never has", () => {
+    const subs = [on("lapsed", "2026-09-01")];
+    expect(ids(participation(form(), subs, ["never1", "never2", "lapsed"], () => null, TODAY, 14)))
+      .toEqual(["lapsed", "never1", "never2"]);
+  });
+
+  it("keeps the given order among people who have never submitted", () => {
+    expect(ids(participation(form(), [], ["c", "a", "b"], () => null, TODAY, 14))).toEqual(["c", "a", "b"]);
+  });
+
+  it("leaves out attendees the form's categories exclude", () => {
+    const by = (id: string) => (id === "vip" ? "VIP" : "Delegate");
+    expect(ids(participation(form({ categories: ["VIP"] }), [], ["vip", "other"], by, TODAY, 14))).toEqual(["vip"]);
+  });
+
+  it("ignores submissions belonging to another form", () => {
+    const other = { ...on("a1", TODAY), form_id: "f2" };
+    expect(participation(form(), [other], ["a1"], () => null, TODAY, 14)[0].count).toBe(0);
+  });
+
+  it("counts a day once even if the form allowed two submissions on it", () => {
+    const twice = [on("a1", TODAY), { ...on("a1", TODAY), id: "second" }];
+    const [row] = participation(form(), twice, ["a1"], () => null, TODAY, 3);
+    expect(row.count).toBe(1);
   });
 });

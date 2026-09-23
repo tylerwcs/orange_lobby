@@ -73,3 +73,28 @@ export function eventDays(startsOn: string | null, endsOn: string | null): strin
   }
   return days.length > 0 ? days : [first];
 }
+
+/**
+ * The `n` days ending on `today`, oldest first — the window a rolling report is drawn over.
+ *
+ * Anchored at UTC midnight and stepped in whole days, the same way `eventDays` walks a
+ * range, so the window never gains or loses a day to whatever timezone the server happens
+ * to run in. `today` is expected to be a Malaysian calendar day already (`nowInKL().date`);
+ * this function does no timezone work of its own and must not be handed a UTC date and
+ * asked to fix it.
+ */
+export function lastDays(today: string, n: number): string[] {
+  if (n <= 0) return [];
+  const end = new Date(`${today}T00:00:00Z`);
+  if (Number.isNaN(end.getTime())) return [];
+  const days: string[] = [];
+  for (let i = n - 1; i >= 0; i--) days.push(new Date(end.getTime() - i * 86400000).toISOString().slice(0, 10));
+  return days;
+}
+
+/** Whole days from `from` to `to`; negative when `from` is the later day. */
+export function daysBetween(from: string, to: string): number {
+  const a = new Date(`${from}T00:00:00Z`).getTime();
+  const b = new Date(`${to}T00:00:00Z`).getTime();
+  return Math.round((b - a) / 86400000);
+}

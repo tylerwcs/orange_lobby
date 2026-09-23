@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MY_TZ, isoToLocalInput, localInputToIso, nowInKL, eventDays } from "@/lib/time";
+import { MY_TZ, isoToLocalInput, localInputToIso, nowInKL, eventDays, lastDays, daysBetween } from "@/lib/time";
 
 describe("time", () => {
   it("uses the Malaysian timezone", () => {
@@ -56,5 +56,48 @@ describe("eventDays", () => {
 
   it("caps a nonsense range rather than looping forever", () => {
     expect(eventDays("2026-01-01", "2027-01-01")).toHaveLength(14);
+  });
+});
+
+/** The rolling window a participation strip is drawn over, and the gap it measures. */
+describe("lastDays", () => {
+  it("ends on the day asked for and runs oldest first", () => {
+    expect(lastDays("2026-09-23", 3)).toEqual(["2026-09-21", "2026-09-22", "2026-09-23"]);
+  });
+
+  it("returns just that day for a window of one", () => {
+    expect(lastDays("2026-09-23", 1)).toEqual(["2026-09-23"]);
+  });
+
+  it("returns nothing for a window of zero, rather than throwing", () => {
+    expect(lastDays("2026-09-23", 0)).toEqual([]);
+  });
+
+  // Anchored at UTC midnight like eventDays, so a window never gains or loses a day to a
+  // daylight-saving shift in whatever timezone the server happens to be running in.
+  it("crosses a month boundary correctly", () => {
+    expect(lastDays("2026-10-02", 4)).toEqual(["2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02"]);
+  });
+
+  it("crosses a leap day correctly", () => {
+    expect(lastDays("2028-03-01", 3)).toEqual(["2028-02-28", "2028-02-29", "2028-03-01"]);
+  });
+});
+
+describe("daysBetween", () => {
+  it("is zero for the same day", () => {
+    expect(daysBetween("2026-09-23", "2026-09-23")).toBe(0);
+  });
+
+  it("counts whole days forward", () => {
+    expect(daysBetween("2026-09-20", "2026-09-23")).toBe(3);
+  });
+
+  it("counts across a month boundary", () => {
+    expect(daysBetween("2026-09-29", "2026-10-02")).toBe(3);
+  });
+
+  it("is negative when the first day is later", () => {
+    expect(daysBetween("2026-09-23", "2026-09-20")).toBe(-3);
   });
 });
