@@ -36,7 +36,7 @@ export function ActivitiesCard({ states, basePath }: { states: ActivityState[]; 
   const status = (s: ActivityState) => {
     // Held first, even over closed: an optional activity that closed after this attendee
     // booked still owes them a way back to see what they hold, and to ask the desk to change
-    // it (D157 — asking is not taking a seat, so it is not gated on booking_open the way
+    // it (D157 — asking is not taking a seat, so it is not gated on is_open the way
     // booking a new one is).
     if (s.held > 0) {
       return <Link className="font-medium text-primary" href={`${basePath}/activities`}>Booked — see sessions</Link>;

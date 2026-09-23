@@ -1,6 +1,6 @@
 import { categoryMatches, parseCategories, visibleTo, type AgendaViewer } from "@/lib/agenda";
 import type { Activity, ActivityBooking, ActivitySession, AgendaItem } from "@/lib/types";
-import type { BookResult } from "@/lib/db/activities";
+import type { BookResult, NewActivity } from "@/lib/db/activities";
 import type { FlashTone } from "@/lib/flash";
 
 /**
@@ -52,14 +52,17 @@ export function activityState(input: StateInput): ActivityState {
   const seats = sessions.map((s) => ({ ...seatsFor(s, counts[s.id] ?? 0), mine: mine.has(s.id) }));
   const held = seats.filter((s) => s.mine).length;
   const isEligible = eligible(activity, category);
-  const closed = !activity.booking_open;
+  const closed = !activity.is_open;
   return {
     activity,
     sessions: seats,
     eligible: isEligible,
     closed,
     held,
-    canBookMore: isEligible && !closed && held < activity.max_per_attendee,
+    // Null is no cap, now that both kinds share this column (D178) — the same explicit
+    // check book_session makes, rather than letting `held < null` evaluate to false and
+    // silently forbid what it is meant to allow.
+    canBookMore: isEligible && !closed && (activity.max_per_attendee === null || held < activity.max_per_attendee),
     mustPick: activity.required && isEligible && held === 0,
   };
 }
@@ -262,13 +265,13 @@ export type ActivityPolicy = {
 
 /**
  * Validates and shapes the fields the add form and the settings form share. Deliberately does
- * NOT touch `booking_open`: that column is owned by `toggleBookingAction` alone (D127), which
+ * NOT touch `is_open`: that column is owned by `toggleOpenAction` alone (D127), which
  * is the one control the desk uses mid-event and must not need a Save. The settings form
- * (Task 9) has no `booking_open` checkbox at all, so if this reader's output were fed straight
- * into `updateActivity` with a `booking_open` key, its absence from that form would read as a
+ * (Task 9) has no `is_open` checkbox at all, so if this reader's output were fed straight
+ * into `updateActivity` with a `is_open` key, its absence from that form would read as a
  * deliberate "no" — the moment an organiser edits an activity's name and hits Save, booking
  * would silently close for everyone, undoing whatever the toggle button last set. Keeping this
- * reader's return type without a `booking_open` field at all makes that mistake impossible to
+ * reader's return type without a `is_open` field at all makes that mistake impossible to
  * reintroduce by accident; `readNewActivity` below is the one place that ever adds it back, for
  * the one form that is allowed to set an initial value.
  */
@@ -290,13 +293,18 @@ export function readActivityPolicy(fields: ActivityFormFields): ActivityPolicy {
 }
 
 /**
- * The full create payload: the shared policy plus `booking_open`, which only the create form
+ * The full create payload: the shared policy plus `is_open`, which only the create form
  * may set — it is choosing an initial value for a column nothing has toggled yet, not
  * overwriting one the desk may have changed since the page loaded. `saveActivityAction` must
  * call `readActivityPolicy` directly instead, never this.
+ *
+ * `kind` is hard-coded to `"booking"` here: this is the add-activity form, and a submission
+ * activity is created through its own reader (`readSubmissionPolicy` in the admin actions),
+ * never this one. `questions` and `per_day` are the other kind's fields (D178) — empty and
+ * false are facts about a booking activity, not placeholders waiting to be filled in.
  */
-export function readNewActivity(fields: ActivityFormFields & { booking_open: boolean }): ActivityPolicy & { booking_open: boolean } {
-  return { ...readActivityPolicy(fields), booking_open: fields.booking_open };
+export function readNewActivity(fields: ActivityFormFields & { is_open: boolean }): NewActivity {
+  return { ...readActivityPolicy(fields), kind: "booking", is_open: fields.is_open, questions: [], per_day: false };
 }
 
 /**

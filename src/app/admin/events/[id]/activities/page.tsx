@@ -1,15 +1,18 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { listActivities, listSessions, countBookingsBySession } from "@/lib/db/activities";
+import { listActivities, listSessions, countBookingsBySession, listSubmissions } from "@/lib/db/activities";
 import { listRequests } from "@/lib/db/activity-requests";
 import { pendingCountByActivity } from "@/lib/activity-requests";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { ActivityRows } from "@/components/admin/ActivityRows";
+import { ActivityRows, SubmissionFields } from "@/components/admin/ActivityRows";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { addActivityAction } from "./actions";
+import {
+  addActivityAction, addSubmissionActivityAction, saveSubmissionActivityAction,
+  deleteSubmissionActivityAction, toggleOpenAction,
+} from "./actions";
 
 export const metadata = { title: "Activities · Orange Lobby" };
 
@@ -20,8 +23,8 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [activities, sessions, bookings, requests] = await Promise.all([
-    listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id),
+  const [activities, sessions, bookings, requests, submissions] = await Promise.all([
+    listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id), listSubmissions(ev.id),
   ]);
 
   // Rolled up from the sessions already loaded rather than queried per activity: the page
@@ -34,41 +37,70 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   }
   const pending = pendingCountByActivity(requests);
 
+  // Same rollup, for the other kind's count column — one query for every submission activity
+  // on the page rather than one query per row.
+  const submissionCounts = submissions.reduce<Record<string, number>>((acc, s) => {
+    acc[s.activity_id] = (acc[s.activity_id] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div className="flex flex-col gap-4">
       <AdminHeader
         title="Activities"
-        subtitle="Attendees book these themselves, first come first served. Breakout rooms, which you assign from the agenda, are a separate thing."
+        subtitle="Attendees book these themselves, first come first served, or send you answers on their own schedule. Breakout rooms, which you assign from the agenda, are a separate thing."
         actions={
-          <Modal title="Add an activity" hint="Add its sessions once it exists." trigger="Add activity" icon="plus">
-            <form action={addActivityAction.bind(null, ev.id)} className="grid gap-4">
-              <Field label="Name" name="name" placeholder="Workshops" />
-              <Field label="Description (optional)" name="description" textarea placeholder="Pick the track you want to join on Friday morning." />
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
-                <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
-                  defaultValue={1} inputMode="numeric" className={`${input} tabular-nums`} />
-              </div>
-              <Field label="Categories (optional)" name="categories" placeholder="VIP, Management"
-                description="Comma separated. Leave blank to offer it to everyone." />
-              <label className={check}>
-                <input type="checkbox" name="required" className="size-4" />
-                Everyone must pick one
-              </label>
-              <label className={check}>
-                <input type="checkbox" name="booking_open" className="size-4" />
-                Open for booking now
-              </label>
-              <SubmitButton>Add activity</SubmitButton>
-            </form>
-          </Modal>
+          <>
+            <Modal title="Add a booking activity" hint="Add its sessions once it exists." trigger="New booking" icon="plus">
+              <form action={addActivityAction.bind(null, ev.id)} className="grid gap-4">
+                <Field label="Name" name="name" placeholder="Workshops" />
+                <Field label="Description (optional)" name="description" textarea placeholder="Pick the track you want to join on Friday morning." />
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
+                  <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
+                    defaultValue={1} inputMode="numeric" className={`${input} tabular-nums`} />
+                </div>
+                <Field label="Categories (optional)" name="categories" placeholder="VIP, Management"
+                  description="Comma separated. Leave blank to offer it to everyone." />
+                <label className={check}>
+                  <input type="checkbox" name="required" className="size-4" />
+                  Everyone must pick one
+                </label>
+                <label className={check}>
+                  <input type="checkbox" name="is_open" className="size-4" />
+                  Open for booking now
+                </label>
+                <SubmitButton>Add activity</SubmitButton>
+              </form>
+            </Modal>
+            <Modal title="Add a submission activity" hint="Add its questions now, or come back and edit them later." trigger="New submission" icon="plus">
+              <form action={addSubmissionActivityAction.bind(null, ev.id)} className="grid gap-4">
+                <SubmissionFields />
+                <label className={check}>
+                  <input type="checkbox" name="submissions_open" className="size-4" />
+                  Open for submissions now
+                </label>
+                <SubmitButton>Add form</SubmitButton>
+              </form>
+            </Modal>
+          </>
         }
       />
 
       <Card className="overflow-hidden">
         <CardHeader className="border-b"><CardTitle>Activities</CardTitle></CardHeader>
         <CardContent className="px-6">
-          <ActivityRows items={activities} counts={counts} seats={seats} pending={pending} basePath={`/admin/events/${ev.id}`} />
+          <ActivityRows
+            items={activities}
+            counts={counts}
+            seats={seats}
+            pending={pending}
+            submissionCounts={submissionCounts}
+            basePath={`/admin/events/${ev.id}`}
+            toggleOpen={toggleOpenAction.bind(null, ev.id)}
+            saveSubmission={saveSubmissionActivityAction.bind(null, ev.id)}
+            deleteSubmission={deleteSubmissionActivityAction.bind(null, ev.id)}
+          />
         </CardContent>
       </Card>
     </div>

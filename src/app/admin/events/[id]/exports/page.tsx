@@ -4,7 +4,6 @@ import { countAttendees } from "@/lib/db/attendees";
 import { listAgenda } from "@/lib/db/agenda";
 import { listBooths } from "@/lib/db/booths";
 import { listActivities } from "@/lib/db/activities";
-import { listForms } from "@/lib/db/forms";
 import { breakoutSlots } from "@/lib/breakouts";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -19,7 +18,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const [total, items, booths, activities, forms] = await Promise.all([
-    countAttendees(ev.id), listAgenda(ev.id), listBooths(ev.id), listActivities(ev.id), listForms(ev.id),
+    countAttendees(ev.id), listAgenda(ev.id), listBooths(ev.id), listActivities(ev.id, "booking"), listActivities(ev.id, "submission"),
   ]);
   const base = appBaseUrl();
   const b = `/admin/events/${ev.id}/export`;
@@ -50,8 +49,8 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
       what: "One sheet per session, plus who has not booked.",
     }] : []),
     ...(forms.length > 0 ? [{
-      href: `${b}/forms.xlsx`, icon: "file" as IconName, name: "Form submissions",
-      what: "One sheet per form: who submitted, when, and every answer. File answers are links that expire after seven days.",
+      href: `${b}/submissions.xlsx`, icon: "file" as IconName, name: "Form submissions",
+      what: "One sheet per submission activity: who submitted, when, and every answer. File answers are links that expire after seven days.",
     }] : []),
   ];
 

@@ -1,14 +1,20 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
-import type { Activity, ActivityBooking, ActivitySession, Event } from "@/lib/types";
+import type { RegistrationQuestion } from "@/lib/types";
+import type { Activity, ActivityBooking, ActivityKind, ActivitySession, ActivitySubmission, Event } from "@/lib/types";
 
 export type NewActivity = {
   name: string;
   description: string | null;
+  kind: ActivityKind;
   required: boolean;
-  booking_open: boolean;
-  max_per_attendee: number;
+  is_open: boolean;
+  /** Null is no cap at all (D178). */
+  max_per_attendee: number | null;
   categories: string[] | null;
+  /** Empty on a booking activity. */
+  questions: RegistrationQuestion[];
+  per_day: boolean;
 };
 
 export type NewSession = {
@@ -43,9 +49,12 @@ export type BookResult = "ok" | "full" | "closed" | "limit" | "ineligible" | "mi
  * personal agenda page both do this; a caller added later has to do the same, deliberately,
  * rather than inherit it for free.
  */
-export async function listActivities(eventId: string): Promise<Activity[]> {
-  const { data, error } = await serviceClient().from("activities").select("*")
-    .eq("event_id", eventId).order("sort_order").order("created_at");
+export async function listActivities(eventId: string, kind?: ActivityKind): Promise<Activity[]> {
+  let q = serviceClient().from("activities").select("*").eq("event_id", eventId);
+  // One table, two kinds (D178), so most callers want one of them — a booking page listing
+  // submission activities would offer sessions to something that has none.
+  if (kind) q = q.eq("kind", kind);
+  const { data, error } = await q.order("sort_order").order("created_at");
   if (error?.code === "PGRST205" || error?.code === "42P01") return [];
   if (error) throw error;
   return data as Activity[];
@@ -74,7 +83,7 @@ export async function updateActivity(id: string, eventId: string, patch: Partial
   if (error) throw error;
 }
 
-/** Cascades its sessions, and through them its bookings (D135). */
+/** Cascades its sessions and bookings, or its submissions, depending on kind (D135, D178). */
 export async function deleteActivity(id: string, eventId: string): Promise<void> {
   const { error } = await serviceClient().from("activities").delete()
     .eq("id", id).eq("event_id", eventId);
@@ -221,4 +230,63 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
   });
   if (error) throw error;
   return data as CancelResult;
+}
+
+// ---- Submissions: the other kind's child table (D178) ----
+
+/** Every answer `submit_answers` can give. Mirrors BookResult; `today` replaces `full`. */
+export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today";
+
+export async function listSubmissions(eventId: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("event_id", eventId).order("submitted_on", { ascending: false }).order("created_at", { ascending: false });
+  if (error?.code === "PGRST205" || error?.code === "42P01") return [];
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
+}
+
+export async function submissionsForActivity(activityId: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("activity_id", activityId).order("submitted_on", { ascending: false }).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
+}
+
+export async function submissionsForAttendee(attendeeId: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("attendee_id", attendeeId).order("submitted_on", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
+}
+
+/**
+ * The only write path for a submission, as `bookSession` is for a seat. Everything it can
+ * refuse comes back as a code, never an exception (D167).
+ *
+ * `submit_answers` refuses a booking-kind activity with `missing`, so a posted booking id
+ * cannot reach this table now that both kinds share an id space (D178).
+ */
+export async function submitAnswers(
+  activityId: string, attendeeId: string, answers: Record<string, string>, today: string,
+): Promise<SubmitCode> {
+  const { data, error } = await serviceClient().rpc("submit_answers", {
+    p_activity_id: activityId, p_attendee_id: attendeeId, p_answers: answers, p_today: today,
+  });
+  if (error) throw error;
+  return data as SubmitCode;
+}
+
+/**
+ * Syncs `per_day` onto this activity's submissions, which carry it denormalised so the
+ * partial unique index can see it without a join (D165).
+ *
+ * Called BEFORE the activity row is updated, because it is the write that can fail: the
+ * index rejects it when somebody already submitted twice in one day. A throw therefore
+ * leaves both tables exactly as they were. Two statements, no transaction - not atomic, and
+ * deliberately ordered so that does not matter.
+ */
+export async function syncSubmissionPerDay(activityId: string, perDay: boolean): Promise<void> {
+  const { error } = await serviceClient().from("activity_submissions")
+    .update({ per_day: perDay }).eq("activity_id", activityId);
+  if (error) throw error;
 }

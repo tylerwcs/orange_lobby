@@ -1,4 +1,4 @@
-import type { FormSubmission, RegistrationQuestion } from "@/lib/types";
+import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate } from "@/lib/text";
 import { signedSubmissionUrl } from "@/lib/db/media";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * stored one would be dead by the time the attendee came back to look at it.
  */
 export async function SubmissionHistory({ submissions, questions }: {
-  submissions: FormSubmission[];
+  submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
 }) {
   if (submissions.length === 0) {

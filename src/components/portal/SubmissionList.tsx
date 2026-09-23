@@ -1,21 +1,21 @@
 import Link from "next/link";
-import type { Form } from "@/lib/types";
-import type { SubmitState } from "@/lib/forms";
-import { capSummary } from "@/lib/forms";
+import type { Activity } from "@/lib/types";
+import type { SubmitState } from "@/lib/submissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 
-type FormEntry = { form: Form; state: SubmitState };
+type SubmissionEntry = { form: Activity; state: SubmitState };
 
 /**
- * One card per form this attendee's category may see. A form they are `ineligible` for never
- * appears here — the same rule `ActivityList` applies with `state.eligible` — but every other
- * state (closed, at their cap, already sent today) still shows, because "come back tomorrow" is
- * a useful thing to read on the list, not just after tapping in.
+ * One card per submission activity this attendee's category may see. One they are `ineligible`
+ * for never appears here — the same rule `ActivityList` applies with `state.eligible` — but
+ * every other state (closed, at their cap, already sent today) still shows, because "come back
+ * tomorrow" is a useful thing to read on the list, not just after tapping in.
+ *
+ * Was `FormList`, back when forms had their own table (D178).
  */
-export function FormList({ entries, basePath }: {
-  entries: FormEntry[];
+export function SubmissionList({ entries, basePath }: {
+  entries: SubmissionEntry[];
   basePath: string;
 }) {
   const open = entries.filter((e) => e.state.reason !== "ineligible");
@@ -26,9 +26,13 @@ export function FormList({ entries, basePath }: {
     <div className="flex flex-col gap-3">
       {open.map(({ form, state }) => (
         <Card key={form.id}>
-          <CardHeader className="flex flex-row items-baseline justify-between gap-3">
+          {/* No cap badge here. "Once" or "Unlimited" is the organiser's policy, and an
+              attendee learns it from what the page lets them do — the button says Fill in or
+              it does not, and the refusal names the reason. A pill restating the rule was
+              furniture on a card whose whole job is one decision. The admin list keeps it,
+              because that IS the screen where the policy is being set. */}
+          <CardHeader>
             <CardTitle className="text-[15px] font-bold">{form.name}</CardTitle>
-            <Badge variant="secondary">{capSummary(form)}</Badge>
           </CardHeader>
           <CardContent className="flex flex-col gap-2.5">
             {form.description && <p className="text-sm text-muted-foreground">{form.description}</p>}

@@ -158,18 +158,33 @@ export type BoothStamp = {
   stamped_at: string;
 };
 
+/** What an attendee does with an activity: take a seat, or send answers (D178). */
+export type ActivityKind = "booking" | "submission";
+
 export type Activity = {
   id: string;
   org_id: string;
   event_id: string;
   name: string;
   description: string | null;
-  /** At least one booking is expected. Never max_per_attendee of them (D129). */
+  /**
+   * Which half of the policy below actually applies. `booking` uses sessions and capacity;
+   * `submission` uses questions and per_day. Both share categories, the open flag, the cap
+   * and `required` — that shared half is why they are one table (D178).
+   */
+  kind: ActivityKind;
+  /** At least one booking or one submission is expected. Never max_per_attendee of them (D129). */
   required: boolean;
-  booking_open: boolean;
-  max_per_attendee: number;
+  /** Flipped by hand; there is deliberately no scheduled close (D127). */
+  is_open: boolean;
+  /** The total one attendee may ever take. Null is no cap (D178); otherwise 1..366. */
+  max_per_attendee: number | null;
   /** Null or empty means everyone, exactly as on an agenda item. */
   categories: string[] | null;
+  /** Submission kind only. Empty on a booking activity — a fact, not a missing value. */
+  questions: RegistrationQuestion[];
+  /** Submission kind only. At most one submission per Malaysian calendar day (D171). */
+  per_day: boolean;
   sort_order: number;
 };
 
@@ -227,33 +242,10 @@ export type ActivityChangeRequest = {
  * because that is the half of activities forms actually branch from. There is no session
  * and no capacity: a submission is not a seat.
  */
-export type Form = {
-  id: string;
-  org_id: string;
-  event_id: string;
-  name: string;
-  description: string | null;
-  questions: RegistrationQuestion[];
-  submissions_open: boolean;
-  /** Null or empty means everyone, exactly as on an agenda item or an activity. */
-  categories: string[] | null;
-  /**
-   * The total one attendee may ever submit. Null means no total limit (D171).
-   * When set, must be between 1 and 366 — the database check constraint enforces this, not
-   * this type, so a caller writing 0 or 500 gets a raw Postgres constraint violation rather
-   * than a handled error.
-   */
-  max_per_attendee: number | null;
-  /** At most one submission per Malaysian calendar day, on top of any total (D171). */
-  per_day: boolean;
-  sort_order: number;
-  created_at: string;
-};
-
-export type FormSubmission = {
+export type ActivitySubmission = {
   id: string;
   event_id: string;
-  form_id: string;
+  activity_id: string;
   attendee_id: string;
   /** Question key to answer. A `file` answer holds an object path, never a URL (D167). */
   answers: Record<string, string>;

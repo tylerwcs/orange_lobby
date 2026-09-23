@@ -6,18 +6,25 @@ import { requireEvent } from "@/lib/db/events";
 import {
   createActivity, updateActivity, deleteActivity, getActivity,
   createSession, updateSession, deleteSession, setSessionOrder, bookSession, listSessions,
-  type BookResult, type DecisionResult,
+  syncSubmissionPerDay, type NewActivity, type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
 import { getRequest, decideRequest } from "@/lib/db/activity-requests";
 import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields } from "@/lib/activities";
 import { listAttendees } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
+import { sweepSubmissionPrefix } from "@/lib/db/media";
+import { questionsFromForm } from "@/lib/questions-form";
+import { FORM_QUESTION_TYPES } from "@/lib/registration";
+import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
+import { parseCategories } from "@/lib/agenda";
 
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
   return requireEvent(eventId, orgId);
 }
+
+const listPath = (eventId: string) => `/admin/events/${eventId}/activities`;
 
 const text = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const checked = (fd: FormData, key: string) => fd.get(key) !== null;
@@ -35,14 +42,14 @@ function policyFields(fd: FormData): ActivityFormFields {
 
 export async function addActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
-  await createActivity(ev, readNewActivity({ ...policyFields(fd), booking_open: checked(fd, "booking_open") }));
+  await createActivity(ev, readNewActivity({ ...policyFields(fd), is_open: checked(fd, "is_open") }));
   revalidatePath(`/admin/events/${eventId}/activities`);
 }
 
 /**
- * Never touches `booking_open` (see `readActivityPolicy`'s note): the settings form this
- * saves has no `booking_open` field, so reading one from `fd` would read its absence as a
- * deliberate close and silently undo whatever `toggleBookingAction` last set.
+ * Never touches `is_open` (see `readActivityPolicy`'s note): the settings form this
+ * saves has no `is_open` field, so reading one from `fd` would read its absence as a
+ * deliberate close and silently undo whatever `toggleOpenAction` last set.
  */
 export async function saveActivityAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
@@ -53,25 +60,162 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
 }
 
 /**
- * The one control the desk uses during an event, so it is one click and its own action
- * rather than a field inside the settings form (D127).
+ * The one control the desk/organiser uses during an event, so it is one click and its own
+ * action rather than a field inside a settings form (D127). Replaces toggleBookingAction and
+ * toggleFormOpenAction, which flipped the very same `is_open` column under two names before a
+ * booking and a submission shared one table (D178).
+ *
+ * A booking activity's toggle lives in its detail page's header, and stays there after this
+ * click; a submission activity's toggle is inline on its row in the list, exactly as it was on
+ * the old forms list, and stays there. Rather than hard-code either destination, this redirects
+ * to whichever one the activity's own kind says — so one action serves both callers without
+ * either one landing somewhere it did not before the merge.
  */
-export async function toggleBookingAction(eventId: string, activityId: string) {
+export async function toggleOpenAction(eventId: string, activityId: string) {
   const ev = await event(eventId);
   const activity = await getActivity(activityId, ev.id);
-  if (!activity) redirect(flashPath(`/admin/events/${eventId}/activities`, "That activity no longer exists.", "error"));
-  await updateActivity(activityId, ev.id, { booking_open: !activity.booking_open });
-  const path = `/admin/events/${eventId}/activities/${activityId}`;
-  revalidatePath(path);
-  redirect(flashPath(path, activity.booking_open ? "Booking closed." : "Booking open."));
+  if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  await updateActivity(activityId, ev.id, { is_open: !activity.is_open });
+  const path = activity.kind === "booking" ? `${listPath(eventId)}/${activityId}` : listPath(eventId);
+  revalidatePath(listPath(eventId));
+  revalidatePath(`${listPath(eventId)}/${activityId}`);
+  const opened = !activity.is_open;
+  const label = activity.kind === "booking"
+    ? (opened ? "Booking open." : "Booking closed.")
+    : (opened ? "Form open." : "Form closed.");
+  redirect(flashPath(path, label));
 }
 
 /** Cascades sessions and bookings (D135), so the confirm dialog says how many seats go with it. */
 export async function deleteActivityAction(eventId: string, activityId: string) {
   const ev = await event(eventId);
   await deleteActivity(activityId, ev.id);
-  revalidatePath(`/admin/events/${eventId}/activities`);
-  redirect(flashPath(`/admin/events/${eventId}/activities`, "Activity deleted."));
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(listPath(eventId), "Activity deleted."));
+}
+
+/**
+ * True only when `e` is `activity_submissions_one_a_day` (0025_forms.sql, renamed by
+ * 0029_merge_forms_into_activities.sql) refusing a write — never any other unique violation, and
+ * never a network failure, an outage, or anything else `syncSubmissionPerDay` might throw.
+ * Scoped to that one constraint by name, the same reasoning `submit_answers`'s exception handler
+ * gives (0030_kind_aware_writes.sql): 23505 alone is not enough, because `activity_submissions_pkey`
+ * fires the same error class, and reporting an unrelated failure as "someone already submitted
+ * twice today" sends the organiser hunting for a duplicate that does not exist.
+ *
+ * supabase-js's `PostgrestError` carries `code`, `message`, `details` and `hint` — no separate
+ * constraint-name field — so the constraint name is read out of `message`, which is Postgres's
+ * own text (`duplicate key value violates unique constraint "…"`) forwarded verbatim by PostgREST.
+ */
+function isPerDayCollision(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const { code, message } = e as { code?: unknown; message?: unknown };
+  return code === "23505" && typeof message === "string" && message.includes("activity_submissions_one_a_day");
+}
+
+/**
+ * The fields the add-submission form and its edit form share — everything but `is_open` (owned
+ * by `toggleOpenAction` alone, the same reason `readActivityPolicy` leaves it out) and
+ * `required`: a submission activity carries that column (D178 shares it with booking), but
+ * neither form has ever offered a control for it, so it is never read here and stays `false`
+ * from creation onward. Throws on anything invalid; both actions below catch that and turn it
+ * into a flash rather than a 500.
+ */
+function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions"> {
+  const name = text(fd, "name");
+  if (!name) throw new Error("A form needs a name");
+  const maxRaw = text(fd, "max_per_attendee");
+  let max_per_attendee: number | null = null;
+  if (maxRaw) {
+    max_per_attendee = Number.parseInt(maxRaw, 10);
+    if (!Number.isFinite(max_per_attendee) || max_per_attendee < 1 || max_per_attendee > 366) {
+      throw new Error("Submissions per attendee must be a whole number between 1 and 366, or left blank for no limit.");
+    }
+  }
+  const questions = questionsFromForm(
+    (k) => { const v = fd.get(k); return typeof v === "string" ? v : null; },
+    FORM_QUESTION_TYPES,
+    MAX_SUBMISSION_QUESTIONS,
+  );
+  return {
+    name,
+    description: text(fd, "description") || null,
+    categories: parseCategories(text(fd, "categories")),
+    max_per_attendee,
+    per_day: checked(fd, "per_day"),
+    questions,
+  };
+}
+
+export async function addSubmissionActivityAction(eventId: string, fd: FormData) {
+  const ev = await event(eventId);
+  let policy;
+  try {
+    policy = readSubmissionPolicy(fd);
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  await createActivity(ev, { ...policy, kind: "submission", required: false, is_open: checked(fd, "submissions_open") });
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(listPath(eventId), "Form added."));
+}
+
+/**
+ * Never touches `is_open`: see `readSubmissionPolicy`'s note.
+ *
+ * `syncSubmissionPerDay` rewrites every one of this activity's submissions' `per_day` BEFORE
+ * `updateActivity` writes the activity row itself, so it can throw on the partial unique index
+ * if somebody already submitted twice in one day. `isPerDayCollision` narrows that specific
+ * throw to a sentence naming what to fix rather than a 500 (D165); anything else re-raises.
+ */
+export async function saveSubmissionActivityAction(eventId: string, activityId: string, fd: FormData) {
+  const ev = await event(eventId);
+  let policy;
+  try {
+    policy = readSubmissionPolicy(fd);
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  const current = await getActivity(activityId, ev.id);
+  if (!current) redirect(flashPath(listPath(eventId), "That form no longer exists.", "error"));
+  try {
+    await syncSubmissionPerDay(activityId, policy.per_day);
+  } catch (e) {
+    // The partial unique index refuses if somebody already submitted twice on one day. Say so
+    // rather than showing a 500 (D165) — but only for that specific refusal. Anything else (an
+    // outage, a network failure, some other constraint) re-throws, so it surfaces as a real
+    // failure instead of a misleading flash the organiser cannot act on.
+    if (!isPerDayCollision(e)) throw e;
+    redirect(flashPath(listPath(eventId), "Someone has already submitted twice in one day, so this form cannot become once-a-day. Delete the extra submission first.", "error"));
+  }
+  await updateActivity(activityId, ev.id, policy);
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(listPath(eventId), "Form saved."));
+}
+
+/**
+ * Cascades its submissions (the same shape of decision `deleteActivityAction` makes), so the
+ * confirm dialog says how many go with it.
+ *
+ * The submissions' uploaded files are swept from the bucket BEFORE the activity row is deleted:
+ * the cascade takes `activity_submissions` with it, and once that has happened there is nothing
+ * left in the database to ask which files were this activity's.
+ *
+ * Swept by PREFIX (`sweepSubmissionPrefix`, src/lib/db/media.ts), not by reading file answers
+ * off the submissions' current keys: a question's key can be renamed in the editor after
+ * attendees have already uploaded under the old one, which would leave those objects unnamed
+ * by anything the database still remembers (the bug D169 exists to prevent). The prefix is
+ * built only from `ev.org_id`, `ev.id` and `activityId` — the id `getActivity` already confirmed
+ * belongs to this event — never from anything a caller could tamper with.
+ */
+export async function deleteSubmissionActivityAction(eventId: string, activityId: string) {
+  const ev = await event(eventId);
+  const activity = await getActivity(activityId, ev.id);
+  if (!activity) redirect(flashPath(listPath(eventId), "That form no longer exists.", "error"));
+  await sweepSubmissionPrefix(`${ev.org_id}/${ev.id}/${activity.id}`);
+  await deleteActivity(activityId, ev.id);
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(listPath(eventId), "Form deleted."));
 }
 
 function readSession(fd: FormData) {

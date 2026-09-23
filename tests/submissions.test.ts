@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { canSubmit, capSummary, missingFrom, participation } from "@/lib/forms";
-import type { Form, FormSubmission } from "@/lib/types";
+import { canSubmit, capSummary, missingFrom, participation } from "@/lib/submissions";
+import type { Activity, ActivitySubmission } from "@/lib/types";
 
-const form = (over: Partial<Form> = {}): Form => ({
+const form = (over: Partial<Activity> = {}): Activity => ({
   id: "f1", org_id: "o", event_id: "e", name: "Daily check-in", description: null,
-  questions: [], submissions_open: true, categories: null,
-  max_per_attendee: null, per_day: false, sort_order: 0, created_at: "2026-09-01T00:00:00Z", ...over,
+  kind: "submission", required: false, is_open: true, categories: null,
+  max_per_attendee: null, questions: [], per_day: false, sort_order: 0, ...over,
 });
-const sub = (day: string): FormSubmission => ({
-  id: `s-${day}`, event_id: "e", form_id: "f1", attendee_id: "a1", answers: {},
+const sub = (day: string): ActivitySubmission => ({
+  id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", answers: {},
   submitted_on: day, status: "submitted", per_day: true, created_at: `${day}T01:00:00Z`,
 });
 const TODAY = "2026-09-28";
@@ -19,7 +19,7 @@ describe("canSubmit", () => {
   });
 
   it("refuses a closed form", () => {
-    expect(canSubmit(form({ submissions_open: false }), [], null, TODAY).reason).toBe("closed");
+    expect(canSubmit(form({ is_open: false }), [], null, TODAY).reason).toBe("closed");
   });
 
   it("refuses an attendee outside the form's categories", () => {
@@ -60,7 +60,7 @@ describe("canSubmit", () => {
 
   // Closed beats everything: an organiser who shut the form is not asking about caps.
   it("reports closed before any other reason", () => {
-    const r = canSubmit(form({ submissions_open: false, categories: ["VIP"] }), [sub(TODAY)], "Delegate", TODAY);
+    const r = canSubmit(form({ is_open: false, categories: ["VIP"] }), [sub(TODAY)], "Delegate", TODAY);
     expect(r.reason).toBe("closed");
   });
 });
@@ -89,7 +89,7 @@ describe("capSummary", () => {
  */
 describe("missingFrom", () => {
   const by = (id: string) => (id === "vip" ? "VIP" : "Delegate");
-  const subFor = (attendee_id: string, day: string): FormSubmission =>
+  const subFor = (attendee_id: string, day: string): ActivitySubmission =>
     ({ ...sub(day), id: `${attendee_id}-${day}`, attendee_id });
 
   it("lists everyone when nobody has submitted", () => {
@@ -127,7 +127,7 @@ describe("missingFrom", () => {
   });
 
   it("ignores submissions belonging to another form", () => {
-    const other = { ...subFor("a1", TODAY), form_id: "f2" };
+    const other = { ...subFor("a1", TODAY), activity_id: "f2" };
     expect(missingFrom(form(), [other], ["a1"], () => null, null)).toEqual(["a1"]);
   });
 
@@ -141,7 +141,7 @@ describe("missingFrom", () => {
  * person who submitted every day until Tuesday and then stopped.
  */
 describe("participation", () => {
-  const on = (attendee_id: string, day: string): FormSubmission =>
+  const on = (attendee_id: string, day: string): ActivitySubmission =>
     ({ ...sub(day), id: `${attendee_id}-${day}`, attendee_id });
   const ids = (rows: ReturnType<typeof participation>) => rows.map((r) => r.attendeeId);
 
@@ -201,7 +201,7 @@ describe("participation", () => {
   });
 
   it("ignores submissions belonging to another form", () => {
-    const other = { ...on("a1", TODAY), form_id: "f2" };
+    const other = { ...on("a1", TODAY), activity_id: "f2" };
     expect(participation(form(), [other], ["a1"], () => null, TODAY, 14)[0].count).toBe(0);
   });
 

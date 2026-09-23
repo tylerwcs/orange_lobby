@@ -1,34 +1,56 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { getActivity, listSessions, listBookings, countBookingsBySession } from "@/lib/db/activities";
+import { getActivity, listSessions, listBookings, countBookingsBySession, submissionsForActivity } from "@/lib/db/activities";
 import { listRequests } from "@/lib/db/activity-requests";
 import { listAttendees } from "@/lib/db/attendees";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity } from "@/lib/activities";
+import { capSummary, missingFrom, participation } from "@/lib/submissions";
+import { nowInKL } from "@/lib/time";
+import type { Activity, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SessionList } from "@/components/admin/SessionList";
 import { UnbookedPanel } from "@/components/admin/UnbookedPanel";
 import { RequestQueue } from "@/components/admin/RequestQueue";
+import { SubmissionTable } from "@/components/admin/SubmissionTable";
+import { MissingPanel } from "@/components/admin/MissingPanel";
+import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Icon } from "@/components/ui/icon";
+import { buttonVariants } from "@/components/ui/button";
 import {
-  saveActivityAction, toggleBookingAction, deleteActivityAction, addSessionAction, saveSessionAction,
+  saveActivityAction, toggleOpenAction, deleteActivityAction, addSessionAction, saveSessionAction,
   deleteSessionAction, reorderSessionsAction, placeAttendeesAction, approveRequestAction, declineRequestAction,
 } from "../actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";
 
-export default async function ActivityDetail({ params }: { params: Promise<{ id: string; activityId: string }> }) {
+export default async function ActivityDetail({ params, searchParams }: {
+  params: Promise<{ id: string; activityId: string }>;
+  searchParams: Promise<{ day?: string }>;
+}) {
   const { id, activityId } = await params;
+  const { day: requestedDay } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) notFound();
 
+  // Two entirely different screens share this route because they share everything ABOVE this
+  // point — the event guard, the not-found check — and nothing below it (D178). A booking
+  // activity has sessions, requests and an unbooked list; a submission activity has answers,
+  // a chasing list and a participation strip. Neither reads the other's data.
+  if (activity.kind === "submission") return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} />;
+  return <BookingDetail ev={ev} activity={activity} />;
+}
+
+async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }) {
   const [allSessions, bookings, counts, attendees, allRequests] = await Promise.all([
     listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id),
   ]);
@@ -66,9 +88,9 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
         subtitle={`${bookedCount} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
         actions={
           <>
-            <form action={toggleBookingAction.bind(null, ev.id, activity.id)}>
-              <SubmitButton variant={activity.booking_open ? "outline" : "default"}>
-                {activity.booking_open ? "Close booking" : "Open booking"}
+            <form action={toggleOpenAction.bind(null, ev.id, activity.id)}>
+              <SubmitButton variant={activity.is_open ? "outline" : "default"}>
+                {activity.is_open ? "Close booking" : "Open booking"}
               </SubmitButton>
             </form>
             {/* Cascades sessions and bookings (D135), so the confirm dialog names both counts —
@@ -128,7 +150,7 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
         </CardContent>
       </Card>
 
-      {/* Deliberately no `booking_open` field here (D127): that column is the header
+      {/* Deliberately no `is_open` field here (D127): that column is the header
           button's alone. Adding it back would let saving this form silently close or
           reopen booking whenever an organiser only meant to edit the name. */}
       <Card className="overflow-hidden">
@@ -140,7 +162,7 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
             <div className="flex flex-col gap-1.5">
               <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
               <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
-                defaultValue={activity.max_per_attendee} inputMode="numeric" className={`${input} tabular-nums`} />
+                defaultValue={activity.max_per_attendee ?? undefined} inputMode="numeric" className={`${input} tabular-nums`} />
             </div>
             <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
               placeholder="VIP, Management" description="Comma separated. Leave blank to offer it to everyone." />
@@ -152,6 +174,87 @@ export default async function ActivityDetail({ params }: { params: Promise<{ id:
           </form>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; activity: Activity; requestedDay?: string }) {
+  const [submissions, attendees] = await Promise.all([submissionsForActivity(activity.id), listAttendees(ev.id)]);
+  const attendeeById = new Map(attendees.map((a) => [a.id, a]));
+  const submitterFor = (attendeeId: string) => {
+    const a = attendeeById.get(attendeeId);
+    return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null };
+  };
+
+  // Which question the chasing list is answering, decided HERE rather than inside
+  // `missingFrom`, so the rule is visible where somebody reads the page (D175): a per-day
+  // activity asks about one day, anything else asks whether they ever submitted at all.
+  const today = nowInKL().date;
+  const day = activity.per_day ? (requestedDay || today) : null;
+  const missing = missingFrom(activity, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, day)
+    .map((aid) => {
+      const a = attendeeById.get(aid)!;
+      return { id: a.id, name: a.name, category: a.category };
+    });
+
+  // Only a per-day activity has a pattern over time worth drawing: on a once-only activity
+  // every row would be a single mark, which is a fact the submissions table already carries.
+  const PARTICIPATION_DAYS = 14;
+  const drifting = activity.per_day
+    ? participation(activity, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, today, PARTICIPATION_DAYS)
+        .map((r) => {
+          const a = attendeeById.get(r.attendeeId)!;
+          return { ...r, name: a.name, category: a.category };
+        })
+    : null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <AdminHeader
+        title={activity.name}
+        subtitle={`${submissions.length} submission${submissions.length === 1 ? "" : "s"}`}
+        actions={
+          <>
+            <Badge variant={activity.is_open ? "default" : "outline"}>{activity.is_open ? "Open" : "Closed"}</Badge>
+            <Badge variant="secondary">{capSummary(activity)}</Badge>
+            {/* Whole-event export (no `ids` param), same as the Exports page's own link — a
+                download from here is the same file, just reached from the activity it is about. */}
+            <a download href={`/admin/events/${ev.id}/export/submissions.xlsx`} className={buttonVariants({ variant: "outline" })}>
+              <Icon name="file" size={18} />Export all submissions
+            </a>
+          </>
+        }
+      />
+
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b"><CardTitle>Submissions</CardTitle></CardHeader>
+        <CardContent className="px-0">
+          <SubmissionTable submissions={submissions} questions={activity.questions} submitterFor={submitterFor} />
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b">
+          <CardTitle>Not submitted · {missing.length}</CardTitle>
+        </CardHeader>
+        <CardContent className="px-6 py-4">
+          <MissingPanel
+            people={missing}
+            day={day}
+            today={today}
+            basePath={`/admin/events/${ev.id}/activities/${activity.id}`}
+          />
+        </CardContent>
+      </Card>
+
+      {drifting && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b"><CardTitle>Participation</CardTitle></CardHeader>
+          <CardContent className="px-6 py-4">
+            <ParticipationPanel people={drifting} windowDays={PARTICIPATION_DAYS} today={today} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

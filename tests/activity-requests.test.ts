@@ -5,7 +5,8 @@ import type { Activity, ActivityChangeRequest, ActivitySession } from "@/lib/typ
 
 const activity = (over: Partial<Activity> = {}): Activity => ({
   id: "act1", org_id: "o", event_id: "e", name: "Workshops", description: null,
-  required: false, booking_open: true, max_per_attendee: 1, categories: null, sort_order: 0, ...over,
+  kind: "booking", required: false, is_open: true, max_per_attendee: 1, categories: null,
+  questions: [], per_day: false, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
   id, event_id: "e", activity_id: "act1", title: id, day: "2026-10-01", starts_at: "09:30",
@@ -135,13 +136,13 @@ describe("activityControls", () => {
   });
 
   it("offers nothing bookable when the activity is closed", () => {
-    const c = activityControls(state({ activity: activity({ booking_open: false }) }), null);
+    const c = activityControls(state({ activity: activity({ is_open: false }) }), null);
     expect(c.bookable).toEqual([]);
   });
 
   // D157: asking is not taking a seat, so a closed activity still accepts a request.
   it("still offers a switch when booking is closed", () => {
-    const c = activityControls(state({ activity: activity({ booking_open: false }), mine: ["s1"] }), null);
+    const c = activityControls(state({ activity: activity({ is_open: false }), mine: ["s1"] }), null);
     expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
     expect(c.canRequestCancel).toBe(true);
   });

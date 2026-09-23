@@ -34,7 +34,8 @@ function findElement<P extends Record<string, unknown>>(
 
 const activity = (over: Partial<Activity> = {}): Activity => ({
   id: "act1", org_id: "o", event_id: "e", name: "Studio Tour", description: null,
-  required: false, booking_open: true, max_per_attendee: 1, categories: null, sort_order: 0, ...over,
+  kind: "booking", required: false, is_open: true, max_per_attendee: 1, categories: null,
+  questions: [], per_day: false, sort_order: 0, ...over,
 });
 
 const state = (over: Partial<ActivityState> = {}): ActivityState => ({

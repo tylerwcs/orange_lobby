@@ -1,28 +1,28 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listAttendees } from "@/lib/db/attendees";
-import { listForms, listSubmissions, fileQuestionKeys } from "@/lib/db/forms";
+import { listActivities, listSubmissions } from "@/lib/db/activities";
 import { signedSubmissionUrl } from "@/lib/db/media";
 import { buildFormsWorkbook, type FormSheet } from "@/lib/exports";
-import { missingFrom } from "@/lib/forms";
+import { fileQuestionKeys, missingFrom } from "@/lib/submissions";
 
 // Seven days: long enough that a spreadsheet downloaded today still opens its photographs
 // next week, short enough that the bucket stays private in spirit, not just in policy.
 const LINK_SECONDS = 7 * 24 * 60 * 60;
 
-// Same shape as activities.xlsx: the whole event's forms, not a selection, so there is no
-// `ids` param and no way for it to fail open.
+// Same shape as activities.xlsx: the whole event's submission activities, not a selection, so
+// there is no `ids` param and no way for it to fail open.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
 
   const [forms, submissions, attendees] = await Promise.all([
-    listForms(ev.id), listSubmissions(ev.id), listAttendees(ev.id),
+    listActivities(ev.id, "submission"), listSubmissions(ev.id), listAttendees(ev.id),
   ]);
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
   const byForm = new Map<string, typeof submissions>();
-  for (const s of submissions) byForm.set(s.form_id, [...(byForm.get(s.form_id) ?? []), s]);
+  for (const s of submissions) byForm.set(s.activity_id, [...(byForm.get(s.activity_id) ?? []), s]);
 
   const sheets: FormSheet[] = await Promise.all(forms.map(async (f) => {
     const fileKeys = new Set(fileQuestionKeys(f.questions));
@@ -62,7 +62,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${ev.slug}-form-submissions.xlsx"`,
+      "Content-Disposition": `attachment; filename="${ev.slug}-submissions.xlsx"`,
     },
   });
 }

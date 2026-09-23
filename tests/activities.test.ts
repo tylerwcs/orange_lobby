@@ -9,7 +9,8 @@ import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
 
 const activity = (over: Partial<Activity> = {}): Activity => ({
   id: "act1", org_id: "o", event_id: "e", name: "Workshops", description: null,
-  required: false, booking_open: true, max_per_attendee: 1, categories: null, sort_order: 0, ...over,
+  kind: "booking", required: false, is_open: true, max_per_attendee: 1, categories: null,
+  questions: [], per_day: false, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
   id, event_id: "e", activity_id: "act1", title: id, day: "2026-10-01", starts_at: "09:30",
@@ -83,7 +84,7 @@ describe("activityState", () => {
 
   it("is closed when the organiser has not opened booking", () => {
     const state = activityState({
-      activity: activity({ booking_open: false }), sessions, counts: {},
+      activity: activity({ is_open: false }), sessions, counts: {},
       mine: new Set(), category: null,
     });
     expect(state.canBookMore).toBe(false);
@@ -266,11 +267,11 @@ describe("readActivityPolicy", () => {
   });
 
   // The regression this reader exists to prevent (see its doc comment): the settings form
-  // has no booking_open field, so this must never read one back in — not even as `false` —
+  // has no is_open field, so this must never read one back in — not even as `false` —
   // or a Save would silently undo whatever the toggle button last set.
-  it("never returns a booking_open key, absent rather than false", () => {
+  it("never returns a is_open key, absent rather than false", () => {
     const policy = readActivityPolicy(fields());
-    expect(policy).not.toHaveProperty("booking_open");
+    expect(policy).not.toHaveProperty("is_open");
     expect(Object.keys(policy).sort()).toEqual(
       ["categories", "description", "max_per_attendee", "name", "required"].sort(),
     );
@@ -278,15 +279,15 @@ describe("readActivityPolicy", () => {
 });
 
 describe("readNewActivity", () => {
-  it("carries booking_open through as given — only the create form may set an initial value", () => {
+  it("carries is_open through as given — only the create form may set an initial value", () => {
     const fields = { name: "Workshops", description: "", required: false, max_per_attendee: "1", categories: "" };
-    expect(readNewActivity({ ...fields, booking_open: true }).booking_open).toBe(true);
-    expect(readNewActivity({ ...fields, booking_open: false }).booking_open).toBe(false);
+    expect(readNewActivity({ ...fields, is_open: true }).is_open).toBe(true);
+    expect(readNewActivity({ ...fields, is_open: false }).is_open).toBe(false);
   });
 
   it("still validates the shared policy fields", () => {
     const fields = { name: "", description: "", required: false, max_per_attendee: "1", categories: "" };
-    expect(() => readNewActivity({ ...fields, booking_open: true })).toThrow("An activity needs a name");
+    expect(() => readNewActivity({ ...fields, is_open: true })).toThrow("An activity needs a name");
   });
 });
 

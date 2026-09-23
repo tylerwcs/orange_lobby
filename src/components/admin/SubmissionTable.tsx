@@ -1,4 +1,4 @@
-import type { FormSubmission, RegistrationQuestion } from "@/lib/types";
+import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate } from "@/lib/text";
 import { signedSubmissionUrl } from "@/lib/db/media";
 import { retiredAnswerKeys } from "@/lib/exports";
@@ -8,7 +8,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 export type SubmitterInfo = { name: string; email: string | null; category: string | null };
 
 /**
- * One row per submission, newest first (the caller hands them in that order — `submissionsForForm`
+ * One row per submission, newest first (the caller hands them in that order — `submissionsForActivity`
  * already sorts that way, so this never re-sorts). One column per question, in the order the
  * form declares them, matching the shape of the xlsx export so the two agree on what "the
  * columns" are.
@@ -19,7 +19,7 @@ export type SubmitterInfo = { name: string; email: string | null; category: stri
  * than a link that 404s.
  */
 export async function SubmissionTable({ submissions, questions, submitterFor }: {
-  submissions: FormSubmission[];
+  submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   submitterFor: (attendeeId: string) => SubmitterInfo;
 }) {

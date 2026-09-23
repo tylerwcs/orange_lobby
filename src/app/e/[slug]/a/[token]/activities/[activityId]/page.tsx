@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { loadPortalAttendee } from "@/lib/portal";
-import { getForm, submissionsForAttendee } from "@/lib/db/forms";
-import { canSubmit, type SubmitReason } from "@/lib/forms";
+import { getActivity, submissionsForAttendee } from "@/lib/db/activities";
+import { canSubmit, type SubmitReason } from "@/lib/submissions";
 import { UPLOAD_ACCEPT } from "@/lib/storage";
 import { nowInKL } from "@/lib/time";
 import type { RegistrationQuestion } from "@/lib/types";
-import { submitFormAction } from "../actions";
+import { submitAnswersAction } from "../actions";
 import { SubmissionHistory } from "@/components/portal/SubmissionHistory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,31 +53,33 @@ function renderQuestion(q: RegistrationQuestion) {
   return <input id={id} name={q.key} type={type} required={q.required} className={inputClass} />;
 }
 
-export default async function FormPage({ params }: { params: Promise<{ slug: string; token: string; formId: string }> }) {
-  const { slug, token, formId } = await params;
+export default async function ActivitySubmissionPage({ params }: { params: Promise<{ slug: string; token: string; activityId: string }> }) {
+  const { slug, token, activityId } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const form = await getForm(formId, event.id);
-  if (!form) notFound();
+  const activity = await getActivity(activityId, event.id);
+  // A booking activity has no questions and no answers — this route is a submission's alone
+  // (D178), the same way `book_session` refuses a submission activity's id.
+  if (!activity || activity.kind !== "submission") notFound();
 
   const submissions = await submissionsForAttendee(attendee.id);
-  const mine = submissions.filter((s) => s.form_id === form.id);
+  const mine = submissions.filter((s) => s.activity_id === activity.id);
   const today = nowInKL().date;
-  const state = canSubmit(form, mine, attendee.category, today);
+  const state = canSubmit(activity, mine, attendee.category, today);
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-extrabold">{form.name}</h1>
-        {form.description && <p className="text-sm text-muted-foreground">{form.description}</p>}
+        <h1 className="text-xl font-extrabold">{activity.name}</h1>
+        {activity.description && <p className="text-sm text-muted-foreground">{activity.description}</p>}
       </div>
 
       <Card>
         <CardContent className="pt-6">
-          <form action={submitFormAction.bind(null, slug, token, form.id)} className="flex flex-col gap-6">
-            {form.questions.length > 0 && (
+          <form action={submitAnswersAction.bind(null, slug, token, activity.id)} className="flex flex-col gap-6">
+            {activity.questions.length > 0 && (
               <FieldSet>
                 <FieldGroup>
-                  {form.questions.map((q) => (
+                  {activity.questions.map((q) => (
                     <Field key={q.key}>
                       <FieldLabel htmlFor={`q-${q.key}`}>
                         {q.label}
@@ -99,7 +101,7 @@ export default async function FormPage({ params }: { params: Promise<{ slug: str
         </CardContent>
       </Card>
 
-      <SubmissionHistory submissions={mine} questions={form.questions} />
+      <SubmissionHistory submissions={mine} questions={activity.questions} />
     </div>
   );
 }
