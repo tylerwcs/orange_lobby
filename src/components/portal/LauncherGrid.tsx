@@ -7,8 +7,9 @@ function Button({ item, large }: { item: LauncherItem; large: boolean }) {
     <>
       <span className={`relative flex items-center justify-center rounded-full bg-accent text-primary transition-transform group-active:scale-95 ${large ? "size-16" : "size-14"}`}>
         {item.image
+          // A picture is drawn edge to edge: the portal's own come with their circle painted in.
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={item.image} alt="" className="size-full rounded-full object-contain p-1" />
+          ? <img src={item.image} alt="" className="size-full rounded-full object-contain" />
           : <Icon name={item.icon} size={large ? 28 : 24} />}
         {item.dot && (
           <>

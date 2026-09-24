@@ -20,13 +20,15 @@ describe("launcherItems", () => {
     expect(items[1]).toMatchObject({ icon: "info", href: `${BASE}/info`, builtin: true });
   });
 
-  it("offers Activities only when the attendee can see one, dotted when a choice is owed", () => {
-    expect(launcherItems(base).map((i) => i.label)).toEqual(["Agenda", "Me"]);
-    expect(launcherItems({ ...base, activities: { show: false, owed: false } }).map((i) => i.label)).toEqual(["Agenda", "Me"]);
-    const shown = launcherItems({ ...base, activities: { show: true, owed: true } });
-    expect(shown.map((i) => i.label)).toEqual(["Agenda", "Activities", "Me"]);
-    expect(shown[1]).toMatchObject({ href: `${BASE}/activities`, icon: "ticket", dot: true });
-    expect(launcherItems({ ...base, activities: { show: true, owed: false } })[1].dot).toBe(false);
+  it("draws Agenda and Info with the portal's own pictures, and Me with its line icon", () => {
+    const items = launcherItems({ ...base, hasInfo: true });
+    expect(items.map((i) => i.image)).toEqual(["/portal-icons/agenda.webp", "/portal-icons/info.webp", null]);
+  });
+
+  it("has no Activities button: the home's activity cards are that section (D221)", () => {
+    const items = launcherItems({ ...base, activities: { show: true, owed: true } });
+    expect(items.map((i) => i.label)).toEqual(["Agenda", "Me"]);
+    expect(items.some((i) => i.dot)).toBe(false);
   });
 
   it("gives the public portal only the agenda, whatever it is told about activities", () => {
@@ -43,7 +45,7 @@ describe("launcherItems", () => {
   it("drops a route tile that repeats a built-in it sits beside", () => {
     const tiles = [routeTile("ag", "agenda"), routeTile("in", "info"), routeTile("ac", "activities"), routeTile("me", "me"), routeTile("st", "stamps")];
     const items = launcherItems({ ...base, hasInfo: true, activities: { show: true, owed: false }, tiles });
-    expect(items.map((i) => i.id)).toEqual(["builtin:agenda", "builtin:info", "builtin:activities", "builtin:me", "st"]);
+    expect(items.map((i) => i.id)).toEqual(["builtin:agenda", "builtin:info", "builtin:me", "st"]);
   });
 
   it("keeps a route tile whose built-in is not on screen", () => {

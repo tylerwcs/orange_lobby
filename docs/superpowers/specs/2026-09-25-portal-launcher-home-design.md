@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D220. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D221. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -84,6 +84,13 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
 - **D220** **Home activity cards show one at a time with dots**, the same `SwipeRow` as the
   breakout tickets (D219), replacing D214's 260px peeking row. Still at most 5, still in the
   Activities page's order. Each slot has 2px of padding so a card's ring is not clipped.
+
+- **D221** **No Activities button in the launcher.** For anybody who can see one, the activity
+  cards on the home page are that section ("See all" leads to the page, the owed card leads
+  the row); the desktop header keeps its Activities link and dot. **Agenda and Info are drawn
+  with the portal's own illustrations** (`public/portal-icons/agenda.webp`, `info.webp`,
+  192px, trimmed to their painted circle). Me keeps its line icon until it has a picture.
+  Organiser tiles get pictures through D213's upload.
 
 ## 3. Out of scope
 
