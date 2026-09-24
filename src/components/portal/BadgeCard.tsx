@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Attendee } from "@/lib/types";
-import { pinGrid, type ResolvedPin } from "@/lib/pinned-fields";
+import { pinScale, type ResolvedPin } from "@/lib/pinned-fields";
 import { Icon } from "@/components/ui/icon";
 import { displayName } from "@/lib/text";
 import { BadgeQrDialog } from "./BadgeQrDialog";
@@ -10,8 +10,8 @@ import { BadgeQrDialog } from "./BadgeQrDialog";
  *
  * The bottom of the card is whatever the event pinned, in the event's order, as equal tiles
  * (D224): the same box and the same size for every value, so a table number and a room
- * number line up instead of one towering over the other. `pinGrid` decides three across or
- * two, and which long values take a row of their own. The Floor plan button sits under the
+ * number line up instead of one towering over the other. They share a row whenever they fit
+ * and wrap when they do not; a long value drops to smaller type. The Floor plan button sits under the
  * tiles at full width, when the event offers one (D225). The pins arrive already resolved,
  * so a fact this attendee has no value for never reaches the card - and when nothing survives
  * and there is no floor plan, the section and its rule disappear rather than sitting empty.
@@ -25,7 +25,6 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins, qr
   /** The attendee's QR as a data URL; the square button opens it in place (was a link to Me). */
   qr: string;
 }) {
-  const grid = pinGrid(pins);
   return (
     <section className="@container flex flex-col gap-3 rounded-xl bg-foreground p-4 text-background">
       <div className="flex items-center gap-3.5">
@@ -49,15 +48,21 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins, qr
         <>
           <div className="h-px bg-white/10" />
           {pins.length > 0 && (
-            <dl className={`grid grid-flow-row-dense gap-1.5 ${grid.columns === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-              {pins.map((p, i) => (
-                <div key={p.key} className={`flex min-w-0 flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5 ${grid.cells[i].full ? "col-span-full" : ""}`}>
-                  <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
-                  <dd className={grid.cells[i].small
-                    ? "text-sm font-extrabold leading-tight break-words text-primary"
-                    : "text-lg font-extrabold leading-tight tabular-nums text-primary"}>{p.value}</dd>
-                </div>
-              ))}
+            // A wrapping row sized by the text itself: tiles share one line whenever their real
+            // widths fit the card, grow to fill it evenly, and the one that does not fit starts
+            // the next line and fills that.
+            <dl className="flex flex-wrap gap-1.5">
+              {pins.map((p) => {
+                const long = pinScale(p.value) === "small";
+                return (
+                  <div key={p.key} className="flex min-w-20 max-w-full flex-auto flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5">
+                    <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
+                    <dd className={long
+                      ? "text-sm font-extrabold leading-tight break-words text-primary"
+                      : "whitespace-nowrap text-lg font-extrabold leading-tight tabular-nums text-primary"}>{p.value}</dd>
+                  </div>
+                );
+              })}
             </dl>
           )}
           {floorPlan && (
