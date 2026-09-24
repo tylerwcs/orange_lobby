@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, roomLabel, breakoutRoom, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows, splitByExisting, describeAssignment } from "@/lib/breakouts";
+import { isBreakout, roomLabel, breakoutRoom, ticketTitle, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows, splitByExisting, describeAssignment } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
@@ -385,7 +385,13 @@ describe("roomLabel", () => {
     expect(roomLabel("  room 3A ")).toEqual({ prefix: "Room", main: "3A" });
   });
 
+  it("splits a trailing 'Room' off the same way", () => {
+    expect(roomLabel("Nusantara Room")).toEqual({ prefix: "Room", main: "Nusantara" });
+    expect(roomLabel("Orchid room ")).toEqual({ prefix: "Room", main: "Orchid" });
+  });
+
   it("keeps any other name whole", () => {
+    expect(roomLabel("Room")).toEqual({ prefix: null, main: "Room" });
     expect(roomLabel("Orchid Ballroom")).toEqual({ prefix: null, main: "Orchid Ballroom" });
     expect(roomLabel("Roomy Hall")).toEqual({ prefix: null, main: "Roomy Hall" });
     expect(roomLabel("3A")).toEqual({ prefix: null, main: "3A" });
@@ -398,5 +404,19 @@ describe("breakoutRoom", () => {
     expect(breakoutRoom(item({ location: "Orchid 2", code: "Room 1" }))).toBe("Orchid 2");
     expect(breakoutRoom(item({ code: "Room 1" }))).toBe("Room 1");
     expect(breakoutRoom(item({}))).toBe("Session");
+  });
+});
+
+describe("ticketTitle", () => {
+  it("drops a leading 'Breakout:' that repeats the round named above it", () => {
+    expect(ticketTitle("Breakout: Department SOPs")).toBe("Department SOPs");
+    expect(ticketTitle("breakout 2 – Team huddle")).toBe("Team huddle");
+    expect(ticketTitle("Breakout - Regional plans")).toBe("Regional plans");
+  });
+
+  it("leaves any other title alone, and never empties one", () => {
+    expect(ticketTitle("Breakout session planning")).toBe("Breakout session planning");
+    expect(ticketTitle("Team huddle")).toBe("Team huddle");
+    expect(ticketTitle("Breakout:")).toBe("Breakout:");
   });
 });

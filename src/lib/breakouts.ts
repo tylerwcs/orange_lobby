@@ -67,12 +67,23 @@ export function breakoutRoom(item: Pick<AgendaItem, "location" | "code" | "title
 }
 
 /**
- * A room name split for the ticket (D218): "Room 1" becomes a small "Room" over a large "1",
- * the way a boarding pass prints a gate. Any other name is drawn whole.
+ * A room name split for the ticket (D218): "Room 1" and "Nusantara Room" both become a small
+ * "Room" over the part that tells rooms apart, drawn large - the way a boarding pass prints a
+ * gate. Any other name is drawn whole.
  */
 export function roomLabel(room: string): { prefix: string | null; main: string } {
-  const m = /^room\s+(\S.*)$/i.exec(room.trim());
-  return m ? { prefix: "Room", main: m[1].trim() } : { prefix: null, main: room.trim() };
+  const name = room.trim();
+  const m = /^room\s+(\S.*)$/i.exec(name) ?? /^(.*\S)\s+room$/i.exec(name);
+  return m ? { prefix: "Room", main: m[1].trim() } : { prefix: null, main: name };
+}
+
+/**
+ * A breakout's title on its ticket, without a leading "Breakout:" / "Breakout 2 –": the ticket
+ * already names the round on the line above. A title that is nothing but the prefix is kept.
+ */
+export function ticketTitle(title: string): string {
+  const rest = title.replace(/^\s*breakout(\s*\d+)?\s*[:\-–—]\s*/i, "");
+  return rest.trim() ? rest.trim() : title;
 }
 
 export type AssignMatch = { attendeeId: string; itemId: string; slot: string };

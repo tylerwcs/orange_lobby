@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D218. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D219. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -72,6 +72,13 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   one ticket per round with round · day, the session title and the time on the left, and the
   room large on the right ("Room 1" drawn as a small "Room" over a large "1"). An unassigned
   round shows "Not assigned yet" and the desk's phone. A single ticket takes the full width.
+
+- **D219** **Breakout tickets show one at a time, with no peek.** Each ticket is the row's
+  full width and snaps into place; dots underneath count the rounds and mark the one showing
+  (tapping a dot scrolls to it). One round, no dots. "Room" is split off the end of a name as
+  well as the start ("Nusantara Room" → small "Room" over "Nusantara"), and a leading
+  "Breakout:" / "Breakout 2 –" is dropped from the title, since the ticket names the round.
+  The launcher and the activity cards keep their peek.
 
 ## 3. Out of scope
 
