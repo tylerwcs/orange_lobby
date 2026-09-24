@@ -1,6 +1,7 @@
-import type { AgendaItem } from "@/lib/types";
+import type { AgendaDay, AgendaItem } from "@/lib/types";
 import { isBreakout, breakoutSlots } from "@/lib/breakouts";
 import { byAgendaOrder, isSession, type TimedItem } from "@/lib/agenda-order";
+import { shortDate } from "@/lib/text";
 
 /** Who is looking. `null` is the anonymous portal — nobody signed in, so no assignments. */
 export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlySet<string> } | null;
@@ -123,4 +124,29 @@ export function pickDay(days: string[], requested: string | undefined, today: st
 export function categoriesFromValues(values: string[]): string[] | null {
   const out = Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
   return out.length ? out : null;
+}
+
+/** One portal day tab: the date it filters to (`?day=`), and the organiser's name for it. */
+export type DayTab = { date: string; name: string | null };
+
+/**
+ * The portal's day tabs (D199): every day the organiser made, in date order - including an
+ * empty one - plus any date the viewer has a row on without a day. That second case is a
+ * booking dated outside the agenda, and a booking must never be unreachable.
+ */
+export function dayTabs(days: Pick<AgendaDay, "date" | "name">[], items: Pick<AgendaItem, "day">[]): DayTab[] {
+  const byDate = new Map<string, string | null>(days.map((d) => [d.date, d.name?.trim() || null]));
+  for (const i of items) if (!byDate.has(i.day)) byDate.set(i.day, null);
+  return [...byDate].map(([date, name]) => ({ date, name })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** "Day 1 (Conference) · Wed 30 Sep", or "Wed 30 Sep" for an unnamed day. Admin text. */
+export function dayLabel(d: Pick<AgendaDay, "date" | "name">): string {
+  const name = d.name?.trim();
+  return name ? `${name} · ${shortDate(d.date)}` : shortDate(d.date);
+}
+
+/** The first of the event's dates with no day yet - Add day's default. Null when none is free. */
+export function nextFreeDate(eventDates: string[], taken: string[]): string | null {
+  return eventDates.find((d) => !taken.includes(d)) ?? null;
 }
