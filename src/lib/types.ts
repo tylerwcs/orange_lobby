@@ -60,10 +60,6 @@ export type Event = {
   scan_extra_fields: string[];
   /** Facts shown on the badge card, in order. The first gets the large treatment. */
   pinned_fields: PinnedField[];
-  /** How many stamps fill the Booth Passport. Null means every booth this event has. */
-  stamps_required: number | null;
-  /** What the passport says when it is full. Admin-authored, because the prize is decided late. */
-  stamps_message: string | null;
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
   crew_token: string | null;
   modules: EventModule[];
