@@ -1,5 +1,6 @@
 "use client";
 import { useOptimistic, useRef, useState, useTransition } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
 
@@ -15,7 +16,9 @@ export type SortableRow = {
 /**
  * One agenda day's rows in the organiser's order (D197). The same drag-and-arrow-key idiom as
  * CheckpointList: a drag is a pointer gesture no keyboard can perform, so the handle also takes
- * the arrow keys; both go through `moveItem`, and both save at once.
+ * the arrow keys; both go through `moveItem`, and both save at once. HTML5 drag-and-drop is also
+ * unreliable on touch, so a phone or tablet organiser gets explicit move-up/move-down buttons at
+ * the row's trailing edge - a third route through the same `move`, so all three stay in step.
  *
  * The rows arrive already rendered - their Edit dialogs hold server-rendered forms - so this
  * component only owns their order. Optimistic, not local state: when the action settles the
@@ -74,12 +77,30 @@ export function SortableList({ rows, reorder, empty }: {
               <Icon name="grip" size={18} />
             </button>
             <div className="min-w-0 flex-1">{r.node}</div>
+            <button
+              type="button"
+              aria-label={`Move ${r.label} up`}
+              disabled={i === 0}
+              onClick={() => move(i, i - 1)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
+            >
+              <ChevronUp size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label={`Move ${r.label} down`}
+              disabled={i === order.length - 1}
+              onClick={() => move(i, i + 1)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
+            >
+              <ChevronDown size={18} aria-hidden="true" />
+            </button>
           </li>
         ))}
       </ul>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
       {order.length > 1 && (
-        <p className="pt-2 text-xs text-muted-foreground">Drag a row by its handle — or focus the handle and use the arrow keys — to set the order attendees see. Saved as you go.</p>
+        <p className="pt-2 text-xs text-muted-foreground">Drag a row by its handle, use the arrows, or focus the handle and use the arrow keys, to set the order attendees see. Saved as you go.</p>
       )}
     </div>
   );
