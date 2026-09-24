@@ -4,7 +4,7 @@ import { sendTemplate } from "@/lib/whatsapp";
 import type { AudienceAttendee, Recipient } from "@/lib/whatsapp-audience";
 
 /** The approved template that carries an attendee their personal portal link. */
-export const PORTAL_LINK_TEMPLATE = "ecphub_portallink";
+export const PORTAL_LINK_TEMPLATE = "ecphub_portal";
 
 export type RunResult = { sent: number; failed: number; skipped: number };
 

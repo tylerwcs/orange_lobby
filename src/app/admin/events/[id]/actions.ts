@@ -31,7 +31,6 @@ import { scanFieldsFromForm } from "@/lib/scan";
 import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend, PORTAL_LINK_TEMPLATE } from "@/lib/whatsapp-run";
-import { formatDateRange } from "@/lib/text";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -1007,13 +1006,12 @@ export async function sendPortalLinksAction(eventId: string) {
   const { recipients } = splitAudience(attendees, fields);
   if (recipients.length === 0) redirect(flashPath(here, "Nobody on this event has a number we can send to.", "error"));
 
-  const when = formatDateRange(ev.starts_on, ev.ends_on);
   const result = await runSend({
     orgId,
     eventId,
     template: PORTAL_LINK_TEMPLATE,
     recipients,
-    params: (a) => ({ bodyParams: [a.name, ev.name, when], buttonParam: a.token }),
+    params: (a) => ({ bodyParams: [a.name, ev.name], buttonParam: a.token }),
     // One message per attendee, ever, for this template.
     dedupeKey: (a) => `${PORTAL_LINK_TEMPLATE}:${a.id}`,
   });
