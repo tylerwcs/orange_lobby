@@ -39,8 +39,10 @@ name it, then fill it with sessions and images in the order they want them shown
 - **D195** Transitional insert rule. For the minutes between applying the migration and
   deploying the code, the old "Add session" form inserts a row with a `day` date and no
   `day_id`. The insert trigger resolves such a row to the day for that date, **creating the
-  day if none exists**. Either deploy order is therefore safe. Once the code is deployed
-  every insert sends `day_id`, and the fallback is dead but harmless.
+  day if none exists**, and an old-code edit that changes `day` moves the row to that date's
+  day the same way. Applying the migration before the deploy is therefore safe. The reverse
+  is not: the new code reads `agenda_days`, so it must not deploy before the migration. Once
+  the code is deployed every write sends `day_id`, and the fallback is dead but harmless.
 
 - **D196** Agenda rows gain a **`kind`**: `'session'` (default) or `'image'`. An image row
   carries `image_url` (required for the kind), an optional caption in `title`, optional
