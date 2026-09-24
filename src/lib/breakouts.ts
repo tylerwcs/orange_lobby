@@ -58,6 +58,23 @@ export function myBreakouts(items: AgendaItem[], assignedItemIds: ReadonlySet<st
   });
 }
 
+/**
+ * The room one breakout item is in, as an attendee is told it: its location, else its code
+ * (what the client's spreadsheet named the room), else its title.
+ */
+export function breakoutRoom(item: Pick<AgendaItem, "location" | "code" | "title">): string {
+  return item.location || item.code || item.title;
+}
+
+/**
+ * A room name split for the ticket (D218): "Room 1" becomes a small "Room" over a large "1",
+ * the way a boarding pass prints a gate. Any other name is drawn whole.
+ */
+export function roomLabel(room: string): { prefix: string | null; main: string } {
+  const m = /^room\s+(\S.*)$/i.exec(room.trim());
+  return m ? { prefix: "Room", main: m[1].trim() } : { prefix: null, main: room.trim() };
+}
+
 export type AssignMatch = { attendeeId: string; itemId: string; slot: string };
 export type AssignReport = { matched: AssignMatch[]; unmatched: { value: string; count: number }[]; blank: number };
 

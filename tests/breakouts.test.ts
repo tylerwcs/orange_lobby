@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBreakout, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows, splitByExisting, describeAssignment } from "@/lib/breakouts";
+import { isBreakout, roomLabel, breakoutRoom, breakoutSlots, myBreakouts, matchAssignments, rosters, breakoutColumns, breakoutSlotFromColumn, parseRoomCodes, agendaRows, splitByExisting, describeAssignment } from "@/lib/breakouts";
 import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
@@ -376,5 +376,27 @@ describe("describeAssignment", () => {
 
   it("is empty for a round the data says nothing about, so the import stays quiet", () => {
     expect(describeAssignment("Breakout 9", out({ blank: 32 }))).toBe("");
+  });
+});
+
+describe("roomLabel", () => {
+  it("splits a leading 'Room' off so the number can be drawn large", () => {
+    expect(roomLabel("Room 1")).toEqual({ prefix: "Room", main: "1" });
+    expect(roomLabel("  room 3A ")).toEqual({ prefix: "Room", main: "3A" });
+  });
+
+  it("keeps any other name whole", () => {
+    expect(roomLabel("Orchid Ballroom")).toEqual({ prefix: null, main: "Orchid Ballroom" });
+    expect(roomLabel("Roomy Hall")).toEqual({ prefix: null, main: "Roomy Hall" });
+    expect(roomLabel("3A")).toEqual({ prefix: null, main: "3A" });
+  });
+});
+
+describe("breakoutRoom", () => {
+  const item = (over: Partial<AgendaItem>) => ({ location: null, code: null, title: "Session", ...over }) as AgendaItem;
+  it("prefers the location, then the code, then the title", () => {
+    expect(breakoutRoom(item({ location: "Orchid 2", code: "Room 1" }))).toBe("Orchid 2");
+    expect(breakoutRoom(item({ code: "Room 1" }))).toBe("Room 1");
+    expect(breakoutRoom(item({}))).toBe("Session");
   });
 });

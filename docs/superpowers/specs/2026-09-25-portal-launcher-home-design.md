@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D215. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D218. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -60,6 +60,18 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
 - **D215** **Phone home order:** banner, badge, announcement banner, launcher grid, breakout
   card, activities row. The grid goes above the breakout card so the navigation is on the
   first screen.
+
+- **D216** **Agenda and Info are separate pages** with separate launcher buttons and
+  separate desktop header links. The Agenda | Info switch is removed; each page has its own
+  heading. Info still exists only when D205 says so. Supersedes the shared slot of D205/D211.
+
+- **D217** **The phone launcher is one row that swipes sideways** to the screen edge, each
+  button 80px wide so four and part of a fifth show. The desktop column keeps the wrapping grid.
+
+- **D218** **Breakouts are a row of room tickets** that swipes sideways like the launcher:
+  one ticket per round with round · day, the session title and the time on the left, and the
+  room large on the right ("Room 1" drawn as a small "Room" over a large "1"). An unassigned
+  round shows "Not assigned yet" and the desk's phone. A single ticket takes the full width.
 
 ## 3. Out of scope
 
