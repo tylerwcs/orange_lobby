@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Attendee } from "@/lib/types";
-import { pinScale, type ResolvedPin } from "@/lib/pinned-fields";
+import { pinGrid, type ResolvedPin } from "@/lib/pinned-fields";
 import { Icon } from "@/components/ui/icon";
 import { displayName } from "@/lib/text";
 import { BadgeQrDialog } from "./BadgeQrDialog";
@@ -8,11 +8,13 @@ import { BadgeQrDialog } from "./BadgeQrDialog";
 /**
  * Am I in, who am I, and the handful of facts this event decided matter.
  *
- * The bottom row used to be the table number and nothing else. It is now whatever the
- * event pinned, in the event's order: the first fact takes the large treatment the table
- * number had, unless it is too long to hold it. The pins arrive already resolved, so a
- * fact this attendee has no value for never reaches the card - and when nothing survives
- * and there is no floor plan, the row and its rule disappear rather than sitting empty.
+ * The bottom of the card is whatever the event pinned, in the event's order, as equal tiles
+ * (D224): the same box and the same size for every value, so a table number and a room
+ * number line up instead of one towering over the other. `pinGrid` decides three across or
+ * two, and which long values take a row of their own. The Floor plan button sits under the
+ * tiles at full width, when the event offers one (D225). The pins arrive already resolved,
+ * so a fact this attendee has no value for never reaches the card - and when nothing survives
+ * and there is no floor plan, the section and its rule disappear rather than sitting empty.
  *
  * Company used to print under the name unconditionally. It is a pin now like anything else:
  * an event whose badges should carry it pins it in Settings, and `pinnableFields` offers it
@@ -23,6 +25,7 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins, qr
   /** The attendee's QR as a data URL; the square button opens it in place (was a link to Me). */
   qr: string;
 }) {
+  const grid = pinGrid(pins);
   return (
     <section className="@container flex flex-col gap-3 rounded-xl bg-foreground p-4 text-background">
       <div className="flex items-center gap-3.5">
@@ -45,26 +48,23 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins, qr
       {(pins.length > 0 || floorPlan) && (
         <>
           <div className="h-px bg-white/10" />
-          <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-            {pins.map((p, i) => {
-              // Only the first pin can be large, and only if it is short enough to stay on
-              // one line - the slot was built for a table number, not for a full name.
-              const large = i === 0 && pinScale(p.value) === "large";
-              return (
-                <div key={p.key} className="min-w-0">
-                  <div className="text-xs font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</div>
-                  <div className={large
-                    ? "text-3xl font-extrabold leading-none tabular-nums text-primary"
-                    : "text-base font-extrabold leading-tight break-words text-background"}>{p.value}</div>
+          {pins.length > 0 && (
+            <dl className={`grid grid-flow-row-dense gap-2 ${grid.columns === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+              {pins.map((p, i) => (
+                <div key={p.key} className={`flex min-w-0 flex-col gap-1 rounded-lg bg-white/10 px-3 py-2.5 ${grid.cells[i].full ? "col-span-full" : ""}`}>
+                  <dt className="truncate text-xs font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
+                  <dd className={grid.cells[i].small
+                    ? "text-base font-extrabold leading-tight break-words text-primary"
+                    : "text-2xl font-extrabold leading-none tabular-nums text-primary"}>{p.value}</dd>
                 </div>
-              );
-            })}
-            {floorPlan && (
-              <Link href={`${basePath}/plan`} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/10 px-3.5 text-xs font-bold">
-                <Icon name="map" size={16} />Floor plan
-              </Link>
-            )}
-          </div>
+              ))}
+            </dl>
+          )}
+          {floorPlan && (
+            <Link href={`${basePath}/plan`} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-white/10 px-3.5 text-xs font-bold">
+              <Icon name="map" size={16} />Floor plan
+            </Link>
+          )}
         </>
       )}
     </section>

@@ -15,7 +15,7 @@ import { HomeActivities } from "@/components/portal/HomeActivities";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { floorPlanUrl } from "@/lib/modules";
+import { floorPlanShown } from "@/lib/modules";
 import { resolvePins } from "@/lib/pinned-fields";
 import { eventFields } from "@/lib/attendee-fields";
 import type { Event } from "@/lib/types";
@@ -86,7 +86,7 @@ export default async function PersonalHome({ params, searchParams }: {
       <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
         <div className="flex flex-col gap-4 md:gap-5">
-          <BadgeCard attendee={attendee} basePath={basePath} qr={qr} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
+          <BadgeCard attendee={attendee} basePath={basePath} qr={qr} checkedInAt={checkedInAt} floorPlan={floorPlanShown(event)} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
           {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
           <LauncherGrid items={launcher} layout="row" className="md:hidden" />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />

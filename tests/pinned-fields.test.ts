@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  parsePinnedFields, resolvePins, pinnableFields, addPin, removePin, reorderPins, pinScale, hydratePins, MAX_PINS,
+  parsePinnedFields, resolvePins, pinnableFields, addPin, removePin, reorderPins, pinScale, pinGrid, hydratePins, MAX_PINS,
   pinValue, NATIVE_PINNABLE,
 } from "@/lib/pinned-fields";
 import type { Attendee } from "@/lib/types";
@@ -159,5 +159,33 @@ describe("pins without native company, phone or table", () => {
 
   it("offers only email and category natively — the rest are the event's fields", () => {
     expect(NATIVE_PINNABLE.map((f) => f.key)).toEqual(["email", "category"]);
+  });
+});
+
+describe("pinGrid", () => {
+  const pin = (value: string, key = value) => ({ key, label: key, value });
+  it("puts three short values three across", () => {
+    const tile = { full: false, small: false };
+    expect(pinGrid([pin("4"), pin("3016"), pin("B2")])).toEqual({ columns: 3, cells: [tile, tile, tile] });
+  });
+
+  it("pairs everything else up, two across", () => {
+    expect(pinGrid([pin("4"), pin("3016")]).columns).toBe(2);
+    expect(pinGrid([pin("4")]).columns).toBe(2);
+    expect(pinGrid([pin("1"), pin("2"), pin("3"), pin("4")]).columns).toBe(2);
+    // Three, but one is too long for a third of the card.
+    expect(pinGrid([pin("4"), pin("3016"), pin("Tower 2")]).columns).toBe(2);
+  });
+
+  it("gives a long value a full-width row of its own, in smaller type", () => {
+    expect(pinGrid([pin("4"), pin("3016"), pin("Vegetarian, no nuts")]).cells).toEqual([
+      { full: false, small: false }, { full: false, small: false }, { full: true, small: true },
+    ]);
+  });
+
+  it("stretches a short value left alone on the last row, rather than leave half a row empty", () => {
+    expect(pinGrid([pin("4"), pin("3016"), pin("Creative")]).cells.map((c) => c.full)).toEqual([false, false, true]);
+    expect(pinGrid([pin("4")]).cells).toEqual([{ full: true, small: false }]);
+    expect(pinGrid([pin("4"), pin("3016")]).cells.map((c) => c.full)).toEqual([false, false]);
   });
 });

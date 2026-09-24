@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D223. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D225. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -103,6 +103,16 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   reappear away from home): the home's "Today" column is the whole agenda. The Venue card is
   gone from the desktop home. Breakout tickets are listed in full from `md` (no swipe, no
   dots); the phone keeps D219's swipe row. Supersedes D210's header list.
+
+- **D224** **Badge pins are equal tiles.** Every pinned value gets the same box and size
+  (`pinGrid`): three short values (≤6 chars) sit three across, otherwise two across; a value
+  longer than 8 chars takes a full-width row in smaller type; a short one left alone on the
+  last row stretches across it. Replaces "first pin large, the rest small".
+
+- **D225** **One floor plan switch.** The badge's Floor plan button (now full width under the
+  tiles) and the seat card's link show only when the floor plan is switched on in Modules and
+  has an image (`floorPlanShown`), matching the launcher tile. Before, they showed whenever an
+  image existed, even with the tile switched off.
 
 ## 3. Out of scope
 

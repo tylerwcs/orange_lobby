@@ -137,6 +137,25 @@ export function pinScale(value: string): "large" | "small" {
 }
 
 /**
+ * How the badge lays out its pins as equal tiles (D224): every value the same size, so labels
+ * and values line up across the row. Three short values sit three across; otherwise two
+ * across. A value too long for a tile (`pinScale` small) takes a full-width row of its own in
+ * smaller type, and the short ones around it still pair up. A short one left alone on the
+ * last row stretches across it rather than leave half a row empty.
+ */
+export function pinGrid(pins: ResolvedPin[]): { columns: 2 | 3; cells: { full: boolean; small: boolean }[] } {
+  const threeAcross = pins.length === 3 && pins.every((p) => p.value.trim().length <= 6);
+  const small = pins.map((p) => pinScale(p.value) === "small");
+  const paired = small.filter((s) => !s).length;
+  const lastPaired = small.lastIndexOf(false);
+  const leftover = !threeAcross && paired % 2 === 1 ? lastPaired : -1;
+  return {
+    columns: threeAcross ? 3 : 2,
+    cells: small.map((s, i) => ({ full: s || i === leftover, small: s })),
+  };
+}
+
+/**
  * The pins for an event row as the database handed it over.
  *
  * A row carrying no `pinned_fields` key at all came from a database where the column does

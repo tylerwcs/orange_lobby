@@ -144,6 +144,18 @@ export function floorPlanUrl(event: Pick<Event, "floor_plan_url" | "modules">): 
 }
 
 /**
+ * Whether attendees are offered the floor plan at all (D225): it needs a plan image AND the
+ * floor plan switched on in Modules. The badge's Floor plan button and the seat card's link
+ * follow this, so the one switch that hides the tile hides them too - an event without a plan
+ * worth showing turns it off in one place.
+ */
+export function floorPlanShown(event: Pick<Event, "floor_plan_url" | "modules">): boolean {
+  const modules = event.modules?.length ? event.modules : defaultModules();
+  const row = modules.find((m) => m.key === "floor_plan");
+  return Boolean(row?.enabled) && Boolean(floorPlanUrl(event));
+}
+
+/**
  * The stored modules as the editor and the portal should see them: legacy `link` rows
  * become `tile` rows, the floor plan carries the url it needs, and retired built-ins are
  * dropped.

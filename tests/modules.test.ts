@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseModules, defaultModules, resolveTiles, floorPlanUrl, normalizeModules, TILE_ROUTES, TILE_ROUTE_LABELS } from "@/lib/modules";
+import { parseModules, defaultModules, resolveTiles, floorPlanUrl, floorPlanShown, normalizeModules, TILE_ROUTES, TILE_ROUTE_LABELS } from "@/lib/modules";
 
 
 describe("parseModules", () => {
@@ -255,5 +255,18 @@ describe("Tile.route", () => {
       ] }, basePath: "/e/kom",
     });
     expect(tiles.map((t) => t.route)).toEqual([null, "stamps", null]);
+  });
+});
+
+describe("floorPlanShown", () => {
+  const plan = "https://x/plan.png";
+  it("needs both a plan image and the floor plan switched on", () => {
+    expect(floorPlanShown({ floor_plan_url: null, modules: [{ key: "floor_plan", enabled: true, url: plan }] })).toBe(true);
+    expect(floorPlanShown({ floor_plan_url: null, modules: [{ key: "floor_plan", enabled: false, url: plan }] })).toBe(false);
+    expect(floorPlanShown({ floor_plan_url: null, modules: [{ key: "floor_plan", enabled: true }] })).toBe(false);
+  });
+
+  it("treats an event with no stored modules as switched on, as the tiles do", () => {
+    expect(floorPlanShown({ floor_plan_url: plan, modules: [] })).toBe(true);
   });
 });
