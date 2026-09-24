@@ -50,6 +50,22 @@ export async function getEventByCrewToken(token: string): Promise<Event | null> 
 }
 
 /**
+ * The event an attendee's token was minted for. Looked up by the attendee token alone, the
+ * same way the crew link above is: `attendees.token` is UNIQUE across the whole table
+ * (0001_init.sql:50), not per event, so the token identifies both the person and the event.
+ *
+ * This exists for the /a/<token> short link. A WhatsApp template is frozen the moment Meta
+ * approves it, and its button is a fixed prefix plus one variable — so the slug cannot ride
+ * in the URL that goes out, or every event would need its own template and its own review.
+ */
+export async function getEventByAttendeeToken(token: string): Promise<Event | null> {
+  const { data: attendee } = await serviceClient().from("attendees").select("event_id").eq("token", token).maybeSingle();
+  if (!attendee) return null;
+  const { data } = await serviceClient().from("events").select("*").eq("id", attendee.event_id).maybeSingle();
+  return data ? hydrate(data) : null;
+}
+
+/**
  * Mints a crew token, or replaces the one there. Rotation IS the revocation mechanism (D108):
  * every copy of the previous link — in a group chat, in a screenshot, on somebody's home screen —
  * stops working the moment this returns.

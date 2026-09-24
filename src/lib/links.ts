@@ -11,8 +11,17 @@ export function appBaseUrl(): string {
 export function genericLink(base: string, slug: string) {
   return `${trimSlash(base)}/e/${slug}`;
 }
+/**
+ * The personal portal as a path, for a redirect that is already on the right host. The
+ * WhatsApp template button points at /a/<token>, which resolves the event and sends the
+ * attendee here; a template is frozen once Meta approves it, so the event's slug cannot be
+ * part of the link that goes out.
+ */
+export function attendeePath(slug: string, token: string) {
+  return `/e/${slug}/a/${token}`;
+}
 export function attendeeLink(base: string, slug: string, token: string) {
-  return `${genericLink(base, slug)}/a/${token}`;
+  return `${trimSlash(base)}${attendeePath(slug, token)}`;
 }
 export function registrationLink(base: string, slug: string) {
   return `${genericLink(base, slug)}/register`;
