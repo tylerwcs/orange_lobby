@@ -38,12 +38,12 @@ export function PortalShellSkeleton() {
   );
 }
 
-/** One row of the launcher's round buttons (see `LauncherGrid`), for the loading states. */
+/** The launcher's row of round buttons (see `LauncherGrid`), for the loading states. */
 export function LauncherSkeleton() {
   return (
-    <div className="grid grid-cols-4 gap-x-1">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex flex-col items-center gap-1.5 py-1">
+    <div className="-mx-4 flex overflow-hidden px-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex w-20 shrink-0 flex-col items-center gap-1.5 py-1">
           <Skeleton className="size-14 rounded-full" />
           <Skeleton className="h-3 w-12" />
         </div>

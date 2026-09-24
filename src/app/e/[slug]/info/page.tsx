@@ -1,5 +1,5 @@
 import { loadPortalEvent, portalInfoTabsFor } from "@/lib/portal";
-import { hasInfo, pickInfoTab, portalInfoTabs } from "@/lib/info-tabs";
+import { pickInfoTab, portalInfoTabs } from "@/lib/info-tabs";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { InfoPage } from "@/components/portal/InfoPage";
 
@@ -14,7 +14,7 @@ export default async function GenericInfo({ params, searchParams }: {
   const tabs = portalInfoTabs(event, stored);
   return (
     <PortalShell event={event} basePath={`/e/${slug}`} personal={false} current="/info">
-      <InfoPage event={event} tabs={tabs} selected={pickInfoTab(tabs, tab)} basePath={`/e/${slug}`} hasInfo={hasInfo(stored)} />
+      <InfoPage event={event} tabs={tabs} selected={pickInfoTab(tabs, tab)} basePath={`/e/${slug}`} />
     </PortalShell>
   );
 }

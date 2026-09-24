@@ -89,7 +89,7 @@ export default async function PersonalHome({ params, searchParams }: {
         <div className="flex flex-col gap-4 md:gap-5">
           <BadgeCard attendee={attendee} basePath={basePath} qr={qr} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
           {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
-          <LauncherGrid items={launcher} className="md:hidden" />
+          <LauncherGrid items={launcher} layout="row" className="md:hidden" />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
           <div className="md:hidden"><HomeActivities cards={cards} basePath={basePath} /></div>
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>

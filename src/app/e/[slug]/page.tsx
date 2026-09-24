@@ -48,7 +48,7 @@ export default async function GenericHome({ params, searchParams }: {
           </Card>
           {/* Phone: the latest announcement and the launcher, which is the navigation there (D209). */}
           {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
-          <LauncherGrid items={launcher} className="md:hidden" />
+          <LauncherGrid items={launcher} layout="row" className="md:hidden" />
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>
         </div>
 

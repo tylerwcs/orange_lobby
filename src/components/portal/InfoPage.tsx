@@ -5,24 +5,20 @@ import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeletons";
 import { PendingScope, PendingSwap } from "@/components/PendingNav";
-import { AgendaInfoSwitch } from "./AgendaInfoSwitch";
 import { PortalTabStrip } from "./PortalTabStrip";
 
 /**
  * The Info page, for both portals (D206): the section's heading, the tab strip, and the
  * chosen tab - the Venue tab drawn from Settings (D204), or an organiser's tab.
  */
-export function InfoPage({ event, tabs, selected, basePath, hasInfo }: {
+export function InfoPage({ event, tabs, selected, basePath }: {
   event: VenueFields & Pick<Event, "info_page_title">;
   tabs: PortalInfoTab[];
   selected: PortalInfoTab | null;
   basePath: string;
-  /** Whether the Agenda | Info switch is drawn - the same answer the launcher and header use (D205). */
-  hasInfo: boolean;
 }) {
   return (
     <>
-      {hasInfo && <AgendaInfoSwitch basePath={basePath} current="info" />}
       <h1 className="mb-3 text-xl font-extrabold">{event.info_page_title}</h1>
       {!selected ? (
         <p className="text-sm text-muted-foreground">More information will be published soon.</p>

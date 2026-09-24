@@ -13,13 +13,6 @@
 /** The nav hrefs, longest first, so `/me` cannot shadow a longer path that starts with it. */
 const NAV_HREFS = ["/activities", "/agenda", "/info", "/me"] as const;
 
-/**
- * Paths that are tabs of another nav item rather than items of their own. The agenda and the
- * info page share one slot in the bar, with a switch between them at the top of both pages,
- * so standing on the info tab has to light the slot that led there.
- */
-const NAV_ALIASES: Record<string, string> = { "/info": "/agenda" };
-
 /** The path with its query and trailing slash removed. */
 function normalise(pathname: string): string {
   const path = pathname.split("?")[0].split("#")[0];
@@ -54,6 +47,5 @@ export function activeNavHref(pathname: string, basePath: string): string | null
   const rest = suffix(pathname, basePath);
   if (rest === null) return null;
   if (rest === "") return "";
-  const href = NAV_HREFS.find((h) => rest === h || rest.startsWith(`${h}/`)) ?? null;
-  return href && (NAV_ALIASES[href] ?? href);
+  return NAV_HREFS.find((h) => rest === h || rest.startsWith(`${h}/`)) ?? null;
 }

@@ -1,5 +1,5 @@
 import { loadPortalAttendee, portalInfoTabsFor, isUnpublished } from "@/lib/portal";
-import { hasInfo, pickInfoTab, portalInfoTabs } from "@/lib/info-tabs";
+import { pickInfoTab, portalInfoTabs } from "@/lib/info-tabs";
 import { InfoPage } from "@/components/portal/InfoPage";
 
 export default async function PersonalInfo({ params, searchParams }: {
@@ -13,5 +13,5 @@ export default async function PersonalInfo({ params, searchParams }: {
   if (isUnpublished(event)) return null;
   const stored = await portalInfoTabsFor(event.id);
   const tabs = portalInfoTabs(event, stored);
-  return <InfoPage event={event} tabs={tabs} selected={pickInfoTab(tabs, tab)} basePath={`/e/${slug}/a/${token}`} hasInfo={hasInfo(stored)} />;
+  return <InfoPage event={event} tabs={tabs} selected={pickInfoTab(tabs, tab)} basePath={`/e/${slug}/a/${token}`} />;
 }

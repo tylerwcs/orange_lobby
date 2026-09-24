@@ -13,10 +13,11 @@ const routeTile = (id: string, route: NonNullable<Tile["route"]>): Tile =>
 const base = { basePath: BASE, personal: true, hasInfo: false, tiles: [] as Tile[] };
 
 describe("launcherItems", () => {
-  it("leads with Agenda, which becomes Info when the event has an info section", () => {
+  it("leads with Agenda, and adds Info beside it when the event has an info section (D216)", () => {
     expect(launcherItems(base)[0]).toMatchObject({ label: "Agenda", icon: "calendar", href: `${BASE}/agenda`, builtin: true });
-    // The agenda is the first tab of the Info section, so Info still opens /agenda (D205).
-    expect(launcherItems({ ...base, hasInfo: true })[0]).toMatchObject({ label: "Info", icon: "info", href: `${BASE}/agenda` });
+    const items = launcherItems({ ...base, hasInfo: true });
+    expect(items.map((i) => i.label)).toEqual(["Agenda", "Info", "Me"]);
+    expect(items[1]).toMatchObject({ icon: "info", href: `${BASE}/info`, builtin: true });
   });
 
   it("offers Activities only when the attendee can see one, dotted when a choice is owed", () => {
@@ -41,15 +42,15 @@ describe("launcherItems", () => {
 
   it("drops a route tile that repeats a built-in it sits beside", () => {
     const tiles = [routeTile("ag", "agenda"), routeTile("in", "info"), routeTile("ac", "activities"), routeTile("me", "me"), routeTile("st", "stamps")];
-    const items = launcherItems({ ...base, activities: { show: true, owed: false }, tiles });
-    expect(items.map((i) => i.id)).toEqual(["builtin:agenda", "builtin:activities", "builtin:me", "st"]);
+    const items = launcherItems({ ...base, hasInfo: true, activities: { show: true, owed: false }, tiles });
+    expect(items.map((i) => i.id)).toEqual(["builtin:agenda", "builtin:info", "builtin:activities", "builtin:me", "st"]);
   });
 
   it("keeps a route tile whose built-in is not on screen", () => {
     // No Activities item for this attendee, and no Me item on the public portal: a tile the
     // organiser added is then the only way there, so it stays.
-    const personal = launcherItems({ ...base, tiles: [routeTile("ac", "activities")] });
-    expect(personal.map((i) => i.id)).toContain("ac");
+    const personal = launcherItems({ ...base, tiles: [routeTile("ac", "activities"), routeTile("in", "info")] });
+    expect(personal.map((i) => i.id)).toEqual(["builtin:agenda", "builtin:me", "ac", "in"]);
     const pub = launcherItems({ ...base, basePath: "/e/kom", personal: false, tiles: [routeTile("me", "me")] });
     expect(pub.map((i) => i.id)).toContain("me");
   });

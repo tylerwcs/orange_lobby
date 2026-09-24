@@ -26,15 +26,23 @@ function Button({ item }: { item: LauncherItem }) {
  * The home page's round buttons (D212): on a phone, every section and tile - the portal's
  * whole navigation now the bottom bar is gone (D209); on the desktop dashboard, the tiles only.
  *
- * Four to a row in a phone column and in the 300px desktop column alike, more once the grid
- * has room - container queries, because the same grid sits in both.
+ * `row` is the phone's: one line that swipes sideways and runs out to the screen edge
+ * (D217). Each button is sized so four and a part fit, and the cut-off fifth is what says
+ * there is more. `grid` wraps four to a line and is the desktop column's.
  */
-export function LauncherGrid({ items, className = "" }: { items: LauncherItem[]; className?: string }) {
+export function LauncherGrid({ items, layout = "grid", className = "" }: {
+  items: LauncherItem[];
+  layout?: "row" | "grid";
+  className?: string;
+}) {
   if (items.length === 0) return null;
   const cls = "group flex flex-col items-center gap-1.5 rounded-xl px-0.5 py-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const list = layout === "row"
+    ? "-mx-4 flex snap-x scroll-px-4 overflow-x-auto px-4 [scrollbar-width:none] [&>li]:w-20 [&>li]:shrink-0 [&>li]:snap-start"
+    : "grid grid-cols-4 gap-x-1 gap-y-3 @xl:grid-cols-6";
   return (
     <nav aria-label="Sections" className={`@container ${className}`}>
-      <ul className="grid grid-cols-4 gap-x-1 gap-y-3 @xl:grid-cols-6">
+      <ul className={list}>
         {items.map((item) => (
           <li key={item.id}>
             {item.external

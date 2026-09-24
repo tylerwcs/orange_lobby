@@ -32,9 +32,9 @@ describe("activeNavHref", () => {
     expect(activeNavHref(`${BASE}/me`, BASE)).toBe("/me");
   });
 
-  it("marks Agenda on the info page, because the two share one nav item", () => {
-    expect(activeNavHref(`${BASE}/info`, BASE)).toBe("/agenda");
-    expect(activeNavHref(`${BASE}/info?x=1`, BASE)).toBe("/agenda");
+  it("marks Info on the info page - its own item since the two were split (D216)", () => {
+    expect(activeNavHref(`${BASE}/info`, BASE)).toBe("/info");
+    expect(activeNavHref(`${BASE}/info?tab=venue`, BASE)).toBe("/info");
   });
 
   it("marks Activities on one activity's own page", () => {

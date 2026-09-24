@@ -18,11 +18,8 @@ type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
  * is the navigation, and every other page leads back to it (D209). The same rules pick the
  * launcher's sections - see `launcherItems`.
  *
- * The agenda and the info page share one slot. Both are "about the event" rather than about
- * you, and giving each its own slot pushed the bar to five items once Activities joined it.
- * The slot is called Info when the event has an info page - the agenda is the first tab
- * inside it, with a switch to the info tab at the top of both pages - and stays Agenda when
- * it has none, because then the agenda is all it leads to.
+ * Agenda and Info are separate links (D216). They shared one slot while a phone bar had to
+ * fit them; the header has room, and the launcher gives each its own button.
  *
  * Activities is a slot only for somebody who can see at least one, the same rule Info always
  * followed: a slot leading to an empty screen is worse than no slot. Its dot is the "Pick
@@ -30,9 +27,8 @@ type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
  */
 const nav = (personal: boolean, hasInfo: boolean, activities: ActivityNav | undefined): NavItem[] => [
   { href: "", label: "Home", icon: "grid" },
-  hasInfo
-    ? { href: "/agenda", label: "Info", icon: "info" }
-    : { href: "/agenda", label: "Agenda", icon: "calendar" },
+  { href: "/agenda", label: "Agenda", icon: "calendar" },
+  ...(hasInfo ? [{ href: "/info", label: "Info", icon: "info" as IconName }] : []),
   ...(personal && activities?.show
     ? [{ href: "/activities", label: "Activities", icon: "ticket" as IconName, dot: activities.owed }]
     : []),

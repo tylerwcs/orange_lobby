@@ -19,10 +19,10 @@ export type LauncherItem = {
 
 /**
  * What the home's launcher shows, in order: the portal's own sections, then the organiser's
- * tiles (D211). On a phone this is the whole navigation - the bottom bar is gone (D209) - so
- * the sections follow the bar's old rules exactly: Agenda, or Info when there is an info
- * section; Activities only for somebody who can see one, dotted while a pick is owed; Me on
- * the personal portal only.
+ * tiles (D211). On a phone this is the whole navigation - the bottom bar is gone (D209). Agenda
+ * always; Info beside it when there is an info section (D216 - they were one slot before);
+ * Activities only for somebody who can see one, dotted while a pick is owed; Me on the
+ * personal portal only.
  *
  * A route tile that opens a section already on the launcher is dropped rather than drawn
  * twice. One whose section is not on screen - Activities for somebody who cannot see any,
@@ -42,12 +42,14 @@ export function launcherItems(input: {
 
   const showActivities = personal && Boolean(activities?.show);
   const items: LauncherItem[] = [
-    hasInfo ? section("agenda", "Info", "/agenda", "info") : section("agenda", "Agenda", "/agenda", "calendar"),
+    section("agenda", "Agenda", "/agenda", "calendar"),
+    ...(hasInfo ? [section("info", "Info", "/info", "info")] : []),
     ...(showActivities ? [section("activities", "Activities", "/activities", "ticket", Boolean(activities?.owed))] : []),
     ...(personal ? [section("me", "Me", "/me", "user")] : []),
   ];
 
-  const covered = new Set<TileRoute>(["agenda", "info"]);
+  const covered = new Set<TileRoute>(["agenda"]);
+  if (hasInfo) covered.add("info");
   if (showActivities) covered.add("activities");
   if (personal) covered.add("me");
 
