@@ -90,11 +90,11 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
  * toggleFormOpenAction, which flipped the very same `is_open` column under two names before a
  * booking and a submission shared one table (D178).
  *
- * A booking activity's toggle lives in its detail page's header, and stays there after this
- * click; a submission activity's toggle is inline on its row in the list, exactly as it was on
- * the old forms list, and stays there. Rather than hard-code either destination, this redirects
- * to whichever one the activity's own kind says — so one action serves both callers without
- * either one landing somewhere it did not before the merge.
+ * A booking activity's and a passport's toggle both live in their detail page's header, and stay
+ * there after this click; a submission activity's toggle is inline on its row in the list,
+ * exactly as it was on the old forms list, and stays there (D190). Rather than hard-code any one
+ * destination, this redirects to whichever one the activity's own kind says — so one action
+ * serves all three callers without any of them landing somewhere it did not before.
  */
 export async function toggleOpenAction(eventId: string, activityId: string) {
   const ev = await event(eventId);
@@ -568,7 +568,7 @@ export async function renameBoothAction(eventId: string, activityId: string, boo
   const ev = await event(eventId);
   const name = text(fd, "name");
   if (!name) throw new Error("A booth needs a name");
-  await updateBooth(boothId, ev.id, { name, location: text(fd, "location") || null });
+  await updateBooth(boothId, ev.id, activityId, { name, location: text(fd, "location") || null });
   revalidatePath(detailPath(eventId, activityId));
 }
 
@@ -581,7 +581,7 @@ export async function reorderBoothsAction(eventId: string, activityId: string, i
 /** Checked again in the database (D94): a second tab opened before the first stamp still has a live button. */
 export async function deleteBoothAction(eventId: string, activityId: string, boothId: string) {
   const ev = await event(eventId);
-  const removed = await deleteBoothIfUnstamped(boothId, ev.id);
+  const removed = await deleteBoothIfUnstamped(boothId, ev.id, activityId);
   const path = detailPath(eventId, activityId);
   revalidatePath(path);
   redirect(removed

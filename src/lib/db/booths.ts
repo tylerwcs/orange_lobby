@@ -28,6 +28,18 @@ export async function getBoothByToken(token: string): Promise<Booth | null> {
   return (data as Booth | null) ?? null;
 }
 
+/**
+ * One booth, scoped to the event it must belong to (D191) — what the retired `/booths` route
+ * uses to resolve an old `?qr=<id>` link to the passport that now owns it, without trusting the
+ * id to name anything outside this event.
+ */
+export async function getBoothInEvent(id: string, eventId: string): Promise<Booth | null> {
+  const { data, error } = await serviceClient().from("booths").select("*")
+    .eq("id", id).eq("event_id", eventId).maybeSingle();
+  if (error) throw error;
+  return (data as Booth | null) ?? null;
+}
+
 /** Appends to the end of its passport: a new booth is the next stand, not the first. */
 export async function createBooth(passport: Pick<Activity, "id" | "org_id" | "event_id">, name: string, location: string | null) {
   const db = serviceClient();
@@ -43,10 +55,13 @@ export async function createBooth(passport: Pick<Activity, "id" | "org_id" | "ev
 
 /**
  * Renaming is always allowed, including for a booth that has stamped people: the stamps point
- * at the row, not at its name, so nothing is lost (D94).
+ * at the row, not at its name, so nothing is lost (D94). Scoped by event AND passport as well as
+ * row id (D180): a boothId is bound client-side in `BoothList`, so without the passport check a
+ * forged call through one passport's bound action could rename a sibling passport's booth.
  */
-export async function updateBooth(id: string, eventId: string, patch: { name: string; location: string | null }) {
-  const { error } = await serviceClient().from("booths").update(patch).eq("id", id).eq("event_id", eventId);
+export async function updateBooth(id: string, eventId: string, activityId: string, patch: { name: string; location: string | null }) {
+  const { error } = await serviceClient().from("booths").update(patch)
+    .eq("id", id).eq("event_id", eventId).eq("activity_id", activityId);
   if (error) throw error;
 }
 
@@ -69,19 +84,25 @@ export async function setBoothOrder(eventId: string, activityId: string, ordered
  * stamps exist — a rule the database enforces atomically, so no check-then-delete race can
  * sneak a stamp between the two and lose it.
  *
- * Returns false when the booth has stamps; the caller turns that into a message.
+ * Scoped by event AND passport as well as row id (D180), the same reason `updateBooth` is: a
+ * boothId bound client-side in `BoothList` must not let a forged call through one passport's
+ * action delete a sibling passport's booth.
+ *
+ * Returns false when the booth has stamps, or when nothing matched; the caller turns that into
+ * a message.
  */
-export async function deleteBoothIfUnstamped(id: string, eventId: string): Promise<boolean> {
+export async function deleteBoothIfUnstamped(id: string, eventId: string, activityId: string): Promise<boolean> {
   const db = serviceClient();
   const { data, error } = await db.from("booths").delete()
-    .eq("id", id).eq("event_id", eventId).select("id");
+    .eq("id", id).eq("event_id", eventId).eq("activity_id", activityId).select("id");
   // 23503 is a foreign-key violation: booth_stamps still references this booth, and the
   // restrict on that key is what refuses the delete. Asking first and deleting second would
   // leave a window in which a stamp lands between the two and is cascaded away silently.
   if (error?.code === "23503") return false;
   if (error) throw error;
-  // Zero rows matched: the booth is gone, or the id belongs to another event. Either way
-  // nothing was deleted, and saying otherwise would have the admin page report a success.
+  // Zero rows matched: the booth is gone, or the id belongs to another event or passport.
+  // Either way nothing was deleted, and saying otherwise would have the admin page report a
+  // success.
   return (data?.length ?? 0) > 0;
 }
 
