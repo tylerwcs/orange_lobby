@@ -103,20 +103,16 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
  * toggleFormOpenAction, which flipped the very same `is_open` column under two names before a
  * booking and a submission shared one table (D178).
  *
- * A booking activity's and a passport's toggle both live in their detail page's header, and stay
- * there after this click; a submission activity's toggle is inline on its row in the list,
- * exactly as it was on the old forms list, and stays there (D190). Rather than hard-code any one
- * destination, this redirects to whichever one the activity's own kind says — so one action
- * serves all three callers without any of them landing somewhere it did not before.
+ * Every kind carries the same switch in the same two places — its row on the list and its own
+ * page's header — so `from` says which one was flipped and the organiser lands back there,
+ * rather than being carried off to a page they did not ask for.
  */
-export async function toggleOpenAction(eventId: string, activityId: string) {
+export async function toggleOpenAction(eventId: string, activityId: string, from: "list" | "page") {
   const ev = await event(eventId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
   await updateActivity(activityId, ev.id, { is_open: !activity.is_open });
-  // A submission's toggle is inline on its row in the list; a booking's and a passport's are in
-  // their detail page's header. Land back wherever the click came from.
-  const path = activity.kind === "submission" ? listPath(eventId) : detailPath(eventId, activityId);
+  const path = from === "list" ? listPath(eventId) : detailPath(eventId, activityId);
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
   const opened = !activity.is_open;
@@ -240,11 +236,13 @@ export async function addSubmissionActivityAction(eventId: string, fd: FormData)
  */
 export async function saveSubmissionActivityAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
+  // Its settings live on its own page now, like every other kind's, so every outcome lands there.
+  const back = detailPath(eventId, activityId);
   let policy;
   try {
     policy = readSubmissionPolicy(fd);
   } catch (e) {
-    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+    redirect(flashPath(back, (e as Error).message, "error"));
   }
   const current = await submissionOf(ev, activityId);
   // Before syncSubmissionPerDay rather than after it: that call rewrites the submissions
@@ -253,7 +251,7 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
   try {
     image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
   } catch (e) {
-    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+    redirect(flashPath(back, (e as Error).message, "error"));
   }
   try {
     await syncSubmissionPerDay(activityId, policy.per_day);
@@ -265,13 +263,14 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
     // outage, a network failure, some other constraint) re-throws, so it surfaces as a real
     // failure instead of a misleading flash the organiser cannot act on.
     if (!isPerDayCollision(e)) throw e;
-    redirect(flashPath(listPath(eventId), "Someone has already submitted twice in one day, so this submission cannot become once-a-day. Delete the extra submission first.", "error"));
+    redirect(flashPath(back, "Someone has already submitted twice in one day, so this submission cannot become once-a-day. Delete the extra submission first.", "error"));
   }
   await updateActivity(activityId, ev.id, { ...policy, image_url: image.url });
   // Only now that the row names the new picture (or none) is the old one safe to throw away.
   await deleteEventImage(image.stale);
   revalidatePath(listPath(eventId));
-  redirect(flashPath(listPath(eventId), "Submission saved."));
+  revalidatePath(back);
+  redirect(flashPath(back, "Submission saved."));
 }
 
 /**

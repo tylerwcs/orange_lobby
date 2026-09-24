@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { PassportDetail } from "./PassportDetail";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
-import { COVER_HINT } from "@/components/admin/ActivityRows";
+import { COVER_HINT, SubmissionFields } from "@/components/admin/ActivityRows";
+import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { ActivityMenu } from "@/components/admin/ActivityMenu";
+import { removeWarning } from "@/lib/activity-row";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getActivity, listSessions, listBookings, countBookingsBySession, submissionsForActivity } from "@/lib/db/activities";
@@ -21,14 +24,11 @@ import { SubmissionTable } from "@/components/admin/SubmissionTable";
 import { MissingPanel } from "@/components/admin/MissingPanel";
 import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Icon } from "@/components/ui/icon";
-import { buttonVariants } from "@/components/ui/button";
 import {
-  saveActivityAction, toggleOpenAction, deleteActivityAction, addSessionAction, saveSessionAction,
+  saveActivityAction, toggleOpenAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
+  addSessionAction, saveSessionAction,
   deleteSessionAction, reorderSessionsAction, placeAttendeesAction, approveRequestAction, declineRequestAction,
 } from "../actions";
 
@@ -94,21 +94,14 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
         subtitle={`${bookedCount} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
         actions={
           <>
-            <form action={toggleOpenAction.bind(null, ev.id, activity.id)}>
-              <SubmitButton variant={activity.is_open ? "outline" : "default"}>
-                {activity.is_open ? "Close booking" : "Open booking"}
-              </SubmitButton>
-            </form>
-            {/* Cascades sessions and bookings (D135), so the confirm dialog names both counts —
-                the organiser is cancelling people's afternoons, not just tidying a list. */}
-            <form action={deleteActivityAction.bind(null, ev.id, activity.id)}>
-              <ConfirmButton
-                message={`Delete ${activity.name}? Its ${sessions.length} session${sessions.length === 1 ? "" : "s"} and ${activityBookings.length} booking${activityBookings.length === 1 ? "" : "s"} go with it.`}
-                className="text-destructive"
-              >
-                Delete activity
-              </ConfirmButton>
-            </form>
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "page")} name={activity.name} showLabel />
+            <ActivityMenu
+              name={activity.name}
+              settingsHref="#settings"
+              exportHref={`/admin/events/${ev.id}/export/activities.xlsx`}
+              remove={deleteActivityAction.bind(null, ev.id, activity.id)}
+              removeMessage={removeWarning({ kind: "booking", sessions: sessions.length, bookings: activityBookings.length })}
+            />
           </>
         }
       />
@@ -159,7 +152,7 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
       {/* Deliberately no `is_open` field here (D127): that column is the header
           button's alone. Adding it back would let saving this form silently close or
           reopen booking whenever an organiser only meant to edit the name. */}
-      <Card className="overflow-hidden">
+      <Card id="settings" className="scroll-mt-4 overflow-hidden">
         <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
         <CardContent className="px-6 py-4">
           <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
@@ -219,16 +212,17 @@ async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; act
     <div className="flex flex-col gap-4">
       <AdminHeader
         title={activity.name}
-        subtitle={`${submissions.length} submission${submissions.length === 1 ? "" : "s"}`}
+        subtitle={`${submissions.length} submission${submissions.length === 1 ? "" : "s"} · ${capSummary(activity)}`}
         actions={
           <>
-            <Badge variant={activity.is_open ? "default" : "outline"}>{activity.is_open ? "Open" : "Closed"}</Badge>
-            <Badge variant="secondary">{capSummary(activity)}</Badge>
-            {/* Whole-event export (no `ids` param), same as the Exports page's own link — a
-                download from here is the same file, just reached from the activity it is about. */}
-            <a download href={`/admin/events/${ev.id}/export/submissions.xlsx`} className={buttonVariants({ variant: "outline" })}>
-              <Icon name="file" size={18} />Export all submissions
-            </a>
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "page")} name={activity.name} showLabel />
+            <ActivityMenu
+              name={activity.name}
+              settingsHref="#settings"
+              exportHref={`/admin/events/${ev.id}/export/submissions.xlsx`}
+              remove={deleteSubmissionActivityAction.bind(null, ev.id, activity.id)}
+              removeMessage={removeWarning({ kind: "submission", submissions: submissions.length })}
+            />
           </>
         }
       />
@@ -262,6 +256,17 @@ async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; act
           </CardContent>
         </Card>
       )}
+
+      {/* Its settings live here, as every other kind's do, rather than in a modal on the list. */}
+      <Card id="settings" className="scroll-mt-4 overflow-hidden">
+        <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
+        <CardContent className="px-6 py-4">
+          <form action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+            <SubmissionFields activity={activity} />
+            <SubmitButton>Save settings</SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

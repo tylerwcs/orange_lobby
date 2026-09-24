@@ -1,26 +1,27 @@
 import Link from "next/link";
+import { CalendarClock, CircleAlert, FileText, Stamp } from "lucide-react";
 import type { Activity } from "@/lib/types";
-import { capSummary, MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
+import type { ActivityRowView } from "@/lib/activity-row";
+import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
-import { Badge } from "@/components/ui/badge";
-import { Modal } from "@/components/admin/Modal";
+import { meterPercent } from "@/lib/meter";
 import { Field } from "@/components/admin/Field";
-import { SubmitButton } from "@/components/admin/SubmitButton";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { QuestionEditor } from "@/components/admin/QuestionEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
+import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { ActivityMenu, type ActivityMenuProps } from "@/components/admin/ActivityMenu";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";
 
-/** The hint under every activity's image field, both kinds. */
+/** The hint under every activity's image field, every kind. */
 export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 KB. The card crops it to a 2:1 strip and the page shows it whole, so at 2:1 nothing is cut off.";
 
 /**
  * The fields the add-submission form and its own edit form share. `readSubmissionPolicy` in
  * `../actions` reads them back; `is_open` is deliberately not here — see that file's note.
- * Exported so the list's header ("New submission") and each submission row's own "Edit" modal
+ * Exported so the "New activity" form and the Settings card on the submission's own page
  * render the identical fields rather than two copies that could drift.
  */
 export function SubmissionFields({ activity }: { activity?: Activity }) {
@@ -62,106 +63,116 @@ export function SubmissionFields({ activity }: { activity?: Activity }) {
   );
 }
 
+
+const KIND_ICONS: Record<Activity["kind"], typeof Stamp> = { booking: CalendarClock, submission: FileText, passport: Stamp };
+
+/** The activity's picture at thumbnail size, or its kind's icon on the brand tint when it has none. */
+export function ActivityThumb({ activity }: { activity: Pick<Activity, "kind" | "image_url"> }) {
+  if (activity.image_url) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={activity.image_url} alt="" className="size-11 shrink-0 rounded-lg bg-muted object-cover" />;
+  }
+  const Icon = KIND_ICONS[activity.kind];
+  return (
+    <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <Icon className="size-5" />
+    </span>
+  );
+}
+
+export function StatusPill({ open }: { open: boolean }) {
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${open ? "bg-success-soft text-success-strong" : "bg-muted text-muted-foreground"}`}>
+      {open ? "Open" : "Closed"}
+    </span>
+  );
+}
+
+export function AttentionBadge({ text }: { text: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">
+      <CircleAlert aria-hidden className="size-3.5" />{text}
+    </span>
+  );
+}
+
+export type ActivityListItem = {
+  activity: Activity;
+  view: ActivityRowView;
+  href: string;
+  toggle: () => Promise<void>;
+  menu: ActivityMenuProps;
+};
+
+const ROW = "grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-4 px-4 md:grid-cols-[2.75rem_minmax(0,1fr)_5.5rem_11rem_5.5rem]";
+
 /**
- * The activity list: one row per activity, whichever kind it is (D178, D190) — this is the "ONE
- * list showing both kinds" the merge asked for, now three, in `listActivities`' own order
- * rather than one section per kind. Follows BoothList's row shape (badges, tabular-nums counts).
+ * The activity list: one row per activity, every kind the same shape (D179) — picture, name and
+ * kind, status, progress, and the same two controls, the Open switch and the menu. Before, each
+ * kind had grown its own row: a booking's switch was on its page, a submission's Close, Edit and
+ * Delete sat inline, a passport had none, and each said "open" in its own words. The organiser
+ * reads this page mid-event to see what is running and what needs them, so every row answers
+ * that in the same place.
  *
- * A booking row and a passport row carry no reorder or delete controls here — those live on
- * their own detail page, since this list's job is to get the organiser to the right activity,
- * not to edit one inline. A submission row is the opposite: it carries the same inline
- * Open/Close, Edit and Delete controls the old forms list did, because the merged detail page
- * for a submission activity (SubmissionTable, MissingPanel, ParticipationPanel, the export link)
- * offers nowhere else to reach them.
+ * The whole row is the link to the activity's page (a stretched link under the name); the
+ * controls sit above it so a click on them is theirs. On a phone the status and progress fold
+ * under the name.
  */
-export function ActivityRows({ items, counts, seats, pending, submissionCounts, passports, basePath, toggleOpen, saveSubmission, deleteSubmission }: {
-  items: Activity[];
-  /** Bookings per activity id. */
-  counts: Record<string, number>;
-  /** Total capacity per activity id. */
-  seats: Record<string, number>;
-  /** Open requests per activity id. Absent, not zero, for an activity with nothing waiting. */
-  pending: Record<string, number>;
-  /** Submissions per activity id. */
-  submissionCounts: Record<string, number>;
-  /** Booths and completed cards per passport id (`passportRollup`). */
-  passports: Record<string, { booths: number; completed: number }>;
-  basePath: string;
-  toggleOpen: (activityId: string) => Promise<void>;
-  saveSubmission: (activityId: string, fd: FormData) => Promise<void>;
-  deleteSubmission: (activityId: string) => Promise<void>;
-}) {
+export function ActivityList({ items }: { items: ActivityListItem[] }) {
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No activities yet. Add one to let attendees book a seat, send you something, or collect booth stamps.</p>;
+    return (
+      <p className="px-4 py-6 text-sm text-muted-foreground">
+        Add an activity to let attendees book a seat, send you something, or collect booth stamps.
+      </p>
+    );
   }
   return (
-    <ul className="divide-y divide-border">
-      {items.map((a) => {
-        if (a.kind === "passport") {
-          const r = passports[a.id] ?? { booths: 0, completed: 0 };
-          return (
-            <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
-              <Link href={`${basePath}/activities/${a.id}`} className="min-w-0 flex-1 font-medium hover:underline">
-                {a.name}
-              </Link>
-              <Badge variant="outline">Passport</Badge>
-              <Badge variant={a.is_open ? "default" : "outline"}>{a.is_open ? "Stamping open" : "Closed"}</Badge>
-              <span className="text-sm text-muted-foreground tabular-nums">
-                {r.booths} booth{r.booths === 1 ? "" : "s"} · {r.completed} completed
-              </span>
-            </li>
-          );
-        }
-        if (a.kind === "booking") {
-          return (
-            <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
-              <Link href={`${basePath}/activities/${a.id}`} className="min-w-0 flex-1 font-medium hover:underline">
-                {a.name}
-              </Link>
-              <Badge variant="outline">Booking</Badge>
-              {a.required && <Badge variant="secondary">Pick one</Badge>}
-              <Badge variant={a.is_open ? "default" : "outline"}>
-                {a.is_open ? "Booking open" : "Closed"}
-              </Badge>
-              {pending[a.id] ? <Badge variant="secondary">{pending[a.id]} waiting</Badge> : null}
-              <span className="text-sm text-muted-foreground tabular-nums">
-                {counts[a.id] ?? 0} / {seats[a.id] ?? 0} seats
-              </span>
-            </li>
-          );
-        }
-        const used = submissionCounts[a.id] ?? 0;
-        return (
-          <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
-            <Link href={`${basePath}/activities/${a.id}`} className="min-w-0 flex-1 font-medium hover:underline">
-              {a.name}
-            </Link>
-            <Badge variant="outline">Submission</Badge>
-            <Badge variant={a.is_open ? "default" : "outline"}>{a.is_open ? "Open" : "Closed"}</Badge>
-            <Badge variant="secondary">{capSummary(a)}</Badge>
-            <Link href={`${basePath}/activities/${a.id}`} className="text-sm text-muted-foreground tabular-nums hover:underline">
-              {used} submission{used === 1 ? "" : "s"}
-            </Link>
-            <form action={toggleOpen.bind(null, a.id)}>
-              <SubmitButton variant="outline">{a.is_open ? "Close" : "Open"}</SubmitButton>
-            </form>
-            <Modal title={`Edit ${a.name}`} trigger="Edit" variant="outline">
-              <form action={saveSubmission.bind(null, a.id)} className="grid grid-cols-1 gap-4">
-                <SubmissionFields activity={a} />
-                <SubmitButton>Save</SubmitButton>
-              </form>
-            </Modal>
-            <form action={deleteSubmission.bind(null, a.id)}>
-              <ConfirmButton
-                message={`Delete “${a.name}”? ${used > 0 ? `This takes ${used} submission${used === 1 ? "" : "s"} with it. ` : ""}This cannot be undone.`}
-                className="text-destructive"
-              >
-                Delete
-              </ConfirmButton>
-            </form>
-          </li>
-        );
-      })}
-    </ul>
+    <div role="table" aria-label="Activities">
+      <div role="row" className={`${ROW} hidden border-b py-2 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground md:grid`}>
+        {/* A real cell, not sr-only: sr-only is absolutely positioned and would drop out of the
+            grid, sliding every heading one column left. */}
+        <span role="columnheader" aria-label="Picture" />
+        <span role="columnheader">Activity</span>
+        <span role="columnheader">Status</span>
+        <span role="columnheader">Progress</span>
+        <span role="columnheader">Open</span>
+      </div>
+      {items.map((item) => <Row key={item.activity.id} {...item} />)}
+    </div>
+  );
+}
+
+function Row({ activity, view, href, toggle, menu }: ActivityListItem) {
+  const pct = Math.round(meterPercent(view.progress.done, view.progress.total));
+  return (
+    <div role="row" className={`${ROW} relative border-b py-3 transition-colors last:border-b-0 hover:bg-muted/40`}>
+      <ActivityThumb activity={activity} />
+      <div role="cell" className="flex min-w-0 flex-col gap-1">
+        <Link href={href} className="truncate font-bold outline-none after:absolute after:inset-0 focus-visible:underline">
+          {activity.name}
+        </Link>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span className="font-bold">{view.kind}</span>
+          {view.detail && <span className="truncate">{view.detail}</span>}
+          {view.attention && <AttentionBadge text={view.attention} />}
+        </div>
+        {/* Phone only: status and progress fold under the name. */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground md:hidden">
+          <StatusPill open={activity.is_open} />
+          <span className="tabular-nums">{view.progress.label}</span>
+        </div>
+      </div>
+      <div role="cell" className="hidden md:block"><StatusPill open={activity.is_open} /></div>
+      <div role="cell" className="hidden flex-col gap-1.5 md:flex">
+        <span className="text-sm tabular-nums">{view.progress.label}</span>
+        <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+          <span className="block h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
+        </span>
+      </div>
+      <div role="cell" className="relative z-10 flex items-center justify-end gap-2 md:justify-start">
+        <OpenSwitch open={activity.is_open} action={toggle} name={activity.name} />
+        <ActivityMenu {...menu} />
+      </div>
+    </div>
   );
 }

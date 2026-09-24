@@ -10,7 +10,9 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { ActivityMenu } from "@/components/admin/ActivityMenu";
+import { removeWarning } from "@/lib/activity-row";
 import { BoothList } from "@/components/admin/BoothList";
 import { BoothQr } from "@/components/admin/BoothQr";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
@@ -19,7 +21,6 @@ import { COVER_HINT } from "@/components/admin/ActivityRows";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { buttonVariants } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
 import {
   toggleOpenAction, savePassportActivityAction, deletePassportActivityAction,
   addBoothAction, renameBoothAction, reorderBoothsAction, deleteBoothAction,
@@ -71,11 +72,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
         subtitle={`${completed} of ${audience} have filled their card · ${booths.length} booth${booths.length === 1 ? "" : "s"}`}
         actions={
           <>
-            <form action={toggleOpenAction.bind(null, ev.id, activity.id)}>
-              <SubmitButton variant={activity.is_open ? "outline" : "default"}>
-                {activity.is_open ? "Close stamping" : "Open stamping"}
-              </SubmitButton>
-            </form>
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "page")} name={activity.name} showLabel />
             <Modal title="Add a booth" hint="Prints its own scanner link once it exists." trigger="Add booth" icon="plus">
               <form action={addBoothAction.bind(null, ev.id, activity.id)} className="grid gap-4">
                 <Field label="Name" name="name" placeholder="Operations" />
@@ -83,17 +80,13 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
                 <SubmitButton>Add booth</SubmitButton>
               </form>
             </Modal>
-            <a download href={`/admin/events/${ev.id}/export/passport.xlsx`} className={buttonVariants({ variant: "outline" })}>
-              <Icon name="file" size={18} />Export
-            </a>
-            <form action={deletePassportActivityAction.bind(null, ev.id, activity.id)}>
-              <ConfirmButton
-                message={`Delete ${activity.name}? Its ${booths.length} booth${booths.length === 1 ? "" : "s"} and their scanner links go with it. This is refused once anyone has been stamped.`}
-                className="text-destructive"
-              >
-                Delete passport
-              </ConfirmButton>
-            </form>
+            <ActivityMenu
+              name={activity.name}
+              settingsHref="#settings"
+              exportHref={`/admin/events/${ev.id}/export/passport.xlsx`}
+              remove={deletePassportActivityAction.bind(null, ev.id, activity.id)}
+              removeMessage={removeWarning({ kind: "passport", booths: booths.length })}
+            />
           </>
         }
       />
@@ -123,7 +116,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
       </Card>
 
       {/* No `is_open` field (D127): that column is the header button's alone. */}
-      <Card className="overflow-hidden">
+      <Card id="settings" className="scroll-mt-4 overflow-hidden">
         <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
         <CardContent className="px-6 py-4">
           <form action={savePassportActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
