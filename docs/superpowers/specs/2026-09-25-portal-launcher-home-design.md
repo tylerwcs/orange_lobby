@@ -65,8 +65,9 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   separate desktop header links. The Agenda | Info switch is removed; each page has its own
   heading. Info still exists only when D205 says so. Supersedes the shared slot of D205/D211.
 
-- **D217** **The phone launcher is one row that swipes sideways** to the screen edge, each
-  button 80px wide so four and part of a fifth show. The desktop column keeps the wrapping grid.
+- **D217** **The phone launcher is one row that swipes sideways** to the screen edge. Each
+  column is a quarter of the page width with a 64px circle, so four fill the width and a
+  fifth starts in the right gutter. The desktop column keeps the wrapping grid at 56px.
 
 - **D218** **Breakouts are a row of room tickets** that swipes sideways like the launcher:
   one ticket per round with round · day, the session title and the time on the left, and the
