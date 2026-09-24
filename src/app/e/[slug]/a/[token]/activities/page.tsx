@@ -1,4 +1,4 @@
-import { loadPortalAttendee } from "@/lib/portal";
+import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries } from "@/lib/portal-activity-entries";
 import { ActivitiesTab } from "@/components/portal/ActivitiesTab";
 
@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 export default async function ActivitiesPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
+  if (isUnpublished(event)) return null;
   const { bookings, submissions, passports } = await loadActivityEntries(event, attendee);
   return (
     <div className="flex flex-col gap-4">

@@ -1,4 +1,4 @@
-import { loadPortalAttendee } from "@/lib/portal";
+import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { floorPlanUrl } from "@/lib/modules";
@@ -7,6 +7,8 @@ import { fieldValue } from "@/lib/attendee-values";
 export default async function Seat({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
+  if (isUnpublished(event)) return null;
   const basePath = `/e/${slug}/a/${token}`;
   const table = fieldValue(attendee, "table_no");
   return (

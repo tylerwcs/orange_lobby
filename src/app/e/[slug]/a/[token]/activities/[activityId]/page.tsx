@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Armchair, ArrowLeft, CalendarDays, CircleCheck, Clock, MapPin, Users } from "lucide-react";
-import { loadPortalAttendee } from "@/lib/portal";
+import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type PassportEntry } from "@/lib/portal-activity-entries";
 import { dayRange } from "@/lib/activity-card";
 import { submitLabel } from "@/lib/submissions";
@@ -41,6 +41,8 @@ export default async function ActivityPage({ params, searchParams }: {
   const { slug, token, activityId } = await params;
   const { new: writing } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
+  if (isUnpublished(event)) return null;
   const { bookings, submissions, passports } = await loadActivityEntries(event, attendee);
   const basePath = `/e/${slug}/a/${token}`;
 

@@ -1,5 +1,18 @@
 import "server-only";
 import { cache } from "react";
+
+/**
+ * Whether the portal may show nothing but "Coming soon" - a draft event.
+ *
+ * PortalChrome draws that screen, but it is a client component and cannot un-send what the
+ * server already rendered: a personal page is its own route segment, and Next puts every
+ * segment's output in the page's flight data whether or not the layout places it. So every
+ * portal page returns nothing for a draft, and PortalShell drops the children it would have
+ * wrapped, so that nothing unpublished - the agenda, the attendee's badge - reaches the browser.
+ */
+export function isUnpublished(event: Pick<Event, "status">): boolean {
+  return event.status === "draft";
+}
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";

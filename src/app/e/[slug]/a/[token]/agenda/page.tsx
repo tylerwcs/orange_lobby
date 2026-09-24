@@ -1,4 +1,4 @@
-import { loadPortalAttendee, portalActivities, portalBookings, portalHasInfo } from "@/lib/portal";
+import { loadPortalAttendee, portalActivities, portalBookings, portalHasInfo, isUnpublished } from "@/lib/portal";
 import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { listSessions } from "@/lib/db/activities";
@@ -12,6 +12,8 @@ import { AgendaInfoSwitch } from "@/components/portal/AgendaInfoSwitch";
 export default async function PersonalAgenda({ params, searchParams }: { params: Promise<{ slug: string; token: string }>; searchParams: Promise<{ day?: string }> }) {
   const { slug, token } = await params; const { day: requested } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
+  if (isUnpublished(event)) return null;
   const basePath = `/e/${slug}/a/${token}`;
   // Only touch the activity tables when this event actually runs activities - same guard
   // loadHomeData uses, so this page and the portal home never disagree about what a booked

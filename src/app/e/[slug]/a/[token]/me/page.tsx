@@ -1,4 +1,4 @@
-import { loadPortalAttendee } from "@/lib/portal";
+import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,8 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 export default async function MePage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
+  if (isUnpublished(event)) return null;
   const qr = await qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token));
 
   // Everything the event asked this person, in the order it asked, with blanks dropped -

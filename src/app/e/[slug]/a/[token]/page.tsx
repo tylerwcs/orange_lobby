@@ -1,4 +1,4 @@
-import { loadPortalAttendee, portalHasInfo } from "@/lib/portal";
+import { loadPortalAttendee, portalHasInfo, isUnpublished } from "@/lib/portal";
 import { loadHomeData } from "@/lib/portal-home";
 import { firstCheckinAt } from "@/lib/db/checkins";
 import { isoToLocalInput } from "@/lib/time";
@@ -44,6 +44,8 @@ export default async function PersonalHome({ params, searchParams }: {
   const { slug, token } = await params;
   const { day: requestedDay } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
+  if (isUnpublished(event)) return null;
   const basePath = `/e/${slug}/a/${token}`;
   // None of these three depends on another, so they run together rather than in turn.
   // `arrivalTime` is skipped, not just hidden, when the event has no door (D159). The QR is

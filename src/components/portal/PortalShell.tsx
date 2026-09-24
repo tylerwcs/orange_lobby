@@ -1,5 +1,5 @@
 import type { Event } from "@/lib/types";
-import { portalHasInfo } from "@/lib/portal";
+import { isUnpublished, portalHasInfo } from "@/lib/portal";
 import { PortalChrome } from "./PortalChrome";
 
 /**
@@ -37,7 +37,10 @@ export async function PortalShell({ event, basePath, personal, children }: {
   };
   return (
     <PortalChrome event={chromeEvent} basePath={basePath} personal={personal} hasInfo={await portalHasInfo(event.id)}>
-      {children}
+      {/* A draft shows only PortalChrome's "Coming soon". Dropped here, on the server, because
+          anything handed to that client component is sent to the browser even when it is not
+          drawn (see isUnpublished). */}
+      {isUnpublished(event) ? null : children}
     </PortalChrome>
   );
 }

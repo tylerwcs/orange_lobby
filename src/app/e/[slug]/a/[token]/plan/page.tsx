@@ -1,4 +1,4 @@
-import { loadPortalAttendee } from "@/lib/portal";
+import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { Card, CardContent } from "@/components/ui/card";
 import { floorPlanUrl } from "@/lib/modules";
 import { fieldValue } from "@/lib/attendee-values";
@@ -6,6 +6,8 @@ import { fieldValue } from "@/lib/attendee-values";
 export default async function PlanPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
+  if (isUnpublished(event)) return null;
   const plan = floorPlanUrl(event);
   const table = fieldValue(attendee, "table_no");
   return (

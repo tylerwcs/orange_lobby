@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { loadPortalAttendee, portalActivities, portalBookings } from "@/lib/portal";
+import { loadPortalAttendee, portalActivities, portalBookings, isUnpublished } from "@/lib/portal";
 import { listSessions } from "@/lib/db/activities";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { bookingIcs } from "@/lib/ics";
@@ -17,6 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const sessionId = new URL(req.url).searchParams.get("session");
   if (!sessionId) notFound();
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  if (isUnpublished(event)) notFound();
   const [activities, sessions, mine] = await Promise.all([
     portalActivities(event.id),
     listSessions(event.id),
