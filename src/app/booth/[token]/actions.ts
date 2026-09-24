@@ -1,12 +1,13 @@
 "use server";
 import { getEvent } from "@/lib/db/events";
+import { getActivity } from "@/lib/db/activities";
 import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
-import { listBooths, getBoothByToken, recordStamp, deleteStamp, stampsForAttendee } from "@/lib/db/booths";
+import { listPassportBooths, getBoothByToken, recordStamp, deleteStamp, stampsForAttendee } from "@/lib/db/booths";
 import { buildPassport, progressLine } from "@/lib/booths";
 import { extractToken } from "@/lib/scan";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
-import type { Booth, Event } from "@/lib/types";
+import type { Activity, Booth, Event } from "@/lib/types";
 
 /**
  * What crosses the wire to a booth: a name, and how far along that person is (D98).
@@ -36,28 +37,36 @@ export type BoothHit = { id: string; name: string; category: string | null };
  * therefore weak — the same limit registration already relies on. It is a speed bump against
  * a loop, not a security control; the control is the 12-character token.
  */
-async function authoriseBooth(boothToken: string): Promise<{ booth: Booth; event: Event } | { error: string }> {
+async function authoriseBooth(boothToken: string): Promise<{ booth: Booth; event: Event; passport: Activity } | { error: string }> {
   if (!isValidToken(boothToken)) return { error: "This scanner link is not valid." };
   if (!allow(`booth:${boothToken}`, 120, 60_000)) return { error: "Too many scans at once. Wait a moment and try again." };
   const booth = await getBoothByToken(boothToken);
   if (!booth) return { error: "This scanner link no longer works. Ask the organiser for a new one." };
-  const event = await getEvent(booth.event_id);
-  if (!event) return { error: "This scanner link no longer works. Ask the organiser for a new one." };
+  const [event, passport] = await Promise.all([getEvent(booth.event_id), getActivity(booth.activity_id, booth.event_id)]);
+  if (!event || !passport) return { error: "This scanner link no longer works. Ask the organiser for a new one." };
   if (event.status === "archived") return { error: "This event is closed, so stamping has finished." };
-  return { booth, event };
+  return { booth, event, passport };
 }
 
-/** The progress line for one attendee, computed after the write so the booth sees the new total. */
-async function progressFor(event: Event, attendeeId: string): Promise<Pick<BoothScanResult, "progress" | "collected" | "target">> {
-  const [booths, stamps] = await Promise.all([listBooths(event.id), stampsForAttendee(attendeeId)]);
-  const p = buildPassport(booths, stamps, event.stamps_required);
+// The same copy BoothScanner shows on load for a closed passport. Duplicated rather than
+// exported: a "use server" file may only export async functions.
+const CLOSED_MESSAGE = "This passport isn't open for stamping yet. Ask the organiser to open it.";
+
+/** The progress line for one attendee on THIS passport, computed after the write so the booth sees the new total. */
+async function progressFor(passport: Activity, attendeeId: string): Promise<Pick<BoothScanResult, "progress" | "collected" | "target">> {
+  const [booths, stamps] = await Promise.all([listPassportBooths(passport.id), stampsForAttendee(attendeeId)]);
+  const p = buildPassport(booths, stamps, passport.stamps_required);
   return { progress: progressLine(p), collected: p.collected, target: p.target };
 }
 
-async function stamp(booth: Booth, event: Event, attendeeId: string, name: string): Promise<BoothScanResult> {
-  const r = await recordStamp(booth, attendeeId);
-  const progress = await progressFor(event, attendeeId);
-  return r.created
+async function stamp(booth: Booth, passport: Activity, attendeeId: string, name: string): Promise<BoothScanResult> {
+  const r = await recordStamp(booth.id, attendeeId);
+  if (r.result === "closed") return { status: "error", message: CLOSED_MESSAGE };
+  // No name: D98 carries a name only for someone this booth may stamp (D184).
+  if (r.result === "ineligible") return { status: "notfound", message: "Not part of this passport." };
+  if (r.result === "missing") return { status: "notfound", message: "That attendee is no longer on the list." };
+  const progress = await progressFor(passport, attendeeId);
+  return r.result === "ok"
     ? { status: "ok", name, attendeeId, ...progress }
     : { status: "duplicate", name, attendeeId, ...progress, earlier: { at: r.existing!.stamped_at } };
 }
@@ -70,7 +79,7 @@ export async function stampByTokenAction(boothToken: string, scanned: string): P
   const a = await findByToken(auth.event.id, token);
   // A booth cannot create attendees (D99): an unknown badge is sent to registration, not added.
   if (!a) return { status: "notfound", message: "This badge isn't on the list for this event. Please see registration." };
-  return stamp(auth.booth, auth.event, a.id, a.name);
+  return stamp(auth.booth, auth.passport, a.id, a.name);
 }
 
 export async function stampByIdAction(boothToken: string, attendeeId: string): Promise<BoothScanResult> {
@@ -78,7 +87,7 @@ export async function stampByIdAction(boothToken: string, attendeeId: string): P
   if ("error" in auth) return { status: "error", message: auth.error };
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== auth.event.id) return { status: "notfound", message: "That attendee is no longer on the list." };
-  return stamp(auth.booth, auth.event, a.id, a.name);
+  return stamp(auth.booth, auth.passport, a.id, a.name);
 }
 
 export async function undoStampAction(boothToken: string, attendeeId: string): Promise<BoothScanResult> {

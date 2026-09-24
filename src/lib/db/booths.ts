@@ -10,6 +10,14 @@ export async function listBooths(eventId: string): Promise<Booth[]> {
   return data as Booth[];
 }
 
+/** One passport's booths, in admin order — what its card, its scanner progress and its page draw. */
+export async function listPassportBooths(activityId: string): Promise<Booth[]> {
+  const { data, error } = await serviceClient().from("booths").select("*")
+    .eq("activity_id", activityId).order("sort_order").order("created_at");
+  if (error) throw error;
+  return data as Booth[];
+}
+
 /**
  * The booth behind a scanner link. Looked up by token alone — there is no event in the URL,
  * and the token is unique across the table for exactly that reason.
@@ -71,22 +79,25 @@ export async function deleteBoothIfUnstamped(id: string, eventId: string): Promi
   return (data?.length ?? 0) > 0;
 }
 
+/** Every answer `record_stamp` can give (D185). `missing` means the booth, passport or attendee is gone or foreign. */
+export type StampResult = "ok" | "duplicate" | "closed" | "ineligible" | "missing";
+
 /**
- * One stamp. The unique constraint on (booth_id, attendee_id) is what makes a second scan a
- * duplicate rather than a second chop — the same shape `recordCheckin` uses, for the same
- * reason: the check has to happen in the database, not in a read-then-write.
+ * One stamp, decided by `record_stamp` (0036): the open flag and the passport's categories are
+ * checked in the same statement that writes, as `book_session` does for a seat (D184, D185).
+ * The unique (booth_id, attendee_id) still makes a second scan a duplicate rather than a second
+ * chop; on a duplicate the original row is read back so the booth can say when.
  */
-export async function recordStamp(booth: Booth, attendeeId: string): Promise<{ created: boolean; existing?: BoothStamp }> {
+export async function recordStamp(boothId: string, attendeeId: string): Promise<{ result: StampResult; existing?: BoothStamp }> {
   const db = serviceClient();
-  const { error } = await db.from("booth_stamps")
-    .insert({ org_id: booth.org_id, event_id: booth.event_id, booth_id: booth.id, attendee_id: attendeeId });
-  if (!error) return { created: true };
-  if (error.code === "23505") {
-    const { data } = await db.from("booth_stamps").select("*")
-      .eq("booth_id", booth.id).eq("attendee_id", attendeeId).single();
-    return { created: false, existing: data as BoothStamp };
-  }
-  throw error;
+  const { data, error } = await db.rpc("record_stamp", { p_booth_id: boothId, p_attendee_id: attendeeId });
+  if (error) throw error;
+  const result = data as StampResult;
+  if (result !== "duplicate") return { result };
+  const { data: row, error: readError } = await db.from("booth_stamps").select("*")
+    .eq("booth_id", boothId).eq("attendee_id", attendeeId).single();
+  if (readError) throw readError;
+  return { result, existing: row as BoothStamp };
 }
 
 /** The booth scanner's Undo. Returns whether a row was deleted. */

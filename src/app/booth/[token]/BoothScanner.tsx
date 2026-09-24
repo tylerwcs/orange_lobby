@@ -42,20 +42,29 @@ const LABEL: Record<BoothScanResult["status"], string> = {
 // produce a scan that would otherwise surface it.
 const ARCHIVED_MESSAGE = "This event is closed, so stamping has finished.";
 
+// The same copy the server returns for a closed passport (actions.ts's stamp). Shown on load so
+// the booth knows before the first badge; the camera still starts, because the organiser may
+// open stamping at any moment and the next scan is decided by the server, not by this flag.
+const CLOSED_MESSAGE = "This passport isn't open for stamping yet. Ask the organiser to open it.";
+
 export function BoothScanner({
   boothToken,
   booth,
   archived,
+  closed,
   initialCount,
   total,
 }: {
   boothToken: string;
-  booth: { name: string; location: string | null };
+  booth: { name: string; location: string | null; passport: string };
   archived: boolean;
+  closed: boolean;
   initialCount: number;
   total: number;
 }) {
-  const [result, setResult] = useState<BoothScanResult | null>(archived ? { status: "error", message: ARCHIVED_MESSAGE } : null);
+  const [result, setResult] = useState<BoothScanResult | null>(
+    archived ? { status: "error", message: ARCHIVED_MESSAGE } : closed ? { status: "error", message: CLOSED_MESSAGE } : null,
+  );
   const [count, setCount] = useState(initialCount);
   const [recent, setRecent] = useState<Recent[]>([]);
   const [q, setQ] = useState(""); const [hits, setHits] = useState<BoothHit[]>([]);
@@ -140,6 +149,7 @@ export function BoothScanner({
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Booth scanner</p>
+            <p className="truncate text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{booth.passport}</p>
             <p className="truncate text-base font-extrabold leading-tight">{booth.name}</p>
             {booth.location && <p className="truncate text-xs font-semibold text-muted-foreground">{booth.location}</p>}
           </div>
