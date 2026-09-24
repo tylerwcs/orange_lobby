@@ -170,8 +170,11 @@ line and `collected`/`target` count this passport's booths only. Name search is 
   and the `?qr=` print sheet, completion counts, and the settings form (shared fields plus stamps
   needed and reward message). `booths/actions.ts` folds into `activities/actions.ts`, every
   action scoped by `activity_id` and `event_id`. `savePassportAction` writes to the activity.
-- **Overview**: `activitySummaries` / `ActivityOverview` gain a passport line
-  ("18 of 40 completed").
+- **Overview**: no passport line. `ActivityOverview` is a seats dashboard shown only to an
+  event without check-in (D159); a passport has no seats, so it — and any submission, which
+  leaked in the same way before this change — is filtered out: the Overview and
+  `activities.xlsx` read `listActivities(ev.id, "booking")`. Passport completion is on the
+  passport's own page and in its export.
 - **Exports**: the Booth Passport export stays at `passport.xlsx` and becomes one sheet per
   passport, built with the existing `buildPassportWorkbook`.
 
