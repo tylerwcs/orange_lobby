@@ -29,6 +29,9 @@ import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules"
 import { deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { cleanRichText } from "@/lib/rich-text";
+import { splitAudience } from "@/lib/whatsapp-audience";
+import { runSend, PORTAL_LINK_TEMPLATE } from "@/lib/whatsapp-run";
+import { formatDateRange } from "@/lib/text";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -984,4 +987,40 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
   const message = lines.join(" ") || `${wanted}: nothing to assign — no attendee has a room code in that column.`;
   revalidatePath(`/admin/events/${eventId}/agenda`);
   redirect(flashPath(back, message, message.includes("No room matches") ? "error" : "ok"));
+}
+
+/**
+ * Sends every attendee their personal portal link over WhatsApp.
+ *
+ * Idempotent by construction: `runSend` claims each attendee before messaging them, so pressing
+ * this twice — or re-running after a half-finished blast — reaches only the people who have not
+ * had it. Attendees whose number could not be read are never claimed and never sent to; the
+ * page lists them by name so the masterlist can be corrected and the button pressed again.
+ */
+export async function sendPortalLinksAction(eventId: string) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const here = `/admin/events/${eventId}/whatsapp`;
+
+  const attendees = await listAttendees(eventId);
+  const fields = eventFields(ev.registration_questions, ev.attendee_fields);
+  const { recipients } = splitAudience(attendees, fields);
+  if (recipients.length === 0) redirect(flashPath(here, "Nobody on this event has a number we can send to.", "error"));
+
+  const when = formatDateRange(ev.starts_on, ev.ends_on);
+  const result = await runSend({
+    orgId,
+    eventId,
+    template: PORTAL_LINK_TEMPLATE,
+    recipients,
+    params: (a) => ({ bodyParams: [a.name, ev.name, when], buttonParam: a.token }),
+    // One message per attendee, ever, for this template.
+    dedupeKey: (a) => `${PORTAL_LINK_TEMPLATE}:${a.id}`,
+  });
+
+  revalidatePath(here);
+  const parts = [`${result.sent} sent`];
+  if (result.skipped) parts.push(`${result.skipped} already had it`);
+  if (result.failed) parts.push(`${result.failed} failed`);
+  redirect(flashPath(here, parts.join(", ") + ".", result.failed ? "error" : "ok"));
 }

@@ -28,6 +28,7 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
       { href: `${b}/agenda`, label: "Agenda", icon: "calendar" },
       { href: `${b}/activities`, label: "Activities", icon: "flag" },
       { href: `${b}/announcements`, label: "Announcements", icon: "megaphone" },
+      { href: `${b}/whatsapp`, label: "WhatsApp", icon: "chat" },
       { href: `${b}/info`, label: "Info page", icon: "info" },
       { href: `${b}/modules`, label: "Modules", icon: "grid" },
     ] },
