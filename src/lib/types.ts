@@ -41,7 +41,6 @@ export type Event = {
   primary_color: string;
   floor_plan_url: string | null;
   info_page_title: string;
-  info_page_html: string | null;
   registration_open: boolean;
   registration_closes_at: string | null;
   /**

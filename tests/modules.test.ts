@@ -34,7 +34,7 @@ describe("parseModules", () => {
 });
 
 describe("resolveTiles", () => {
-  const event = { floor_plan_url: "https://x/plan.png", info_page_html: "<p>hi</p>", info_page_title: "Info", modules: defaultModules() };
+  const event = { floor_plan_url: "https://x/plan.png", info_page_title: "Info", modules: defaultModules() };
   it("draws nothing for a retired builtin, however its row is stored", () => {
     const stored = { ...event, modules: [
       { key: "agenda", enabled: true } as const,
@@ -51,7 +51,7 @@ describe("resolveTiles", () => {
   });
   it("hides floor plan and info when the event has none, honours disabled and links", () => {
     const tiles = resolveTiles({
-      event: { floor_plan_url: null, info_page_html: null, info_page_title: "Info", modules: [
+      event: { floor_plan_url: null, info_page_title: "Info", modules: [
         { key: "agenda", enabled: false }, { key: "floor_plan", enabled: true }, { key: "info", enabled: true },
         { key: "link", id: "qa", enabled: true, label: "Q&A", subtitle: "Ask away", url: "https://app.sli.do/x", icon: "chat" },
       ] }, basePath: "/e/kom/a/tok",
@@ -61,7 +61,7 @@ describe("resolveTiles", () => {
   });
   it("drops a link tile whose url is not http(s), even if it bypassed parseModules", () => {
     const tiles = resolveTiles({
-      event: { floor_plan_url: null, info_page_html: null, info_page_title: "Info", modules: [
+      event: { floor_plan_url: null, info_page_title: "Info", modules: [
         { key: "link", id: "bad", enabled: true, label: "Tampered", url: "javascript:alert(1)", icon: "chat" },
       ] }, basePath: "/e/kom",
     });
@@ -81,7 +81,7 @@ describe("tile modules", () => {
     expect(mods[0]).toMatchObject({ key: "tile", id: "t1", target: { kind: "route", route: "agenda" } });
   });
 
-  const base = { floor_plan_url: null, info_page_html: null, info_page_title: "Info" };
+  const base = { floor_plan_url: null, info_page_title: "Info" };
   const tile = (target: unknown) => ({ key: "tile" as const, id: "t1", enabled: true, label: "T", icon: "link" as const, target } as never);
 
   it("points a route tile at the path under basePath, not off-site", () => {
@@ -108,7 +108,7 @@ describe("the passport tile", () => {
 
   it("resolves that tile to the attendee's passport path", () => {
     const tiles = resolveTiles({
-      event: { floor_plan_url: null, info_page_html: null, info_page_title: "Info", modules: [
+      event: { floor_plan_url: null, info_page_title: "Info", modules: [
         { key: "tile", id: "passport", enabled: true, label: "Booth Passport", icon: "star", target: { kind: "route", route: "stamps" } },
       ] },
       basePath: "/e/kom/a/abcdefghjkmn",
@@ -119,7 +119,7 @@ describe("the passport tile", () => {
 });
 
 describe("floor plan url on the tile", () => {
-  const base = { info_page_html: null, info_page_title: "Info" };
+  const base = { info_page_title: "Info" };
 
   it("renders the floor plan from the tile when the column is empty", () => {
     const tiles = resolveTiles({
@@ -203,7 +203,7 @@ describe("the rows actually stored on the live event", () => {
   });
 
   it("draws only the two link tiles, because the plan has no image", () => {
-    const tiles = resolveTiles({ event: { floor_plan_url: null, info_page_html: null, info_page_title: "Info", modules: live }, basePath: "/e/kom/a/tok" });
+    const tiles = resolveTiles({ event: { floor_plan_url: null, info_page_title: "Info", modules: live }, basePath: "/e/kom/a/tok" });
     expect(tiles.map((t) => t.label)).toEqual(["Q&A", "Feedback"]);
   });
 

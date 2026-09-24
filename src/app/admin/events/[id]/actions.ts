@@ -20,6 +20,7 @@ import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder
 import { recordCheckins } from "@/lib/db/checkins";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
+import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOrder } from "@/lib/db/info-tabs";
 import { parseAgendaColour } from "@/lib/agenda-colours";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
@@ -566,12 +567,59 @@ export async function deleteAnnouncementAction(eventId: string, annId: string) {
   revalidatePath(`/admin/events/${eventId}/announcements`);
 }
 
-export async function saveInfoPageAction(eventId: string, formData: FormData) {
+const infoBack = (eventId: string) => `/admin/events/${eventId}/info`;
+
+/** The section's name: the Info tile's label and the page heading (D203). Saved on its own. */
+export async function saveInfoTitleAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
-  await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info", info_page_html: cleanRichText(str(formData, "info_page_html")) });
-  revalidatePath(`/admin/events/${eventId}/info`);
-  redirect(flashPath(`/admin/events/${eventId}/info`, "Info page saved."));
+  await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info" });
+  revalidatePath(infoBack(eventId));
+  redirect(flashPath(infoBack(eventId), "Title saved."));
+}
+
+/** A new, empty tab at the end; its editor opens straight away (D207). */
+export async function addInfoTabAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const title = str(formData, "title");
+  if (!title) redirect(flashPath(infoBack(eventId), "A tab needs a title.", "error"));
+  const id = await createInfoTab(ev, title);
+  revalidatePath(infoBack(eventId));
+  redirect(flashPath(`${infoBack(eventId)}?tab=${id}`, `“${title}” added. Write its content below.`));
+}
+
+export async function saveInfoTabAction(eventId: string, tabId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = `${infoBack(eventId)}?tab=${tabId}`;
+  if (!(await listInfoTabs(ev.id)).some((t) => t.id === tabId)) redirect(flashPath(infoBack(eventId), "That tab no longer exists.", "error"));
+  const title = str(formData, "title");
+  if (!title) redirect(flashPath(back, "A tab needs a title.", "error"));
+  await updateInfoTab(tabId, ev.id, { title, html: cleanRichText(str(formData, "html")) });
+  revalidatePath(infoBack(eventId));
+  redirect(flashPath(back, "Tab saved."));
+}
+
+/** Its content goes with it. Images inside it stay in the bucket - D160's known limitation. */
+export async function deleteInfoTabAction(eventId: string, tabId: string) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const tab = (await listInfoTabs(ev.id)).find((t) => t.id === tabId);
+  if (!tab) redirect(flashPath(infoBack(eventId), "That tab no longer exists.", "error"));
+  await deleteInfoTab(tab.id, ev.id);
+  revalidatePath(infoBack(eventId));
+  redirect(flashPath(infoBack(eventId), `“${tab.title}” removed.`));
+}
+
+/** From the drag list. A list that is not exactly this event's tabs is ignored and snaps back. */
+export async function reorderInfoTabsAction(eventId: string, ids: string[]) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const current = (await listInfoTabs(ev.id)).map((t) => t.id);
+  if (current.length === 0 || !isValidOrder(current, ids)) return;
+  await setInfoTabOrder(ev.id, ids);
+  revalidatePath(infoBack(eventId));
 }
 
 /**

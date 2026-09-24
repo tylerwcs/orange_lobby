@@ -173,7 +173,7 @@ export type Tile = { id: string; label: string; subtitle: string; href: string; 
  * or what is happening. It now depends on the event and the path, and nothing else.
  */
 export function resolveTiles(input: {
-  event: Pick<Event, "floor_plan_url" | "info_page_html" | "info_page_title" | "modules">;
+  event: Pick<Event, "floor_plan_url" | "info_page_title" | "modules">;
   basePath: string;
 }): Tile[] {
   const { event, basePath } = input;
