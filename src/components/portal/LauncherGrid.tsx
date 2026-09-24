@@ -27,9 +27,10 @@ function Button({ item, large }: { item: LauncherItem; large: boolean }) {
  * whole navigation now the bottom bar is gone (D209); on the desktop dashboard, the tiles only.
  *
  * `row` is the phone's: one line that swipes sideways and runs out to the screen edge
- * (D217). Each column is a quarter of the page's width, so four large buttons fill it and a
- * fifth starts in the right-hand gutter. `grid` wraps four to a line, at the smaller size,
- * and is the desktop column's.
+ * (D217). Four large buttons fit, and 20px of the fifth circle shows at the edge - enough to
+ * say there is more without a half-drawn icon. The column width solves for that: with a 16px
+ * gutter and a 64px circle, 4.5 columns span the content width plus 28px, at any phone width.
+ * `grid` wraps four to a line, at the smaller size, and is the desktop column's.
  */
 export function LauncherGrid({ items, layout = "grid", className = "" }: {
   items: LauncherItem[];
@@ -39,7 +40,7 @@ export function LauncherGrid({ items, layout = "grid", className = "" }: {
   if (items.length === 0) return null;
   const cls = "group flex flex-col items-center gap-1.5 rounded-xl px-0.5 py-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const list = layout === "row"
-    ? "-mx-4 flex snap-x scroll-px-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>li]:w-1/4 [&>li]:shrink-0 [&>li]:snap-start"
+    ? "-mx-4 flex snap-x scroll-px-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>li]:w-[calc((100%_+_28px)/4.5)] [&>li]:shrink-0 [&>li]:snap-start"
     : "grid grid-cols-4 gap-x-1 gap-y-3 @xl:grid-cols-6";
   return (
     <nav aria-label="Sections" className={`@container ${className}`}>

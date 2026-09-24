@@ -66,8 +66,8 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   heading. Info still exists only when D205 says so. Supersedes the shared slot of D205/D211.
 
 - **D217** **The phone launcher is one row that swipes sideways** to the screen edge. Each
-  column is a quarter of the page width with a 64px circle, so four fill the width and a
-  fifth starts in the right gutter. The desktop column keeps the wrapping grid at 56px.
+  column is `(content width + 28px) / 4.5` with a 64px circle, so four fit and exactly 20px of
+  the fifth circle peeks at the screen edge, at any phone width. The desktop column keeps the wrapping grid at 56px.
 
 - **D218** **Breakouts are a row of room tickets** that swipes sideways like the launcher:
   one ticket per round with round · day, the session title and the time on the left, and the
