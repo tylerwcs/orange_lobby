@@ -24,7 +24,7 @@ import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOr
 import { parseAgendaColour } from "@/lib/agenda-colours";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
-import { moduleFromForm, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
+import { moduleFromForm, moduleId, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
@@ -726,8 +726,10 @@ async function currentModules(eventId: string) {
   return { ev, modules: normalizeModules(ev) };
 }
 
-async function saveModules(eventId: string, modules: EventModule[], message: string) {
+/** `stale` is an image the save leaves unreferenced, removed once the row no longer names it. */
+async function saveModules(eventId: string, modules: EventModule[], message: string, stale?: string | null) {
   await updateEvent(eventId, { modules });
+  await deleteEventImage(stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(modulesPath(eventId), message));
 }
@@ -739,22 +741,27 @@ export async function saveModuleAction(eventId: string, formData: FormData) {
   const id = /^[a-z0-9_-]{1,32}$/.test(posted) ? posted : crypto.randomUUID().slice(0, 8);
   const isPlan = formData.get("preset") === "floor_plan";
   const plan = floorPlanUrl(ev);
-  // The floor plan is the one tile whose url is an uploaded image rather than something
-  // typed. It is resolved here and read back as if it had been posted, so moduleFromForm
-  // stays a pure function of strings that knows nothing about uploads.
-  const readWith = (url: string | null) => (k: string) => {
+  const current = modules.find((m) => moduleId(m) === (isPlan ? "floor_plan" : id));
+  const currentIcon = current && "icon_image" in current ? current.icon_image ?? null : null;
+  // The floor plan's url and every tile's icon image are uploads rather than something
+  // typed. They are resolved here and read back as if they had been posted, so
+  // moduleFromForm stays a pure function of strings that knows nothing about uploads.
+  const readWith = (url: string | null, icon: string | null) => (k: string) => {
     if (k === "url" && isPlan) return url;
+    if (k === "icon_image") return icon;
     const v = formData.get(k);
     return typeof v === "string" ? v : null;
   };
   let next: EventModule[] | undefined;
   let image: ImageChange = { url: plan, stale: null };
+  let icon: ImageChange = { url: currentIcon, stale: null };
   try {
-    // What was typed is checked against the image already stored, before a byte moves: a
-    // label this form will reject must not first have spent an upload on the plan.
-    moduleFromForm(readWith(plan), id);
+    // What was typed is checked against the images already stored, before a byte moves: a
+    // label this form will reject must not first have spent an upload.
+    moduleFromForm(readWith(plan, currentIcon), id);
     if (isPlan) image = await nextImage(formData, "url", plan, { orgId: ev.org_id, eventId, kind: "floor-plan" });
-    next = upsertModule(modules, moduleFromForm(readWith(image.url), id));
+    icon = await nextImage(formData, "icon_image", currentIcon, { orgId: ev.org_id, eventId, kind: "tile-icon" });
+    next = upsertModule(modules, moduleFromForm(readWith(image.url, icon.url), id));
   } catch (e) {
     redirect(flashPath(modulesPath(eventId), (e as Error).message, "error"));
   }
@@ -764,13 +771,15 @@ export async function saveModuleAction(eventId: string, formData: FormData) {
   // simply reappear.
   await updateEvent(eventId, { modules: next, ...(isPlan ? { floor_plan_url: image.url } : {}) });
   await deleteEventImage(image.stale);
+  await deleteEventImage(icon.stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(modulesPath(eventId), posted ? "Tile saved." : "Tile added."));
 }
 
 export async function deleteModuleAction(eventId: string, id: string) {
   const { modules } = await currentModules(eventId);
-  await saveModules(eventId, removeModule(modules, id), "Tile removed.");
+  const doomed = modules.find((m) => moduleId(m) === id);
+  await saveModules(eventId, removeModule(modules, id), "Tile removed.", doomed && "icon_image" in doomed ? doomed.icon_image : null);
 }
 
 /**

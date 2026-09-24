@@ -59,14 +59,19 @@ export type TileTarget = { kind: "url"; url: string } | { kind: "route"; route: 
  * setting sits with the tile that uses it — but the column is still read as a fallback,
  * see floorPlanUrl.
  */
-export type BuiltinModule = { key: BuiltinKey; enabled: boolean; label?: string; subtitle?: string; url?: string };
+/**
+ * `icon_image` is an uploaded picture drawn in the launcher's circle in place of the preset
+ * icon (D213). The preset stays required: it is what shows when there is no picture.
+ */
+export type BuiltinModule = { key: BuiltinKey; enabled: boolean; label?: string; subtitle?: string; url?: string; icon_image?: string };
 export type LinkModule = { key: "link"; id: string; enabled: boolean; label: string; subtitle?: string; url: string; icon: ModuleIcon };
 /** An admin-authored tile. Replaces the four fixed `link` slots. */
-export type TileModule = { key: "tile"; id: string; enabled: boolean; label: string; subtitle?: string; icon: ModuleIcon; target: TileTarget };
+export type TileModule = { key: "tile"; id: string; enabled: boolean; label: string; subtitle?: string; icon: ModuleIcon; icon_image?: string; target: TileTarget };
 export type EventModule = BuiltinModule | LinkModule | TileModule;
 
 const SAFE_URL = /^https?:\/\//i;
-const builtinSchema = z.object({ key: z.enum(BUILTIN_MODULES), enabled: z.boolean(), label: z.string().min(1).max(40).optional(), subtitle: z.string().max(60).optional(), url: z.string().regex(SAFE_URL, "url must start with http:// or https://").optional() });
+const iconImage = z.string().regex(SAFE_URL, "icon_image must start with http:// or https://").optional();
+const builtinSchema = z.object({ key: z.enum(BUILTIN_MODULES), enabled: z.boolean(), label: z.string().min(1).max(40).optional(), subtitle: z.string().max(60).optional(), url: z.string().regex(SAFE_URL, "url must start with http:// or https://").optional(), icon_image: iconImage });
 const linkSchema = z.object({
   key: z.literal("link"), id: z.string().regex(/^[a-z0-9_-]{1,32}$/), enabled: z.boolean(),
   label: z.string().min(1).max(40), subtitle: z.string().max(60).optional(),
@@ -79,7 +84,7 @@ const targetSchema = z.union([
 const tileSchema = z.object({
   key: z.literal("tile"), id: z.string().regex(/^[a-z0-9_-]{1,32}$/), enabled: z.boolean(),
   label: z.string().min(1).max(40), subtitle: z.string().max(60).optional(),
-  icon: z.enum(MODULE_ICONS), target: targetSchema,
+  icon: z.enum(MODULE_ICONS), icon_image: iconImage, target: targetSchema,
 });
 const moduleSchema = z.union([builtinSchema, linkSchema, tileSchema]);
 
@@ -164,7 +169,15 @@ export function normalizeModules(event: Pick<Event, "floor_plan_url" | "modules"
   return out;
 }
 
-export type Tile = { id: string; label: string; subtitle: string; href: string; icon: ModuleIcon; external: boolean };
+/**
+ * `image` is the uploaded icon, null when the preset `icon` is drawn. `route` names the
+ * portal page a route tile opens (null for links and the floor plan), so the launcher can
+ * drop a tile that repeats one of its own sections (D211).
+ */
+export type Tile = { id: string; label: string; subtitle: string; href: string; icon: ModuleIcon; image: string | null; route: TileRoute | null; external: boolean };
+
+/** Re-checked at render for the same reason as a tile's url: a stored row may predate the rule. */
+const safeImage = (url: string | undefined): string | null => (url && SAFE_URL.test(url) ? url : null);
 
 /**
  * `personal`, `attendee`, `next` and `latestAnnouncement` used to be inputs here: they
@@ -188,15 +201,15 @@ export function resolveTiles(input: {
         // Re-checked here as well as in parseModules: a row written before this rule, or
         // edited around it, must never render as a javascript:/data: tile.
         if (!SAFE_URL.test(m.target.url)) continue;
-        out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.target.url, icon: m.icon, external: true });
+        out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.target.url, icon: m.icon, image: safeImage(m.icon_image), route: null, external: true });
         continue;
       }
-      out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: `${basePath}/${m.target.route}`, icon: m.icon, external: false });
+      out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: `${basePath}/${m.target.route}`, icon: m.icon, image: safeImage(m.icon_image), route: m.target.route, external: false });
       continue;
     }
     if (m.key === "link") {
       if (!SAFE_URL.test(m.url)) continue;
-      out.push({ id: `link:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.url, icon: m.icon, external: true });
+      out.push({ id: `link:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.url, icon: m.icon, image: null, route: null, external: true });
       continue;
     }
     const label = m.label ?? (m.key === "info" ? event.info_page_title || DEFAULT_LABEL.info : DEFAULT_LABEL[m.key]);
@@ -204,7 +217,7 @@ export function resolveTiles(input: {
     switch (m.key) {
       case "floor_plan":
         if (!floorPlanUrl(event)) break;
-        out.push({ id: "floor_plan", label, icon, external: false, href: `${basePath}/plan`, subtitle: m.subtitle ?? "Venue layout" });
+        out.push({ id: "floor_plan", label, icon, image: safeImage(m.icon_image), route: null, external: false, href: `${basePath}/plan`, subtitle: m.subtitle ?? "Venue layout" });
         break;
     }
   }

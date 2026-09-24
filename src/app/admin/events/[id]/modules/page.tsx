@@ -26,6 +26,12 @@ const select = "w-full h-9 rounded-md border border-input bg-transparent px-3 te
 function TileForm({ eventId, module: m }: { eventId: string; module?: EventModule }) {
   const isPlan = m?.key === "floor_plan";
   const tile = m?.key === "tile" ? m : undefined;
+  const iconImage = m && "icon_image" in m ? m.icon_image : undefined;
+  // On a phone the home shows every tile as a round icon (D212); an uploaded picture takes
+  // the preset icon's place in the circle (D213).
+  const iconImageField = (
+    <ImageField label="Icon image (optional)" name="icon_image" url={iconImage} description="Shown in the round button instead of the icon. A square picture with a transparent background works best." />
+  );
   return (
     <form action={saveModuleAction.bind(null, eventId)} className="grid gap-4 p-1">
       <input type="hidden" name="id" value={m ? moduleId(m) : ""} />
@@ -35,7 +41,10 @@ function TileForm({ eventId, module: m }: { eventId: string; module?: EventModul
       <Field label="Subtitle (optional)" name="subtitle" defaultValue={m && "subtitle" in m ? m.subtitle ?? "" : ""} placeholder="Ask the directors" />
 
       {isPlan ? (
-        <ImageField label="Floor plan image" name="url" url={m.url} description="The image the floor plan page shows. Without it the tile stays hidden." />
+        <>
+          <ImageField label="Floor plan image" name="url" url={m.url} description="The image the floor plan page shows. Without it the tile stays hidden." />
+          {iconImageField}
+        </>
       ) : (
         <>
           <div className="grid gap-2">
@@ -59,6 +68,7 @@ function TileForm({ eventId, module: m }: { eventId: string; module?: EventModul
               {MODULE_ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
             </select>
           </div>
+          {iconImageField}
         </>
       )}
 
@@ -90,7 +100,7 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-4">
-      <AdminHeader title="Modules" subtitle="The tiles on the portal home, in the order attendees see them." />
+      <AdminHeader title="Modules" subtitle="The round buttons on the portal home, in the order attendees see them." />
       <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
           <div>

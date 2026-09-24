@@ -23,6 +23,17 @@ describe("moduleFromForm", () => {
     expect(m).toEqual({ key: "floor_plan", enabled: true, label: "Seating", url: "https://x/p.png" });
   });
 
+  it("keeps an uploaded icon image, on a tile and on the floor plan", () => {
+    const img = "https://x/icon.png";
+    expect(moduleFromForm(form({ preset: "tile", label: "Q&A", icon: "chat", icon_image: img, target_kind: "url", url: "https://sli.do/x", enabled: "on" }), "t9")).toMatchObject({ icon_image: img });
+    expect(moduleFromForm(form({ preset: "floor_plan", url: "https://x/p.png", icon_image: img, enabled: "on" }), "x")).toMatchObject({ icon_image: img });
+  });
+
+  it("leaves icon_image off the row when there is none", () => {
+    const m = moduleFromForm(form({ preset: "tile", label: "Q&A", icon: "chat", icon_image: "", target_kind: "url", url: "https://sli.do/x", enabled: "on" }), "t9");
+    expect("icon_image" in m).toBe(false);
+  });
+
   it("rejects a url that is not http(s)", () => {
     expect(() => moduleFromForm(form({ preset: "tile", label: "Bad", icon: "link", target_kind: "url", url: "javascript:alert(1)", enabled: "on" }), "t1")).toThrow(/url/);
   });

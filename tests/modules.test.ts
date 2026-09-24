@@ -213,3 +213,47 @@ describe("the rows actually stored on the live event", () => {
     expect(out[1]).toMatchObject({ id: "l1", label: "Q&A", target: { kind: "url", url: "https://app.sli.do/event/test" } });
   });
 });
+
+describe("icon_image", () => {
+  const img = "https://x.supabase.co/storage/v1/object/public/event-media/o/e/tile-icon-a.png";
+  it("parses on a tile and on the floor plan, and rejects a non-http(s) url", () => {
+    const mods = parseModules([
+      { key: "tile", id: "t1", enabled: true, label: "Passport", icon: "star", icon_image: img, target: { kind: "route", route: "stamps" } },
+      { key: "floor_plan", enabled: true, icon_image: img },
+    ]);
+    expect(mods.map((m) => "icon_image" in m && m.icon_image)).toEqual([img, img]);
+    expect(() => parseModules([{ key: "tile", id: "t1", enabled: true, label: "X", icon: "star", icon_image: "javascript:x", target: { kind: "route", route: "stamps" } }])).toThrow(/icon_image/);
+  });
+
+  it("is carried to the tile as `image`, null when there is none", () => {
+    const tiles = resolveTiles({
+      event: { floor_plan_url: "https://x/plan.png", info_page_title: "Info", modules: [
+        { key: "floor_plan", enabled: true, icon_image: img },
+        { key: "tile", id: "t1", enabled: true, label: "Passport", icon: "star", target: { kind: "route", route: "stamps" } },
+      ] }, basePath: "/e/kom",
+    });
+    expect(tiles.map((t) => t.image)).toEqual([img, null]);
+  });
+
+  it("is dropped at render when it is not http(s), even if it bypassed parseModules", () => {
+    const tiles = resolveTiles({
+      event: { floor_plan_url: null, info_page_title: "Info", modules: [
+        { key: "tile", id: "t1", enabled: true, label: "X", icon: "star", icon_image: "javascript:x", target: { kind: "url", url: "https://x/" } },
+      ] }, basePath: "/e/kom",
+    });
+    expect(tiles[0].image).toBeNull();
+  });
+});
+
+describe("Tile.route", () => {
+  it("names the portal page a route tile opens, and is null for links and the floor plan", () => {
+    const tiles = resolveTiles({
+      event: { floor_plan_url: "https://x/plan.png", info_page_title: "Info", modules: [
+        { key: "floor_plan", enabled: true },
+        { key: "tile", id: "a", enabled: true, label: "Stamps", icon: "star", target: { kind: "route", route: "stamps" } },
+        { key: "tile", id: "b", enabled: true, label: "Q&A", icon: "chat", target: { kind: "url", url: "https://sli.do/x" } },
+      ] }, basePath: "/e/kom",
+    });
+    expect(tiles.map((t) => t.route)).toEqual([null, "stamps", null]);
+  });
+});

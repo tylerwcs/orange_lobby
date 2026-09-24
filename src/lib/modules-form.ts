@@ -25,9 +25,10 @@ export function moduleFromForm(get: (key: string) => string | null, id: string):
   const label = t("label");
   const subtitle = t("subtitle");
   const withSubtitle = subtitle ? { subtitle } : {};
+  const withImage = t("icon_image") ? { icon_image: t("icon_image") } : {};
 
   if (t("preset") === "floor_plan") {
-    return parseModules([{ key: "floor_plan", enabled, ...(label ? { label } : {}), ...withSubtitle, ...(t("url") ? { url: t("url") } : {}) }])[0];
+    return parseModules([{ key: "floor_plan", enabled, ...(label ? { label } : {}), ...withSubtitle, ...(t("url") ? { url: t("url") } : {}), ...withImage }])[0];
   }
 
   // Both inputs stay mounted in the form so switching kind does not lose what was typed,
@@ -36,7 +37,7 @@ export function moduleFromForm(get: (key: string) => string | null, id: string):
     ? { kind: "route", route: t("route") }
     : { kind: "url", url: t("url") };
 
-  return parseModules([{ key: "tile", id, enabled, label, ...withSubtitle, icon: t("icon") || "link", target }])[0];
+  return parseModules([{ key: "tile", id, enabled, label, ...withSubtitle, icon: t("icon") || "link", ...withImage, target }])[0];
 }
 
 /** Replaces the row with the same id, or appends it. Order is never disturbed by an edit. */
