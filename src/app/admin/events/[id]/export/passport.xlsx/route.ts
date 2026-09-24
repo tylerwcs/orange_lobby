@@ -12,6 +12,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [attendees, passports, booths, stamps] = await Promise.all([
     listAttendees(ev.id), listActivities(ev.id, "passport"), listBooths(ev.id), listStampsForEvent(ev.id),
   ]);
+  // A workbook with no sheets is corrupt (Excel refuses it); the Exports page only offers this link
+  // when booths exist, so this is reachable only by URL — return 404 rather than broken file (D100/D181).
+  if (passports.length === 0) return new Response("This event has no booth passport.", { status: 404 });
   const sheets = passports.map((p) => ({ name: p.name, booths: booths.filter((b) => b.activity_id === p.id), required: p.stamps_required }));
   const buf = await buildPassportWorkbook(attendees, sheets, stamps).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
