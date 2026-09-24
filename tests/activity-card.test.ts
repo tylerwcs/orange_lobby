@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingCard, dayRange, formCard, type BookingCardInput, type FormCardInput } from "@/lib/activity-card";
+import { bookingCard, dayRange, formCard, passportCard, type BookingCardInput, type FormCardInput } from "@/lib/activity-card";
 import type { SeatsForViewer } from "@/lib/activities";
 
 const seat = (day: string, starts_at: string, left: number, mine = false, location: string | null = "Gardensby17"): SeatsForViewer => ({
@@ -107,5 +107,39 @@ describe("formCard", () => {
   });
   it("marks a closed one", () => {
     expect(formCard({ form: form(), state: { can: false, reason: "closed", used: 0 } }).status).toEqual({ label: "Closed", tone: "muted" });
+  });
+});
+
+describe("passportCard", () => {
+  const cells = (n: number) => Array.from({ length: n }, () => ({})) as never[];
+  const card = (over: { n?: number; collected?: number; target?: number; complete?: boolean; open?: boolean } = {}) =>
+    passportCard({
+      passport: { cells: cells(over.n ?? 3), collected: over.collected ?? 0, target: over.target ?? 3, complete: over.complete ?? false },
+      open: over.open ?? true,
+    });
+
+  it("says booths are coming when there are none", () => {
+    expect(card({ n: 0, target: 0 })).toEqual({ status: null, meta: { icon: "pin", text: "Booths coming soon" }, action: { label: "View", primary: false } });
+  });
+
+  it("shows progress and invites a first visit while collecting", () => {
+    expect(card({ collected: 1 })).toEqual({
+      status: { label: "1 of 3 stamps", tone: "primary" },
+      meta: { icon: "pin", text: "3 booths to visit" },
+      action: { label: "Open card", primary: true },
+    });
+  });
+
+  it("is complete once the target is met, whatever the open flag says", () => {
+    expect(card({ collected: 3, complete: true, open: false }).status).toEqual({ label: "Complete", tone: "success" });
+  });
+
+  it("says it opens soon while closed", () => {
+    expect(card({ open: false }).status).toEqual({ label: "Opens soon", tone: "muted" });
+    expect(card({ open: false }).action).toEqual({ label: "View", primary: false });
+  });
+
+  it("names one booth in the singular", () => {
+    expect(card({ n: 1, target: 1 }).meta).toEqual({ icon: "pin", text: "1 booth to visit" });
   });
 });

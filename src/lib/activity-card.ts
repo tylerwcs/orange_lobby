@@ -1,6 +1,7 @@
 import { sessionLabel, type ActivityState } from "@/lib/activities";
 import { submitLabel, type SubmitState } from "@/lib/submissions";
 import type { Activity } from "@/lib/types";
+import type { Passport } from "@/lib/booths";
 import { shortDate } from "@/lib/text";
 
 /**
@@ -78,4 +79,30 @@ export function formCard({ form, state }: FormCardInput): CardView {
   if (state.reason === "today") return { status: { label: "Done for today", tone: "success" }, meta, action: view };
   if (state.reason === "limit") return { status: { label: "Submission done", tone: "success" }, meta, action: view };
   return { status: { label: "Closed", tone: "muted" }, meta, action: view };
+}
+
+export type PassportCardInput = {
+  passport: Pick<Passport, "cells" | "collected" | "target" | "complete">;
+  /** The activity's open flag: whether booths may stamp into it right now (D184). */
+  open: boolean;
+};
+
+/**
+ * A Booth Passport's card. Its line is how many stands there are, because that is what tells
+ * an attendee whether it is worth a walk; the chip is how far along they are.
+ *
+ * Complete is checked before closed: a card filled before the organiser closed stamping is
+ * still a full card, and the prize is still theirs.
+ */
+export function passportCard({ passport, open }: PassportCardInput): CardView {
+  const n = passport.cells.length;
+  if (n === 0) return { status: null, meta: { icon: "pin", text: "Booths coming soon" }, action: view };
+  const meta = { icon: "pin" as const, text: `${n} booth${n === 1 ? "" : "s"} to visit` };
+  if (passport.complete) return { status: { label: "Complete", tone: "success" }, meta, action: view };
+  if (!open) return { status: { label: "Opens soon", tone: "muted" }, meta, action: view };
+  return {
+    status: { label: `${passport.collected} of ${passport.target} stamps`, tone: "primary" },
+    meta,
+    action: { label: "Open card", primary: true },
+  };
 }

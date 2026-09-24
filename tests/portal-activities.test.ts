@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activityState } from "@/lib/activities";
-import { activityNav, bookingSection } from "@/lib/portal-activities";
+import { activityNav, bookingSection, passportSection } from "@/lib/portal-activities";
 import type { Activity, ActivitySession } from "@/lib/types";
 
 const activity = (over: Partial<Activity> = {}): Activity => ({
@@ -44,6 +44,13 @@ describe("bookingSection", () => {
   });
 });
 
+describe("passportSection", () => {
+  it("is Open to you while collecting and Done once complete — never To choose (D192)", () => {
+    expect(passportSection({ complete: false })).toBe("open");
+    expect(passportSection({ complete: true })).toBe("done");
+  });
+});
+
 describe("activityNav", () => {
   it("hides the tab when the event runs no activities", () => {
     expect(activityNav([], null, new Set())).toEqual({ show: false, owed: false });
@@ -55,6 +62,19 @@ describe("activityNav", () => {
 
   it("shows the tab for a submission activity alone", () => {
     expect(activityNav([activity({ kind: "submission" })], null, new Set())).toEqual({ show: true, owed: false });
+  });
+
+  it("shows the tab for an event whose only activity is a passport", () => {
+    expect(activityNav([activity({ kind: "passport", required: false })], null, new Set()).show).toBe(true);
+  });
+
+  it("never owes anything for a passport, even one marked required", () => {
+    // required is never set on a passport (D183), but the dot must not depend on that.
+    expect(activityNav([activity({ kind: "passport", required: true })], null, new Set()).owed).toBe(false);
+  });
+
+  it("hides a passport outside the attendee's categories", () => {
+    expect(activityNav([activity({ kind: "passport", categories: ["VIP"] })], "Crew", new Set()).show).toBe(false);
   });
 
   it("flags a required booking activity nothing is held in", () => {

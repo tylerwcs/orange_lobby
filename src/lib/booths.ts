@@ -1,9 +1,9 @@
-import type { Booth, BoothStamp } from "@/lib/types";
+import type { Activity, Booth, BoothStamp } from "@/lib/types";
 
 export type PassportCell = { booth: Booth; stampedAt: string | null };
 
 export type Passport = {
-  /** Every booth this event has, in admin order — unstamped ones included (D102). */
+  /** Every booth this passport has, in admin order — unstamped ones included (D102). */
   cells: PassportCell[];
   collected: number;
   target: number;
@@ -27,7 +27,7 @@ export function stampsTarget(boothCount: number, required: number | null): numbe
 }
 
 /**
- * One attendee's card. Takes the event's booths and only that attendee's stamps.
+ * One attendee's card. Takes one passport's booths and only that attendee's stamps.
  *
  * A stamp whose booth is gone is ignored rather than counted: it can only exist if a booth
  * was deleted before its first stamp check, and counting it would let the total exceed the
@@ -85,4 +85,55 @@ export function completionByAttendee(
     out.set(attendeeId, { collected, complete: target > 0 && collected >= target });
   }
   return out;
+}
+
+/**
+ * The passport an old, kind-less link means: `/stamps`, the signage QR, the "stamps" tile
+ * (D191). The first by the order it is given in, which is `listActivities`' own sort order.
+ */
+export function firstPassport<T extends Pick<Activity, "kind">>(activities: T[]): T | null {
+  return activities.find((a) => a.kind === "passport") ?? null;
+}
+
+/**
+ * Each passport's booth count and how many attendees have filled its card, for the activity
+ * list. Goes through `completionByAttendee` per passport rather than counting here, because
+ * that is the one place "complete" is decided — the export and the passport page read it too.
+ */
+export function passportRollup(
+  passports: Pick<Activity, "id" | "stamps_required">[],
+  booths: Booth[],
+  stamps: BoothStamp[],
+): Record<string, { booths: number; completed: number }> {
+  const out: Record<string, { booths: number; completed: number }> = {};
+  for (const p of passports) {
+    const mine = booths.filter((b) => b.activity_id === p.id);
+    const completion = completionByAttendee(mine, stamps, p.stamps_required);
+    out[p.id] = { booths: mine.length, completed: [...completion.values()].filter((c) => c.complete).length };
+  }
+  return out;
+}
+
+/**
+ * The target and the message as an organiser typed them (D95, D96). A blank target is null,
+ * which means every booth — clearing the box is an answer, not a mistake.
+ *
+ * `boothCount` is null when the passport is being created and has no booths to bound the
+ * target by; `stampsTarget` clamps it on read until they exist.
+ */
+export function readPassportSettings(
+  raw: { stamps_required: string; reward_message: string },
+  boothCount: number | null,
+): { stamps_required: number | null; reward_message: string | null } {
+  const typed = raw.stamps_required.trim();
+  let stamps_required: number | null = null;
+  if (typed !== "") {
+    const n = Number(typed);
+    if (!Number.isInteger(n) || n < 1) throw new Error("Stamps needed must be a whole number, or blank for every booth.");
+    if (boothCount !== null && n > boothCount) {
+      throw new Error(`This passport has ${boothCount} booth${boothCount === 1 ? "" : "s"}, so the target cannot be ${n}.`);
+    }
+    stamps_required = n;
+  }
+  return { stamps_required, reward_message: raw.reward_message.trim() || null };
 }

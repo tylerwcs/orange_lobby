@@ -1,16 +1,17 @@
 import { eligible, type ActivityState } from "@/lib/activities";
 import type { Activity } from "@/lib/types";
+import type { Passport } from "@/lib/booths";
 
 /**
- * Where a booking activity sits on the attendee's Activities tab.
+ * Where an activity sits on the attendee's Activities tab.
  *
  * "choose" is the one that is owed — required, eligible, nothing held — and leads the page for
  * the same reason the old home card led with it (D129). "booked" is anything they hold a seat
  * in or have a request open on, because that is where the switch and cancel controls live.
- * Everything else they can see is "open", closed ones included: a closed activity still has a
- * desk to ask. Null is an activity their category cannot see at all.
+ * "open" is everything else they can see, closed ones included: a closed activity still has a
+ * desk to ask. "done" is a completed passport. Null is an activity their category cannot see at all.
  */
-export type ActivitySection = "choose" | "booked" | "open";
+export type ActivitySection = "choose" | "booked" | "open" | "done";
 
 export function bookingSection(state: ActivityState, pending: boolean): ActivitySection | null {
   if (!state.eligible) return null;
@@ -20,13 +21,22 @@ export function bookingSection(state: ActivityState, pending: boolean): Activity
 }
 
 /**
+ * Where a passport sits on the Activities tab (D192): Open to you while there are stamps to
+ * collect, Done once the card is full. Never To choose — that section means "you owe a pick",
+ * and nothing is owed on a passport until a booth has stamped you (D183).
+ */
+export function passportSection(passport: Pick<Passport, "complete">): "open" | "done" {
+  return passport.complete ? "done" : "open";
+}
+
+/**
  * What the bottom bar needs to know about activities: whether to offer the tab at all, and
  * whether to put a dot on it.
  *
  * Mirrors `Info`, which only appears when there is an info page — a tab that leads to "nothing
  * here" is worse than no tab. The dot replaces the home card's "Pick one" nag, so it means
  * exactly what `mustPick` means, limited to booking activities: those are the only ones the
- * tab puts under To choose.
+ * tab puts under To choose. A passport, even if marked required, never owes anything (D183).
  *
  * Takes the ids of activities with a held seat rather than full states, so the layout can
  * answer this without counting every session's bookings.
