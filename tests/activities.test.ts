@@ -253,6 +253,17 @@ describe("mergeAgenda", () => {
     const derived = bookedAgendaRows([session("s1", { starts_at: "10:00" })], NAMES);
     expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual([`${BOOKING_ROW_PREFIX}s1`, "late", "early"]);
   });
+
+  it("keeps two booked rows at the same time in their own sessions' order (D198)", () => {
+    const items = [item("i1", "2026-10-01", "09:00"), item("i2", "2026-10-01", "14:00")];
+    // Passed in s2, s1 order but s1's sort_order is lower - the tie-break must use that,
+    // not the order the sessions happened to be given in.
+    const derived = bookedAgendaRows(
+      [session("s2", { starts_at: "11:00", sort_order: 20 }), session("s1", { starts_at: "11:00", sort_order: 10 })],
+      NAMES,
+    );
+    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual(["i1", `${BOOKING_ROW_PREFIX}s1`, `${BOOKING_ROW_PREFIX}s2`, "i2"]);
+  });
 });
 
 describe("mergeAgenda called on an already-filtered list", () => {
