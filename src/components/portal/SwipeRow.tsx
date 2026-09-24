@@ -37,7 +37,8 @@ export function SwipeRow({ label, children }: { label: string; children: React.R
         className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((child, i) => (
-          <li key={i} className="flex w-full shrink-0 snap-start" aria-roledescription="slide" aria-label={`${i + 1} of ${items.length}`}>
+          // p-0.5: the row clips at its edges, and a card's ring is drawn just outside the card.
+          <li key={i} className="flex w-full shrink-0 snap-start p-0.5" aria-roledescription="slide" aria-label={`${i + 1} of ${items.length}`}>
             {child}
           </li>
         ))}

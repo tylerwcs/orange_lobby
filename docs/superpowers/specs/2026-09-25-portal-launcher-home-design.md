@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D219. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D220. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -79,7 +79,11 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   (tapping a dot scrolls to it). One round, no dots. "Room" is split off the end of a name as
   well as the start ("Nusantara Room" → small "Room" over "Nusantara"), and a leading
   "Breakout:" / "Breakout 2 –" is dropped from the title, since the ticket names the round.
-  The launcher and the activity cards keep their peek.
+  The launcher keeps its peek.
+
+- **D220** **Home activity cards show one at a time with dots**, the same `SwipeRow` as the
+  breakout tickets (D219), replacing D214's 260px peeking row. Still at most 5, still in the
+  Activities page's order. Each slot has 2px of padding so a card's ring is not clipped.
 
 ## 3. Out of scope
 
