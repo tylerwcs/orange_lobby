@@ -1,7 +1,7 @@
 # Agenda days — design
 
 Date: 2026-09-24
-Status: approved, not built
+Status: built and deployed 2026-09-24
 Decisions D193–D201. Target: live for the KOM pilot (30 Sep 2026).
 
 ## 1. Why
