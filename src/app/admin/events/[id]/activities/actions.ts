@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import {
-  createActivity, updateActivity, deleteActivity, getActivity,
+  createActivity, updateActivity, deleteActivity, deletePassportIfUnstamped, getActivity,
   createSession, updateSession, deleteSession, setSessionOrder, bookSession, listSessions,
   syncSubmissionPerDay, type NewActivity, type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
@@ -19,6 +19,9 @@ import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails } from "@/lib/submissions";
 import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
+import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
+import { readPassportSettings } from "@/lib/booths";
+import type { Activity, Event } from "@/lib/types";
 
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
@@ -26,6 +29,7 @@ async function event(eventId: string) {
 }
 
 const listPath = (eventId: string) => `/admin/events/${eventId}/activities`;
+const detailPath = (eventId: string, activityId: string) => `${listPath(eventId)}/${activityId}`;
 
 const text = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const checked = (fd: FormData, key: string) => fd.get(key) !== null;
@@ -97,14 +101,18 @@ export async function toggleOpenAction(eventId: string, activityId: string) {
   const activity = await getActivity(activityId, ev.id);
   if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
   await updateActivity(activityId, ev.id, { is_open: !activity.is_open });
-  const path = activity.kind === "booking" ? `${listPath(eventId)}/${activityId}` : listPath(eventId);
+  // A submission's toggle is inline on its row in the list; a booking's and a passport's are in
+  // their detail page's header. Land back wherever the click came from.
+  const path = activity.kind === "submission" ? listPath(eventId) : detailPath(eventId, activityId);
   revalidatePath(listPath(eventId));
-  revalidatePath(`${listPath(eventId)}/${activityId}`);
+  revalidatePath(detailPath(eventId, activityId));
   const opened = !activity.is_open;
-  const label = activity.kind === "booking"
-    ? (opened ? "Booking open." : "Booking closed.")
-    : (opened ? "Submissions open." : "Submissions closed.");
-  redirect(flashPath(path, label));
+  const LABELS: Record<Activity["kind"], [string, string]> = {
+    booking: ["Booking open.", "Booking closed."],
+    submission: ["Submissions open.", "Submissions closed."],
+    passport: ["Stamping open.", "Stamping closed."],
+  };
+  redirect(flashPath(path, LABELS[activity.kind][opened ? 0 : 1]));
 }
 
 /** Cascades sessions and bookings (D135), so the confirm dialog says how many seats go with it. */
@@ -460,4 +468,123 @@ export async function declineRequestAction(eventId: string, activityId: string, 
   const result = await decideRequest(requestId, "declined", userId);
   revalidatePath(path);
   redirect(flashPath(path, result === "ok" ? "Request declined." : REQUEST_GONE, result === "ok" ? "ok" : "error"));
+}
+
+/**
+ * The fields the add-passport form and its settings form share. No `required` and no cap
+ * (D183): a passport is never owed and every booth stamps once. `is_open` is the add form's
+ * alone; after that it belongs to `toggleOpenAction`, for the reason `readActivityPolicy` gives.
+ */
+function readPassportPolicy(fd: FormData, boothCount: number | null) {
+  const name = text(fd, "name");
+  if (!name) throw new Error("A passport needs a name");
+  return {
+    name,
+    description: cleanRichText(text(fd, "description")),
+    categories: parseCategories(text(fd, "categories")),
+    ...readPassportSettings({ stamps_required: text(fd, "stamps_required"), reward_message: text(fd, "reward_message") }, boothCount),
+  };
+}
+
+/** The passport a posted id names, or a flash back to the list. Scopes every booth action (D180). */
+async function passportOf(ev: Event, activityId: string): Promise<Activity> {
+  const passport = await getActivity(activityId, ev.id);
+  if (!passport || passport.kind !== "passport") redirect(flashPath(listPath(ev.id), "That passport no longer exists.", "error"));
+  return passport;
+}
+
+export async function addPassportActivityAction(eventId: string, fd: FormData) {
+  const ev = await event(eventId);
+  let policy;
+  try {
+    policy = readPassportPolicy(fd, null);
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  let image: ImageChange = { url: null, stale: null };
+  try {
+    image = await nextImage(fd, "image", null, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  const id = await createActivity(ev, {
+    ...policy, kind: "passport", required: false, is_open: checked(fd, "is_open"),
+    max_per_attendee: null, questions: [], per_day: false, image_url: image.url,
+  });
+  revalidatePath(listPath(eventId));
+  // Straight to its page: a passport with no booths is the one thing an organiser cannot use.
+  redirect(flashPath(detailPath(eventId, id), "Passport added. Add its booths next."));
+}
+
+/** Never touches `is_open`: see `readPassportPolicy`. */
+export async function savePassportActivityAction(eventId: string, activityId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const back = detailPath(eventId, activityId);
+  const current = await passportOf(ev, activityId);
+  const booths = await listPassportBooths(activityId);
+  let policy;
+  try {
+    policy = readPassportPolicy(fd, booths.length);
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  let image: ImageChange = { url: current.image_url, stale: null };
+  try {
+    image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  await updateActivity(activityId, ev.id, { ...policy, image_url: image.url });
+  await deleteEventImage(image.stale);
+  revalidatePath(listPath(eventId));
+  revalidatePath(back);
+  redirect(flashPath(back, "Passport saved."));
+}
+
+/** Refused by the database once anyone is stamped (D188), so the button needs no count check of its own. */
+export async function deletePassportActivityAction(eventId: string, activityId: string) {
+  const ev = await event(eventId);
+  const doomed = await passportOf(ev, activityId);
+  const removed = await deletePassportIfUnstamped(activityId, ev.id);
+  if (!removed) {
+    redirect(flashPath(detailPath(eventId, activityId), "Somebody has already been stamped on this passport, so it can't be deleted. Close stamping instead.", "error"));
+  }
+  await deleteEventImage(doomed.image_url);
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(listPath(eventId), "Passport deleted."));
+}
+
+export async function addBoothAction(eventId: string, activityId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const passport = await passportOf(ev, activityId);
+  const name = text(fd, "name");
+  if (!name) throw new Error("A booth needs a name");
+  await createBooth(passport, name, text(fd, "location") || null);
+  revalidatePath(detailPath(eventId, activityId));
+}
+
+/** Always allowed, stamped or not: stamps point at the row, not its name (D94). */
+export async function renameBoothAction(eventId: string, activityId: string, boothId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const name = text(fd, "name");
+  if (!name) throw new Error("A booth needs a name");
+  await updateBooth(boothId, ev.id, { name, location: text(fd, "location") || null });
+  revalidatePath(detailPath(eventId, activityId));
+}
+
+export async function reorderBoothsAction(eventId: string, activityId: string, ids: string[]) {
+  const ev = await event(eventId);
+  await setBoothOrder(ev.id, activityId, ids);
+  revalidatePath(detailPath(eventId, activityId));
+}
+
+/** Checked again in the database (D94): a second tab opened before the first stamp still has a live button. */
+export async function deleteBoothAction(eventId: string, activityId: string, boothId: string) {
+  const ev = await event(eventId);
+  const removed = await deleteBoothIfUnstamped(boothId, ev.id);
+  const path = detailPath(eventId, activityId);
+  revalidatePath(path);
+  redirect(removed
+    ? flashPath(path, "Booth deleted.")
+    : flashPath(path, "That booth has stamped somebody, so it can't be deleted. Rename it, or lower the stamps needed.", "error"));
 }

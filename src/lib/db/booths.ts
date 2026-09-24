@@ -1,7 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
-import type { Booth, BoothStamp, Event } from "@/lib/types";
+import type { Activity, Booth, BoothStamp } from "@/lib/types";
 
 export async function listBooths(eventId: string): Promise<Booth[]> {
   const { data, error } = await serviceClient().from("booths").select("*")
@@ -28,14 +28,16 @@ export async function getBoothByToken(token: string): Promise<Booth | null> {
   return (data as Booth | null) ?? null;
 }
 
-/** Appends to the end: a new booth is the next stand, not the first. */
-export async function createBooth(event: Pick<Event, "id" | "org_id">, name: string, location: string | null) {
+/** Appends to the end of its passport: a new booth is the next stand, not the first. */
+export async function createBooth(passport: Pick<Activity, "id" | "org_id" | "event_id">, name: string, location: string | null) {
   const db = serviceClient();
   const { data: last } = await db.from("booths").select("sort_order")
-    .eq("event_id", event.id).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    .eq("activity_id", passport.id).order("sort_order", { ascending: false }).limit(1).maybeSingle();
   const sort_order = (last?.sort_order ?? -1) + 1;
-  const { error } = await db.from("booths")
-    .insert({ org_id: event.org_id, event_id: event.id, name, location, token: generateToken(), sort_order });
+  const { error } = await db.from("booths").insert({
+    org_id: passport.org_id, event_id: passport.event_id, activity_id: passport.id,
+    name, location, token: generateToken(), sort_order,
+  });
   if (error) throw error;
 }
 
@@ -48,11 +50,15 @@ export async function updateBooth(id: string, eventId: string, patch: { name: st
   if (error) throw error;
 }
 
-/** Scoped by event id as well as row id, so a posted id from another event updates nothing. */
-export async function setBoothOrder(eventId: string, orderedIds: string[]) {
+/**
+ * Scoped by event AND passport as well as row id: a posted id from another event updates
+ * nothing, and one from a sibling passport cannot renumber that passport's booths.
+ */
+export async function setBoothOrder(eventId: string, activityId: string, orderedIds: string[]) {
   const db = serviceClient();
   for (const [index, id] of orderedIds.entries()) {
-    const { error } = await db.from("booths").update({ sort_order: index }).eq("id", id).eq("event_id", eventId);
+    const { error } = await db.from("booths").update({ sort_order: index })
+      .eq("id", id).eq("event_id", eventId).eq("activity_id", activityId);
     if (error) throw error;
   }
 }

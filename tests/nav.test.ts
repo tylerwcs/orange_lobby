@@ -22,4 +22,11 @@ describe("groupsFor", () => {
     const off = hrefs({ id: "e1", check_in_enabled: false });
     expect(off).toEqual(on.filter((h) => h !== "/scan/e1"));
   });
+
+  // Booths are a passport's children now (D190): they are reached through Activities.
+  it("has no Booths item — booths live under their passport in Activities", () => {
+    const all = hrefs({ id: "e1", check_in_enabled: true });
+    expect(all).not.toContain("/admin/events/e1/booths");
+    expect(all).toContain("/admin/events/e1/activities");
+  });
 });

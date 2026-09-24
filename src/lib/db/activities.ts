@@ -21,6 +21,9 @@ export type NewActivity = {
   ends_on?: string | null;
   venue?: string | null;
   action_label?: string | null;
+  /** Passport kind only (D182). Left out, the column's null stands. */
+  stamps_required?: number | null;
+  reward_message?: string | null;
 };
 
 export type NewSession = {
@@ -72,14 +75,16 @@ export async function getActivity(id: string, eventId: string): Promise<Activity
   return (data as Activity | null) ?? null;
 }
 
-/** Appends to the end: a new activity is the next one, not the first. */
-export async function createActivity(event: Pick<Event, "id" | "org_id">, input: NewActivity): Promise<void> {
+/** Appends to the end: a new activity is the next one, not the first. Returns its id. */
+export async function createActivity(event: Pick<Event, "id" | "org_id">, input: NewActivity): Promise<string> {
   const db = serviceClient();
   const { data: last } = await db.from("activities").select("sort_order")
     .eq("event_id", event.id).order("sort_order", { ascending: false }).limit(1).maybeSingle();
-  const { error } = await db.from("activities")
-    .insert({ org_id: event.org_id, event_id: event.id, ...input, sort_order: (last?.sort_order ?? -1) + 1 });
+  const { data, error } = await db.from("activities")
+    .insert({ org_id: event.org_id, event_id: event.id, ...input, sort_order: (last?.sort_order ?? -1) + 1 })
+    .select("id").single();
   if (error) throw error;
+  return (data as { id: string }).id;
 }
 
 export async function updateActivity(id: string, eventId: string, patch: Partial<NewActivity>): Promise<void> {
@@ -93,6 +98,20 @@ export async function deleteActivity(id: string, eventId: string): Promise<void>
   const { error } = await serviceClient().from("activities").delete()
     .eq("id", id).eq("event_id", eventId);
   if (error) throw error;
+}
+
+/**
+ * Deletes a passport only while nobody has been stamped on it (D188). The cascade to `booths`
+ * meets `booth_stamps.booth_id ... on delete restrict`, so the database refuses (23503) once
+ * any stamp exists — atomically, the same way `deleteBoothIfUnstamped` relies on it for one
+ * booth. Returns false when refused, or when nothing matched.
+ */
+export async function deletePassportIfUnstamped(id: string, eventId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("activities").delete()
+    .eq("id", id).eq("event_id", eventId).eq("kind", "passport").select("id");
+  if (error?.code === "23503") return false;
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 /** Every session of the event. `time` comes back as HH:MM:SS, so it is trimmed as listAgenda does. */

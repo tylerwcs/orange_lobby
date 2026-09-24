@@ -63,18 +63,18 @@ export function SubmissionFields({ activity }: { activity?: Activity }) {
 }
 
 /**
- * The activity list: one row per activity, whichever kind it is (D178) — this is the "ONE list
- * showing both kinds" the merge asked for, in `listActivities`' own order rather than one section
- * per kind. Follows BoothList's row shape (badges, tabular-nums counts).
+ * The activity list: one row per activity, whichever kind it is (D178, D190) — this is the "ONE
+ * list showing both kinds" the merge asked for, now three, in `listActivities`' own order
+ * rather than one section per kind. Follows BoothList's row shape (badges, tabular-nums counts).
  *
- * A booking row carries no reorder or delete controls here — those live on its own detail page
- * (Task 9), since this list's job is to get the organiser to the right activity, not to edit one
- * inline. A submission row is the opposite: it carries the same inline Open/Close, Edit and
- * Delete controls the old forms list did, because the merged detail page for a submission
- * activity (SubmissionTable, MissingPanel, ParticipationPanel, the export link) offers nowhere
- * else to reach them.
+ * A booking row and a passport row carry no reorder or delete controls here — those live on
+ * their own detail page, since this list's job is to get the organiser to the right activity,
+ * not to edit one inline. A submission row is the opposite: it carries the same inline
+ * Open/Close, Edit and Delete controls the old forms list did, because the merged detail page
+ * for a submission activity (SubmissionTable, MissingPanel, ParticipationPanel, the export link)
+ * offers nowhere else to reach them.
  */
-export function ActivityRows({ items, counts, seats, pending, submissionCounts, basePath, toggleOpen, saveSubmission, deleteSubmission }: {
+export function ActivityRows({ items, counts, seats, pending, submissionCounts, passports, basePath, toggleOpen, saveSubmission, deleteSubmission }: {
   items: Activity[];
   /** Bookings per activity id. */
   counts: Record<string, number>;
@@ -84,17 +84,34 @@ export function ActivityRows({ items, counts, seats, pending, submissionCounts, 
   pending: Record<string, number>;
   /** Submissions per activity id. */
   submissionCounts: Record<string, number>;
+  /** Booths and completed cards per passport id (`passportRollup`). */
+  passports: Record<string, { booths: number; completed: number }>;
   basePath: string;
   toggleOpen: (activityId: string) => Promise<void>;
   saveSubmission: (activityId: string, fd: FormData) => Promise<void>;
   deleteSubmission: (activityId: string) => Promise<void>;
 }) {
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No activities yet. Add one to let attendees book a seat or send you something.</p>;
+    return <p className="text-sm text-muted-foreground">No activities yet. Add one to let attendees book a seat, send you something, or collect booth stamps.</p>;
   }
   return (
     <ul className="divide-y divide-border">
       {items.map((a) => {
+        if (a.kind === "passport") {
+          const r = passports[a.id] ?? { booths: 0, completed: 0 };
+          return (
+            <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
+              <Link href={`${basePath}/activities/${a.id}`} className="min-w-0 flex-1 font-medium hover:underline">
+                {a.name}
+              </Link>
+              <Badge variant="outline">Passport</Badge>
+              <Badge variant={a.is_open ? "default" : "outline"}>{a.is_open ? "Stamping open" : "Closed"}</Badge>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {r.booths} booth{r.booths === 1 ? "" : "s"} · {r.completed} completed
+              </span>
+            </li>
+          );
+        }
         if (a.kind === "booking") {
           return (
             <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">

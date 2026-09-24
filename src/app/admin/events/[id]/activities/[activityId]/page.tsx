@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PassportDetail } from "./PassportDetail";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { COVER_HINT } from "@/components/admin/ActivityRows";
@@ -36,19 +37,21 @@ const check = "flex items-center gap-2 text-sm font-bold";
 
 export default async function ActivityDetail({ params, searchParams }: {
   params: Promise<{ id: string; activityId: string }>;
-  searchParams: Promise<{ day?: string }>;
+  searchParams: Promise<{ day?: string; qr?: string }>;
 }) {
   const { id, activityId } = await params;
-  const { day: requestedDay } = await searchParams;
+  const { day: requestedDay, qr } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) notFound();
 
-  // Two entirely different screens share this route because they share everything ABOVE this
+  // Three entirely different screens share this route because they share everything ABOVE this
   // point — the event guard, the not-found check — and nothing below it (D178). A booking
   // activity has sessions, requests and an unbooked list; a submission activity has answers,
-  // a chasing list and a participation strip. Neither reads the other's data.
+  // a chasing list and a participation strip; a passport has its booths and their scanner
+  // links (D190). None of the three reads another's data.
+  if (activity.kind === "passport") return <PassportDetail ev={ev} activity={activity} qr={qr} />;
   if (activity.kind === "submission") return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} />;
   return <BookingDetail ev={ev} activity={activity} />;
 }
