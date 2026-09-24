@@ -11,14 +11,15 @@ import { createAttendee, createAttendees, deleteAttendee, listAttendees, updateA
 import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
-import type { Attendee, Event } from "@/lib/types";
-import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem } from "@/lib/db/agenda";
-import { breakoutSlots, matchAssignments, breakoutSlotFromColumn, parseRoomCodes, splitByExisting, describeAssignment } from "@/lib/breakouts";
+import type { Attendee, Event, AgendaDay } from "@/lib/types";
+import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem, listAgendaDays, createAgendaDay, updateAgendaDay, deleteAgendaDay, setAgendaOrder } from "@/lib/db/agenda";
+import { breakoutSlots, matchAssignments, breakoutSlotFromColumn, parseRoomCodes, splitByExisting, describeAssignment, agendaRows } from "@/lib/breakouts";
 import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
-import { categoriesFromValues } from "@/lib/agenda";
+import { categoriesFromValues, dayLabel } from "@/lib/agenda";
+import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
 import { parseAgendaColour } from "@/lib/agenda-colours";
 import { localInputToIso } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
@@ -31,6 +32,7 @@ import { scanFieldsFromForm } from "@/lib/scan";
 import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend, PORTAL_LINK_TEMPLATE } from "@/lib/whatsapp-run";
+import { shortDate } from "@/lib/text";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -424,10 +426,86 @@ export async function deleteAttendeeFieldAction(eventId: string, formData: FormD
 
 // ---- Agenda / announcements / info / checkpoints ----
 
+const agendaBack = (eventId: string) => `/admin/events/${eventId}/agenda`;
+
+/** The day a form names, if it is one of this event's. A posted id is never trusted (D193). */
+async function dayOf(eventId: string, dayId: string | null): Promise<AgendaDay | null> {
+  if (!dayId) return null;
+  return (await listAgendaDays(eventId)).find((d) => d.id === dayId) ?? null;
+}
+
+/**
+ * Re-numbers one day so the row `key` sits where `time` puts it (D197) and writes the result.
+ * Called after the row itself is written, so the row is among the day's rows and is lifted
+ * out and re-inserted like any retimed row.
+ */
+async function placeInDay(eventId: string, dayId: string, key: string, time: string | null) {
+  const rows = agendaRows((await listAgenda(eventId)).filter((i) => i.day_id === dayId));
+  await setAgendaOrder(eventId, sortOrdersFor(rows, placeKey(rows, key, time)));
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function addAgendaDayAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const date = str(formData, "date");
+  if (!date || !ISO_DATE.test(date)) redirect(flashPath(agendaBack(eventId), "A day needs a date.", "error"));
+  const made = await createAgendaDay(ev, { date, name: str(formData, "name") });
+  if (!made) redirect(flashPath(agendaBack(eventId), `There's already a day on ${shortDate(date)}.`, "error"));
+  revalidatePath(agendaBack(eventId));
+  redirect(flashPath(agendaBack(eventId), `${dayLabel(made)} added.`));
+}
+
+/** Renames or re-dates a day; its rows move with a new date, in the database (D194). */
+export async function updateAgendaDayAction(eventId: string, dayId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const day = await dayOf(ev.id, dayId);
+  if (!day) redirect(flashPath(agendaBack(eventId), "That day no longer exists.", "error"));
+  const date = str(formData, "date");
+  if (!date || !ISO_DATE.test(date)) redirect(flashPath(agendaBack(eventId), "A day needs a date.", "error"));
+  const name = str(formData, "name");
+  if (!(await updateAgendaDay(day.id, ev.id, { date, name }))) {
+    redirect(flashPath(agendaBack(eventId), `There's already a day on ${shortDate(date)}.`, "error"));
+  }
+  revalidatePath(agendaBack(eventId));
+  redirect(flashPath(agendaBack(eventId), `${dayLabel({ date, name })} saved.`));
+}
+
+/**
+ * Deletes a day with everything on it (D201). Its rows' images are read first and removed
+ * from the bucket after, in the D160 order: nothing leaves storage until no row names it.
+ */
+export async function deleteAgendaDayAction(eventId: string, dayId: string) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const day = await dayOf(ev.id, dayId);
+  if (!day) redirect(flashPath(agendaBack(eventId), "That day no longer exists.", "error"));
+  const doomed = (await listAgenda(ev.id)).filter((i) => i.day_id === day.id);
+  await deleteAgendaDay(day.id, ev.id);
+  for (const i of doomed) await deleteEventImage(i.image_url);
+  revalidatePath(agendaBack(eventId));
+  redirect(flashPath(agendaBack(eventId), `${dayLabel(day)} removed.`));
+}
+
+/**
+ * Saves one day's hand order (D197), from the drag list. A list that is not exactly the day's
+ * rows - posted from a stale page - is ignored, and the list snaps back to what is stored.
+ */
+export async function reorderAgendaDayAction(eventId: string, dayId: string, keys: string[]) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const rows = agendaRows((await listAgenda(ev.id)).filter((i) => i.day_id === dayId));
+  if (rows.length === 0 || !isValidOrder(rows.map(rowKey), keys)) return;
+  await setAgendaOrder(ev.id, sortOrdersFor(rows, keys));
+  revalidatePath(agendaBack(eventId));
+}
+
 export async function addAgendaItemAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  const day = str(formData, "day");
+  const day = await dayOf(ev.id, str(formData, "day_id"));
   const starts_at = str(formData, "starts_at");
   const title = str(formData, "title");
   if (!day || !starts_at || !title) redirect(flashPath(`/admin/events/${eventId}/agenda`, "A session needs a day, a start time and a title.", "error"));
@@ -439,9 +517,9 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/agenda`, (e as Error).message, "error"));
   }
-  await createAgendaItem(ev, {
-    day,
-    kind: "session" as const,
+  const id = await createAgendaItem(ev, {
+    day_id: day.id,
+    kind: "session",
     starts_at,
     ends_at: str(formData, "ends_at"),
     title,
@@ -452,9 +530,10 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
     code: null,
     color: parseAgendaColour(str(formData, "color")),
     image_url: image.url,
-    // Sessions at the same time now order by when they were added, so nothing to collect.
     sort_order: 0,
   });
+  // New rows go in by time; the organiser drags from there (D197).
+  await placeInDay(ev.id, day.id, id, starts_at);
   revalidatePath(`/admin/events/${eventId}/agenda`);
   redirect(flashPath(`/admin/events/${eventId}/agenda`, `“${title}” added.`));
 }
@@ -740,7 +819,7 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const back = `/admin/events/${eventId}/agenda`;
-  const day = str(formData, "day");
+  const day = await dayOf(ev.id, str(formData, "day_id"));
   const starts_at = str(formData, "starts_at");
   const slot = str(formData, "slot");
   const rooms = parseRoomCodes(str(formData, "code") ?? "");
@@ -765,13 +844,14 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
   // A round is one line on the agenda and is edited as one thing, so it has to live on one
   // day. Adding rooms to an existing round on a different day would render it twice and
   // make an edit of either rewrite both.
-  const elsewhere = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot)?.items.find((i) => i.day !== day);
+  const existing = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
+  const elsewhere = existing?.items.find((i) => i.day_id !== day.id);
   if (elsewhere) {
-    redirect(flashPath(back, `“${slot}” is already on ${elsewhere.day}. A round runs on one day — rename this one, or edit the existing round to add rooms.`, "error"));
+    redirect(flashPath(back, `“${slot}” is already on ${shortDate(elsewhere.day)}. A round runs on one day — rename this one, or edit the existing round to add rooms.`, "error"));
   }
 
   const shared = {
-    day, kind: "session" as const, starts_at,
+    day_id: day.id, kind: "session" as const, starts_at,
     ends_at: str(formData, "ends_at"),
     title: str(formData, "title") ?? slot,
     description: str(formData, "description"),
@@ -782,9 +862,11 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
     // A round is many rooms sharing one form, so there is nowhere to put a picture that
     // would mean anything — the image belongs to a session, not to a round (D160).
     image_url: null,
-    sort_order: 0,
+    // Rooms added to an existing round join it where it already sits; only a new round is placed.
+    sort_order: existing?.items[0]?.sort_order ?? 0,
   };
   for (const code of fresh) await createAgendaItem(ev, { ...shared, code });
+  if (!existing) await placeInDay(ev.id, day.id, `slot:${slot}`, starts_at);
 
   const skipped = rooms.length - fresh.length;
   revalidatePath(back);
@@ -812,7 +894,7 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
   const current = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
   if (!current) redirect(flashPath(back, "That round no longer exists.", "error"));
 
-  const day = str(formData, "day");
+  const day = await dayOf(ev.id, str(formData, "day_id"));
   const starts_at = str(formData, "starts_at");
   const nextSlot = str(formData, "slot");
   const rooms = parseRoomCodes(str(formData, "code") ?? "");
@@ -827,7 +909,7 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
   }
 
   const shared = {
-    day, kind: "session" as const, starts_at,
+    day_id: day.id, kind: "session" as const, starts_at,
     ends_at: str(formData, "ends_at"),
     // A round with no title of its own is titled after itself. Carrying the form's seeded
     // value through a rename would leave the OLD round name sitting under the new one.
@@ -838,7 +920,8 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
     slot: nextSlot,
     color: parseAgendaColour(str(formData, "color")),
     image_url: null,
-    sort_order: 0,
+    // An edit keeps the round where the organiser put it; a new time or day re-places it below.
+    sort_order: current.items[0].sort_order,
   };
 
   const wanted = new Map(rooms.map((r) => [r.toLowerCase(), r]));
@@ -871,6 +954,11 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
   }
 
   for (const code of wanted.values()) await createAgendaItem(ev, { ...shared, code });
+
+  const first = current.items[0];
+  if (day.id !== first.day_id || starts_at !== first.starts_at) {
+    await placeInDay(ev.id, day.id, `slot:${nextSlot}`, starts_at);
+  }
 
   revalidatePath(back);
   redirect(flashPath(back, `${nextSlot} saved.${wanted.size > 0 ? ` ${wanted.size} room${wanted.size === 1 ? "" : "s"} added.` : ""}${removed > 0 ? ` ${removed} removed.` : ""}`));
@@ -908,7 +996,7 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
   const item = (await listAgenda(ev.id)).find((i) => i.id === itemId);
   if (!item) redirect(flashPath(back, "That session no longer exists.", "error"));
 
-  const day = str(formData, "day");
+  const day = await dayOf(ev.id, str(formData, "day_id"));
   const starts_at = str(formData, "starts_at");
   const title = str(formData, "title");
   if (!day || !starts_at) redirect(flashPath(back, "A session needs a day and a start time.", "error"));
@@ -930,8 +1018,8 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
   }
 
   await updateAgendaItem(itemId, ev.id, {
-    day,
-    kind: "session" as const,
+    day_id: day.id,
+    kind: "session",
     starts_at,
     ends_at: str(formData, "ends_at"),
     title: title ?? slot ?? item.title,
@@ -947,6 +1035,12 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
   // Only after the row naming the new object is written, exactly as Settings orders it.
   await deleteEventImage(image.stale);
 
+  // A new time or a new day re-places the row by time; any other edit leaves it where the
+  // organiser put it (D197).
+  if (day.id !== item.day_id || starts_at !== item.starts_at) {
+    await placeInDay(ev.id, day.id, itemKey({ ...item, slot }), starts_at);
+  }
+
   if (isBreakout && slot && slot !== item.slot) {
     try {
       await renameSlotAssignments(itemId, slot);
@@ -957,6 +1051,81 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
 
   revalidatePath(back);
   redirect(flashPath(back, `“${title ?? slot}” saved.`));
+}
+
+/**
+ * An image placed in the programme (D196): a picture, an optional caption, optional
+ * categories, and no time - so it goes to the end of its day and the organiser drags it.
+ */
+export async function addAgendaImageAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = agendaBack(eventId);
+  const day = await dayOf(ev.id, str(formData, "day_id"));
+  if (!day) redirect(flashPath(back, "That day no longer exists.", "error"));
+  let image: ImageChange = { url: null, stale: null };
+  try {
+    image = await nextImage(formData, "image", null, { orgId, eventId, kind: "agenda" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  if (!image.url) redirect(flashPath(back, "Choose an image to add.", "error"));
+  const id = await createAgendaItem(ev, {
+    day_id: day.id,
+    kind: "image",
+    starts_at: null,
+    ends_at: null,
+    // `title` is not null in the table; an uncaptioned image stores "".
+    title: str(formData, "title") ?? "",
+    description: null,
+    location: null,
+    categories: categoriesFromValues(formData.getAll("categories").map(String)),
+    slot: null,
+    code: null,
+    color: null,
+    image_url: image.url,
+    sort_order: 0,
+  });
+  await placeInDay(ev.id, day.id, id, null);
+  revalidatePath(back);
+  redirect(flashPath(back, "Image added. Drag it to where it belongs in the day."));
+}
+
+export async function updateAgendaImageAction(eventId: string, itemId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = agendaBack(eventId);
+  const item = (await listAgenda(ev.id)).find((i) => i.id === itemId && i.kind === "image");
+  if (!item) redirect(flashPath(back, "That image no longer exists.", "error"));
+  const day = await dayOf(ev.id, str(formData, "day_id"));
+  if (!day) redirect(flashPath(back, "That day no longer exists.", "error"));
+  let image: ImageChange = { url: item.image_url, stale: null };
+  try {
+    image = await nextImage(formData, "image", item.image_url, { orgId, eventId, kind: "agenda" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  // The row IS the picture; removing it means deleting the row, which the Delete button does.
+  if (!image.url) redirect(flashPath(back, "An image row needs its image. To remove it, delete the row.", "error"));
+  await updateAgendaItem(itemId, ev.id, {
+    day_id: day.id,
+    kind: "image",
+    starts_at: null,
+    ends_at: null,
+    title: str(formData, "title") ?? "",
+    description: null,
+    location: null,
+    categories: categoriesFromValues(formData.getAll("categories").map(String)),
+    slot: null,
+    code: null,
+    color: null,
+    image_url: image.url,
+    sort_order: item.sort_order,
+  });
+  await deleteEventImage(image.stale);
+  if (day.id !== item.day_id) await placeInDay(ev.id, day.id, itemId, null);
+  revalidatePath(back);
+  redirect(flashPath(back, "Image saved."));
 }
 
 // ---- Breakouts ----

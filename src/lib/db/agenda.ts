@@ -51,12 +51,8 @@ export async function deleteAgendaDay(id: string, eventId: string) {
   if (error) throw error;
 }
 
-/**
- * Which day a row goes on. `day_id` is what this code writes; a bare `day` date is what code
- * from before agenda days wrote, and the database still resolves it (D195).
- */
-export type DayRef = { day_id: string } | { day: string };
-export type NewAgendaItem = Omit<AgendaItem, "id" | "event_id" | "day" | "day_id"> & DayRef;
+/** A row always names its day (D194); the database fills in the date. */
+export type NewAgendaItem = Omit<AgendaItem, "id" | "event_id" | "day" | "day_id"> & { day_id: string };
 
 /**
  * Adds one row and returns its id, so the caller can place it in its day (D197).
