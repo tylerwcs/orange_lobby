@@ -49,13 +49,13 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins, qr
         <>
           <div className="h-px bg-white/10" />
           {pins.length > 0 && (
-            <dl className={`grid grid-flow-row-dense gap-2 ${grid.columns === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+            <dl className={`grid grid-flow-row-dense gap-1.5 ${grid.columns === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
               {pins.map((p, i) => (
-                <div key={p.key} className={`flex min-w-0 flex-col gap-1 rounded-lg bg-white/10 px-3 py-2.5 ${grid.cells[i].full ? "col-span-full" : ""}`}>
-                  <dt className="truncate text-xs font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
+                <div key={p.key} className={`flex min-w-0 flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5 ${grid.cells[i].full ? "col-span-full" : ""}`}>
+                  <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
                   <dd className={grid.cells[i].small
-                    ? "text-base font-extrabold leading-tight break-words text-primary"
-                    : "text-2xl font-extrabold leading-none tabular-nums text-primary"}>{p.value}</dd>
+                    ? "text-sm font-extrabold leading-tight break-words text-primary"
+                    : "text-lg font-extrabold leading-tight tabular-nums text-primary"}>{p.value}</dd>
                 </div>
               ))}
             </dl>
