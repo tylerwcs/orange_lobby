@@ -63,6 +63,17 @@ export type Event = {
   modules: EventModule[];
 };
 
+/** One named tab of the Info page (D202). Its HTML is sanitized on save and again on render. */
+export type InfoTab = {
+  id: string;
+  org_id: string;
+  event_id: string;
+  title: string;
+  /** Null when the organiser has not written anything yet; such a tab is hidden (D205). */
+  html: string | null;
+  sort_order: number;
+};
+
 export type AttendeeSource = "import" | "registration" | "walkin";
 
 export type Attendee = {

@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
 import { listActivities, bookingsForAttendee } from "@/lib/db/activities";
+import { listInfoTabs } from "@/lib/db/info-tabs";
 import { isValidToken } from "@/lib/tokens";
+import { hasInfo } from "@/lib/info-tabs";
 import type { Attendee, Event } from "@/lib/types";
 
 /**
@@ -28,6 +30,13 @@ export const loadPortalEvent = cache(async (slug: string): Promise<Event> => {
  */
 export const portalActivities = cache((eventId: string) => listActivities(eventId));
 export const portalBookings = cache((attendeeId: string) => bookingsForAttendee(attendeeId));
+
+/**
+ * The Info tabs, memoised per request: the layout asks whether the Info section exists (for
+ * the bar and the switch) and the Info page asks for the tabs themselves, on the same request.
+ */
+export const portalInfoTabsFor = cache((eventId: string) => listInfoTabs(eventId));
+export const portalHasInfo = cache(async (eventId: string) => hasInfo(await portalInfoTabsFor(eventId)));
 
 export const loadPortalAttendee = cache(
   async (slug: string, token: string): Promise<{ event: Event; attendee: Attendee }> => {
