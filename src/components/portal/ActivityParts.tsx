@@ -18,11 +18,13 @@ export function StatusChip({ status }: { status: NonNullable<CardView["status"]>
   return <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${TONES[status.tone]}`}>{status.label}</span>;
 }
 
+const KIND_LABELS: Record<Activity["kind"], string> = { booking: "Sessions", submission: "Submission", passport: "Passport" };
+
 /** What kind of activity this is, in the words an attendee would use. */
 export function KindTag({ kind }: { kind: Activity["kind"] }) {
   return (
     <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.04em] text-muted-foreground">
-      {kind === "booking" ? "Sessions" : "Submission"}
+      {KIND_LABELS[kind]}
     </span>
   );
 }

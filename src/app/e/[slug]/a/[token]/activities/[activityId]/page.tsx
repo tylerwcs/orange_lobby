@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Armchair, ArrowLeft, CalendarDays, CircleCheck, Clock, MapPin, Users } from "lucide-react";
 import { loadPortalAttendee } from "@/lib/portal";
-import { loadActivityEntries, type ActivityEntry, type SubmissionEntry } from "@/lib/portal-activity-entries";
+import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type PassportEntry } from "@/lib/portal-activity-entries";
 import { dayRange } from "@/lib/activity-card";
 import { submitLabel } from "@/lib/submissions";
 import { sessionGrid } from "@/lib/session-grid";
@@ -16,6 +16,7 @@ import { ActivityBooking } from "@/components/portal/ActivityBooking";
 import { ActivityActionDialog } from "@/components/portal/ActivityActionDialog";
 import { ActivityCover } from "@/components/portal/ActivityParts";
 import { RichSections } from "@/components/portal/RichSections";
+import { PassportGrid } from "@/components/portal/PassportGrid";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,11 @@ const block = "-mx-4 border-t-8 border-muted px-4 py-5 md:mx-0 md:px-0";
 const note = "text-sm text-muted-foreground";
 
 /**
- * One activity's own page, the same shape for both kinds (D178): the picture whole, the name,
- * when and where, the organiser's About and sections, where the attendee stands - then one
- * button at the foot of the page that opens what they do here in a dialog: the session grid,
- * or the submission's questions.
+ * One activity's own page, the same shape for all three kinds (D178): the picture whole, the
+ * name, when and where, the organiser's About and sections, where the attendee stands - then
+ * one button at the foot of the page that opens what they do here in a dialog: the session
+ * grid, or the submission's questions. A passport has no dialog and no button - the attendee
+ * does nothing here, a booth scans their badge (D90).
  *
  * Every action redirects back here, so the toast lands on the page it is about. The dialog is
  * keyed by what each action changes (seats held and requests open; submissions sent), so a
@@ -39,13 +41,14 @@ export default async function ActivityPage({ params, searchParams }: {
   const { slug, token, activityId } = await params;
   const { new: writing } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const { bookings, submissions } = await loadActivityEntries(event, attendee);
+  const { bookings, submissions, passports } = await loadActivityEntries(event, attendee);
   const basePath = `/e/${slug}/a/${token}`;
 
   const booking = bookings.find((b) => b.state.activity.id === activityId && b.state.eligible);
   const form = submissions.find((s) => s.form.id === activityId);
-  if (!booking && !form) notFound();
-  const activity = booking ? booking.state.activity : form!.form;
+  const stampCard = passports.find((p) => p.activity.id === activityId);
+  if (!booking && !form && !stampCard) notFound();
+  const activity = booking ? booking.state.activity : form ? form.form : stampCard!.activity;
 
   return (
     <div className="flex flex-col">
@@ -56,7 +59,9 @@ export default async function ActivityPage({ params, searchParams }: {
       <h1 className="py-4 text-xl font-extrabold leading-tight">{activity.name}</h1>
       {booking
         ? <BookingBody entry={booking} slug={slug} token={token} />
-        : <SubmissionBody entry={form!} slug={slug} token={token} writing={writing === "1"} />}
+        : form
+          ? <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} />
+          : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
     </div>
   );
 }
@@ -140,6 +145,29 @@ function SubmissionBody({ entry: { form: f, state, mine }, slug, token, writing 
           </form>
         </ActivityActionDialog>
       )}
+    </>
+  );
+}
+
+/**
+ * A Booth Passport's body. No dialog and no button: the attendee does nothing here — a booth
+ * scans their badge (D90). The page is the card, and the wayfinding the card gives (D102).
+ */
+function PassportBody({ entry: { activity, passport }, attendeeName }: { entry: PassportEntry; attendeeName: string }) {
+  const n = passport.cells.length;
+  return (
+    <>
+      <InfoRows rows={[
+        { icon: MapPin, text: n ? `${n} booth${n === 1 ? "" : "s"} to visit` : null },
+        { icon: Users, text: forGroups(activity) },
+      ]} />
+      <RichSections html={activity.description} />
+      <section className={`${block} flex flex-col gap-3`}>
+        {!activity.is_open && !passport.complete && (
+          <p className={note}>Stamping opens soon. The booths are below, so you know where to go.</p>
+        )}
+        <PassportGrid passport={passport} message={activity.reward_message} attendeeName={attendeeName} title={null} />
+      </section>
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { loadPortalEvent } from "@/lib/portal";
-import { listBooths } from "@/lib/db/booths";
-import { buildPassport } from "@/lib/booths";
+import { listActivities } from "@/lib/db/activities";
+import { listPassportBooths } from "@/lib/db/booths";
+import { buildPassport, firstPassport } from "@/lib/booths";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { PassportGrid } from "@/components/portal/PassportGrid";
 
@@ -9,15 +10,19 @@ export const dynamic = "force-dynamic";
 export default async function StampsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await loadPortalEvent(slug);
-  // No attendee behind this link (it's the signage QR in the foyer), so there are no
-  // stamps to fetch - PassportGrid renders locked whenever attendeeName is null, and the
-  // booth list still comes from the same cells buildPassport produces from an empty
-  // stamp list.
-  const booths = await listBooths(event.id);
-  const passport = buildPassport(booths, [], event.stamps_required);
+  // No attendee behind this link (it is the signage QR in the foyer), so there are no stamps to
+  // fetch: PassportGrid renders locked whenever attendeeName is null, and still lists the booths
+  // (D103). The first passport by sort order, as every kind-less link means (D191).
+  const passport = firstPassport(await listActivities(event.id, "passport"));
+  const booths = passport ? await listPassportBooths(passport.id) : [];
   return (
     <PortalShell event={event} basePath={`/e/${slug}`} personal={false}>
-      <PassportGrid passport={passport} message={event.stamps_message} attendeeName={null} />
+      <PassportGrid
+        passport={buildPassport(booths, [], passport?.stamps_required ?? null)}
+        message={passport?.reward_message ?? null}
+        attendeeName={null}
+        title={passport?.name ?? "Booth Passport"}
+      />
     </PortalShell>
   );
 }

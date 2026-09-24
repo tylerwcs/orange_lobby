@@ -1,18 +1,18 @@
-import { loadPortalAttendee } from "@/lib/portal";
-import { listBooths, stampsForAttendee } from "@/lib/db/booths";
-import { buildPassport } from "@/lib/booths";
-import { PassportGrid } from "@/components/portal/PassportGrid";
+import { redirect } from "next/navigation";
+import { loadPortalAttendee, portalActivities } from "@/lib/portal";
+import { firstPassport } from "@/lib/booths";
+import { eligible } from "@/lib/activities";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The "stamps" tile and every link printed before passports were activities (D191). Goes to
+ * the first passport this attendee may collect on, or to the Activities tab when there is none.
+ */
 export default async function StampsPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const [booths, stamps] = await Promise.all([listBooths(event.id), stampsForAttendee(attendee.id)]);
-  const passport = buildPassport(booths, stamps, event.stamps_required);
-  return (
-    <>
-      <PassportGrid passport={passport} message={event.stamps_message} attendeeName={attendee.name} />
-    </>
-  );
+  const base = `/e/${slug}/a/${token}`;
+  const passport = firstPassport((await portalActivities(event.id)).filter((a) => eligible(a, attendee.category)));
+  redirect(passport ? `${base}/activities/${passport.id}` : `${base}/activities`);
 }

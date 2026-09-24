@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { bookingSection } from "@/lib/portal-activities";
-import { bookingCard, formCard, type CardView } from "@/lib/activity-card";
-import type { ActivityEntry, SubmissionEntry } from "@/lib/portal-activity-entries";
+import { bookingSection, passportSection } from "@/lib/portal-activities";
+import { bookingCard, formCard, passportCard, type CardView } from "@/lib/activity-card";
+import type { ActivityEntry, SubmissionEntry, PassportEntry } from "@/lib/portal-activity-entries";
 import type { Activity } from "@/lib/types";
 import { ActivityCover, KindTag, MetaLine, StatusChip } from "./ActivityParts";
 
@@ -9,19 +9,20 @@ const caption = "px-0.5 text-xs font-bold uppercase tracking-[0.06em] text-muted
 
 /**
  * The Activities tab: every activity this attendee can see, as a card with its picture, sorted
- * by what they need to do about it (`bookingSection`) - To choose, Booked, Open to you. A
- * section with nothing in it is not drawn.
+ * by what they need to do about it - To choose, Booked, Open to you, Done. A section with
+ * nothing in it is not drawn.
  *
  * Every card goes to the activity's own page, whichever kind it is: that is where the poster is
- * read in full, the sections are, and the booking or the form happens. The card says only
- * enough to decide whether to tap - `bookingCard` and `formCard` decide what.
+ * read in full, the sections are, and the booking, the form, or the stamp grid is. The card says
+ * only enough to decide whether to tap - `bookingCard`, `formCard` and `passportCard` decide what.
  *
  * A stacked list, not the reference app's carousel: an event has a handful of activities, and
  * a carousel of two hides one of them for no reason.
  */
-export function ActivitiesTab({ bookings, submissions, basePath }: {
+export function ActivitiesTab({ bookings, submissions, passports, basePath }: {
   bookings: ActivityEntry[];
   submissions: SubmissionEntry[];
+  passports: PassportEntry[];
   basePath: string;
 }) {
   const placed = bookings.map((entry) => ({ entry, section: bookingSection(entry.state, entry.controls.pending !== null) }));
@@ -32,8 +33,10 @@ export function ActivitiesTab({ bookings, submissions, basePath }: {
   // A closed form still shows to somebody outside its categories, because `canSubmit` reports
   // closed first; only "ineligible" hides one.
   const forms = submissions.filter((s) => s.state.reason !== "ineligible");
+  const collecting = passports.filter((p) => passportSection(p.passport) === "open");
+  const done = passports.filter((p) => passportSection(p.passport) === "done");
 
-  if (choose.length + booked.length + openBookings.length + forms.length === 0) {
+  if (choose.length + booked.length + openBookings.length + forms.length + passports.length === 0) {
     return <p className="text-sm text-muted-foreground">There is nothing here for this event yet.</p>;
   }
 
@@ -47,18 +50,29 @@ export function ActivitiesTab({ bookings, submissions, basePath }: {
     />
   );
 
+  const passportItem = ({ activity, passport }: PassportEntry) => (
+    <ActivityCard
+      key={activity.id}
+      activity={activity}
+      view={passportCard({ passport, open: activity.is_open })}
+      href={`${basePath}/activities/${activity.id}`}
+    />
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {choose.length > 0 && <Section title="To choose">{choose.map((e) => bookingItem(e, true))}</Section>}
       {booked.length > 0 && <Section title="Booked">{booked.map((e) => bookingItem(e))}</Section>}
-      {openBookings.length + forms.length > 0 && (
+      {openBookings.length + forms.length + collecting.length > 0 && (
         <Section title="Open to you">
           {openBookings.map((e) => bookingItem(e))}
           {forms.map(({ form, state }) => (
             <ActivityCard key={form.id} activity={form} view={formCard({ form, state })} href={`${basePath}/activities/${form.id}`} />
           ))}
+          {collecting.map(passportItem)}
         </Section>
       )}
+      {done.length > 0 && <Section title="Done">{done.map(passportItem)}</Section>}
     </div>
   );
 }

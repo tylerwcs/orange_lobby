@@ -118,7 +118,7 @@ function ProgressHeader({ passport }: { passport: Passport }) {
 /**
  * The card the counter checks against the badge in the attendee's hand: the NAME is the
  * largest thing on it, which is also what makes a forwarded screenshot useless - there is
- * no name to match on someone else's phone. Then the event's own `stamps_message`, then
+ * no name to match on someone else's phone. Then the passport's own `reward_message`, then
  * when the card filled.
  */
 function CompleteHeader({ passport, attendeeName, message }: { passport: Passport; attendeeName: string; message: string | null }) {
@@ -185,11 +185,17 @@ function LockedPassport({ passport }: { passport: Passport }) {
  * states applies. `attendeeName` doubles as the switch for the generic, no-attendee link -
  * that page has nobody's progress to show, so it renders locked (D103) rather than guessing.
  */
-export function PassportGrid({ passport, message, attendeeName }: { passport: Passport; message: string | null; attendeeName: string | null }) {
+export function PassportGrid({ passport, message, attendeeName, title }: {
+  passport: Passport;
+  message: string | null;
+  attendeeName: string | null;
+  /** The page heading. Null on the activity page, where the activity's own name already heads it. */
+  title: string | null;
+}) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
-        <h1 className="text-xl font-extrabold leading-tight">Booth Passport</h1>
+        {title !== null && <h1 className="text-xl font-extrabold leading-tight">{title}</h1>}
         {attendeeName !== null && <p className="text-sm text-muted-foreground">Visit a booth, hand over your badge, collect a chop.</p>}
       </div>
 
