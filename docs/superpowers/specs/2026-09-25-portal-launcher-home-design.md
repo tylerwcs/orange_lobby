@@ -1,7 +1,7 @@
 # Portal launcher home — design
 
 Date: 2026-09-25
-Status: approved direction (option A of the mockups), spec awaiting review
+Status: built 2026-09-25 (not yet deployed)
 Decisions D209–D215. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
@@ -41,7 +41,7 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   in a new tab.
 
 - **D213** **Tiles may carry an uploaded icon image.** `TileModule` and the `floor_plan`
-  built-in gain optional `icon_image` (an `https://` URL in `event-media`, image kind
+  built-in gain optional `icon_image` (an `http(s)://` URL, checked on parse and on render, uploaded to `event-media`, image kind
   `tile-icon`). When set, the image fills the circle (`object-contain`) in place of the line
   icon; the preset icon stays the fallback and stays required. The tile editor gets an
   `ImageField` "Icon image (optional)" with the same replace/remove/Undo flow as the floor
