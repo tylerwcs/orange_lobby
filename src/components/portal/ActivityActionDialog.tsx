@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
  * as a button at the foot of the page that opens it in a dialog. The poster and sections stay
  * underneath, and closing the dialog leaves the attendee where they were.
  *
- * The button floats above the portal's bottom bar on a phone (bottom-20, the clearance <main>
- * and the toaster use) and sits at the foot of the page from md.
+ * The button floats at the foot of the screen while the page scrolls under it.
  *
  * The body is rendered by the page and passed in, so the session grid's and the form's Server
  * Actions stay exactly as they were; this only owns open and closed. Every action redirects
@@ -29,7 +28,7 @@ export function ActivityActionDialog({ label, title, description, defaultOpen = 
   const [open, setOpen] = useState(defaultOpen);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <div className="sticky bottom-20 z-10 mt-2 md:bottom-4">
+      <div className="sticky bottom-4 z-10 mt-2">
         <DialogTrigger render={<Button size="lg" className="h-12 w-full rounded-full text-base font-bold shadow-lg" />}>
           {label}
         </DialogTrigger>

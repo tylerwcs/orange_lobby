@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import type { Event } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
@@ -13,6 +14,10 @@ import { Mark, PortalHeader } from "./PortalHeader";
 type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
 
 /**
+ * The desktop header's links. On a phone there is no bar any more: the home page's launcher
+ * is the navigation, and every other page leads back to it (D209). The same rules pick the
+ * launcher's sections - see `launcherItems`.
+ *
  * The agenda and the info page share one slot. Both are "about the event" rather than about
  * you, and giving each its own slot pushed the bar to five items once Activities joined it.
  * The slot is called Info when the event has an info page - the agenda is the first tab
@@ -87,8 +92,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
-  const items = nav(personal, hasInfo, activities);
-  const headerItems = desktopNav(items, home);
+  const headerItems = desktopNav(nav(personal, hasInfo, activities), home);
   const shellWidth = home ? "max-w-md md:max-w-4xl xl:max-w-[1200px]" : "max-w-md md:max-w-4xl";
 
   if (event.status === "draft") {
@@ -109,9 +113,8 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
     /*
       One layout, two shapes. Almost everyone opens this on a phone, so the phone case is
       the default and the desktop case is the override - not a separate design.
-      Below md: a phone column with a thumb-reachable bottom bar.
-      From md:  the column widens, and the same nav moves into the header, because a bar
-                pinned to the bottom of a 1400px window is nowhere near anything.
+      Below md: a phone column. No bar: home is the launcher, other pages lead back to it (D209).
+      From md:  the column widens and the sections are text links in the header (D210).
     */
     <div className="flex min-h-screen flex-col bg-background" style={style}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">Skip to content</a>
@@ -119,7 +122,22 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
       <div className="bg-card shadow-[0_1px_0_rgba(17,24,39,.08)]">
         <div className={`mx-auto w-full ${shellWidth} md:px-6`}>
           <div className="flex flex-col md:flex-row md:items-center md:gap-8">
-            <PortalHeader event={event} href={basePath || "/"} className="md:flex-1 md:px-0" />
+            {/* Phone, away from home: the way back, where the bottom bar used to be the way
+                anywhere (D209). The event's name is on the home page it leads to. */}
+            {!home && (
+              <div className="flex items-center justify-between gap-3 px-4 py-3 md:hidden">
+                <Link
+                  href={basePath || "/"}
+                  className="-ml-2 flex min-h-11 items-center gap-0.5 rounded-md px-2 text-[15px] font-bold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ChevronLeft aria-hidden className="size-5" />Home
+                </Link>
+                <Mark event={event} />
+              </div>
+            )}
+            <div className={`${home ? "" : "hidden md:block"} md:flex-1`}>
+              <PortalHeader event={event} href={basePath || "/"} className="md:px-0" />
+            </div>
 
             {/* Desktop nav: the same items, in the header where a pointer already is. */}
             <nav aria-label="Sections" className="hidden shrink-0 gap-1 md:flex">
@@ -142,32 +160,11 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
         </div>
       </div>
 
-      <main id="main" className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 md:px-6 md:pb-10 md:pt-6 ${shellWidth}`}>
+      <main id="main" className={`mx-auto w-full flex-1 px-4 pb-10 pt-4 md:px-6 md:pt-6 ${shellWidth}`}>
         {home && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         {children}
       </main>
 
-      {/* Mobile nav. Rendered separately rather than repositioned, because the two are
-          genuinely different controls - icon-over-label thumb targets against a row of
-          text links - and only one is ever in the tree's visible flow at a time. */}
-      <nav
-        aria-label="Sections"
-        className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around bg-card px-2 py-2 shadow-[0_-1px_0_rgba(17,24,39,.08)] md:hidden"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
-      >
-        {items.map((n) => {
-          const active = n.href === current;
-          return (
-            <Link key={n.href} href={`${basePath}${n.href}`} aria-current={active ? "page" : undefined} className={`flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5 rounded-[8px] text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "font-bold text-primary" : "font-semibold text-muted-foreground"}`}>
-              <span className="relative">
-                <Icon name={n.icon} size={22} />
-                {n.dot && <Owed className="absolute -right-1 top-0 ring-2 ring-card" />}
-              </span>
-              <span>{n.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
     </div>
   );
 }

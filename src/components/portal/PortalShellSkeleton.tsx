@@ -1,11 +1,11 @@
 import { Skeleton } from "@/components/ui/skeletons";
 
 /**
- * The portal's whole shell as a skeleton: header, body, bottom bar.
+ * The portal's whole shell as a skeleton: header and body.
  *
  * Its geometry must match `PortalChrome`'s real shell — same `max-w-md md:max-w-4xl` widths,
- * same bottom-bar footprint — or the first flush is a narrower, chrome-less block that then
- * jumps to the real header and bar. Read `PortalChrome.tsx` before changing the classes
+ * same padding — or the first flush is a narrower, chrome-less block that then
+ * jumps to the real header. Read `PortalChrome.tsx` before changing the classes
  * below; they are copied from there, not invented.
  *
  * Shared, not copied, because two routes wait on the same shell: `/e/<slug>` and its personal
@@ -27,7 +27,7 @@ export function PortalShellSkeleton() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-4 md:max-w-4xl md:px-6 md:pb-10 md:pt-6">
+      <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10 pt-4 md:max-w-4xl md:px-6 md:pt-6">
         <div className="flex flex-col gap-3.5">
           <Skeleton className="h-[132px] rounded-[20px]" />
           <Skeleton className="h-[86px] rounded-xl" />
@@ -35,19 +35,6 @@ export function PortalShellSkeleton() {
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[108px] rounded-xl" />)}
           </div>
         </div>
-      </div>
-
-      {/* Matches PortalChrome's mobile bottom bar footprint so the handoff at ~0.40s does not shift layout. */}
-      <div
-        className="fixed bottom-0 left-1/2 flex w-full max-w-md -translate-x-1/2 justify-around bg-card px-2 py-2 shadow-[0_-1px_0_rgba(17,24,39,.08)] md:hidden"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
-      >
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex min-h-11 min-w-16 flex-col items-center justify-center gap-0.5">
-            <Skeleton className="h-[22px] w-[22px] rounded-full" />
-            <Skeleton className="h-2 w-8" />
-          </div>
-        ))}
       </div>
     </div>
   );
