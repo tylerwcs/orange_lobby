@@ -37,17 +37,6 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   return (
     <>
       {event.info_page_html && <AgendaInfoSwitch basePath={basePath} current="agenda" />}
-      {/* Above the heading: a masthead sits over the agenda, not between its title and its
-          first day (D160). Shown whole at its own size - never cropped to a strip, and only
-          shrunk when it is wider than the column. */}
-      {event.agenda_banner_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={event.agenda_banner_url}
-          alt=""
-          className="mx-auto mb-3 block h-auto max-w-full rounded-[14px] border border-border"
-        />
-      )}
       {/* With an info page the switch names this tab, so the heading only needs to be heard. */}
       <h1 className={event.info_page_html ? "sr-only" : "mb-3 text-xl font-extrabold"}>Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />

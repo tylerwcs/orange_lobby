@@ -538,30 +538,6 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
   redirect(flashPath(`/admin/events/${eventId}/agenda`, `“${title}” added.`));
 }
 
-/**
- * The masthead above the portal agenda (D160).
- *
- * Its own small form rather than a field on the session forms, because it belongs to the
- * page rather than to any session on it. Same three-case upload as everywhere else: a new
- * file replaces, the remove checkbox clears, and an untouched input says nothing and leaves
- * the stored URL alone.
- */
-export async function updateAgendaBannerAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
-  const back = `/admin/events/${eventId}/agenda`;
-  let banner: ImageChange = { url: ev.agenda_banner_url, stale: null };
-  try {
-    banner = await nextImage(formData, "agenda_banner", ev.agenda_banner_url, { orgId, eventId, kind: "agenda-banner" });
-  } catch (e) {
-    redirect(flashPath(back, (e as Error).message, "error"));
-  }
-  await updateEvent(eventId, { agenda_banner_url: banner.url });
-  await deleteEventImage(banner.stale);
-  revalidatePath(back);
-  redirect(flashPath(back, banner.url ? "Agenda image saved." : "Agenda image removed."));
-}
-
 export async function deleteAgendaItemAction(eventId: string, itemId: string) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);

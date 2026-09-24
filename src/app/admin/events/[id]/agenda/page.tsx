@@ -10,9 +10,7 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteAgendaDayAction, deleteAgendaItemAction, deleteBreakoutRoundAction, reorderAgendaDayAction, updateAgendaBannerAction } from "../actions";
-import { ImageField } from "@/components/admin/ImageField";
-import { SubmitButton } from "@/components/admin/SubmitButton";
+import { deleteAgendaDayAction, deleteAgendaItemAction, deleteBreakoutRoundAction, reorderAgendaDayAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { SortableList } from "@/components/admin/SortableList";
@@ -57,18 +55,6 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
         <div className="flex flex-wrap gap-2">
           <Modal title="Add a day" hint="Name it for the portal's tab — “Day 1 (Conference)”. Sessions and images go under it." trigger="Add day" icon="plus">
             <DayForm eventId={ev.id} suggestedDate={nextFreeDate(eventDays(ev.starts_on, ev.ends_on), days.map((d) => d.date)) ?? ev.starts_on} />
-          </Modal>
-          {/* The banner belongs to the whole agenda, not to any day on it (D160). */}
-          <Modal title="Agenda image" hint="One image above the agenda, on every day of the event." trigger="Image" icon="file" variant="outline">
-            <form action={updateAgendaBannerAction.bind(null, ev.id)} className="grid gap-4 p-1">
-              <ImageField
-                label="Image"
-                name="agenda_banner"
-                url={ev.agenda_banner_url}
-                description="Shown above the portal agenda at its own size, never cropped. Wider than the page, it is scaled down to fit."
-              />
-              <SubmitButton>Save image</SubmitButton>
-            </form>
           </Modal>
         </div>
       </div>

@@ -50,8 +50,6 @@ export type Event = {
    * checkpoint or a checkin, so switching it back on restores the event as it was.
    */
   check_in_enabled: boolean;
-  /** The masthead above the portal agenda. One per event, not one per day (D160). */
-  agenda_banner_url: string | null;
   /** The checkpoint the event is running right now; every surface follows it. */
   active_checkpoint_id: string | null;
   registration_questions: RegistrationQuestion[];
