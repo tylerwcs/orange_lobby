@@ -1,5 +1,6 @@
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AgendaItem, Attendee, BreakoutAssignment } from "@/lib/types";
+import { byAgendaOrder } from "@/lib/agenda-order";
 
 /**
  * Whether this agenda item is one room of a breakout round.
@@ -16,11 +17,10 @@ export type BreakoutSlot = { slot: string; items: AgendaItem[] };
 
 /**
  * The breakout rounds this event runs, each holding the rooms that are alternatives to one
- * another, in the order the agenda presents them.
+ * another, in the organiser's order (D197).
  */
 export function breakoutSlots(items: AgendaItem[]): BreakoutSlot[] {
-  const sorted = [...items].sort((a, b) =>
-    a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at) || a.sort_order - b.sort_order);
+  const sorted = [...items].sort(byAgendaOrder);
   const out: BreakoutSlot[] = [];
   const byName = new Map<string, BreakoutSlot>();
   for (const i of sorted) {
@@ -42,7 +42,7 @@ export function breakoutSlots(items: AgendaItem[]): BreakoutSlot[] {
  * show someone else's hours. When unassigned (placeholder), the time comes from the round's
  * first room, which has no better source — the rooms should share a time, but nothing enforces it.
  */
-export type MyBreakout = { slot: string; item: AgendaItem | null; day: string; starts_at: string; ends_at: string | null };
+export type MyBreakout = { slot: string; item: AgendaItem | null; day: string; starts_at: string | null; ends_at: string | null };
 
 export function myBreakouts(items: AgendaItem[], assignedItemIds: ReadonlySet<string>): MyBreakout[] {
   return breakoutSlots(items).map((s) => {
@@ -198,22 +198,29 @@ export function parseRoomCodes(raw: string): string[] {
  * the rooms are what it lists.
  */
 export type AgendaRow =
-  | { kind: "session"; item: AgendaItem }
-  | { kind: "round"; slot: string; items: AgendaItem[]; day: string; starts_at: string; ends_at: string | null };
+  | { kind: "item"; item: AgendaItem }
+  | { kind: "round"; slot: string; items: AgendaItem[]; day: string; starts_at: string | null; ends_at: string | null };
 
 export function agendaRows(items: AgendaItem[]): AgendaRow[] {
-  const sorted = [...items].sort((a, b) =>
-    a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at) || a.sort_order - b.sort_order);
+  const sorted = [...items].sort(byAgendaOrder);
   const out: AgendaRow[] = [];
   const rounds = new Map<string, Extract<AgendaRow, { kind: "round" }>>();
   for (const i of sorted) {
-    if (!isBreakout(i)) { out.push({ kind: "session", item: i }); continue; }
+    if (!isBreakout(i)) { out.push({ kind: "item", item: i }); continue; }
     const slot = (i.slot as string).trim();
     const seen = rounds.get(slot);
-    if (seen) { seen.items.push(i); continue; }
-    // The round takes its place from its EARLIEST room — the first one reached, since the
-    // list is sorted. Rooms of a round normally share a time, but nothing enforces it and
-    // one mistyped room must not drag the whole round to the bottom of the day.
+    if (seen) {
+      seen.items.push(i);
+      // The round shows its EARLIEST room's hours. Rooms normally share a time, but nothing
+      // enforces it, and one mistyped room must not be what the round is shown as.
+      if (i.starts_at !== null && (seen.starts_at === null || i.starts_at < seen.starts_at)) {
+        seen.starts_at = i.starts_at;
+        seen.ends_at = i.ends_at;
+      }
+      continue;
+    }
+    // The round sits where its first room sits in the hand order; every room shares that
+    // position (D197).
     const row = { kind: "round" as const, slot, items: [i], day: i.day, starts_at: i.starts_at, ends_at: i.ends_at };
     rounds.set(slot, row);
     out.push(row);

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { visibleTo, groupByDay, parseCategories, nextSession, isNow, categoriesFromValues } from "@/lib/agenda";
 import type { AgendaItem } from "@/lib/types";
 
-const mk = (p: Partial<AgendaItem>): AgendaItem => ({ id: "x", event_id: "e", day: "2026-09-30", starts_at: "09:00", ends_at: null, title: "t", description: null, location: null, categories: null, slot: null, code: null, color: null, image_url: null, sort_order: 0, ...p });
+const mk = (p: Partial<AgendaItem>): AgendaItem => ({ id: "x", event_id: "e", day_id: "d1", kind: "session", day: "2026-09-30", starts_at: "09:00", ends_at: null, title: "t", description: null, location: null, categories: null, slot: null, code: null, color: null, image_url: null, sort_order: 0, ...p });
 
 describe("agenda", () => {
   it("shows unrestricted items to everyone, restricted only to matching category", () => {
@@ -11,8 +11,13 @@ describe("agenda", () => {
     expect(visibleTo(items, { category: "Staff", assignedItemIds: new Set() }).map((i) => i.id)).toEqual(["a"]);
     expect(visibleTo(items, { category: "vip", assignedItemIds: new Set() }).map((i) => i.id)).toEqual(["a", "b"]); // case-insensitive
   });
-  it("groups by day sorted by time then sort_order", () => {
-    const items = [mk({ id: "1", day: "2026-10-01", starts_at: "10:00" }), mk({ id: "2", starts_at: "09:30" }), mk({ id: "3", starts_at: "09:00", sort_order: 1 }), mk({ id: "4", starts_at: "09:00", sort_order: 0 })];
+  it("groups by day in the organiser's order, not by time (D197)", () => {
+    const items = [
+      mk({ id: "1", day: "2026-10-01", sort_order: 10 }),
+      mk({ id: "2", starts_at: "09:30", sort_order: 30 }),
+      mk({ id: "3", starts_at: "09:00", sort_order: 20 }),
+      mk({ id: "4", starts_at: "11:00", sort_order: 10 }),
+    ];
     const g = groupByDay(items);
     expect(g.map((d) => d.day)).toEqual(["2026-09-30", "2026-10-01"]);
     expect(g[0].items.map((i) => i.id)).toEqual(["4", "3", "2"]);
@@ -40,6 +45,11 @@ describe("nextSession", () => {
   it("treats a session without end time as one hour long and returns null after the last one", () => {
     expect(nextSession(items, "2026-10-01", "09:30")?.status).toBe("now");
     expect(nextSession(items, "2026-10-01", "10:30")).toBeNull();
+  });
+  it("never treats an image row as now or next (D200)", () => {
+    const withImage = [mk({ id: "img", kind: "image", starts_at: null, image_url: "https://x/y.png" }), ...items];
+    expect(isNow(withImage[0], "2026-09-30", "09:10")).toBe(false);
+    expect(nextSession(withImage, "2026-09-30", "08:00")).toMatchObject({ item: { id: "a" }, status: "next" });
   });
 });
 

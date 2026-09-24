@@ -441,6 +441,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
   }
   await createAgendaItem(ev, {
     day,
+    kind: "session" as const,
     starts_at,
     ends_at: str(formData, "ends_at"),
     title,
@@ -770,7 +771,7 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
   }
 
   const shared = {
-    day, starts_at,
+    day, kind: "session" as const, starts_at,
     ends_at: str(formData, "ends_at"),
     title: str(formData, "title") ?? slot,
     description: str(formData, "description"),
@@ -826,7 +827,7 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
   }
 
   const shared = {
-    day, starts_at,
+    day, kind: "session" as const, starts_at,
     ends_at: str(formData, "ends_at"),
     // A round with no title of its own is titled after itself. Carrying the form's seeded
     // value through a rename would leave the OLD round name sitting under the new one.
@@ -930,6 +931,7 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
 
   await updateAgendaItem(itemId, ev.id, {
     day,
+    kind: "session" as const,
     starts_at,
     ends_at: str(formData, "ends_at"),
     title: title ?? slot ?? item.title,

@@ -136,7 +136,7 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
                           {row.kind === "round" && (noRoom.get(row.slot) ?? 0) > 0 && (
                             <Badge variant="secondary" className="tabular-nums">{noRoom.get(row.slot)} with no room</Badge>
                           )}
-                          {row.kind === "session" && row.item.categories && row.item.categories.length > 0 && (
+                          {row.kind === "item" && row.item.categories && row.item.categories.length > 0 && (
                             <Badge variant="secondary">{row.item.categories.join(", ")}</Badge>
                           )}
                         </div>

@@ -4,7 +4,7 @@ import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import type { AgendaItem, Attendee } from "@/lib/types";
 
 const item = (over: Partial<AgendaItem>): AgendaItem => ({
-  id: "i1", event_id: "e", day: "2026-09-30", starts_at: "13:30", ends_at: "15:00",
+  id: "i1", event_id: "e", day_id: "d1", kind: "session", day: "2026-09-30", starts_at: "13:30", ends_at: "15:00",
   title: "Breakout", description: null, location: null, categories: null,
   slot: null, code: null, color: null, image_url: null, sort_order: 0, ...over,
 });
@@ -36,15 +36,15 @@ describe("breakoutSlots", () => {
     expect(slots[0].items.map((i) => i.code)).toEqual(["3A", "3B"]);
   });
 
-  it("sorts breakout items by day, then starts_at, regardless of input order", () => {
-    // Supply items out of chronological order to test that sort actually runs
+  it("orders rooms by day, then hand order, regardless of input order", () => {
+    // Supply items out of hand order to test that sort actually runs
     const slots = breakoutSlots([
-      item({ id: "c", slot: "Breakout 1", code: "3C", starts_at: "15:30" }),
-      item({ id: "a", slot: "Breakout 1", code: "3A", starts_at: "13:30" }),
-      item({ id: "b", slot: "Breakout 1", code: "3B", starts_at: "14:30" }),
+      item({ id: "c", slot: "Breakout 1", code: "3C", starts_at: "15:30", sort_order: 30 }),
+      item({ id: "a", slot: "Breakout 1", code: "3A", starts_at: "13:30", sort_order: 10 }),
+      item({ id: "b", slot: "Breakout 1", code: "3B", starts_at: "14:30", sort_order: 20 }),
     ]);
     // If .sort() were removed, items would appear in input order: 3C, 3A, 3B
-    // With sort, they must appear in chronological order: 3A, 3B, 3C
+    // With sort, they must appear in hand order: 3A, 3B, 3C
     expect(slots[0].items.map((i) => i.code)).toEqual(["3A", "3B", "3C"]);
   });
 
@@ -251,33 +251,33 @@ describe("parseRoomCodes", () => {
 });
 
 describe("agendaRows", () => {
-  const lunch = item({ id: "l", title: "Lunch", starts_at: "12:15" });
-  const a = item({ id: "a", slot: "Breakout 3", code: "9A", starts_at: "21:00", ends_at: "21:45" });
-  const b = item({ id: "b", slot: "Breakout 3", code: "9B", starts_at: "21:00", ends_at: "21:45" });
-  const c = item({ id: "c", slot: "Breakout 3", code: "9C", starts_at: "21:00", ends_at: "21:45" });
+  const lunch = item({ id: "l", title: "Lunch", starts_at: "12:15", sort_order: 20 });
+  const a = item({ id: "a", slot: "Breakout 3", code: "9A", starts_at: "21:00", ends_at: "21:45", sort_order: 30 });
+  const b = item({ id: "b", slot: "Breakout 3", code: "9B", starts_at: "21:00", ends_at: "21:45", sort_order: 30 });
+  const c = item({ id: "c", slot: "Breakout 3", code: "9C", starts_at: "21:00", ends_at: "21:45", sort_order: 30 });
 
   it("collapses every room of a round into one row", () => {
     const rows = agendaRows([lunch, a, b, c]);
-    expect(rows.map((r) => r.kind)).toEqual(["session", "round"]);
+    expect(rows.map((r) => r.kind)).toEqual(["item", "round"]);
     expect(rows[1].kind === "round" && rows[1].items.map((i) => i.code)).toEqual(["9A", "9B", "9C"]);
   });
 
   it("leaves ordinary sessions alone, one row each", () => {
-    const other = item({ id: "o", title: "Coffee", starts_at: "10:00" });
-    expect(agendaRows([lunch, other]).map((r) => r.kind === "session" && r.item.id)).toEqual(["o", "l"]);
+    const other = item({ id: "o", title: "Coffee", starts_at: "10:00", sort_order: 10 });
+    expect(agendaRows([lunch, other]).map((r) => r.kind === "item" && r.item.id)).toEqual(["o", "l"]);
   });
 
-  it("places a round at its earliest room, so it sorts with the programme", () => {
+  it("places a round where its first room sits, showing its earliest room's time", () => {
     // Rooms of a round normally share a time, but nothing enforces it and a mistyped one
-    // must not drag the round to the bottom of the day.
-    const late = item({ id: "z", slot: "Breakout 3", code: "9Z", starts_at: "23:30" });
-    const rows = agendaRows([late, a, lunch]);
+    // must not be what the round is shown as.
+    const late = item({ id: "z", slot: "Breakout 3", code: "9Z", starts_at: "23:30", sort_order: 30 });
+    const rows = agendaRows([late, { ...a, sort_order: 30 }, lunch]);
     expect(rows.map((r) => (r.kind === "round" ? r.slot : r.item.title))).toEqual(["Lunch", "Breakout 3"]);
     expect(rows[1].kind === "round" && rows[1].starts_at).toBe("21:00");
   });
 
   it("keeps two different rounds apart", () => {
-    const other = item({ id: "x", slot: "Breakout 4", code: "1A", starts_at: "22:00" });
+    const other = item({ id: "x", slot: "Breakout 4", code: "1A", starts_at: "22:00", sort_order: 40 });
     const rows = agendaRows([a, other]);
     expect(rows.map((r) => r.kind === "round" && r.slot)).toEqual(["Breakout 3", "Breakout 4"]);
   });

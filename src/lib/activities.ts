@@ -1,5 +1,6 @@
 import { categoryMatches, parseCategories, visibleTo, type AgendaViewer } from "@/lib/agenda";
 import type { Activity, ActivityBooking, ActivitySession, AgendaItem } from "@/lib/types";
+import { byAgendaOrder, isSession, timeSlot } from "@/lib/agenda-order";
 import type { BookResult, NewActivity } from "@/lib/db/activities";
 import type { FlashTone } from "@/lib/flash";
 import { shortDate } from "@/lib/text";
@@ -217,7 +218,10 @@ export function bookedAgendaRows(sessions: ActivitySession[], activityNames: Rea
   return sessions.map((s) => ({
     id: `${BOOKING_ROW_PREFIX}${s.id}`,
     event_id: s.event_id,
+    // Not on any agenda day: it comes from an activity session, not from `agenda_items`.
+    day_id: null,
     day: s.day,
+    kind: "session" as const,
     starts_at: s.starts_at,
     ends_at: s.ends_at,
     // The activity's name: on an agenda the row has to say what it is, and the session's own
@@ -237,11 +241,21 @@ export function bookedAgendaRows(sessions: ActivitySession[], activityNames: Rea
   }));
 }
 
-/** The agenda with the attendee's bookings folded in, in the order the day runs. */
+/**
+ * The agenda with the attendee's bookings folded in (D198). The organiser's rows keep their
+ * hand order; each booked row goes before the first later timed row of its day - the same rule
+ * that places a new session - so a booking never reorders the programme around it. Bookings at
+ * the same time keep their sessions' order between themselves.
+ */
 export function mergeAgenda(items: AgendaItem[], derived: AgendaItem[]): AgendaItem[] {
   if (derived.length === 0) return items;
-  return [...items, ...derived].sort((a, b) =>
+  const out = [...items].sort(byAgendaOrder);
+  const booked = derived.filter(isSession).sort((a, b) =>
     a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at) || a.sort_order - b.sort_order);
+  for (const row of booked) {
+    out.splice(timeSlot(out, row.day, row.starts_at, (i) => i.day, (i) => (isSession(i) ? i.starts_at : null)), 0, row);
+  }
+  return out;
 }
 
 /**

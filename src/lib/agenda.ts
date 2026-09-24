@@ -1,5 +1,6 @@
 import type { AgendaItem } from "@/lib/types";
 import { isBreakout, breakoutSlots } from "@/lib/breakouts";
+import { byAgendaOrder, isSession, type TimedItem } from "@/lib/agenda-order";
 
 /** Who is looking. `null` is the anonymous portal — nobody signed in, so no assignments. */
 export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlySet<string> } | null;
@@ -65,8 +66,9 @@ export function categoryVisibleBreakoutItems(items: AgendaItem[], category: stri
     .flatMap((s) => s.items);
 }
 
+/** The rows grouped by day, each day in the organiser's order (D197). */
 export function groupByDay(items: AgendaItem[]): { day: string; items: AgendaItem[] }[] {
-  const sorted = [...items].sort((a, b) => a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at) || a.sort_order - b.sort_order);
+  const sorted = [...items].sort(byAgendaOrder);
   const out: { day: string; items: AgendaItem[] }[] = [];
   for (const i of sorted) {
     const last = out[out.length - 1];
@@ -80,19 +82,21 @@ export function parseCategories(csv: string): string[] | null {
   return arr.length ? arr : null;
 }
 
-function endOf(i: AgendaItem): string {
+function endOf(i: TimedItem): string {
   if (i.ends_at) return i.ends_at;
   const [h, m] = i.starts_at.split(":").map(Number);
   if (h + 1 > 23) return "23:59";
   return `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/** An image row is never "now": it has no time (D200). */
 export function isNow(i: AgendaItem, date: string, time: string): boolean {
-  return i.day === date && i.starts_at <= time && time < endOf(i);
+  return isSession(i) && i.day === date && i.starts_at <= time && time < endOf(i);
 }
 
+/** The running or next session. Time order here, not hand order: "next" is about the clock. */
 export function nextSession(items: AgendaItem[], date: string, time: string): { item: AgendaItem; status: "now" | "next" } | null {
-  const sorted = groupByDay(items).flatMap((d) => d.items);
+  const sorted = items.filter(isSession).sort((a, b) => a.day.localeCompare(b.day) || a.starts_at.localeCompare(b.starts_at));
   const now = sorted.find((i) => isNow(i, date, time));
   if (now) return { item: now, status: "now" };
   const next = sorted.find((i) => i.day > date || (i.day === date && i.starts_at > time));

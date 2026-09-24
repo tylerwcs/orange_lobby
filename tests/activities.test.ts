@@ -16,9 +16,9 @@ const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySessi
   id, event_id: "e", activity_id: "act1", day: "2026-10-01", starts_at: "09:30",
   ends_at: "11:00", location: "Room 2A", capacity: 30, sort_order: 0, ...over,
 });
-const item = (id: string, day: string, starts_at: string): AgendaItem => ({
-  id, event_id: "e", day, starts_at, ends_at: null, title: id, description: null, location: null,
-  categories: null, slot: null, code: null, color: null, image_url: null, sort_order: 0,
+const item = (id: string, day: string, starts_at: string, over: Partial<AgendaItem> = {}): AgendaItem => ({
+  id, event_id: "e", day_id: "d1", day, kind: "session", starts_at, ends_at: null, title: id, description: null,
+  location: null, categories: null, slot: null, code: null, color: null, image_url: null, sort_order: 0, ...over,
 });
 
 describe("seatsFor", () => {
@@ -230,6 +230,28 @@ describe("mergeAgenda", () => {
   it("leaves the agenda untouched when nothing is booked", () => {
     const items = [item("i1", "2026-10-01", "09:00")];
     expect(mergeAgenda(items, [])).toEqual(items);
+  });
+
+  it("places a booked row by time inside a hand-ordered day, past an image (D198)", () => {
+    const items = [
+      item("i1", "2026-10-01", "09:00", { sort_order: 10 }),
+      item("img", "2026-10-01", "09:00", { sort_order: 20, kind: "image", starts_at: null, image_url: "https://x/y.png" }),
+      item("i2", "2026-10-01", "14:00", { sort_order: 30 }),
+    ];
+    const derived = bookedAgendaRows([session("s1", { starts_at: "11:30" })], NAMES);
+    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual(["i1", "img", `${BOOKING_ROW_PREFIX}s1`, "i2"]);
+  });
+
+  it("puts a booked row after an organiser row at the same time", () => {
+    const items = [item("i1", "2026-10-01", "09:30")];
+    const derived = bookedAgendaRows([session("s1", { starts_at: "09:30" })], NAMES);
+    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual(["i1", `${BOOKING_ROW_PREFIX}s1`]);
+  });
+
+  it("keeps the organiser's order even where it is not time order", () => {
+    const items = [item("late", "2026-10-01", "14:00", { sort_order: 10 }), item("early", "2026-10-01", "09:00", { sort_order: 20 })];
+    const derived = bookedAgendaRows([session("s1", { starts_at: "10:00" })], NAMES);
+    expect(mergeAgenda(items, derived).map((i) => i.id)).toEqual([`${BOOKING_ROW_PREFIX}s1`, "late", "early"]);
   });
 });
 

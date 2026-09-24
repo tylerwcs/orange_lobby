@@ -80,12 +80,31 @@ export type Attendee = {
   status: string;
 };
 
+/** A day of the programme, made before anything is put on it (D193). */
+export type AgendaDay = {
+  id: string;
+  org_id: string;
+  event_id: string;
+  date: string;         // YYYY-MM-DD, unique per event
+  /** "Day 1 (Conference)". Null: the day is labelled by its date everywhere. */
+  name: string | null;
+};
+
+/** A session has a time; an image row is a picture placed in the programme and has none (D196). */
+export type AgendaItemKind = "session" | "image";
+
 export type AgendaItem = {
   id: string;
   event_id: string;
+  /** The day this row is on (D194). Null only on rows `bookedAgendaRows` derives from a booking. */
+  day_id: string | null;
+  /** A copy of the day's date that the database keeps in sync (D194). Read it; never write it. */
   day: string;          // YYYY-MM-DD
-  starts_at: string;    // HH:MM
+  kind: AgendaItemKind;
+  /** HH:MM. Null only on an image row, which has no time (D196). */
+  starts_at: string | null;
   ends_at: string | null;
+  /** A session's title; an image row's optional caption, "" when it has none. */
   title: string;
   description: string | null;
   location: string | null;
