@@ -19,13 +19,15 @@ import { sessionLabel } from "@/lib/activities";
  * stay per-activity, not per-seat, because D146's index allows only one open request per
  * attendee per activity: while one is open, no seat offers controls.
  */
-export function ActivityBooking({ controls, pendingId, requestCancel, withdraw }: {
+export function ActivityBooking({ controls, pendingId, calendarPath, requestCancel, withdraw }: {
   controls: ActivityControls;
   // The raw pending request's id: `controls.pending` (a `PendingSummary`) deliberately carries
   // no id — it is for rendering, not addressing — so the id travels alongside it. Bound here,
   // not by the caller, so a caller whose `pendingId` ever drifts from `controls.pending` gets a
   // form with no action (a harmless no-op reload) instead of a crash at render.
   pendingId: string | null;
+  /** The activity's calendar.ics route; each held seat links to it with `?session=`. */
+  calendarPath: string;
   requestCancel: (fromSessionId: string) => Promise<void>;
   withdraw: (requestId: string) => Promise<void>;
 }) {
@@ -67,19 +69,27 @@ export function ActivityBooking({ controls, pendingId, requestCancel, withdraw }
             <Icon name="check" size={16} />
             You&apos;re booked {sessionLabel(seat.session)}
           </span>
-          {canRequestCancel && (
-            <form action={requestCancel.bind(null, seat.session.id)}>
-              <ConfirmButton
-                tone="default"
-                triggerVariant="link"
-                className="h-auto p-0 text-success-strong underline"
-                confirmLabel="Send request"
-                message={`Ask the desk to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
-              >
-                Ask to cancel
-              </ConfirmButton>
-            </form>
-          )}
+          <span className="flex items-center gap-4">
+            {/* A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
+                No `download` attribute either - iOS would save it instead of offering the calendar. */}
+            <a href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
+              <Icon name="calendar" size={16} />
+              Add to calendar
+            </a>
+            {canRequestCancel && (
+              <form action={requestCancel.bind(null, seat.session.id)}>
+                <ConfirmButton
+                  tone="default"
+                  triggerVariant="link"
+                  className="h-auto p-0 text-success-strong underline"
+                  confirmLabel="Send request"
+                  message={`Ask the desk to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
+                >
+                  Ask to cancel
+                </ConfirmButton>
+              </form>
+            )}
+          </span>
         </div>
       ))}
       {/* Moving is done from the grid in the page's dialog: pick another time and its bar

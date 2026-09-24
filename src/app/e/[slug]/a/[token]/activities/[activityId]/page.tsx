@@ -90,6 +90,7 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
         <ActivityBooking
           controls={controls}
           pendingId={pendingId}
+          calendarPath={`/e/${slug}/a/${token}/activities/${activity.id}/calendar.ics`}
           requestCancel={requestCancelAction.bind(null, slug, token)}
           withdraw={withdrawRequestAction.bind(null, slug, token)}
         />
