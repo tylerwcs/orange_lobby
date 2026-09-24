@@ -87,7 +87,7 @@ export async function loadHomeData(
 }
 
 /**
- * The bar's Activities slot, for the personal layout (`activityNav` has the rules).
+ * Whether this attendee gets an Activities button and its dot, for the layout's header and the home's launcher (`activityNav` has the rules).
  *
  * Kept to the queries the answer needs: `listActivities` alone decides whether there is a tab,
  * and this attendee's bookings are fetched only when a required activity they can see might be

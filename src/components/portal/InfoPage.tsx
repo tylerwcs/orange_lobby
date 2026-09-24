@@ -17,7 +17,7 @@ export function InfoPage({ event, tabs, selected, basePath, hasInfo }: {
   tabs: PortalInfoTab[];
   selected: PortalInfoTab | null;
   basePath: string;
-  /** Whether the Agenda | Info switch is drawn - the same answer the bar uses (D205). */
+  /** Whether the Agenda | Info switch is drawn - the same answer the launcher and header use (D205). */
   hasInfo: boolean;
 }) {
   return (

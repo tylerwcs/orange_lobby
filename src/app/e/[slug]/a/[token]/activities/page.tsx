@@ -5,7 +5,7 @@ import { ActivitiesTab } from "@/components/portal/ActivitiesTab";
 export const dynamic = "force-dynamic";
 
 /**
- * The bar's Activities tab: every kind of activity on one page (D178, D179), as cards sorted
+ * The Activities page: every kind of activity on one page (D178, D179), as cards sorted
  * into To choose, Booked, Open to you and Done by `ActivitiesTab`. Every card opens the
  * activity's own page, where the booking, the form or the stamp grid is.
  */

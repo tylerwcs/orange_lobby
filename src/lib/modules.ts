@@ -16,7 +16,7 @@ export type BuiltinKey = (typeof BUILTIN_MODULES)[number];
 /**
  * The built-ins that are still tiles on the portal home.
  *
- * Agenda and Info are in the bottom nav, Announcements is the banner at the top of the
+ * Agenda and Info are built-in launcher sections (D211), Announcements is the banner at the top of the
  * home, and the table number is on the badge card - so a tile for any of them was a second
  * route to something already on screen. Rows for the retired keys still parse; they simply
  * do not render, and the Modules page no longer offers switches for them.

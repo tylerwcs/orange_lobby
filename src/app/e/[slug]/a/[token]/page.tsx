@@ -1,5 +1,8 @@
 import { loadPortalAttendee, portalHasInfo, isUnpublished } from "@/lib/portal";
-import { loadHomeData } from "@/lib/portal-home";
+import { loadActivityNav, loadHomeData } from "@/lib/portal-home";
+import { loadActivityEntries } from "@/lib/portal-activity-entries";
+import { activityCards } from "@/lib/activity-cards";
+import { launcherItems } from "@/lib/launcher";
 import { firstCheckinAt } from "@/lib/db/checkins";
 import { isoToLocalInput } from "@/lib/time";
 import { myBreakouts } from "@/lib/breakouts";
@@ -7,7 +10,8 @@ import { categoryVisibleBreakoutItems } from "@/lib/agenda";
 import { BadgeCard } from "@/components/portal/BadgeCard";
 import { BreakoutCard } from "@/components/portal/BreakoutCard";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
-import { TileGrid } from "@/components/portal/TileGrid";
+import { LauncherGrid } from "@/components/portal/LauncherGrid";
+import { HomeActivities } from "@/components/portal/HomeActivities";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { VenueCard } from "@/components/portal/VenueCard";
@@ -55,12 +59,19 @@ export default async function PersonalHome({ params, searchParams }: {
     checkedInAt,
     qr,
     hasInfo,
+    activities,
   ] = await Promise.all([
     loadHomeData(event, attendee, basePath, requestedDay),
     arrivalTime(event, attendee.id),
     qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token)),
     portalHasInfo(event.id),
+    // The same answer the layout already read (its queries are memoised): whether there is an
+    // Activities button, and whether it carries the dot.
+    loadActivityNav(event, attendee),
   ]);
+  // Only an attendee who can see an activity pays for the cards' queries (D214).
+  const cards = activities.show ? activityCards(await loadActivityEntries(event, attendee), basePath) : [];
+  const launcher = launcherItems({ basePath, personal: true, hasInfo, activities, tiles });
 
   return (
     <>
@@ -68,26 +79,24 @@ export default async function PersonalHome({ params, searchParams }: {
 
       {/*
         Three columns from xl: who you are and where you are, the whole day, what changed.
-        Two at md, one on a phone - where the agenda and announcement columns are hidden
-        entirely rather than stacked. A phone showing eight sessions and three
-        announcements under a badge is a scroll, not a home screen; that is what the
-        bottom bar's Info slot and the announcement banner's dialog are for. Activities
-        are not on this page at any width: they have their own slot in the bar.
+        Two at md, one on a phone. On a phone this page is the whole navigation (D209): badge,
+        the latest announcement, the launcher, breakouts, then the activity cards (D215). The
+        phone-only pieces live in the first column, hidden from md, where the header carries
+        the sections and the other columns carry the agenda and announcements (D210).
       */}
       <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
         <div className="flex flex-col gap-4 md:gap-5">
           <BadgeCard attendee={attendee} basePath={basePath} qr={qr} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
+          {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
+          <LauncherGrid items={launcher} className="md:hidden" />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
+          <div className="md:hidden"><HomeActivities cards={cards} basePath={basePath} /></div>
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>
         </div>
 
-        <div className="flex flex-col gap-4 md:gap-5">
-          {/* Phone: the latest announcement, opening all of them. No "next session" card -
-              the bar's Info slot is one tap from the whole agenda. Desktop: the whole day, below. */}
-          {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
-
-          <Card className="hidden md:block">
+        <div className="hidden md:flex md:flex-col md:gap-5">
+          <Card>
             <CardHeader>
               <CardTitle>Today</CardTitle>
             </CardHeader>
@@ -106,8 +115,8 @@ export default async function PersonalHome({ params, searchParams }: {
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4 md:col-span-2 md:gap-5 xl:col-span-1">
-          <Card className="hidden md:block">
+        <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
+          <Card>
             <CardHeader>
               <CardTitle className={caption}>Announcements</CardTitle>
             </CardHeader>
@@ -115,7 +124,8 @@ export default async function PersonalHome({ params, searchParams }: {
               <AnnouncementList items={announcements.slice(0, 4)} />
             </CardContent>
           </Card>
-          <TileGrid tiles={tiles} />
+          {/* The header already links to the portal's own sections; only the tiles here. */}
+          <LauncherGrid items={launcher.filter((i) => !i.builtin)} />
         </div>
 
       </div>

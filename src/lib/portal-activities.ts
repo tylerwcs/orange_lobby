@@ -30,8 +30,8 @@ export function passportSection(passport: Pick<Passport, "complete">): "open" | 
 }
 
 /**
- * What the bottom bar needs to know about activities: whether to offer the tab at all, and
- * whether to put a dot on it.
+ * What the launcher and the desktop header need to know about activities: whether to offer
+ * them at all, and whether to put a dot on the button.
  *
  * Mirrors `Info`, which only appears when there is an info page — a tab that leads to "nothing
  * here" is worse than no tab. The dot replaces the home card's "Pick one" nag, so it means

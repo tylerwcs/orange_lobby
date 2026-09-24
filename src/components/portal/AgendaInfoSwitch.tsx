@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 /**
- * The two tabs of the bar's Info slot: the agenda and the event's info page.
+ * The two tabs of the Info section: the agenda and the event's info page.
  *
  * Links rather than client-side tabs. Both pages keep their own routes, so the agenda's
  * `?day=` links, the desktop venue card's link to /info and any bookmark all still land on

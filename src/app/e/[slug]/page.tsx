@@ -2,7 +2,8 @@ import { loadPortalEvent, portalHasInfo } from "@/lib/portal";
 import { loadHomeData } from "@/lib/portal-home";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
-import { TileGrid } from "@/components/portal/TileGrid";
+import { LauncherGrid } from "@/components/portal/LauncherGrid";
+import { launcherItems } from "@/lib/launcher";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { VenueCard } from "@/components/portal/VenueCard";
@@ -25,6 +26,7 @@ export default async function GenericHome({ params, searchParams }: {
     loadHomeData(event, null, basePath, requestedDay),
     portalHasInfo(event.id),
   ]);
+  const launcher = launcherItems({ basePath, personal: false, hasInfo, tiles });
 
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="" hero dashboard>
@@ -44,13 +46,14 @@ export default async function GenericHome({ params, searchParams }: {
               </p>
             </CardContent>
           </Card>
+          {/* Phone: the latest announcement and the launcher, which is the navigation there (D209). */}
+          {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
+          <LauncherGrid items={launcher} className="md:hidden" />
           <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>
         </div>
 
-        <div className="flex flex-col gap-4 md:gap-5">
-          {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
-
-          <Card className="hidden md:block">
+        <div className="hidden md:flex md:flex-col md:gap-5">
+          <Card>
             <CardHeader>
               <CardTitle>Today</CardTitle>
             </CardHeader>
@@ -67,8 +70,8 @@ export default async function GenericHome({ params, searchParams }: {
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4 md:col-span-2 md:gap-5 xl:col-span-1">
-          <Card className="hidden md:block">
+        <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
+          <Card>
             <CardHeader>
               <CardTitle className={caption}>Announcements</CardTitle>
             </CardHeader>
@@ -76,7 +79,7 @@ export default async function GenericHome({ params, searchParams }: {
               <AnnouncementList items={announcements.slice(0, 4)} />
             </CardContent>
           </Card>
-          <TileGrid tiles={tiles} />
+          <LauncherGrid items={launcher.filter((i) => !i.builtin)} />
         </div>
 
       </div>

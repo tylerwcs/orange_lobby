@@ -6,7 +6,7 @@ import { PortalChrome } from "./PortalChrome";
  * The portal's chrome, for the pages that still render it themselves.
  *
  * The personal portal does not: its chrome lives in `a/[token]/layout.tsx` so the header and
- * the bottom bar survive a navigation instead of being rebuilt by whichever page you land on.
+ * its nav survive a navigation instead of being rebuilt by whichever page you land on.
  * The anonymous portal still calls this, because moving its chrome into a layout needs a route
  * group — `e/[slug]/layout.tsx` also wraps the personal pages and the register pages — and that
  * is a separate change (D113).
