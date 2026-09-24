@@ -1,10 +1,10 @@
 import "server-only";
-import { listAgenda } from "@/lib/db/agenda";
+import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { listAnnouncements } from "@/lib/db/announcements";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { listSessions } from "@/lib/db/activities";
 import { portalActivities, portalBookings } from "@/lib/portal";
-import { groupByDay, pickDay } from "@/lib/agenda";
+import { dayTabs, pickDay, type DayTab } from "@/lib/agenda";
 import { isBreakout } from "@/lib/breakouts";
 import { eligible, personalAgenda } from "@/lib/activities";
 import { activityNav, type ActivityNav } from "@/lib/portal-activities";
@@ -25,7 +25,8 @@ export type HomeData = {
   allAgenda: AgendaItem[];
   /** The breakout items this attendee is assigned to, exposed so the home page's breakouts card can reuse it rather than re-querying. */
   assignedItemIds: ReadonlySet<string>;
-  days: string[];
+  /** The day tabs (D199). */
+  days: DayTab[];
   /** The day the desktop home is showing - today when the event is running, else the first. */
   day: string | null;
   announcements: Announcement[];
@@ -40,8 +41,9 @@ export async function loadHomeData(
 ): Promise<HomeData> {
   // Two round trips, not four: everything that decides what else to read goes in the first,
   // and every read that depends on it goes together in the second.
-  const [allAgenda, announcements, activities] = await Promise.all([
+  const [allAgenda, agendaDays, announcements, activities] = await Promise.all([
     listAgenda(event.id),
+    listAgendaDays(event.id),
     listAnnouncements(event.id),
     attendee ? portalActivities(event.id) : [],
   ]);
@@ -76,10 +78,10 @@ export async function loadHomeData(
   );
   const banner = announcements.find((a) => a.pinned) ?? announcements[0] ?? null;
   const tiles = resolveTiles({ event, basePath });
-  const days = groupByDay(agenda).map((g) => g.day);
+  const days = dayTabs(agendaDays, agenda);
   return {
     tiles, banner,
-    agenda, allAgenda, assignedItemIds, days, day: pickDay(days, requestedDay, date),
+    agenda, allAgenda, assignedItemIds, days, day: pickDay(days.map((d) => d.date), requestedDay, date),
     announcements, now: { date, time },
   };
 }

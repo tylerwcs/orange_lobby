@@ -1,9 +1,9 @@
 import { loadPortalAttendee, portalActivities, portalBookings } from "@/lib/portal";
-import { listAgenda } from "@/lib/db/agenda";
+import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { listSessions } from "@/lib/db/activities";
 import { isBreakout } from "@/lib/breakouts";
-import { groupByDay, pickDay } from "@/lib/agenda";
+import { dayTabs, pickDay } from "@/lib/agenda";
 import { personalAgenda } from "@/lib/activities";
 import { nowInKL } from "@/lib/time";
 import { AgendaList } from "@/components/portal/AgendaList";
@@ -17,7 +17,7 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   // loadHomeData uses, so this page and the portal home never disagree about what a booked
   // session looks like. Same two round trips as loadHomeData, too: what decides the rest
   // first, then everything that depends on it together.
-  const [allAgenda, activities] = await Promise.all([listAgenda(event.id), portalActivities(event.id)]);
+  const [allAgenda, agendaDays, activities] = await Promise.all([listAgenda(event.id), listAgendaDays(event.id), portalActivities(event.id)]);
   const [assignedItemIds, myBookings, sessions] = await Promise.all([
     allAgenda.some(isBreakout) ? assignedItemIdsFor(attendee.id) : new Set<string>(),
     activities.length ? portalBookings(attendee.id) : [],
@@ -31,9 +31,9 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
     bookedSessions,
     new Map(activities.map((a) => [a.id, a.name])),
   );
-  const days = groupByDay(items).map((d) => d.day);
+  const days = dayTabs(agendaDays, items);
   const now = nowInKL();
-  const day = pickDay(days, requested, now.date);
+  const day = pickDay(days.map((d) => d.date), requested, now.date);
   return (
     <>
       {event.info_page_html && <AgendaInfoSwitch basePath={basePath} current="agenda" />}

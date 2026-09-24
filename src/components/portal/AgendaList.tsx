@@ -1,5 +1,5 @@
 import type { AgendaItem } from "@/lib/types";
-import { isNow } from "@/lib/agenda";
+import { isNow, type DayTab } from "@/lib/agenda";
 import { agendaAccentClass } from "@/lib/agenda-colours";
 import { isBreakout } from "@/lib/breakouts";
 import { isBookedRow } from "@/lib/activities";
@@ -19,7 +19,7 @@ const DaySkeleton = () => (
 export function AgendaList({ items, day, days, basePath, now, dayHref }: {
   items: AgendaItem[];
   day: string | null;
-  days: string[];
+  days: DayTab[];
   basePath: string;
   now: { date: string; time: string };
   /** Where a day tab goes. Defaults to the agenda page; the desktop home points at itself. */
@@ -34,23 +34,33 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
     <PendingScope>
     <div className="flex flex-col gap-3">
       {days.length > 1 && (
-        <div className="flex gap-5 border-b border-border">
-          {days.map((d) => (
-            <PendingLink
-              key={d}
-              href={hrefForDay(d)}
-              selected={d === day}
-              className="-mb-px border-b-[3px] pb-2 text-[13px]"
-              selectedClassName="border-primary font-extrabold text-primary"
-              unselectedClassName="border-transparent font-semibold text-muted-foreground"
-            >
-              {shortDate(d)}
-            </PendingLink>
-          ))}
+        // Scrolls sideways rather than wrapping: named days ("Day 2 (Teambuilding)") do not fit
+        // three abreast on a phone, and a wrapped strip reads as two rows of tabs (D199).
+        <div className="overflow-x-auto">
+          <div className="flex w-max min-w-full gap-5 border-b border-border">
+            {days.map((d) => (
+              <PendingLink
+                key={d.date}
+                href={hrefForDay(d.date)}
+                selected={d.date === day}
+                className="-mb-px shrink-0 border-b-[3px] pb-2 text-left text-[13px]"
+                selectedClassName="border-primary font-extrabold text-primary"
+                unselectedClassName="border-transparent font-semibold text-muted-foreground"
+              >
+                {d.name ? (
+                  <>
+                    <span className="block whitespace-nowrap">{d.name}</span>
+                    <span className="block text-[11px] font-semibold text-muted-foreground">{shortDate(d.date)}</span>
+                  </>
+                ) : shortDate(d.date)}
+              </PendingLink>
+            ))}
+          </div>
         </div>
       )}
       <PendingSwap fallback={<DaySkeleton />}>
       {todays.map((i) => {
+        if (i.kind === "image") return <ImageRow key={i.id} item={i} />;
         const live = isNow(i, now.date, now.time);
         const accent = agendaAccentClass(i.color);
         return (
@@ -85,5 +95,20 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
       </PendingSwap>
     </div>
     </PendingScope>
+  );
+}
+
+/**
+ * An image the organiser placed in the day (D196): shown whole across the column, with its
+ * caption beneath. A row with no URL cannot exist (the database requires one), but rendering
+ * nothing beats rendering a broken image if one ever does.
+ */
+function ImageRow({ item }: { item: AgendaItem }) {
+  if (!item.image_url) return null;
+  return (
+    <figure className="flex flex-col gap-2">
+      <AgendaImage src={item.image_url} title={item.title || "Agenda image"} variant="full" />
+      {item.title && <figcaption className="px-1 text-sm text-muted-foreground">{item.title}</figcaption>}
+    </figure>
   );
 }
