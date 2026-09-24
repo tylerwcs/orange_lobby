@@ -142,6 +142,8 @@ export type Booth = {
   id: string;
   org_id: string;
   event_id: string;
+  /** The passport this booth stamps into (D180). */
+  activity_id: string;
   name: string;
   location: string | null;
   /** The booth's scanner authority. Printed as a QR; never shown to attendees. */
@@ -158,8 +160,8 @@ export type BoothStamp = {
   stamped_at: string;
 };
 
-/** What an attendee does with an activity: take a seat, or send answers (D178). */
-export type ActivityKind = "booking" | "submission";
+/** What an attendee does with an activity: take a seat, send answers, or collect stamps (D178, D179). */
+export type ActivityKind = "booking" | "submission" | "passport";
 
 export type Activity = {
   id: string;
@@ -169,8 +171,9 @@ export type Activity = {
   description: string | null;
   /**
    * Which half of the policy below actually applies. `booking` uses sessions and capacity;
-   * `submission` uses questions and per_day. Both share categories, the open flag, the cap
-   * and `required` — that shared half is why they are one table (D178).
+   * `submission` uses questions and per_day; `passport` uses booths and a stamp target.
+   * All three share categories, the open flag, the cap and `required` — that shared half
+   * is why they are one table (D178, D179).
    */
   kind: ActivityKind;
   /** At least one booking or one submission is expected. Never max_per_attendee of them (D129). */
@@ -195,6 +198,10 @@ export type Activity = {
   venue: string | null;
   /** Submission kind only. The attendee's button; "Submit" when null (`submitLabel`). */
   action_label: string | null;
+  /** Passport kind only. How many stamps fill the card; null is every booth (D182). */
+  stamps_required: number | null;
+  /** Passport kind only. Shown once the card is full - the prize, in the organiser's words (D96). */
+  reward_message: string | null;
   sort_order: number;
 };
 

@@ -6,7 +6,7 @@ import type { Activity, ActivityChangeRequest, ActivitySession } from "@/lib/typ
 const activity = (over: Partial<Activity> = {}): Activity => ({
   id: "act1", org_id: "o", event_id: "e", name: "Workshops", description: null,
   kind: "booking", required: false, is_open: true, max_per_attendee: 1, categories: null,
-  questions: [], per_day: false, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, sort_order: 0, ...over,
+  questions: [], per_day: false, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
   // A start time per id ("s1" at 10:30, "s2" at 11:30), so each session's label is its own.

@@ -3,7 +3,7 @@ import { buildPassport, completionByAttendee, progressLine, stampsTarget } from 
 import type { Booth, BoothStamp } from "@/lib/types";
 
 const booth = (id: string, sort_order = 0): Booth => ({
-  id, org_id: "o", event_id: "e", name: id, location: null, token: `tok${id}`, sort_order,
+  id, org_id: "o", event_id: "e", activity_id: "p1", name: id, location: null, token: `tok${id}`, sort_order,
 });
 const stamp = (booth_id: string, attendee_id: string, stamped_at: string): BoothStamp => ({
   id: `${booth_id}-${attendee_id}`, org_id: "o", event_id: "e", booth_id, attendee_id, stamped_at,

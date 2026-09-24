@@ -6,7 +6,7 @@ import type { Activity, ActivitySubmission } from "@/lib/types";
 const form = (over: Partial<Activity> = {}): Activity => ({
   id: "f1", org_id: "o", event_id: "e", name: "Daily check-in", description: null,
   kind: "submission", required: false, is_open: true, categories: null,
-  max_per_attendee: null, questions: [], per_day: false, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, sort_order: 0, ...over,
+  max_per_attendee: null, questions: [], per_day: false, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const sub = (day: string): ActivitySubmission => ({
   id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", answers: {},
