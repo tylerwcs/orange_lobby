@@ -270,3 +270,14 @@ describe("floorPlanShown", () => {
     expect(floorPlanShown({ floor_plan_url: plan, modules: [] })).toBe(true);
   });
 });
+
+describe("floor plan picture", () => {
+  it("draws the portal's own floor plan picture unless the organiser uploaded one", () => {
+    const tiles = (icon_image?: string) => resolveTiles({
+      event: { floor_plan_url: "https://x/plan.png", info_page_title: "Info", modules: [{ key: "floor_plan", enabled: true, ...(icon_image ? { icon_image } : {}) }] },
+      basePath: "/e/kom",
+    });
+    expect(tiles()[0].image).toBe("/portal-icons/floor-plan.webp");
+    expect(tiles("https://x/mine.png")[0].image).toBe("https://x/mine.png");
+  });
+});

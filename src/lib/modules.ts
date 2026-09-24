@@ -145,9 +145,8 @@ export function floorPlanUrl(event: Pick<Event, "floor_plan_url" | "modules">): 
 
 /**
  * Whether attendees are offered the floor plan at all (D225): it needs a plan image AND the
- * floor plan switched on in Modules. The badge's Floor plan button and the seat card's link
- * follow this, so the one switch that hides the tile hides them too - an event without a plan
- * worth showing turns it off in one place.
+ * floor plan switched on in Modules. The seat card's link follows this, so the one switch that
+ * hides the tile hides it too - an event without a plan worth showing turns it off in one place.
  */
 export function floorPlanShown(event: Pick<Event, "floor_plan_url" | "modules">): boolean {
   const modules = event.modules?.length ? event.modules : defaultModules();
@@ -229,7 +228,8 @@ export function resolveTiles(input: {
     switch (m.key) {
       case "floor_plan":
         if (!floorPlanUrl(event)) break;
-        out.push({ id: "floor_plan", label, icon, image: safeImage(m.icon_image), route: null, external: false, href: `${basePath}/plan`, subtitle: m.subtitle ?? "Venue layout" });
+        // The portal's own picture unless the organiser uploaded one (D226).
+        out.push({ id: "floor_plan", label, icon, image: safeImage(m.icon_image) ?? "/portal-icons/floor-plan.webp", route: null, external: false, href: `${basePath}/plan`, subtitle: m.subtitle ?? "Venue layout" });
         break;
     }
   }

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Attendee } from "@/lib/types";
 import { pinScale, type ResolvedPin } from "@/lib/pinned-fields";
 import { Icon } from "@/components/ui/icon";
@@ -11,17 +10,17 @@ import { BadgeQrDialog } from "./BadgeQrDialog";
  * The bottom of the card is whatever the event pinned, in the event's order, as equal tiles
  * (D224): the same box and the same size for every value, so a table number and a room
  * number line up instead of one towering over the other. They share a row whenever they fit
- * and wrap when they do not; a long value drops to smaller type. The Floor plan button sits under the
- * tiles at full width, when the event offers one (D225). The pins arrive already resolved,
- * so a fact this attendee has no value for never reaches the card - and when nothing survives
- * and there is no floor plan, the section and its rule disappear rather than sitting empty.
+ * and wrap when they do not; a long value drops to smaller type. No Floor plan button: the
+ * launcher has the floor plan (D226). The pins arrive already resolved, so a fact this
+ * attendee has no value for never reaches the card - and when nothing survives, the section
+ * and its rule disappear rather than sitting empty.
  *
  * Company used to print under the name unconditionally. It is a pin now like anything else:
  * an event whose badges should carry it pins it in Settings, and `pinnableFields` offers it
  * the moment the event defines the column.
  */
-export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins, qr }: {
-  attendee: Attendee; basePath: string; checkedInAt: string | null; floorPlan: boolean; pins: ResolvedPin[];
+export function BadgeCard({ attendee, checkedInAt, pins, qr }: {
+  attendee: Attendee; checkedInAt: string | null; pins: ResolvedPin[];
   /** The attendee's QR as a data URL; the square button opens it in place (was a link to Me). */
   qr: string;
 }) {
@@ -44,32 +43,25 @@ export function BadgeCard({ attendee, basePath, checkedInAt, floorPlan, pins, qr
           }
         />
       </div>
-      {(pins.length > 0 || floorPlan) && (
+      {pins.length > 0 && (
         <>
           <div className="h-px bg-white/10" />
-          {pins.length > 0 && (
-            // A wrapping row sized by the text itself: tiles share one line whenever their real
-            // widths fit the card, grow to fill it evenly, and the one that does not fit starts
-            // the next line and fills that.
-            <dl className="flex flex-wrap gap-1.5">
-              {pins.map((p) => {
-                const long = pinScale(p.value) === "small";
-                return (
-                  <div key={p.key} className="flex min-w-20 max-w-full flex-auto flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5">
-                    <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
-                    <dd className={long
-                      ? "text-sm font-extrabold leading-tight break-words text-primary"
-                      : "whitespace-nowrap text-lg font-extrabold leading-tight tabular-nums text-primary"}>{p.value}</dd>
-                  </div>
-                );
-              })}
-            </dl>
-          )}
-          {floorPlan && (
-            <Link href={`${basePath}/plan`} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-white/10 px-3.5 text-xs font-bold">
-              <Icon name="map" size={16} />Floor plan
-            </Link>
-          )}
+          {/* A wrapping row sized by the text itself: tiles share one line whenever their real
+              widths fit the card, grow to fill it evenly, and the one that does not fit starts
+              the next line and fills that. */}
+          <dl className="flex flex-wrap gap-1.5">
+            {pins.map((p) => {
+              const long = pinScale(p.value) === "small";
+              return (
+                <div key={p.key} className="flex min-w-20 max-w-full flex-auto flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5">
+                  <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
+                  <dd className={long
+                    ? "text-sm font-extrabold leading-tight break-words text-primary"
+                    : "whitespace-nowrap text-lg font-extrabold leading-tight tabular-nums text-primary"}>{p.value}</dd>
+                </div>
+              );
+            })}
+          </dl>
         </>
       )}
     </section>

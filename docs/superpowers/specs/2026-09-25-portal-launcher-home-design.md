@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D225. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D226. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -114,6 +114,10 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   tiles) and the seat card's link show only when the floor plan is switched on in Modules and
   has an image (`floorPlanShown`), matching the launcher tile. Before, they showed whenever an
   image existed, even with the tile switched off.
+
+- **D226** **No Floor plan button on the badge**; the launcher's floor plan tile is the way
+  there, drawn with the portal's own illustration (`public/portal-icons/floor-plan.webp`)
+  unless the organiser uploaded one. Supersedes the badge half of D225.
 
 ## 3. Out of scope
 
