@@ -42,7 +42,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
     }] : []),
     ...(booths.length > 0 ? [{
       href: `${b}/passport.xlsx`, icon: "star" as IconName, name: "Booth Passport",
-      what: "One row per attendee, one column per booth: who went where, how many stamps they collected, and whether their card is complete.",
+      what: "One sheet per passport: a row per attendee, a column per booth, how many stamps they collected, and whether their card is complete.",
     }] : []),
     ...(activities.length > 0 ? [{
       href: `${b}/activities.xlsx`, icon: "file" as IconName, name: "Activity rosters",

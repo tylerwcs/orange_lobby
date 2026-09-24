@@ -151,18 +151,18 @@ describe("buildPassportWorkbook", () => {
   ] as unknown as Parameters<typeof buildPassportWorkbook>[0];
 
   it("writes a column per booth plus a total and a completed flag", () => {
-    const ws = buildPassportWorkbook(attendees, booths, stamps, null).getWorksheet("Booth Passport")!;
+    const ws = buildPassportWorkbook(attendees, [{ name: "Booth Passport", booths, required: null }], stamps).getWorksheet("Booth Passport")!;
     expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Operations", "Creative Studio", "Stamps", "Completed"]);
   });
 
   it("marks who has been where, and who has finished", () => {
-    const ws = buildPassportWorkbook(attendees, booths, stamps, null).getWorksheet("Booth Passport")!;
+    const ws = buildPassportWorkbook(attendees, [{ name: "Booth Passport", booths, required: null }], stamps).getWorksheet("Booth Passport")!;
     expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Management", "Yes", "Yes", 2, "Yes"]);
     expect(ws.getRow(3).values).toEqual([undefined, "Sarah Lim", "s@x.my", "Crew", "No", "No", 0, "No"]);
   });
 
   it("honours a target below the booth count", () => {
-    const ws = buildPassportWorkbook(attendees, booths, stamps.slice(0, 1), 1).getWorksheet("Booth Passport")!;
+    const ws = buildPassportWorkbook(attendees, [{ name: "Booth Passport", booths, required: 1 }], stamps.slice(0, 1)).getWorksheet("Booth Passport")!;
     expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Management", "Yes", "No", 1, "Yes"]);
   });
 
@@ -170,8 +170,28 @@ describe("buildPassportWorkbook", () => {
     const withFieldCompany = [
       { id: "a3", name: "Nadia Rahman", email: "n@x.my", category: "VIP", extra: { company: "Northwind" } },
     ] as unknown as Parameters<typeof buildPassportWorkbook>[0];
-    const ws = buildPassportWorkbook(withFieldCompany, booths, [], null).getWorksheet("Booth Passport")!;
+    const ws = buildPassportWorkbook(withFieldCompany, [{ name: "Booth Passport", booths, required: null }], []).getWorksheet("Booth Passport")!;
     expect(ws.getRow(2).values).toEqual([undefined, "Nadia Rahman", "n@x.my", "VIP", "No", "No", 0, "No"]);
+  });
+
+  it("writes one sheet per passport, each with only its own booths", () => {
+    const other: Booth[] = [{ id: "c1", org_id: "o", event_id: "e", activity_id: "p2", name: "Photo Wall", location: null, token: "t3", sort_order: 0 }];
+    const wb = buildPassportWorkbook(attendees, [
+      { name: "Booth Passport", booths, required: null },
+      { name: "Wellness Trail", booths: other, required: null },
+    ], [...stamps, { id: "s3", org_id: "o", event_id: "e", booth_id: "c1", attendee_id: "a2", stamped_at: "2026-09-30T03:00:00Z" }]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Booth Passport", "Wellness Trail"]);
+    const trail = wb.getWorksheet("Wellness Trail")!;
+    expect(trail.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Photo Wall", "Stamps", "Completed"]);
+    expect(trail.getRow(3).values).toEqual([undefined, "Sarah Lim", "s@x.my", "Crew", "Yes", 1, "Yes"]);
+  });
+
+  it("keeps two passports with the same name as two sheets", () => {
+    const wb = buildPassportWorkbook(attendees, [
+      { name: "Passport", booths, required: null },
+      { name: "Passport", booths, required: null },
+    ], []);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Passport", "Passport 2"]);
   });
 });
 

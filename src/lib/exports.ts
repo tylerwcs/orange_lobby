@@ -321,21 +321,32 @@ export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
   return wb;
 }
 
-export function buildPassportWorkbook(attendees: Attendee[], booths: Booth[], stamps: BoothStamp[], required: number | null): ExcelJS.Workbook {
-  const completion = completionByAttendee(booths, stamps, required);
+/** One passport's sheet: its name, its booths in admin order, and its target. */
+export type PassportSheet = { name: string; booths: Booth[]; required: number | null };
+
+/**
+ * One sheet per passport (D181): a row per attendee, a column per booth, a total and a
+ * completed flag (D100). `stamps` may be the whole event's — `completionByAttendee` and the
+ * per-booth lookup only ever match this passport's booth ids.
+ */
+export function buildPassportWorkbook(attendees: Attendee[], passports: PassportSheet[], stamps: BoothStamp[]): ExcelJS.Workbook {
   const stamped = new Set(stamps.map((s) => `${s.booth_id}:${s.attendee_id}`));
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("Booth Passport");
-  ws.addRow(["Name", "Email", "Category", ...booths.map((b) => b.name), "Stamps", "Completed"]);
-  for (const a of attendees) {
-    const c = completion.get(a.id) ?? { collected: 0, complete: false };
-    ws.addRow([
-      a.name, a.email, a.category,
-      ...booths.map((b) => (stamped.has(`${b.id}:${a.id}`) ? "Yes" : "No")),
-      c.collected,
-      c.complete ? "Yes" : "No",
-    ]);
+  const taken = new Set<string>();
+  for (const p of passports) {
+    const completion = completionByAttendee(p.booths, stamps, p.required);
+    const ws = wb.addWorksheet(uniqueSheetName(sanitizeSheetNamePart(p.name) || "Passport", taken));
+    ws.addRow(["Name", "Email", "Category", ...p.booths.map((b) => b.name), "Stamps", "Completed"]);
+    for (const a of attendees) {
+      const c = completion.get(a.id) ?? { collected: 0, complete: false };
+      ws.addRow([
+        a.name, a.email, a.category,
+        ...p.booths.map((b) => (stamped.has(`${b.id}:${a.id}`) ? "Yes" : "No")),
+        c.collected,
+        c.complete ? "Yes" : "No",
+      ]);
+    }
+    ws.columns?.forEach((col) => { col.width = 20; });
   }
-  ws.columns?.forEach((col) => { col.width = 20; });
   return wb;
 }

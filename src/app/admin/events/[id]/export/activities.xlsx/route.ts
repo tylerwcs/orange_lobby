@@ -10,7 +10,7 @@ import { buildActivityRostersWorkbook, type ActivitySessionRoster, type Activity
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
   const [attendees, activities, sessions, bookings] = await Promise.all([
-    listAttendees(ev.id), listActivities(ev.id), listSessions(ev.id), listBookings(ev.id),
+    listAttendees(ev.id), listActivities(ev.id, "booking"), listSessions(ev.id), listBookings(ev.id),
   ]);
   const attendeeIds = attendees.map((a) => a.id);
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));

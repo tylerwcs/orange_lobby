@@ -37,7 +37,7 @@ export default async function Overview({ params }: { params: Promise<{ id: strin
 
   if (!ev.check_in_enabled) {
     const [total, attendees, activities, sessions, counts, bookings] = await Promise.all([
-      countAttendees(ev.id), listAttendees(ev.id), listActivities(ev.id),
+      countAttendees(ev.id), listAttendees(ev.id), listActivities(ev.id, "booking"),
       listSessions(ev.id), countBookingsBySession(ev.id), listBookings(ev.id),
     ]);
     const byId = new Map(attendees.map((a) => [a.id, a]));
