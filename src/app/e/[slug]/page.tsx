@@ -1,4 +1,4 @@
-import { loadPortalEvent } from "@/lib/portal";
+import { loadPortalEvent, portalHasInfo } from "@/lib/portal";
 import { loadHomeData } from "@/lib/portal-home";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
@@ -21,8 +21,10 @@ export default async function GenericHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const event = await loadPortalEvent(slug);
   const basePath = `/e/${slug}`;
-  const { tiles, banner, agenda, days, day, announcements, now } =
-    await loadHomeData(event, null, basePath, requestedDay);
+  const [{ tiles, banner, agenda, days, day, announcements, now }, hasInfo] = await Promise.all([
+    loadHomeData(event, null, basePath, requestedDay),
+    portalHasInfo(event.id),
+  ]);
 
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="" hero dashboard>
@@ -42,7 +44,7 @@ export default async function GenericHome({ params, searchParams }: {
               </p>
             </CardContent>
           </Card>
-          <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
+          <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>
         </div>
 
         <div className="flex flex-col gap-4 md:gap-5">

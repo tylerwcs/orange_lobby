@@ -10,15 +10,15 @@ const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foregr
 /**
  * Where the event is and who to ask, for the desktop home's left column.
  *
- * Deliberately the STRUCTURED venue fields and not `info_page_html`. That column is 300px
- * and the info page is free-form HTML an organiser writes with a rich-text editor - a
- * couple of paragraphs would overflow it and a long one would dwarf the agenda beside it.
- * So this summarises, and links to the page when there is one.
+ * Deliberately the STRUCTURED venue fields and not the Info tabs. That column is 300px and
+ * the Info tabs are free-form HTML an organiser writes with a rich-text editor - a couple of
+ * paragraphs would overflow it and a long one would dwarf the agenda beside it. So this
+ * summarises, and links to the page when there is one.
  */
-export function VenueCard({ event, basePath }: { event: Event; basePath: string }) {
+export function VenueCard({ event, basePath, hasInfo }: { event: Event; basePath: string; hasInfo: boolean }) {
   const hasVenue = event.venue_name || event.venue_address;
   const hasContact = event.contact_name || event.contact_phone;
-  if (!hasVenue && !hasContact && !event.info_page_html) return null;
+  if (!hasVenue && !hasContact && !hasInfo) return null;
 
   return (
     <Card>
@@ -59,7 +59,7 @@ export function VenueCard({ event, basePath }: { event: Event; basePath: string 
           </div>
         )}
 
-        {event.info_page_html && (
+        {hasInfo && (
           <>
             <Separator />
             {/* The full page keeps its own route - see the note above. */}

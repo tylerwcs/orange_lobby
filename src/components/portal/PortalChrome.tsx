@@ -65,15 +65,18 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
  */
 export type ChromeEvent = Pick<
   Event,
-  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "info_page_html"
+  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url"
 >;
 
-export function PortalChrome({ event, basePath, personal, activities, children }: {
+export function PortalChrome({ event, basePath, personal, activities, hasInfo, children }: {
   event: ChromeEvent;
   basePath: string;
   personal: boolean;
   /** Whether this attendee gets an Activities slot, and whether it carries a dot. */
   activities?: ActivityNav;
+  /** Whether the event has an Info section (D205). A boolean, not the HTML: this component's
+   *  props are published into the page (D121). */
+  hasInfo: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -81,7 +84,6 @@ export function PortalChrome({ event, basePath, personal, activities, children }
   // `hero` and `dashboard` were only ever true together, on the home route.
   const home = isPortalHome(pathname, basePath);
 
-  const hasInfo = !!event.info_page_html;
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";

@@ -1,4 +1,4 @@
-import { loadPortalAttendee } from "@/lib/portal";
+import { loadPortalAttendee, portalHasInfo } from "@/lib/portal";
 import { loadHomeData } from "@/lib/portal-home";
 import { firstCheckinAt } from "@/lib/db/checkins";
 import { isoToLocalInput } from "@/lib/time";
@@ -52,10 +52,12 @@ export default async function PersonalHome({ params, searchParams }: {
     { tiles, banner, agenda, allAgenda, assignedItemIds, days, day, announcements, now },
     checkedInAt,
     qr,
+    hasInfo,
   ] = await Promise.all([
     loadHomeData(event, attendee, basePath, requestedDay),
     arrivalTime(event, attendee.id),
     qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token)),
+    portalHasInfo(event.id),
   ]);
 
   return (
@@ -75,7 +77,7 @@ export default async function PersonalHome({ params, searchParams }: {
         <div className="flex flex-col gap-4 md:gap-5">
           <BadgeCard attendee={attendee} basePath={basePath} qr={qr} checkedInAt={checkedInAt} floorPlan={Boolean(floorPlanUrl(event))} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
-          <div className="hidden md:block"><VenueCard event={event} basePath={basePath} /></div>
+          <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>
         </div>
 
         <div className="flex flex-col gap-4 md:gap-5">

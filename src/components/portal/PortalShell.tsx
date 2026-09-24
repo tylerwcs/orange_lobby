@@ -1,4 +1,5 @@
 import type { Event } from "@/lib/types";
+import { portalHasInfo } from "@/lib/portal";
 import { PortalChrome } from "./PortalChrome";
 
 /**
@@ -15,7 +16,7 @@ import { PortalChrome } from "./PortalChrome";
  * the anonymous pages did not all have to change for a refactor that is not about them; when
  * the anonymous portal moves too, this component and these props go together.
  */
-export function PortalShell({ event, basePath, personal, children }: {
+export async function PortalShell({ event, basePath, personal, children }: {
   event: Event;
   basePath: string;
   personal: boolean;
@@ -33,10 +34,9 @@ export function PortalShell({ event, basePath, personal, children }: {
     status: event.status,
     primary_color: event.primary_color,
     banner_url: event.banner_url,
-    info_page_html: event.info_page_html,
   };
   return (
-    <PortalChrome event={chromeEvent} basePath={basePath} personal={personal}>
+    <PortalChrome event={chromeEvent} basePath={basePath} personal={personal} hasInfo={await portalHasInfo(event.id)}>
       {children}
     </PortalChrome>
   );

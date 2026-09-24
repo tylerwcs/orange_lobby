@@ -1,4 +1,4 @@
-import { loadPortalEvent } from "@/lib/portal";
+import { loadPortalEvent, portalHasInfo } from "@/lib/portal";
 import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { visibleTo, dayTabs, pickDay } from "@/lib/agenda";
 import { nowInKL } from "@/lib/time";
@@ -10,16 +10,16 @@ export default async function GenericAgenda({ params, searchParams }: { params: 
   const { slug } = await params; const { day: requested } = await searchParams;
   const event = await loadPortalEvent(slug);
   const basePath = `/e/${slug}`;
-  const [all, agendaDays] = await Promise.all([listAgenda(event.id), listAgendaDays(event.id)]);
+  const [all, agendaDays, hasInfo] = await Promise.all([listAgenda(event.id), listAgendaDays(event.id), portalHasInfo(event.id)]);
   const items = visibleTo(all, null);
   const days = dayTabs(agendaDays, items);
   const now = nowInKL();
   const day = pickDay(days.map((d) => d.date), requested, now.date);
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="/agenda">
-      {event.info_page_html && <AgendaInfoSwitch basePath={basePath} current="agenda" />}
+      {hasInfo && <AgendaInfoSwitch basePath={basePath} current="agenda" />}
       {/* With an info page the switch names this tab, so the heading only needs to be heard. */}
-      <h1 className={event.info_page_html ? "sr-only" : "mb-3 text-xl font-extrabold"}>Agenda</h1>
+      <h1 className={hasInfo ? "sr-only" : "mb-3 text-xl font-extrabold"}>Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />
     </PortalShell>
   );

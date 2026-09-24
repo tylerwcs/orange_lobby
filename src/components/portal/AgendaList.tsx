@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { AgendaImage } from "./AgendaImage";
 import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
-import { PendingLink, PendingScope, PendingSwap } from "@/components/PendingNav";
+import { PendingScope, PendingSwap } from "@/components/PendingNav";
+import { PortalTabStrip } from "./PortalTabStrip";
 
 /** What a day looks like while the next one loads: the shape of a few sessions. */
 const DaySkeleton = () => (
@@ -33,31 +34,10 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
     // underline at once and swaps the sessions for a skeleton until the day arrives.
     <PendingScope>
     <div className="flex flex-col gap-3">
-      {days.length > 1 && (
-        // Scrolls sideways rather than wrapping: named days ("Day 2 (Teambuilding)") do not fit
-        // three abreast on a phone, and a wrapped strip reads as two rows of tabs (D199).
-        <div className="overflow-x-auto">
-          <div className="flex w-max min-w-full gap-5 border-b border-border">
-            {days.map((d) => (
-              <PendingLink
-                key={d.date}
-                href={hrefForDay(d.date)}
-                selected={d.date === day}
-                className="-mb-px shrink-0 border-b-[3px] pb-2 text-left text-[13px]"
-                selectedClassName="border-primary font-extrabold text-primary"
-                unselectedClassName="border-transparent font-semibold text-muted-foreground"
-              >
-                {d.name ? (
-                  <>
-                    <span className="block whitespace-nowrap">{d.name}</span>
-                    <span className="block text-[11px] font-semibold text-muted-foreground">{shortDate(d.date)}</span>
-                  </>
-                ) : shortDate(d.date)}
-              </PendingLink>
-            ))}
-          </div>
-        </div>
-      )}
+      <PortalTabStrip
+        tabs={days.map((d) => ({ key: d.date, href: hrefForDay(d.date), label: d.name ?? shortDate(d.date), sub: d.name ? shortDate(d.date) : null }))}
+        selected={day}
+      />
       <PendingSwap fallback={<DaySkeleton />}>
       {todays.map((i) => {
         if (i.kind === "image") return <ImageRow key={i.id} item={i} />;
