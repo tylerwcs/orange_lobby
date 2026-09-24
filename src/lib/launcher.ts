@@ -21,7 +21,7 @@ export type LauncherItem = {
  * What the home's launcher shows, in order: the portal's own sections, then the organiser's
  * tiles (D211). On a phone this is the whole navigation - the bottom bar is gone (D209). Agenda
  * always; Info beside it when there is an info section (D216 - they were one slot before); Me
- * on the personal portal only. Agenda and Info are drawn with the portal's own pictures (D221).
+ * on the personal portal only. All three are drawn with the portal's own pictures (D221).
  *
  * No Activities button (D221): for anybody who can see one, the activity cards sit on the home
  * page under the launcher, with "See all" to the page, and the card owed a pick leads them.
@@ -46,7 +46,7 @@ export function launcherItems(input: {
   const items: LauncherItem[] = [
     section("agenda", "Agenda", "/agenda", "calendar", "/portal-icons/agenda.webp"),
     ...(hasInfo ? [section("info", "Info", "/info", "info", "/portal-icons/info.webp")] : []),
-    ...(personal ? [section("me", "Me", "/me", "user")] : []),
+    ...(personal ? [section("me", "Me", "/me", "user", "/portal-icons/me.webp")] : []),
   ];
 
   const covered = new Set<TileRoute>(["agenda"]);

@@ -87,9 +87,9 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
 
 - **D221** **No Activities button in the launcher.** For anybody who can see one, the activity
   cards on the home page are that section ("See all" leads to the page, the owed card leads
-  the row); the desktop header keeps its Activities link and dot. **Agenda and Info are drawn
-  with the portal's own illustrations** (`public/portal-icons/agenda.webp`, `info.webp`,
-  192px, trimmed to their painted circle). Me keeps its line icon until it has a picture.
+  the row); the desktop header keeps its Activities link and dot. **Agenda, Info and Me are
+  drawn with the portal's own illustrations** (`public/portal-icons/agenda.webp`, `info.webp`,
+  `me.webp`, 192px, trimmed to their painted circle); the line icons remain the fallback.
   Organiser tiles get pictures through D213's upload.
 
 ## 3. Out of scope

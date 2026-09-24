@@ -20,9 +20,9 @@ describe("launcherItems", () => {
     expect(items[1]).toMatchObject({ icon: "info", href: `${BASE}/info`, builtin: true });
   });
 
-  it("draws Agenda and Info with the portal's own pictures, and Me with its line icon", () => {
+  it("draws Agenda, Info and Me with the portal's own pictures", () => {
     const items = launcherItems({ ...base, hasInfo: true });
-    expect(items.map((i) => i.image)).toEqual(["/portal-icons/agenda.webp", "/portal-icons/info.webp", null]);
+    expect(items.map((i) => i.image)).toEqual(["/portal-icons/agenda.webp", "/portal-icons/info.webp", "/portal-icons/me.webp"]);
   });
 
   it("has no Activities button: the home's activity cards are that section (D221)", () => {
