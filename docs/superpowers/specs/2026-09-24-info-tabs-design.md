@@ -1,7 +1,7 @@
 # Info tabs — design
 
 Date: 2026-09-24
-Status: approved, not built
+Status: built and deployed 2026-09-24
 Decisions D202–D208. Target: live before ECP Hub opens (28 Sep 2026).
 
 ## 1. Why
