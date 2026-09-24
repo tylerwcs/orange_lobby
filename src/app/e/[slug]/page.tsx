@@ -6,7 +6,6 @@ import { LauncherGrid } from "@/components/portal/LauncherGrid";
 import { launcherItems, sectionIcons } from "@/lib/launcher";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
-import { VenueCard } from "@/components/portal/VenueCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QrCode } from "lucide-react";
 
@@ -49,7 +48,6 @@ export default async function GenericHome({ params, searchParams }: {
           {/* Phone: the latest announcement and the launcher, which is the navigation there (D209). */}
           {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
           <LauncherGrid items={launcher} layout="row" className="md:hidden" />
-          <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>
         </div>
 
         <div className="hidden md:flex md:flex-col md:gap-5">

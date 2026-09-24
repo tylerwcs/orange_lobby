@@ -18,8 +18,8 @@ type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
  * is the navigation, and every other page leads back to it (D209). The same rules pick the
  * launcher's sections - see `launcherItems`.
  *
- * Agenda and Info are separate links (D216). They shared one slot while a phone bar had to
- * fit them; the header has room, and the launcher gives each its own button.
+ * No Agenda link (D223): the desktop home's "Today" column is the whole agenda, day tabs and
+ * all, and Home is one click away from any page. Info is its own link (D216).
  *
  * Activities is a slot only for somebody who can see at least one, the same rule Info always
  * followed: a slot leading to an empty screen is worse than no slot. Its dot is the "Pick
@@ -27,24 +27,12 @@ type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
  */
 const nav = (personal: boolean, hasInfo: boolean, activities: ActivityNav | undefined): NavItem[] => [
   { href: "", label: "Home", icon: "grid" },
-  { href: "/agenda", label: "Agenda", icon: "calendar" },
   ...(hasInfo ? [{ href: "/info", label: "Info", icon: "info" as IconName }] : []),
   ...(personal && activities?.show
     ? [{ href: "/activities", label: "Activities", icon: "ticket" as IconName, dot: activities.owed }]
     : []),
   ...(personal ? [{ href: "/me", label: "Me", icon: "user" as IconName }] : []),
 ];
-
-/**
- * The desktop home carries the agenda and the venue summary on the page itself, so a
- * header link to either would be a second route to what the reader is already looking at -
- * the same reason those stopped being tiles. Activities is not on that page, so it stays.
- * The phone home cannot show any of them, so its bar keeps them all.
- *
- * `dashboard` is therefore about what is ON this page, not about screen width.
- */
-const desktopNav = (items: NavItem[], dashboard: boolean): NavItem[] =>
-  dashboard ? items.filter((n) => n.href !== "/agenda") : items;
 
 /** The dot, and the words a screen reader hears in its place. */
 const Owed = ({ className }: { className: string }) => (
@@ -88,7 +76,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
   const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
-  const headerItems = desktopNav(nav(personal, hasInfo, activities), home);
+  const headerItems = nav(personal, hasInfo, activities);
   const shellWidth = home ? "max-w-md md:max-w-4xl xl:max-w-[1200px]" : "max-w-md md:max-w-4xl";
 
   if (event.status === "draft") {

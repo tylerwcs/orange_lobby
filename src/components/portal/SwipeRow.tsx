@@ -7,7 +7,12 @@ import { Children, useEffect, useRef, useState } from "react";
  * peeks in from the edge; the dots under it say how many there are and which one is showing,
  * and tapping a dot scrolls to it. With one item there is nothing to swipe and no dots.
  */
-export function SwipeRow({ label, children }: { label: string; children: React.ReactNode }) {
+export function SwipeRow({ label, stackOnDesktop = false, children }: {
+  label: string;
+  /** From md, drop the swipe and list every item one under another, with no dots (D223). */
+  stackOnDesktop?: boolean;
+  children: React.ReactNode;
+}) {
   const items = Children.toArray(children);
   const row = useRef<HTMLUListElement>(null);
   const [at, setAt] = useState(0);
@@ -34,7 +39,7 @@ export function SwipeRow({ label, children }: { label: string; children: React.R
       <ul
         ref={row}
         aria-label={label}
-        className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={`flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${stackOnDesktop ? "md:flex-col md:gap-2.5 md:overflow-visible md:snap-none" : ""}`}
       >
         {items.map((child, i) => (
           // p-0.5: the row clips at its edges, and a card's ring is drawn just outside the card.
@@ -44,7 +49,7 @@ export function SwipeRow({ label, children }: { label: string; children: React.R
         ))}
       </ul>
       {items.length > 1 && (
-        <div className="flex justify-center gap-1.5">
+        <div className={`flex justify-center gap-1.5 ${stackOnDesktop ? "md:hidden" : ""}`}>
           {items.map((_, i) => (
             <button
               key={i}

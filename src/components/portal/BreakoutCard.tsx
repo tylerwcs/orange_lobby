@@ -5,7 +5,7 @@ import { SwipeRow } from "./SwipeRow";
 
 /**
  * Every breakout round this attendee has, across the whole event, as tickets that swipe
- * sideways one at a time (D218, D219).
+ * sideways one at a time on a phone (D218, D219) and are listed in full on a desktop (D223).
  *
  * Each ticket is one round: what and when on the left, the room on the right - large, the way
  * a boarding pass prints the gate, because the room is what somebody opens this to find.
@@ -20,7 +20,7 @@ export function BreakoutCard({ breakouts, contactPhone }: { breakouts: MyBreakou
   return (
     <section aria-labelledby="home-breakouts" className="flex flex-col gap-3">
       <h2 id="home-breakouts" className="px-0.5 text-base font-extrabold">Your breakouts</h2>
-      <SwipeRow label="Your breakout rounds">
+      <SwipeRow label="Your breakout rounds" stackOnDesktop>
         {breakouts.map((b) => <Ticket key={b.slot} b={b} contactPhone={contactPhone} />)}
       </SwipeRow>
     </section>

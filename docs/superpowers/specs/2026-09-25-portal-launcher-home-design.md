@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D222. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D223. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -98,6 +98,11 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   `agenda` / `info`; migration 0042); a missing key means the default illustration, and
   removing an upload puts the default back and deletes the file. Me has no admin page, so it
   keeps the default.
+
+- **D223** **Desktop trims.** The desktop header has no Agenda link on any page (it used to
+  reappear away from home): the home's "Today" column is the whole agenda. The Venue card is
+  gone from the desktop home. Breakout tickets are listed in full from `md` (no swipe, no
+  dots); the phone keeps D219's swipe row. Supersedes D210's header list.
 
 ## 3. Out of scope
 

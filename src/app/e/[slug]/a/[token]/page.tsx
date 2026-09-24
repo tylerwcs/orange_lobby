@@ -14,7 +14,6 @@ import { LauncherGrid } from "@/components/portal/LauncherGrid";
 import { HomeActivities } from "@/components/portal/HomeActivities";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
-import { VenueCard } from "@/components/portal/VenueCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { floorPlanUrl } from "@/lib/modules";
 import { resolvePins } from "@/lib/pinned-fields";
@@ -92,7 +91,6 @@ export default async function PersonalHome({ params, searchParams }: {
           <LauncherGrid items={launcher} layout="row" className="md:hidden" />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
           <div className="md:hidden"><HomeActivities cards={cards} basePath={basePath} /></div>
-          <div className="hidden md:block"><VenueCard event={event} basePath={basePath} hasInfo={hasInfo} /></div>
         </div>
 
         <div className="hidden md:flex md:flex-col md:gap-5">
