@@ -27,8 +27,9 @@ export type WhatsappSend = {
  * Re-running then skips everyone already claimed instead of messaging them twice, which is
  * the whole reason `dedupe_key` is UNIQUE.
  *
- * Returns null when the key is already taken. That is the ordinary outcome on a retry, not an
- * error: it means this attendee has already had this message.
+ * Returns null when the key is held by a send that did not fail — the ordinary outcome on a
+ * retry, meaning this attendee already has the message. A key held by a FAILED send is
+ * reclaimed instead, so pressing Send again really does retry the failures.
  */
 export async function claimSend(input: {
   orgId: string;
@@ -58,7 +59,23 @@ export async function claimSend(input: {
     .upsert(row, { onConflict: "dedupe_key", ignoreDuplicates: true })
     .select()
     .maybeSingle();
-  return (data as WhatsappSend) ?? null;
+  if (data) return data as WhatsappSend;
+
+  // The key is taken, which usually means this attendee already has the message. But a
+  // previous attempt that FAILED is not a reason to refuse a retry — it is the reason to
+  // allow one, and the send screen promises exactly that. Reclaim only a failed row; the
+  // `status` guard means a delivery that succeeded in between is never clobbered.
+  const { data: retried } = await serviceClient()
+    .from("whatsapp_sends")
+    .update({
+      status: "queued", wamid: null, error_code: null, error_title: null,
+      to_e164: input.toE164, updated_at: new Date().toISOString(),
+    })
+    .eq("dedupe_key", input.dedupeKey)
+    .eq("status", "failed")
+    .select()
+    .maybeSingle();
+  return (retried as WhatsappSend) ?? null;
 }
 
 /** Meta took the message. Not delivered — that answer arrives on the webhook. */
