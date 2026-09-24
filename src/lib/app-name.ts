@@ -6,5 +6,9 @@
  */
 export const APP_NAME = "ECP Hub";
 
-/** The two-letter mark in the sidebar and on the login card. */
-export const APP_MONOGRAM = "EH";
+/**
+ * The Ecopia Group mark (the logo's round emblem, without its text ring), shown beside the name
+ * in the sidebar and on the login card. Cut from public/brand/ecopia-group-logo.png, as the
+ * favicon is. Decorative next to the name, so it carries no alt text of its own.
+ */
+export const APP_MARK = "/brand/ecopia-mark.png";

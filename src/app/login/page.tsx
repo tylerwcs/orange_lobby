@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { loginErrorCopy } from "@/lib/login-errors";
-import { APP_NAME, APP_MONOGRAM } from "@/lib/app-name";
+import { APP_NAME, APP_MARK } from "@/lib/app-name";
 
 /**
  * The only door into the admin.
@@ -31,7 +31,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <Card className="w-full">
         <CardHeader>
           <div className="mb-2 flex items-center gap-2.5">
-            <span className="flex size-10 items-center justify-center rounded-[10px] bg-primary text-sm font-extrabold text-primary-foreground">{APP_MONOGRAM}</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={APP_MARK} alt="" width={40} height={40} className="size-10 shrink-0" />
             <span className="text-xl font-extrabold">{APP_NAME}</span>
           </div>
           <CardTitle className="text-base font-extrabold">Sign in</CardTitle>
