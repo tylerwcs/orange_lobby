@@ -45,7 +45,7 @@ describe("submit buttons", () => {
  * Pages with nothing to wait for: they render from constants, so a skeleton would only
  * flash. Anything that reads the database does not belong here.
  */
-const STATIC_PAGES = ["src/app/page.tsx", "src/app/login/page.tsx"].map((p) => join(p));
+const STATIC_PAGES = ["src/app/page.tsx", "src/app/login/page.tsx", "src/app/privacy/page.tsx"].map((p) => join(p));
 
 function coveredByLoading(page: string): boolean {
   for (let dir = dirname(page); dir.startsWith(join("src", "app")); dir = dirname(dir)) {
