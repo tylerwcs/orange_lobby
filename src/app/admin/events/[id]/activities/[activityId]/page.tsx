@@ -30,6 +30,7 @@ import {
   saveActivityAction, toggleOpenAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
   addSessionAction, saveSessionAction,
   deleteSessionAction, reorderSessionsAction, placeAttendeesAction, approveRequestAction, declineRequestAction,
+  uploadActivityImageAction,
 } from "../actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -157,7 +158,7 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
         <CardContent className="px-6 py-4">
           <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
             <Field label="Name" name="name" defaultValue={activity.name} />
-            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} />
+            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
             <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
             <div className="flex flex-col gap-1.5">
               <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
@@ -262,7 +263,7 @@ async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; act
         <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
         <CardContent className="px-6 py-4">
           <form action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
-            <SubmissionFields activity={activity} />
+            <SubmissionFields activity={activity} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
             <SubmitButton>Save settings</SubmitButton>
           </form>
         </CardContent>

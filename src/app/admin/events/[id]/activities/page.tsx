@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   addActivityAction, addSubmissionActivityAction, toggleOpenAction, addPassportActivityAction,
   deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction,
+  uploadActivityImageAction,
 } from "./actions";
 
 export const metadata = { title: "Activities" };
@@ -63,7 +64,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
               booking: (
                 <form action={addActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
   <Field label="Name" name="name" placeholder="Workshops" />
-  <RichTextEditor name="description" label="Description (optional)" description={SECTIONS_HINT} />
+  <RichTextEditor name="description" label="Description (optional)" description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
   <ImageField label="Image (optional)" name="image" description={COVER_HINT} />
   <div className="flex flex-col gap-1.5">
     <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
@@ -85,7 +86,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
               ),
               submission: (
                 <form action={addSubmissionActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
-  <SubmissionFields />
+  <SubmissionFields uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
   <label className={check}>
     <input type="checkbox" name="submissions_open" className="size-4" />
     Open for submissions now
@@ -96,7 +97,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
               passport: (
                 <form action={addPassportActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
   <Field label="Name" name="name" defaultValue="Booth Passport" />
-  <RichTextEditor name="description" label="Description (optional)" description={SECTIONS_HINT} />
+  <RichTextEditor name="description" label="Description (optional)" description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
   <ImageField label="Image (optional)" name="image" description={COVER_HINT} />
   <Field label="Categories (optional)" name="categories" placeholder="VIP, Management"
     description="Comma separated. Leave blank for everyone. Booths refuse anyone outside these." />

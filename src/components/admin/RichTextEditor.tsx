@@ -11,7 +11,7 @@ import { acceptImage, IMAGE_ACCEPT } from "@/lib/storage";
 import { isRichTextEmpty, normalizeLink, toRichHtml } from "@/lib/rich-text";
 
 /** The hint under an activity's description: how its About and sections come out on the attendee's page. */
-export const SECTIONS_HINT = "Shown under About on the activity's page. Each Section heading starts its own block, like Scoring or Prizes.";
+export const SECTIONS_HINT = "Shown under About on the activity's page. Each Section heading starts its own block, like Scoring or Prizes, and Image puts a picture where your cursor is.";
 
 export type UploadImage = (fd: FormData) => Promise<{ url: string } | { error: string }>;
 

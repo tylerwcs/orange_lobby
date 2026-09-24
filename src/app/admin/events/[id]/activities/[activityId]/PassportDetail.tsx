@@ -24,6 +24,7 @@ import { buttonVariants } from "@/components/ui/button";
 import {
   toggleOpenAction, savePassportActivityAction, deletePassportActivityAction,
   addBoothAction, renameBoothAction, reorderBoothsAction, deleteBoothAction,
+  uploadActivityImageAction,
 } from "../actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -121,7 +122,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
         <CardContent className="px-6 py-4">
           <form action={savePassportActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
             <Field label="Name" name="name" defaultValue={activity.name} />
-            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} />
+            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
             <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
             <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
               placeholder="VIP, Management" description="Comma separated. Leave blank for everyone. Booths refuse anyone outside these." />

@@ -8,7 +8,7 @@ import { meterPercent } from "@/lib/meter";
 import { Field } from "@/components/admin/Field";
 import { QuestionEditor } from "@/components/admin/QuestionEditor";
 import { ImageField } from "@/components/admin/ImageField";
-import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
+import { RichTextEditor, SECTIONS_HINT, type UploadImage } from "@/components/admin/RichTextEditor";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { ActivityMenu, type ActivityMenuProps } from "@/components/admin/ActivityMenu";
 
@@ -24,11 +24,11 @@ export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 
  * Exported so the "New activity" form and the Settings card on the submission's own page
  * render the identical fields rather than two copies that could drift.
  */
-export function SubmissionFields({ activity }: { activity?: Activity }) {
+export function SubmissionFields({ activity, uploadImage }: { activity?: Activity; uploadImage?: UploadImage }) {
   return (
     <>
       <Field label="Name" name="name" defaultValue={activity?.name} placeholder="Feedback" />
-      <RichTextEditor name="description" label="Description (optional)" defaultValue={activity?.description} description={SECTIONS_HINT} />
+      <RichTextEditor name="description" label="Description (optional)" defaultValue={activity?.description} description={SECTIONS_HINT} uploadImage={uploadImage} />
       <ImageField
         label="Image (optional)"
         name="image"

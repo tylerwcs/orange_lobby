@@ -13,7 +13,7 @@ import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFo
 import { listAttendees } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
-import { sweepSubmissionPrefix, nextImage, deleteEventImage, type ImageChange } from "@/lib/db/media";
+import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails } from "@/lib/submissions";
@@ -57,6 +57,26 @@ async function bookingOf(ev: Event, activityId: string): Promise<Activity> {
   const activity = await getActivity(activityId, ev.id);
   if (!activity || activity.kind !== "booking") redirect(flashPath(listPath(ev.id), "That activity no longer exists.", "error"));
   return activity;
+}
+
+/**
+ * Uploads one image for an activity description's editor and hands back its URL; the editor
+ * puts it where the cursor was - the same contract as the Info page's `uploadInfoImageAction`.
+ *
+ * Returns rather than redirects: it is called while the description is still being written,
+ * and a redirect would throw away everything typed and not yet saved. Nothing is written to
+ * the activity here - the image only becomes part of it when the form is saved.
+ */
+export async function uploadActivityImageAction(eventId: string, formData: FormData): Promise<{ url: string } | { error: string }> {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image first." };
+  try {
+    return { url: await uploadEventImage({ orgId, eventId, kind: "activity", file }) };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
 
 export async function addActivityAction(eventId: string, fd: FormData) {
