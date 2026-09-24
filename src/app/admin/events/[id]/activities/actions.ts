@@ -45,6 +45,20 @@ function policyFields(fd: FormData): ActivityFormFields {
   };
 }
 
+/**
+ * The booking activity a posted id names, or a flash back to the list. Scopes
+ * `saveActivityAction` and `deleteActivityAction` against a crafted id for the wrong kind — a
+ * passport's id posted here would otherwise reach `updateActivity`/`deleteActivity` with fields
+ * or a cascade that make no sense for it (deleting a stamped passport this way hits the
+ * `23503` error boundary instead of the confirm dialog `deletePassportActivityAction` gives it).
+ * The same guard `passportOf` below gives the passport actions (D180).
+ */
+async function bookingOf(ev: Event, activityId: string): Promise<Activity> {
+  const activity = await getActivity(activityId, ev.id);
+  if (!activity || activity.kind !== "booking") redirect(flashPath(listPath(ev.id), "That activity no longer exists.", "error"));
+  return activity;
+}
+
 export async function addActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
   const input = readNewActivity({ ...policyFields(fd), is_open: checked(fd, "is_open") });
@@ -68,8 +82,7 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
   const ev = await event(eventId);
   const back = `${listPath(eventId)}/${activityId}`;
   const policy = readActivityPolicy(policyFields(fd));
-  const current = await getActivity(activityId, ev.id);
-  if (!current) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  const current = await bookingOf(ev, activityId);
   let image: ImageChange = { url: current.image_url, stale: null };
   try {
     image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
@@ -118,10 +131,13 @@ export async function toggleOpenAction(eventId: string, activityId: string) {
 /** Cascades sessions and bookings (D135), so the confirm dialog says how many seats go with it. */
 export async function deleteActivityAction(eventId: string, activityId: string) {
   const ev = await event(eventId);
-  // Read before the delete, because afterwards there is no row to ask for its picture.
-  const doomed = await getActivity(activityId, ev.id);
+  // Read before the delete, because afterwards there is no row to ask for its picture. Also the
+  // kind guard (D180's reasoning): a passport's id posted here must not reach `deleteActivity`,
+  // which cascades sessions and bookings a passport has none of, instead of the stamped-passport
+  // refusal `deletePassportIfUnstamped` gives it.
+  const doomed = await bookingOf(ev, activityId);
   await deleteActivity(activityId, ev.id);
-  await deleteEventImage(doomed?.image_url);
+  await deleteEventImage(doomed.image_url);
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Activity deleted."));
 }
@@ -181,6 +197,18 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
   };
 }
 
+/**
+ * The submission activity a posted id names, or a flash back to the list. Same guard as
+ * `bookingOf` above and `passportOf` below, for the same reason: a booking's or a passport's id
+ * posted here must not reach `syncSubmissionPerDay`/`sweepSubmissionPrefix`, neither of which
+ * means anything for the other kinds.
+ */
+async function submissionOf(ev: Event, activityId: string): Promise<Activity> {
+  const activity = await getActivity(activityId, ev.id);
+  if (!activity || activity.kind !== "submission") redirect(flashPath(listPath(ev.id), "That submission no longer exists.", "error"));
+  return activity;
+}
+
 export async function addSubmissionActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
   let policy;
@@ -218,8 +246,7 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
   } catch (e) {
     redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
   }
-  const current = await getActivity(activityId, ev.id);
-  if (!current) redirect(flashPath(listPath(eventId), "That submission no longer exists.", "error"));
+  const current = await submissionOf(ev, activityId);
   // Before syncSubmissionPerDay rather than after it: that call rewrites the submissions
   // themselves, so a picture refused after it would leave them out of step with the form.
   let image: ImageChange = { url: current.image_url, stale: null };
@@ -264,8 +291,7 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
  */
 export async function deleteSubmissionActivityAction(eventId: string, activityId: string) {
   const ev = await event(eventId);
-  const activity = await getActivity(activityId, ev.id);
-  if (!activity) redirect(flashPath(listPath(eventId), "That submission no longer exists.", "error"));
+  const activity = await submissionOf(ev, activityId);
   await sweepSubmissionPrefix(`${ev.org_id}/${ev.id}/${activity.id}`);
   await deleteActivity(activityId, ev.id);
   // After the row, like every other image here: a delete that failed must not leave the form

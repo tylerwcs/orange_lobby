@@ -96,6 +96,19 @@ export function firstPassport<T extends Pick<Activity, "kind">>(activities: T[])
 }
 
 /**
+ * The passport the public, unauthenticated signage link may show (`/e/[slug]/stamps` — the
+ * foyer QR, D191). That link has no attendee behind it, so unlike `firstPassport` (used once an
+ * attendee's own category is already known, D184) there is no category to check anyone
+ * against — a passport restricted to a category (VIP-only, say) is skipped here even if it
+ * sorts first, because showing its booths on public signage would itself be the leak (D103).
+ * Null when every passport is restricted, same as when there is none at all: the caller then
+ * renders the locked, booth-less card an event with no passport gets.
+ */
+export function firstPublicPassport<T extends Pick<Activity, "kind" | "categories">>(activities: T[]): T | null {
+  return activities.find((a) => a.kind === "passport" && (!a.categories || a.categories.length === 0)) ?? null;
+}
+
+/**
  * Each passport's booth count and how many attendees have filled its card, for the activity
  * list. Goes through `completionByAttendee` per passport rather than counting here, because
  * that is the one place "complete" is decided — the export and the passport page read it too.

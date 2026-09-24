@@ -26,6 +26,13 @@ const TONE: Record<BoothScanResult["status"], string> = {
   duplicate: "bg-warning-soft text-warning",
   undone: "bg-foreground text-background",
   notfound: "bg-destructive-soft text-destructive-strong",
+  // Styled like notfound: a stranger to this passport is still refused, not a different kind
+  // of good news.
+  ineligible: "bg-destructive-soft text-destructive-strong",
+  // Neutral, not the destructive ground: nobody did anything wrong, stamping just is not open
+  // yet. Same pair `busy` already uses above, so no new colour combination needs its own
+  // contrast check.
+  closed: "bg-muted text-foreground",
   error: "bg-destructive-soft text-destructive-strong",
 };
 
@@ -34,6 +41,8 @@ const LABEL: Record<BoothScanResult["status"], string> = {
   duplicate: "Already stamped",
   undone: "Stamp undone",
   notfound: "Not on the list",
+  ineligible: "Not for this passport",
+  closed: "Stamping closed",
   error: "Not saved",
 };
 
@@ -62,8 +71,11 @@ export function BoothScanner({
   initialCount: number;
   total: number;
 }) {
+  // Neutral on load, not "error": nothing has been scanned yet, so there is nothing to have
+  // failed. "closed" is also what a scan mid-session gets back from the server for a closed
+  // passport (actions.ts's `stamp`), so the two never disagree about the same fact.
   const [result, setResult] = useState<BoothScanResult | null>(
-    archived ? { status: "error", message: ARCHIVED_MESSAGE } : closed ? { status: "error", message: CLOSED_MESSAGE } : null,
+    archived ? { status: "closed", message: ARCHIVED_MESSAGE } : closed ? { status: "closed", message: CLOSED_MESSAGE } : null,
   );
   const [count, setCount] = useState(initialCount);
   const [recent, setRecent] = useState<Recent[]>([]);
@@ -139,7 +151,7 @@ export function BoothScanner({
     return () => clearTimeout(t);
   }, [q, boothToken]);
 
-  const named = result?.name && result.status !== "error" && result.status !== "notfound";
+  const named = result?.name && result.status !== "error" && result.status !== "notfound" && result.status !== "ineligible";
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-3 p-3">

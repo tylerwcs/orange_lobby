@@ -17,7 +17,7 @@ import type { Activity, Booth, Event } from "@/lib/types";
  * party. Keeping the shape this narrow means no component can leak a field by accident.
  */
 export type BoothScanResult = {
-  status: "ok" | "duplicate" | "notfound" | "error" | "undone";
+  status: "ok" | "duplicate" | "notfound" | "ineligible" | "closed" | "error" | "undone";
   name?: string;
   attendeeId?: string;
   progress?: string;
@@ -61,9 +61,14 @@ async function progressFor(passport: Activity, attendeeId: string): Promise<Pick
 
 async function stamp(booth: Booth, passport: Activity, attendeeId: string, name: string): Promise<BoothScanResult> {
   const r = await recordStamp(booth.id, attendeeId);
-  if (r.result === "closed") return { status: "error", message: CLOSED_MESSAGE };
-  // No name: D98 carries a name only for someone this booth may stamp (D184).
-  if (r.result === "ineligible") return { status: "notfound", message: "Not part of this passport." };
+  // Same status BoothScanner shows on load for this passport (its CLOSED_MESSAGE constant), so
+  // a scan mid-session and the page's own load-time guess agree instead of one reading "closed"
+  // and the other reading "error".
+  if (r.result === "closed") return { status: "closed", message: CLOSED_MESSAGE };
+  // Its own status, not "notfound" (D184): this attendee IS on the list, just not this
+  // passport's — telling the booth "not on the list" sends them to registration for nothing.
+  // No name either way: D98 carries a name only for someone this booth may stamp.
+  if (r.result === "ineligible") return { status: "ineligible", message: "Not part of this passport." };
   if (r.result === "missing") return { status: "notfound", message: "That attendee is no longer on the list." };
   const progress = await progressFor(passport, attendeeId);
   return r.result === "ok"

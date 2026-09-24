@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPassport, completionByAttendee, firstPassport, passportRollup, progressLine, readPassportSettings, stampsTarget } from "@/lib/booths";
+import { buildPassport, completionByAttendee, firstPassport, firstPublicPassport, passportRollup, progressLine, readPassportSettings, stampsTarget } from "@/lib/booths";
 import type { Booth, BoothStamp } from "@/lib/types";
 
 const booth = (id: string, sort_order = 0, activity_id = "p1"): Booth => ({
@@ -168,6 +168,28 @@ describe("firstPassport", () => {
 
   it("is null when there is none", () => {
     expect(firstPassport([{ id: "a", kind: "submission" as const }])).toBeNull();
+  });
+});
+
+describe("firstPublicPassport", () => {
+  it("skips a categories-restricted passport even when it sorts first", () => {
+    const list = [
+      { id: "vip", kind: "passport" as const, categories: ["VIP"] },
+      { id: "open", kind: "passport" as const, categories: null },
+    ];
+    expect(firstPublicPassport(list)?.id).toBe("open");
+  });
+
+  it("treats an empty categories array as unrestricted", () => {
+    expect(firstPublicPassport([{ id: "a", kind: "passport" as const, categories: [] }])?.id).toBe("a");
+  });
+
+  it("is null when every passport is restricted", () => {
+    expect(firstPublicPassport([{ id: "a", kind: "passport" as const, categories: ["VIP"] }])).toBeNull();
+  });
+
+  it("is null when there is none", () => {
+    expect(firstPublicPassport([{ id: "a", kind: "submission" as const, categories: null }])).toBeNull();
   });
 });
 
