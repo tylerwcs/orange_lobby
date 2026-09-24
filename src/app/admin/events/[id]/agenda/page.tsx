@@ -10,9 +10,11 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteAgendaDayAction, deleteAgendaItemAction, deleteBreakoutRoundAction, reorderAgendaDayAction } from "../actions";
+import { deleteAgendaDayAction, deleteAgendaItemAction, deleteBreakoutRoundAction, reorderAgendaDayAction, saveSectionIconAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
+import { SectionIconForm } from "@/components/admin/SectionIconForm";
+import { sectionIcons } from "@/lib/launcher";
 import { SortableList } from "@/components/admin/SortableList";
 import { DayForm, SessionForm, BreakoutForm, ImageItemForm } from "@/components/admin/AgendaForms";
 import { agendaAccentClass } from "@/lib/agenda-colours";
@@ -53,6 +55,9 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminHeader title="Agenda" subtitle={`${plural(days.length, "day")} · ${plural(sessions, "session")}`} />
         <div className="flex flex-wrap gap-2">
+          <Modal title="Agenda icon" hint="The round button attendees tap on the portal home." trigger="Agenda icon" icon="settings" iconOnly>
+            <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "agenda")} section="agenda" current={sectionIcons(ev.section_icons).agenda} />
+          </Modal>
           <Modal title="Add a day" hint="Name it for the portal's tab — “Day 1 (Conference)”. Sessions and images go under it." trigger="Add day" icon="plus">
             <DayForm eventId={ev.id} suggestedDate={nextFreeDate(eventDays(ev.starts_on, ev.ends_on), days.map((d) => d.date)) ?? ev.starts_on} />
           </Modal>

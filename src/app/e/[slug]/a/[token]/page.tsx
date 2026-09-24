@@ -2,7 +2,7 @@ import { loadPortalAttendee, portalHasInfo, isUnpublished } from "@/lib/portal";
 import { loadActivityNav, loadHomeData } from "@/lib/portal-home";
 import { loadActivityEntries } from "@/lib/portal-activity-entries";
 import { activityCards } from "@/lib/activity-cards";
-import { launcherItems } from "@/lib/launcher";
+import { launcherItems, sectionIcons } from "@/lib/launcher";
 import { firstCheckinAt } from "@/lib/db/checkins";
 import { isoToLocalInput } from "@/lib/time";
 import { myBreakouts } from "@/lib/breakouts";
@@ -71,7 +71,7 @@ export default async function PersonalHome({ params, searchParams }: {
   ]);
   // Only an attendee who can see an activity pays for the cards' queries (D214).
   const cards = activities.show ? activityCards(await loadActivityEntries(event, attendee), basePath) : [];
-  const launcher = launcherItems({ basePath, personal: true, hasInfo, activities, tiles });
+  const launcher = launcherItems({ basePath, personal: true, hasInfo, activities, tiles, icons: sectionIcons(event.section_icons) });
 
   return (
     <>

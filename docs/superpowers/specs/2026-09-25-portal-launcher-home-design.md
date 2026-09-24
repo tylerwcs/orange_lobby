@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D221. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D222. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -91,6 +91,13 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   drawn with the portal's own illustrations** (`public/portal-icons/agenda.webp`, `info.webp`,
   `me.webp`, 192px, trimmed to their painted circle); the line icons remain the fallback.
   Organiser tiles get pictures through D213's upload.
+
+- **D222** **Organisers can replace the Agenda and Info pictures per event.** A settings (gear)
+  button on the admin Agenda and Info pages opens a dialog showing the picture attendees see
+  now, with D213's upload/replace/remove field. Stored in `events.section_icons` (jsonb, keys
+  `agenda` / `info`; migration 0042); a missing key means the default illustration, and
+  removing an upload puts the default back and deletes the file. Me has no admin page, so it
+  keeps the default.
 
 ## 3. Out of scope
 

@@ -27,6 +27,7 @@ import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, moduleId, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
+import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
@@ -1225,4 +1226,30 @@ export async function sendPortalLinksAction(eventId: string) {
   if (result.skipped) parts.push(`${result.skipped} already had it`);
   if (result.failed) parts.push(`${result.failed} failed`);
   redirect(flashPath(here, parts.join(", ") + ".", result.failed ? "error" : "ok"));
+}
+
+/**
+ * The picture for one of the launcher's own sections, set from that section's admin page
+ * (D222). Upload, replace or remove - the same ImageField as a tile's icon. Removing it puts
+ * the portal's default illustration back.
+ */
+export async function saveSectionIconAction(eventId: string, section: IconSection, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  if (!ICON_SECTIONS.includes(section)) redirect(flashPath(`/admin/events/${eventId}`, "That section has no icon.", "error"));
+  const back = section === "agenda" ? agendaBack(eventId) : infoBack(eventId);
+  const current = sectionIcons(ev.section_icons)[section];
+  let image: ImageChange = { url: current, stale: null };
+  try {
+    image = await nextImage(formData, "icon_image", current, { orgId: ev.org_id, eventId, kind: "tile-icon" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  const next: Record<string, unknown> = { ...(ev.section_icons ?? {}) };
+  if (image.url) next[section] = image.url;
+  else delete next[section];
+  await updateEvent(eventId, { section_icons: next });
+  await deleteEventImage(image.stale);
+  revalidatePath(back);
+  redirect(flashPath(back, image.url ? "Icon saved." : "Icon reset to the default."));
 }

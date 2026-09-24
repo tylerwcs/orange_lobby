@@ -3,7 +3,7 @@ import { loadHomeData } from "@/lib/portal-home";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { LauncherGrid } from "@/components/portal/LauncherGrid";
-import { launcherItems } from "@/lib/launcher";
+import { launcherItems, sectionIcons } from "@/lib/launcher";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { VenueCard } from "@/components/portal/VenueCard";
@@ -26,7 +26,7 @@ export default async function GenericHome({ params, searchParams }: {
     loadHomeData(event, null, basePath, requestedDay),
     portalHasInfo(event.id),
   ]);
-  const launcher = launcherItems({ basePath, personal: false, hasInfo, tiles });
+  const launcher = launcherItems({ basePath, personal: false, hasInfo, tiles, icons: sectionIcons(event.section_icons) });
 
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="" hero dashboard>

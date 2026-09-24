@@ -14,7 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import {
   saveInfoTitleAction, addInfoTabAction, saveInfoTabAction, deleteInfoTabAction, reorderInfoTabsAction, uploadInfoImageAction,
+  saveSectionIconAction,
 } from "../actions";
+import { SectionIconForm } from "@/components/admin/SectionIconForm";
+import { sectionIcons } from "@/lib/launcher";
 
 export const metadata = { title: "Info page" };
 
@@ -37,7 +40,15 @@ export default async function InfoAdmin({ params, searchParams }: {
 
   return (
     <div className="space-y-6">
-      <AdminHeader title="Info page" subtitle="Tabs attendees switch between under Info. The Venue tab comes from Settings." />
+      <AdminHeader
+        title="Info page"
+        subtitle="Tabs attendees switch between under Info. The Venue tab comes from Settings."
+        actions={
+          <Modal title="Info icon" hint="The round button attendees tap on the portal home." trigger="Info icon" icon="settings" iconOnly>
+            <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "info")} section="info" current={sectionIcons(ev.section_icons).info} />
+          </Modal>
+        }
+      />
       <div className="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className="space-y-4">
           <form action={saveInfoTitleAction.bind(null, ev.id)} className="grid gap-3 rounded-xl border border-border bg-card p-4">

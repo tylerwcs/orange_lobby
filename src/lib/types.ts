@@ -41,6 +41,8 @@ export type Event = {
   primary_color: string;
   floor_plan_url: string | null;
   info_page_title: string;
+  /** Organiser pictures for the launcher's own sections, keyed "agenda" / "info" (D222). Read through `sectionIcons`. */
+  section_icons: Record<string, unknown>;
   registration_open: boolean;
   registration_closes_at: string | null;
   /**
