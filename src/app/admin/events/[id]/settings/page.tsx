@@ -31,7 +31,7 @@ import { FieldPicker } from "@/components/admin/FieldPicker";
 import { eventFields } from "@/lib/attendee-fields";
 import { MAX_SCAN_FIELDS } from "@/lib/scan";
 
-export const metadata = { title: "Settings · Orange Lobby" };
+export const metadata = { title: "Settings" };
 
 const input = "w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 

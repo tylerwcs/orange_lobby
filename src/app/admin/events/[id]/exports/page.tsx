@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { buttonVariants } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 
-export const metadata = { title: "Exports · Orange Lobby" };
+export const metadata = { title: "Exports" };
 
 export default async function ExportsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

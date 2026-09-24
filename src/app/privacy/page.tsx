@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy · ECP Hub",
+  title: "Privacy Policy",
   description: "How ECP Hub collects, uses and protects attendee personal data.",
 };
 

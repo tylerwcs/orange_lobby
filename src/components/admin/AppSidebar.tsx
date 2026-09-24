@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { signOut } from "@/app/login/actions";
 import { groupsFor, type Item } from "./nav";
+import { APP_NAME, APP_MONOGRAM } from "@/lib/app-name";
 
 type Event = { id: string; name: string; status: string; check_in_enabled: boolean };
 
@@ -34,8 +35,8 @@ export function AppSidebar({ email, event }: { email: string; event?: Event | nu
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3">
         <Link href="/admin" className="flex items-center gap-2.5 px-2 py-1 font-extrabold">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground">OL</span>
-          <span className="truncate group-data-[collapsible=icon]:hidden">Orange Lobby</span>
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground">{APP_MONOGRAM}</span>
+          <span className="truncate group-data-[collapsible=icon]:hidden">{APP_NAME}</span>
         </Link>
 
         {event && (

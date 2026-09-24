@@ -22,7 +22,7 @@ import {
   deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction,
 } from "./actions";
 
-export const metadata = { title: "Activities · Orange Lobby" };
+export const metadata = { title: "Activities" };
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";

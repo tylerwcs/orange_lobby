@@ -6,7 +6,7 @@
 @plugin "@tailwindcss/typography";
 
 /*
-  Orange Lobby on shadcn/ui — see docs/superpowers/specs/2026-09-12-shadcn-revamp-design.md
+  ECP Hub (formerly Orange Lobby) on shadcn/ui — see docs/superpowers/specs/2026-09-12-shadcn-revamp-design.md
   Values are OKLCH (D58); the hex in each comment is the sRGB reference it converts from and is
   what tests/contrast.test.ts converts back to in order to compute WCAG ratios.
   No .dark block: the app is light-only (D56).
@@ -14,7 +14,7 @@
 :root {
   color-scheme: light;
 
-  /* --- shadcn semantic tokens, carrying Orange Lobby's values --- */
+  /* --- shadcn semantic tokens, carrying ECP Hub's values --- */
   --background: oklch(0.9696 0.0026 106.45); /* #F5F5F3 */
   --foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
   --card: oklch(1 0 0); /* #FFFFFF */

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { formatDateRange } from "@/lib/text";
 
-export const metadata = { title: "All events · Orange Lobby" };
+export const metadata = { title: "All events" };
 
 export default async function AdminHome() {
   const { orgId } = await requireAdmin();

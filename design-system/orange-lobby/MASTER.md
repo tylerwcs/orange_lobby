@@ -1,7 +1,7 @@
-# Orange Lobby — design system
+# ECP Hub — design system
 
 **This project uses shadcn/ui.** Its documentation is the design system; this file records
-only what Orange Lobby does *differently*, and why.
+only what ECP Hub does *differently*, and why.
 
 Superseded 12 Sep 2026 by `docs/superpowers/specs/2026-09-12-shadcn-revamp-design.md`
 (D53–D75). The migration finished 13 Sep: there are no hand-rolled primitives left, and
@@ -18,7 +18,7 @@ for keeping this file short enough to stay true.
 
 ## Tokens
 
-`src/app/globals.css` carries shadcn's semantic tokens in OKLCH, with Orange Lobby's values.
+`src/app/globals.css` carries shadcn's semantic tokens in OKLCH, with ECP Hub's values.
 Two additions shadcn has no equivalent for:
 
 | Token | For |

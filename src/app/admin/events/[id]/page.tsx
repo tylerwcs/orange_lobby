@@ -19,7 +19,7 @@ import { activitySummaries } from "@/lib/activities";
 import { activeCheckpoint, checkpointOptions } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
 
-export const metadata = { title: "Overview · Orange Lobby" };
+export const metadata = { title: "Overview" };
 
 /**
  * What an organiser watches all day — which is a different question depending on whether

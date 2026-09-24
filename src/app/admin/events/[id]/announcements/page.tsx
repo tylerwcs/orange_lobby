@@ -11,7 +11,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { addAnnouncementAction, deleteAnnouncementAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 
-export const metadata = { title: "Announcements · Orange Lobby" };
+export const metadata = { title: "Announcements" };
 
 export default async function AnnouncementsAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -7,7 +7,7 @@ import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { saveInfoPageAction, uploadInfoImageAction } from "../actions";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 
-export const metadata = { title: "Info page · Orange Lobby" };
+export const metadata = { title: "Info page" };
 
 export default async function InfoAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

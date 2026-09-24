@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { sendPortalLinksAction } from "../actions";
 
-export const metadata = { title: "WhatsApp · Orange Lobby" };
+export const metadata = { title: "WhatsApp" };
 
 const STATUS_TONE: Record<string, "default" | "secondary" | "destructive"> = {
   delivered: "default", read: "default", sent: "secondary", accepted: "secondary",

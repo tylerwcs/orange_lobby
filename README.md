@@ -1,4 +1,6 @@
-# Orange Lobby
+# ECP Hub
+
+Formerly Orange Lobby: the specs and plans under `docs/` keep the old name, which is the name they were written under.
 
 Event-management app for Ecopia Events, built with Next.js and Supabase.
 

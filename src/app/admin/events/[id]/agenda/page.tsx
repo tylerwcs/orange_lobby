@@ -19,7 +19,7 @@ import { agendaAccentClass } from "@/lib/agenda-colours";
 import { breakoutSlots, rosters, agendaRows } from "@/lib/breakouts";
 import type { Attendee, BreakoutAssignment } from "@/lib/types";
 
-export const metadata = { title: "Agenda · Orange Lobby" };
+export const metadata = { title: "Agenda" };
 
 export default async function AgendaAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

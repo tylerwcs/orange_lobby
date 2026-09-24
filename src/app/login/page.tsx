@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { loginErrorCopy } from "@/lib/login-errors";
+import { APP_NAME, APP_MONOGRAM } from "@/lib/app-name";
 
 /**
  * The only door into the admin.
@@ -30,8 +31,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <Card className="w-full">
         <CardHeader>
           <div className="mb-2 flex items-center gap-2.5">
-            <span className="flex size-10 items-center justify-center rounded-[10px] bg-primary text-sm font-extrabold text-primary-foreground">OL</span>
-            <span className="text-xl font-extrabold">Orange Lobby</span>
+            <span className="flex size-10 items-center justify-center rounded-[10px] bg-primary text-sm font-extrabold text-primary-foreground">{APP_MONOGRAM}</span>
+            <span className="text-xl font-extrabold">{APP_NAME}</span>
           </div>
           <CardTitle className="text-base font-extrabold">Sign in</CardTitle>
           <CardDescription>Accounts are created by an administrator. If you do not have one, ask the team.</CardDescription>

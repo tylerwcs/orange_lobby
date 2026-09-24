@@ -27,7 +27,7 @@ import { fieldValue } from "@/lib/attendee-values";
 import { buttonVariants } from "@/components/ui/button";
 import { paginate } from "@/lib/paginate";
 
-export const metadata = { title: "Attendees · Orange Lobby" };
+export const metadata = { title: "Attendees" };
 
 const PAGE_SIZE = 50;
 

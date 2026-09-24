@@ -12,7 +12,7 @@ import { TileList } from "@/components/admin/TileList";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { saveModuleAction, deleteModuleAction, toggleModuleAction, reorderModulesAction } from "../actions";
 
-export const metadata = { title: "Modules · Orange Lobby" };
+export const metadata = { title: "Modules" };
 
 const select = "w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
