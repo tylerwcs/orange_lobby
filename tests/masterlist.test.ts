@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
-import { parseMasterlist, extraKeyFor } from "@/lib/masterlist";
+import { parseMasterlist, extraKeyFor, importedColumns } from "@/lib/masterlist";
 import type { AttendeeField } from "@/lib/attendee-fields";
 
 async function book(rows: (string | number | null)[][]) {
@@ -82,5 +82,56 @@ describe("parseMasterlist", () => {
     ]);
     const res = await parseMasterlist(buf);
     expect(res.rows[0].extra).toEqual({ phone: "012", table_no: "7" });
+  });
+
+  it("matches a header to a column by its key as well as its label", async () => {
+    const fields: AttendeeField[] = [{ key: "phone_number", label: "Mobile no", type: "phone" }];
+    const buf = await book([["Name", "Phone Number"], ["Ann", "0123456789"]]);
+    expect((await parseMasterlist(buf, fields)).rows[0].extra).toEqual({ phone_number: "0123456789" });
+  });
+});
+
+describe("importedColumns", () => {
+  it("files a Phone or Mobile header under the event's own phone column, whatever it is called", async () => {
+    // The WhatsApp send reads the event's phone column. A "Phone" header stored under
+    // `phone` beside a "Phone number" column would leave that column empty for everyone.
+    const fields: AttendeeField[] = [{ key: "phone_number", label: "Phone number", type: "phone" }];
+    const buf = await book([["Name", "Phone"], ["Ann", "60123456789"]]);
+    const res = await parseMasterlist(buf, fields);
+    expect(res.rows[0].extra).toEqual({ phone_number: "60123456789" });
+    expect(importedColumns(res.extraColumns, fields)).toEqual([]);
+  });
+
+  const nickname: AttendeeField = { key: "nickname", label: "Nickname", type: "text" };
+
+  it("makes a column of every header no column claims, keyed where the values are stored", () => {
+    const cols = importedColumns(["Nickname", "Room Partner", "Department / Team"], [nickname]);
+    // Keyed by the header verbatim, because that is the key parseMasterlist stored the value
+    // under — so the column arrives filled without moving a single value.
+    expect(cols).toEqual([
+      { key: "Room Partner", label: "Room Partner", type: "text" },
+      { key: "Department / Team", label: "Department / Team", type: "text" },
+    ]);
+  });
+
+  it("gives a legacy Mobile header the phone key and type, so a WhatsApp send can read it", () => {
+    expect(importedColumns(["Mobile", "Table No"], [])).toEqual([
+      { key: "phone", label: "Mobile", type: "phone" },
+      { key: "table_no", label: "Table No", type: "text" },
+    ]);
+  });
+
+  it("skips breakout rounds, built-in columns and repeats", () => {
+    const cols = importedColumns(["Breakout 1", "Source", "Checked in", "Seat", "seat"], [], ["breakout 1"]);
+    // A round already has a column of its own, and its values must stay under the round
+    // name for room assignment; Source and Checked in would shadow the built-ins.
+    expect(cols).toEqual([{ key: "Seat", label: "Seat", type: "text" }]);
+  });
+
+  it("round-trips: every imported column finds its values on the parsed rows", async () => {
+    const buf = await book([["Name", "Room Partner", "Mobile"], ["Ann", "Bee", "012"]]);
+    const res = await parseMasterlist(buf);
+    const cols = importedColumns(res.extraColumns, []);
+    expect(cols.map((c) => res.rows[0].extra[c.key])).toEqual(["Bee", "012"]);
   });
 });

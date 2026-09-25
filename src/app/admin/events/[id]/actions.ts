@@ -6,9 +6,9 @@ import { createEvent, requireEvent, updateEvent, setEventStatus, rotateCrewToken
 import { slugify } from "@/lib/slug";
 import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
-import { parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
+import { importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
-import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue } from "@/lib/attendee-fields";
+import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event, AgendaDay } from "@/lib/types";
@@ -206,6 +206,14 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   try { parsed = await parseMasterlist(await file.arrayBuffer(), eventFields(ev.registration_questions, ev.attendee_fields)); }
   catch (e) { redirect(flashPath(`/admin/events/${eventId}/attendees`, (e as Error).message, "error")); }
   if (!parsed) redirect(flashPath(`/admin/events/${eventId}/attendees`, "Could not read that file.", "error"));
+  // Every header the event has no column for becomes one, so what the sheet carried shows in
+  // the table straight away instead of waiting in the "add a column" dialog.
+  const rounds = breakoutSlots(await listAgenda(ev.id)).map((s) => s.slot);
+  const fresh = importedColumns(parsed.extraColumns, eventFields(ev.registration_questions, ev.attendee_fields), rounds);
+  const room = Math.max(0, MAX_ATTENDEE_FIELDS - ev.attendee_fields.length);
+  const added = fresh.slice(0, room);
+  const leftOut = fresh.slice(room).map((f) => f.label);
+  if (added.length > 0) await updateEvent(eventId, { attendee_fields: [...ev.attendee_fields, ...added] });
   // One read of the existing roster instead of a lookup per row; new rows go out in one bulk insert.
   const existingByEmail = new Map((await listAttendees(ev.id)).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
   const queued = new Map<string, AttendeeInput>();
@@ -234,12 +242,18 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   // After the rows exist, not before: an assignment needs the attendee it belongs to.
   const assigned = await assignRoundsFromColumns(ev, null, false);
   const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
-  const problems = parsed.skipped.length > 0 || assigned.some((l) => l.includes("No room matches"));
+  const problems = parsed.skipped.length > 0 || leftOut.length > 0 || assigned.some((l) => l.includes("No room matches"));
   revalidatePath(`/admin/events/${eventId}/attendees`);
   revalidatePath(`/admin/events/${eventId}/agenda`);
   redirect(flashPath(
     `/admin/events/${eventId}/attendees`,
-    [`Imported ${inserted}, updated ${updated}.`, ...assigned, skipped ? `Skipped — ${skipped}` : ""].filter(Boolean).join(" "),
+    [
+      `Imported ${inserted}, updated ${updated}.`,
+      added.length > 0 ? `Added ${added.length} ${added.length === 1 ? "column" : "columns"} from the file.` : "",
+      // Still stored on every attendee, so adding them by hand once there is room fills them in.
+      leftOut.length > 0 ? `No room for ${leftOut.length} more (${leftOut.join(", ")}) — the limit is ${MAX_ATTENDEE_FIELDS} columns.` : "",
+      ...assigned, skipped ? `Skipped — ${skipped}` : "",
+    ].filter(Boolean).join(" "),
     problems ? "error" : "ok",
   ));
 }

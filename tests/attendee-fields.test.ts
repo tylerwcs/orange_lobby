@@ -65,6 +65,10 @@ describe("addField", () => {
   it("refuses a duplicate, including one that only differs in spacing or case", () => {
     const fields = [text("Room no")];
     expect(addField(fields, { label: "room  no", type: "text", options: "" }).ok).toBe(false);
+    // An imported column is keyed by its header verbatim, so the key check alone would
+    // let a hand-made "Room Partner" sit beside the imported one.
+    const imported = [{ key: "Room Partner", label: "Room Partner", type: "text" as const }];
+    expect(addField(imported, { label: "room partner", type: "text", options: "" }).ok).toBe(false);
   });
 
   it("refuses a choice column with no choices, and keeps them when there are", () => {

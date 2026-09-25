@@ -20,7 +20,11 @@ export type AttendeeField = {
   options?: string[];
 };
 
-export const MAX_ATTENDEE_FIELDS = 12;
+/**
+ * Room for a client's whole masterlist: an import turns every header nobody claimed into a
+ * column, and a real one runs to fifteen or more. The cap only guards against a runaway sheet.
+ */
+export const MAX_ATTENDEE_FIELDS = 40;
 export const ATTENDEE_FIELD_TYPES: AttendeeFieldType[] = ["text", "phone", "number", "date", "select"];
 
 export const FIELD_TYPE_LABELS: Record<AttendeeFieldType, string> = {
@@ -37,6 +41,11 @@ export const FIELD_TYPE_LABELS: Record<AttendeeFieldType, string> = {
  * column, which is the whole point of retiring collected_fields.
  */
 const RESERVED_KEYS = new Set(["id", "name", "email", "category", "source", "status", "token", "extra"]);
+
+/** Whether a column named this would shadow the attendee row or one of the table's built-ins. */
+export function isReservedFieldKey(key: string): boolean {
+  return RESERVED_KEYS.has(key) || key === "checked_in";
+}
 
 export function fieldKey(label: string): string {
   return slugify(label).replace(/-/g, "_");
@@ -82,7 +91,9 @@ export function addField(fields: AttendeeField[], input: { label: string; type: 
   if (!key) return { ok: false, error: "Use letters or numbers in the column name" };
   if (RESERVED_KEYS.has(key)) return { ok: false, error: `“${label}” is already a built-in column` };
   if (reserved.includes(key)) return { ok: false, error: `“${label}” is already a question on the registration form` };
-  if (fields.some((f) => f.key === key)) return { ok: false, error: `You already have a column called “${label}”` };
+  // By label too: a column an import made is keyed by its header verbatim ("Room Partner"),
+  // which no derived key ("room_partner") would ever collide with.
+  if (fields.some((f) => f.key === key || f.label.toLowerCase() === label.toLowerCase())) return { ok: false, error: `You already have a column called “${label}”` };
 
   const type = isType(input.type) ? input.type : "text";
   const options = parseOptions(input.options);

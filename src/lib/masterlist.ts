@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import type { AttendeeInput } from "@/lib/db/attendees";
-import type { AttendeeField } from "@/lib/attendee-fields";
+import { fieldKey, isReservedFieldKey, keyMatchesField, type AttendeeField } from "@/lib/attendee-fields";
 
 export type MasterlistRow = { row: number } & AttendeeInput & { email: string | null; extra: Record<string, string> };
 export type MasterlistResult = { rows: MasterlistRow[]; skipped: { row: number; reason: string }[]; extraColumns: string[] };
@@ -41,12 +41,51 @@ function cellText(v: ExcelJS.CellValue): string {
 
 /**
  * Where each non-template header stores its value. A header that names one of the event's
- * own columns stores under that column's key, so importing "Dietary" fills the Dietary
- * column instead of sitting beside it under a near-identical name. Everything else keeps
- * its own header, which is what makes an unplanned column survive a round trip.
+ * own columns — by label, or by the key that label would make — stores under that column's
+ * key, so importing "Dietary" fills the Dietary column instead of sitting beside it under a
+ * near-identical name. Everything else keeps its own header, which is what makes an
+ * unplanned column survive a round trip.
  */
 export function extraKeyFor(header: string, fields: AttendeeField[]): string {
-  return fields.find((f) => f.label.toLowerCase() === header.toLowerCase())?.key ?? header;
+  return fields.find((f) => keyMatchesField(header, f))?.key ?? header;
+}
+
+/**
+ * extraKeyFor, plus the legacy spellings for a header no column of the event's claims. A
+ * Phone or Mobile header goes to the event's own phone column whatever it is labelled —
+ * that column is the one a WhatsApp send reads, and a second phone column beside it would
+ * leave it empty.
+ */
+function storageKey(header: string, fields: AttendeeField[]): string {
+  if (fields.some((f) => keyMatchesField(header, f))) return extraKeyFor(header, fields);
+  const legacy = LEGACY_HEADERS[header.toLowerCase()];
+  if (legacy === "phone") return fields.find((f) => f.type === "phone")?.key ?? legacy;
+  return legacy ?? header;
+}
+
+/**
+ * The columns an import adds to the table: one for every header no existing column claims.
+ *
+ * Each is keyed where parseMasterlist already stored its values — the header verbatim, or a
+ * legacy key — so the column arrives filled without moving anything. That matters most for a
+ * breakout round imported before the agenda exists: room assignment reads the round's values
+ * from under its own name, and a column keyed anywhere else would strand them.
+ *
+ * `skip` names headers that are columns already under another guise — the agenda's breakout
+ * rounds, which the table shows as round columns of their own.
+ */
+export function importedColumns(headers: string[], fields: AttendeeField[], skip: string[] = []): AttendeeField[] {
+  const skipped = new Set(skip.map((s) => s.toLowerCase()));
+  const out: AttendeeField[] = [];
+  for (const header of headers) {
+    if (!header || header.toLowerCase() in TEMPLATE || skipped.has(header.toLowerCase())) continue;
+    if (isReservedFieldKey(fieldKey(header))) continue;
+    const key = storageKey(header, fields);
+    if (fields.some((f) => f.key === key)) continue;
+    if (out.some((f) => f.key === key || f.label.toLowerCase() === header.toLowerCase())) continue;
+    out.push({ key, label: header.slice(0, 40), type: key === "phone" ? "phone" : "text" });
+  }
+  return out;
 }
 
 export async function parseMasterlist(buffer: ArrayBuffer | Buffer, fields: AttendeeField[] = []): Promise<MasterlistResult> {
@@ -74,12 +113,7 @@ export async function parseMasterlist(buffer: ArrayBuffer | Buffer, fields: Atte
     if (!name) { skipped.push({ row: r, reason: "Name is blank" }); continue; }
     const pick = (key: string) => { const i = lower.indexOf(key); return i >= 0 && values[headers[i]] ? values[headers[i]] : null; };
     const extra: Record<string, string> = {};
-    for (const h of extraColumns) {
-      const key = fields.some((f) => f.label.toLowerCase() === h.toLowerCase())
-        ? extraKeyFor(h, fields)
-        : LEGACY_HEADERS[h.toLowerCase()] ?? extraKeyFor(h, fields);
-      extra[key] = values[h] ?? "";
-    }
+    for (const h of extraColumns) extra[storageKey(h, fields)] = values[h] ?? "";
     rows.push({ row: r, name, email: pick("email")?.toLowerCase() ?? null, category: pick("category"), extra });
   }
   return { rows, skipped, extraColumns };

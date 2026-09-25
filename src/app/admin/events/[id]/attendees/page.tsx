@@ -158,7 +158,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
                 </div>
               </Modal>
             )}
-            <Modal title="Import masterlist" hint="The first sheet is read. Rows are matched by email, so re-importing the same file updates in place rather than duplicating." trigger="Import masterlist" icon="download">
+            <Modal title="Import masterlist" hint="The first sheet is read, and every column in it becomes a column here. Rows are matched by email, so re-importing the same file updates in place rather than duplicating." trigger="Import masterlist" icon="download">
               <form action={importMasterlistAction.bind(null, ev.id)} className="grid gap-4">
                 <label className="block text-sm">
                   <span className="mb-1 block font-bold">Excel file (.xlsx)</span>
