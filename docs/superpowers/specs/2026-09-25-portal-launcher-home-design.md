@@ -176,7 +176,7 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   not via React state, so the drag keeps up with the finger.
 
 - **D236** **Me moves to the home header's top right corner** on phones: a round person icon
-  (not the illustration) beside the event name, linking to the Me page. It is on the home page
+  line icon in the header's text colour (no filled circle) beside the event name, linking to Me. It is on the home page
   only - other pages keep "Home" and the event mark. Me leaves the launcher, and its
   illustration (`me.webp`) is deleted. The desktop header keeps its Me link.
 

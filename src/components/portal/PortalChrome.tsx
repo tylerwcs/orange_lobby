@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, CircleUserRound } from "lucide-react";
+import { ChevronLeft, UserRound } from "lucide-react";
 import type { Event } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
@@ -36,7 +36,7 @@ const nav = (personal: boolean, hasInfo: boolean, activities: ActivityNav | unde
 
 /**
  * Me, in the top right corner of the phone home's header (D236) - where an app keeps the
- * account. Only on the home page: other pages keep their way back to it. The desktop header
+ * account. A plain line icon, not a filled button: it is always there, never the point. Only on the home page: other pages keep their way back to it. The desktop header
  * lists Me among its links, so this is phone-only.
  */
 function MeButton({ href }: { href: string }) {
@@ -44,9 +44,9 @@ function MeButton({ href }: { href: string }) {
     <Link
       href={href}
       aria-label="Me: your badge and details"
-      className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+      className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors active:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:hidden"
     >
-      <CircleUserRound aria-hidden className="size-6" />
+      <UserRound aria-hidden className="size-6" strokeWidth={1.75} />
     </Link>
   );
 }
