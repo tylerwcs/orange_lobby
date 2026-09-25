@@ -15,7 +15,13 @@ export function Mark({ event }: { event: HeaderEvent }) {
   return <div className="flex size-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-brand-foreground">{initials(event.name)}</div>;
 }
 
-export function PortalHeader({ event, href, className = "" }: { event: HeaderEvent; href?: string; className?: string }) {
+export function PortalHeader({ event, href, action, className = "" }: {
+  event: HeaderEvent;
+  href?: string;
+  /** Something at the right-hand end, e.g. the phone home's Me button (D236). */
+  action?: React.ReactNode;
+  className?: string;
+}) {
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const body = (
     <>
@@ -24,6 +30,7 @@ export function PortalHeader({ event, href, className = "" }: { event: HeaderEve
         <div className="line-clamp-2 text-base font-extrabold leading-tight">{event.name}</div>
         {meta && <div className="truncate text-xs font-medium text-muted-foreground">{meta}</div>}
       </div>
+      {action}
     </>
   );
   // The whole bar is the way home, not just the mark: the name is the bigger target, and it is

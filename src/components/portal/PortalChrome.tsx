@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, CircleUserRound } from "lucide-react";
 import type { Event } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
@@ -33,6 +33,23 @@ const nav = (personal: boolean, hasInfo: boolean, activities: ActivityNav | unde
     : []),
   ...(personal ? [{ href: "/me", label: "Me", icon: "user" as IconName }] : []),
 ];
+
+/**
+ * Me, in the top right corner of the phone home's header (D236) - where an app keeps the
+ * account. Only on the home page: other pages keep their way back to it. The desktop header
+ * lists Me among its links, so this is phone-only.
+ */
+function MeButton({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label="Me: your badge and details"
+      className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+    >
+      <CircleUserRound aria-hidden className="size-6" />
+    </Link>
+  );
+}
 
 /** The dot, and the words a screen reader hears in its place. */
 const Owed = ({ className }: { className: string }) => (
@@ -120,7 +137,12 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
               </div>
             )}
             <div className={`${home ? "" : "hidden md:block"} md:flex-1`}>
-              <PortalHeader event={event} href={basePath || "/"} className="md:px-0" />
+              <PortalHeader
+                event={event}
+                href={basePath || "/"}
+                className="md:px-0"
+                action={personal && home ? <MeButton href={`${basePath}/me`} /> : undefined}
+              />
             </div>
 
             {/* Desktop nav: the same items, in the header where a pointer already is. */}

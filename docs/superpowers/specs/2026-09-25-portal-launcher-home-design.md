@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D235. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D236. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -174,6 +174,11 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   instantly. The agenda's swipe area has a 50dvh floor on phones, so an empty or short day can
   still be swiped anywhere below its line. The transform is written to the element directly,
   not via React state, so the drag keeps up with the finger.
+
+- **D236** **Me moves to the home header's top right corner** on phones: a round person icon
+  (not the illustration) beside the event name, linking to the Me page. It is on the home page
+  only - other pages keep "Home" and the event mark. Me leaves the launcher, and its
+  illustration (`me.webp`) is deleted. The desktop header keeps its Me link.
 
 ## 3. Out of scope
 

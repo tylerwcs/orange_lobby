@@ -23,10 +23,9 @@ export type IconSection = (typeof ICON_SECTIONS)[number];
 export type SectionIcons = Record<IconSection, string | null>;
 
 /** The portal's own illustrations, drawn when the organiser has not set one (D221). */
-export const DEFAULT_SECTION_ICONS: Record<IconSection | "me", string> = {
+export const DEFAULT_SECTION_ICONS: Record<IconSection, string> = {
   agenda: "/portal-icons/agenda.webp",
   info: "/portal-icons/info.webp",
-  me: "/portal-icons/me.webp",
 };
 
 const SAFE_URL = /^https?:\/\//i;
@@ -48,16 +47,16 @@ export function sectionIcons(raw: unknown): SectionIcons {
 /**
  * What the home's launcher shows, in order: the portal's own sections, then the organiser's
  * tiles (D211). On a phone this is the whole navigation - the bottom bar is gone (D209). Agenda
- * always; Info beside it when there is an info section (D216 - they were one slot before); Me
- * on the personal portal only. All three are drawn with the portal's own pictures (D221),
- * unless the organiser has set one for Agenda or Info (D222).
+ * always; Info beside it when there is an info section (D216 - they were one slot before).
+ * Both are drawn with the portal's own pictures (D221), unless the organiser has set one
+ * (D222). Me is not here: it is the button in the home header's top right corner (D236).
  *
  * No Activities button (D221): for anybody who can see one, the activity cards sit on the home
  * page under the launcher, with "See all" to the page, and the card owed a pick leads them.
  *
- * A route tile that opens a section already on the home page is dropped rather than shown
- * twice. One whose section is not there - Activities for somebody who cannot see any, Me on
- * the public portal - stays, since the organiser put it there on purpose.
+ * A route tile that opens a section already on the home page - Me included, in the header -
+ * is dropped rather than shown twice. One whose section is not there - Activities for somebody
+ * who cannot see any, Me on the public portal - stays, since the organiser put it there.
  */
 export function launcherItems(input: {
   basePath: string;
@@ -76,7 +75,6 @@ export function launcherItems(input: {
   const items: LauncherItem[] = [
     section("agenda", "Agenda", "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda),
     ...(hasInfo ? [section("info", "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
-    ...(personal ? [section("me", "Me", "/me", "user", DEFAULT_SECTION_ICONS.me)] : []),
   ];
 
   const covered = new Set<TileRoute>(["agenda"]);
