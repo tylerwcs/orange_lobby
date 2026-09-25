@@ -64,19 +64,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
               {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-primary">NOW</div> : i.ends_at && <div className="text-[11px] text-muted-foreground">{i.ends_at}</div>}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="text-[15px] font-bold">{i.title}</div>
-                {/* Top right, level with the title, as a soft pill: it belongs to the session,
-                    not to the Booked badge. A plain <a>, not <Link>: it is a file, not a page,
-                    and must not be prefetched. No `download` either - iOS would save it
-                    rather than offer to add it. */}
-                {ics && (
-                  <a href={ics} className="-my-1 inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 text-xs font-bold text-primary outline-none transition-colors hover:bg-primary/15 focus-visible:ring-3 focus-visible:ring-ring/50">
-                    <CalendarPlus className="size-3.5" aria-hidden="true" />
-                    Add to calendar
-                  </a>
-                )}
-              </div>
+              <div className="text-[15px] font-bold">{i.title}</div>
               {i.location && (
                 <div className={isBreakout(i) || isBookedRow(i) ? "text-sm font-extrabold text-primary" : "text-xs text-muted-foreground"}>
                   {i.location}
@@ -87,6 +75,16 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
               {/* Green, the colour of "you're booked" on the activity's own page. */}
               {isBookedRow(i) && <div className="mt-1.5"><Badge variant="success">Booked</Badge></div>}
             </div>
+            {/* On the right, centred on the row, as a soft pill: it belongs to the whole session,
+                not to the Booked badge. A plain <a>, not <Link>: it is a file, not a page, and
+                must not be prefetched. No `download` either - iOS would save it rather than
+                offer to add it. */}
+            {ics && (
+              <a href={ics} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 self-center rounded-full bg-accent px-4 text-sm font-bold text-primary outline-none transition-colors hover:bg-primary/15 focus-visible:ring-3 focus-visible:ring-ring/50">
+                <CalendarPlus className="size-4" aria-hidden="true" />
+                Add to calendar
+              </a>
+            )}
             {/* Trailing edge, after the text: the leading edge already belongs to the time
                 and the colour bar, and a picture must not push the hour off the row. */}
             {i.image_url && <AgendaImage src={i.image_url} title={i.title} />}
