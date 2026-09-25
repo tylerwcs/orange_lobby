@@ -6,7 +6,7 @@ import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { meterPercent } from "@/lib/meter";
 import { Field } from "@/components/admin/Field";
-import { QuestionEditor } from "@/components/admin/QuestionEditor";
+import { QuestionCards } from "@/components/admin/QuestionCards";
 import { ImageField } from "@/components/admin/ImageField";
 import { RichTextEditor, SECTIONS_HINT, type UploadImage } from "@/components/admin/RichTextEditor";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
@@ -57,7 +57,7 @@ export function SubmissionFields({ activity, uploadImage }: { activity?: Activit
       </label>
       <div className="flex flex-col gap-1.5">
         <h3 className="text-sm font-extrabold">Questions</h3>
-        <QuestionEditor questions={activity?.questions ?? []} types={FORM_QUESTION_TYPES} max={MAX_SUBMISSION_QUESTIONS} />
+        <QuestionCards questions={activity?.questions ?? []} types={FORM_QUESTION_TYPES} max={MAX_SUBMISSION_QUESTIONS} />
       </div>
     </>
   );

@@ -24,7 +24,7 @@ import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
 import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
-import { QuestionEditor } from "@/components/admin/QuestionEditor";
+import { QuestionCards } from "@/components/admin/QuestionCards";
 import { DEFAULT_REGISTRATION_INTRO, REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
 import type { EventStatus } from "@/lib/types";
 import { FieldPicker } from "@/components/admin/FieldPicker";
@@ -369,7 +369,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <h3 className="text-sm font-extrabold">Questions</h3>
           <p className="text-xs text-muted-foreground">Name, email, mobile and department are always asked. Add up to {MAX_QUESTIONS} more. Leave a row blank to remove it. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
           </div>
-          <QuestionEditor questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS} />
+          <QuestionCards questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS} />
           </CardContent>
         </Card>
         <SaveBar />

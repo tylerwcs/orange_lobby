@@ -1,7 +1,7 @@
 # Activities admin redesign — design
 
 Date: 2026-09-25
-Status: approved direction (option A, tabs); spec awaiting review
+Status: built 2026-09-25 (not yet deployed)
 Decisions D234–D247.
 
 ## 1. Why
