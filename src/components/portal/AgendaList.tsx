@@ -5,6 +5,8 @@ import { isBreakout } from "@/lib/breakouts";
 import { bookedSessionId, isBookedRow } from "@/lib/activities";
 import { CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "cn";
 import { AgendaImage } from "./AgendaImage";
 import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
@@ -80,8 +82,8 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
                         prefetched. No `download` either - iOS would save it rather than
                         offer to add it. */}
                     {ics && (
-                      <a href={ics} className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-primary underline-offset-4 hover:underline">
-                        <CalendarPlus className="size-3.5" aria-hidden="true" />
+                      <a href={ics} className={cn(buttonVariants({ variant: "outline", size: "lg" }), "ml-auto border-primary/40 font-bold text-primary hover:bg-accent hover:text-primary")}>
+                        <CalendarPlus data-icon="inline-start" aria-hidden="true" />
                         Add to calendar
                       </a>
                     )}
