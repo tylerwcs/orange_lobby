@@ -12,49 +12,42 @@ import { SwipeRow } from "./SwipeRow";
  * All rounds rather than the next one: two in one afternoon is exactly when somebody wants to
  * look ahead.
  *
- * A round with no room still gets a ticket. This is where someone looks when they do not know
- * where to go, so it is the worst possible place to say nothing.
+ * Only rounds this attendee has a room in (D231). A round they are not placed in is not
+ * theirs to go to, and a row of "Not assigned yet" tickets reads as a fault, not a plan; with
+ * no room anywhere, the section is not drawn at all.
  */
-export function BreakoutCard({ breakouts, contactPhone }: { breakouts: MyBreakout[]; contactPhone: string | null }) {
-  if (breakouts.length === 0) return null;
+export function BreakoutCard({ breakouts }: { breakouts: MyBreakout[] }) {
+  const mine = breakouts.flatMap((b) => (b.item ? [{ ...b, item: b.item }] : []));
+  if (mine.length === 0) return null;
   return (
     <section aria-labelledby="home-breakouts" className="flex flex-col gap-3">
       <h2 id="home-breakouts" className="px-0.5 text-base font-extrabold">Your breakouts</h2>
       <SwipeRow label="Your breakout rounds" stackOnDesktop>
-        {breakouts.map((b) => <Ticket key={b.slot} b={b} contactPhone={contactPhone} />)}
+        {mine.map((b) => <Ticket key={b.slot} b={b} />)}
       </SwipeRow>
     </section>
   );
 }
 
-function Ticket({ b, contactPhone }: { b: MyBreakout; contactPhone: string | null }) {
+function Ticket({ b }: { b: MyBreakout & { item: NonNullable<MyBreakout["item"]> } }) {
   const time = b.starts_at ? `${b.starts_at}${b.ends_at ? `–${b.ends_at}` : ""}` : null;
-  const room = b.item ? roomLabel(breakoutRoom(b.item)) : null;
+  const room = roomLabel(breakoutRoom(b.item));
   return (
     <div className="flex w-full overflow-hidden rounded-2xl border border-foreground/10 bg-card">
       <div className="flex min-w-0 flex-1 flex-col gap-1 p-3.5">
         <div className="text-xs font-semibold text-muted-foreground">{b.slot} · {shortDate(b.day)}</div>
-        {b.item && <div className="line-clamp-2 text-[15px] font-bold leading-snug">{ticketTitle(b.item.title)}</div>}
+        <div className="line-clamp-2 text-[15px] font-bold leading-snug">{ticketTitle(b.item.title)}</div>
         {time && (
           <div className="mt-auto flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
             <Clock aria-hidden className="size-3.5 shrink-0" />
             <span className="tabular-nums">{time}</span>
           </div>
         )}
-        {!b.item && contactPhone && (
-          <a href={`tel:${contactPhone}`} className="text-xs font-semibold text-primary">Ask the desk: {contactPhone}</a>
-        )}
       </div>
-      {room ? (
-        <div className="flex w-28 shrink-0 flex-col items-center justify-center gap-0.5 border-l-2 border-dashed border-primary/25 bg-accent px-2 py-3 text-center text-primary">
-          {room.prefix && <span className="text-xs font-bold">{room.prefix}</span>}
-          <span className={`break-words font-extrabold ${roomSize(room.main)}`}>{room.main}</span>
-        </div>
-      ) : (
-        <div className="flex w-28 shrink-0 items-center justify-center border-l-2 border-dashed border-border bg-muted px-2 py-3 text-center text-xs font-semibold text-muted-foreground">
-          Not assigned yet
-        </div>
-      )}
+      <div className="flex w-28 shrink-0 flex-col items-center justify-center gap-0.5 border-l-2 border-dashed border-primary/25 bg-accent px-2 py-3 text-center text-primary">
+        {room.prefix && <span className="text-xs font-bold">{room.prefix}</span>}
+        <span className={`break-words font-extrabold ${roomSize(room.main)}`}>{room.main}</span>
+      </div>
     </div>
   );
 }

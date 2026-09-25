@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D230. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D231. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -142,6 +142,10 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   (each starting with "open it in Safari/Chrome" for WhatsApp), or a single Add button where
   Chrome offers the prompt. Closing it any way (Not now, X, tap outside) keeps it closed on
   that phone. Supersedes D227's card.
+
+- **D231** **Only assigned breakout rounds get a ticket.** A round the attendee has no room in
+  is left off the home page, and with no room in any round the section is not drawn.
+  Supersedes the "Not assigned yet" ticket of D218.
 
 ## 3. Out of scope
 

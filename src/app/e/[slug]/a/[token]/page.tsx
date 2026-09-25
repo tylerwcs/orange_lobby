@@ -91,7 +91,7 @@ export default async function PersonalHome({ params, searchParams }: {
           <BadgeCard attendee={attendee} door={event.check_in_enabled} qr={qr} checkedInAt={checkedInAt} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
           {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
           <LauncherGrid items={launcher} layout="row" className="md:hidden" />
-          <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} contactPhone={event.contact_phone} />
+          <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} />
           <div className="md:hidden"><HomeActivities cards={cards} basePath={basePath} /></div>
         </div>
 
