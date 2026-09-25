@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D229. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D230. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -135,6 +135,13 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
 - **D229** **Registration wording.** The "Your details" legend is gone from the form. The line
   under the Register heading is `events.registration_intro` (migration 0043), set in Settings →
   Registration; blank means the default "A few details, once. It takes about a minute."
+
+- **D230** **The install guide is a popup, not a card.** It opens by itself 1.5s after the
+  first visit to the phone home, shows the icon and label the home screen will get, and walks
+  through numbered steps: Safari's Share sheet on iOS, Chrome's menu on other Android browsers
+  (each starting with "open it in Safari/Chrome" for WhatsApp), or a single Add button where
+  Chrome offers the prompt. Closing it any way (Not now, X, tap outside) keeps it closed on
+  that phone. Supersedes D227's card.
 
 ## 3. Out of scope
 

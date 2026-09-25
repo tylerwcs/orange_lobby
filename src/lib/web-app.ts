@@ -8,7 +8,7 @@ const SHORT_NAME = 15;
  * The label under the icon: the event's name, cut back to whole words when it is long.
  * "Ecopia Kick-Off Meeting 2026" becomes "Ecopia Kick-Off".
  */
-function shortName(name: string): string {
+export function shortName(name: string): string {
   if (name.length <= SHORT_NAME) return name;
   let out = "";
   for (const word of name.split(/\s+/)) {
