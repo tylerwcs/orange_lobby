@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D231. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D232. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -146,6 +146,12 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
 - **D231** **Only assigned breakout rounds get a ticket.** A round the attendee has no room in
   is left off the home page, and with no room in any round the section is not drawn.
   Supersedes the "Not assigned yet" ticket of D218.
+
+- **D232** **The guide stays reachable.** After its first popup, the announcements dialog ends
+  with an "Add this page to your home screen" row that reopens it (whatever was dismissed
+  before); an event with no announcements shows that row as the phone home's banner. Both are
+  hidden once the page runs from the home screen. Opened on a computer, the guide says to open
+  the link on a phone. The organiser's latest announcement keeps the banner.
 
 ## 3. Out of scope
 

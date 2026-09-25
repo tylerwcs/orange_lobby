@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { shortDateTime } from "@/lib/text";
 import { AnnouncementList } from "./AnnouncementList";
+import { HomeScreenRow } from "./AddToHomeScreen";
 
 /**
  * The phone home's one line about what changed, which opens every announcement in place.
@@ -38,6 +39,8 @@ export function AnnouncementBanner({ a, items }: { a: Announcement; items: Annou
           <DialogTitle className="text-lg font-extrabold">Announcements</DialogTitle>
           <div className="-mx-1 min-h-0 overflow-y-auto px-1 pb-1">
             <AnnouncementList items={items} />
+            {/* The home-screen guide stays reachable here after its first popup (D232). */}
+            <HomeScreenRow variant="row" onOpen={() => setOpen(false)} />
           </div>
         </DialogContent>
       </Dialog>

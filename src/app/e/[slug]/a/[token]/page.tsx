@@ -12,7 +12,7 @@ import { BreakoutCard } from "@/components/portal/BreakoutCard";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { LauncherGrid } from "@/components/portal/LauncherGrid";
 import { HomeActivities } from "@/components/portal/HomeActivities";
-import { AddToHomeScreen } from "@/components/portal/AddToHomeScreen";
+import { AddToHomeScreen, HomeScreenRow } from "@/components/portal/AddToHomeScreen";
 import { shortName } from "@/lib/web-app";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
@@ -89,7 +89,10 @@ export default async function PersonalHome({ params, searchParams }: {
 
         <div className="flex flex-col gap-4 md:gap-5">
           <BadgeCard attendee={attendee} door={event.check_in_enabled} qr={qr} checkedInAt={checkedInAt} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
-          {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
+          <div className="md:hidden">
+            {/* No announcements yet: the banner's place holds the home-screen guide instead (D232). */}
+            {banner ? <AnnouncementBanner a={banner} items={announcements} /> : <HomeScreenRow variant="banner" />}
+          </div>
           <LauncherGrid items={launcher} layout="row" className="md:hidden" />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} />
           <div className="md:hidden"><HomeActivities cards={cards} basePath={basePath} /></div>

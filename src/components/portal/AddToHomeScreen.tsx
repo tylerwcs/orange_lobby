@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { EllipsisVertical, Share, SquarePlus } from "lucide-react";
+import { ChevronRight, EllipsisVertical, Share, Smartphone, SquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 /** The Chrome/Android event that carries the install prompt. Not in the DOM typings. */
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 
-type Platform = "none" | "ios" | "android" | "other";
+type Platform = "installed" | "ios" | "android" | "other";
 
 const DISMISSED = "ecphub:a2hs-dismissed";
+/** Fired by the entry points - the announcements row, the banner - to open the guide on demand. */
+const OPEN_EVENT = "ecphub:a2hs-open";
 /** Long enough for the page to settle and be seen first; short enough to catch a quick visit. */
 const OPEN_AFTER_MS = 1500;
 
@@ -19,19 +21,51 @@ function wasDismissed(): boolean {
 }
 
 /**
- * What this phone can do, read once on the client. "none" - already on the home screen, closed
- * before, or the server render - shows nothing. A plain string, so the snapshot is stable.
+ * What this device is, read once on the client; the server render counts as "installed" so
+ * nothing about the guide is drawn until the browser has answered. A plain string, so the
+ * snapshot is stable.
  */
 function platform(): Platform {
   const installed = window.matchMedia("(display-mode: standalone)").matches
     || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  if (installed || wasDismissed()) return "none";
+  if (installed) return "installed";
   const ua = navigator.userAgent;
   // iPadOS reports itself as a Mac; the touch points give it away.
   if (/iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) return "ios";
   return /Android/.test(ua) ? "android" : "other";
 }
 const noSubscribe = () => () => {};
+const useDevice = () => useSyncExternalStore(noSubscribe, platform, () => "installed" as Platform);
+
+/** Opens the guide from anywhere on the page, whether or not it was closed before. */
+export function openHomeScreenGuide() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
+
+/**
+ * The way back to the guide after its first showing (D232): a row at the foot of the
+ * announcements, or - on an event with no announcements - the home's banner itself. Gone once
+ * the page runs from the home screen, where there is nothing left to add.
+ */
+export function HomeScreenRow({ variant, onOpen }: { variant: "banner" | "row"; onOpen?: () => void }) {
+  const device = useDevice();
+  if (device === "installed") return null;
+  const open = () => { onOpen?.(); openHomeScreenGuide(); };
+  return (
+    <button
+      type="button"
+      onClick={open}
+      aria-haspopup="dialog"
+      className={variant === "banner"
+        ? "flex w-full items-center gap-3 rounded-[12px] bg-accent px-3.5 py-3 text-left text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        : "mt-2 flex w-full items-center gap-3 rounded-[10px] border border-dashed border-primary/30 px-3 py-2.5 text-left text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50"}
+    >
+      <Smartphone aria-hidden className="size-5 shrink-0" />
+      <span className="min-w-0 flex-1 text-sm font-bold">Add this page to your home screen</span>
+      <ChevronRight aria-hidden className="size-4.5 shrink-0" />
+    </button>
+  );
+}
 
 /** One numbered step. */
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
@@ -49,37 +83,43 @@ const inlineIcon = "mx-0.5 inline size-4 align-[-3px] text-primary";
 /**
  * A popup asking the attendee to keep their page on the home screen (D227, D230), so on the day
  * it is one tap away instead of buried in a WhatsApp chat. It opens by itself on the first
- * visit to the home page, a moment after the page settles, and never again once closed on that
- * phone - a prompt that comes back every visit teaches people to swat it away unread.
+ * visit to the home page, a moment after the page settles, and never again by itself once
+ * closed on that phone - a prompt that comes back every visit teaches people to swat it away
+ * unread. `HomeScreenRow` opens it again on request (D232).
  *
  * The steps depend on what the phone can do:
  * - Chrome on Android fires `beforeinstallprompt`, so the popup has a real Add button.
  * - iOS never offers a prompt to a web page, so the popup walks through Safari's Share sheet.
  * - Other Android browsers - WhatsApp's in-app one above all - may offer neither, so the popup
  *   walks through Chrome's menu, starting with getting the link into Chrome.
- * Nothing opens on a desktop or when the page is already running from the home screen.
+ * Nothing opens by itself on a desktop or when the page is already running from the home
+ * screen; opened on request from a desktop, it says to open the link on a phone.
  */
 export function AddToHomeScreen({ appName }: { appName: string }) {
-  const device = useSyncExternalStore(noSubscribe, platform, () => "none" as Platform);
+  const device = useDevice();
   const [canPrompt, setCanPrompt] = useState(false);
   const [open, setOpen] = useState(false);
   const prompt = useRef<InstallPrompt | null>(null);
 
   useEffect(() => {
-    if (device === "none") return;
+    if (device === "installed") return;
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, onOpen);
     const onPrompt = (e: Event) => {
       e.preventDefault();
       prompt.current = e as InstallPrompt;
       setCanPrompt(true);
-      setOpen(true);
+      if (!wasDismissed()) setOpen(true);
     };
     const onInstalled = () => setOpen(false);
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     // A desktop browser with no prompt gets nothing: it is not where the day happens.
-    const timer = device === "ios" || device === "android" ? window.setTimeout(() => setOpen(true), OPEN_AFTER_MS) : undefined;
+    const auto = (device === "ios" || device === "android") && !wasDismissed();
+    const timer = auto ? window.setTimeout(() => setOpen(true), OPEN_AFTER_MS) : undefined;
     return () => {
       window.clearTimeout(timer);
+      window.removeEventListener(OPEN_EVENT, onOpen);
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
@@ -123,6 +163,10 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
             <Step n={3}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />.</Step>
             <Step n={4}>Tap <Strong>Add</Strong>. The icon appears on your home screen.</Step>
           </ol>
+        ) : device === "other" ? (
+          <p className="text-center text-sm text-muted-foreground text-balance">
+            On a computer? Open your event link on your phone, and this guide will show you the steps there.
+          </p>
         ) : (
           <ol className="flex flex-col gap-3" aria-label="How to add it on Android">
             <Step n={1}>Open this page in <Strong>Chrome</Strong>. Came from WhatsApp? Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} />, then <Strong>Open in Chrome</Strong>.</Step>
