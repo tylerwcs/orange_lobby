@@ -5,8 +5,6 @@ import { isBreakout } from "@/lib/breakouts";
 import { bookedSessionId, isBookedRow } from "@/lib/activities";
 import { CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "cn";
 import { AgendaImage } from "./AgendaImage";
 import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
@@ -51,6 +49,9 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
         if (i.kind === "image") return <ImageRow key={i.id} item={i} />;
         const live = isNow(i, now.date, now.time);
         const accent = agendaAccentClass(i.color);
+        // A booked session's own calendar file, when the page can address it (personal portal only).
+        const sessionId = bookedSessionId(i);
+        const ics = sessionId && calendarHref ? calendarHref(sessionId) : null;
         return (
           <div key={i.id} id={live ? "now" : undefined} className={`relative flex gap-3 overflow-hidden rounded-[14px] p-3.5 scroll-mt-4 bg-card ${live ? "border-2 border-primary" : "border border-border"}`}>
             {/* A saturated bar down the leading edge, not a tint behind the text: every
@@ -63,7 +64,19 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
               {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-primary">NOW</div> : i.ends_at && <div className="text-[11px] text-muted-foreground">{i.ends_at}</div>}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-bold">{i.title}</div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-[15px] font-bold">{i.title}</div>
+                {/* Top right, level with the title, as a soft pill: it belongs to the session,
+                    not to the Booked badge. A plain <a>, not <Link>: it is a file, not a page,
+                    and must not be prefetched. No `download` either - iOS would save it
+                    rather than offer to add it. */}
+                {ics && (
+                  <a href={ics} className="-my-1 inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 text-xs font-bold text-primary outline-none transition-colors hover:bg-primary/15 focus-visible:ring-3 focus-visible:ring-ring/50">
+                    <CalendarPlus className="size-3.5" aria-hidden="true" />
+                    Add to calendar
+                  </a>
+                )}
+              </div>
               {i.location && (
                 <div className={isBreakout(i) || isBookedRow(i) ? "text-sm font-extrabold text-primary" : "text-xs text-muted-foreground"}>
                   {i.location}
@@ -71,25 +84,8 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
               )}
               {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{i.description}</p>}
               {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Badge variant="secondary">{i.categories.join(", ")}</Badge></div>}
-              {isBookedRow(i) && (() => {
-                const sessionId = bookedSessionId(i);
-                const ics = sessionId && calendarHref ? calendarHref(sessionId) : null;
-                return (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    {/* Green, the colour of "you're booked" on the activity's own page. */}
-                    <Badge variant="success">Booked</Badge>
-                    {/* A plain <a>, not <Link>: it is a file, not a page, and must not be
-                        prefetched. No `download` either - iOS would save it rather than
-                        offer to add it. */}
-                    {ics && (
-                      <a href={ics} className={cn(buttonVariants({ variant: "outline", size: "lg" }), "ml-auto border-primary/40 font-bold text-primary hover:bg-accent hover:text-primary")}>
-                        <CalendarPlus data-icon="inline-start" aria-hidden="true" />
-                        Add to calendar
-                      </a>
-                    )}
-                  </div>
-                );
-              })()}
+              {/* Green, the colour of "you're booked" on the activity's own page. */}
+              {isBookedRow(i) && <div className="mt-1.5"><Badge variant="success">Booked</Badge></div>}
             </div>
             {/* Trailing edge, after the text: the leading edge already belongs to the time
                 and the colour bar, and a picture must not push the hour off the row. */}
