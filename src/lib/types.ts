@@ -151,6 +151,8 @@ export type Announcement = {
   title: string;
   body: string;
   pinned: boolean;
+  /** The organiser's order (D249); attendees see them in it. */
+  sort_order: number;
   created_at: string;
 };
 

@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { Announcement } from "@/lib/types";
 import { Icon } from "@/components/ui/icon";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { shortDateTime } from "@/lib/text";
 import { AnnouncementList } from "./AnnouncementList";
 import { HomeScreenRow } from "./AddToHomeScreen";
 
@@ -13,15 +12,15 @@ import { HomeScreenRow } from "./AddToHomeScreen";
  *
  * It used to link to /announcements. Reading one message cost a page load and a trip back, and
  * the message that brought somebody here is rarely the only one they missed — so the dialog
- * shows the whole list, pinned first (`listAnnouncements`' order), the same way `AgendaImage`
+ * shows the whole list in the organiser's order (`listAnnouncements`), the same way `AgendaImage`
  * opens a picture without leaving the agenda.
  *
- * `a` is the banner's own line — the pinned one, else the newest — and is always `items[0]`
- * today, but it is passed separately so the banner does not quietly depend on that ordering.
+ * `a` is the banner's own line — the pinned one, else the first in the organiser's order (D249)
+ * — passed separately from `items` so the banner does not depend on which comes first. Its
+ * second line is the start of the message rather than when it was posted.
  */
 export function AnnouncementBanner({ a, items }: { a: Announcement; items: Announcement[] }) {
   const [open, setOpen] = useState(false);
-  const when = shortDateTime(a.created_at);
   return (
     <>
       <button
@@ -31,7 +30,7 @@ export function AnnouncementBanner({ a, items }: { a: Announcement; items: Annou
         aria-haspopup="dialog"
       >
         <Icon name="megaphone" size={20} className="shrink-0 text-primary" />
-        <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-primary">{a.title}</div><div className="text-xs text-primary">{when}</div></div>
+        <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-primary">{a.title}</div><div className="truncate text-xs text-primary">{a.body}</div></div>
         <Icon name="chevron" size={18} className="text-primary" />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>

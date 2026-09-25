@@ -15,7 +15,7 @@ import type { Attendee, Event, AgendaDay } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem, listAgendaDays, createAgendaDay, updateAgendaDay, deleteAgendaDay, setAgendaOrder } from "@/lib/db/agenda";
 import { breakoutSlots, matchAssignments, breakoutSlotFromColumn, parseRoomCodes, splitByExisting, describeAssignment, agendaRows } from "@/lib/breakouts";
 import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/lib/db/breakouts";
-import { createAnnouncement, deleteAnnouncement } from "@/lib/db/announcements";
+import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncementOrder, updateAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
@@ -619,10 +619,32 @@ export async function addAnnouncementAction(eventId: string, formData: FormData)
   redirect(flashPath(`/admin/events/${eventId}/announcements`, `“${title}” posted.`));
 }
 
+export async function updateAnnouncementAction(eventId: string, annId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/announcements`;
+  const title = str(formData, "title");
+  const body = str(formData, "body");
+  if (!title || !body) redirect(flashPath(back, "An announcement needs a title and a body.", "error"));
+  await updateAnnouncement(annId, eventId, { title, body, pinned: formData.get("pinned") === "on" });
+  revalidatePath(back);
+  redirect(flashPath(back, `“${title}” saved.`));
+}
+
 export async function deleteAnnouncementAction(eventId: string, annId: string) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);
   await deleteAnnouncement(annId, eventId);
+  revalidatePath(`/admin/events/${eventId}/announcements`);
+}
+
+/** The order a drag or an arrow left them in (D249). A list that is not exactly this event's announcements is dropped, as for info tabs. */
+export async function reorderAnnouncementsAction(eventId: string, ids: string[]) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const current = (await listAnnouncements(ev.id)).map((a) => a.id);
+  if (current.length === 0 || !isValidOrder(current, ids)) return;
+  await setAnnouncementOrder(ev.id, ids);
   revalidatePath(`/admin/events/${eventId}/announcements`);
 }
 
