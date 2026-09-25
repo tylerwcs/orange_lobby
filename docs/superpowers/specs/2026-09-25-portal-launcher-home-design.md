@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D226. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D229. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -118,6 +118,23 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
 - **D226** **No Floor plan button on the badge**; the launcher's floor plan tile is the way
   there, drawn with the portal's own illustration (`public/portal-icons/floor-plan.webp`)
   unless the organiser uploaded one. Supersedes the badge half of D225.
+
+- **D227** **Add to home screen.** Each attendee gets their own web app manifest
+  (`/e/<slug>/a/<token>/manifest.webmanifest`, linked from the personal layout) whose start
+  page and scope are their own portal, named after the event, with 192/512 icons from the
+  Ecopia Group logo (`public/app-icons`). iOS tags make it open full screen. A dismissible card
+  under the phone launcher guides the install: a real button where Chrome offers the prompt,
+  Safari's Share → Add to Home Screen on iOS, the browser menu on other Android browsers (with
+  "open the link in Chrome/Safari first" for WhatsApp's in-app browser). Hidden on desktop,
+  when already installed, and once closed (remembered per phone).
+
+- **D228** **Events without check-in** get a registered page with no QR (a calendar mark, a
+  line about keeping the event page handy, the Open button and the copyable link); the form's
+  footnote says the event page link comes next; the badge shows no check-in status.
+
+- **D229** **Registration wording.** The "Your details" legend is gone from the form. The line
+  under the Register heading is `events.registration_intro` (migration 0043), set in Settings →
+  Registration; blank means the default "A few details, once. It takes about a minute."
 
 ## 3. Out of scope
 

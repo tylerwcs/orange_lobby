@@ -36,6 +36,9 @@ export function parseQuestions(
   return res.data;
 }
 
+/** The line under the Register heading when the organiser has not written their own (D229). */
+export const DEFAULT_REGISTRATION_INTRO = "A few details, once. It takes about a minute.";
+
 export type RegistrationData = { name: string; email: string; extra: Record<string, string> };
 export type RegistrationResult = { ok: true; data: RegistrationData } | { ok: false; errors: Record<string, string> };
 

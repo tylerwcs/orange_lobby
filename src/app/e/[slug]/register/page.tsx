@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { brandStyle } from "@/lib/brand";
 import { shortDateTime } from "@/lib/text";
+import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
 
 export default async function RegisterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -45,10 +46,10 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
             {/* A visible heading, not an sr-only one: an invitee arriving from a link needs to
                 read what this page wants from them before they meet the first input. */}
             <h1 className="text-2xl font-extrabold leading-tight">Register</h1>
-            <p className="mt-1 text-sm text-muted-foreground">A few details, once. It takes about a minute.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
             <Card className="mt-4">
               <CardContent>
-                <RegisterForm slug={slug} questions={event.registration_questions} />
+                <RegisterForm slug={slug} questions={event.registration_questions} door={event.check_in_enabled} />
               </CardContent>
             </Card>
           </>

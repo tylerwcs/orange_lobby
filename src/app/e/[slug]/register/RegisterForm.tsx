@@ -34,9 +34,11 @@ function autoCompleteFor(q: RegistrationQuestion): string | undefined {
   return q.type === "phone" ? "tel" : undefined;
 }
 
-export function RegisterForm({ slug, questions }: {
+export function RegisterForm({ slug, questions, door = true }: {
   slug: string;
   questions: RegistrationQuestion[];
+  /** Whether the event checks people in; without a door there is no QR on the next screen (D228). */
+  door?: boolean;
 }) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug), {});
   // Every field is controlled, the four fixed ones included. They used to be uncontrolled
@@ -108,7 +110,6 @@ export function RegisterForm({ slug, questions }: {
 
       {questions.length > 0 && (
         <FieldSet>
-          <FieldLegend>Your details</FieldLegend>
           <FieldGroup>
             {questions.map((q) => {
               const id = `reg-${q.key}`;
@@ -140,7 +141,7 @@ export function RegisterForm({ slug, questions }: {
           {pending && <Spinner data-icon="inline-start" />}
           {pending ? "Submitting…" : "Register"}
         </Button>
-        <FieldDescription className="text-center">Your QR badge appears on the next screen.</FieldDescription>
+        <FieldDescription className="text-center">{door ? "Your QR badge appears on the next screen." : "Your event page link appears on the next screen."}</FieldDescription>
       </Field>
     </form>
   );

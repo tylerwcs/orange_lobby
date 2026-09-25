@@ -44,6 +44,8 @@ export type Event = {
   /** Organiser pictures for the launcher's own sections, keyed "agenda" / "info" (D222). Read through `sectionIcons`. */
   section_icons: Record<string, unknown>;
   registration_open: boolean;
+  /** The line under the Register heading; null for DEFAULT_REGISTRATION_INTRO (D229). */
+  registration_intro: string | null;
   registration_closes_at: string | null;
   /**
    * Whether this event has a door at all (D159). Off hides the Scanner, the arrival stats,

@@ -1,9 +1,24 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { loadPortalAttendee, portalHasInfo } from "@/lib/portal";
 import { loadActivityNav } from "@/lib/portal-home";
 import { PortalChrome } from "@/components/portal/PortalChrome";
 import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
+
+/**
+ * Home-screen install (D227): this attendee's own manifest, so the icon opens their page, and
+ * the iOS tags that make it open full screen under the event's name. No database read beyond
+ * the one the layout already makes - `loadPortalAttendee` is memoised per request.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string; token: string }> }): Promise<Metadata> {
+  const { slug, token } = await params;
+  const { event } = await loadPortalAttendee(slug, token);
+  return {
+    manifest: `/e/${slug}/a/${token}/manifest.webmanifest`,
+    appleWebApp: { capable: true, title: event.name, statusBarStyle: "default" },
+  };
+}
 
 /**
  * The personal portal's chrome lives here rather than in each page, so the header is rendered

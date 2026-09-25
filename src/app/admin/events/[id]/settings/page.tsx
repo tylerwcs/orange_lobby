@@ -25,7 +25,7 @@ import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
 import { QuestionEditor } from "@/components/admin/QuestionEditor";
-import { REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
+import { DEFAULT_REGISTRATION_INTRO, REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
 import type { EventStatus } from "@/lib/types";
 import { FieldPicker } from "@/components/admin/FieldPicker";
 import { eventFields } from "@/lib/attendee-fields";
@@ -361,6 +361,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <div className="grid gap-4 @xl:grid-cols-2">
             <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input type="checkbox" name="registration_open" defaultChecked={ev.registration_open} className="size-4 accent-primary" /> Registration is open</label>
             <Field label="Closes automatically at" name="registration_closes_at" type="datetime-local" defaultValue={isoToLocalInput(ev.registration_closes_at)} />
+            <div className="@xl:col-span-2">
+              <Field label="Line under the Register heading" name="registration_intro" defaultValue={ev.registration_intro ?? ""} placeholder={DEFAULT_REGISTRATION_INTRO} description="Leave blank to use the placeholder text." />
+            </div>
           </div>
           <div className="flex flex-col gap-1.5">
           <h3 className="text-sm font-extrabold">Questions</h3>
