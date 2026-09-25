@@ -6,7 +6,7 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldAction, deleteAttendeesAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
+import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldsAction, deleteAttendeesAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listAgenda } from "@/lib/db/agenda";
@@ -26,10 +26,10 @@ import { eventFields, fieldsFromQuestions, unclaimedKeys } from "@/lib/attendee-
 import { fieldValue } from "@/lib/attendee-values";
 import { buttonVariants } from "@/components/ui/button";
 import { paginate } from "@/lib/paginate";
+import { parseSort, sortRows } from "@/lib/attendee-sort";
+import { PageSizePicker } from "@/components/admin/PageSizePicker";
 
 export const metadata = { title: "Attendees" };
-
-const PAGE_SIZE = 50;
 
 // A few thousand masterlist rows can outrun the default serverless timeout.
 export const maxDuration = 60;
@@ -40,7 +40,7 @@ const IMPORT_COLUMNS: [string, string][] = [
   ["Phone", "Kept as text, so leading zeros survive."],
   ["Category", "Drives which agenda sessions the attendee sees."],
   ["Table", "Shown to the attendee and on the crew scan card."],
-  ["Anything else", "Kept under its own header. Add a column of the same name to edit it in the app."],
+  ["Anything else", "Becomes a column of its own, filled in from the sheet."],
 ];
 
 export default async function Attendees({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
@@ -110,15 +110,34 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // segment — see AttendeeDialog for what that looked like.
   const open = sp.attendee ? await loadAttendeeDetail(ev.id, sp.attendee, orgId) : null;
 
-  const { slice, page, pages } = paginate(rows, Number(sp.page ?? 1), PAGE_SIZE);
+  // Sorted here, over everyone the search matched, before the list is cut into pages — so page
+  // 2 continues page 1's order. The value is what the column shows: the assignment for a
+  // breakout round, the first scan for Checked in, the stored answer for everything else.
+  const sort = parseSort(sp.sort, sp.dir, new Set(["name", ...columns.map((c) => c.key)]));
+  const valueOf = (a: (typeof rows)[number]): string | null => {
+    switch (sort?.key) {
+      case "name": return a.name;
+      case "email": return a.email;
+      case "category": return a.category;
+      case "source": return a.source;
+      case "checked_in": return earliestScan.get(a.id) ?? null;
+      default: return sort && sort.key.startsWith("breakout:") ? roundValues.get(a.id)?.[sort.key] ?? null : fieldValue(a, sort?.key ?? "");
+    }
+  };
+  const sorted = sort ? sortRows(rows, valueOf, sort.dir) : rows;
+
+  // 0 is "All": one page as long as the list.
+  const pageSize = prefs.perPage || Math.max(1, sorted.length);
+  const { slice, page, pages } = paginate(sorted, Number(sp.page ?? 1), pageSize);
   const pageHref = (p: number) => {
     const qs = new URLSearchParams();
     if (sp.q) qs.set("q", sp.q);
+    if (sort) { qs.set("sort", sort.key); qs.set("dir", sort.dir); }
     qs.set("page", String(p));
     return `/admin/events/${ev.id}/attendees?${qs.toString()}`;
   };
-  const from = slice.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const to = (page - 1) * PAGE_SIZE + slice.length;
+  const from = slice.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = (page - 1) * pageSize + slice.length;
 
   return (
     <div className="space-y-6">
@@ -168,7 +187,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
               </form>
               <div className="mt-5 border-t border-border pt-4">
                 <h3 className="text-sm font-extrabold">Columns it looks for</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">Header row, any order, case-insensitive. Anything else is kept under its own header and can appear on the scan card.</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Header row, any order, case-insensitive. Anything else becomes a column of its own and can appear on the scan card.</p>
                 <dl className="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
                   {IMPORT_COLUMNS.map(([c, note]) => (
                     <div key={c}><dt className="font-mono font-bold">{c}</dt><dd className="text-muted-foreground">{note}</dd></div>
@@ -208,14 +227,15 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         }))}
         // Everyone the current search matches, across every page, so a selection can grow past
         // the fifty on screen — clearing out a bad import is a whole-list job.
-        allIds={rows.map((a) => a.id)}
+        allIds={sorted.map((a) => a.id)}
         searchQuery={sp.q ?? null}
+        sort={sort}
         columns={columns}
         initialPrefs={prefs}
         openAttendeeId={open ? open.a.id : null}
         detailPanel={open ? <AttendeeDetail data={open} /> : null}
         renameColumn={renameAttendeeFieldAction.bind(null, ev.id)}
-        deleteColumn={deleteAttendeeFieldAction.bind(null, ev.id)}
+        deleteColumn={deleteAttendeeFieldsAction.bind(null, ev.id)}
         addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} suggestions={suggestions} />}
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
@@ -228,7 +248,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
       </PendingSwap>
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span className="tabular-nums">Showing {from}–{to} of {rows.length}</span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PageSizePicker eventId={ev.id} prefs={prefs} />
           {page > 1
             ? <PendingLink href={pageHref(page - 1)} className={buttonVariants({ variant: "outline" })}>Previous</PendingLink>
             : <span className={`${buttonVariants({ variant: "outline" })} opacity-50`} aria-disabled="true">Previous</span>}

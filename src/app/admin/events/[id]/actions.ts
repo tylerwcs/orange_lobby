@@ -7,8 +7,8 @@ import { slugify } from "@/lib/slug";
 import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
 import { importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
-import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
-import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
+import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
+import { addField, renameField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, keysToErase, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event, AgendaDay } from "@/lib/types";
@@ -450,15 +450,38 @@ export async function renameAttendeeFieldAction(eventId: string, formData: FormD
   redirect(flashPath(columnsBack(eventId), `Column renamed to “${String(formData.get("label") ?? "").trim()}”.`));
 }
 
-/** Drops the definition only. Every attendee keeps the value, so re-adding the column restores it. */
-export async function deleteAttendeeFieldAction(eventId: string, formData: FormData) {
+/**
+ * Deletes one or more columns and erases what was stored in them (D248). Posted as one or
+ * more `key` fields, so the header menu's single delete and the Manage columns dialog's
+ * several are the same action.
+ *
+ * Until D248 a delete kept the values and a same-named column brought them back. That suited
+ * columns typed in by hand; an import now makes one per spreadsheet header, and clearing out
+ * "Pax" should clear it. Only organiser-added columns can go: a registration question is owned
+ * by the form in Settings, and a posted key naming one is ignored.
+ *
+ * The definitions go first, then the values. A failure in between leaves values nothing shows,
+ * which the "add a column" suggestions still offer back — the recoverable side to fail on.
+ */
+export async function deleteAttendeeFieldsAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  const key = String(formData.get("key") ?? "");
-  const gone = ev.attendee_fields.find((f) => f.key === key);
-  await updateEvent(eventId, { attendee_fields: removeField(ev.attendee_fields, key) });
+  const asked = new Set(formData.getAll("key").map(String));
+  const questionKeys = new Set(ev.registration_questions.map((q) => q.key));
+  const doomed = ev.attendee_fields.filter((f) => asked.has(f.key) && !questionKeys.has(f.key));
+  if (doomed.length === 0) redirect(flashPath(columnsBack(eventId), "Those columns can't be deleted here.", "error"));
+
+  const kept = ev.attendee_fields.filter((f) => !doomed.includes(f));
+  const gone = new Set(doomed.map((f) => f.key));
+  // A pinned column that no longer exists would only be dropped at render; drop it here too.
+  await updateEvent(eventId, { attendee_fields: kept, pinned_fields: ev.pinned_fields.filter((p) => !gone.has(p.key)) });
+  const keys = keysToErase((await listAttendees(ev.id)).map((a) => a.extra ?? {}), doomed, eventFields(ev.registration_questions, kept));
+  await eraseExtraKeys(ev.id, keys);
+
   revalidatePath(columnsBack(eventId));
-  redirect(flashPath(columnsBack(eventId), `Removed “${gone?.label ?? "the column"}”. What people entered is kept.`));
+  redirect(flashPath(columnsBack(eventId), doomed.length === 1
+    ? `Deleted “${doomed[0].label}” and everything stored in it.`
+    : `Deleted ${doomed.length} columns and everything stored in them.`));
 }
 
 // ---- Agenda / announcements / info / checkpoints ----

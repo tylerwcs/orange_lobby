@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allColumns, bulkFields, BULK_BUILTIN_FIELDS, BUILTIN_COLUMNS, columnsCookieName, defaultHidden,
-  hiddenFromCookie, hiddenToCookie, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns,
+  hiddenFromCookie, hiddenToCookie, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns, PAGE_SIZES,
   parseTablePrefs, serialiseTablePrefs, tableCookieName, visibleColumns, type TablePrefs,
 } from "@/lib/columns";
 import type { AttendeeField } from "@/lib/attendee-fields";
@@ -80,7 +80,7 @@ describe("columnsCookieName", () => {
 });
 
 describe("parseTablePrefs", () => {
-  const layout = (p: Partial<TablePrefs>): TablePrefs => ({ hidden: [], order: [], widths: {}, ...p });
+  const layout = (p: Partial<TablePrefs>): TablePrefs => ({ hidden: [], order: [], widths: {}, perPage: 50, ...p });
   const round = (prefs: Partial<TablePrefs>) => parseTablePrefs(serialiseTablePrefs(layout(prefs)), cols);
 
   it("round-trips the hidden columns", () => {
@@ -145,6 +145,23 @@ describe("parseTablePrefs", () => {
   it("honours order and widths left in a cookie from before the revamp", () => {
     const legacy = encodeURIComponent(JSON.stringify({ hidden: ["source"], order: ["dietary", "email"], widths: { email: 300 } }));
     expect(parseTablePrefs(legacy, cols)).toEqual(layout({ hidden: ["source"], order: ["dietary", "email"], widths: { email: 300 } }));
+  });
+});
+
+describe("rows per page", () => {
+  const read = (perPage: unknown) => parseTablePrefs(encodeURIComponent(JSON.stringify({ hidden: [], perPage })), cols).perPage;
+
+  it("keeps the sizes the picker offers, with 0 meaning everyone on one page", () => {
+    expect(read(100)).toBe(100);
+    expect(read(200)).toBe(200);
+    expect(read(0)).toBe(0);
+  });
+
+  it("falls back to 50 for anything else, and when nothing is stored", () => {
+    expect(read(75)).toBe(50);
+    expect(read("all")).toBe(50);
+    expect(parseTablePrefs(undefined, cols).perPage).toBe(50);
+    expect(PAGE_SIZES).toEqual([50, 100, 200, 0]);
   });
 });
 

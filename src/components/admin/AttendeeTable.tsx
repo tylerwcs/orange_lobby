@@ -15,7 +15,11 @@ import { ColumnResizeHandle } from "@/components/admin/ColumnResizeHandle";
 import { SortableList } from "@/components/admin/SortableList";
 import { AttendeePanel } from "@/components/admin/AttendeePanel";
 import { Button } from "@/components/ui/button";
-import { orderedColumns, serialiseTablePrefs, tableCookieName, type ColumnDef, type TablePrefs } from "@/lib/columns";
+import { Trash2 } from "lucide-react";
+import { SubmitButton } from "@/components/admin/SubmitButton";
+import { orderedColumns, type ColumnDef, type TablePrefs } from "@/lib/columns";
+import { writeTablePrefs } from "@/lib/table-prefs-cookie";
+import type { Sort, SortDir } from "@/lib/attendee-sort";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AttendeeSource, Checkpoint } from "@/lib/types";
 
@@ -63,20 +67,13 @@ function cellText(a: AttendeeRow, key: string): string | undefined {
  */
 const CELL_PADDING = 16;
 
-/**
- * Writing the layout back out. Lives outside the component because it touches
- * `document` — a browser API, not React state — and the compiler is right to insist that
- * a render-phase closure not reach for one.
- */
-function persistPrefs(eventId: string, prefs: TablePrefs) {
-  document.cookie = `${tableCookieName(eventId)}=${serialiseTablePrefs(prefs)}; path=/; max-age=31536000; samesite=lax`;
-}
 
 export function AttendeeTable({
   eventId,
   rows,
   allIds,
   searchQuery,
+  sort,
   columns,
   initialPrefs,
   openAttendeeId,
@@ -97,6 +94,8 @@ export function AttendeeTable({
   /** Every attendee the current search matches, on every page — what "Select all" reaches. */
   allIds: string[];
   searchQuery: string | null;
+  /** The sort the URL asked for, already applied by the server; null means the default name order. */
+  sort: Sort | null;
   columns: ColumnDef[];
   initialPrefs: TablePrefs;
   /** The attendee the URL says is open, and the server-rendered panel for them. */
@@ -123,6 +122,9 @@ export function AttendeeTable({
   const [prefs, setPrefs] = useState<TablePrefs>(initialPrefs);
   const [addingColumn, setAddingColumn] = useState(false);
   const [arranging, setArranging] = useState(false);
+  // Columns ticked for deletion in the Manage columns dialog, deleted together on confirm (D248).
+  const [marked, setMarked] = useState<Set<string>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   // The width a column is being dragged to. Held apart from `prefs` so the column follows
   // the pointer without a cookie write per pixel; letting go saves it.
   const [dragging, setDragging] = useState<{ key: string; width: number } | null>(null);
@@ -146,6 +148,18 @@ export function AttendeeTable({
     startOpening(() => router.push(listHref(attendeeId), { scroll: false }));
   };
 
+  // Sorting is a URL change, because the server sorts the whole list before cutting it into
+  // pages. Back to page 1, since the rows on page 3 of the old order mean nothing in the new one.
+  const sortBy = (key: string, dir: SortDir | null) => {
+    const next = new URLSearchParams(params.toString());
+    next.delete("page");
+    if (dir) { next.set("sort", key); next.set("dir", dir); } else { next.delete("sort"); next.delete("dir"); }
+    const qs = next.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+  const sortedBy = (key: string): SortDir | null => (sort?.key === key ? sort.dir : null);
+  const nameSort = sortedBy("name");
+
   // Derived, not synced: while the navigation is in flight the local choice wins, so the
   // panel opens on the click rather than a round trip later; once it settles the URL is
   // the truth, which is what closes the panel after a save redirects to the plain list.
@@ -154,9 +168,10 @@ export function AttendeeTable({
   // A per-browser preference, not shared state: one organiser's choice of columns must not
   // rearrange the table for the crew member next to them.
   const save = (change: Partial<TablePrefs>) => {
-    const next = { ...prefs, ...change };
-    setPrefs(next);
-    persistPrefs(eventId, next);
+    setPrefs({ ...prefs, ...change });
+    // Only what changed, merged into what is stored: the page-size picker writes the same
+    // cookie, and a whole-object write from here would put its old value back.
+    writeTablePrefs(eventId, initialPrefs, change);
   };
 
   const hidden = new Set(prefs.hidden);
@@ -186,16 +201,26 @@ export function AttendeeTable({
     setBulkVersion((v) => v + 1);
   };
 
-  // Adding a column redirects back to this same URL, so nothing unmounts the dialog and
-  // nothing changes in the address bar. The new column arriving is the signal that the
-  // task finished.
+  // Adding or deleting a column redirects back to this same URL, so nothing unmounts the
+  // dialogs and nothing changes in the address bar. The column count changing is the signal
+  // that the task finished.
   const columnCount = columns.length;
   const lastCount = useRef(columnCount);
   useEffect(() => {
     if (lastCount.current === columnCount) return;
     lastCount.current = columnCount;
     setAddingColumn(false);
+    setConfirmingDelete(false);
+    setArranging(false);
+    setMarked(new Set());
   }, [columnCount]);
+
+  const toggleMarked = (key: string) => setMarked((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  const markedLabels = columns.filter((c) => marked.has(c.key)).map((c) => c.label);
 
   const toggleOne = (id: string, checked: boolean) => {
     setSelected((prev) => {
@@ -273,8 +298,22 @@ export function AttendeeTable({
                   aria-label="Select all attendees on this page"
                 />
               </TableHead>
-              <TableHead className="relative text-xs font-bold uppercase tracking-[0.06em]" style={nameWidth ? { width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth } : undefined}>
-                Name
+              <TableHead
+                className="relative text-xs font-bold uppercase tracking-[0.06em]"
+                style={nameWidth ? { width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth } : undefined}
+                aria-sort={nameSort === "asc" ? "ascending" : nameSort === "desc" ? "descending" : undefined}
+              >
+                {/* Name has no menu (it cannot be hidden or renamed), so its header sorts on a
+                    click: A→Z, then Z→A, then A→Z again. */}
+                <button
+                  type="button"
+                  onClick={() => sortBy("name", nameSort === "asc" ? "desc" : "asc")}
+                  className="inline-flex items-center gap-1 rounded-md text-xs font-bold uppercase tracking-[0.06em] hover:text-foreground"
+                  title="Sort by name"
+                >
+                  Name
+                  {nameSort && <span aria-hidden="true">{nameSort === "asc" ? "↑" : "↓"}</span>}
+                </button>
                 <ColumnResizeHandle
                   label="Name"
                   width={nameWidth}
@@ -286,11 +325,16 @@ export function AttendeeTable({
               {shown.map((c) => {
                 const width = widthOf(c.key);
                 return (
-                  <TableHead key={c.key} className="relative p-0" style={width ? { width, minWidth: width, maxWidth: width } : undefined}>
+                  <TableHead
+                    key={c.key} className="relative p-0" style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+                    aria-sort={sortedBy(c.key) === "asc" ? "ascending" : sortedBy(c.key) === "desc" ? "descending" : undefined}
+                  >
                     <div className={width ? "overflow-hidden pl-2" : "pl-2"} style={width ? { width } : undefined}>
                       <ColumnMenu
                         column={c}
                         clip={!!width}
+                        sorted={sortedBy(c.key)}
+                        onSort={(dir) => sortBy(c.key, dir)}
                         onHide={(key) => toggleColumn(key, false)}
                         onResetWidth={prefs.widths[c.key] ? () => setWidth(c.key, undefined) : undefined}
                         renameColumn={renameColumn}
@@ -368,38 +412,85 @@ export function AttendeeTable({
         {detailPanel}
       </AttendeePanel>
 
-      <Dialog open={arranging} onOpenChange={setArranging}>
+      {/* While columns are marked, a click outside does not close the dialog: the marks would be
+          lost, and the confirm swaps the button being clicked for another, which the dialog
+          otherwise reads as a click outside. The close button and Escape still work. */}
+      <Dialog
+        open={arranging}
+        disablePointerDismissal={marked.size > 0}
+        onOpenChange={(open) => { setArranging(open); if (!open) { setMarked(new Set()); setConfirmingDelete(false); } }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Reorder columns</DialogTitle>
+            <DialogTitle>Manage columns</DialogTitle>
             <DialogDescription>
-              Name always comes first. This layout is saved on this browser only, so it does not change the table for anyone else.
+              Name always comes first. Order and ticks are saved on this browser only. Deleting a column removes it for everyone, with everything stored in it.
             </DialogDescription>
           </DialogHeader>
           <div className="-mx-1 max-h-[60vh] overflow-y-auto px-1">
             <SortableList
-              rows={ordered.map((c) => ({
-                key: c.key,
-                label: c.label,
-                node: (
-                  <label className="flex min-h-11 items-center gap-3 text-sm">
-                    <Checkbox
-                      checked={!hidden.has(c.key)}
-                      onCheckedChange={(checked) => toggleColumn(c.key, checked === true)}
-                      aria-label={`Show ${c.label}`}
-                    />
-                    <span className={hidden.has(c.key) ? "text-muted-foreground" : "font-semibold"}>{c.label}</span>
-                  </label>
-                ),
-              }))}
+              rows={ordered.map((c) => {
+                const doomed = marked.has(c.key);
+                return {
+                  key: c.key,
+                  label: c.label,
+                  node: (
+                    <div className="flex min-h-11 items-center gap-3 text-sm">
+                      <label className="flex min-w-0 flex-1 items-center gap-3">
+                        <Checkbox
+                          checked={!hidden.has(c.key)}
+                          onCheckedChange={(checked) => toggleColumn(c.key, checked === true)}
+                          aria-label={`Show ${c.label}`}
+                          disabled={doomed}
+                        />
+                        <span className={`truncate ${doomed ? "text-muted-foreground line-through" : hidden.has(c.key) ? "text-muted-foreground" : "font-semibold"}`}>{c.label}</span>
+                      </label>
+                      {/* Only a column the organiser or an import added: a registration question
+                          belongs to the form in Settings, a built-in to the attendee row, a
+                          round to the agenda. */}
+                      {c.source === "custom" && (doomed ? (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => toggleMarked(c.key)}>Undo</Button>
+                      ) : (
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${c.label}`} title="Delete column" onClick={() => toggleMarked(c.key)}>
+                          <Trash2 />
+                        </Button>
+                      ))}
+                    </div>
+                  ),
+                };
+              })}
               reorder={async (keys) => save({ order: keys })}
               empty="No columns to arrange."
               hint="Drag a column by its handle, use the arrows, or focus the handle and use the arrow keys. Tick a column to show it. Saved as you go."
             />
           </div>
-          {layoutChanged && (
-            <div className="flex justify-end">
-              <Button variant="ghost" onClick={() => save({ order: [], widths: {} })}>Reset order and widths</Button>
+          {/* The confirmation is inline rather than a second modal: two modals at one z-index
+              put the second underneath, and closing one counted as a click outside the other. */}
+          {confirmingDelete && marked.size > 0 ? (
+            <div role="alert" className="grid gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+              <p>
+                <span className="font-bold">{markedLabels.join(", ")}</span> {marked.size === 1 ? "is" : "are"} removed for everyone, and every attendee&apos;s value in {marked.size === 1 ? "it is" : "them is"} erased. They leave the attendance export too. This can&apos;t be undone.
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setConfirmingDelete(false)}>Keep them</Button>
+                <form action={deleteColumn}>
+                  {[...marked].map((k) => <input key={k} type="hidden" name="key" value={k} />)}
+                  <SubmitButton className="bg-destructive text-white hover:bg-destructive/90">
+                    Delete {marked.size === 1 ? "column" : `${marked.size} columns`}
+                  </SubmitButton>
+                </form>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap justify-end gap-2">
+              {layoutChanged && (
+                <Button variant="ghost" onClick={() => save({ order: [], widths: {} })}>Reset order and widths</Button>
+              )}
+              {marked.size > 0 && (
+                <Button variant="destructive" onClick={() => setConfirmingDelete(true)}>
+                  Delete {marked.size} column{marked.size === 1 ? "" : "s"}
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>

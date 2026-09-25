@@ -113,6 +113,18 @@ export async function deleteAttendee(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Removes the given `extra` keys from every attendee of one event, in one statement (D248), and
+ * returns how many attendees held any of them. Which keys is the caller's decision
+ * (`keysToErase`); this only does the erasing.
+ */
+export async function eraseExtraKeys(eventId: string, keys: string[]): Promise<number> {
+  if (keys.length === 0) return 0;
+  const { data, error } = await serviceClient().rpc("erase_attendee_extra_keys", { p_event_id: eventId, p_keys: keys });
+  if (error) throw error;
+  return (data as number | null) ?? 0;
+}
+
 /** Ids travel in the query string (`in.(...)`), so a chunk is sized to keep the URL short. */
 const DELETE_CHUNK = 100;
 

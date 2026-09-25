@@ -77,7 +77,13 @@ export type TablePrefs = {
   order: string[];
   /** Pixel widths for the columns someone has dragged. Absent means sized by content. */
   widths: Record<string, number>;
+  /** Rows per page: one of PAGE_SIZES, 0 meaning everyone on one page. */
+  perPage: number;
 };
+
+/** What the page-size picker offers. A per-browser preference like the rest of the layout: a desk laptop wants everyone, a phone does not. */
+export const PAGE_SIZES = [50, 100, 200, 0] as const;
+const DEFAULT_PAGE_SIZE = 50;
 
 export const MIN_COLUMN_WIDTH = 72;
 export const MAX_COLUMN_WIDTH = 640;
@@ -144,7 +150,7 @@ const DEFAULT_HIDDEN_BUILTINS = new Set(["email", "source"]);
 
 export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], legacyHidden?: string): TablePrefs {
   const known = new Set(["name", ...columns.map((c) => c.key)]);
-  const empty: TablePrefs = { hidden: [], order: [], widths: {} };
+  const empty: TablePrefs = { hidden: [], order: [], widths: {}, perPage: DEFAULT_PAGE_SIZE };
   if (!raw) {
     const legacy = hiddenFromCookie(legacyHidden, columns);
     return { ...empty, hidden: legacyHidden ? legacy : defaultHidden(columns) };
@@ -157,7 +163,7 @@ export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], l
     try { parsed = JSON.parse(raw); } catch { return empty; }
   }
   if (typeof parsed !== "object" || parsed === null) return empty;
-  const r = parsed as { hidden?: unknown; order?: unknown; widths?: unknown };
+  const r = parsed as { hidden?: unknown; order?: unknown; widths?: unknown; perPage?: unknown };
 
   const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
   // `name` is never hidden or moved, so a stored preference claiming otherwise is ignored.
@@ -168,7 +174,8 @@ export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], l
       if (known.has(k) && typeof v === "number" && Number.isFinite(v)) widths[k] = clampWidth(v);
     }
   }
-  return { hidden: keys(r.hidden), order: keys(r.order), widths };
+  const perPage = (PAGE_SIZES as readonly unknown[]).includes(r.perPage) ? (r.perPage as number) : DEFAULT_PAGE_SIZE;
+  return { hidden: keys(r.hidden), order: keys(r.order), widths, perPage };
 }
 
 export function serialiseTablePrefs(prefs: TablePrefs): string {

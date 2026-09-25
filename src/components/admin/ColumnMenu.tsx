@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ChevronDown, EyeOff, MoveHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, EyeOff, MoveHorizontal, Pencil, Trash2, X } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import type { ColumnDef } from "@/lib/columns";
+import type { SortDir } from "@/lib/attendee-sort";
 
 type Action = (formData: FormData) => void | Promise<void>;
 
@@ -26,8 +27,12 @@ type Action = (formData: FormData) => void | Promise<void>;
  * Only a custom column can be renamed or deleted - a registration column is owned by the
  * form in Settings, and a built-in is part of the attendee row.
  */
-export function ColumnMenu({ column, clip = false, onHide, onResetWidth, renameColumn, deleteColumn }: {
+export function ColumnMenu({ column, clip = false, sorted = null, onSort, onHide, onResetWidth, renameColumn, deleteColumn }: {
   column: ColumnDef;
+  /** Which way the table is sorted by this column, if it is. */
+  sorted?: SortDir | null;
+  /** Sorts the whole list by this column; null goes back to the default name order. */
+  onSort: (dir: SortDir | null) => void;
   /**
    * Whether the label may be cut short, which only a dragged width should do. A column sized
    * by its contents must keep its whole label: a clippable one gives the browser licence to
@@ -53,9 +58,27 @@ export function ColumnMenu({ column, clip = false, onHide, onResetWidth, renameC
           }
         >
           <span className={clip ? "truncate" : undefined}>{column.label}</span>
+          {sorted && <span aria-hidden="true">{sorted === "asc" ? "↑" : "↓"}</span>}
           <ChevronDown />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => onSort("asc")} disabled={sorted === "asc"}>
+              <ArrowUpNarrowWide />
+              Sort A → Z
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onSort("desc")} disabled={sorted === "desc"}>
+              <ArrowDownWideNarrow />
+              Sort Z → A
+            </DropdownMenuItem>
+            {sorted && (
+              <DropdownMenuItem onClick={() => onSort(null)}>
+                <X />
+                Clear sort
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => onHide(column.key)}>
               <EyeOff />

@@ -57,7 +57,7 @@ export function ColumnsButton({ columns, hidden, onToggle, onShowAll, onArrange,
 
         <DropdownMenuGroup>
           {hiddenCount > 0 && <DropdownMenuItem onClick={onShowAll}>Show all columns</DropdownMenuItem>}
-          <DropdownMenuItem onClick={onArrange}>Reorder columns…</DropdownMenuItem>
+          <DropdownMenuItem onClick={onArrange}>Manage columns…</DropdownMenuItem>
           <DropdownMenuItem onClick={onAddColumn}>Add a column…</DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

@@ -112,9 +112,8 @@ export function renameField(fields: AttendeeField[], key: string, label: string)
 }
 
 /**
- * Drops the definition. The values stay in `extra` untouched — deleting a column should
- * cost a click to undo, not a restore from backup, so re-adding it under the same name
- * brings the data straight back.
+ * Drops the definition only. Deleting a column from the table also erases its values
+ * (`deleteAttendeeFieldsAction`, D248); this is the definition half of that.
  */
 export function removeField(fields: AttendeeField[], key: string): AttendeeField[] {
   return fields.filter((f) => f.key !== key);
@@ -187,6 +186,23 @@ export function adoptValue(extra: Record<string, string>, field: AttendeeField):
   delete next[match];
   next[field.key] = extra[field.key] || extra[match];
   return next;
+}
+
+/**
+ * The `extra` keys a column delete erases (D248): the column's own key, and every other
+ * spelling its values were stored under — a spreadsheet header verbatim, a slugged answer —
+ * found the same way `adoptValue` finds them. A key any column that stays still matches is
+ * left alone, so deleting "Department / Team" can never take the registration form's
+ * "Department" with it.
+ */
+export function keysToErase(extras: Record<string, string>[], doomed: AttendeeField[], remaining: AttendeeField[]): string[] {
+  const keys = new Set(doomed.map((f) => f.key));
+  for (const extra of extras) {
+    for (const k of Object.keys(extra ?? {})) {
+      if (doomed.some((f) => keyMatchesField(k, f))) keys.add(k);
+    }
+  }
+  return [...keys].filter((k) => !remaining.some((f) => keyMatchesField(k, f)));
 }
 
 /**

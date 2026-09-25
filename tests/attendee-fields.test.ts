@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addField, adoptValue, coerceFieldValue, fieldKey, fieldValuesFromForm, keyMatchesField,
   labelFromKey, MAX_ATTENDEE_FIELDS, parseAttendeeFields, parseOptions, removeField,
-  renameField, unclaimedKeys, fieldsFromQuestions, eventFields, type AttendeeField,
+  renameField, unclaimedKeys, fieldsFromQuestions, eventFields, keysToErase, type AttendeeField,
 } from "@/lib/attendee-fields";
 import type { RegistrationQuestion } from "@/lib/types";
 
@@ -310,5 +310,26 @@ describe("keys the attendee row no longer owns", () => {
     for (const label of ["Email", "Name", "Category", "Token"]) {
       expect(addField([], { label, type: "text", options: "" })).toMatchObject({ ok: false });
     }
+  });
+});
+
+describe("keysToErase", () => {
+  const pax: AttendeeField = { key: "Pax", label: "Pax", type: "text" };
+  const team: AttendeeField = { key: "department_team", label: "Department / Team", type: "text" };
+  const department: AttendeeField = { key: "department", label: "Department", type: "select", options: ["BD"] };
+
+  it("finds every spelling a deleted column's values sit under (D248)", () => {
+    const extras: Record<string, string>[] = [{ Pax: "1", department_team: "BD" }, { "Department / Team": "PIC", department: "PIC" }];
+    expect(keysToErase(extras, [pax, team], [department]).sort()).toEqual(["Department / Team", "Pax", "department_team"]);
+  });
+
+  it("never takes a key a column that stays still reads", () => {
+    const extras = [{ department: "BD" }];
+    const clash: AttendeeField = { key: "dept", label: "department", type: "text" };
+    expect(keysToErase(extras, [clash], [department])).toEqual(["dept"]);
+  });
+
+  it("names the column's own key even when nobody has a value yet", () => {
+    expect(keysToErase([], [pax], [])).toEqual(["Pax"]);
   });
 });
