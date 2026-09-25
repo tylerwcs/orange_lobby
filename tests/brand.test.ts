@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { brandContrast, brandStyle } from "@/lib/brand";
-import { contrastRatio, hexToRgb, readableOn, darkenUntilReadable, toHex } from "@/lib/contrast";
+import { contrastRatio, hexToRgb, readableOn, darkenUntilReadable, lightenUntilReadable, toHex } from "@/lib/contrast";
+import { BADGE_TILE } from "@/lib/brand";
 
 const rgb = (hex: string) => hexToRgb(hex)!;
 
@@ -65,7 +66,7 @@ describe("brandStyle", () => {
 
   it("emits nothing but the tokens the app reads", () => {
     expect(Object.keys(brandStyle("#1D4ED8")).sort()).toEqual([
-      "--accent", "--accent-foreground", "--brand", "--brand-foreground",
+      "--accent", "--accent-foreground", "--brand", "--brand-foreground", "--brand-on-dark",
       "--primary", "--primary-foreground", "--ring",
     ]);
   });
@@ -102,5 +103,26 @@ describe("every event colour ships readable", () => {
     // about 1.9:1 before --primary stopped being the raw colour.
     const primary = hexToRgb(brandStyle(hex)["--primary"])!;
     expect(contrastRatio(primary, hexToRgb("#FFFFFF")!)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("--brand-on-dark", () => {
+  it("keeps a bright colour exactly as chosen, so the badge matches the logo", () => {
+    expect(brandStyle("#F97316")["--brand-on-dark"]).toBe("#F97316");
+    expect(brandStyle("#FC6C1C")["--brand-on-dark"]).toBe("#FC6C1C");
+  });
+
+  it("lightens a dark colour until it reads on the badge tile, keeping its hue", () => {
+    const out = rgb(brandStyle("#1D4ED8")["--brand-on-dark"]);
+    expect(contrastRatio(out, BADGE_TILE)).toBeGreaterThanOrEqual(4.5);
+    expect(toHex(out)).not.toBe("#1D4ED8");
+    const [r, , b] = out;
+    expect(b).toBeGreaterThan(r); // still blue
+  });
+
+  it("lightens only as far as it has to", () => {
+    const start = rgb("#1D4ED8");
+    const once = lightenUntilReadable(start, BADGE_TILE);
+    expect(contrastRatio(once, BADGE_TILE)).toBeLessThan(7);
   });
 });

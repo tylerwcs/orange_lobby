@@ -71,6 +71,7 @@
   */
   --brand: oklch(0.7017 0.1868 44.13); /* #F97316 */
   --brand-foreground: var(--foreground); /* readable on the default orange; per-event too */
+  --brand-on-dark: var(--brand); /* the default orange reads on the dark badge as it is; per-event too */
 }
 
 @theme inline {
@@ -131,6 +132,7 @@
   /* the event's own colour — see :root */
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-brand-on-dark: var(--brand-on-dark);
 }
 
 html { scroll-behavior: smooth; }

@@ -58,9 +58,11 @@ export function BadgeCard({ attendee, door, checkedInAt, pins, qr }: {
               return (
                 <div key={p.key} className="flex min-w-20 max-w-full flex-auto flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5">
                   <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
+                  {/* The event's colour as chosen, the logo's, rather than --primary: that one is
+                      darkened for white cards and reads muddy on this dark one. */}
                   <dd className={long
-                    ? "text-sm font-extrabold leading-tight break-words text-primary"
-                    : "whitespace-nowrap text-lg font-extrabold leading-tight tabular-nums text-primary"}>{p.value}</dd>
+                    ? "text-sm font-extrabold leading-tight break-words text-brand-on-dark"
+                    : "whitespace-nowrap text-lg font-extrabold leading-tight tabular-nums text-brand-on-dark"}>{p.value}</dd>
                 </div>
               );
             })}

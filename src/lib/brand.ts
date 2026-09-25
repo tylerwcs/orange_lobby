@@ -1,6 +1,12 @@
-import { contrastRatio, darkenUntilReadable, hexToRgb, readableOn, toHex } from "@/lib/contrast";
+import { contrastRatio, darkenUntilReadable, hexToRgb, lightenUntilReadable, readableOn, toHex, type Rgb } from "@/lib/contrast";
 
 const DEFAULT_BRAND = "#F97316";
+
+/**
+ * What a pinned value on the attendee's badge sits on: the card's #111827 under the tile's
+ * 10% white wash, flattened. The badge is the one dark surface the brand colour is text on.
+ */
+export const BADGE_TILE: Rgb = [41, 47, 61];
 
 /**
  * An event's own colour, mapped onto the tokens every shadcn component already reads.
@@ -49,6 +55,9 @@ export function brandStyle(primary: string | null | undefined): Record<string, s
     // The organiser's colour, untouched, and whatever can be read on it.
     "--brand": brand,
     "--brand-foreground": onBrand.hex,
+    // The same colour as text on the dark badge: exactly the organiser's when it reads there,
+    // as a bright orange does, so the badge matches the logo; lightened only when it would not.
+    "--brand-on-dark": toHex(lightenUntilReadable(rgb, BADGE_TILE)),
   };
 }
 

@@ -106,6 +106,23 @@ export function darkenUntilReadable(fill: Rgb, target = 4.5): Rgb {
   return oklabToRgb([Math.max(0, L), A, B]);
 }
 
+/**
+ * The mirror of `darkenUntilReadable`, for text on a dark ground: raises Oklab lightness,
+ * keeping the hue, until the colour clears `target` against `ground`. A colour that already
+ * does is returned untouched, so a bright brand stays exactly the organiser's.
+ */
+export function lightenUntilReadable(fill: Rgb, ground: Rgb, target = 4.5): Rgb {
+  if (contrastRatio(fill, ground) >= target) return fill;
+  const [, A, B] = rgbToOklab(fill);
+  let [L] = rgbToOklab(fill);
+  for (let i = 0; i < 50 && L < 1; i++) {
+    L += 0.02;
+    const candidate = oklabToRgb([L, A, B]);
+    if (contrastRatio(candidate, ground) >= target) return candidate;
+  }
+  return oklabToRgb([Math.min(1, L), A, B]);
+}
+
 export function toHex([r, g, b]: Rgb): string {
   return `#${[r, g, b].map((n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
 }
