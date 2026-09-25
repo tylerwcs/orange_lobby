@@ -68,8 +68,8 @@ export function tableCookieName(eventId: string): string {
 /**
  * One reader's table layout: what is hidden, in what order, at what widths. Order and widths
  * were dropped in the shadcn revamp, when a table showed six columns; an imported masterlist
- * brings twenty, and they are back. Name is in none of the three — it is always first, always
- * shown, and sized by its contents.
+ * brings twenty, and they are back. Name is always first and always shown, but it can be
+ * sized: with Email hidden it carries the address beneath the name, and is the widest column.
  */
 export type TablePrefs = {
   hidden: string[];
@@ -160,12 +160,12 @@ export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], l
   const r = parsed as { hidden?: unknown; order?: unknown; widths?: unknown };
 
   const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  // `name` is never hidden, moved or sized, so a stored preference claiming otherwise is ignored.
+  // `name` is never hidden or moved, so a stored preference claiming otherwise is ignored.
   const keys = (v: unknown) => Array.from(new Set(strings(v).filter((k) => k !== "name" && known.has(k))));
   const widths: Record<string, number> = {};
   if (typeof r.widths === "object" && r.widths !== null && !Array.isArray(r.widths)) {
     for (const [k, v] of Object.entries(r.widths as Record<string, unknown>)) {
-      if (k !== "name" && known.has(k) && typeof v === "number" && Number.isFinite(v)) widths[k] = clampWidth(v);
+      if (known.has(k) && typeof v === "number" && Number.isFinite(v)) widths[k] = clampWidth(v);
     }
   }
   return { hidden: keys(r.hidden), order: keys(r.order), widths };

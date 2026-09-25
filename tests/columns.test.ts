@@ -115,8 +115,14 @@ describe("parseTablePrefs", () => {
       .toEqual(layout({ order: ["email"] }));
   });
 
-  it("never hides Name — the row would have nothing left to open", () => {
-    expect(round({ hidden: ["name"] }).hidden).toEqual([]);
+  it("never hides or moves Name — the row would have nothing left to open", () => {
+    expect(round({ hidden: ["name"], order: ["name"] })).toEqual(layout({}));
+  });
+
+  it("lets Name be sized like any other column", () => {
+    // Name carries the email beneath it while Email is hidden, which makes it the widest
+    // column on the table — the one most worth narrowing.
+    expect(round({ widths: { name: 180 } }).widths).toEqual({ name: 180 });
   });
 
   it("de-duplicates", () => {

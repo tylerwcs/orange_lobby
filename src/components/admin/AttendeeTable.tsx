@@ -157,6 +157,7 @@ export function AttendeeTable({
   const shown = ordered.filter((c) => !hidden.has(c.key));
   const emailShown = shown.some((c) => c.key === "email");
   const widthOf = (key: string) => (dragging?.key === key ? dragging.width : prefs.widths[key]);
+  const nameWidth = widthOf("name");
   const layoutChanged = prefs.order.length > 0 || Object.keys(prefs.widths).length > 0;
 
   const toggleColumn = (key: string, visible: boolean) => {
@@ -242,7 +243,16 @@ export function AttendeeTable({
                   aria-label="Select all attendees on this page"
                 />
               </TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-[0.06em]">Name</TableHead>
+              <TableHead className="relative text-xs font-bold uppercase tracking-[0.06em]" style={nameWidth ? { width: nameWidth, minWidth: nameWidth, maxWidth: nameWidth } : undefined}>
+                Name
+                <ColumnResizeHandle
+                  label="Name"
+                  width={nameWidth}
+                  onResize={(w) => setDragging({ key: "name", width: w })}
+                  onCommit={(w) => setWidth("name", w)}
+                  onReset={() => setWidth("name", undefined)}
+                />
+              </TableHead>
               {shown.map((c) => {
                 const width = widthOf(c.key);
                 return (
@@ -280,18 +290,21 @@ export function AttendeeTable({
                   />
                 </TableCell>
                 <TableCell>
-                  {/* A real link, so it can be opened in a new tab or copied — but a plain
-                      click opens the panel here rather than navigating away from the list. */}
-                  <Link
-                    href={listHref(a.id)}
-                    onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); showPanel(a.id); }}
-                    className="font-semibold text-primary hover:underline"
-                  >{a.name}</Link>
-                  {/* Only when Email is not a column of its own, so ticking it on in the
-                      Columns menu does not print the same address twice in one row. */}
-                  {!emailShown && a.email && (
-                    <span className="block truncate text-xs text-muted-foreground">{a.email}</span>
-                  )}
+                  <div style={nameWidth ? { width: nameWidth - CELL_PADDING } : undefined}>
+                    {/* A real link, so it can be opened in a new tab or copied — but a plain
+                        click opens the panel here rather than navigating away from the list. */}
+                    <Link
+                      href={listHref(a.id)}
+                      onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); showPanel(a.id); }}
+                      title={nameWidth ? a.name : undefined}
+                      className={`font-semibold text-primary hover:underline ${nameWidth ? "block truncate" : ""}`}
+                    >{a.name}</Link>
+                    {/* Only when Email is not a column of its own, so ticking it on in the
+                        Columns menu does not print the same address twice in one row. */}
+                    {!emailShown && a.email && (
+                      <span className="block truncate text-xs text-muted-foreground" title={nameWidth ? a.email : undefined}>{a.email}</span>
+                    )}
+                  </div>
                 </TableCell>
                 {shown.map((c) => {
                   const width = widthOf(c.key);
