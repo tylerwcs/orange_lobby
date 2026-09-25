@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronRight, EllipsisVertical, Share, Smartphone, SquarePlus } from "lucide-react";
+import { ChevronRight, Ellipsis, EllipsisVertical, Menu, Share, Smartphone, SquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
@@ -186,9 +186,12 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
           {guide === "ios" ? (
             <ol className="flex flex-col gap-3" aria-label="How to add it on iPhone">
               <Step n={1}>Open this page in <Strong>Safari</Strong>. Came from WhatsApp? Tap <Strong>Share</Strong> or the <Strong>compass</Strong> icon, then <Strong>Open in Safari</Strong>.</Step>
-              <Step n={2}>Tap the Share button <Share aria-hidden className={inlineIcon} /> in the bar at the bottom (top right on an iPad).</Step>
-              <Step n={3}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />.</Step>
-              <Step n={4}>Tap <Strong>Add</Strong>. The icon appears on your home screen.</Step>
+              {/* iOS 26 moved Share off the toolbar into the menu beside the address bar;
+                  older Safari still shows it in the bottom bar, so step 2 says both. */}
+              <Step n={2}>Tap the menu button <Menu aria-hidden className={inlineIcon} /> or <Ellipsis aria-hidden className={inlineIcon} /> beside the address bar. On older iPhones, skip to the next step: the Share button is in the bar at the bottom.</Step>
+              <Step n={3}>Tap <Strong>Share</Strong> <Share aria-hidden className={inlineIcon} />.</Step>
+              <Step n={4}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />. Not there? Tap <Strong>View More</Strong> first.</Step>
+              <Step n={5}>Tap <Strong>Add</Strong>. The icon appears on your home screen.</Step>
             </ol>
           ) : (
             <ol className="flex flex-col gap-3" aria-label="How to add it on Android">
