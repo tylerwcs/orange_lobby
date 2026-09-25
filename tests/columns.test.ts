@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   allColumns, bulkFields, BULK_BUILTIN_FIELDS, BUILTIN_COLUMNS, columnsCookieName, defaultHidden,
-  hiddenFromCookie, hiddenToCookie, parseTablePrefs, serialiseTablePrefs, tableCookieName,
-  visibleColumns,
+  hiddenFromCookie, hiddenToCookie, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns,
+  parseTablePrefs, serialiseTablePrefs, tableCookieName, visibleColumns, type TablePrefs,
 } from "@/lib/columns";
 import type { AttendeeField } from "@/lib/attendee-fields";
 
@@ -80,10 +80,11 @@ describe("columnsCookieName", () => {
 });
 
 describe("parseTablePrefs", () => {
-  const round = (prefs: Parameters<typeof serialiseTablePrefs>[0]) => parseTablePrefs(serialiseTablePrefs(prefs), cols);
+  const layout = (p: Partial<TablePrefs>): TablePrefs => ({ hidden: [], order: [], widths: {}, ...p });
+  const round = (prefs: Partial<TablePrefs>) => parseTablePrefs(serialiseTablePrefs(layout(prefs)), cols);
 
   it("round-trips the hidden columns", () => {
-    expect(round({ hidden: ["source"] })).toEqual({ hidden: ["source"] });
+    expect(round({ hidden: ["source"] })).toEqual(layout({ hidden: ["source"] }));
   });
 
   it("starts with only the attendee's own columns shown", () => {
@@ -96,22 +97,22 @@ describe("parseTablePrefs", () => {
   it("treats an empty stored layout as a deliberate show-everything", () => {
     // Distinct from having no cookie at all: once someone opens the Columns menu their
     // choice is recorded, and "I want all of them" must survive a reload.
-    expect(parseTablePrefs(serialiseTablePrefs({ hidden: [] }), cols)).toEqual({ hidden: [] });
+    expect(round({})).toEqual(layout({}));
   });
 
   it("returns an empty layout for anything unreadable", () => {
-    const empty = { hidden: [] };
-    expect(parseTablePrefs("not json", cols)).toEqual(empty);
-    expect(parseTablePrefs(encodeURIComponent('"a string"'), cols)).toEqual(empty);
-    expect(parseTablePrefs(encodeURIComponent("[1,2]"), cols)).toEqual(empty);
+    expect(parseTablePrefs("not json", cols)).toEqual(layout({}));
+    expect(parseTablePrefs(encodeURIComponent('"a string"'), cols)).toEqual(layout({}));
+    expect(parseTablePrefs(encodeURIComponent("[1,2]"), cols)).toEqual(layout({}));
   });
 
   it("reads the older hide-only cookie when the layout cookie is absent", () => {
-    expect(parseTablePrefs(undefined, cols, "source,dietary")).toEqual({ hidden: ["source", "dietary"] });
+    expect(parseTablePrefs(undefined, cols, "source,dietary")).toEqual(layout({ hidden: ["source", "dietary"] }));
   });
 
   it("drops keys that are no longer columns", () => {
-    expect(round({ hidden: ["gone"] })).toEqual({ hidden: [] });
+    expect(round({ hidden: ["gone"], order: ["gone", "email"], widths: { gone: 200 } }))
+      .toEqual(layout({ order: ["email"] }));
   });
 
   it("never hides Name — the row would have nothing left to open", () => {
@@ -119,19 +120,38 @@ describe("parseTablePrefs", () => {
   });
 
   it("de-duplicates", () => {
-    expect(round({ hidden: ["source", "source"] })).toEqual({ hidden: ["source"] });
+    expect(round({ hidden: ["source", "source"], order: ["email", "email"] }))
+      .toEqual(layout({ hidden: ["source"], order: ["email"] }));
   });
 
-  // Column order and per-column widths were stored here until the shadcn revamp dropped
-  // both. An organiser who tuned their table before that still has a cookie carrying them,
-  // and it must keep working rather than resetting their hidden columns.
-  it("ignores order and widths left behind by an older cookie", () => {
-    const legacy = encodeURIComponent(JSON.stringify({
-      hidden: ["source"],
-      order: ["dietary", "email"],
-      widths: { email: 300 },
-    }));
-    expect(parseTablePrefs(legacy, cols)).toEqual({ hidden: ["source"] });
+  it("round-trips order and widths", () => {
+    expect(round({ order: ["dietary", "email"], widths: { email: 300 } }))
+      .toEqual(layout({ order: ["dietary", "email"], widths: { email: 300 } }));
+  });
+
+  it("clamps widths into range and drops anything that is not a number", () => {
+    const raw = encodeURIComponent(JSON.stringify({ hidden: [], widths: { email: 5, dietary: 99999, room_no: "wide", source: null } }));
+    expect(parseTablePrefs(raw, cols).widths).toEqual({ email: MIN_COLUMN_WIDTH, dietary: MAX_COLUMN_WIDTH });
+  });
+
+  // Order and widths were stored here before the shadcn revamp dropped them, and are back.
+  // A cookie from then still carries them, and they were somebody's deliberate choice.
+  it("honours order and widths left in a cookie from before the revamp", () => {
+    const legacy = encodeURIComponent(JSON.stringify({ hidden: ["source"], order: ["dietary", "email"], widths: { email: 300 } }));
+    expect(parseTablePrefs(legacy, cols)).toEqual(layout({ hidden: ["source"], order: ["dietary", "email"], widths: { email: 300 } }));
+  });
+});
+
+describe("orderedColumns", () => {
+  it("puts the placed columns first, then anything that arrived since in its own order", () => {
+    // A column added after the reader arranged the table lands on the right rather than
+    // vanishing because the stored order never mentioned it.
+    expect(orderedColumns(cols, ["dietary", "email"]).map((c) => c.key))
+      .toEqual(["dietary", "email", "category", "checked_in", "source", "shirt_size", "room_no"]);
+  });
+
+  it("ignores keys that are no longer columns", () => {
+    expect(orderedColumns(cols, ["gone"]).map((c) => c.key)).toEqual(cols.map((c) => c.key));
   });
 });
 

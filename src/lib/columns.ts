@@ -66,15 +66,38 @@ export function tableCookieName(eventId: string): string {
 }
 
 /**
- * Visibility is the whole layout now. Column order and per-column widths were dragged
- * from the header and stored here too; both were dropped in the shadcn revamp (the
- * organiser did not use them, and they were the only reason the table needed a fixed
- * layout and a horizontal scroller of its own). Stored cookies still carrying `order` and
- * `widths` parse fine — the extra keys are ignored — so nobody loses their hidden columns.
+ * One reader's table layout: what is hidden, in what order, at what widths. Order and widths
+ * were dropped in the shadcn revamp, when a table showed six columns; an imported masterlist
+ * brings twenty, and they are back. Name is in none of the three — it is always first, always
+ * shown, and sized by its contents.
  */
 export type TablePrefs = {
   hidden: string[];
+  /** Column keys in display order. Keys not listed follow, in the table's own order. */
+  order: string[];
+  /** Pixel widths for the columns someone has dragged. Absent means sized by content. */
+  widths: Record<string, number>;
 };
+
+export const MIN_COLUMN_WIDTH = 72;
+export const MAX_COLUMN_WIDTH = 640;
+
+export const clampWidth = (n: number) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(n)));
+
+/**
+ * Columns in the reader's chosen order: the ones they have placed, then anything that
+ * arrived since — a column an import added lands on the right rather than disappearing
+ * because an older preference never mentioned it.
+ */
+export function orderedColumns(columns: ColumnDef[], order: string[]): ColumnDef[] {
+  const byKey = new Map(columns.map((c) => [c.key, c]));
+  const placed: ColumnDef[] = [];
+  for (const key of order) {
+    const col = byKey.get(key);
+    if (col) { placed.push(col); byKey.delete(key); }
+  }
+  return [...placed, ...columns.filter((c) => byKey.has(c.key))];
+}
 
 /**
  * Reads the stored layout, dropping anything that is no longer a column. A preference is
@@ -121,10 +144,10 @@ const DEFAULT_HIDDEN_BUILTINS = new Set(["email", "source"]);
 
 export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], legacyHidden?: string): TablePrefs {
   const known = new Set(["name", ...columns.map((c) => c.key)]);
-  const empty: TablePrefs = { hidden: [] };
+  const empty: TablePrefs = { hidden: [], order: [], widths: {} };
   if (!raw) {
     const legacy = hiddenFromCookie(legacyHidden, columns);
-    return { hidden: legacyHidden ? legacy : defaultHidden(columns) };
+    return { ...empty, hidden: legacyHidden ? legacy : defaultHidden(columns) };
   }
 
   let parsed: unknown;
@@ -134,13 +157,18 @@ export function parseTablePrefs(raw: string | undefined, columns: ColumnDef[], l
     try { parsed = JSON.parse(raw); } catch { return empty; }
   }
   if (typeof parsed !== "object" || parsed === null) return empty;
-  const r = parsed as { hidden?: unknown };
+  const r = parsed as { hidden?: unknown; order?: unknown; widths?: unknown };
 
   const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  return {
-    // `name` is never hideable, so a stored preference claiming otherwise is ignored.
-    hidden: Array.from(new Set(strings(r.hidden).filter((k) => k !== "name" && known.has(k)))),
-  };
+  // `name` is never hidden, moved or sized, so a stored preference claiming otherwise is ignored.
+  const keys = (v: unknown) => Array.from(new Set(strings(v).filter((k) => k !== "name" && known.has(k))));
+  const widths: Record<string, number> = {};
+  if (typeof r.widths === "object" && r.widths !== null && !Array.isArray(r.widths)) {
+    for (const [k, v] of Object.entries(r.widths as Record<string, unknown>)) {
+      if (k !== "name" && known.has(k) && typeof v === "number" && Number.isFinite(v)) widths[k] = clampWidth(v);
+    }
+  }
+  return { hidden: keys(r.hidden), order: keys(r.order), widths };
 }
 
 export function serialiseTablePrefs(prefs: TablePrefs): string {

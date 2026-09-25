@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ChevronDown, EyeOff, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, EyeOff, MoveHorizontal, Pencil, Trash2 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -19,16 +19,24 @@ import type { ColumnDef } from "@/lib/columns";
 type Action = (formData: FormData) => void | Promise<void>;
 
 /**
- * The menu behind a column header. Reordering and resizing used to live here and are
- * gone: the toolbar's Columns menu owns visibility, and what is left is the handful of
- * things that are genuinely about *this* column.
+ * The menu behind a column header: the handful of things that are genuinely about *this*
+ * column. Visibility and order belong to the toolbar's Columns menu; width is the drag
+ * handle on the header's edge, with a way back to fitting the contents here.
  *
  * Only a custom column can be renamed or deleted - a registration column is owned by the
  * form in Settings, and a built-in is part of the attendee row.
  */
-export function ColumnMenu({ column, onHide, renameColumn, deleteColumn }: {
+export function ColumnMenu({ column, clip = false, onHide, onResetWidth, renameColumn, deleteColumn }: {
   column: ColumnDef;
+  /**
+   * Whether the label may be cut short, which only a dragged width should do. A column sized
+   * by its contents must keep its whole label: a clippable one gives the browser licence to
+   * squeeze every column to fit the page.
+   */
+  clip?: boolean;
   onHide: (key: string) => void;
+  /** Only while the column has a dragged width: puts it back to fitting its contents. */
+  onResetWidth?: () => void;
   renameColumn: Action;
   deleteColumn: Action;
 }) {
@@ -41,10 +49,10 @@ export function ColumnMenu({ column, onHide, renameColumn, deleteColumn }: {
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="sm" className="-ml-2 gap-1 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground" />
+            <Button variant="ghost" size="sm" className={`-ml-2 gap-1 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground ${clip ? "max-w-full" : ""}`} title={clip ? column.label : undefined} />
           }
         >
-          {column.label}
+          <span className={clip ? "truncate" : undefined}>{column.label}</span>
           <ChevronDown />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
@@ -53,6 +61,12 @@ export function ColumnMenu({ column, onHide, renameColumn, deleteColumn }: {
               <EyeOff />
               Hide column
             </DropdownMenuItem>
+            {onResetWidth && (
+              <DropdownMenuItem onClick={onResetWidth}>
+                <MoveHorizontal />
+                Fit width to contents
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           {owned && (
             <>

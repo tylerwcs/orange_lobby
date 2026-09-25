@@ -24,10 +24,12 @@ export type SortableRow = {
  * component only owns their order. Optimistic, not local state: when the action settles the
  * list becomes whatever the server stored, so a refused reorder never leaves a lie on screen.
  */
-export function SortableList({ rows, reorder, empty }: {
+export function SortableList({ rows, reorder, empty, hint = "Drag a row by its handle, use the arrows, or focus the handle and use the arrow keys, to set the order attendees see. Saved as you go." }: {
   rows: SortableRow[];
   reorder: (keys: string[]) => Promise<void>;
   empty: string;
+  /** The line under the list saying what the order is for. */
+  hint?: string;
 }) {
   const [order, setOrder] = useOptimistic(rows);
   const [dragging, setDragging] = useState<number | null>(null);
@@ -100,7 +102,7 @@ export function SortableList({ rows, reorder, empty }: {
       </ul>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
       {order.length > 1 && (
-        <p className="pt-2 text-xs text-muted-foreground">Drag a row by its handle, use the arrows, or focus the handle and use the arrow keys, to set the order attendees see. Saved as you go.</p>
+        <p className="pt-2 text-xs text-muted-foreground">{hint}</p>
       )}
     </div>
   );

@@ -19,11 +19,12 @@ import type { ColumnDef } from "@/lib/columns";
  * looking for a column by its name. `source` still decides what a column's own header menu
  * offers, which is where it actually matters.
  */
-export function ColumnsButton({ columns, hidden, onToggle, onShowAll, onAddColumn }: {
+export function ColumnsButton({ columns, hidden, onToggle, onShowAll, onArrange, onAddColumn }: {
   columns: ColumnDef[];
   hidden: Set<string>;
   onToggle: (key: string, visible: boolean) => void;
   onShowAll: () => void;
+  onArrange: () => void;
   onAddColumn: () => void;
 }) {
   const hiddenCount = columns.filter((c) => hidden.has(c.key)).length;
@@ -56,6 +57,7 @@ export function ColumnsButton({ columns, hidden, onToggle, onShowAll, onAddColum
 
         <DropdownMenuGroup>
           {hiddenCount > 0 && <DropdownMenuItem onClick={onShowAll}>Show all columns</DropdownMenuItem>}
+          <DropdownMenuItem onClick={onArrange}>Reorder columns…</DropdownMenuItem>
           <DropdownMenuItem onClick={onAddColumn}>Add a column…</DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

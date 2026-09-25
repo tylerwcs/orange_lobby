@@ -11,8 +11,11 @@ import { isoToLocalInput } from "@/lib/time";
 import { BulkBar } from "@/components/admin/BulkBar";
 import { ColumnMenu } from "@/components/admin/ColumnMenu";
 import { ColumnsButton } from "@/components/admin/ColumnsButton";
+import { ColumnResizeHandle } from "@/components/admin/ColumnResizeHandle";
+import { SortableList } from "@/components/admin/SortableList";
 import { AttendeePanel } from "@/components/admin/AttendeePanel";
-import { serialiseTablePrefs, tableCookieName, type ColumnDef, type TablePrefs } from "@/lib/columns";
+import { Button } from "@/components/ui/button";
+import { orderedColumns, serialiseTablePrefs, tableCookieName, type ColumnDef, type TablePrefs } from "@/lib/columns";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AttendeeSource, Checkpoint } from "@/lib/types";
 
@@ -46,6 +49,19 @@ function cell(a: AttendeeRow, key: string) {
     default: return a.values[key] || <span className="text-muted-foreground">—</span>;
   }
 }
+
+/** The whole text of a cell, for the tooltip a narrowed column cuts it off behind. */
+function cellText(a: AttendeeRow, key: string): string | undefined {
+  if (key === "email") return a.email ?? undefined;
+  if (key === "category") return a.category ?? undefined;
+  return a.values[key] || undefined;
+}
+
+/**
+ * A cell's padding, which a dragged width has to leave room for: the width is the whole
+ * column, as the header measures it, and the text sits inside the padding.
+ */
+const CELL_PADDING = 16;
 
 /**
  * Writing the layout back out. Lives outside the component because it touches
@@ -99,6 +115,10 @@ export function AttendeeTable({
   // columns and nothing flashes in and back out on hydration.
   const [prefs, setPrefs] = useState<TablePrefs>(initialPrefs);
   const [addingColumn, setAddingColumn] = useState(false);
+  const [arranging, setArranging] = useState(false);
+  // The width a column is being dragged to. Held apart from `prefs` so the column follows
+  // the pointer without a cookie write per pixel; letting go saves it.
+  const [dragging, setDragging] = useState<{ key: string; width: number } | null>(null);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -126,19 +146,30 @@ export function AttendeeTable({
 
   // A per-browser preference, not shared state: one organiser's choice of columns must not
   // rearrange the table for the crew member next to them.
-  const save = (next: TablePrefs) => {
+  const save = (change: Partial<TablePrefs>) => {
+    const next = { ...prefs, ...change };
     setPrefs(next);
     persistPrefs(eventId, next);
   };
 
   const hidden = new Set(prefs.hidden);
-  const shown = columns.filter((c) => !hidden.has(c.key));
+  const ordered = orderedColumns(columns, prefs.order);
+  const shown = ordered.filter((c) => !hidden.has(c.key));
   const emailShown = shown.some((c) => c.key === "email");
+  const widthOf = (key: string) => (dragging?.key === key ? dragging.width : prefs.widths[key]);
+  const layoutChanged = prefs.order.length > 0 || Object.keys(prefs.widths).length > 0;
 
   const toggleColumn = (key: string, visible: boolean) => {
     const next = new Set(hidden);
     if (visible) next.delete(key); else next.add(key);
     save({ hidden: Array.from(next) });
+  };
+
+  const setWidth = (key: string, width: number | undefined) => {
+    setDragging(null);
+    const widths = { ...prefs.widths };
+    if (width === undefined) delete widths[key]; else widths[key] = width;
+    save({ widths });
   };
 
   const runBulk = (action: TableAction): TableAction => async (formData) => {
@@ -190,10 +221,11 @@ export function AttendeeTable({
 
       <div className="flex flex-wrap items-center justify-end gap-2">
         <ColumnsButton
-          columns={columns}
+          columns={ordered}
           hidden={hidden}
           onToggle={toggleColumn}
           onShowAll={() => save({ hidden: [] })}
+          onArrange={() => setArranging(true)}
           onAddColumn={() => setAddingColumn(true)}
         />
       </div>
@@ -211,16 +243,30 @@ export function AttendeeTable({
                 />
               </TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-[0.06em]">Name</TableHead>
-              {shown.map((c) => (
-                <TableHead key={c.key} className="p-0">
-                  <ColumnMenu
-                    column={c}
-                    onHide={(key) => toggleColumn(key, false)}
-                    renameColumn={renameColumn}
-                    deleteColumn={deleteColumn}
-                  />
-                </TableHead>
-              ))}
+              {shown.map((c) => {
+                const width = widthOf(c.key);
+                return (
+                  <TableHead key={c.key} className="relative p-0" style={width ? { width, minWidth: width, maxWidth: width } : undefined}>
+                    <div className={width ? "overflow-hidden pl-2" : "pl-2"} style={width ? { width } : undefined}>
+                      <ColumnMenu
+                        column={c}
+                        clip={!!width}
+                        onHide={(key) => toggleColumn(key, false)}
+                        onResetWidth={prefs.widths[c.key] ? () => setWidth(c.key, undefined) : undefined}
+                        renameColumn={renameColumn}
+                        deleteColumn={deleteColumn}
+                      />
+                    </div>
+                    <ColumnResizeHandle
+                      label={c.label}
+                      width={width}
+                      onResize={(w) => setDragging({ key: c.key, width: w })}
+                      onCommit={(w) => setWidth(c.key, w)}
+                      onReset={() => setWidth(c.key, undefined)}
+                    />
+                  </TableHead>
+                );
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -247,7 +293,16 @@ export function AttendeeTable({
                     <span className="block truncate text-xs text-muted-foreground">{a.email}</span>
                   )}
                 </TableCell>
-                {shown.map((c) => <TableCell key={c.key}>{cell(a, c.key)}</TableCell>)}
+                {shown.map((c) => {
+                  const width = widthOf(c.key);
+                  if (!width) return <TableCell key={c.key}>{cell(a, c.key)}</TableCell>;
+                  // Cut off at the column's edge, with the whole value a hover away.
+                  return (
+                    <TableCell key={c.key}>
+                      <div className="truncate" style={{ width: width - CELL_PADDING }} title={cellText(a, c.key)}>{cell(a, c.key)}</div>
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))}
             {rows.length === 0 && (
@@ -269,6 +324,43 @@ export function AttendeeTable({
       <AttendeePanel openId={openId} pending={opensPending} onClose={() => showPanel(null)}>
         {detailPanel}
       </AttendeePanel>
+
+      <Dialog open={arranging} onOpenChange={setArranging}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reorder columns</DialogTitle>
+            <DialogDescription>
+              Name always comes first. This layout is saved on this browser only, so it does not change the table for anyone else.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="-mx-1 max-h-[60vh] overflow-y-auto px-1">
+            <SortableList
+              rows={ordered.map((c) => ({
+                key: c.key,
+                label: c.label,
+                node: (
+                  <label className="flex min-h-11 items-center gap-3 text-sm">
+                    <Checkbox
+                      checked={!hidden.has(c.key)}
+                      onCheckedChange={(checked) => toggleColumn(c.key, checked === true)}
+                      aria-label={`Show ${c.label}`}
+                    />
+                    <span className={hidden.has(c.key) ? "text-muted-foreground" : "font-semibold"}>{c.label}</span>
+                  </label>
+                ),
+              }))}
+              reorder={async (keys) => save({ order: keys })}
+              empty="No columns to arrange."
+              hint="Drag a column by its handle, use the arrows, or focus the handle and use the arrow keys. Tick a column to show it. Saved as you go."
+            />
+          </div>
+          {layoutChanged && (
+            <div className="flex justify-end">
+              <Button variant="ghost" onClick={() => save({ order: [], widths: {} })}>Reset order and widths</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={addingColumn} onOpenChange={setAddingColumn}>
         <DialogContent className="sm:max-w-lg">
