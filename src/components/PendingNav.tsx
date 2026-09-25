@@ -91,13 +91,26 @@ export function PendingLink({ href, className = "", selected, selectedClassName 
 const SWIPE_MIN = 50;
 
 /**
+ * Whether a touch began inside something that scrolls sideways of its own - a wide table in
+ * an info tab, say - between the touched element and the swipe area. That swipe belongs to it.
+ */
+function inSideScroller(from: EventTarget | null, area: HTMLElement): boolean {
+  for (let el = from instanceof HTMLElement ? from : null; el && el !== area; el = el.parentElement) {
+    const x = getComputedStyle(el).overflowX;
+    if ((x === "auto" || x === "scroll") && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
+}
+
+/**
  * Swipe left or right across the content to move to the next or previous tab (D234) - the
  * same navigation a tap on the tab makes, so the underline moves and the skeleton shows just
  * as it does for a tap. Touch only: a mouse drag selects text, as it should.
  *
  * A swipe has to be mostly sideways (twice as far across as down) and one finger, so reading
  * down a long day and pinch-zooming a picture never flip the page. Nothing is prevented:
- * vertical scrolling is the browser's, untouched.
+ * vertical scrolling is the browser's, untouched. A touch that starts inside something that
+ * scrolls sideways of its own is left to it.
  */
 export function PendingSwipe({ prevHref, nextHref, children }: {
   prevHref: string | null;
@@ -111,7 +124,10 @@ export function PendingSwipe({ prevHref, nextHref, children }: {
   const go = (href: string) => (scope ? scope.go(href) : router.push(href, { scroll: false }));
   return (
     <div
-      onTouchStart={(e) => { start.current = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }}
+      onTouchStart={(e) => {
+        const one = e.touches.length === 1 && !inSideScroller(e.target, e.currentTarget);
+        start.current = one ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+      }}
       onTouchEnd={(e) => {
         const from = start.current;
         start.current = null;

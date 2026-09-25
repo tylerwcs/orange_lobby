@@ -4,7 +4,7 @@ import { VENUE_TAB, type PortalInfoTab, type VenueFields } from "@/lib/info-tabs
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeletons";
-import { PendingScope, PendingSwap } from "@/components/PendingNav";
+import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
 import { PortalTabStrip } from "./PortalTabStrip";
 
 /**
@@ -17,6 +17,11 @@ export function InfoPage({ event, tabs, selected, basePath }: {
   selected: PortalInfoTab | null;
   basePath: string;
 }) {
+  const href = (key: string) => `${basePath}/info?tab=${key}`;
+  // The tabs either side, for a swipe across the content (D234).
+  const at = selected ? tabs.findIndex((t) => t.key === selected.key) : -1;
+  const prevHref = at > 0 ? href(tabs[at - 1].key) : null;
+  const nextHref = at >= 0 && at < tabs.length - 1 ? href(tabs[at + 1].key) : null;
   return (
     <>
       <h1 className="mb-3 text-xl font-extrabold">{event.info_page_title}</h1>
@@ -28,14 +33,16 @@ export function InfoPage({ event, tabs, selected, basePath }: {
         <PendingScope>
           <div className="flex flex-col gap-4">
             <PortalTabStrip
-              tabs={tabs.map((t) => ({ key: t.key, href: `${basePath}/info?tab=${t.key}`, label: t.title }))}
+              tabs={tabs.map((t) => ({ key: t.key, href: href(t.key), label: t.title }))}
               selected={selected.key}
             />
-            <PendingSwap fallback={<Skeleton className="h-40 rounded-[14px]" />}>
-              {selected.key === VENUE_TAB
-                ? <VenueDetails event={event} />
-                : <div className="rich-text prose prose-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html ?? "") }} />}
-            </PendingSwap>
+            <PendingSwipe prevHref={prevHref} nextHref={nextHref}>
+              <PendingSwap fallback={<Skeleton className="h-40 rounded-[14px]" />}>
+                {selected.key === VENUE_TAB
+                  ? <VenueDetails event={event} />
+                  : <div className="rich-text prose prose-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html ?? "") }} />}
+              </PendingSwap>
+            </PendingSwipe>
           </div>
         </PendingScope>
       )}

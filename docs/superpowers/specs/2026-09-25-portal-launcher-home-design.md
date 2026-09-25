@@ -163,7 +163,9 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   sessions goes to the next day (swipe left) or the previous one (swipe right) - the same
   navigation as tapping the tab, so the underline and skeleton behave identically. It must be
   one finger, at least 50px, and twice as far across as down, so scrolling a long day and
-  pinch-zooming never flip the page. Tabs still work as before.
+  pinch-zooming never flip the page. Tabs still work as before. The Info page's tabs swipe
+  the same way; a touch that starts inside something that scrolls sideways of its own (a wide
+  table in an info tab) is left to it, on both pages.
 
 ## 3. Out of scope
 
