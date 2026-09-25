@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D232. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D233. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -152,6 +152,12 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   before); an event with no announcements shows that row as the phone home's banner. Both are
   hidden once the page runs from the home screen. Opened on a computer, the guide says to open
   the link on a phone. The organiser's latest announcement keeps the banner.
+
+- **D233** **The guide always shows the numbered steps**, however it was opened: an iPhone /
+  Android switch preset to the detected phone (Android on a computer, with a note to do it on
+  the phone), and Chrome's one-tap install button - where offered - above the steps, never in
+  place of them. The popup scrolls within 90% of the screen height. Supersedes D232's
+  computer message.
 
 ## 3. Out of scope
 

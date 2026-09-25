@@ -93,13 +93,17 @@ const inlineIcon = "mx-0.5 inline size-4 align-[-3px] text-primary";
  * - Other Android browsers - WhatsApp's in-app one above all - may offer neither, so the popup
  *   walks through Chrome's menu, starting with getting the link into Chrome.
  * Nothing opens by itself on a desktop or when the page is already running from the home
- * screen; opened on request from a desktop, it says to open the link on a phone.
+ * screen. Whenever it is open, the numbered steps show (D233), with an iPhone / Android switch.
  */
 export function AddToHomeScreen({ appName }: { appName: string }) {
   const device = useDevice();
   const [canPrompt, setCanPrompt] = useState(false);
   const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<"ios" | "android" | null>(null);
   const prompt = useRef<InstallPrompt | null>(null);
+  // Which steps to show: the attendee's own pick, else the phone we detected (Android for a
+  // computer - the more common phone - with the switch one tap away).
+  const guide = picked ?? (device === "ios" ? "ios" : "android");
 
   useEffect(() => {
     if (device === "installed") return;
@@ -140,7 +144,7 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) close(); }}>
-      <DialogContent className="gap-5">
+      <DialogContent className="max-h-[90dvh] gap-5 overflow-y-auto">
         <div className="flex flex-col items-center gap-3 pt-2 text-center">
           {/* What they are about to get: the icon and its label, as the home screen shows them. */}
           <div className="flex flex-col items-center gap-1.5">
@@ -154,27 +158,47 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
           </DialogDescription>
         </div>
 
-        {canPrompt ? (
+        {/* Chrome's own install sheet, where it offers one: a shortcut above the steps, never
+            instead of them (D233). */}
+        {canPrompt && (
           <Button className="h-11 w-full text-base font-bold" onClick={install}>Add to home screen</Button>
-        ) : device === "ios" ? (
-          <ol className="flex flex-col gap-3" aria-label="How to add it on iPhone">
-            <Step n={1}>Open this page in <Strong>Safari</Strong>. Came from WhatsApp? Tap <Strong>Share</Strong> or the <Strong>compass</Strong> icon, then <Strong>Open in Safari</Strong>.</Step>
-            <Step n={2}>Tap the Share button <Share aria-hidden className={inlineIcon} /> in the bar at the bottom (top right on an iPad).</Step>
-            <Step n={3}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />.</Step>
-            <Step n={4}>Tap <Strong>Add</Strong>. The icon appears on your home screen.</Step>
-          </ol>
-        ) : device === "other" ? (
-          <p className="text-center text-sm text-muted-foreground text-balance">
-            On a computer? Open your event link on your phone, and this guide will show you the steps there.
-          </p>
-        ) : (
-          <ol className="flex flex-col gap-3" aria-label="How to add it on Android">
-            <Step n={1}>Open this page in <Strong>Chrome</Strong>. Came from WhatsApp? Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} />, then <Strong>Open in Chrome</Strong>.</Step>
-            <Step n={2}>Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} /> at the top right.</Step>
-            <Step n={3}>Tap <Strong>Add to Home screen</Strong> or <Strong>Install app</Strong>.</Step>
-            <Step n={4}>Tap <Strong>Add</Strong> or <Strong>Install</Strong>. The icon appears on your home screen.</Step>
-          </ol>
         )}
+
+        <div className="flex flex-col gap-3">
+          {/* The steps always show, for the phone we think this is; the switch is for when we
+              guessed wrong, or for reading them on a computer before picking up the phone. */}
+          <div role="group" aria-label="Your phone" className="flex rounded-[10px] bg-muted p-1">
+            {(["ios", "android"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={guide === k}
+                onClick={() => setPicked(k)}
+                className={`flex min-h-9 flex-1 items-center justify-center rounded-[7px] text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${guide === k ? "bg-card font-bold text-foreground shadow-[0_1px_2px_rgba(17,24,39,.08)]" : "font-semibold text-muted-foreground"}`}
+              >
+                {k === "ios" ? "iPhone" : "Android"}
+              </button>
+            ))}
+          </div>
+          {device === "other" && (
+            <p className="text-center text-xs text-muted-foreground text-balance">Do this on your phone: open your event link there first.</p>
+          )}
+          {guide === "ios" ? (
+            <ol className="flex flex-col gap-3" aria-label="How to add it on iPhone">
+              <Step n={1}>Open this page in <Strong>Safari</Strong>. Came from WhatsApp? Tap <Strong>Share</Strong> or the <Strong>compass</Strong> icon, then <Strong>Open in Safari</Strong>.</Step>
+              <Step n={2}>Tap the Share button <Share aria-hidden className={inlineIcon} /> in the bar at the bottom (top right on an iPad).</Step>
+              <Step n={3}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />.</Step>
+              <Step n={4}>Tap <Strong>Add</Strong>. The icon appears on your home screen.</Step>
+            </ol>
+          ) : (
+            <ol className="flex flex-col gap-3" aria-label="How to add it on Android">
+              <Step n={1}>Open this page in <Strong>Chrome</Strong>. Came from WhatsApp? Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} />, then <Strong>Open in Chrome</Strong>.</Step>
+              <Step n={2}>Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} /> at the top right.</Step>
+              <Step n={3}>Tap <Strong>Add to Home screen</Strong> or <Strong>Install app</Strong>.</Step>
+              <Step n={4}>Tap <Strong>Add</Strong> or <Strong>Install</Strong>. The icon appears on your home screen.</Step>
+            </ol>
+          )}
+        </div>
 
         <Button variant="ghost" className="-mt-2 w-full text-muted-foreground" onClick={close}>Not now</Button>
       </DialogContent>
