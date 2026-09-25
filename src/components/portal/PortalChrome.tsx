@@ -44,7 +44,8 @@ function MeButton({ href }: { href: string }) {
     <Link
       href={href}
       aria-label="Me: your badge and details"
-      className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors active:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+      // relative z-10: above the home link's overlay, which covers the rest of the bar.
+      className="relative z-10 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors active:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:hidden"
     >
       <UserRound aria-hidden className="size-6" strokeWidth={1.75} />
     </Link>

@@ -18,32 +18,40 @@ export function Mark({ event }: { event: HeaderEvent }) {
 export function PortalHeader({ event, href, action, className = "" }: {
   event: HeaderEvent;
   href?: string;
-  /** Something at the right-hand end, e.g. the phone home's Me button (D236). */
+  /**
+   * Something at the right-hand end, e.g. the phone home's Me button (D236). With `href` it
+   * sits under the home link's overlay, so it must lift itself above it (`relative z-10`).
+   */
   action?: React.ReactNode;
   className?: string;
 }) {
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
-  const body = (
+  const identity = (
     <>
       <Mark event={event} />
       <div className="min-w-0 flex-1">
         <div className="line-clamp-2 text-base font-extrabold leading-tight">{event.name}</div>
         {meta && <div className="truncate text-xs font-medium text-muted-foreground">{meta}</div>}
       </div>
-      {action}
     </>
   );
   // The whole bar is the way home, not just the mark: the name is the bigger target, and it is
   // what people tap expecting to go back to the start. On the home page it refreshes instead.
+  //
+  // The link wraps only the mark and the name, and stretches over the rest of the bar with an
+  // overlay (`after:absolute after:inset-0` against the header). Wrapping the whole bar put the
+  // Me button's own <a> inside it, and a link inside a link is invalid HTML: the browser split
+  // them apart, so the page hydrated against a tree the server never sent.
   return (
-    <header className={`bg-card px-4 py-4 ${className}`}>
-      {href ? (
-        <HomeLink href={href} label={`Home: ${event.name}`} className="-m-1 flex items-center gap-3 rounded-[12px] p-1 outline-none transition-opacity focus-visible:ring-3 focus-visible:ring-ring/50">
-          {body}
-        </HomeLink>
-      ) : (
-        <div className="flex items-center gap-3">{body}</div>
-      )}
+    <header className={`bg-card px-4 py-4 ${href ? "relative" : ""} ${className}`}>
+      <div className="flex items-center gap-3">
+        {href ? (
+          <HomeLink href={href} label={`Home: ${event.name}`} className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-[12px] p-1 outline-none transition-opacity after:absolute after:inset-0 focus-visible:ring-3 focus-visible:ring-ring/50">
+            {identity}
+          </HomeLink>
+        ) : identity}
+        {action}
+      </div>
     </header>
   );
 }
