@@ -66,9 +66,10 @@ pain). They pick up the new question editor automatically because it is shared.
   section headed `Mon 28 Sep · 16 sessions · 0 of 48 booked`, with the day's sessions as
   compact rows: time range, booked/capacity, and the location only where it differs from the
   day's usual one. Clicking a row opens the existing edit dialog, which now also holds Delete.
-  **Manual drag reorder is removed.** Order is (day, start time, location), and every add or
-  edit rewrites `sort_order` to match, so the portal, which reads `sort_order`, shows the same
-  order without changing. Two rooms at the same time sort by location.
+  **Manual drag reorder is removed.** `listSessions` already orders by day, then start time,
+  then `sort_order`, for the admin and the portal alike, so the drag only ever decided the
+  order of sessions starting at the same moment. Those now keep the order they were added in.
+  `reorderSessionsAction` and `setSessionOrder` are deleted.
 
 - **D241** **Add sessions in bulk.** The "Add sessions" dialog takes: days (one or more date
   inputs, first one prefilled with the event's start date, "+ Add day"), from and to times,
@@ -128,8 +129,8 @@ pain). They pick up the new question editor automatically because it is shared.
 | `AddSessionsDialog` | client component | The bulk form with its live count |
 | `QuestionCards` | client component | Replaces `QuestionEditor` in both places |
 | `BookingsByDay` | component | The Bookings tab list (D237) |
-| `addSessionsAction`, `deleteSessionDayAction` | server actions | Bulk insert then resequence; delete a day |
-| `resequenceSessions(eventId, activityId)` | db | Rewrites `sort_order` chronologically (D240) |
+| `addSessionsAction`, `deleteSessionDayAction` | server actions | Bulk insert; delete a day |
+| `createSessions`, `deleteSessionsOnDay` | db | One insert for a batch; one delete for a day |
 
 The detail route keeps its three kind branches (D178), each reduced to "header + tabs + the
 current tab's content".
