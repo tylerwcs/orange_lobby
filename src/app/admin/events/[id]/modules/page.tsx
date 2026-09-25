@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { MODULE_ICONS, TILE_ROUTES, TILE_ROUTE_LABELS, normalizeModules, type EventModule } from "@/lib/modules";
+import { MODULE_ICONS, TILE_ROUTES, TILE_ROUTE_LABELS, normalizeModules, type EventModule, type ModuleIcon } from "@/lib/modules";
 import { MAX_TILES, moduleId } from "@/lib/modules-form";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -9,36 +9,45 @@ import { ImageField } from "@/components/admin/ImageField";
 import { Modal } from "@/components/admin/Modal";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { TileList } from "@/components/admin/TileList";
+import { TileTargetFields } from "@/components/admin/TileTargetFields";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { saveModuleAction, deleteModuleAction, toggleModuleAction, reorderModulesAction } from "../actions";
 
 export const metadata = { title: "Modules" };
 
-const select = "w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+/** What each icon is called, for its tooltip and for screen readers. */
+const ICON_LABELS: Record<ModuleIcon, string> = {
+  calendar: "Calendar", seat: "Seat", map: "Map", info: "Info", megaphone: "Megaphone", mic: "Microphone",
+  file: "Document", chat: "Chat", check: "Tick", phone: "Phone", link: "Link", star: "Star", users: "People",
+  download: "Download",
+};
 
 /**
- * The add/edit form for one tile.
+ * The add/edit form for one tile: what it is called, where it goes, and what it looks like.
  *
- * Both the link and the portal-page inputs stay mounted whatever "Opens" is set to, so
- * switching between them does not throw away what was typed. `moduleFromForm` reads only
- * the one the chooser selected.
+ * Where it goes shows only the input the "Opens" choice needs (`TileTargetFields`). What it
+ * looks like is the icon, picked from the pictures themselves, and optionally an uploaded
+ * image that replaces it in the round button (D212, D213).
+ *
+ * There is no Subtitle field: the round buttons dropped subtitles (D212) and nothing renders
+ * one. A tile saved before that keeps its stored subtitle through a hidden input, so saving
+ * here does not quietly erase it.
  */
 function TileForm({ eventId, module: m }: { eventId: string; module?: EventModule }) {
   const isPlan = m?.key === "floor_plan";
   const tile = m?.key === "tile" ? m : undefined;
   const iconImage = m && "icon_image" in m ? m.icon_image : undefined;
-  // On a phone the home shows every tile as a round icon (D212); an uploaded picture takes
-  // the preset icon's place in the circle (D213).
+  const subtitle = m && "subtitle" in m ? m.subtitle : undefined;
   const iconImageField = (
-    <ImageField label="Icon image (optional)" name="icon_image" url={iconImage} description="Shown in the round button instead of the icon. A square picture with a transparent background works best." />
+    <ImageField label="Icon image (optional)" name="icon_image" url={iconImage} description="Replaces the icon in the round button. A square picture with a transparent background works best." />
   );
   return (
     <form action={saveModuleAction.bind(null, eventId)} className="grid gap-4 p-1">
       <input type="hidden" name="id" value={m ? moduleId(m) : ""} />
       <input type="hidden" name="preset" value={isPlan ? "floor_plan" : "tile"} />
+      {subtitle && <input type="hidden" name="subtitle" value={subtitle} />}
 
-      <Field label="Label" name="label" defaultValue={m && "label" in m ? m.label ?? "" : ""} placeholder={isPlan ? "Floor plan" : "Q&A"} />
-      <Field label="Subtitle (optional)" name="subtitle" defaultValue={m && "subtitle" in m ? m.subtitle ?? "" : ""} placeholder="Ask the directors" />
+      <Field label="Label" name="label" defaultValue={m && "label" in m ? m.label ?? "" : ""} placeholder={isPlan ? "Floor plan" : "Q&A"} description="Shown under the round button." />
 
       {isPlan ? (
         <>
@@ -47,27 +56,31 @@ function TileForm({ eventId, module: m }: { eventId: string; module?: EventModul
         </>
       ) : (
         <>
-          <div className="grid gap-2">
-            <label className="text-sm font-medium" htmlFor="target_kind">Opens</label>
-            <select id="target_kind" name="target_kind" defaultValue={tile?.target.kind ?? "url"} className={select}>
-              <option value="url">A link, outside the portal</option>
-              <option value="route">A page inside the portal</option>
-            </select>
-          </div>
-          <Field label="Link URL" name="url" type="url" defaultValue={tile?.target.kind === "url" ? tile.target.url : ""} placeholder="https://" description="Used when this tile opens a link." />
-          <div className="grid gap-2">
-            <label className="text-sm font-medium" htmlFor="route">Portal page</label>
-            <select id="route" name="route" defaultValue={tile?.target.kind === "route" ? tile.target.route : "agenda"} className={select}>
-              {TILE_ROUTES.map((r) => <option key={r} value={r}>{TILE_ROUTE_LABELS[r]}</option>)}
-            </select>
-            <p className="text-xs text-muted-foreground">Used when this tile opens a page inside the portal.</p>
-          </div>
-          <div className="grid gap-2">
-            <label className="text-sm font-medium" htmlFor="icon">Icon</label>
-            <select id="icon" name="icon" defaultValue={tile?.icon ?? "link"} className={select}>
-              {MODULE_ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
-            </select>
-          </div>
+          <TileTargetFields
+            kind={tile?.target.kind ?? "url"}
+            url={tile?.target.kind === "url" ? tile.target.url : ""}
+            route={tile?.target.kind === "route" ? tile.target.route : "agenda"}
+            routes={TILE_ROUTES}
+            routeLabels={TILE_ROUTE_LABELS}
+          />
+          {/* The icons themselves rather than their names: "link" and "file" in a dropdown
+              said nothing about what attendees would see. Radios, so it needs no script. */}
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm font-medium">Icon</legend>
+            <div className="grid grid-cols-7 gap-1.5">
+              {MODULE_ICONS.map((ic) => (
+                <label
+                  key={ic}
+                  title={ICON_LABELS[ic]}
+                  className="flex aspect-square cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted has-checked:border-primary has-checked:bg-accent has-checked:text-primary has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+                >
+                  <input type="radio" name="icon" value={ic} defaultChecked={(tile?.icon ?? "link") === ic} className="sr-only" aria-label={ICON_LABELS[ic]} />
+                  <Icon name={ic} size={20} />
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Used when there is no icon image.</p>
+          </fieldset>
           {iconImageField}
         </>
       )}
