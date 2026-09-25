@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { formKey } from "@/lib/form-key";
 import { requireEvent } from "@/lib/db/events";
 import { listInfoTabs } from "@/lib/db/info-tabs";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -109,8 +110,9 @@ export default async function InfoAdmin({ params, searchParams }: {
           </div>
 
           <PendingSwap fallback={<Skeleton className="h-[34rem] rounded-xl" />}>
-            {/* Keyed by tab: switching tabs must remount the editor, or it would keep the last tab's text. */}
-            <form key={editing.id} action={saveInfoTabAction.bind(null, ev.id, editing.id)} className="flex flex-col gap-4">
+            {/* Keyed by tab, so switching tabs remounts the editor rather than keeping the last
+                tab's text, and by its saved text (formKey), so a save starts it afresh. */}
+            <form key={`${editing.id}:${formKey([editing.title, editing.html])}`} action={saveInfoTabAction.bind(null, ev.id, editing.id)} className="flex flex-col gap-4">
               <Card>
                 <CardContent className="grid gap-4">
                   <div className="flex items-end gap-3">

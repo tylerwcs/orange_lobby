@@ -1,9 +1,11 @@
+import { cookies } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
+import { rememberedTab } from "@/lib/remembered-tab";
 import { requireEvent } from "@/lib/db/events";
 import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listAssignments } from "@/lib/db/breakouts";
-import { dayLabel, nextFreeDate } from "@/lib/agenda";
+import { dayLabel, suggestedDayDate } from "@/lib/agenda";
 import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +34,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
   const { day: requestedDay } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [items, days, categories] = await Promise.all([listAgenda(ev.id), listAgendaDays(ev.id), listCategories(ev.id)]);
+  const [items, days, categories, jar] = await Promise.all([listAgenda(ev.id), listAgendaDays(ev.id), listCategories(ev.id), cookies()]);
   const slots = breakoutSlots(items);
   // Only fetched when the event actually runs breakout rounds — a non-breakout event must
   // issue exactly the queries it issued before this feature.
@@ -51,10 +53,12 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
   }
   const byDay = new Map(days.map((d) => [d.id, agendaRows(items.filter((i) => i.day_id === d.id))]));
   const sessions = [...byDay.values()].flat().filter((r) => r.kind === "round" || r.item.kind === "session").length;
-  // The day `?day=` names (a reload, or the one Add day just made), else today's during the
-  // event, else the first.
+  // The day `?day=` names (the one Add day just made), else the one left open before an
+  // action's redirect (remembered-tab.ts), else today's during the event, else the first.
   const today = nowInKL().date;
-  const initialDay = (days.find((d) => d.id === requestedDay) ?? days.find((d) => d.date === today) ?? days[0])?.id;
+  const tabScope = `agenda:${ev.id}`;
+  const remembered = rememberedTab(jar, tabScope, days.map((d) => d.id));
+  const initialDay = (days.find((d) => d.id === requestedDay) ?? days.find((d) => d.id === remembered) ?? days.find((d) => d.date === today) ?? days[0])?.id;
 
   return (
     <div className="flex flex-col gap-4">
@@ -67,7 +71,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
               <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "agenda")} section="agenda" current={sectionIcons(ev.section_icons).agenda} />
             </Modal>
             <Modal title="Add a day" hint="Name it for the portal's tab — “Day 1 (Conference)”. Sessions and images go under it." trigger="Add day" icon="plus" variant="default">
-              <DayForm eventId={ev.id} suggestedDate={nextFreeDate(eventDays(ev.starts_on, ev.ends_on), days.map((d) => d.date)) ?? ev.starts_on} />
+              <DayForm eventId={ev.id} suggestedDate={suggestedDayDate(eventDays(ev.starts_on, ev.ends_on), days.map((d) => d.date), today)} />
             </Modal>
           </>
         }
@@ -90,6 +94,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
       {initialDay && (
         <DayTabs
           key={days.map((d) => d.id).join(",")}
+          scope={tabScope}
           initial={initialDay}
           days={days.map((d) => ({ id: d.id, label: d.name || shortDate(d.date), date: d.name ? shortDate(d.date) : "" }))}
           panels={Object.fromEntries(days.map((day) => [day.id, (

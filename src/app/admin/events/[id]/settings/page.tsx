@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { formKey } from "@/lib/form-key";
 import { requireEvent } from "@/lib/db/events";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
@@ -16,7 +17,10 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RememberedTabs } from "@/components/admin/RememberedTabs";
+import { rememberedTab } from "@/lib/remembered-tab";
+import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
@@ -87,9 +91,12 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const ev = await requireEvent(id, orgId);
   const qs = ev.registration_questions;
   const base = appBaseUrl();
-  const [cps, cpCounts, total] = await Promise.all([
-    listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id),
+  const [cps, cpCounts, total, jar] = await Promise.all([
+    listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id), cookies(),
   ]);
+  // Reopen on the tab that was open: every action on this page redirects back to it.
+  const tabScope = `settings:${ev.id}`;
+  const openTab = rememberedTab(jar, tabScope, ev.status === "archived" ? ["details", "registration", "checkpoints", "danger"] : ["details", "registration", "checkpoints"]) ?? "details";
   const grouped = checkpointsByDay(cps);
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
   const days = eventDays(ev.starts_on, ev.ends_on);
@@ -103,7 +110,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
     <div className="flex flex-col gap-4">
       <AdminHeader title="Settings" subtitle={ev.name} />
 
-      <Tabs defaultValue="details" className="gap-4">
+      <RememberedTabs scope={tabScope} defaultValue={openTab} className="gap-4">
         <TabsList>
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
@@ -242,7 +249,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
       {/* ONE form across both editable panels - see SaveBar. keepMounted is what makes it
           safe: an unmounted panel posts no fields, and this action writes every column. */}
-      <form action={updateSettingsAction.bind(null, ev.id)}>
+      {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
+          click or a pin reorder, which would drop what is typed but not yet saved. */}
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_intro, ev.registration_questions])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -364,7 +373,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </Card>
         </TabsContent>
       )}
-      </Tabs>
+      </RememberedTabs>
     </div>
   );
 }

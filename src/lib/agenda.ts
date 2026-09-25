@@ -150,3 +150,18 @@ export function dayLabel(d: Pick<AgendaDay, "date" | "name">): string {
 export function nextFreeDate(eventDates: string[], taken: string[]): string | null {
   return eventDates.find((d) => !taken.includes(d)) ?? null;
 }
+
+/**
+ * Add day's default date: the first event date with no day yet, else the day after the latest
+ * day there is, else today. It used to fall back to the event's first date once every date had
+ * a day - a date that was certain to be taken, so taking the default was refused.
+ */
+export function suggestedDayDate(eventDates: string[], taken: string[], today: string): string {
+  const free = nextFreeDate(eventDates, taken);
+  if (free) return free;
+  const last = [...taken].sort().at(-1);
+  if (!last) return today;
+  const next = new Date(`${last}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}

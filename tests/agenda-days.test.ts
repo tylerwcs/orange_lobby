@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTabs, dayLabel, nextFreeDate } from "@/lib/agenda";
+import { dayTabs, dayLabel, nextFreeDate, suggestedDayDate } from "@/lib/agenda";
 
 describe("dayTabs", () => {
   it("lists the organiser's days in date order, with their names", () => {
@@ -41,5 +41,18 @@ describe("nextFreeDate", () => {
   it("is null when every event date has a day, or the event has no dates", () => {
     expect(nextFreeDate(["2026-09-30"], ["2026-09-30"])).toBeNull();
     expect(nextFreeDate([], [])).toBeNull();
+  });
+});
+
+describe("suggestedDayDate", () => {
+  it("is the first free event date while there is one", () => {
+    expect(suggestedDayDate(["2026-09-30", "2026-10-01"], ["2026-09-30"], "2026-09-25")).toBe("2026-10-01");
+  });
+  it("is the day after the latest day once every event date is taken, never a taken one", () => {
+    expect(suggestedDayDate(["2026-09-30", "2026-10-01"], ["2026-10-01", "2026-09-30"], "2026-09-25")).toBe("2026-10-02");
+    expect(suggestedDayDate(["2026-12-31"], ["2026-12-31"], "2026-09-25")).toBe("2027-01-01");
+  });
+  it("is today for an event with no dates and no days", () => {
+    expect(suggestedDayDate([], [], "2026-09-25")).toBe("2026-09-25");
   });
 });

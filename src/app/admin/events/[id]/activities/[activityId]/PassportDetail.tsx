@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formKey } from "@/lib/form-key";
 import { listPassportBooths, listStampsForEvent } from "@/lib/db/booths";
 import { listAttendees } from "@/lib/db/attendees";
 import { completionByAttendee } from "@/lib/booths";
@@ -99,7 +100,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
       <Card className="overflow-hidden">
         <CardHeader><CardTitle>Details and rules</CardTitle></CardHeader>
         <CardContent>
-          <form action={savePassportActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+          <form key={formKey({ ...activity, is_open: undefined })} action={savePassportActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
             <Field label="Name" name="name" defaultValue={activity.name} />
             <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
             <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />

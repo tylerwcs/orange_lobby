@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { formKey } from "@/lib/form-key";
 import { PassportDetail } from "./PassportDetail";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
@@ -141,7 +142,7 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
           <Card className="overflow-hidden">
             <CardHeader><CardTitle>Details and rules</CardTitle></CardHeader>
             <CardContent>
-              <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+              <form key={formKey({ ...activity, is_open: undefined })} action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
                 <Field label="Name" name="name" defaultValue={activity.name} />
                 <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
                 <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
@@ -281,7 +282,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
         <Card className="overflow-hidden">
           <CardHeader><CardTitle>Details, rules and questions</CardTitle></CardHeader>
           <CardContent>
-            <form action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+            <form key={formKey({ ...activity, is_open: undefined })} action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
               <SubmissionFields activity={activity} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
               <SaveBar inCard />
             </form>
