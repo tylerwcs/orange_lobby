@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D234. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D235. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -166,6 +166,14 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   pinch-zooming never flip the page. Tabs still work as before. The Info page's tabs swipe
   the same way; a touch that starts inside something that scrolls sideways of its own (a wide
   table in an info tab) is left to it, on both pages.
+
+- **D235** **The swipe follows the finger.** The first 8px decide sideways vs scroll. Sideways,
+  the content moves with the finger (a third as far against a missing neighbour); release past
+  a quarter of the width or on a flick (>0.5px/ms) slides it off in 180ms and brings the next
+  tab in from the other side in 240ms, otherwise it springs back. Reduced motion switches
+  instantly. The agenda's swipe area has a 50dvh floor on phones, so an empty or short day can
+  still be swiped anywhere below its line. The transform is written to the element directly,
+  not via React state, so the drag keeps up with the finger.
 
 ## 3. Out of scope
 

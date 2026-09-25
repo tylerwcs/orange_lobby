@@ -87,8 +87,14 @@ export function PendingLink({ href, className = "", selected, selectedClassName 
   );
 }
 
-/** How far a finger must travel sideways, in px, before a swipe counts. */
+/** How far a finger must travel sideways, in px, before a slow drag commits. */
 const SWIPE_MIN = 50;
+/** A flick faster than this (px per ms) commits however short it was. */
+const FLICK = 0.5;
+/** How far a finger moves before we decide whether this gesture is sideways or a scroll. */
+const AXIS_LOCK = 8;
+const OUT_MS = 180;
+const IN_MS = 240;
 
 /**
  * Whether a touch began inside something that scrolls sideways of its own - a wide table in
@@ -102,46 +108,97 @@ function inSideScroller(from: EventTarget | null, area: HTMLElement): boolean {
   return false;
 }
 
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 /**
- * Swipe left or right across the content to move to the next or previous tab (D234) - the
- * same navigation a tap on the tab makes, so the underline moves and the skeleton shows just
- * as it does for a tap. Touch only: a mouse drag selects text, as it should.
+ * Swipe left or right across the content to move to the next or previous tab (D234, D235) -
+ * the same navigation a tap on the tab makes, so the underline moves and the skeleton shows
+ * just as they do for a tap.
  *
- * A swipe has to be mostly sideways (twice as far across as down) and one finger, so reading
- * down a long day and pinch-zooming a picture never flip the page. Nothing is prevented:
- * vertical scrolling is the browser's, untouched. A touch that starts inside something that
- * scrolls sideways of its own is left to it.
+ * The content follows the finger. The first few pixels decide the gesture: mostly sideways
+ * and it is a swipe, otherwise it is a scroll and this stays out of the way for the rest of
+ * it. Past a quarter of the width, or on a quick flick, the content slides off and the next
+ * tab slides in from the other side; short of that it springs back. With nothing on that side
+ * (the first or last tab) it drags with resistance and always springs back. Touch only; a
+ * touch that starts inside something that scrolls sideways of its own is left to it; with
+ * reduced motion the switch is instant.
+ *
+ * The transform is written straight to the element rather than through React state: it
+ * changes on every touchmove, and a re-render per frame would make the drag lag the finger.
  */
-export function PendingSwipe({ prevHref, nextHref, children }: {
+export function PendingSwipe({ prevHref, nextHref, className = "", paneClassName = "", children }: {
   prevHref: string | null;
   nextHref: string | null;
+  /** On the swipe area - where touches are caught. */
+  className?: string;
+  /** On the moving pane that holds the content - its layout, e.g. the gap between rows. */
+  paneClassName?: string;
   children: React.ReactNode;
 }) {
   const scope = useContext(ScopeContext);
   const router = useRouter();
-  // A ref, not state: the finger's start has to be there the instant it lifts, not after a render.
-  const start = useRef<{ x: number; y: number } | null>(null);
+  const pane = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; t: number; axis: "x" | "y" | null; dx: number } | null>(null);
   const go = (href: string) => (scope ? scope.go(href) : router.push(href, { scroll: false }));
+
+  const move = (x: number, ms = 0) => {
+    const el = pane.current;
+    if (!el) return;
+    el.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2,.8,.2,1)` : "none";
+    el.style.transform = x ? `translate3d(${x}px,0,0)` : "";
+  };
+
   return (
+    // overflow-x clip, not hidden: the content can leave sideways without this becoming a
+    // scroll container of its own.
     <div
+      className={`overflow-x-clip ${className}`}
       onTouchStart={(e) => {
-        const one = e.touches.length === 1 && !inSideScroller(e.target, e.currentTarget);
-        start.current = one ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+        const ok = e.touches.length === 1 && !inSideScroller(e.target, e.currentTarget);
+        drag.current = ok ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), axis: null, dx: 0 } : null;
       }}
-      onTouchEnd={(e) => {
-        const from = start.current;
-        start.current = null;
-        if (!from) return;
-        const t = e.changedTouches[0];
-        const dx = t.clientX - from.x;
-        const dy = t.clientY - from.y;
-        if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) return;
-        // Finger moving left brings in what is to the right: the next tab.
-        const href = dx < 0 ? nextHref : prevHref;
-        if (href) go(href);
+      onTouchMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        const dx = e.touches[0].clientX - d.x;
+        const dy = e.touches[0].clientY - d.y;
+        if (!d.axis) {
+          if (Math.abs(dx) < AXIS_LOCK && Math.abs(dy) < AXIS_LOCK) return;
+          d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+        }
+        if (d.axis !== "x") return;
+        // Nothing on that side: drag against resistance, so it still answers the finger.
+        const open = dx < 0 ? nextHref : prevHref;
+        d.dx = open ? dx : dx / 3;
+        if (!reducedMotion()) move(d.dx);
+      }}
+      onTouchEnd={() => {
+        const d = drag.current;
+        drag.current = null;
+        if (!d || d.axis !== "x") return;
+        const width = pane.current?.offsetWidth ?? 320;
+        const href = d.dx < 0 ? nextHref : prevHref;
+        const flick = Math.abs(d.dx) / Math.max(1, Date.now() - d.t) > FLICK && Math.abs(d.dx) > 20;
+        if (!href || (Math.abs(d.dx) < Math.max(SWIPE_MIN, width / 4) && !flick)) {
+          move(0, 200);
+          return;
+        }
+        if (reducedMotion()) { move(0); go(href); return; }
+        // Off the way the finger went, then the next tab in from the other side.
+        const dir = d.dx < 0 ? -1 : 1;
+        move(dir * width, OUT_MS);
+        window.setTimeout(() => {
+          go(href);
+          move(-dir * width);
+          requestAnimationFrame(() => requestAnimationFrame(() => move(0, IN_MS)));
+        }, OUT_MS);
+      }}
+      onTouchCancel={() => {
+        drag.current = null;
+        move(0, 200);
       }}
     >
-      {children}
+      <div ref={pane} className={`will-change-transform ${paneClassName}`}>{children}</div>
     </div>
   );
 }

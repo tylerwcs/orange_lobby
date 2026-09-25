@@ -48,7 +48,8 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
         tabs={days.map((d) => ({ key: d.date, href: hrefForDay(d.date), label: d.name ?? shortDate(d.date), sub: d.name ? shortDate(d.date) : null }))}
         selected={day}
       />
-      <PendingSwipe prevHref={prevHref} nextHref={nextHref}>
+      {/* A floor under an empty or short day, so there is always somewhere to swipe. */}
+      <PendingSwipe prevHref={prevHref} nextHref={nextHref} className="min-h-[50dvh] md:min-h-0" paneClassName="flex flex-col gap-3">
       <PendingSwap fallback={<DaySkeleton />}>
       {todays.map((i) => {
         if (i.kind === "image") return <ImageRow key={i.id} item={i} />;
