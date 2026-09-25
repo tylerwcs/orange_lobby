@@ -7,7 +7,7 @@ import { slugify } from "@/lib/slug";
 import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
 import { importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
-import { createAttendee, createAttendees, deleteAttendee, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
+import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
 import { addField, renameField, removeField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { parseIds } from "@/lib/bulk";
@@ -312,6 +312,26 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
   await deleteAttendee(attendeeId);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(flashPath(`/admin/events/${eventId}/attendees`, `Deleted ${gone.name}.`));
+}
+
+/**
+ * Deletes a selection, for clearing out a bad import before loading it again. Returns the
+ * count rather than redirecting: the bulk bar reports it in a toast and clears its own
+ * selection, and a redirect would drop the reader's search and page along the way.
+ *
+ * The ids are checked against this event's roster, so a posted id cannot reach another
+ * event's attendee.
+ */
+export async function deleteAttendeesAction(eventId: string, formData: FormData): Promise<number> {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
+  const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
+  if (ids.length === 0) return 0;
+  const deleted = await deleteAttendees(ev, ids);
+  revalidatePath(`/admin/events/${ev.id}/attendees`);
+  revalidatePath(`/admin/events/${ev.id}`);
+  return deleted;
 }
 
 /**

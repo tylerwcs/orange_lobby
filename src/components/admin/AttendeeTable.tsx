@@ -75,6 +75,8 @@ function persistPrefs(eventId: string, prefs: TablePrefs) {
 export function AttendeeTable({
   eventId,
   rows,
+  allIds,
+  searchQuery,
   columns,
   initialPrefs,
   openAttendeeId,
@@ -82,6 +84,7 @@ export function AttendeeTable({
   emptyMessage,
   setColumn,
   markCheckedIn,
+  deleteAttendees,
   bulkEditable,
   renameColumn,
   deleteColumn,
@@ -91,6 +94,9 @@ export function AttendeeTable({
 }: {
   eventId: string;
   rows: AttendeeRow[];
+  /** Every attendee the current search matches, on every page — what "Select all" reaches. */
+  allIds: string[];
+  searchQuery: string | null;
   columns: ColumnDef[];
   initialPrefs: TablePrefs;
   /** The attendee the URL says is open, and the server-rendered panel for them. */
@@ -99,6 +105,7 @@ export function AttendeeTable({
   emptyMessage: string;
   setColumn: TableAction;
   markCheckedIn: TableAction;
+  deleteAttendees: (formData: FormData) => Promise<number>;
   bulkEditable: AttendeeField[];
   renameColumn: TableAction;
   deleteColumn: TableAction;
@@ -205,6 +212,12 @@ export function AttendeeTable({
   const selectedOnPage = rows.filter((a) => selected.has(a.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
+  // The offer to reach past this page, once the page itself is fully ticked. Only when there
+  // is more than one page's worth: on a single page, the header checkbox already is "all".
+  const everyone = allIds.length;
+  const matching = searchQuery ? `all ${everyone} matching “${searchQuery}”` : `all ${everyone} attendees`;
+  const offerAll = allSelected && everyone > rows.length;
+  const everyoneSelected = offerAll && allIds.every((id) => selected.has(id));
 
   return (
     <div className="flex flex-col gap-3">
@@ -215,6 +228,7 @@ export function AttendeeTable({
         onClear={() => setSelected(new Set())}
         setColumn={runBulk(setColumn)}
         markCheckedIn={runBulk(markCheckedIn)}
+        deleteAttendees={deleteAttendees}
         fields={bulkEditable}
         checkpoints={checkpoints}
         defaultCheckpointId={defaultCheckpointId}
@@ -230,6 +244,22 @@ export function AttendeeTable({
           onAddColumn={() => setAddingColumn(true)}
         />
       </div>
+
+      {offerAll && (
+        <div role="status" className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-lg bg-accent px-4 py-2 text-sm">
+          {everyoneSelected ? (
+            <>
+              <span>All {everyone}{searchQuery ? ` matching “${searchQuery}”` : " attendees"} are selected.</span>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setSelected(new Set())}>Clear selection</Button>
+            </>
+          ) : (
+            <>
+              <span>All {selectedOnPage} on this page are selected.</span>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setSelected(new Set(allIds))}>Select {matching}</Button>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
         <Table>

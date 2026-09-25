@@ -6,7 +6,7 @@ import { requireEvent } from "@/lib/db/events";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
+import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldAction, deleteAttendeesAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listAgenda } from "@/lib/db/agenda";
@@ -206,6 +206,10 @@ export default async function Attendees({ params, searchParams }: { params: Prom
             ...(roundValues.get(a.id) ?? {}),
           },
         }))}
+        // Everyone the current search matches, across every page, so a selection can grow past
+        // the fifty on screen — clearing out a bad import is a whole-list job.
+        allIds={rows.map((a) => a.id)}
+        searchQuery={sp.q ?? null}
         columns={columns}
         initialPrefs={prefs}
         openAttendeeId={open ? open.a.id : null}
@@ -216,6 +220,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
+        deleteAttendees={deleteAttendeesAction.bind(null, ev.id)}
         bulkEditable={[...bulkFields(allFields), ...roundColumns]}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}

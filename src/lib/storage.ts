@@ -151,6 +151,27 @@ export function submissionObjectPath(
 }
 
 /**
+ * The uploaded files among some submissions' answers, for deleting a few attendees without
+ * leaving their files in the bucket. The event-wide purge sweeps the whole event folder; this
+ * cannot, because paths do not name the attendee, so it reads them off the answers instead.
+ *
+ * By where the value points — inside `<orgId>/<eventId>/` — not by which question it
+ * answers: a key renamed after the upload still holds the path, and going by the current
+ * file questions would miss exactly that file (D169). A typed answer cannot collide, because
+ * nothing an attendee types starts with the org's and event's ids.
+ */
+export function submissionFilePaths(answers: Record<string, unknown>[], prefix: string): string[] {
+  const folder = `${prefix}/`;
+  const out = new Set<string>();
+  for (const a of answers) {
+    for (const v of Object.values(a ?? {})) {
+      if (typeof v === "string" && v.startsWith(folder) && v.length > folder.length) out.add(v);
+    }
+  }
+  return [...out];
+}
+
+/**
  * The `accept` attribute for every file picker on a `file` question. Derived from the same
  * map acceptUpload reads, so the picker can never offer a type the upload would reject.
  */

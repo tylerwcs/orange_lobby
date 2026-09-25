@@ -5,6 +5,7 @@ import {
   mediaObjectPath,
   mediaPathFromUrl,
   submissionObjectPath,
+  submissionFilePaths,
   imageIntent,
   IMAGE_ACCEPT,
   MAX_IMAGE_BYTES,
@@ -124,5 +125,38 @@ describe("acceptUpload", () => {
   it("puts a submission's file under its own event and form", () => {
     const path = submissionObjectPath({ orgId: "o", eventId: "e", formId: "f", ext: "png" }, "abc123");
     expect(path).toBe("o/e/f/submission-abc123.png");
+  });
+});
+
+describe("submissionFilePaths", () => {
+  const prefix = "org1/ev1";
+
+  it("finds every uploaded file among a set of submissions' answers", () => {
+    const answers = [
+      { photo: "org1/ev1/act1/submission-ab12cd34.jpg", caption: "At the booth" },
+      { receipt: "org1/ev1/act2/submission-ef56ab78.pdf" },
+      {},
+    ];
+    expect(submissionFilePaths(answers, prefix)).toEqual([
+      "org1/ev1/act1/submission-ab12cd34.jpg",
+      "org1/ev1/act2/submission-ef56ab78.pdf",
+    ]);
+  });
+
+  it("goes by where the file sits, not by the question's key", () => {
+    // A key renamed after the upload still holds the path; reading current file-question
+    // keys would miss exactly that file (D169).
+    expect(submissionFilePaths([{ old_key: "org1/ev1/act1/submission-00000000.png" }], prefix))
+      .toEqual(["org1/ev1/act1/submission-00000000.png"]);
+  });
+
+  it("never names anything outside this event's folder, or a typed answer that only looks like one", () => {
+    const answers = [{ a: "org1/ev2/act1/submission-11111111.jpg", b: "org1/ev1", c: "org1/ev1x/f.jpg", d: 42, e: null }];
+    expect(submissionFilePaths(answers as Record<string, unknown>[], prefix)).toEqual([]);
+  });
+
+  it("names a file once however many submissions carry it", () => {
+    const path = "org1/ev1/act1/submission-22222222.jpg";
+    expect(submissionFilePaths([{ a: path }, { b: path }], prefix)).toEqual([path]);
   });
 });

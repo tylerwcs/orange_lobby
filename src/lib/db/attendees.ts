@@ -4,7 +4,8 @@ import { generateToken, freshTokens } from "@/lib/tokens";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { dropBlankAnswers } from "@/lib/registration";
 import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
-import { sweepSubmissionPrefix } from "@/lib/db/media";
+import { deleteSubmissionFiles, sweepSubmissionPrefix } from "@/lib/db/media";
+import { submissionFilePaths } from "@/lib/storage";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -110,6 +111,37 @@ export async function regenerateToken(id: string): Promise<string> {
 export async function deleteAttendee(id: string): Promise<void> {
   const { error } = await serviceClient().from("attendees").delete().eq("id", id);
   if (error) throw error;
+}
+
+/** Ids travel in the query string (`in.(...)`), so a chunk is sized to keep the URL short. */
+const DELETE_CHUNK = 100;
+
+/**
+ * Deletes a selection of one event's attendees, and returns how many went.
+ *
+ * Their check-ins, room assignments, bookings and submissions go with them by cascade. Their
+ * uploaded files do not — Storage is outside the database — so those are removed first, the
+ * same order the purge keeps and for the same reason: a failed file delete throws before any
+ * row is touched, where the other way round would leave files with nothing left to name them.
+ *
+ * Scoped by event as well as id, so an id from another event deletes nothing even if a
+ * caller forgot to check it.
+ */
+export async function deleteAttendees(event: Pick<Event, "id" | "org_id">, ids: string[]): Promise<number> {
+  const db = serviceClient();
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
+    const chunk = ids.slice(i, i + DELETE_CHUNK);
+    const { data: subs, error: readError } = await db.from("activity_submissions")
+      .select("answers").eq("event_id", event.id).in("attendee_id", chunk);
+    if (readError) throw readError;
+    const answers = ((subs ?? []) as { answers: Record<string, unknown> | null }[]).map((r) => r.answers ?? {});
+    await deleteSubmissionFiles(submissionFilePaths(answers, `${event.org_id}/${event.id}`));
+    const { data, error } = await db.from("attendees").delete().eq("event_id", event.id).in("id", chunk).select("id");
+    if (error) throw error;
+    deleted += data?.length ?? 0;
+  }
+  return deleted;
 }
 
 /**

@@ -1,13 +1,13 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import { ChevronDown, Download, MoreHorizontal, ScanLine, X } from "lucide-react";
+import { ChevronDown, Download, MoreHorizontal, ScanLine, Trash2, X } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuTrigger,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Checkpoint } from "@/lib/types";
+import { toast } from "@/lib/toast-store";
 
 type TableAction = (formData: FormData) => void | Promise<void>;
 
@@ -43,6 +44,7 @@ export function BulkBar({
   onClear,
   setColumn,
   markCheckedIn,
+  deleteAttendees,
   fields,
   checkpoints,
   defaultCheckpointId,
@@ -52,6 +54,8 @@ export function BulkBar({
   onClear: () => void;
   setColumn: TableAction;
   markCheckedIn: TableAction;
+  /** Resolves to how many were deleted, for the toast. */
+  deleteAttendees: (formData: FormData) => Promise<number>;
   fields: AttendeeField[];
   checkpoints: Checkpoint[];
   defaultCheckpointId?: string;
@@ -62,6 +66,8 @@ export function BulkBar({
   const editForm = useRef<HTMLFormElement>(null);
   const confirmed = useRef(false);
   const [checkingIn, startCheckIn] = useTransition();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, startDeleting] = useTransition();
 
   if (ids.length === 0) return null;
 
@@ -86,6 +92,23 @@ export function BulkBar({
     data.set("ids", ids.join(","));
     data.set("checkpoint_id", id);
     startCheckIn(() => { void markCheckedIn(data); });
+  };
+
+  // The dialog stays open, busy, until the server answers: closing it on the click would
+  // leave a destructive action running with nothing on screen to say so.
+  const deleteSelected = () => {
+    const data = new FormData();
+    data.set("ids", ids.join(","));
+    startDeleting(async () => {
+      try {
+        const n = await deleteAttendees(data);
+        toast(`Deleted ${n} ${n === 1 ? "attendee" : "attendees"}.`);
+        setConfirmingDelete(false);
+        onClear();
+      } catch {
+        toast("Could not delete them. Nothing was removed; try again.", "error");
+      }
+    });
   };
 
   return (
@@ -182,6 +205,11 @@ export function BulkBar({
               <Download />
               Export {people}
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={() => setConfirmingDelete(true)}>
+              <Trash2 />
+              Delete {people}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -193,6 +221,27 @@ export function BulkBar({
           <X />
         </Button>
       </div>
+
+      <AlertDialog open={confirmingDelete} onOpenChange={(open) => { if (!deleting) setConfirmingDelete(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {people}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They are removed from this event with everything attached to them: check-ins, breakout rooms, activity bookings, submissions and uploaded files. Their personal links stop working. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep them</AlertDialogCancel>
+            <Button
+              onClick={deleteSelected} disabled={deleting} aria-busy={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting && <Spinner data-icon="inline-start" />}
+              {deleting ? "Deleting…" : `Delete ${people}`}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmingClear} onOpenChange={setConfirmingClear}>
         <AlertDialogContent>
