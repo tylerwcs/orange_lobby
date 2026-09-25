@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import {
   SOURCES, defaultSources, fillVariables, sourceValue,
   type Source, type SourceValues, type Template,
 } from "@/lib/whatsapp-templates";
+import { sendKey } from "@/lib/whatsapp-targets";
 
 const select = "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
@@ -14,17 +15,20 @@ const select = "h-9 w-full rounded-md border border-input bg-transparent px-2.5 
  * person on the list will get it before anything goes out.
  *
  * The preview is filled from the same `sourceValue` the send uses, with a real attendee's name
- * and link, so what is on screen is what lands on the phone. Counts are per template: the
- * dedupe is per template too (sendWhatsappAction), so a second template reaches everybody
- * again while a repeat of the first reaches only who is left.
+ * and link, so what is on screen is what lands on the phone. Who it goes to is an audience
+ * (whatsapp-targets.ts) - everyone, or who has or has not booked an activity - and the count
+ * leaves out whoever already holds this send's claim key (`sendKey`), exactly as the send
+ * will. Send again adds today's date to that key, so the same message can go out once more
+ * each day.
  */
-export function WhatsappComposer({ templates, initial, stats, sample, event, action }: {
+export function WhatsappComposer({ templates, initial, audiences, sentKeys, today, event, action }: {
   templates: Template[];
   initial: string;
-  /** Per template name: who is still owed it, and who already has it. */
-  stats: Record<string, { pending: number; sent: number }>;
-  /** The first person it goes to, for the preview. */
-  sample: { name: string; token: string } | null;
+  /** Each audience's reachable attendee ids, and one of them for the preview. */
+  audiences: { key: string; label: string; ids: string[]; sample: { name: string; token: string } | null }[];
+  /** The claim keys of every send that did not fail. */
+  sentKeys: string[];
+  today: string;
   event: Omit<SourceValues, "attendeeName">;
   action: (formData: FormData) => Promise<void>;
 }) {
@@ -32,6 +36,9 @@ export function WhatsappComposer({ templates, initial, stats, sample, event, act
   const template = templates.find((t) => t.name === name) ?? null;
   const [sources, setSources] = useState<Source[]>(() => defaultSources(template?.variables ?? 0));
   const [custom, setCustom] = useState<string[]>([]);
+  const [audienceKey, setAudienceKey] = useState(audiences[0]?.key ?? "all");
+  const [again, setAgain] = useState(false);
+  const had = useMemo(() => new Set(sentKeys), [sentKeys]);
 
   if (!template) {
     return (
@@ -48,9 +55,13 @@ export function WhatsappComposer({ templates, initial, stats, sample, event, act
     setSources(defaultSources(t?.variables ?? 0));
     setCustom([]);
   };
+  const audience = audiences.find((a) => a.key === audienceKey) ?? audiences[0];
+  const sample = audience?.sample ?? null;
   const values: SourceValues = { attendeeName: sample?.name ?? "Attendee name", ...event };
   const filled = sources.map((src, i) => sourceValue(src, values, custom[i] ?? ""));
-  const { pending, sent } = stats[template.name] ?? { pending: 0, sent: 0 };
+  const members = audience?.ids ?? [];
+  const pending = members.filter((id) => !had.has(sendKey({ template: template.name, audience: audience.key, attendeeId: id, again, today }))).length;
+  const sent = members.length - pending;
   const missingCustom = sources.some((src, i) => src === "custom" && !custom[i]?.trim());
   const missingVenue = sources.includes("venue") && !event.venue.trim();
 
@@ -62,6 +73,13 @@ export function WhatsappComposer({ templates, initial, stats, sample, event, act
         Template
         <select name="template" value={template.name} onChange={(e) => pick(e.target.value)} className={select}>
           {templates.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+        </select>
+      </label>
+
+      <label className="grid gap-1.5 text-sm font-medium">
+        Send to
+        <select name="audience" value={audience?.key} onChange={(e) => setAudienceKey(e.target.value)} className={select}>
+          {audiences.map((a) => <option key={a.key} value={a.key}>{a.label} ({a.ids.length})</option>)}
         </select>
       </label>
 
@@ -98,13 +116,23 @@ export function WhatsappComposer({ templates, initial, stats, sample, event, act
         <Preview template={template} values={filled} token={sample?.token ?? "…"} />
       </div>
 
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="again" checked={again} onChange={(e) => setAgain(e.target.checked)} className="mt-0.5 size-4 accent-primary" />
+        <span>
+          <span className="font-medium">Send again</span>
+          <span className="block text-xs text-muted-foreground">Also to people who already had it, once more today. For a reminder that goes out each day.</span>
+        </span>
+      </label>
+
       {pending === 0 ? (
         <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-          Nobody left to send this to. Everyone with a usable number already has it.
+          {members.length === 0
+            ? "Nobody in this audience has a usable number."
+            : again ? "Everyone in this audience has already had it today." : "Everyone in this audience already has it. Tick Send again to send it once more."}
         </p>
       ) : (
         <ConfirmButton
-          message={`Send ${template.name} to ${pending} attendee${pending === 1 ? "" : "s"}? This cannot be recalled.`}
+          message={`Send ${template.name} to ${pending} attendee${pending === 1 ? "" : "s"} (${audience.label.toLowerCase()})? This cannot be recalled.`}
           tone="default" triggerVariant="default"
         >
           Send to {pending}
@@ -114,8 +142,8 @@ export function WhatsappComposer({ templates, initial, stats, sample, event, act
         <p className="-mt-2 text-xs text-muted-foreground">Fill in every variable first; the send stops if one is empty.</p>
       )}
       <p className="text-xs text-muted-foreground">
-        {sent > 0 ? `${sent} already ${sent === 1 ? "has" : "have"} this template and will be skipped. ` : ""}
-        Safe to press twice: nobody gets the same template twice.
+        {sent > 0 ? `${sent} already ${sent === 1 ? "has" : "have"} it${again ? " today" : ""} and will be skipped. ` : ""}
+        Safe to press twice: nobody gets the same send twice.
       </p>
     </form>
   );

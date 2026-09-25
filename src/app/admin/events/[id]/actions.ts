@@ -22,7 +22,8 @@ import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
 import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOrder } from "@/lib/db/info-tabs";
 import { parseAgendaColour } from "@/lib/agenda-colours";
-import { localInputToIso } from "@/lib/time";
+import { localInputToIso, nowInKL } from "@/lib/time";
+import { listActivities, listBookings } from "@/lib/db/activities";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, moduleId, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
@@ -36,6 +37,7 @@ import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
 import { listTemplates } from "@/lib/whatsapp";
 import { isSource, readTemplate, sourceValue, type Source } from "@/lib/whatsapp-templates";
+import { inAudience, sendKey } from "@/lib/whatsapp-targets";
 import { formatDateRange, shortDate } from "@/lib/text";
 
 const str = (fd: FormData, k: string) => {
@@ -1301,10 +1303,22 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
   if (sources.some((src, i) => src === "custom" && !custom[i])) fail("Fill in the custom text, or choose something else for it.");
   if (sources.includes("venue") && !ev.venue_name?.trim()) fail("This event has no venue set. Add it in Settings, or choose something else.");
 
-  const attendees = await listAttendees(eventId);
+  // Who it goes to (whatsapp-targets.ts), worked out here from the database rather than from
+  // anything the page counted: the audience key is the only thing trusted from the form.
+  const audience = String(formData.get("audience") ?? "all");
+  const again = formData.get("again") === "on";
+  const [attendees, bookingActivities, bookings] = await Promise.all([
+    listAttendees(eventId), listActivities(eventId, "booking"), listBookings(eventId),
+  ]);
+  const bookedBy = new Map<string, Set<string>>();
+  for (const b of bookings) (bookedBy.get(b.activity_id) ?? bookedBy.set(b.activity_id, new Set()).get(b.activity_id)!).add(b.attendee_id);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
-  const { recipients } = splitAudience(attendees, fields);
-  if (recipients.length === 0) fail("Nobody on this event has a number we can send to.");
+  const reachable = splitAudience(attendees, fields).recipients;
+  if (reachable.length === 0) fail("Nobody on this event has a number we can send to.");
+  if (inAudience(audience, { id: "", category: null }, bookingActivities, bookedBy) === null) fail("That audience no longer exists. Reload the page and pick another.");
+  const recipients = reachable.filter((r) => inAudience(audience, r.attendee, bookingActivities, bookedBy));
+  if (recipients.length === 0) fail("Nobody in that audience has a number we can send to.");
+  const today = nowInKL().date;
 
   const eventDates = formatDateRange(ev.starts_on, ev.ends_on);
   const result = await runSend({
@@ -1320,8 +1334,8 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
         buttonParam: template.button ? a.token : undefined,
       };
     },
-    // One message per attendee per template, ever.
-    dedupeKey: (a) => `${template.name}:${a.id}`,
+    // Once per attendee per template and audience; with Send again, once more per day.
+    dedupeKey: (a) => sendKey({ template: template.name, audience, attendeeId: a.id, again, today }),
   });
 
   revalidatePath(here);

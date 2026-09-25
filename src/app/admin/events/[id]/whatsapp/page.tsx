@@ -7,6 +7,9 @@ import { splitAudience } from "@/lib/whatsapp-audience";
 import { DEFAULT_TEMPLATE } from "@/lib/whatsapp-run";
 import { listTemplates } from "@/lib/whatsapp";
 import { readTemplate, type Template } from "@/lib/whatsapp-templates";
+import { audienceOptions, inAudience } from "@/lib/whatsapp-targets";
+import { listActivities, listBookings } from "@/lib/db/activities";
+import { nowInKL } from "@/lib/time";
 import { formatDateRange, shortDateTime } from "@/lib/text";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { WhatsappComposer } from "@/components/admin/WhatsappComposer";
@@ -29,22 +32,29 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
   const attendees = await listAttendees(ev.id);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   const { recipients, unusable } = splitAudience(attendees, fields);
-  const [sends, list] = await Promise.all([listSends(ev.id), listTemplates()]);
+  const [sends, list, bookingActivities, bookings] = await Promise.all([
+    listSends(ev.id), listTemplates(), listActivities(ev.id, "booking"), listBookings(ev.id),
+  ]);
   const templates = list.ok ? list.templates.map(readTemplate).filter((t): t is Template => t !== null) : [];
 
-  // Who still needs each template, and who has it. A failed send does not count as having it:
-  // pressing Send again retries exactly those (claimSend).
-  const stats = Object.fromEntries(templates.map((t) => {
-    const has = new Set(sends.filter((s) => s.template === t.name && s.status !== "failed").map((s) => s.attendee_id));
-    return [t.name, { pending: recipients.filter((r) => !has.has(r.attendee.id)).length, sent: has.size }];
-  }));
+  // Each audience as the reachable people in it (whatsapp-targets.ts), and one of them to
+  // preview with. Only that one person's link code reaches the browser, not everybody's.
+  const bookedBy = new Map<string, Set<string>>();
+  for (const b of bookings) (bookedBy.get(b.activity_id) ?? bookedBy.set(b.activity_id, new Set()).get(b.activity_id)!).add(b.attendee_id);
+  const audiences = audienceOptions(bookingActivities).map((o) => {
+    const members = recipients.filter((r) => inAudience(o.key, r.attendee, bookingActivities, bookedBy));
+    const sample = members[0]?.attendee;
+    return { ...o, ids: members.map((m) => m.attendee.id), sample: sample ? { name: sample.name, token: sample.token } : null };
+  });
+  // Who already has what: the claim keys of every send that did not fail (a failed one is
+  // retried by pressing Send again - claimSend).
+  const sentKeys = sends.filter((s) => s.status !== "failed" && s.dedupe_key).map((s) => s.dedupe_key as string);
   const delivered = sends.filter((s) => s.status !== "failed").length;
   const failed = sends.filter((s) => s.status === "failed");
-  const first = recipients[0]?.attendee;
 
   return (
     <div className="flex flex-col gap-4">
-      <AdminHeader title="WhatsApp" subtitle="Message attendees from an approved template. Each template goes to each person once." />
+      <AdminHeader title="WhatsApp" subtitle="Message attendees from an approved template. Nobody gets the same message twice unless you choose Send again." />
       {!list.ok && (
         <p className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">Could not read the templates from WhatsApp: {list.error}</p>
       )}
@@ -117,8 +127,9 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
         <WhatsappComposer
           templates={templates}
           initial={DEFAULT_TEMPLATE}
-          stats={stats}
-          sample={first ? { name: first.name, token: first.token } : null}
+          audiences={audiences}
+          sentKeys={sentKeys}
+          today={nowInKL().date}
           event={{ eventName: ev.name, eventDates: formatDateRange(ev.starts_on, ev.ends_on), venue: ev.venue_name ?? "" }}
           action={sendWhatsappAction.bind(null, ev.id)}
         />
