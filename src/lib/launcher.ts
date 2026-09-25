@@ -54,24 +54,25 @@ export function sectionIcons(raw: unknown): SectionIcons {
  * No Activities button (D221): for anybody who can see one, the activity cards sit on the home
  * page under the launcher, with "See all" to the page, and the card owed a pick leads them.
  *
- * A route tile that opens a section already on the home page - Me included, in the header -
- * is dropped rather than shown twice. One whose section is not there - Activities for somebody
- * who cannot see any, Me on the public portal - stays, since the organiser put it there.
+ * A route tile that repeats a button already in this row - Agenda, or Info when it is shown -
+ * is dropped rather than drawn twice. Every other tile stays, Activities and Me included: they
+ * have no button here, and an organiser who adds one is asking for it (D237).
  */
 export function launcherItems(input: {
   basePath: string;
+  /** Kept for the callers' sake; the row is the same on both portals since Me left it (D236). */
   personal: boolean;
   hasInfo: boolean;
+  /** No longer read here: Activities has no button of its own in the row (D221, D237). */
   activities?: ActivityNav;
   tiles: Tile[];
   icons?: SectionIcons;
 }): LauncherItem[] {
-  const { basePath, personal, hasInfo, activities, tiles, icons } = input;
+  const { basePath, hasInfo, tiles, icons } = input;
   const section = (key: string, label: string, path: string, icon: IconName, image: string | null = null): LauncherItem => ({
     id: `builtin:${key}`, label, href: `${basePath}${path}`, icon, image, external: false, dot: false, builtin: true,
   });
 
-  const showActivities = personal && Boolean(activities?.show);
   const items: LauncherItem[] = [
     section("agenda", "Agenda", "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda),
     ...(hasInfo ? [section("info", "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
@@ -79,8 +80,6 @@ export function launcherItems(input: {
 
   const covered = new Set<TileRoute>(["agenda"]);
   if (hasInfo) covered.add("info");
-  if (showActivities) covered.add("activities");
-  if (personal) covered.add("me");
 
   for (const t of tiles) {
     if (t.route && covered.has(t.route)) continue;

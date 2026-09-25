@@ -46,10 +46,16 @@ describe("launcherItems", () => {
     expect(items[1]).toMatchObject({ builtin: false, external: true, image: "https://x/b.png", dot: false });
   });
 
-  it("drops a route tile that repeats a built-in it sits beside", () => {
+  it("drops only a route tile that repeats a button already in the row", () => {
     const tiles = [routeTile("ag", "agenda"), routeTile("in", "info"), routeTile("ac", "activities"), routeTile("me", "me"), routeTile("st", "stamps")];
     const items = launcherItems({ ...base, hasInfo: true, activities: { show: true, owed: false }, tiles });
-    expect(items.map((i) => i.id)).toEqual(["builtin:agenda", "builtin:info", "st"]);
+    // Activities and Me have no button of their own in the row (D221, D236), so an organiser's
+    // tile for either is how they put one there (D237).
+    expect(items.map((i) => i.id)).toEqual(["builtin:agenda", "builtin:info", "ac", "me", "st"]);
+  });
+
+  it("keeps an Info tile when the event has no Info button to repeat", () => {
+    expect(launcherItems({ ...base, tiles: [routeTile("in", "info")] }).map((i) => i.id)).toEqual(["builtin:agenda", "in"]);
   });
 
   it("keeps a route tile whose built-in is not on screen", () => {

@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D236. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D237. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -179,6 +179,11 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   line icon in the header's text colour (no filled circle) beside the event name, linking to Me. It is on the home page
   only - other pages keep "Home" and the event mark. Me leaves the launcher, and its
   illustration (`me.webp`) is deleted. The desktop header keeps its Me link.
+
+- **D237** **An organiser's tile is dropped only when it repeats a button already in the row**
+  (Agenda; Info when shown). A tile for Activities or Me now shows: neither has a button of its
+  own in the row any more, so adding one in Modules is how an organiser puts it there.
+  Supersedes D211's dedupe against the home page's sections.
 
 ## 3. Out of scope
 
