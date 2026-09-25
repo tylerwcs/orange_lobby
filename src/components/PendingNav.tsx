@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useTransition } from "react";
+import { createContext, useContext, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
@@ -84,5 +84,48 @@ export function PendingLink({ href, className = "", selected, selectedClassName 
       {!scope && ownPending && <Spinner data-icon="inline-start" />}
       {children}
     </Link>
+  );
+}
+
+/** How far a finger must travel sideways, in px, before a swipe counts. */
+const SWIPE_MIN = 50;
+
+/**
+ * Swipe left or right across the content to move to the next or previous tab (D234) - the
+ * same navigation a tap on the tab makes, so the underline moves and the skeleton shows just
+ * as it does for a tap. Touch only: a mouse drag selects text, as it should.
+ *
+ * A swipe has to be mostly sideways (twice as far across as down) and one finger, so reading
+ * down a long day and pinch-zooming a picture never flip the page. Nothing is prevented:
+ * vertical scrolling is the browser's, untouched.
+ */
+export function PendingSwipe({ prevHref, nextHref, children }: {
+  prevHref: string | null;
+  nextHref: string | null;
+  children: React.ReactNode;
+}) {
+  const scope = useContext(ScopeContext);
+  const router = useRouter();
+  // A ref, not state: the finger's start has to be there the instant it lifts, not after a render.
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const go = (href: string) => (scope ? scope.go(href) : router.push(href, { scroll: false }));
+  return (
+    <div
+      onTouchStart={(e) => { start.current = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }}
+      onTouchEnd={(e) => {
+        const from = start.current;
+        start.current = null;
+        if (!from) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - from.x;
+        const dy = t.clientY - from.y;
+        if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) return;
+        // Finger moving left brings in what is to the right: the next tab.
+        const href = dx < 0 ? nextHref : prevHref;
+        if (href) go(href);
+      }}
+    >
+      {children}
+    </div>
   );
 }

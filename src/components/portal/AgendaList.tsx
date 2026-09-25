@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AgendaImage } from "./AgendaImage";
 import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
-import { PendingScope, PendingSwap } from "@/components/PendingNav";
+import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
 import { PortalTabStrip } from "./PortalTabStrip";
 
 /** What a day looks like while the next one loads: the shape of a few sessions. */
@@ -35,6 +35,10 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
   const hrefForDay = dayHref ?? ((d: string) => `${basePath}/agenda?day=${d}`);
   if (!day) return <p className="text-sm text-muted-foreground">Agenda will be published soon.</p>;
   const todays = items.filter((i) => i.day === day);
+  // The days either side, for a swipe across the sessions (D234).
+  const at = days.findIndex((d) => d.date === day);
+  const prevHref = at > 0 ? hrefForDay(days[at - 1].date) : null;
+  const nextHref = at >= 0 && at < days.length - 1 ? hrefForDay(days[at + 1].date) : null;
   return (
     // The day tabs change only `?day=`, which no loading.tsx sees; the scope moves the
     // underline at once and swaps the sessions for a skeleton until the day arrives.
@@ -44,6 +48,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
         tabs={days.map((d) => ({ key: d.date, href: hrefForDay(d.date), label: d.name ?? shortDate(d.date), sub: d.name ? shortDate(d.date) : null }))}
         selected={day}
       />
+      <PendingSwipe prevHref={prevHref} nextHref={nextHref}>
       <PendingSwap fallback={<DaySkeleton />}>
       {todays.map((i) => {
         if (i.kind === "image") return <ImageRow key={i.id} item={i} />;
@@ -93,6 +98,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
       })}
       {todays.length === 0 && <p className="text-sm text-muted-foreground">Nothing scheduled on this day.</p>}
       </PendingSwap>
+      </PendingSwipe>
     </div>
     </PendingScope>
   );

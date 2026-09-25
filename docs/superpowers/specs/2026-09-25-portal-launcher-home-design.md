@@ -2,7 +2,7 @@
 
 Date: 2026-09-25
 Status: built 2026-09-25 (not yet deployed)
-Decisions D209–D233. Target: live before the KOM pilot (30 Sep 2026).
+Decisions D209–D234. Target: live before the KOM pilot (30 Sep 2026).
 Mockups: https://claude.ai/artifact/5ZFbpyK7wszw3enKihBuZj
 
 ## 1. Why
@@ -158,6 +158,12 @@ a WhatsApp link, check one thing and leave: hub-and-spoke, not tab-hopping.
   the phone), and Chrome's one-tap install button - where offered - above the steps, never in
   place of them. The popup scrolls within 90% of the screen height. Supersedes D232's
   computer message.
+
+- **D234** **Swipe between agenda days.** On a touch screen, a sideways swipe across the day's
+  sessions goes to the next day (swipe left) or the previous one (swipe right) - the same
+  navigation as tapping the tab, so the underline and skeleton behave identically. It must be
+  one finger, at least 50px, and twice as far across as down, so scrolling a long day and
+  pinch-zooming never flip the page. Tabs still work as before.
 
 ## 3. Out of scope
 
