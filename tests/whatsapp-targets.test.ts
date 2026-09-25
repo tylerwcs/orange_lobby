@@ -8,7 +8,7 @@ const booked = new Map([["a1", new Set(["p1"])]]);
 describe("audienceOptions", () => {
   it("offers everyone, then booked and not yet booked per booking activity", () => {
     expect(audienceOptions([screening]).map((o) => o.label)).toEqual([
-      "Everyone", "Booked for Health Screening", "Not yet booked for Health Screening",
+      "Everyone", "Booked for Health Screening", "Not yet booked for Health Screening", "Choose people…",
     ]);
   });
 });
@@ -47,5 +47,18 @@ describe("sendKey", () => {
     expect(day1).toBe(sendKey({ ...base, audience: "booked:a1", again: true }));
     expect(day1).not.toBe(sendKey({ ...base, audience: "booked:a1", again: true, today: "2026-10-01" }));
     expect(day1).not.toBe(sendKey({ ...base, audience: "booked:a1", again: false }));
+  });
+});
+
+describe("sendKey for people picked one by one", () => {
+  const base = { template: "t", audience: "pick", attendeeId: "p1", again: false, today: "2026-09-30" };
+  it("is the same within one visit to the send screen, so a double press sends once", () => {
+    expect(sendKey({ ...base, nonce: "n1" })).toBe(sendKey({ ...base, nonce: "n1" }));
+  });
+  it("differs on the next visit, so picking somebody again sends again", () => {
+    expect(sendKey({ ...base, nonce: "n1" })).not.toBe(sendKey({ ...base, nonce: "n2" }));
+  });
+  it("never collides with an audience send", () => {
+    expect(sendKey({ ...base, nonce: "n1" })).not.toBe(sendKey({ ...base, audience: "all" }));
   });
 });

@@ -1315,9 +1315,15 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   const reachable = splitAudience(attendees, fields).recipients;
   if (reachable.length === 0) fail("Nobody on this event has a number we can send to.");
-  if (inAudience(audience, { id: "", category: null }, bookingActivities, bookedBy) === null) fail("That audience no longer exists. Reload the page and pick another.");
-  const recipients = reachable.filter((r) => inAudience(audience, r.attendee, bookingActivities, bookedBy));
-  if (recipients.length === 0) fail("Nobody in that audience has a number we can send to.");
+  // "pick" is whoever was ticked - as ids, kept only when they are this event's reachable
+  // attendees, so a posted id can never message somebody else's guest.
+  const picked = new Set(formData.getAll("to").map(String));
+  const nonce = String(formData.get("nonce") ?? "");
+  if (audience !== "pick" && inAudience(audience, { id: "", category: null }, bookingActivities, bookedBy) === null) fail("That audience no longer exists. Reload the page and pick another.");
+  const recipients = audience === "pick"
+    ? reachable.filter((r) => picked.has(r.attendee.id))
+    : reachable.filter((r) => inAudience(audience, r.attendee, bookingActivities, bookedBy));
+  if (recipients.length === 0) fail(audience === "pick" ? "Tick at least one person to send to." : "Nobody in that audience has a number we can send to.");
   const today = nowInKL().date;
 
   const eventDates = formatDateRange(ev.starts_on, ev.ends_on);
@@ -1334,8 +1340,9 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
         buttonParam: template.button ? a.token : undefined,
       };
     },
-    // Once per attendee per template and audience; with Send again, once more per day.
-    dedupeKey: (a) => sendKey({ template: template.name, audience, attendeeId: a.id, again, today }),
+    // Once per attendee per template and audience; with Send again, once more per day;
+    // picked people every time they are picked (sendKey).
+    dedupeKey: (a) => sendKey({ template: template.name, audience, attendeeId: a.id, again, today, nonce }),
   });
 
   revalidatePath(here);

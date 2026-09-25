@@ -9,12 +9,15 @@ import { categoryMatches } from "@/lib/agenda";
  * are for. Pure, so the send screen's counts and the send itself pick the same people.
  */
 
-export type AudienceKey = "all" | `booked:${string}` | `unbooked:${string}`;
+export type AudienceKey = "all" | "pick" | `booked:${string}` | `unbooked:${string}`;
 export type AudienceOption = { key: AudienceKey; label: string };
 
 type BookingActivity = { id: string; name: string; categories: string[] | null };
 
-/** Everybody first, then two choices per booking activity. */
+/**
+ * Everybody first, then two choices per booking activity, then the people the organiser ticks
+ * one by one ("pick"). `inAudience` does not decide "pick": its members are whoever was ticked.
+ */
 export function audienceOptions(activities: BookingActivity[]): AudienceOption[] {
   return [
     { key: "all", label: "Everyone" },
@@ -22,6 +25,7 @@ export function audienceOptions(activities: BookingActivity[]): AudienceOption[]
       { key: `booked:${a.id}`, label: `Booked for ${a.name}` },
       { key: `unbooked:${a.id}`, label: `Not yet booked for ${a.name}` },
     ]),
+    { key: "pick", label: "Choose people…" },
   ];
 }
 
@@ -54,9 +58,13 @@ export function inAudience(
  *   Yoga" are different messages even from one template.
  * - Send again: the same plus today's date, so it can go out once more each day, and a
  *   second press on the same day is still a no-op.
+ * - People picked one by one: always sent - picking somebody is the organiser saying so, even
+ *   if they had it before (a lost message, a changed number). `nonce` is fixed when the send
+ *   screen opens, so pressing Send twice on that screen still sends once.
  */
-export function sendKey(input: { template: string; audience: string; attendeeId: string; again: boolean; today: string }): string {
-  const { template, audience, attendeeId, again, today } = input;
+export function sendKey(input: { template: string; audience: string; attendeeId: string; again: boolean; today: string; nonce?: string }): string {
+  const { template, audience, attendeeId, again, today, nonce } = input;
+  if (audience === "pick") return `${template}:pick:${attendeeId}:${nonce ?? ""}`;
   if (again) return `${template}:${audience}:${attendeeId}:${today}`;
   return audience === "all" ? `${template}:${attendeeId}` : `${template}:${audience}:${attendeeId}`;
 }

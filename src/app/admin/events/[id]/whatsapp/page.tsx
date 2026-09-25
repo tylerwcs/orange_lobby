@@ -10,6 +10,7 @@ import { readTemplate, type Template } from "@/lib/whatsapp-templates";
 import { audienceOptions, inAudience } from "@/lib/whatsapp-targets";
 import { listActivities, listBookings } from "@/lib/db/activities";
 import { nowInKL } from "@/lib/time";
+import { randomUUID } from "node:crypto";
 import { formatDateRange, shortDateTime } from "@/lib/text";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { WhatsappComposer } from "@/components/admin/WhatsappComposer";
@@ -49,6 +50,11 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
   // Who already has what: the claim keys of every send that did not fail (a failed one is
   // retried by pressing Send again - claimSend).
   const sentKeys = sends.filter((s) => s.status !== "failed" && s.dedupe_key).map((s) => s.dedupe_key as string);
+  // For "Choose people…": everybody reachable, by name, and who already has each template, so
+  // the picker can say so. Names and categories only; no link codes.
+  const people = recipients.map((r) => ({ id: r.attendee.id, name: r.attendee.name, category: r.attendee.category }));
+  const hadTemplate: Record<string, string[]> = {};
+  for (const s of sends) if (s.status !== "failed") (hadTemplate[s.template] ??= []).push(s.attendee_id);
   const delivered = sends.filter((s) => s.status !== "failed").length;
   const failed = sends.filter((s) => s.status === "failed");
 
@@ -129,6 +135,9 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
           initial={DEFAULT_TEMPLATE}
           audiences={audiences}
           sentKeys={sentKeys}
+          people={people}
+          hadTemplate={hadTemplate}
+          nonce={randomUUID()}
           today={nowInKL().date}
           event={{ eventName: ev.name, eventDates: formatDateRange(ev.starts_on, ev.ends_on), venue: ev.venue_name ?? "" }}
           action={sendWhatsappAction.bind(null, ev.id)}
