@@ -190,7 +190,7 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
                   older Safari still shows it in the bottom bar, so step 2 says both. */}
               <Step n={2}>Tap the menu button <Menu aria-hidden className={inlineIcon} /> or <Ellipsis aria-hidden className={inlineIcon} /> beside the address bar. On older iPhones, skip to the next step: the Share button is in the bar at the bottom.</Step>
               <Step n={3}>Tap <Strong>Share</Strong> <Share aria-hidden className={inlineIcon} />.</Step>
-              <Step n={4}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />. Not there? Tap <Strong>View More</Strong> first.</Step>
+              <Step n={4}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />.</Step>
               <Step n={5}>Tap <Strong>Add</Strong>. The icon appears on your home screen.</Step>
             </ol>
           ) : (
