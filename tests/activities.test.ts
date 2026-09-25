@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   seatsFor, eligible, activityState, sessionLabel, unbookedIds, sessionRosters, unbookedByActivity,
-  bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, BOOKING_ROW_PREFIX,
+  bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, bookedSessionId, BOOKING_ROW_PREFIX,
   readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields,
 } from "@/lib/activities";
 import { visibleTo } from "@/lib/agenda";
@@ -380,5 +380,13 @@ describe("personalAgenda", () => {
 describe("sessionLabel", () => {
   it("names a slot by its day and start time", () => {
     expect(sessionLabel({ day: "2026-09-28", starts_at: "11:30" })).toBe("Mon 28 Sep · 11:30");
+  });
+});
+
+describe("bookedSessionId", () => {
+  it("reads the session back off a booked row, and nothing off an organiser's row", () => {
+    const [row] = bookedAgendaRows([{ id: "s1", event_id: "e", activity_id: "a", day: "2026-09-28", starts_at: "11:00", ends_at: "11:15", location: null, capacity: 3, sort_order: 0 }], new Map());
+    expect(bookedSessionId(row)).toBe("s1");
+    expect(bookedSessionId({ ...row, id: "item-1" })).toBeNull();
   });
 });

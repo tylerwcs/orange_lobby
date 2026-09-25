@@ -206,6 +206,11 @@ export function isBookedRow(item: AgendaItem): boolean {
   return item.id.startsWith(BOOKING_ROW_PREFIX);
 }
 
+/** The session a booked row was built from, for its Add to calendar link; null on an organiser's row. */
+export function bookedSessionId(item: AgendaItem): string | null {
+  return isBookedRow(item) ? item.id.slice(BOOKING_ROW_PREFIX.length) : null;
+}
+
 /**
  * A booked session, shaped as an agenda row (D133).
  *

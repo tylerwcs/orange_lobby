@@ -2,7 +2,8 @@ import type { AgendaItem } from "@/lib/types";
 import { isNow, type DayTab } from "@/lib/agenda";
 import { agendaAccentClass } from "@/lib/agenda-colours";
 import { isBreakout } from "@/lib/breakouts";
-import { isBookedRow } from "@/lib/activities";
+import { bookedSessionId, isBookedRow } from "@/lib/activities";
+import { CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AgendaImage } from "./AgendaImage";
 import { shortDate } from "@/lib/text";
@@ -17,7 +18,7 @@ const DaySkeleton = () => (
   </div>
 );
 
-export function AgendaList({ items, day, days, basePath, now, dayHref }: {
+export function AgendaList({ items, day, days, basePath, now, dayHref, calendarHref }: {
   items: AgendaItem[];
   day: string | null;
   days: DayTab[];
@@ -25,6 +26,11 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
   now: { date: string; time: string };
   /** Where a day tab goes. Defaults to the agenda page; the desktop home points at itself. */
   dayHref?: (day: string) => string;
+  /**
+   * The calendar file for a booked session, given its id. Only the personal portal has
+   * bookings, so only it passes this; a booked row without one simply shows no link.
+   */
+  calendarHref?: (sessionId: string) => string | null;
 }) {
   const hrefForDay = dayHref ?? ((d: string) => `${basePath}/agenda?day=${d}`);
   if (!day) return <p className="text-sm text-muted-foreground">Agenda will be published soon.</p>;
@@ -63,7 +69,25 @@ export function AgendaList({ items, day, days, basePath, now, dayHref }: {
               )}
               {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{i.description}</p>}
               {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Badge variant="secondary">{i.categories.join(", ")}</Badge></div>}
-              {isBookedRow(i) && <div className="mt-1.5"><Badge>Booked</Badge></div>}
+              {isBookedRow(i) && (() => {
+                const sessionId = bookedSessionId(i);
+                const ics = sessionId && calendarHref ? calendarHref(sessionId) : null;
+                return (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {/* Green, the colour of "you're booked" on the activity's own page. */}
+                    <Badge variant="success">Booked</Badge>
+                    {/* A plain <a>, not <Link>: it is a file, not a page, and must not be
+                        prefetched. No `download` either - iOS would save it rather than
+                        offer to add it. */}
+                    {ics && (
+                      <a href={ics} className="inline-flex items-center gap-1 text-xs font-bold text-primary underline-offset-4 hover:underline">
+                        <CalendarPlus className="size-3.5" aria-hidden="true" />
+                        Add to calendar
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             {/* Trailing edge, after the text: the leading edge already belongs to the time
                 and the colour bar, and a picture must not push the hour off the row. */}

@@ -55,7 +55,7 @@ export default async function PersonalHome({ params, searchParams }: {
   // `arrivalTime` is skipped, not just hidden, when the event has no door (D159). The QR is
   // made here so the badge's QR button opens the code in place, with nothing left to fetch.
   const [
-    { tiles, banner, agenda, allAgenda, assignedItemIds, days, day, announcements, now },
+    { tiles, banner, agenda, allAgenda, assignedItemIds, days, day, announcements, now, bookedActivity },
     checkedInAt,
     qr,
     hasInfo,
@@ -113,6 +113,10 @@ export default async function PersonalHome({ params, searchParams }: {
                 basePath={basePath}
                 now={now}
                 dayHref={(d) => `${basePath}?day=${d}`}
+                calendarHref={(sessionId) => {
+                  const activityId = bookedActivity.get(sessionId);
+                  return activityId ? `${basePath}/activities/${activityId}/calendar.ics?session=${sessionId}` : null;
+                }}
               />
             </CardContent>
           </Card>

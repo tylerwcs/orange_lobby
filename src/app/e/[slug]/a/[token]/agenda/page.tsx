@@ -32,13 +32,19 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
     bookedSessions,
     new Map(activities.map((a) => [a.id, a.name])),
   );
+  // Each booked row links to its own calendar file, which is addressed by activity and session.
+  const activityOf = new Map(bookedSessions.map((s) => [s.id, s.activity_id]));
+  const calendarHref = (sessionId: string) => {
+    const activityId = activityOf.get(sessionId);
+    return activityId ? `${basePath}/activities/${activityId}/calendar.ics?session=${sessionId}` : null;
+  };
   const days = dayTabs(agendaDays, items);
   const now = nowInKL();
   const day = pickDay(days.map((d) => d.date), requested, now.date);
   return (
     <>
       <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
-      <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} />
+      <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} calendarHref={calendarHref} />
     </>
   );
 }

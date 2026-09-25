@@ -27,6 +27,8 @@ export type HomeData = {
   assignedItemIds: ReadonlySet<string>;
   /** The day tabs (D199). */
   days: DayTab[];
+  /** Which activity each of this attendee's booked sessions belongs to, for the agenda's Add to calendar links. */
+  bookedActivity: ReadonlyMap<string, string>;
   /** The day the desktop home is showing - today when the event is running, else the first. */
   day: string | null;
   announcements: Announcement[];
@@ -82,6 +84,7 @@ export async function loadHomeData(
   return {
     tiles, banner,
     agenda, allAgenda, assignedItemIds, days, day: pickDay(days.map((d) => d.date), requestedDay, date),
+    bookedActivity: new Map(bookedSessions.map((s) => [s.id, s.activity_id])),
     announcements, now: { date, time },
   };
 }
