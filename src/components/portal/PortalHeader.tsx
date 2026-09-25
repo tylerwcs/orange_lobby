@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { HomeLink } from "./HomeLink";
 import type { Event } from "@/lib/types";
 import { initials, formatDateRange } from "@/lib/text";
 
@@ -27,13 +27,13 @@ export function PortalHeader({ event, href, className = "" }: { event: HeaderEve
     </>
   );
   // The whole bar is the way home, not just the mark: the name is the bigger target, and it is
-  // what people tap expecting to go back to the start.
+  // what people tap expecting to go back to the start. On the home page it refreshes instead.
   return (
     <header className={`bg-card px-4 py-4 ${className}`}>
       {href ? (
-        <Link href={href} aria-label={`Home: ${event.name}`} className="-m-1 flex items-center gap-3 rounded-[12px] p-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <HomeLink href={href} label={`Home: ${event.name}`} className="-m-1 flex items-center gap-3 rounded-[12px] p-1 outline-none transition-opacity focus-visible:ring-3 focus-visible:ring-ring/50">
           {body}
-        </Link>
+        </HomeLink>
       ) : (
         <div className="flex items-center gap-3">{body}</div>
       )}
