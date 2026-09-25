@@ -42,7 +42,7 @@ export default async function Overview({ params }: { params: Promise<{ id: strin
     ]);
     const byId = new Map(attendees.map((a) => [a.id, a]));
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <AdminHeader title="Overview" subtitle={`${ev.name} · ${total} registered`} />
         <ActivityOverview
           rows={activitySummaries(

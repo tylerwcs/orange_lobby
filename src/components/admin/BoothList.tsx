@@ -5,12 +5,11 @@ import { useOptimistic, useRef, useState, useTransition } from "react";
 import type { Booth } from "@/lib/types";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Modal } from "@/components/admin/Modal";
+import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 type Reorder = (ids: string[]) => Promise<void>;
 type Rename = (boothId: string, fd: FormData) => Promise<void>;
@@ -99,32 +98,27 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
                   Scanner QR
                 </PendingLink>
 
-                <Modal title={`Rename ${b.name}`} trigger="Rename" variant="outline">
-                  <form action={renameBooth.bind(null, b.id)} className="grid gap-4">
-                    <Field label="Name" name="name" defaultValue={b.name} />
-                    <Field label="Location (optional)" name="location" defaultValue={b.location} />
-                    <SubmitButton>Save</SubmitButton>
-                  </form>
-                </Modal>
-
-                {stamped ? (
-                  // Disabled once a booth has a stamp (D94). The reason lives in a title and
-                  // an aria-label, not a colour — a native `disabled` control that stays
-                  // labelled, not a silent tint on an icon.
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled
-                    title={`${b.name} has stamped ${n} attendee${n === 1 ? "" : "s"}, so it can't be deleted.`}
-                    aria-label={`Delete ${b.name}. Disabled: it has stamped ${n} attendee${n === 1 ? "" : "s"}.`}
-                  >
-                    Delete
-                  </Button>
-                ) : (
-                  <form action={() => deleteBooth(b.id)}>
-                    <ConfirmButton message={`Delete “${b.name}”? This cannot be undone.`} className="text-destructive">Delete</ConfirmButton>
-                  </form>
-                )}
+                <RowMoveContext.Provider value={{ up: i > 0 ? () => move(i, i - 1) : null, down: i < order.length - 1 ? () => move(i, i + 1) : null }}>
+                  <RowActions
+                    name={`“${b.name}”`}
+                    edit={{
+                      title: `Rename ${b.name}`,
+                      form: (
+                        <form action={renameBooth.bind(null, b.id)} className="grid gap-4 p-1">
+                          <Field label="Name" name="name" defaultValue={b.name} />
+                          <Field label="Location (optional)" name="location" defaultValue={b.location} />
+                          <SubmitButton>Save</SubmitButton>
+                        </form>
+                      ),
+                    }}
+                    remove={{
+                      action: () => deleteBooth(b.id),
+                      message: "This cannot be undone.",
+                      // Refused once a booth has a stamp (D94), and the menu says why.
+                      blocked: stamped ? `It has stamped ${n} attendee${n === 1 ? "" : "s"}, so it can't be deleted.` : undefined,
+                    }}
+                  />
+                </RowMoveContext.Provider>
               </div>
             </li>
           );
@@ -132,7 +126,7 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
       </ul>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
       {order.length > 1 && (
-        <p className="p-4 pt-3 text-xs text-muted-foreground">Drag a row by its handle — or focus the handle and use the arrow keys — to set the order the printed sheets suggest walking. Saved as you go.</p>
+        <p className="p-4 pt-3 text-xs text-muted-foreground">Drag a row by its handle — or focus the handle and use the arrow keys, or use Move up and Move down in its menu — to set the order the printed sheets suggest walking. Saved as you go.</p>
       )}
     </div>
   );

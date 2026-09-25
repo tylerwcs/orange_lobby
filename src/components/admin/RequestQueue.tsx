@@ -41,8 +41,8 @@ export function RequestQueue({
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b"><CardTitle>Requests · {pending.length} pending</CardTitle></CardHeader>
-      <CardContent className="px-6 py-4">
+      <CardHeader><CardTitle>Requests · {pending.length} pending</CardTitle></CardHeader>
+      <CardContent>
         {pending.length > 0 && (
           <ul className="divide-y divide-border">
             {pending.map((r) => {

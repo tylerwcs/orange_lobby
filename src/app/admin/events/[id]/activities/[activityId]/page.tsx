@@ -27,7 +27,7 @@ import { RequestQueue } from "@/components/admin/RequestQueue";
 import { SubmissionTable } from "@/components/admin/SubmissionTable";
 import { MissingPanel } from "@/components/admin/MissingPanel";
 import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
-import { SubmitButton } from "@/components/admin/SubmitButton";
+import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -114,7 +114,7 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
   }));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-wide>
       <AdminHeader
         title={activity.name}
         subtitle={`${bookedCount} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
@@ -139,8 +139,8 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
               button's alone. Adding it back would let saving this form silently close or
               reopen booking whenever an organiser only meant to edit the name. */}
           <Card className="overflow-hidden">
-            <CardHeader className="border-b"><CardTitle>Details and rules</CardTitle></CardHeader>
-            <CardContent className="px-6 py-4">
+            <CardHeader><CardTitle>Details and rules</CardTitle></CardHeader>
+            <CardContent>
               <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
                 <Field label="Name" name="name" defaultValue={activity.name} />
                 <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
@@ -148,7 +148,7 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
                   <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
-                    defaultValue={activity.max_per_attendee ?? undefined} inputMode="numeric" className={`${input} tabular-nums`} />
+                    defaultValue={activity.max_per_attendee ?? undefined} inputMode="numeric" className={`${input} max-w-32 tabular-nums`} />
                 </div>
                 <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
                   placeholder="VIP, Management" description="Comma separated. Leave blank to offer it to everyone." />
@@ -156,14 +156,14 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
                   <input type="checkbox" name="required" className="size-4" defaultChecked={activity.required} />
                   Everyone must pick one
                 </label>
-                <SubmitButton>Save</SubmitButton>
+                <SaveBar inCard />
               </form>
             </CardContent>
           </Card>
 
           <Card className="overflow-hidden">
-            <CardHeader className="border-b"><CardTitle>Sessions</CardTitle></CardHeader>
-            <CardContent className="px-6 py-4">
+            <CardHeader><CardTitle>Sessions</CardTitle></CardHeader>
+            <CardContent>
               <SessionDays
                 items={seats}
                 addSessions={addSessionsAction.bind(null, ev.id, activity.id)}
@@ -189,8 +189,8 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
             decline={declineRequestAction.bind(null, ev.id, activity.id)}
           />
           <Card className="overflow-hidden">
-            <CardHeader className="border-b"><CardTitle>Who booked</CardTitle></CardHeader>
-            <CardContent className="px-6 py-4">
+            <CardHeader><CardTitle>Who booked</CardTitle></CardHeader>
+            <CardContent>
               <BookingsByDay days={bookingDays} />
             </CardContent>
           </Card>
@@ -199,10 +199,10 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
 
       {current === "not-booked" && (
         <Card className="overflow-hidden">
-          <CardHeader className="border-b">
+          <CardHeader>
             <CardTitle>Not booked yet · {unbooked.length}</CardTitle>
           </CardHeader>
-          <CardContent className="px-6 py-4">
+          <CardContent>
             <UnbookedPanel
               people={unbooked.map((attendeeId) => {
                 const a = byId.get(attendeeId)!;
@@ -257,7 +257,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-wide>
       <AdminHeader
         title={activity.name}
         subtitle={`${submissions.length} submission${submissions.length === 1 ? "" : "s"} · ${capSummary(activity)}`}
@@ -279,11 +279,11 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
       {/* Its settings live here, as every other kind's do, rather than in a modal on the list. */}
       {current === "setup" && (
         <Card className="overflow-hidden">
-          <CardHeader className="border-b"><CardTitle>Details, rules and questions</CardTitle></CardHeader>
-          <CardContent className="px-6 py-4">
+          <CardHeader><CardTitle>Details, rules and questions</CardTitle></CardHeader>
+          <CardContent>
             <form action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
               <SubmissionFields activity={activity} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
-              <SubmitButton>Save</SubmitButton>
+              <SaveBar inCard />
             </form>
           </CardContent>
         </Card>
@@ -291,7 +291,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
 
       {current === "submissions" && (
         <Card className="overflow-hidden">
-          <CardHeader className="border-b"><CardTitle>Submissions</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Submissions</CardTitle></CardHeader>
           <CardContent className="px-0">
             <SubmissionTable submissions={submissions} questions={activity.questions} submitterFor={submitterFor} />
           </CardContent>
@@ -300,10 +300,10 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
 
       {current === "not-submitted" && (
         <Card className="overflow-hidden">
-          <CardHeader className="border-b">
+          <CardHeader>
             <CardTitle>Not submitted · {missing.length}</CardTitle>
           </CardHeader>
-          <CardContent className="px-6 py-4">
+          <CardContent>
             <MissingPanel
               people={missing}
               day={day}
@@ -317,8 +317,8 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
 
       {current === "participation" && drifting && (
         <Card className="overflow-hidden">
-          <CardHeader className="border-b"><CardTitle>Participation</CardTitle></CardHeader>
-          <CardContent className="px-6 py-4">
+          <CardHeader><CardTitle>Participation</CardTitle></CardHeader>
+          <CardContent>
             <ParticipationPanel people={drifting} windowDays={PARTICIPATION_DAYS} today={today} />
           </CardContent>
         </Card>

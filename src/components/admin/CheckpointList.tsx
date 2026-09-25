@@ -3,7 +3,7 @@ import { useOptimistic, useRef, useState, useTransition } from "react";
 import type { Checkpoint } from "@/lib/types";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
 import { Badge } from "@/components/ui/badge";
 
 type Reorder = (ids: string[]) => Promise<void>;
@@ -88,16 +88,19 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
                 </div>
                 <div className="text-xs font-semibold text-muted-foreground tabular-nums">{n} of {total} checked in</div>
               </div>
-              <form action={() => deleteCheckpoint(c.id)}>
-                <ConfirmButton message={`Delete “${c.name}” and its ${n} check-in${n === 1 ? "" : "s"}? This cannot be undone.`} className="text-destructive">Delete</ConfirmButton>
-              </form>
+              <RowMoveContext.Provider value={{ up: i > 0 ? () => move(i, i - 1) : null, down: i < order.length - 1 ? () => move(i, i + 1) : null }}>
+                <RowActions
+                  name={`“${c.name}”`}
+                  remove={{ action: () => deleteCheckpoint(c.id), message: `Its ${n} check-in${n === 1 ? "" : "s"} go with it. This cannot be undone.` }}
+                />
+              </RowMoveContext.Provider>
             </li>
           );
         })}
       </ul>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
       {order.length > 1 && (
-        <p className="pt-2 text-xs text-muted-foreground">Drag a row by its handle — or focus the handle and use the arrow keys — to set the order crew see on the scanner. Saved as you go.</p>
+        <p className="pt-2 text-xs text-muted-foreground">Drag a row by its handle — or focus the handle and use the arrow keys, or use Move up and Move down in its menu — to set the order crew see on the scanner. Saved as you go.</p>
       )}
       <span className="sr-only">{`Order for ${day}`}</span>
     </div>

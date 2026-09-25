@@ -59,7 +59,7 @@ export function AddSessionsDialog({ addSessions, existing, defaultDay }: {
         </div>
 
         <label className="grid gap-1.5"><span className={label}>Each session lasts (minutes)</span>
-          <input name="every" type="number" min={5} max={240} inputMode="numeric" value={every} onChange={(e) => setEvery(e.target.value)} className={`${input} tabular-nums`} /></label>
+          <input name="every" type="number" min={5} max={240} inputMode="numeric" value={every} onChange={(e) => setEvery(e.target.value)} className={`${input} max-w-32 tabular-nums`} /></label>
 
         <fieldset className="grid gap-2">
           <legend className={`${label} mb-1.5`}>Breaks to skip (optional)</legend>
@@ -78,7 +78,7 @@ export function AddSessionsDialog({ addSessions, existing, defaultDay }: {
 
         <div className="grid grid-cols-2 gap-4">
           <label className="grid gap-1.5"><span className={label}>Seats per session</span>
-            <input name="capacity" type="number" min={1} inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} className={`${input} tabular-nums`} /></label>
+            <input name="capacity" type="number" min={1} inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} className={`${input} max-w-32 tabular-nums`} /></label>
           <label className="grid gap-1.5"><span className={label}>Location (optional)</span>
             <input name="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Room 2A" className={input} /></label>
         </div>

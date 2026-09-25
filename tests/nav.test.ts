@@ -23,6 +23,20 @@ describe("groupsFor", () => {
     expect(off).toEqual(on.filter((h) => h !== "/scan/e1"));
   });
 
+  it("orders the groups the way the sidebar reads", () => {
+    const labels = groupsFor({ id: "e1", check_in_enabled: true }).map((g) => [g.title, g.items.map((i) => i.label)]);
+    expect(labels).toEqual([
+      ["Onsite", ["Overview", "Attendees", "Scanner"]],
+      ["Portal", ["Agenda", "Info page", "Announcements", "Modules", "Activities"]],
+      ["Event", ["WhatsApp", "Settings", "Exports"]],
+    ]);
+  });
+
+  it("opens the Scanner in a new tab, and nothing else", () => {
+    const items = groupsFor({ id: "e1", check_in_enabled: true }).flatMap((g) => g.items);
+    expect(items.filter((i) => i.newTab).map((i) => i.href)).toEqual(["/scan/e1"]);
+  });
+
   // Booths are a passport's children now (D190): they are reached through Activities.
   it("has no Booths item — booths live under their passport in Activities", () => {
     const all = hrefs({ id: "e1", check_in_enabled: true });

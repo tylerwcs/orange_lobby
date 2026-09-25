@@ -33,16 +33,15 @@ import { deleteEventImage, nextImage, uploadEventImage, type ImageChange } from 
 import { scanFieldsFromForm } from "@/lib/scan";
 import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
-import { runSend, PORTAL_LINK_TEMPLATE } from "@/lib/whatsapp-run";
-import { shortDate } from "@/lib/text";
+import { runSend } from "@/lib/whatsapp-run";
+import { listTemplates } from "@/lib/whatsapp";
+import { isSource, readTemplate, sourceValue, type Source } from "@/lib/whatsapp-templates";
+import { formatDateRange, shortDate } from "@/lib/text";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
   return v === "" ? null : v;
 };
-
-/** The map URL is rendered as an href, so only http(s) is stored — never javascript: or data:. */
-const httpUrl = (v: string | null) => (v && /^https?:\/\//i.test(v) ? v : null);
 
 export async function createEventAction(formData: FormData) {
   const { orgId } = await requireAdmin();
@@ -77,11 +76,6 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     starts_on: str(formData, "starts_on"),
     ends_on: str(formData, "ends_on"),
     venue_name: str(formData, "venue_name"),
-    venue_address: str(formData, "venue_address"),
-    venue_map_url: httpUrl(str(formData, "venue_map_url")),
-    contact_name: str(formData, "contact_name"),
-    contact_phone: str(formData, "contact_phone"),
-    description: str(formData, "description"),
     logo_url: logo.url,
     banner_url: banner.url,
     primary_color: str(formData, "primary_color") ?? "#F97316",
@@ -514,7 +508,8 @@ export async function addAgendaDayAction(eventId: string, formData: FormData) {
   const made = await createAgendaDay(ev, { date, name: str(formData, "name") });
   if (!made) redirect(flashPath(agendaBack(eventId), `There's already a day on ${shortDate(date)}.`, "error"));
   revalidatePath(agendaBack(eventId));
-  redirect(flashPath(agendaBack(eventId), `${dayLabel(made)} added.`));
+  // Straight onto the new day's tab (DayTabs), where its sessions go next.
+  redirect(flashPath(`${agendaBack(eventId)}?day=${made.id}`, `${dayLabel(made)} added.`));
 }
 
 /** Renames or re-dates a day; its rows move with a new date, in the database (D194). */
@@ -1274,31 +1269,59 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
 }
 
 /**
- * Sends every attendee their personal portal link over WhatsApp.
+ * Sends one approved WhatsApp template to every attendee who has not had it.
  *
- * Idempotent by construction: `runSend` claims each attendee before messaging them, so pressing
- * this twice — or re-running after a half-finished blast — reaches only the people who have not
- * had it. Attendees whose number could not be read are never claimed and never sent to; the
- * page lists them by name so the masterlist can be corrected and the button pressed again.
+ * The organiser picks the template and says what fills each `{{n}}` (whatsapp-templates.ts);
+ * the link button, when there is one, always carries the attendee's own token. The template is
+ * read from Meta again here rather than trusted from the form, so a template paused or edited
+ * since the page loaded is refused, not sent with the wrong number of values.
+ *
+ * Idempotent by construction: `runSend` claims each attendee before messaging them, keyed on
+ * the template, so pressing this twice — or re-running after a half-finished blast — reaches
+ * only the people who have not had THAT template. Attendees whose number could not be read are
+ * never claimed and never sent to; the page lists them by name so the masterlist can be
+ * corrected and the button pressed again.
  */
-export async function sendPortalLinksAction(eventId: string) {
+export async function sendWhatsappAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const here = `/admin/events/${eventId}/whatsapp`;
+  const fail = (message: string): never => redirect(flashPath(here, message, "error"));
+
+  const list = await listTemplates();
+  if (!list.ok) fail(`Could not read the templates from WhatsApp: ${list.error}`);
+  const name = String(formData.get("template") ?? "");
+  const template = list.ok ? list.templates.map(readTemplate).find((t) => t?.name === name) : null;
+  if (!template) return fail("That template is not approved for sending. Reload the page and pick another.");
+
+  const sources = Array.from({ length: template.variables }, (_, i) => String(formData.get(`var_${i + 1}`) ?? ""));
+  const custom = Array.from({ length: template.variables }, (_, i) => String(formData.get(`custom_${i + 1}`) ?? "").trim());
+  if (!sources.every(isSource)) fail("Choose what fills every variable in the message.");
+  // Meta rejects an empty parameter outright, for every recipient.
+  if (sources.some((src, i) => src === "custom" && !custom[i])) fail("Fill in the custom text, or choose something else for it.");
+  if (sources.includes("venue") && !ev.venue_name?.trim()) fail("This event has no venue set. Add it in Settings, or choose something else.");
 
   const attendees = await listAttendees(eventId);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   const { recipients } = splitAudience(attendees, fields);
-  if (recipients.length === 0) redirect(flashPath(here, "Nobody on this event has a number we can send to.", "error"));
+  if (recipients.length === 0) fail("Nobody on this event has a number we can send to.");
 
+  const eventDates = formatDateRange(ev.starts_on, ev.ends_on);
   const result = await runSend({
     orgId,
     eventId,
-    template: PORTAL_LINK_TEMPLATE,
+    template: template.name,
+    language: template.language,
     recipients,
-    params: (a) => ({ bodyParams: [a.name, ev.name], buttonParam: a.token }),
-    // One message per attendee, ever, for this template.
-    dedupeKey: (a) => `${PORTAL_LINK_TEMPLATE}:${a.id}`,
+    params: (a) => {
+      const values = { attendeeName: a.name, eventName: ev.name, eventDates, venue: ev.venue_name ?? "" };
+      return {
+        bodyParams: sources.map((src, i) => sourceValue(src as Source, values, custom[i])),
+        buttonParam: template.button ? a.token : undefined,
+      };
+    },
+    // One message per attendee per template, ever.
+    dedupeKey: (a) => `${template.name}:${a.id}`,
   });
 
   revalidatePath(here);

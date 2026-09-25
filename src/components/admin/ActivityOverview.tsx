@@ -101,7 +101,7 @@ export function ActivityOverview({ rows, registered, basePath }: {
       </div>
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b">
+        <CardHeader>
           <CardTitle>Activities</CardTitle>
           <CardDescription>One line each. &ldquo;Waiting&rdquo; is eligible people holding nothing in that activity.</CardDescription>
         </CardHeader>
@@ -111,7 +111,7 @@ export function ActivityOverview({ rows, registered, basePath }: {
               <li key={r.activityId} className="border-b border-border last:border-b-0">
                 <Link
                   href={`${basePath}/activities/${r.activityId}`}
-                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-6 py-3 hover:bg-muted/50"
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted/50"
                 >
                   <span className="text-sm font-bold">{r.name}</span>
                   {r.required && <Badge variant="secondary">Required</Badge>}

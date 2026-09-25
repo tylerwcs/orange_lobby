@@ -11,6 +11,7 @@ import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
 import { ImageField } from "@/components/admin/ImageField";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { SaveBar } from "@/components/admin/SaveBar";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -20,6 +21,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
+import { StatusPicker } from "@/components/admin/StatusPicker";
 import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
 import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
@@ -62,17 +64,10 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
  * Every editable panel posts the SAME form. updateSettingsAction writes every column on
  * every save - a form carrying only one tab's fields would blank the other, and blanking
  * registration_questions would take the live registration form down with it. So the tabs
- * are presentation; the form spans them, and this bar saves all of it from wherever you
+ * are presentation; the form spans them, and its save bar saves all of it from wherever you
  * happen to be standing.
  */
-function SaveBar() {
-  return (
-    <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur lg:-mx-6 lg:px-6 2xl:-mx-8 2xl:px-8">
-      <SubmitButton>Save settings</SubmitButton>
-      <span className="text-xs text-muted-foreground">Saves every tab, not just this one. Changes apply to the portal immediately.</span>
-    </div>
-  );
-}
+const SAVE_NOTE = "Saves every tab, not just this one. Changes apply to the portal immediately.";
 
 function ShareLink({ label, url }: { label: string; url: string }) {
   return (
@@ -112,51 +107,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         <TabsList>
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
-          <TabsTrigger value="share">Share &amp; access</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
-          <TabsTrigger value="badge">Badge</TabsTrigger>
           {ev.status === "archived" && <TabsTrigger value="danger">Danger zone</TabsTrigger>}
         </TabsList>
-
-      <TabsContent value="share" className="flex flex-col gap-4 @container">
-      <div className="grid gap-4 @3xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-            <CardDescription>Applies the moment you choose it — there is no separate save.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-2">
-              {STATUSES.map((s) => (
-                <form key={s.value} action={setStatusAction.bind(null, ev.id, s.value)}>
-                  {/* SubmitButton, not a bare Button: it carries type="submit" (Base UI's
-                      Button defaults to type="button", which submits nothing) and shows the
-                      form working while the status changes. */}
-                  <SubmitButton
-                    variant={ev.status === s.value ? "default" : "outline"}
-                    aria-current={ev.status === s.value ? "true" : undefined}
-                  >
-                    {s.label}
-                  </SubmitButton>
-                </form>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">{STATUSES.find((s) => s.value === ev.status)?.what}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Share links</CardTitle>
-            <CardDescription>The two addresses you hand out. Personal per-attendee links are in Exports.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <ShareLink label="Portal" url={genericLink(base, ev.slug)} />
-            <ShareLink label="Registration" url={registrationLink(base, ev.slug)} />
-          </CardContent>
-        </Card>
-      </div>
-      </TabsContent>
 
       <TabsContent value="checkpoints" className="flex flex-col gap-4 @container">
       {/* Above the checkpoint list because it governs it: an organiser who has just read
@@ -287,41 +240,6 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
       )}
       </TabsContent>
 
-      <TabsContent value="badge">
-      <Card>
-        <CardHeader>
-          <CardTitle>Pinned on the badge</CardTitle>
-          <CardDescription>
-            Up to {MAX_PINS} facts shown under an attendee&apos;s name on the portal home. The first gets the
-            large treatment. Someone with no value for a pinned field simply does not see it.
-          </CardDescription>
-          <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
-          <Modal title="Pin a field" hint="Anything the event knows about an attendee: a column you added, an answer they gave, or a built-in like the table number." trigger="Pin a field" icon="plus" iconOnly>
-            <form action={addPinAction.bind(null, ev.id)} className="grid gap-4">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="pin_key">Field</label>
-                <select id="pin_key" name="key" className={input} defaultValue="">
-                  <option value="" disabled>Choose a field</option>
-                  {pinnable.filter((f) => !pinnedKeys.has(f.key)).map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-                </select>
-              </div>
-              <Field label="Shown as (optional)" name="label" placeholder="Partner" description="A short caption for the badge. Leave blank to use the field&apos;s own name." />
-              <SubmitButton>Pin to the badge</SubmitButton>
-            </form>
-          </Modal>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <PinList
-            pins={ev.pinned_fields}
-            labels={Object.fromEntries(pinnable.map((f) => [f.key, f.label]))}
-            reorder={reorderPinsAction.bind(null, ev.id)}
-            remove={removePinAction.bind(null, ev.id)}
-          />
-        </CardContent>
-      </Card>
-      </TabsContent>
-
       {/* ONE form across both editable panels - see SaveBar. keepMounted is what makes it
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       <form action={updateSettingsAction.bind(null, ev.id)}>
@@ -329,26 +247,79 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
             <Field label="Name" name="name" defaultValue={ev.name} />
+            <Field label="Venue" name="venue_name" defaultValue={ev.venue_name} description="Shown beside the dates at the top of the portal." />
+            {/* One row: at their own width the two dates sit side by side even in a half card. */}
+            <div className="flex flex-wrap gap-4 @xl:col-span-2">
+              <div><Field label="Starts on" name="starts_on" type="date" defaultValue={ev.starts_on} /></div>
+              <div><Field label="Ends on" name="ends_on" type="date" defaultValue={ev.ends_on} /></div>
+            </div>
             <Field label="Primary colour" name="primary_color" type="color" defaultValue={ev.primary_color} />
-            <Field label="Starts on" name="starts_on" type="date" defaultValue={ev.starts_on} />
-            <Field label="Ends on" name="ends_on" type="date" defaultValue={ev.ends_on} />
-            <div className="@xl:col-span-2"><Field label="Description shown on the info page" name="description" textarea defaultValue={ev.description} /></div>
-          </Section>
-
-          <Section title="Venue and contact">
-            <Field label="Venue name" name="venue_name" defaultValue={ev.venue_name} />
-            <Field label="Venue address" name="venue_address" defaultValue={ev.venue_address} />
-            <div className="@xl:col-span-2"><Field label="Map link (https)" name="venue_map_url" defaultValue={ev.venue_map_url} placeholder="https://maps.app.goo.gl/…" /></div>
-            <Field label="Event desk contact name" name="contact_name" defaultValue={ev.contact_name} />
-            <Field label="Event desk phone" name="contact_phone" defaultValue={ev.contact_phone} />
           </Section>
 
           <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
             <ImageField label="Logo" name="logo" url={ev.logo_url} />
             <ImageField label="Banner" name="banner" url={ev.banner_url} />
           </Section>
+
+          {/* Status, the share links and the badge pins used to be tabs of their own. They
+              live inside the settings form now, so none of them may be a form: status and
+              unpin are plain buttons calling their actions, and the pin dialog renders in a
+              portal, outside this form in the DOM. None of them waits for Save settings. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Status</CardTitle>
+              <CardDescription>Applies the moment you choose it — there is no separate save.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StatusPicker current={ev.status} statuses={STATUSES} setStatus={setStatusAction.bind(null, ev.id)} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Share links</CardTitle>
+              <CardDescription>The two addresses you hand out. Personal per-attendee links are in Exports.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <ShareLink label="Portal" url={genericLink(base, ev.slug)} />
+              <ShareLink label="Registration" url={registrationLink(base, ev.slug)} />
+            </CardContent>
+          </Card>
+
+          <Card className="@4xl:col-span-2">
+            <CardHeader>
+              <CardTitle>Pinned on the badge</CardTitle>
+              <CardDescription>
+                Up to {MAX_PINS} facts shown under an attendee&apos;s name on the portal home. The first gets the
+                large treatment. Someone with no value for a pinned field simply does not see it. Saved as you go.
+              </CardDescription>
+              <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+              <Modal title="Pin a field" hint="Anything the event knows about an attendee: a column you added, an answer they gave, or a built-in like the table number." trigger="Pin a field" icon="plus" iconOnly>
+                <form action={addPinAction.bind(null, ev.id)} className="grid gap-4">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium" htmlFor="pin_key">Field</label>
+                    <select id="pin_key" name="key" className={input} defaultValue="">
+                      <option value="" disabled>Choose a field</option>
+                      {pinnable.filter((f) => !pinnedKeys.has(f.key)).map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                    </select>
+                  </div>
+                  <Field label="Shown as (optional)" name="label" placeholder="Partner" description="A short caption for the badge. Leave blank to use the field&apos;s own name." />
+                  <SubmitButton>Pin to the badge</SubmitButton>
+                </form>
+              </Modal>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <PinList
+                pins={ev.pinned_fields}
+                labels={Object.fromEntries(pinnable.map((f) => [f.key, f.label]))}
+                reorder={reorderPinsAction.bind(null, ev.id)}
+                remove={removePinAction.bind(null, ev.id)}
+              />
+            </CardContent>
+          </Card>
         </div>
-        <SaveBar />
+        <SaveBar label="Save settings" note={SAVE_NOTE} />
         </TabsContent>
 
         <TabsContent value="registration" keepMounted className="flex flex-col gap-4 @container">
@@ -372,7 +343,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <QuestionCards questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS} />
           </CardContent>
         </Card>
-        <SaveBar />
+        <SaveBar label="Save settings" note={SAVE_NOTE} />
         </TabsContent>
       </form>
 

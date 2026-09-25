@@ -7,6 +7,8 @@
  * NEXT_PUBLIC_ prefix, so Next will not inline it into a client bundle even if this module is
  * imported from one; the token is read inside the call, never at module scope.
  */
+import type { GraphTemplate } from "@/lib/whatsapp-templates";
+
 const GRAPH = "https://graph.facebook.com/v25.0";
 
 export type TemplateParam = { type: "text"; text: string };
@@ -83,5 +85,32 @@ export async function sendTemplate(input: TemplateInput): Promise<SendResult> {
     // A network failure is the one case with no answer from Meta at all; it must still land in
     // the log as a failed row rather than stopping the run.
     return { ok: false, code: null, title: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
+export type TemplateList = { ok: true; templates: GraphTemplate[] } | { ok: false; error: string };
+
+/**
+ * Every template on the WhatsApp Business Account, straight from Meta. Read on each visit to
+ * the send screen rather than cached: a template approved five minutes ago should be there to
+ * pick, and one Meta has just paused should not be.
+ *
+ * The account id is `WHATSAPP_BUSINESS_ACCOUNT_ID`, not the phone number id: templates belong
+ * to the account, and the messages endpoint's phone number cannot list them.
+ */
+export async function listTemplates(): Promise<TemplateList> {
+  const waba = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!waba || !token) return { ok: false, error: "WHATSAPP_BUSINESS_ACCOUNT_ID or WHATSAPP_ACCESS_TOKEN is not set" };
+  try {
+    const res = await fetch(
+      `${GRAPH}/${waba}/message_templates?fields=name,status,category,language,parameter_format,components&limit=100`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !Array.isArray(json?.data)) return { ok: false, error: json?.error?.message ?? `HTTP ${res.status}` };
+    return { ok: true, templates: json.data as GraphTemplate[] };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Network error" };
   }
 }

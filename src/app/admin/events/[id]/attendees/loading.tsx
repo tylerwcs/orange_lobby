@@ -3,7 +3,7 @@ import { Skeleton, SkeletonCard, SkeletonRows } from "@/components/ui/skeletons"
 /** The attendee list: header with two actions, search, then a long table. */
 export default function AttendeesLoading() {
   return (
-    <div className="space-y-6" role="status" aria-busy="true" aria-label="Loading attendees">
+    <div className="flex flex-col gap-4" data-wide role="status" aria-busy="true" aria-label="Loading attendees">
       <div className="flex flex-wrap items-center gap-4">
         <div className="space-y-2">
           <Skeleton className="h-7 w-36" />

@@ -4,8 +4,7 @@ import { sessionLabel, type SessionSeats } from "@/lib/activities";
 import { meterPercent } from "@/lib/meter";
 import { shortDate } from "@/lib/text";
 import { AddSessionsDialog } from "@/components/admin/AddSessionsDialog";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { Modal } from "@/components/admin/Modal";
+import { RowActions } from "@/components/admin/RowActions";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Progress } from "@/components/ui/progress";
@@ -13,8 +12,8 @@ import { Progress } from "@/components/ui/progress";
 /**
  * An activity's sessions as the Setup tab shows them (D240): one section per day, a compact row
  * per session, in the order `listSessions` gives (day, then start time). A row names its room
- * only when it differs from the day's usual one. Clicking a row edits it; Delete lives in that
- * dialog, and a whole day goes from its header (D242).
+ * only when it differs from the day's usual one. Each cell and each day has the admin's usual ⋯
+ * menu (RowActions): Edit and Delete for a session, Delete for the whole day (D242).
  */
 export function SessionDays({ items, addSessions, saveSession, deleteSession, deleteDay, defaultDay }: {
   items: SessionSeats[];
@@ -42,14 +41,16 @@ export function SessionDays({ items, addSessions, saveSession, deleteSession, de
               <span className="text-xs font-semibold text-muted-foreground tabular-nums">
                 {g.items.length} session{g.items.length === 1 ? "" : "s"} · {g.booked} of {g.seats} booked{g.location ? ` · ${g.location}` : ""}
               </span>
-              <form action={() => deleteDay(g.day)} className="ml-auto">
-                <ConfirmButton
-                  message={`Delete all ${g.items.length} sessions on ${shortDate(g.day)}?${bookings ? ` Their ${bookings} booking${bookings === 1 ? "" : "s"} go with them.` : ""}`}
-                  className="text-destructive"
-                >
-                  Delete day
-                </ConfirmButton>
-              </form>
+              <div className="ml-auto">
+                <RowActions
+                  name={`every session on ${shortDate(g.day)}`}
+                  remove={{
+                    action: () => deleteDay(g.day),
+                    label: "Delete",
+                    message: `All ${g.items.length} of them go${bookings ? `, and their ${bookings} booking${bookings === 1 ? "" : "s"} with them` : ""}.`,
+                  }}
+                />
+              </div>
             </header>
             {/* A wrapping grid of small cells rather than a row each: a day of 15-minute slots
                 is sixteen sessions, and sixteen full-width rows is the long scroll this page
@@ -69,8 +70,10 @@ export function SessionDays({ items, addSessions, saveSession, deleteSession, de
                       </div>
                       <Progress className="mt-1 h-1" value={meterPercent(item.booked, s.capacity)} aria-label={`${item.booked} of ${s.capacity} seats booked`} />
                     </div>
-                    <Modal title={`Edit ${label}`} trigger="Edit" variant="ghost">
-                      <form action={saveSession.bind(null, s.id)} className="grid gap-4">
+                    <RowActions
+                      name={label}
+                      edit={{ title: `Edit ${label}`, form: (
+                      <form action={saveSession.bind(null, s.id)} className="grid gap-4 p-1">
                         <div className="grid grid-cols-2 gap-4">
                           <Field label="Day" name="day" type="date" defaultValue={s.day} />
                           <Field label="Seats" name="capacity" type="number" defaultValue={String(s.capacity)} />
@@ -82,15 +85,12 @@ export function SessionDays({ items, addSessions, saveSession, deleteSession, de
                         <Field label="Location (optional)" name="location" defaultValue={s.location} />
                         <SubmitButton>Save</SubmitButton>
                       </form>
-                      <form action={() => deleteSession(s.id)} className="mt-3 border-t border-border pt-3">
-                        <ConfirmButton
-                          message={`Delete ${label}?${item.booked ? ` Its ${item.booked} booking${item.booked === 1 ? "" : "s"} go with it.` : ""}`}
-                          className="text-destructive"
-                        >
-                          Delete session
-                        </ConfirmButton>
-                      </form>
-                    </Modal>
+                      ) }}
+                      remove={{
+                        action: () => deleteSession(s.id),
+                        message: item.booked ? `Its ${item.booked} booking${item.booked === 1 ? "" : "s"} go with it.` : "Nobody has booked it yet.",
+                      }}
+                    />
                   </li>
                 );
               })}

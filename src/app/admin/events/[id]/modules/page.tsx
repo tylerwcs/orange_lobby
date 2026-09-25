@@ -2,13 +2,13 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { MODULE_ICONS, TILE_ROUTES, TILE_ROUTE_LABELS, normalizeModules, type EventModule, type ModuleIcon } from "@/lib/modules";
 import { MAX_TILES, moduleId } from "@/lib/modules-form";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Field } from "@/components/admin/Field";
 import { ImageField } from "@/components/admin/ImageField";
-import { Modal } from "@/components/admin/Modal";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { TileList } from "@/components/admin/TileList";
+import { ModuleList } from "@/components/admin/ModuleList";
+import { NewTileMenu } from "@/components/admin/NewTileMenu";
 import { TileTargetFields } from "@/components/admin/TileTargetFields";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { saveModuleAction, deleteModuleAction, toggleModuleAction, reorderModulesAction } from "../actions";
@@ -102,48 +102,42 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
   const modules = normalizeModules(ev);
   const hasPlan = modules.some((m) => m.key === "floor_plan");
 
-  // Keyed by id, not position: TileList reorders optimistically and would otherwise pair
-  // a row with another tile's form mid-drag.
-  const editors = Object.fromEntries(modules.map((m) => [
-    moduleId(m),
-    <Modal key={moduleId(m)} title="Edit tile" trigger="Edit" variant="ghost">
-      <TileForm eventId={ev.id} module={m} />
-    </Modal>,
-  ]));
+  const shown = modules.filter((m) => m.enabled).length;
+  const full = modules.length >= MAX_TILES;
 
+  // Keyed by id, not position: ModuleList reorders optimistically and would otherwise pair
+  // a row with another tile's form mid-drag.
+  const editors = Object.fromEntries(modules.map((m) => [moduleId(m), <TileForm key={moduleId(m)} eventId={ev.id} module={m} />]));
+
+  // Laid out like Activities (D179): one "New" menu in the header, then one card holding the
+  // list, each row the same shape.
   return (
-    <div className="space-y-4">
-      <AdminHeader title="Modules" subtitle="The round buttons on the portal home, in the order attendees see them." />
-      <Card className="gap-0 py-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
-          <div>
-            <div className="font-bold">Tiles</div>
-            <div className="text-xs text-muted-foreground">{modules.length} of {MAX_TILES} used.</div>
-          </div>
-          <div className="flex gap-2">
-            {!hasPlan && (
-              <Modal title="Add the floor plan" hint="A preset tile that opens the venue layout inside the portal." trigger="Add floor plan" icon="map" variant="outline">
-                <TileForm eventId={ev.id} module={{ key: "floor_plan", enabled: true }} />
-              </Modal>
-            )}
-            <Modal title="Add a tile" hint="A tile can open a link, or a page inside the portal." trigger="Add tile" icon="plus">
-              <TileForm eventId={ev.id} />
-            </Modal>
-          </div>
-        </div>
-        <div className="px-4 pb-4">
-          <TileList
+    <div className="flex flex-col gap-4">
+      <AdminHeader
+        title="Modules"
+        subtitle={`${modules.length} of ${MAX_TILES} tiles · ${shown} shown on the portal home, in this order`}
+        actions={
+          <NewTileMenu
+            disabled={full}
+            forms={{
+              tile: <TileForm eventId={ev.id} />,
+              ...(hasPlan ? {} : { floor_plan: <TileForm eventId={ev.id} module={{ key: "floor_plan", enabled: true }} /> }),
+            }}
+          />
+        }
+      />
+      <Card className="overflow-hidden py-0">
+        <CardContent className="px-0">
+          <ModuleList
             items={modules}
             editors={editors}
             reorder={reorderModulesAction.bind(null, ev.id)}
             remove={deleteModuleAction.bind(null, ev.id)}
             toggle={toggleModuleAction.bind(null, ev.id)}
           />
-        </div>
+        </CardContent>
       </Card>
-      <p className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Icon name="info" size={14} /> The floor plan image now lives on its tile, not in Settings.
-      </p>
+      {full && <p className="text-xs text-muted-foreground">That is the most the portal home holds. Remove a tile to add another.</p>}
     </div>
   );
 }

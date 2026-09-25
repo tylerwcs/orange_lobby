@@ -151,7 +151,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const to = (page - 1) * pageSize + slice.length;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4" data-wide>
       <AdminHeader
         title="Attendees"
         subtitle={`${total} registered · ${checkedInCount} checked in`}

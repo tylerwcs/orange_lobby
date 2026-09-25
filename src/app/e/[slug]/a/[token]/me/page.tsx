@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BadgeQrDialog } from "@/components/portal/BadgeQrDialog";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { eventFields } from "@/lib/attendee-fields";
 import { fieldValue } from "@/lib/attendee-values";
 import { initials } from "@/lib/text";
@@ -104,22 +103,6 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
               <dl className="divide-y text-sm">
                 {answered.map((f) => <Row key={f.label} label={f.label} value={f.value} />)}
               </dl>
-            </CardContent>
-          </Card>
-        )}
-
-        {(event.contact_name || event.contact_phone) && (
-          <Card>
-            <CardContent className="flex flex-col gap-1 text-sm">
-              <div className={caption}>Something wrong?</div>
-              <p className="text-muted-foreground">
-                These details come from your registration. The event desk can change them for you.
-              </p>
-              <Separator className="my-2" />
-              {event.contact_name && <div className="font-bold">{event.contact_name}</div>}
-              {event.contact_phone && (
-                <a className="font-medium text-primary" href={`tel:${event.contact_phone}`}>{event.contact_phone}</a>
-              )}
             </CardContent>
           </Card>
         )}

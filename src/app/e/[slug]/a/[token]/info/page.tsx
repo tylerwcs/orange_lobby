@@ -12,6 +12,6 @@ export default async function PersonalInfo({ params, searchParams }: {
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
   const stored = await portalInfoTabsFor(event.id);
-  const tabs = portalInfoTabs(event, stored);
+  const tabs = portalInfoTabs(stored);
   return <InfoPage event={event} tabs={tabs} selected={pickInfoTab(tabs, tab)} basePath={`/e/${slug}/a/${token}`} />;
 }

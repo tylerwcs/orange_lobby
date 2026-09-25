@@ -69,7 +69,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   <div className="flex flex-col gap-1.5">
     <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
     <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
-      defaultValue={1} inputMode="numeric" className={`${input} tabular-nums`} />
+      defaultValue={1} inputMode="numeric" className={`${input} max-w-32 tabular-nums`} />
   </div>
   <Field label="Categories (optional)" name="categories" placeholder="VIP, Management"
     description="Comma separated. Leave blank to offer it to everyone." />
@@ -104,7 +104,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   <div className="flex flex-col gap-1.5">
     <label htmlFor="new_stamps_required" className="text-sm font-bold">Stamps needed</label>
     <input id="new_stamps_required" name="stamps_required" type="number" min={1} inputMode="numeric"
-      placeholder="Every booth" className={`${input} tabular-nums`} />
+      placeholder="Every booth" className={`${input} max-w-32 tabular-nums`} />
   </div>
   <Field label="Message when the card is full (optional)" name="reward_message"
     placeholder="Show this screen at the registration counter to collect your gift." />

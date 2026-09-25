@@ -7,7 +7,7 @@ import { listActivities } from "@/lib/db/activities";
 import { breakoutSlots } from "@/lib/breakouts";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 
@@ -55,26 +55,33 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <AdminHeader title="Exports" subtitle={`${ev.name} · ${total} attendees`} />
 
-      <div className="@container"><div className="grid gap-4 @4xl:grid-cols-3">
-        {files.map((f) => (
-          <Card key={f.href} className="flex flex-col">
-            <CardHeader>
-              <CardTitle>{f.name}</CardTitle>
-              <CardDescription>{f.what}</CardDescription>
-            </CardHeader>
-            <CardContent className="mt-auto">
-              {/* Plain anchors, not `<Link>`: prefetching an export route would build the file on hover. */}
-              <a download href={f.href} className={buttonVariants({ variant: "outline" })}>
-                <Icon name={f.icon} size={18} />Download
-              </a>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      </div>
+      {/* One list, a row per file, the way every other admin list reads: icon, name and what it
+          holds, and the one thing to do with it. It was a grid of cards whose Download buttons
+          sat at different heights. */}
+      <Card className="overflow-hidden py-0">
+        <CardContent className="px-0">
+          <ul className="divide-y divide-border">
+            {files.map((f) => (
+              <li key={f.href} className="flex items-center gap-4 px-4 py-3">
+                <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon name={f.icon} size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold">{f.name}</div>
+                  <p className="text-xs text-muted-foreground">{f.what}</p>
+                </div>
+                {/* Plain anchors, not `<Link>`: prefetching an export route would build the file on hover. */}
+                <a download href={f.href} className={`${buttonVariants({ variant: "outline" })} shrink-0`}>
+                  <Icon name="download" size={18} />Download
+                </a>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

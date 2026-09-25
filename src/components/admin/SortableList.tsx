@@ -1,8 +1,8 @@
 "use client";
 import { useOptimistic, useRef, useState, useTransition } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
+import { RowMoveContext } from "@/components/admin/RowActions";
 
 export type SortableRow = {
   /** What the reorder action receives - an item id, or `slot:<round>` (D197). */
@@ -17,14 +17,15 @@ export type SortableRow = {
  * One agenda day's rows in the organiser's order (D197). The same drag-and-arrow-key idiom as
  * CheckpointList: a drag is a pointer gesture no keyboard can perform, so the handle also takes
  * the arrow keys; both go through `moveItem`, and both save at once. HTML5 drag-and-drop is also
- * unreliable on touch, so a phone or tablet organiser gets explicit move-up/move-down buttons at
- * the row's trailing edge - a third route through the same `move`, so all three stay in step.
+ * unreliable on touch, so each row's ⋯ menu (RowActions) offers Move up and Move down, read from
+ * RowMoveContext - a third route through the same `move`, so all three stay in step. They used
+ * to be two arrow buttons on every row, beside that row's own buttons.
  *
  * The rows arrive already rendered - their Edit dialogs hold server-rendered forms - so this
  * component only owns their order. Optimistic, not local state: when the action settles the
  * list becomes whatever the server stored, so a refused reorder never leaves a lie on screen.
  */
-export function SortableList({ rows, reorder, empty, hint = "Drag a row by its handle, use the arrows, or focus the handle and use the arrow keys, to set the order attendees see. Saved as you go." }: {
+export function SortableList({ rows, reorder, empty, hint = "Drag a row by its handle, focus the handle and use the arrow keys, or use Move up and Move down in its menu, to set the order attendees see. Saved as you go." }: {
   rows: SortableRow[];
   reorder: (keys: string[]) => Promise<void>;
   empty: string;
@@ -63,7 +64,7 @@ export function SortableList({ rows, reorder, empty, hint = "Drag a row by its h
             onDragLeave={() => setOver((prev) => (prev === i ? null : prev))}
             onDrop={(e) => { e.preventDefault(); const from = fromRef.current; setDragging(null); setOver(null); if (from !== null) move(from, i); }}
             onDragEnd={() => { fromRef.current = null; setDragging(null); setOver(null); }}
-            className={`flex items-start gap-2 py-3 transition-colors duration-150 ${dragging === i ? "opacity-50" : ""} ${over === i && dragging !== i ? "bg-accent" : ""}`}
+            className={`flex items-center gap-2 py-3 transition-colors duration-150 ${dragging === i ? "opacity-50" : ""} ${over === i && dragging !== i ? "bg-accent" : ""}`}
           >
             <button
               type="button"
@@ -78,25 +79,11 @@ export function SortableList({ rows, reorder, empty, hint = "Drag a row by its h
             >
               <Icon name="grip" size={18} />
             </button>
-            <div className="min-w-0 flex-1">{r.node}</div>
-            <button
-              type="button"
-              aria-label={`Move ${r.label} up`}
-              disabled={i === 0}
-              onClick={() => move(i, i - 1)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
-            >
-              <ChevronUp size={18} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              aria-label={`Move ${r.label} down`}
-              disabled={i === order.length - 1}
-              onClick={() => move(i, i + 1)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
-            >
-              <ChevronDown size={18} aria-hidden="true" />
-            </button>
+            <div className="min-w-0 flex-1">
+              <RowMoveContext.Provider value={{ up: i > 0 ? () => move(i, i - 1) : null, down: i < order.length - 1 ? () => move(i, i + 1) : null }}>
+                {r.node}
+              </RowMoveContext.Provider>
+            </div>
           </li>
         ))}
       </ul>

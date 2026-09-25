@@ -16,7 +16,8 @@ export default async function EventsListLayout({ children }: { children: React.R
     <>
       <AppSidebar email={email} />
       <SidebarInset id="main" className="min-w-0 p-4 pt-6 lg:p-6 lg:pt-8 2xl:p-8">
-        {children}
+        {/* The same centred cap as an event's pages ([id]/layout.tsx). */}
+        <div className="mx-auto w-full max-w-6xl">{children}</div>
       </SidebarInset>
     </>
   );

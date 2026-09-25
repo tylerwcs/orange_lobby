@@ -3,8 +3,8 @@ import { claimSend, markAccepted, markFailed } from "@/lib/db/whatsapp-sends";
 import { sendTemplate } from "@/lib/whatsapp";
 import type { AudienceAttendee, Recipient } from "@/lib/whatsapp-audience";
 
-/** The approved template that carries an attendee their personal portal link. */
-export const PORTAL_LINK_TEMPLATE = "ecphub_portal";
+/** The template the send screen starts on: the one that carries an attendee their portal link. */
+export const DEFAULT_TEMPLATE = "ecphub_portal";
 
 export type RunResult = { sent: number; failed: number; skipped: number };
 

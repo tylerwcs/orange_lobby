@@ -10,22 +10,24 @@ import { useFormStatus } from "react-dom";
  * where it is going, not where it was: at a venue the round trip is long enough to look like
  * the click did nothing, and a second click would flip it straight back.
  */
-export function OpenSwitch({ open, action, name, showLabel = false }: {
+export function OpenSwitch({ open, action, name, verb = "Open", showLabel = false }: {
   open: boolean;
   action: () => Promise<void>;
   /** The activity's name, for the accessible label: "Open InBody Scan". */
   name: string;
+  /** What "on" means, for that label: a module tile is shown, not opened. */
+  verb?: string;
   /** Words beside the switch, for a page header where there is no column heading to explain it. */
   showLabel?: boolean;
 }) {
   return (
     <form action={action}>
-      <Switch open={open} name={name} showLabel={showLabel} />
+      <Switch open={open} label={`${verb} ${name}`} showLabel={showLabel} />
     </form>
   );
 }
 
-function Switch({ open, name, showLabel }: { open: boolean; name: string; showLabel: boolean }) {
+function Switch({ open, label, showLabel }: { open: boolean; label: string; showLabel: boolean }) {
   const { pending } = useFormStatus();
   const on = pending ? !open : open;
   return (
@@ -33,7 +35,7 @@ function Switch({ open, name, showLabel }: { open: boolean; name: string; showLa
       type="submit"
       role="switch"
       aria-checked={on}
-      aria-label={`Open ${name}`}
+      aria-label={label}
       disabled={pending}
       className="group inline-flex items-center gap-2 rounded-full text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-progress"
     >

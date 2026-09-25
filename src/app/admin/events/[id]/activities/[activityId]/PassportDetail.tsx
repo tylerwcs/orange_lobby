@@ -10,6 +10,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { ActivityMenu } from "@/components/admin/ActivityMenu";
 import { removeWarning } from "@/lib/activity-row";
@@ -96,8 +97,8 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
           then the booths, the same order every kind's Setup keeps (D236). A passport has no
           other tab, so it has no tab strip. */}
       <Card className="overflow-hidden">
-        <CardHeader className="border-b"><CardTitle>Details and rules</CardTitle></CardHeader>
-        <CardContent className="px-6 py-4">
+        <CardHeader><CardTitle>Details and rules</CardTitle></CardHeader>
+        <CardContent>
           <form action={savePassportActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
             <Field label="Name" name="name" defaultValue={activity.name} />
             <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
@@ -108,19 +109,19 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
               <label htmlFor="stamps_required" className="text-sm font-bold">Stamps needed</label>
               <div className="flex items-center gap-2">
                 <input id="stamps_required" name="stamps_required" type="number" min={1} inputMode="numeric"
-                  defaultValue={activity.stamps_required ?? ""} placeholder="Every booth" className={`${input} tabular-nums`} />
+                  defaultValue={activity.stamps_required ?? ""} placeholder="Every booth" className={`${input} max-w-32 tabular-nums`} />
                 <span className="shrink-0 text-sm text-muted-foreground tabular-nums">of {booths.length} booth{booths.length === 1 ? "" : "s"}</span>
               </div>
             </div>
             <Field label="Message when the card is full" name="reward_message" defaultValue={activity.reward_message}
               placeholder="Show this screen at the registration counter to collect your gift." />
-            <SubmitButton>Save</SubmitButton>
+            <SaveBar inCard />
           </form>
         </CardContent>
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b"><CardTitle>Booths</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Booths</CardTitle></CardHeader>
         <CardContent className="px-0">
           {booths.length === 0 ? (
             <Empty className="border-0 bg-transparent">
@@ -130,7 +131,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="px-6">
+            <div className="px-4">
               <BoothList
                 items={booths}
                 counts={counts}

@@ -13,6 +13,7 @@ import { ColumnMenu } from "@/components/admin/ColumnMenu";
 import { ColumnsButton } from "@/components/admin/ColumnsButton";
 import { ColumnResizeHandle } from "@/components/admin/ColumnResizeHandle";
 import { SortableList } from "@/components/admin/SortableList";
+import { RowMoveButtons } from "@/components/admin/RowActions";
 import { AttendeePanel } from "@/components/admin/AttendeePanel";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
@@ -455,6 +456,7 @@ export function AttendeeTable({
                           <Trash2 />
                         </Button>
                       ))}
+                      <RowMoveButtons label={c.label} />
                     </div>
                   ),
                 };

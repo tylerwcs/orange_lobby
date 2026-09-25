@@ -2,13 +2,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { ChevronRight, LogOut } from "lucide-react";
+import { ArrowUpRight, ChevronRight, LogOut } from "lucide-react";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+  SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { signOut } from "@/app/login/actions";
 import { groupsFor, type Item } from "./nav";
@@ -34,11 +34,18 @@ export function AppSidebar({ email, event }: { email: string; event?: Event | nu
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3">
-        <Link href="/admin" className="flex items-center gap-2.5 px-2 py-1 font-extrabold">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={APP_MARK} alt="" width={28} height={28} className="size-7 shrink-0" />
-          <span className="truncate group-data-[collapsible=icon]:hidden">{APP_NAME}</span>
-        </Link>
+        {/* The collapse button sits on the sidebar it collapses, beside the name. Collapsed to
+            icons there is only room for one of the two, and the button is the one that gets
+            the sidebar back; AdminHeader keeps its own copy only on a phone, where the sidebar
+            is a sheet that is not on screen until it is opened. */}
+        <div className="flex items-center gap-1">
+          <Link href="/admin" className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1 font-extrabold group-data-[collapsible=icon]:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={APP_MARK} alt="" width={28} height={28} className="size-7 shrink-0" />
+            <span className="truncate">{APP_NAME}</span>
+          </Link>
+          <SidebarTrigger className="shrink-0 text-muted-foreground group-data-[collapsible=icon]:mx-auto" title="Toggle sidebar (Ctrl+B)" />
+        </div>
 
         {event && (
           <Link
@@ -63,12 +70,18 @@ export function AppSidebar({ email, event }: { email: string; event?: Event | nu
                 {g.items.map((i) => (
                   <SidebarMenuItem key={i.href}>
                     <SidebarMenuButton
-                      render={<Link href={i.href} />}
+                      render={i.newTab ? <a href={i.href} target="_blank" rel="noopener" /> : <Link href={i.href} />}
                       isActive={isActive(i)}
                       tooltip={i.label}
                     >
                       <Icon name={i.icon} size={18} />
                       <span>{i.label}</span>
+                      {i.newTab && (
+                        <>
+                          <ArrowUpRight aria-hidden className="ml-auto size-3.5 text-muted-foreground" />
+                          <span className="sr-only">(opens in a new tab)</span>
+                        </>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

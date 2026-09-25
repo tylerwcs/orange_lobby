@@ -49,7 +49,7 @@ export function SubmissionFields({ activity, uploadImage }: { activity?: Activit
       <div className="flex flex-col gap-1.5">
         <label htmlFor="max_per_attendee" className="text-sm font-bold">Total submissions per person (optional)</label>
         <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={366}
-          defaultValue={activity?.max_per_attendee ?? ""} placeholder="Unlimited" inputMode="numeric" className={`${input} tabular-nums`} />
+          defaultValue={activity?.max_per_attendee ?? ""} placeholder="Unlimited" inputMode="numeric" className={`${input} max-w-32 tabular-nums`} />
       </div>
       <label className={check}>
         <input type="checkbox" name="per_day" defaultChecked={activity?.per_day ?? false} className="size-4" />

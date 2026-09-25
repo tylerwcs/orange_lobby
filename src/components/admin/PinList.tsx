@@ -4,7 +4,7 @@ import type { PinnedField } from "@/lib/pinned-fields";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
-import { SubmitButton } from "@/components/admin/SubmitButton";
+import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
 
 /**
  * The pinned facts, in the order they sit on the badge card.
@@ -13,6 +13,10 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
  * used to have, so which row is first is a visible design decision rather than the order
  * someone happened to tick things in. Same handle-and-arrow-keys idiom as the checkpoint
  * and tile lists, so the order is reachable without a pointer.
+ *
+ * Unpin sits in the row's ⋯ menu (RowActions), which calls the action rather than posting a
+ * form: the list sits on Settings' Event details tab, inside the form that saves every tab,
+ * and a form may not hold another.
  */
 export function PinList({ pins, labels, reorder, remove }: {
   pins: PinnedField[];
@@ -79,15 +83,15 @@ export function PinList({ pins, labels, reorder, remove }: {
               </div>
               {p.label && <div className="text-xs text-muted-foreground">Shown as “{p.label}”</div>}
             </div>
-            <form action={() => remove(p.key)}>
-              <SubmitButton variant="ghost" className="text-destructive">Unpin</SubmitButton>
-            </form>
+            <RowMoveContext.Provider value={{ up: i > 0 ? () => move(i, i - 1) : null, down: i < order.length - 1 ? () => move(i, i + 1) : null }}>
+              <RowActions name={name(p)} remove={{ action: () => remove(p.key), message: "It comes off every badge straight away. Pin it again any time.", label: "Unpin" }} />
+            </RowMoveContext.Provider>
           </li>
         ))}
       </ul>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
       {order.length > 1 && (
-        <p className="pt-2 text-xs text-muted-foreground">The first pin gets the large treatment. Drag by the handle — or focus it and use the arrow keys — to change which. Saved as you go.</p>
+        <p className="pt-2 text-xs text-muted-foreground">The first pin gets the large treatment. Drag by the handle — or focus it and use the arrow keys, or use Move up and Move down in its menu — to change which. Saved as you go.</p>
       )}
     </div>
   );

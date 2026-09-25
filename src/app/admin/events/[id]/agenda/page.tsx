@@ -4,9 +4,8 @@ import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listAssignments } from "@/lib/db/breakouts";
 import { dayLabel, nextFreeDate } from "@/lib/agenda";
-import { eventDays } from "@/lib/time";
+import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -16,6 +15,8 @@ import { Modal } from "@/components/admin/Modal";
 import { SectionIconForm } from "@/components/admin/SectionIconForm";
 import { sectionIcons } from "@/lib/launcher";
 import { SortableList } from "@/components/admin/SortableList";
+import { RowActions } from "@/components/admin/RowActions";
+import { DayTabs } from "@/components/admin/DayTabs";
 import { DayForm, SessionForm, BreakoutForm, ImageItemForm } from "@/components/admin/AgendaForms";
 import { agendaAccentClass } from "@/lib/agenda-colours";
 import { breakoutSlots, rosters, agendaRows, type AgendaRow } from "@/lib/breakouts";
@@ -26,8 +27,9 @@ export const metadata = { title: "Agenda" };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-export default async function AgendaAdmin({ params }: { params: Promise<{ id: string }> }) {
+export default async function AgendaAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ day?: string }> }) {
   const { id } = await params;
+  const { day: requestedDay } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const [items, days, categories] = await Promise.all([listAgenda(ev.id), listAgendaDays(ev.id), listCategories(ev.id)]);
@@ -49,20 +51,27 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
   }
   const byDay = new Map(days.map((d) => [d.id, agendaRows(items.filter((i) => i.day_id === d.id))]));
   const sessions = [...byDay.values()].flat().filter((r) => r.kind === "round" || r.item.kind === "session").length;
+  // The day `?day=` names (a reload, or the one Add day just made), else today's during the
+  // event, else the first.
+  const today = nowInKL().date;
+  const initialDay = (days.find((d) => d.id === requestedDay) ?? days.find((d) => d.date === today) ?? days[0])?.id;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <AdminHeader title="Agenda" subtitle={`${plural(days.length, "day")} · ${plural(sessions, "session")}`} />
-        <div className="flex flex-wrap gap-2">
-          <Modal title="Agenda icon" hint="The round button attendees tap on the portal home." trigger="Agenda icon" icon="settings" iconOnly>
-            <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "agenda")} section="agenda" current={sectionIcons(ev.section_icons).agenda} />
-          </Modal>
-          <Modal title="Add a day" hint="Name it for the portal's tab — “Day 1 (Conference)”. Sessions and images go under it." trigger="Add day" icon="plus">
-            <DayForm eventId={ev.id} suggestedDate={nextFreeDate(eventDays(ev.starts_on, ev.ends_on), days.map((d) => d.date)) ?? ev.starts_on} />
-          </Modal>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4">
+      <AdminHeader
+        title="Agenda"
+        subtitle={`${plural(days.length, "day")} · ${plural(sessions, "session")}`}
+        actions={
+          <>
+            <Modal title="Agenda icon" hint="The round button attendees tap on the portal home." trigger="Agenda section settings" icon="settings" iconOnly>
+              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "agenda")} section="agenda" current={sectionIcons(ev.section_icons).agenda} />
+            </Modal>
+            <Modal title="Add a day" hint="Name it for the portal's tab — “Day 1 (Conference)”. Sessions and images go under it." trigger="Add day" icon="plus" variant="default">
+              <DayForm eventId={ev.id} suggestedDate={nextFreeDate(eventDays(ev.starts_on, ev.ends_on), days.map((d) => d.date)) ?? ev.starts_on} />
+            </Modal>
+          </>
+        }
+      />
 
       {days.length === 0 && (
         <Card>
@@ -77,54 +86,70 @@ export default async function AgendaAdmin({ params }: { params: Promise<{ id: st
         </Card>
       )}
 
-      {days.map((day) => {
-        const rows = byDay.get(day.id) ?? [];
-        const hasRounds = rows.some((r) => r.kind === "round");
-        return (
-          <Card key={day.id}>
-            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-              <CardTitle>
-                {day.name ? <>{day.name} <span className="font-semibold text-muted-foreground">· {shortDate(day.date)}</span></> : shortDate(day.date)}
-              </CardTitle>
-              <div className="flex items-center gap-1">
-                <Modal title="Edit day" trigger="Edit day" variant="ghost">
-                  <DayForm eventId={ev.id} day={day} />
-                </Modal>
-                <form action={deleteAgendaDayAction.bind(null, ev.id, day.id)}>
-                  <ConfirmButton
-                    message={`Delete ${dayLabel(day)}${rows.length ? ` and its ${plural(rows.length, "row")}` : ""}?${hasRounds ? " Anyone assigned to its breakout rooms loses their room." : ""}`}
-                  >
-                    Delete day
-                  </ConfirmButton>
-                </form>
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <SortableList
-                rows={rows.map((row) => ({
-                  key: rowKey(row),
-                  label: labelOf(row),
-                  node: <RowView row={row} eventId={ev.id} day={day} days={days} categories={categories} inRoom={inRoom} noRoom={noRoom} />,
-                }))}
-                reorder={reorderAgendaDayAction.bind(null, ev.id, day.id)}
-                empty="Nothing on this day yet."
-              />
-              <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-                <Modal title="Add a session" hint="Anything on the programme that a whole category attends together." trigger="Add session" icon="plus">
-                  <SessionForm eventId={ev.id} categories={categories} days={days} dayId={day.id} />
-                </Modal>
-                <Modal title="Add a breakout round" hint="A round and all of its rooms at once. An attendee sees only the room they are assigned to." trigger="Add breakout round" icon="users" variant="outline">
-                  <BreakoutForm eventId={ev.id} days={days} dayId={day.id} />
-                </Modal>
-                <Modal title="Add an image" hint="A picture in the programme — a map, a poster. It goes to the end of the day; drag it into place." trigger="Add image" icon="file" variant="outline">
-                  <ImageItemForm eventId={ev.id} categories={categories} days={days} dayId={day.id} />
-                </Modal>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+      {/* One day at a time, as tabs (DayTabs), rather than every day stacked down the page. */}
+      {initialDay && (
+        <DayTabs
+          key={days.map((d) => d.id).join(",")}
+          initial={initialDay}
+          days={days.map((d) => ({ id: d.id, label: d.name || shortDate(d.date), date: d.name ? shortDate(d.date) : "" }))}
+          panels={Object.fromEntries(days.map((day) => [day.id, (
+            <DayPanel key={day.id} day={day} rows={byDay.get(day.id) ?? []} eventId={ev.id} days={days} categories={categories} inRoom={inRoom} noRoom={noRoom} />
+          )]))}
+        />
+      )}
     </div>
+  );
+}
+
+/** One day's tab: its heading and Edit/Delete, its rows in drag order, and the ways to add to it. */
+function DayPanel({ day, rows, eventId, days, categories, inRoom, noRoom }: {
+  day: AgendaDay;
+  rows: AgendaRow[];
+  eventId: string;
+  days: AgendaDay[];
+  categories: string[];
+  inRoom: Map<string, Map<string, number>>;
+  noRoom: Map<string, number>;
+}) {
+  const hasRounds = rows.some((r) => r.kind === "round");
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+        <CardTitle>
+          {day.name ? <>{day.name} <span className="font-semibold text-muted-foreground">· {shortDate(day.date)}</span></> : shortDate(day.date)}
+        </CardTitle>
+        <RowActions
+          name={dayLabel(day)}
+          edit={{ title: "Edit day", form: <DayForm eventId={eventId} day={day} /> }}
+          remove={{
+            action: deleteAgendaDayAction.bind(null, eventId, day.id),
+            message: `${rows.length ? `Its ${plural(rows.length, "row")} go with it.` : "It has nothing on it yet."}${hasRounds ? " Anyone assigned to its breakout rooms loses their room." : ""}`,
+          }}
+        />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <SortableList
+          rows={rows.map((row) => ({
+            key: rowKey(row),
+            label: labelOf(row),
+            node: <RowView row={row} eventId={eventId} day={day} days={days} categories={categories} inRoom={inRoom} noRoom={noRoom} />,
+          }))}
+          reorder={reorderAgendaDayAction.bind(null, eventId, day.id)}
+          empty="Nothing on this day yet."
+        />
+        <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+          <Modal title="Add a session" hint="Anything on the programme that a whole category attends together." trigger="Add session" icon="plus">
+            <SessionForm eventId={eventId} categories={categories} days={days} dayId={day.id} />
+          </Modal>
+          <Modal title="Add a breakout round" hint="A round and all of its rooms at once. An attendee sees only the room they are assigned to." trigger="Add breakout round" icon="users" variant="outline">
+            <BreakoutForm eventId={eventId} days={days} dayId={day.id} />
+          </Modal>
+          <Modal title="Add an image" hint="A picture in the programme — a map, a poster. It goes to the end of the day; drag it into place." trigger="Add image" icon="file" variant="outline">
+            <ImageItemForm eventId={eventId} categories={categories} days={days} dayId={day.id} />
+          </Modal>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -146,7 +171,7 @@ function RowView({ row, eventId, day, days, categories, inRoom, noRoom }: {
   if (row.kind === "item" && row.item.kind === "image") {
     const i = row.item;
     return (
-      <div className="flex items-start justify-between gap-4 text-sm">
+      <div className="flex items-center justify-between gap-4 text-sm">
         <div className="flex min-w-0 items-center gap-3">
           {i.image_url && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -157,14 +182,11 @@ function RowView({ row, eventId, day, days, categories, inRoom, noRoom }: {
             <div className="text-xs text-muted-foreground">Image{i.categories?.length ? ` · for ${i.categories.join(", ")}` : ""}</div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Modal title="Edit image" trigger="Edit" variant="ghost">
-            <ImageItemForm eventId={eventId} categories={categories} days={days} dayId={day.id} item={i} />
-          </Modal>
-          <form action={deleteAgendaItemAction.bind(null, eventId, i.id)}>
-            <ConfirmButton message={`Delete ${i.title ? `“${i.title}”` : "this image"}?`}>Delete</ConfirmButton>
-          </form>
-        </div>
+        <RowActions
+          name={i.title ? `“${i.title}”` : "this image"}
+          edit={{ title: "Edit image", form: <ImageItemForm eventId={eventId} categories={categories} days={days} dayId={day.id} item={i} /> }}
+          remove={{ action: deleteAgendaItemAction.bind(null, eventId, i.id), message: "It comes off the programme straight away." }}
+        />
       </div>
     );
   }
@@ -174,7 +196,7 @@ function RowView({ row, eventId, day, days, categories, inRoom, noRoom }: {
   const starts = row.kind === "round" ? row.starts_at : lead.starts_at;
   const ends = row.kind === "round" ? row.ends_at : lead.ends_at;
   return (
-    <div className="flex items-start justify-between gap-4 text-sm">
+    <div className="flex items-center justify-between gap-4 text-sm">
       <div className="flex min-w-0 gap-4">
         <div className="w-24 shrink-0 tabular-nums text-muted-foreground">{starts}{ends ? ` – ${ends}` : ""}</div>
         <div className="min-w-0">
@@ -205,27 +227,19 @@ function RowView({ row, eventId, day, days, categories, inRoom, noRoom }: {
           </div>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
-        {row.kind === "round" ? (
-          <>
-            <Modal title={`Edit ${row.slot}`} trigger="Edit" variant="ghost">
-              <BreakoutForm eventId={eventId} days={days} dayId={day.id} round={{ slot: row.slot, items: row.items }} />
-            </Modal>
-            <form action={deleteBreakoutRoundAction.bind(null, eventId, row.slot)}>
-              <ConfirmButton message={`Delete “${row.slot}” and its ${plural(row.items.length, "room")}? Anyone assigned to them loses their room.`}>Delete</ConfirmButton>
-            </form>
-          </>
-        ) : (
-          <>
-            <Modal title="Edit session" trigger="Edit" variant="ghost">
-              <SessionForm eventId={eventId} categories={categories} days={days} dayId={day.id} item={row.item} />
-            </Modal>
-            <form action={deleteAgendaItemAction.bind(null, eventId, row.item.id)}>
-              <ConfirmButton message={`Delete "${row.item.title}"?`}>Delete</ConfirmButton>
-            </form>
-          </>
-        )}
-      </div>
+      {row.kind === "round" ? (
+        <RowActions
+          name={`“${row.slot}”`}
+          edit={{ title: `Edit ${row.slot}`, form: <BreakoutForm eventId={eventId} days={days} dayId={day.id} round={{ slot: row.slot, items: row.items }} /> }}
+          remove={{ action: deleteBreakoutRoundAction.bind(null, eventId, row.slot), message: `Its ${plural(row.items.length, "room")} go with it, and anyone assigned to them loses their room.` }}
+        />
+      ) : (
+        <RowActions
+          name={`“${row.item.title}”`}
+          edit={{ title: "Edit session", form: <SessionForm eventId={eventId} categories={categories} days={days} dayId={day.id} item={row.item} /> }}
+          remove={{ action: deleteAgendaItemAction.bind(null, eventId, row.item.id), message: "It comes off the programme straight away." }}
+        />
+      )}
     </div>
   );
 }
