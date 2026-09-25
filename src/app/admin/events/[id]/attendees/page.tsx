@@ -24,6 +24,7 @@ import { FieldInputs } from "@/components/admin/FieldInputs";
 import { allColumns, bulkFields, columnsCookieName, parseTablePrefs, tableCookieName } from "@/lib/columns";
 import { eventFields, fieldsFromQuestions, unclaimedKeys } from "@/lib/attendee-fields";
 import { fieldValue } from "@/lib/attendee-values";
+import { matchesSearch } from "@/lib/attendee-search";
 import { buttonVariants } from "@/components/ui/button";
 import { paginate } from "@/lib/paginate";
 import { parseSort, sortRows } from "@/lib/attendee-sort";
@@ -51,8 +52,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // With check-in off the two check-in queries are skipped and the rest of the page carries
   // on unchanged: `BulkBar` already hides its check-in menu when handed no checkpoints, and
   // an empty `checkins` leaves every row simply un-scanned (D159).
-  const [rows, total, checkins, cps, agenda, jar] = await Promise.all([
-    listAttendees(ev.id, sp.q), countAttendees(ev.id),
+  const [everyone, total, checkins, cps, agenda, jar] = await Promise.all([
+    listAttendees(ev.id), countAttendees(ev.id),
     ev.check_in_enabled ? listCheckinsForEvent(ev.id) : [],
     ev.check_in_enabled ? listCheckpoints(ev.id) : [],
     listAgenda(ev.id), cookies(),
@@ -87,9 +88,19 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // who had already tuned their table does not lose that when ordering ships.
   const prefs = parseTablePrefs(jar.get(tableCookieName(ev.id))?.value, columns, jar.get(columnsCookieName(ev.id))?.value);
 
+  // The search box matches every column the table can show, hidden ones included, so it runs
+  // here over the loaded roster rather than as a database filter (see `matchesSearch`).
+  const q = sp.q?.trim() ?? "";
+  const rows = q
+    ? everyone.filter((a) => matchesSearch([
+      a.name, a.email, a.category, a.source,
+      ...allFields.map((f) => fieldValue(a, f.key)),
+      ...Object.values(roundValues.get(a.id) ?? {}),
+    ], q))
+    : everyone;
+
   // What the "add a column" dialog offers. Counted across the whole roster, not the
   // current search — a suggestion that changes as you type would be a lie.
-  const everyone = sp.q ? await listAttendees(ev.id) : rows;
   const suggestions = unclaimedKeys(everyone.map((a) => a.extra ?? {}), allFields);
 
   // Hoisted single pass over `checkins` (same shape as `checkinStatus`, but scanned once

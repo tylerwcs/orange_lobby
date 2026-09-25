@@ -43,7 +43,7 @@ export function SearchInput({ initial, matches, total }: { initial: string; matc
         </InputGroupAddon>
         <InputGroupInput
           id="attendee-search" type="search" value={value} onChange={(e) => setValue(e.target.value)}
-          placeholder="Search name or email"
+          placeholder="Search any column"
         />
         {pending && (
           <InputGroupAddon align="inline-end">
