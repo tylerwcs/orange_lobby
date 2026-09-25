@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { questionsFromForm } from "@/lib/questions-form";
+import { draftFrom, keyFor, questionFormEntries, questionsFromForm } from "@/lib/questions-form";
+import { FORM_QUESTION_TYPES } from "@/lib/registration";
+import type { RegistrationQuestion } from "@/lib/types";
 
 const form = (o: Record<string, string>) => (k: string) => o[k] ?? null;
 
@@ -27,5 +29,39 @@ describe("questionsFromForm", () => {
     }));
     expect(qs[0]).toMatchObject({ key: "mobile", type: "phone" });
     expect(qs[1]).toMatchObject({ key: "guests", type: "number" });
+  });
+});
+
+const read = (entries: [string, string][]) => {
+  const map = new Map(entries);
+  return questionsFromForm((k) => map.get(k) ?? null, FORM_QUESTION_TYPES, 10);
+};
+
+describe("questionFormEntries", () => {
+  const saved: RegistrationQuestion[] = [
+    { key: "goal", label: "Your goal", type: "textarea", required: true },
+    { key: "track", label: "Track", type: "select", required: false, options: ["Weight", "Muscle"], description: "Pick one" },
+    { key: "target_kg", label: "Target (kg)", type: "number", required: false, show_when: { key: "track", includes: "Weight" } },
+  ];
+
+  it("round-trips saved questions through the fields questionsFromForm reads (D247)", () => {
+    expect(read(questionFormEntries(saved.map(draftFrom)))).toEqual(saved);
+  });
+
+  it("keeps a saved key when the label changes, so stored answers stay attached (D244)", () => {
+    const [first] = saved.map(draftFrom);
+    expect(read(questionFormEntries([{ ...first, label: "What is your goal?" }]))[0].key).toBe("goal");
+  });
+
+  it("gives a new question the key its label makes, the same rule keyFor states", () => {
+    const fresh = { key: "", label: "Before photo", type: "file" as const, required: true, options: [], description: "", showKey: "", showValue: "" };
+    expect(read(questionFormEntries([fresh]))[0].key).toBe("before_photo");
+    expect(keyFor("Before photo")).toBe("before_photo");
+  });
+
+  it("numbers questions in their on-screen order and drops unlabelled drafts", () => {
+    const drafts = saved.map(draftFrom).reverse();
+    drafts.splice(1, 0, { key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "" });
+    expect(read(questionFormEntries(drafts)).map((q) => q.key)).toEqual(["target_kg", "track", "goal"]);
   });
 });
