@@ -22,5 +22,7 @@ describe("attendeeManifest", () => {
   it("shortens a long event name for the label under the icon", () => {
     expect(attendeeManifest(event, "/x").short_name).toBe("Ecopia Kick-Off");
     expect(attendeeManifest({ ...event, name: "ECP Hub" }, "/x").short_name).toBe("ECP Hub");
+    // A slash is a place to break too, or "KOM/YEP/Wellness" is one word too long to keep any of.
+    expect(attendeeManifest({ ...event, name: "ECP KOM/YEP/Wellness" }, "/x").short_name).toBe("ECP KOM/YEP");
   });
 });

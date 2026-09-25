@@ -5,18 +5,19 @@ import type { Event } from "@/lib/types";
 const SHORT_NAME = 15;
 
 /**
- * The label under the icon: the event's name, cut back to whole words when it is long.
- * "Ecopia Kick-Off Meeting 2026" becomes "Ecopia Kick-Off".
+ * The label under the icon: the event's name, cut back to whole words when it is long -
+ * breaking at spaces and at slashes. "Ecopia Kick-Off Meeting 2026" becomes "Ecopia Kick-Off";
+ * "ECP KOM/YEP/Wellness" becomes "ECP KOM/YEP".
  */
 export function shortName(name: string): string {
   if (name.length <= SHORT_NAME) return name;
   let out = "";
-  for (const word of name.split(/\s+/)) {
-    const next = out ? `${out} ${word}` : word;
-    if (next.length > SHORT_NAME) break;
-    out = next;
+  // Words with the separators kept between them, so the cut can rejoin exactly what was there.
+  for (const part of name.split(/(\s+|\/)/)) {
+    if ((out + part).trimEnd().length > SHORT_NAME) break;
+    out += part;
   }
-  return out || name.slice(0, SHORT_NAME);
+  return out.replace(/[\s/]+$/, "") || name.slice(0, SHORT_NAME);
 }
 
 /**

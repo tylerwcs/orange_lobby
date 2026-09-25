@@ -129,7 +129,7 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
     };
   }, [device]);
 
-  // However it closes - Not now, the X, a tap outside - it stays closed on this phone.
+  // However it closes - Not now, a tap outside, Escape - it stays closed on this phone.
   const close = () => {
     try { localStorage.setItem(DISMISSED, "1"); } catch { /* private mode: it simply comes back */ }
     setOpen(false);
@@ -144,7 +144,7 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) close(); }}>
-      <DialogContent className="max-h-[90dvh] gap-5 overflow-y-auto">
+      <DialogContent showCloseButton={false} className="max-h-[90dvh] gap-5 overflow-y-auto">
         <div className="flex flex-col items-center gap-3 pt-2 text-center">
           {/* What they are about to get: the icon and its label, as the home screen shows them. */}
           <div className="flex flex-col items-center gap-1.5">
@@ -154,7 +154,7 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
           </div>
           <DialogTitle className="text-lg font-extrabold leading-tight text-balance">Add your event page to your home screen</DialogTitle>
           <DialogDescription className="text-balance">
-            It opens like an app, straight to your badge, agenda and updates. No searching through chats on the day.
+            One tap to your badge, agenda and updates.
           </DialogDescription>
         </div>
 
