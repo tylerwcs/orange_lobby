@@ -148,7 +148,8 @@ type RowFacts = {
 function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
   const href = `/admin/events/${ev.id}/activities/${a.id}`;
   const exports = `/admin/events/${ev.id}/export`;
-  const base = { name: a.name, pageHref: href, settingsHref: `${href}#settings` };
+  // Setup is the default tab, so the page itself is where settings are (D236).
+  const base = { name: a.name, pageHref: href, settingsHref: href };
 
   if (a.kind === "booking") {
     const booked = facts.sessions.reduce((sum, s) => sum + s.booked, 0);

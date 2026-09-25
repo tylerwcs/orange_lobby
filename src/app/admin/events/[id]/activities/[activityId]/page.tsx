@@ -14,10 +14,14 @@ import { listAttendees } from "@/lib/db/attendees";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
 import { capSummary, missingFrom, participation } from "@/lib/submissions";
+import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
+import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL } from "@/lib/time";
 import type { Activity, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { SessionList } from "@/components/admin/SessionList";
+import { ActivityTabs } from "@/components/admin/ActivityTabs";
+import { SessionDays } from "@/components/admin/SessionDays";
+import { BookingsByDay } from "@/components/admin/BookingsByDay";
 import { UnbookedPanel } from "@/components/admin/UnbookedPanel";
 import { RequestQueue } from "@/components/admin/RequestQueue";
 import { SubmissionTable } from "@/components/admin/SubmissionTable";
@@ -28,8 +32,8 @@ import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   saveActivityAction, toggleOpenAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
-  addSessionAction, saveSessionAction,
-  deleteSessionAction, reorderSessionsAction, placeAttendeesAction, approveRequestAction, declineRequestAction,
+  addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction,
+  placeAttendeesAction, approveRequestAction, declineRequestAction,
   uploadActivityImageAction,
 } from "../actions";
 
@@ -38,10 +42,10 @@ const check = "flex items-center gap-2 text-sm font-bold";
 
 export default async function ActivityDetail({ params, searchParams }: {
   params: Promise<{ id: string; activityId: string }>;
-  searchParams: Promise<{ day?: string; qr?: string }>;
+  searchParams: Promise<{ day?: string; qr?: string; tab?: string }>;
 }) {
   const { id, activityId } = await params;
-  const { day: requestedDay, qr } = await searchParams;
+  const { day: requestedDay, qr, tab } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const activity = await getActivity(activityId, ev.id);
@@ -52,12 +56,16 @@ export default async function ActivityDetail({ params, searchParams }: {
   // activity has sessions, requests and an unbooked list; a submission activity has answers,
   // a chasing list and a participation strip; a passport has its booths and their scanner
   // links (D190). None of the three reads another's data.
+  //
+  // Each is a header, a tab strip and the current tab (D234): the page opens on Setup, which is
+  // what the organiser comes back for, and what attendees have done is one tab away rather than
+  // stacked above it.
   if (activity.kind === "passport") return <PassportDetail ev={ev} activity={activity} qr={qr} />;
-  if (activity.kind === "submission") return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} />;
-  return <BookingDetail ev={ev} activity={activity} />;
+  if (activity.kind === "submission") return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} tab={tab} />;
+  return <BookingDetail ev={ev} activity={activity} tab={tab} />;
 }
 
-async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }) {
+async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activity; tab?: string }) {
   const [allSessions, bookings, counts, attendees, allRequests] = await Promise.all([
     listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id),
   ]);
@@ -88,6 +96,23 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
   const unbooked = unbookedForActivity?.attendeeIds ?? [];
   const bookedCount = new Set(activityBookings.map((b) => b.attendee_id)).size;
 
+  const tabs = activityTabs("booking", { booked: bookedCount, notBooked: unbooked.length, pendingRequests: pendingRequests.length });
+  const current = resolveTab(tabs, tab);
+  const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
+  const nameOf = (attendeeId: string) => byId.get(attendeeId)?.name ?? "Unknown";
+  // Who is in which session (D237), in the same day grouping the Setup tab shows.
+  const bookingDays = groupSessionsByDay(seats).map((g) => ({
+    day: g.day,
+    sessions: g.items.map((i) => ({
+      id: i.session.id,
+      time: i.session.ends_at ? `${i.session.starts_at}–${i.session.ends_at}` : i.session.starts_at,
+      location: i.session.location,
+      booked: i.booked,
+      capacity: i.session.capacity,
+      people: activityBookings.filter((b) => b.session_id === i.session.id).map((b) => nameOf(b.attendee_id)).sort(),
+    })),
+  }));
+
   return (
     <div className="flex flex-col gap-4">
       <AdminHeader
@@ -95,10 +120,10 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
         subtitle={`${bookedCount} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
         actions={
           <>
-            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "page")} name={activity.name} showLabel />
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
             <ActivityMenu
               name={activity.name}
-              settingsHref="#settings"
+              settingsHref={href("setup")}
               exportHref={`/admin/events/${ev.id}/export/activities.xlsx`}
               remove={deleteActivityAction.bind(null, ev.id, activity.id)}
               removeMessage={removeWarning({ kind: "booking", sessions: sessions.length, bookings: activityBookings.length })}
@@ -106,80 +131,98 @@ async function BookingDetail({ ev, activity }: { ev: Event; activity: Activity }
           </>
         }
       />
+      <ActivityTabs tabs={tabs} current={current} href={href} />
 
-      <RequestQueue
-        pending={pendingRequests}
-        decided={decidedRequests}
-        sessionTitle={(sessionId) => sessionLabelById.get(sessionId) ?? "a deleted session"}
-        attendeeName={(attendeeId) => byId.get(attendeeId)?.name ?? "Unknown"}
-        deciderEmails={deciderEmails}
-        approve={approveRequestAction.bind(null, ev.id, activity.id)}
-        decline={declineRequestAction.bind(null, ev.id, activity.id)}
-      />
+      {current === "setup" && (
+        <>
+          {/* Deliberately no `is_open` field here (D127): that column is the header
+              button's alone. Adding it back would let saving this form silently close or
+              reopen booking whenever an organiser only meant to edit the name. */}
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b"><CardTitle>Details and rules</CardTitle></CardHeader>
+            <CardContent className="px-6 py-4">
+              <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+                <Field label="Name" name="name" defaultValue={activity.name} />
+                <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+                <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
+                  <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
+                    defaultValue={activity.max_per_attendee ?? undefined} inputMode="numeric" className={`${input} tabular-nums`} />
+                </div>
+                <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
+                  placeholder="VIP, Management" description="Comma separated. Leave blank to offer it to everyone." />
+                <label className={check}>
+                  <input type="checkbox" name="required" className="size-4" defaultChecked={activity.required} />
+                  Everyone must pick one
+                </label>
+                <SubmitButton>Save</SubmitButton>
+              </form>
+            </CardContent>
+          </Card>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b"><CardTitle>Sessions</CardTitle></CardHeader>
-        <CardContent className="px-6">
-          <SessionList
-            items={seats}
-            addSession={addSessionAction.bind(null, ev.id, activity.id)}
-            saveSession={saveSessionAction.bind(null, ev.id, activity.id)}
-            deleteSession={deleteSessionAction.bind(null, ev.id, activity.id)}
-            reorder={reorderSessionsAction.bind(null, ev.id, activity.id)}
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b"><CardTitle>Sessions</CardTitle></CardHeader>
+            <CardContent className="px-6 py-4">
+              <SessionDays
+                items={seats}
+                addSessions={addSessionsAction.bind(null, ev.id, activity.id)}
+                saveSession={saveSessionAction.bind(null, ev.id, activity.id)}
+                deleteSession={deleteSessionAction.bind(null, ev.id, activity.id)}
+                deleteDay={deleteSessionDayAction.bind(null, ev.id, activity.id)}
+                defaultDay={ev.starts_on}
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {current === "bookings" && (
+        <>
+          <RequestQueue
+            pending={pendingRequests}
+            decided={decidedRequests}
+            sessionTitle={(sessionId) => sessionLabelById.get(sessionId) ?? "a deleted session"}
+            attendeeName={nameOf}
+            deciderEmails={deciderEmails}
+            approve={approveRequestAction.bind(null, ev.id, activity.id)}
+            decline={declineRequestAction.bind(null, ev.id, activity.id)}
           />
-        </CardContent>
-      </Card>
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b"><CardTitle>Who booked</CardTitle></CardHeader>
+            <CardContent className="px-6 py-4">
+              <BookingsByDay days={bookingDays} />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b">
-          <CardTitle>Not booked yet · {unbooked.length}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-6 py-4">
-          <UnbookedPanel
-            people={unbooked.map((attendeeId) => {
-              const a = byId.get(attendeeId)!;
-              return { id: a.id, name: a.name, category: a.category };
-            })}
-            options={seats.filter((s) => !s.full).map((s) => ({
-              id: s.session.id,
-              label: sessionLabel(s.session),
-              left: s.left,
-            }))}
-            place={placeAttendeesAction.bind(null, ev.id, activity.id)}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Deliberately no `is_open` field here (D127): that column is the header
-          button's alone. Adding it back would let saving this form silently close or
-          reopen booking whenever an organiser only meant to edit the name. */}
-      <Card id="settings" className="scroll-mt-4 overflow-hidden">
-        <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
-        <CardContent className="px-6 py-4">
-          <form action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
-            <Field label="Name" name="name" defaultValue={activity.name} />
-            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
-            <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
-              <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
-                defaultValue={activity.max_per_attendee ?? undefined} inputMode="numeric" className={`${input} tabular-nums`} />
-            </div>
-            <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
-              placeholder="VIP, Management" description="Comma separated. Leave blank to offer it to everyone." />
-            <label className={check}>
-              <input type="checkbox" name="required" className="size-4" defaultChecked={activity.required} />
-              Everyone must pick one
-            </label>
-            <SubmitButton>Save settings</SubmitButton>
-          </form>
-        </CardContent>
-      </Card>
+      {current === "not-booked" && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b">
+            <CardTitle>Not booked yet · {unbooked.length}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 py-4">
+            <UnbookedPanel
+              people={unbooked.map((attendeeId) => {
+                const a = byId.get(attendeeId)!;
+                return { id: a.id, name: a.name, category: a.category };
+              })}
+              options={seats.filter((s) => !s.full).map((s) => ({
+                id: s.session.id,
+                label: sessionLabel(s.session),
+                left: s.left,
+              }))}
+              place={placeAttendeesAction.bind(null, ev.id, activity.id)}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
 
-async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; activity: Activity; requestedDay?: string }) {
+async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event; activity: Activity; requestedDay?: string; tab?: string }) {
   const [submissions, attendees] = await Promise.all([submissionsForActivity(activity.id), listAttendees(ev.id)]);
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
   const submitterFor = (attendeeId: string) => {
@@ -209,6 +252,10 @@ async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; act
         })
     : null;
 
+  const tabs = activityTabs("submission", { submissions: submissions.length, notSubmitted: missing.length, perDay: activity.per_day });
+  const current = resolveTab(tabs, tab);
+  const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
+
   return (
     <div className="flex flex-col gap-4">
       <AdminHeader
@@ -216,10 +263,10 @@ async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; act
         subtitle={`${submissions.length} submission${submissions.length === 1 ? "" : "s"} · ${capSummary(activity)}`}
         actions={
           <>
-            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "page")} name={activity.name} showLabel />
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
             <ActivityMenu
               name={activity.name}
-              settingsHref="#settings"
+              settingsHref={href("setup")}
               exportHref={`/admin/events/${ev.id}/export/submissions.xlsx`}
               remove={deleteSubmissionActivityAction.bind(null, ev.id, activity.id)}
               removeMessage={removeWarning({ kind: "submission", submissions: submissions.length })}
@@ -227,29 +274,48 @@ async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; act
           </>
         }
       />
+      <ActivityTabs tabs={tabs} current={current} href={href} />
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b"><CardTitle>Submissions</CardTitle></CardHeader>
-        <CardContent className="px-0">
-          <SubmissionTable submissions={submissions} questions={activity.questions} submitterFor={submitterFor} />
-        </CardContent>
-      </Card>
+      {/* Its settings live here, as every other kind's do, rather than in a modal on the list. */}
+      {current === "setup" && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b"><CardTitle>Details, rules and questions</CardTitle></CardHeader>
+          <CardContent className="px-6 py-4">
+            <form action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+              <SubmissionFields activity={activity} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+              <SubmitButton>Save</SubmitButton>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b">
-          <CardTitle>Not submitted · {missing.length}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-6 py-4">
-          <MissingPanel
-            people={missing}
-            day={day}
-            today={today}
-            basePath={`/admin/events/${ev.id}/activities/${activity.id}`}
-          />
-        </CardContent>
-      </Card>
+      {current === "submissions" && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b"><CardTitle>Submissions</CardTitle></CardHeader>
+          <CardContent className="px-0">
+            <SubmissionTable submissions={submissions} questions={activity.questions} submitterFor={submitterFor} />
+          </CardContent>
+        </Card>
+      )}
 
-      {drifting && (
+      {current === "not-submitted" && (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b">
+            <CardTitle>Not submitted · {missing.length}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 py-4">
+            <MissingPanel
+              people={missing}
+              day={day}
+              today={today}
+              basePath={`/admin/events/${ev.id}/activities/${activity.id}`}
+              tab="not-submitted"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {current === "participation" && drifting && (
         <Card className="overflow-hidden">
           <CardHeader className="border-b"><CardTitle>Participation</CardTitle></CardHeader>
           <CardContent className="px-6 py-4">
@@ -257,17 +323,6 @@ async function SubmissionDetail({ ev, activity, requestedDay }: { ev: Event; act
           </CardContent>
         </Card>
       )}
-
-      {/* Its settings live here, as every other kind's do, rather than in a modal on the list. */}
-      <Card id="settings" className="scroll-mt-4 overflow-hidden">
-        <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
-        <CardContent className="px-6 py-4">
-          <form action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
-            <SubmissionFields activity={activity} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
-            <SubmitButton>Save settings</SubmitButton>
-          </form>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -73,7 +73,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
         subtitle={`${completed} of ${audience} have filled their card · ${booths.length} booth${booths.length === 1 ? "" : "s"}`}
         actions={
           <>
-            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "page")} name={activity.name} showLabel />
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup")} name={activity.name} showLabel />
             <Modal title="Add a booth" hint="Prints its own scanner link once it exists." trigger="Add booth" icon="plus">
               <form action={addBoothAction.bind(null, ev.id, activity.id)} className="grid gap-4">
                 <Field label="Name" name="name" placeholder="Operations" />
@@ -83,7 +83,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
             </Modal>
             <ActivityMenu
               name={activity.name}
-              settingsHref="#settings"
+              settingsHref={path}
               exportHref={`/admin/events/${ev.id}/export/passport.xlsx`}
               remove={deletePassportActivityAction.bind(null, ev.id, activity.id)}
               removeMessage={removeWarning({ kind: "passport", booths: booths.length })}
@@ -91,6 +91,33 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
           </>
         }
       />
+
+      {/* No `is_open` field (D127): that column is the header button's alone. Details first,
+          then the booths, the same order every kind's Setup keeps (D236). A passport has no
+          other tab, so it has no tab strip. */}
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b"><CardTitle>Details and rules</CardTitle></CardHeader>
+        <CardContent className="px-6 py-4">
+          <form action={savePassportActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+            <Field label="Name" name="name" defaultValue={activity.name} />
+            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+            <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
+            <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
+              placeholder="VIP, Management" description="Comma separated. Leave blank for everyone. Booths refuse anyone outside these." />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="stamps_required" className="text-sm font-bold">Stamps needed</label>
+              <div className="flex items-center gap-2">
+                <input id="stamps_required" name="stamps_required" type="number" min={1} inputMode="numeric"
+                  defaultValue={activity.stamps_required ?? ""} placeholder="Every booth" className={`${input} tabular-nums`} />
+                <span className="shrink-0 text-sm text-muted-foreground tabular-nums">of {booths.length} booth{booths.length === 1 ? "" : "s"}</span>
+              </div>
+            </div>
+            <Field label="Message when the card is full" name="reward_message" defaultValue={activity.reward_message}
+              placeholder="Show this screen at the registration counter to collect your gift." />
+            <SubmitButton>Save</SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card className="overflow-hidden">
         <CardHeader className="border-b"><CardTitle>Booths</CardTitle></CardHeader>
@@ -113,31 +140,6 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
               />
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* No `is_open` field (D127): that column is the header button's alone. */}
-      <Card id="settings" className="scroll-mt-4 overflow-hidden">
-        <CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader>
-        <CardContent className="px-6 py-4">
-          <form action={savePassportActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
-            <Field label="Name" name="name" defaultValue={activity.name} />
-            <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
-            <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
-            <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
-              placeholder="VIP, Management" description="Comma separated. Leave blank for everyone. Booths refuse anyone outside these." />
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="stamps_required" className="text-sm font-bold">Stamps needed</label>
-              <div className="flex items-center gap-2">
-                <input id="stamps_required" name="stamps_required" type="number" min={1} inputMode="numeric"
-                  defaultValue={activity.stamps_required ?? ""} placeholder="Every booth" className={`${input} tabular-nums`} />
-                <span className="shrink-0 text-sm text-muted-foreground tabular-nums">of {booths.length} booth{booths.length === 1 ? "" : "s"}</span>
-              </div>
-            </div>
-            <Field label="Message when the card is full" name="reward_message" defaultValue={activity.reward_message}
-              placeholder="Show this screen at the registration counter to collect your gift." />
-            <SubmitButton>Save settings</SubmitButton>
-          </form>
         </CardContent>
       </Card>
 

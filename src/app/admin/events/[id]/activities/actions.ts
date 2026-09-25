@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import {
   createActivity, updateActivity, deleteActivity, deletePassportIfUnstamped, getActivity,
-  createSession, updateSession, deleteSession, setSessionOrder, bookSession, listSessions,
+  createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
   syncSubmissionPerDay, type NewActivity, type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
 import { getRequest, decideRequest } from "@/lib/db/activity-requests";
@@ -22,6 +22,9 @@ import { cleanRichText } from "@/lib/rich-text";
 import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
 import { readPassportSettings } from "@/lib/booths";
 import type { Activity, Event } from "@/lib/types";
+import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
+import { activityHref, type ActivityTab } from "@/lib/activity-tabs";
+import { shortDate } from "@/lib/text";
 
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
@@ -124,15 +127,15 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
  * booking and a submission shared one table (D178).
  *
  * Every kind carries the same switch in the same two places — its row on the list and its own
- * page's header — so `from` says which one was flipped and the organiser lands back there,
- * rather than being carried off to a page they did not ask for.
+ * page's header — so `from` says which one was flipped (on the page, which tab) and the
+ * organiser lands back there, rather than being carried off to a page they did not ask for.
  */
-export async function toggleOpenAction(eventId: string, activityId: string, from: "list" | "page") {
+export async function toggleOpenAction(eventId: string, activityId: string, from: "list" | ActivityTab) {
   const ev = await event(eventId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
   await updateActivity(activityId, ev.id, { is_open: !activity.is_open });
-  const path = from === "list" ? listPath(eventId) : detailPath(eventId, activityId);
+  const path = from === "list" ? listPath(eventId) : activityHref(eventId, activityId, from);
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
   const opened = !activity.is_open;
@@ -329,16 +332,29 @@ function readSession(fd: FormData) {
   return { day, starts_at, ends_at: text(fd, "ends_at") || null, location: text(fd, "location") || null, capacity };
 }
 
-export async function addSessionAction(eventId: string, activityId: string, fd: FormData) {
+/**
+ * Adds every session the bulk dialog describes (D241). A single session is the same dialog with
+ * one slot, so this is the only way sessions are added. Slots this activity already has are
+ * skipped and counted rather than duplicated.
+ */
+export async function addSessionsAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
-  await createSession(ev.id, activityId, readSession(fd));
-  revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
+  await bookingOf(ev, activityId);
+  const back = activityHref(eventId, activityId);
+  const existing = (await listSessions(ev.id)).filter((s) => s.activity_id === activityId);
+  const plan = generateSlots(readSlotForm(fd), existing);
+  if (!plan.ok) redirect(flashPath(back, plan.error, "error"));
+  await createSessions(ev.id, activityId, plan.slots);
+  revalidatePath(listPath(eventId));
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(back, describeAdded(plan.slots.length, plan.skipped)));
 }
 
 export async function saveSessionAction(eventId: string, activityId: string, sessionId: string, fd: FormData) {
   const ev = await event(eventId);
   await updateSession(sessionId, ev.id, readSession(fd));
   revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
+  redirect(flashPath(activityHref(eventId, activityId), "Session saved."));
 }
 
 /**
@@ -354,23 +370,14 @@ export async function deleteSessionAction(eventId: string, activityId: string, s
   redirect(flashPath(path, "Session deleted."));
 }
 
-/**
- * Stores this activity's sessions in the order a drag or a keyboard move left them.
- *
- * `setSessionOrder` is scoped by event id, not activity id, so a posted id from a sibling
- * activity in the same event would otherwise let one activity's reorder silently renumber
- * another's sessions. The posted list is filtered down to this activity's own sessions first —
- * the same guard `reorderCheckpointsAction` applies per day — and a partial list (one that
- * doesn't cover every session this activity has) is dropped rather than applied, so a stale
- * tab can't renumber the rest by accident.
- */
-export async function reorderSessionsAction(eventId: string, activityId: string, ids: string[]) {
+/** A whole day's sessions, and their bookings with them (D242, D135). The confirm dialog says how many. */
+export async function deleteSessionDayAction(eventId: string, activityId: string, day: string) {
   const ev = await event(eventId);
-  const mine = new Set((await listSessions(ev.id)).filter((s) => s.activity_id === activityId).map((s) => s.id));
-  const ordered = ids.filter((id) => mine.has(id));
-  if (ordered.length !== mine.size) return;
-  await setSessionOrder(ev.id, ordered);
-  revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
+  await bookingOf(ev, activityId);
+  const removed = await deleteSessionsOnDay(ev.id, activityId, day);
+  revalidatePath(listPath(eventId));
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(activityHref(eventId, activityId), `Deleted ${removed} session${removed === 1 ? "" : "s"} on ${shortDate(day)}.`));
 }
 
 /**
@@ -383,7 +390,7 @@ export async function reorderSessionsAction(eventId: string, activityId: string,
  */
 export async function placeAttendeesAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
-  const path = `/admin/events/${eventId}/activities/${activityId}`;
+  const path = activityHref(eventId, activityId, "not-booked");
   // The session comes from the form's own select, not from a bound argument: a form action
   // receives FormData and nothing else.
   const sessionId = String(fd.get("session_id") ?? "");
@@ -402,8 +409,8 @@ export async function placeAttendeesAction(eventId: string, activityId: string, 
   // them all at once buys no throughput and only means each one sits holding an HTTP
   // connection and a PostgREST pool slot while it waits its turn — a real stall risk for a
   // pool shared with the whole attendee portal when a desk places 200 people at once.
-  // `setSessionOrder` (db/activities.ts) and the breakout bulk assign both write one at a time
-  // for the same reason; this is the one place that used to differ. Do not "optimise" this
+  // The breakout bulk assign writes one at a time for the same reason; this is the one place
+  // that used to differ. Do not "optimise" this
   // back into a `Promise.all` — the lock makes it free, and the pool makes it a liability.
   const outcomes: BookResult[] = [];
   for (const id of ids) {
@@ -462,7 +469,7 @@ const REQUEST_GONE = "That request is no longer waiting.";
  * decided, because `decide_request` itself takes no event id to scope by; only `event(eventId)`
  * stands between an admin and someone else's request. The activity check crosses no privilege
  * boundary (a sibling activity in the same event is this admin's to decide anyway), but it is
- * the same guard `reorderSessionsAction` applies for the same reason: a posted id belongs to
+ * the same guard the session actions apply for the same reason: a posted id belongs to
  * the page it was posted from, and deciding it through the wrong activity's page redirects and
  * revalidates the wrong path, so the desk watches a queue that did not change.
  *
@@ -476,7 +483,7 @@ const REQUEST_GONE = "That request is no longer waiting.";
 export async function approveRequestAction(eventId: string, activityId: string, requestId: string) {
   const ev = await event(eventId);
   const { userId } = await requireAdmin();
-  const path = `/admin/events/${eventId}/activities/${activityId}`;
+  const path = activityHref(eventId, activityId, "bookings");
   const request = await getRequest(requestId, ev.id);
   if (!request || request.activity_id !== activityId) {
     revalidatePath(path);
@@ -500,7 +507,7 @@ export async function approveRequestAction(eventId: string, activityId: string, 
 export async function declineRequestAction(eventId: string, activityId: string, requestId: string) {
   const ev = await event(eventId);
   const { userId } = await requireAdmin();
-  const path = `/admin/events/${eventId}/activities/${activityId}`;
+  const path = activityHref(eventId, activityId, "bookings");
   // Same event- and activity-scoping note as approveRequestAction: this exists so a posted id
   // from outside this event, or from a sibling activity in it, can't be decided through this
   // page at all, before decide_request's own row lock ever gets a chance to resolve its status.

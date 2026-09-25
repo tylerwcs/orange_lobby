@@ -124,12 +124,15 @@ export async function listSessions(eventId: string): Promise<ActivitySession[]> 
   }));
 }
 
-export async function createSession(eventId: string, activityId: string, input: NewSession): Promise<void> {
+/** One insert for a whole batch (D241): it all lands or none of it does. `sort_order` only breaks ties between sessions starting together, so it continues from the last. */
+export async function createSessions(eventId: string, activityId: string, inputs: NewSession[]): Promise<void> {
+  if (inputs.length === 0) return;
   const db = serviceClient();
   const { data: last } = await db.from("activity_sessions").select("sort_order")
     .eq("activity_id", activityId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+  const start = (last?.sort_order ?? -1) + 1;
   const { error } = await db.from("activity_sessions")
-    .insert({ event_id: eventId, activity_id: activityId, ...input, sort_order: (last?.sort_order ?? -1) + 1 });
+    .insert(inputs.map((input, i) => ({ event_id: eventId, activity_id: activityId, ...input, sort_order: start + i })));
   if (error) throw error;
 }
 
@@ -155,14 +158,12 @@ export async function deleteSession(id: string, eventId: string): Promise<void> 
   if (error) throw error;
 }
 
-/** Scoped by event id as well as row id, so a posted id from another event reorders nothing. */
-export async function setSessionOrder(eventId: string, orderedIds: string[]): Promise<void> {
-  const db = serviceClient();
-  for (const [index, id] of orderedIds.entries()) {
-    const { error } = await db.from("activity_sessions").update({ sort_order: index })
-      .eq("id", id).eq("event_id", eventId);
-    if (error) throw error;
-  }
+/** Every session of one activity on one day (D242). Bookings cascade, as with a single session (D135). */
+export async function deleteSessionsOnDay(eventId: string, activityId: string, day: string): Promise<number> {
+  const { data, error } = await serviceClient().from("activity_sessions").delete()
+    .eq("event_id", eventId).eq("activity_id", activityId).eq("day", day).select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
 }
 
 export async function listBookings(eventId: string): Promise<ActivityBooking[]> {

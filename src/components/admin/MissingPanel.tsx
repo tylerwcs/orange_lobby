@@ -19,17 +19,24 @@ export type MissingPerson = { id: string; name: string; category: string | null 
  * `next/form` rather than a bare <form> so Show navigates in place - the page's keyed
  * Suspense puts up a skeleton - instead of reloading the whole admin.
  */
-export function MissingPanel({ people, day, today, basePath }: {
+export function MissingPanel({ people, day, today, basePath, tab }: {
   people: MissingPerson[];
   /** The day being asked about, or null for a form that is not per-day. */
   day: string | null;
   today: string;
   basePath: string;
+  /**
+   * The page tab this panel sits on. A GET form replaces the whole query string, so without it
+   * choosing a day would land back on the default tab (D234).
+   */
+  tab?: string;
 }) {
+  const todayHref = tab ? `${basePath}?tab=${tab}` : basePath;
   return (
     <div className="flex flex-col gap-3">
       {day !== null && (
         <Form action={basePath} className="flex flex-wrap items-end gap-2">
+          {tab && <input type="hidden" name="tab" value={tab} />}
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">Day</span>
             <input
@@ -39,7 +46,7 @@ export function MissingPanel({ people, day, today, basePath }: {
           </label>
           <SubmitButton variant="outline">Show</SubmitButton>
           {day !== today && (
-            <Link href={basePath} className="text-sm font-bold text-primary underline-offset-4 hover:underline">Back to today</Link>
+            <Link href={todayHref} className="text-sm font-bold text-primary underline-offset-4 hover:underline">Back to today</Link>
           )}
         </Form>
       )}
