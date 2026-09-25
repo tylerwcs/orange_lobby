@@ -17,22 +17,34 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
  * submissions sent), so a success remounts it closed while a refusal leaves it open with the
  * toast saying why.
  */
-export function ActivityActionDialog({ label, title, description, defaultOpen = false, children }: {
+export function ActivityActionDialog({ label, title, description, defaultOpen = false, inline = false, children }: {
   label: string;
   title: string;
   description?: string;
   /** Opens on arrival - how an old `?new=1` submission link still lands on the questions. */
   defaultOpen?: boolean;
+  /**
+   * A text link in place of the floating button, for when something else owns the foot of
+   * the page: once a single session is booked, the big button is Add to calendar and Change
+   * session sits in the booked line instead.
+   */
+  inline?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <div className="sticky bottom-4 z-10 mt-2">
-        <DialogTrigger render={<Button size="lg" className="h-12 w-full rounded-full text-base font-bold shadow-lg" />}>
+      {inline ? (
+        <DialogTrigger render={<button type="button" className="flex items-center gap-1 underline" />}>
           {label}
         </DialogTrigger>
-      </div>
+      ) : (
+        <div className="sticky bottom-4 z-10 mt-2">
+          <DialogTrigger render={<Button size="lg" className="h-12 w-full rounded-full text-base font-bold shadow-lg" />}>
+            {label}
+          </DialogTrigger>
+        </div>
+      )}
       <DialogContent className="max-h-[85vh] grid-cols-1 overflow-y-auto sm:max-w-lg">
         <div className="flex flex-col gap-1 pr-8">
           <DialogTitle className="text-lg font-extrabold">{title}</DialogTitle>

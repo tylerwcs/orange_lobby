@@ -19,8 +19,14 @@ import { sessionLabel } from "@/lib/activities";
  * stay per-activity, not per-seat, because D146's index allows only one open request per
  * attendee per activity: while one is open, no seat offers controls.
  */
-export function ActivityBooking({ controls, pendingId, calendarPath, requestCancel, withdraw }: {
+export function ActivityBooking({ controls, pendingId, calendarPath, change, requestCancel, withdraw }: {
   controls: ActivityControls;
+  /**
+   * With a single seat, the page's big button is Add to calendar, so the seat's line carries
+   * the other action instead: Change session (the dialog as a link), or nothing when there is
+   * nowhere to move to. Undefined keeps Add to calendar on every line, for several seats.
+   */
+  change?: React.ReactNode;
   // The raw pending request's id: `controls.pending` (a `PendingSummary`) deliberately carries
   // no id — it is for rendering, not addressing — so the id travels alongside it. Bound here,
   // not by the caller, so a caller whose `pendingId` ever drifts from `controls.pending` gets a
@@ -70,12 +76,14 @@ export function ActivityBooking({ controls, pendingId, calendarPath, requestCanc
             You&apos;re booked {sessionLabel(seat.session)}
           </span>
           <span className="flex items-center gap-4">
-            {/* A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
-                No `download` attribute either - iOS would save it instead of offering the calendar. */}
-            <a href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
-              <Icon name="calendar" size={16} />
-              Add to calendar
-            </a>
+            {change !== undefined ? change : (
+              // A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
+              // No `download` attribute either - iOS would save it instead of offering the calendar.
+              <a href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
+                <Icon name="calendar" size={16} />
+                Add to calendar
+              </a>
+            )}
             {canRequestCancel && (
               <form action={requestCancel.bind(null, seat.session.id)}>
                 <ConfirmButton

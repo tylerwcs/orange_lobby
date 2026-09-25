@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Armchair, ArrowLeft, CalendarDays, CircleCheck, Clock, MapPin, Users } from "lucide-react";
+import { Armchair, ArrowLeft, CalendarDays, CalendarPlus, CircleCheck, Clock, MapPin, Users } from "lucide-react";
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type PassportEntry } from "@/lib/portal-activity-entries";
 import { dayRange } from "@/lib/activity-card";
@@ -9,6 +9,7 @@ import { sessionGrid } from "@/lib/session-grid";
 import type { Activity } from "@/lib/types";
 import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction } from "../actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { buttonVariants } from "@/components/ui/button";
 import { SubmissionHistory } from "@/components/portal/SubmissionHistory";
 import { SubmissionFields } from "@/components/portal/SubmissionFields";
 import { ActivitySessions } from "@/components/portal/ActivitySessions";
@@ -76,6 +77,25 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
   // Something to do in the dialog: a seat to book, or - holding one - another to ask to move to.
   const canAct = !state.closed && !controls.pending && (controls.bookable.length > 0 || controls.switchTargets.length > 0);
   const holding = state.held > 0;
+  const calendarPath = `/e/${slug}/a/${token}/activities/${activity.id}/calendar.ics`;
+  // Booked on one session, the thing left to do is put it in the calendar, so that is the big
+  // button and Change session becomes a link on the booked line. With several seats one
+  // button cannot name them all, so each line keeps its own calendar link as before.
+  const single = controls.held.length === 1 ? controls.held[0] : null;
+  const dialog = (inline: boolean) => (
+    <ActivityActionDialog
+      key={`${state.held}:${pendingId ?? ""}`}
+      inline={inline}
+      label={holding ? "Change session" : "Book your session"}
+      title={activity.name}
+      description={holding ? "Pick another time. The desk approves the move." : state.mustPick ? "Choose one session. The desk can move you later." : "Pick a time."}
+    >
+      <ActivitySessions
+        entry={{ state, controls }}
+        actions={{ book: bookAction.bind(null, slug, token), requestSwitch: requestSwitchAction.bind(null, slug, token) }}
+      />
+    </ActivityActionDialog>
+  );
   return (
     <>
       <InfoRows
@@ -92,7 +112,8 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
         <ActivityBooking
           controls={controls}
           pendingId={pendingId}
-          calendarPath={`/e/${slug}/a/${token}/activities/${activity.id}/calendar.ics`}
+          calendarPath={calendarPath}
+          change={single ? (canAct ? dialog(true) : null) : undefined}
           requestCancel={requestCancelAction.bind(null, slug, token)}
           withdraw={withdrawRequestAction.bind(null, slug, token)}
         />
@@ -106,19 +127,19 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
           </p>
         )}
       </section>
-      {canAct && (
-        <ActivityActionDialog
-          key={`${state.held}:${pendingId ?? ""}`}
-          label={holding ? "Change session" : "Book your session"}
-          title={activity.name}
-          description={holding ? "Pick another time. The desk approves the move." : state.mustPick ? "Choose one session. The desk can move you later." : "Pick a time."}
-        >
-          <ActivitySessions
-            entry={{ state, controls }}
-            actions={{ book: bookAction.bind(null, slug, token), requestSwitch: requestSwitchAction.bind(null, slug, token) }}
-          />
-        </ActivityActionDialog>
-      )}
+      {single ? (
+        <div className="sticky bottom-4 z-10 mt-2">
+          {/* A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
+              No `download` attribute either - iOS would save it instead of offering the calendar. */}
+          <a
+            href={`${calendarPath}?session=${single.session.id}`}
+            className={`${buttonVariants({ size: "lg" })} h-12 w-full gap-2 rounded-full text-base font-bold shadow-lg`}
+          >
+            <CalendarPlus data-icon="inline-start" />
+            Add to calendar
+          </a>
+        </div>
+      ) : canAct && dialog(false)}
     </>
   );
 }
