@@ -80,7 +80,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
                         prefetched. No `download` either - iOS would save it rather than
                         offer to add it. */}
                     {ics && (
-                      <a href={ics} className="inline-flex items-center gap-1 text-xs font-bold text-primary underline-offset-4 hover:underline">
+                      <a href={ics} className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-primary underline-offset-4 hover:underline">
                         <CalendarPlus className="size-3.5" aria-hidden="true" />
                         Add to calendar
                       </a>
