@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronRight, Ellipsis, EllipsisVertical, Menu, Share, Smartphone, SquarePlus } from "lucide-react";
+import { ChevronRight, Ellipsis, EllipsisVertical, Menu, MonitorDown, Share, Smartphone, SquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
@@ -197,8 +197,10 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
             <ol className="flex flex-col gap-3" aria-label="How to add it on Android">
               <Step n={1}>Open this page in <Strong>Chrome</Strong>. Came from WhatsApp? Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} />, then <Strong>Open in Chrome</Strong>.</Step>
               <Step n={2}>Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} /> at the top right.</Step>
-              <Step n={3}>Tap <Strong>Add to Home screen</Strong> or <Strong>Install app</Strong>.</Step>
-              <Step n={4}>Tap <Strong>Add</Strong> or <Strong>Install</Strong>. The icon appears on your home screen.</Step>
+              {/* Current Chrome names it "Install and create shortcut", low in the menu; older
+                  versions and other phones' Chrome still say one of the earlier names. */}
+              <Step n={3}>Scroll down the menu and tap <Strong>Install and create shortcut</Strong> <MonitorDown aria-hidden className={inlineIcon} />. On some phones it says <Strong>Add to Home screen</Strong> or <Strong>Install app</Strong>.</Step>
+              <Step n={4}>Tap <Strong>Install</Strong> or <Strong>Add</Strong>. The icon appears on your home screen.</Step>
             </ol>
           )}
         </div>
