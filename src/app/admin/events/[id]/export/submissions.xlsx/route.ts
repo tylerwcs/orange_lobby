@@ -1,5 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
+import { eventFields } from "@/lib/attendee-fields";
+import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSubmissions } from "@/lib/db/activities";
 import { signedSubmissionUrl } from "@/lib/db/media";
@@ -45,7 +47,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       }
       return {
         name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null,
-        submittedOn: s.submitted_on, createdAt: s.created_at, answers,
+        submittedOn: s.submitted_on, createdAt: s.created_at, answers, extra: a?.extra,
       };
     }));
     // `null` for the day: the download has no day context, so this is who has NEVER
@@ -53,13 +55,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const missing = missingFrom(f, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, null)
       .map((aid) => {
         const a = attendeeById.get(aid);
-        return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null };
+        return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null, extra: a?.extra };
       });
 
     return { formName: f.name, questions, rows, missing };
   }));
 
-  const buf = await buildFormsWorkbook(sheets).xlsx.writeBuffer();
+  const buf = await buildFormsWorkbook(sheets, exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields)).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

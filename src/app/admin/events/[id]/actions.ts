@@ -33,6 +33,7 @@ import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
+import { exportFieldsFromForm } from "@/lib/export-columns";
 import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
@@ -91,6 +92,17 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   await deleteEventImage(banner.stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(`/admin/events/${eventId}/settings`, "Settings saved."));
+}
+
+/** The attendee columns every export (bar Attendance) carries, saved from the Exports page. */
+export async function updateExportFieldsAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const fields = eventFields(ev.registration_questions, ev.attendee_fields);
+  await updateEvent(eventId, { export_fields: exportFieldsFromForm(formData.getAll("export_fields").map(String), fields) });
+  const path = `/admin/events/${eventId}/exports`;
+  revalidatePath(path);
+  redirect(flashPath(path, "Export columns saved."));
 }
 
 /**
@@ -471,8 +483,13 @@ export async function deleteAttendeeFieldsAction(eventId: string, formData: Form
 
   const kept = ev.attendee_fields.filter((f) => !doomed.includes(f));
   const gone = new Set(doomed.map((f) => f.key));
-  // A pinned column that no longer exists would only be dropped at render; drop it here too.
-  await updateEvent(eventId, { attendee_fields: kept, pinned_fields: ev.pinned_fields.filter((p) => !gone.has(p.key)) });
+  // A pinned or exported column that no longer exists would only be dropped at render or
+  // export; drop it here too, so a later column that happens to reuse the key starts unchosen.
+  await updateEvent(eventId, {
+    attendee_fields: kept,
+    pinned_fields: ev.pinned_fields.filter((p) => !gone.has(p.key)),
+    export_fields: ev.export_fields.filter((k) => !gone.has(k)),
+  });
   const keys = keysToErase((await listAttendees(ev.id)).map((a) => a.extra ?? {}), doomed, eventFields(ev.registration_questions, kept));
   await eraseExtraKeys(ev.id, keys);
 

@@ -18,8 +18,10 @@ import { Button } from "@/components/ui/button";
  * `extra` key, so a name with no field behind it can still carry a real value on the card.
  * The row says what it actually is, so an organiser does not mistake it for a normal field.
  */
-export function FieldPicker({ name, fields, selected, max }: {
+export function FieldPicker({ name, fields, selected, max, label = "Fields shown on the scan card" }: {
   name: string;
+  /** The trigger's accessible name; defaults to the scan card, where this picker started. */
+  label?: string;
   fields: { key: string; label: string }[];
   selected: string[];
   max: number;
@@ -50,7 +52,7 @@ export function FieldPicker({ name, fields, selected, max }: {
     <div className="grid w-full gap-2 sm:max-w-sm">
       {chosen.map((v) => <input key={v} type="hidden" name={name} value={v} />)}
       <Popover>
-        <PopoverTrigger render={<Button type="button" variant="outline" aria-label="Fields shown on the scan card" className="w-full justify-between font-normal" />}>
+        <PopoverTrigger render={<Button type="button" variant="outline" aria-label={label} className="w-full justify-between font-normal" />}>
           <span className="truncate">{chosen.length === 0 ? "None chosen" : chosen.map(labelFor).join(", ")}</span>
           <ChevronDown data-icon="inline-end" />
         </PopoverTrigger>

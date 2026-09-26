@@ -16,9 +16,11 @@ export { slugify } from "@/lib/slug";
  */
 function hydrate(row: unknown): Event {
   const ev = row as Event;
-  const raw = row as { attendee_fields?: unknown; pinned_fields?: unknown };
+  const raw = row as { attendee_fields?: unknown; pinned_fields?: unknown; export_fields?: unknown };
   return {
     ...ev,
+    // Absent on a database that predates 0047; an empty list is the same as nothing chosen.
+    export_fields: Array.isArray(raw.export_fields) ? raw.export_fields.filter((k): k is string => typeof k === "string") : [],
     attendee_fields: parseAttendeeFields(raw.attendee_fields),
     pinned_fields: hydratePins(raw),
   };

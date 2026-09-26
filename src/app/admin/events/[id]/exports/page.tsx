@@ -7,7 +7,11 @@ import { listActivities } from "@/lib/db/activities";
 import { breakoutSlots } from "@/lib/breakouts";
 import { appBaseUrl } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { eventFields, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
+import { FieldPicker } from "@/components/admin/FieldPicker";
+import { SubmitButton } from "@/components/admin/SubmitButton";
+import { updateExportFieldsAction } from "../actions";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 
@@ -22,6 +26,10 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   ]);
   const base = appBaseUrl();
   const b = `/admin/events/${ev.id}/export`;
+  const fields = eventFields(ev.registration_questions, ev.attendee_fields);
+  // Only keys that still have a field behind them: a deleted column is already skipped by every
+  // export, so offering it back as an orphan row would only ask the organiser to tidy it.
+  const chosen = ev.export_fields.filter((k) => fields.some((f) => f.key === k));
 
   const files: { href: string; icon: IconName; name: string; what: string }[] = [
     ...(ev.check_in_enabled ? [{
@@ -57,6 +65,28 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   return (
     <div className="flex flex-col gap-4">
       <AdminHeader title="Exports" subtitle={`${ev.name} · ${total} attendees`} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Columns in exports</CardTitle>
+          <CardDescription>
+            Attendee columns to add after Name and Email on every file below except Attendance, which already carries them all.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={updateExportFieldsAction.bind(null, ev.id)} className="flex flex-col items-start gap-3">
+            <FieldPicker
+              key={chosen.join("␟")}
+              name="export_fields"
+              label="Columns added to exports"
+              fields={fields}
+              selected={chosen}
+              max={MAX_ATTENDEE_FIELDS}
+            />
+            <SubmitButton>Save columns</SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* One list, a row per file, the way every other admin list reads: icon, name and what it
           holds, and the one thing to do with it. It was a grid of cards whose Download buttons

@@ -5,6 +5,7 @@ import type { SlotRoster } from "@/lib/breakouts";
 import { completionByAttendee } from "@/lib/booths";
 import { fieldValue } from "@/lib/attendee-values";
 import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
+import type { ExportColumn } from "@/lib/export-columns";
 
 const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 
@@ -17,15 +18,19 @@ function setLink(cell: ExcelJS.Cell, text: string, url: string): void {
   cell.font = { color: { argb: "FF0563C1" }, underline: true };
 }
 
-export type LinkRow = { name: string; email: string | null; category: string | null; table_no: string | null; link: string };
+/** The chosen columns' values for one person, blank where they have none. */
+const columnValues = (extra: Record<string, string> | null | undefined, columns: ExportColumn[]): string[] =>
+  columns.map((c) => fieldValue({ extra: extra ?? {} }, c.key));
 
-export function buildLinksWorkbook(rows: LinkRow[]): ExcelJS.Workbook {
+export type LinkRow = { name: string; email: string | null; category: string | null; table_no: string | null; link: string; extra?: Record<string, string> | null };
+
+export function buildLinksWorkbook(rows: LinkRow[], columns: ExportColumn[] = []): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Links");
-  ws.addRow(["Name", "Email", "Category", "Table", "Link"]);
+  ws.addRow(["Name", "Email", "Category", "Table", ...columns.map((c) => c.label), "Link"]);
   for (const r of rows) {
-    const row = ws.addRow([r.name, r.email, r.category, r.table_no, r.link]);
-    setLink(row.getCell(5), r.link, r.link);
+    const row = ws.addRow([r.name, r.email, r.category, r.table_no, ...columnValues(r.extra, columns), r.link]);
+    setLink(row.getCell(5 + columns.length), r.link, r.link);
   }
   ws.columns?.forEach((c) => { c.width = 24; });
   return wb;
@@ -81,7 +86,17 @@ export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick
   return wb;
 }
 
-export type RosterPerson = { name: string; email: string | null };
+export type RosterPerson = { name: string; email: string | null; extra?: Record<string, string> | null };
+
+/** A roster sheet's header and rows: Name, Email, then the chosen columns. */
+function writeRosterSheet(ws: ExcelJS.Worksheet, ids: string[], people: Map<string, RosterPerson>, columns: ExportColumn[]): void {
+  ws.addRow(["Name", "Email", ...columns.map((c) => c.label)]);
+  for (const id of ids) {
+    const p = people.get(id);
+    if (p) ws.addRow([p.name, p.email, ...columnValues(p.extra, columns)]);
+  }
+  ws.columns = [{ width: 28 }, { width: 28 }, ...columns.map(() => ({ width: 20 }))];
+}
 
 /** Strips every character Excel forbids in a sheet name: `: \ / ? * [ ]`. */
 export function sanitizeSheetNamePart(s: string): string {
@@ -157,20 +172,12 @@ export function formMissingSheetName(formName: string, taken: Set<string>): stri
  * the order of the `attendeeIds` it was given, which `listAttendees` orders by name) — rows are
  * written in that order as-is, with no re-sort here.
  */
-export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, RosterPerson>): ExcelJS.Workbook {
+export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, RosterPerson>, columns: ExportColumn[] = []): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const taken = new Set<string>();
-  const sheet = (slot: string, code: string, ids: string[]) => {
-    // rosterSheetName (via uniqueSheetName) claims the name in `taken` itself.
-    const name = rosterSheetName(slot, code, taken);
-    const ws = wb.addWorksheet(name);
-    ws.addRow(["Name", "Email"]);
-    for (const id of ids) {
-      const p = people.get(id);
-      if (p) ws.addRow([p.name, p.email]);
-    }
-    ws.columns = [{ width: 28 }, { width: 28 }];
-  };
+  // rosterSheetName (via uniqueSheetName) claims the name in `taken` itself.
+  const sheet = (slot: string, code: string, ids: string[]) =>
+    writeRosterSheet(wb.addWorksheet(rosterSheetName(slot, code, taken)), ids, people, columns);
   for (const s of slots) {
     for (const r of s.rooms) sheet(s.slot, r.code || "no code", r.attendeeIds);
     if (s.unassignedIds.length) sheet(s.slot, "unassigned", s.unassignedIds);
@@ -203,20 +210,13 @@ export function buildActivityRostersWorkbook(
   sessions: ActivitySessionRoster[],
   unbooked: ActivityUnbookedRoster[],
   people: Map<string, RosterPerson>,
+  columns: ExportColumn[] = [],
 ): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const taken = new Set<string>();
   // activitySheetName / activityUnbookedSheetName (via uniqueSheetName) claim the name in
   // `taken` themselves, so this closure only ever receives an already-unique name to write.
-  const sheet = (name: string, ids: string[]) => {
-    const ws = wb.addWorksheet(name);
-    ws.addRow(["Name", "Email"]);
-    for (const id of ids) {
-      const p = people.get(id);
-      if (p) ws.addRow([p.name, p.email]);
-    }
-    ws.columns = [{ width: 28 }, { width: 28 }];
-  };
+  const sheet = (name: string, ids: string[]) => writeRosterSheet(wb.addWorksheet(name), ids, people, columns);
   for (const s of sessions) sheet(activitySheetName(s.activityName, s.session, taken), s.attendeeIds);
   for (const u of unbooked) sheet(activityUnbookedSheetName(u.activityName, taken), u.attendeeIds);
   if (sessions.length === 0 && unbooked.length === 0) {
@@ -235,8 +235,8 @@ export function buildActivityRostersWorkbook(
  * One row per attendee, one column per booth, then the two numbers anyone actually reads —
  * how many stamps, and whether the card is full.
  */
-export type FormExportRow = { name: string; email: string | null; category: string | null; submittedOn: string; createdAt: string; answers: Record<string, string> };
-export type FormMissingRow = { name: string; email: string | null; category: string | null };
+export type FormExportRow = { name: string; email: string | null; category: string | null; submittedOn: string; createdAt: string; answers: Record<string, string>; extra?: Record<string, string> | null };
+export type FormMissingRow = { name: string; email: string | null; category: string | null; extra?: Record<string, string> | null };
 export type FormSheet = {
   formName: string;
   /** `file` marks an upload question whose answers arrive as signed URLs, written as links. */
@@ -296,7 +296,7 @@ export function retiredAnswerKeys(currentKeys: Iterable<string>, answerSets: Rec
  * applies here too), so an event with no forms still gets one sheet that says so in words
  * rather than a download that fails silently.
  */
-export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
+export function buildFormsWorkbook(forms: FormSheet[], columns: ExportColumn[] = []): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   if (forms.length === 0) {
     const ws = wb.addWorksheet("No submissions");
@@ -309,20 +309,20 @@ export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
     const retiredKeys = retiredAnswerKeys(f.questions.map((q) => q.key), f.rows.map((r) => r.answers));
     const ws = wb.addWorksheet(uniqueSheetName(sanitizeSheetNamePart(f.formName), taken));
     ws.addRow([
-      "Name", "Email", "Category", "Submitted", "Timestamp",
+      "Name", "Email", "Category", ...columns.map((c) => c.label), "Submitted", "Timestamp",
       ...f.questions.map((q) => q.label),
       ...retiredKeys.map((k) => `${k} (retired)`),
     ]);
     for (const r of f.rows) {
       const row = ws.addRow([
-        r.name, r.email, r.category, r.submittedOn, r.createdAt,
+        r.name, r.email, r.category, ...columnValues(r.extra, columns), r.submittedOn, r.createdAt,
         ...f.questions.map((q) => r.answers[q.key] ?? ""),
         ...retiredKeys.map((k) => r.answers[k] ?? ""),
       ]);
       // Anything that is not a URL ("(file unavailable)", a blank) stays as text.
       f.questions.forEach((q, i) => {
         const url = r.answers[q.key];
-        if (q.file && /^https?:\/\//.test(url ?? "")) setLink(row.getCell(6 + i), "Open file", url);
+        if (q.file && /^https?:\/\//.test(url ?? "")) setLink(row.getCell(6 + columns.length + i), "Open file", url);
       });
     }
     ws.columns?.forEach((c) => { c.width = 24; });
@@ -331,9 +331,9 @@ export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
     // grow an empty sheet that says nothing and still has to be clicked past.
     if (f.missing && f.missing.length > 0) {
       const missing = wb.addWorksheet(formMissingSheetName(f.formName, taken));
-      missing.addRow(["Name", "Email", "Category"]);
-      for (const m of f.missing) missing.addRow([m.name, m.email ?? "", m.category ?? ""]);
-      missing.columns = [{ width: 28 }, { width: 28 }, { width: 18 }];
+      missing.addRow(["Name", "Email", "Category", ...columns.map((c) => c.label)]);
+      for (const m of f.missing) missing.addRow([m.name, m.email ?? "", m.category ?? "", ...columnValues(m.extra, columns)]);
+      missing.columns = [{ width: 28 }, { width: 28 }, { width: 18 }, ...columns.map(() => ({ width: 20 }))];
     }
   }
   return wb;
@@ -347,18 +347,18 @@ export type PassportSheet = { name: string; booths: Booth[]; required: number | 
  * completed flag (D100). `stamps` may be the whole event's — `completionByAttendee` and the
  * per-booth lookup only ever match this passport's booth ids.
  */
-export function buildPassportWorkbook(attendees: Attendee[], passports: PassportSheet[], stamps: BoothStamp[]): ExcelJS.Workbook {
+export function buildPassportWorkbook(attendees: Attendee[], passports: PassportSheet[], stamps: BoothStamp[], columns: ExportColumn[] = []): ExcelJS.Workbook {
   const stamped = new Set(stamps.map((s) => `${s.booth_id}:${s.attendee_id}`));
   const wb = new ExcelJS.Workbook();
   const taken = new Set<string>();
   for (const p of passports) {
     const completion = completionByAttendee(p.booths, stamps, p.required);
     const ws = wb.addWorksheet(uniqueSheetName(sanitizeSheetNamePart(p.name) || "Passport", taken));
-    ws.addRow(["Name", "Email", "Category", ...p.booths.map((b) => b.name), "Stamps", "Completed"]);
+    ws.addRow(["Name", "Email", "Category", ...columns.map((c) => c.label), ...p.booths.map((b) => b.name), "Stamps", "Completed"]);
     for (const a of attendees) {
       const c = completion.get(a.id) ?? { collected: 0, complete: false };
       ws.addRow([
-        a.name, a.email, a.category,
+        a.name, a.email, a.category, ...columnValues(a.extra, columns),
         ...p.booths.map((b) => (stamped.has(`${b.id}:${a.id}`) ? "Yes" : "No")),
         c.collected,
         c.complete ? "Yes" : "No",

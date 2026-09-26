@@ -1,5 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
+import { eventFields } from "@/lib/attendee-fields";
+import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listActivities } from "@/lib/db/activities";
 import { listBooths, listStampsForEvent } from "@/lib/db/booths";
@@ -16,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // when booths exist, so this is reachable only by URL — return 404 rather than broken file (D100/D181).
   if (passports.length === 0) return new Response("This event has no booth passport.", { status: 404 });
   const sheets = passports.map((p) => ({ name: p.name, booths: booths.filter((b) => b.activity_id === p.id), required: p.stamps_required }));
-  const buf = await buildPassportWorkbook(attendees, sheets, stamps).xlsx.writeBuffer();
+  const buf = await buildPassportWorkbook(attendees, sheets, stamps, exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields)).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

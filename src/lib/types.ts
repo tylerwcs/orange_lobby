@@ -59,6 +59,8 @@ export type Event = {
   /** Organiser-defined columns on the attendee table; values live in `Attendee.extra`. */
   attendee_fields: AttendeeField[];
   scan_extra_fields: string[];
+  /** Attendee field keys every export except Attendance carries after its fixed columns, in order. */
+  export_fields: string[];
   /** Facts shown on the badge card, in order. The first gets the large treatment. */
   pinned_fields: PinnedField[];
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */

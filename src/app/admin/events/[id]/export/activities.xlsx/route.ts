@@ -1,5 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
+import { eventFields } from "@/lib/attendee-fields";
+import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSessions, listBookings } from "@/lib/db/activities";
 import { sessionRosters, unbookedByActivity, sessionLabel } from "@/lib/activities";
@@ -33,8 +35,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     attendeeIds: u.attendeeIds,
   }));
 
-  const people = new Map<string, RosterPerson>(attendees.map((a) => [a.id, { name: a.name, email: a.email }]));
-  const buf = await buildActivityRostersWorkbook(sessionRows, unbookedRows, people).xlsx.writeBuffer();
+  const people = new Map<string, RosterPerson>(attendees.map((a) => [a.id, { name: a.name, email: a.email, extra: a.extra }]));
+  const buf = await buildActivityRostersWorkbook(sessionRows, unbookedRows, people, exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields)).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

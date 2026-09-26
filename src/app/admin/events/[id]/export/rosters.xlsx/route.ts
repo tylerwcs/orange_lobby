@@ -1,5 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
+import { eventFields } from "@/lib/attendee-fields";
+import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listAgenda } from "@/lib/db/agenda";
 import { listAssignments } from "@/lib/db/breakouts";
@@ -16,10 +18,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // roster list rather than a query against a table it may not even have (pre-migration 0007).
   const assignments = breakoutSlots(items).length > 0 ? await listAssignments(ev.id) : [];
   const people = new Map<string, RosterPerson>(
-    attendees.map((a) => [a.id, { name: a.name, email: a.email }]),
+    attendees.map((a) => [a.id, { name: a.name, email: a.email, extra: a.extra }]),
   );
   const slots = rosters(items, attendees.map((a) => a.id), assignments);
-  const buf = await buildRosterWorkbook(slots, people).xlsx.writeBuffer();
+  const buf = await buildRosterWorkbook(slots, people, exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields)).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
