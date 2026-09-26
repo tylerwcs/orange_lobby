@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
-import { parseMasterlist, extraKeyFor, importedColumns } from "@/lib/masterlist";
+import { parseMasterlist, extraKeyFor, importedColumns, importedCategory, programmesFromJoining } from "@/lib/masterlist";
 import type { AttendeeField } from "@/lib/attendee-fields";
 
 async function book(rows: (string | number | null)[][]) {
@@ -133,5 +133,33 @@ describe("importedColumns", () => {
     const res = await parseMasterlist(buf);
     const cols = importedColumns(res.extraColumns, []);
     expect(cols.map((c) => res.rows[0].extra[c.key])).toEqual(["Bee", "012"]);
+  });
+});
+
+describe("programmes from Joining columns", () => {
+  it("reads the programmes a row joins, in column order", () => {
+    expect(programmesFromJoining({ "Joining KOM": "1", "Joining YEP": "1", "Joining Wellness": "0", Company: "ECP" })).toBe("KOM, YEP");
+    expect(programmesFromJoining({ "Joining KOM": "0", "Joining Wellness": "Yes" })).toBe("Wellness");
+  });
+  it("counts KIV, 0 and blank as not joining, and says null when nothing is joined", () => {
+    expect(programmesFromJoining({ "Joining YEP": "1", "Joining Wellness": "KIV" })).toBe("YEP");
+    expect(programmesFromJoining({ "Joining KOM": "0", "Joining YEP": "" })).toBeNull();
+  });
+  it("is undefined when the sheet has no Joining columns", () => {
+    expect(programmesFromJoining({ Company: "ECP" })).toBeUndefined();
+  });
+});
+
+describe("importedCategory", () => {
+  it("takes the sheet's own Category first", () => {
+    expect(importedCategory("VIP", { "Joining KOM": "1" }, "KOM")).toBe("VIP");
+  });
+  it("otherwise follows the Joining columns, even when they now say none", () => {
+    expect(importedCategory(null, { "Joining KOM": "1", "Joining YEP": "0" }, "YEP")).toBe("KOM");
+    expect(importedCategory("  ", { "Joining KOM": "0" }, "KOM")).toBeNull();
+  });
+  it("keeps what the attendee has when the sheet says nothing about it", () => {
+    expect(importedCategory(null, { Company: "ECP" }, "KOM, Wellness")).toBe("KOM, Wellness");
+    expect(importedCategory(null, {}, null)).toBeNull();
   });
 });

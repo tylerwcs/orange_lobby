@@ -7,7 +7,7 @@ import { confirmsDelete, deleteBlockedBecause } from "@/lib/event-delete";
 import { slugify } from "@/lib/slug";
 import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
-import { importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
+import { importedCategory, importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
 import { addField, renameField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, keysToErase, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
@@ -217,9 +217,10 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const toInsert: AttendeeInput[] = [];
   let updated = 0;
   for (const r of parsed.rows) {
-    const input: AttendeeInput = { name: r.name, email: r.email, category: r.category, extra: r.extra };
-    const key = input.email?.trim().toLowerCase();
+    const key = r.email?.trim().toLowerCase();
     const existing = key ? existingByEmail.get(key) : undefined;
+    // Category from the sheet, else its "Joining X" columns, else what the attendee already has.
+    const input: AttendeeInput = { name: r.name, email: r.email, category: importedCategory(r.category ?? null, r.extra, existing?.category ?? null), extra: r.extra };
     if (existing) {
       await updateAttendee(existing.id, { ...input, extra: mergeExtra(existing.extra, input.extra) });
       updated++;

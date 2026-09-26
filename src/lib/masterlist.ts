@@ -118,3 +118,35 @@ export async function parseMasterlist(buffer: ArrayBuffer | Buffer, fields: Atte
   }
   return { rows, skipped, extraColumns };
 }
+
+/** What counts as "joining" in a "Joining X" column. Anything else - 0, blank, "KIV" - is not. */
+const JOINS = new Set(["1", "yes", "y", "true"]);
+
+/**
+ * The programmes a masterlist row joins, read from its "Joining X" columns ("Joining KOM",
+ * "Joining YEP", "Joining Wellness" -> "KOM, YEP, Wellness", in the sheet's column order).
+ * Undefined when the sheet has no such columns at all; null when it has them and the person
+ * joins none - an answer, not a gap.
+ */
+export function programmesFromJoining(extra: Record<string, string>): string | null | undefined {
+  const joining = Object.entries(extra).flatMap(([key, value]) => {
+    const m = /^joining\s+(.+)$/i.exec(key.trim());
+    return m ? [{ programme: m[1].trim(), joins: JOINS.has(value.trim().toLowerCase()) }] : [];
+  });
+  if (joining.length === 0) return undefined;
+  const joined = joining.filter((j) => j.joins).map((j) => j.programme);
+  return joined.length ? joined.join(", ") : null;
+}
+
+/**
+ * The category an imported row ends up with. The sheet's own Category cell wins when it says
+ * something; otherwise the "Joining X" columns decide (programmesFromJoining); otherwise the
+ * attendee keeps the category they already have. A blank cell used to wipe it - so re-importing
+ * a sheet with no Category column quietly took every attendee off every programme's content.
+ */
+export function importedCategory(sheetCategory: string | null, extra: Record<string, string>, existing: string | null): string | null {
+  const own = sheetCategory?.trim();
+  if (own) return own;
+  const joined = programmesFromJoining(extra);
+  return joined === undefined ? existing : joined;
+}
