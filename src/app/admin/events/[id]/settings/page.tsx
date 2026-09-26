@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { formKey } from "@/lib/form-key";
+import { deleteBlockedBecause } from "@/lib/event-delete";
 import { requireEvent } from "@/lib/db/events";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
@@ -22,7 +23,7 @@ import { RememberedTabs } from "@/components/admin/RememberedTabs";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
+import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { StatusPicker } from "@/components/admin/StatusPicker";
@@ -96,7 +97,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   ]);
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
-  const openTab = rememberedTab(jar, tabScope, ev.status === "archived" ? ["details", "registration", "checkpoints", "danger"] : ["details", "registration", "checkpoints"]) ?? "details";
+  const openTab = rememberedTab(jar, tabScope, ["details", "registration", "checkpoints", "danger"]) ?? "details";
+  const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
   const days = eventDays(ev.starts_on, ev.ends_on);
@@ -115,7 +117,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
-          {ev.status === "archived" && <TabsTrigger value="danger">Danger zone</TabsTrigger>}
+          <TabsTrigger value="danger">Danger zone</TabsTrigger>
         </TabsList>
 
       <TabsContent value="checkpoints" className="flex flex-col gap-4 @container">
@@ -356,8 +358,10 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         </TabsContent>
       </form>
 
-      {ev.status === "archived" && (
-        <TabsContent value="danger">
+      {/* Always there now, since Delete is for any event that is not live; Purge still needs
+          the event archived first. */}
+      <TabsContent value="danger" className="flex flex-col gap-4">
+        {ev.status === "archived" && (
           <Card className="border-destructive/30">
             <CardHeader>
               <CardTitle className="text-destructive">Purge personal data</CardTitle>
@@ -371,8 +375,29 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               </form>
             </CardContent>
           </Card>
-        </TabsContent>
-      )}
+        )}
+
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-destructive">Delete this event</CardTitle>
+            <CardDescription>
+              Removes the event and everything in it: {total} attendee{total === 1 ? "" : "s"}, their check-ins, bookings and submissions, the agenda, activities, announcements, messages sent and every uploaded file. Every link to it stops working. This cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {deleteBlocked ? (
+              <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{ev.name} cannot be deleted. {deleteBlocked}</p>
+            ) : (
+              <form action={deleteEventAction.bind(null, ev.id)} className="grid max-w-md gap-3">
+                <Field label={`Type “${ev.name}” to confirm`} name="confirm_name" placeholder={ev.name} />
+                <ConfirmButton message={`Delete ${ev.name} and everything in it? This cannot be undone.`} confirmLabel="Yes, delete the event" className="w-fit text-destructive">
+                  Delete event
+                </ConfirmButton>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
       </RememberedTabs>
     </div>
   );

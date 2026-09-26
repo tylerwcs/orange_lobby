@@ -2,7 +2,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { createEvent, requireEvent, updateEvent, setEventStatus, rotateCrewToken } from "@/lib/db/events";
+import { createEvent, deleteEvent, requireEvent, updateEvent, setEventStatus, rotateCrewToken } from "@/lib/db/events";
+import { confirmsDelete, deleteBlockedBecause } from "@/lib/event-delete";
 import { slugify } from "@/lib/slug";
 import { questionsFromForm } from "@/lib/questions-form";
 import type { EventStatus } from "@/lib/types";
@@ -30,7 +31,7 @@ import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
-import { deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
+import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
@@ -791,6 +792,26 @@ export async function purgeEventAction(eventId: string) {
   if (ev.status !== "archived") redirect(flashPath(`/admin/events/${eventId}/settings`, "Archive the event first.", "error"));
   await purgeAttendeePersonalData(eventId, orgId);
   revalidatePath(`/admin/events/${eventId}`); redirect(flashPath(`/admin/events/${eventId}/settings`, "Personal data purged."));
+}
+
+/**
+ * Deletes the event outright (event-delete.ts): refused while it is live, and only when the
+ * typed name matches. Files first (deleteEventFiles), then the row, whose foreign keys take
+ * every attendee, booking, check-in and message with it. Nothing here can be undone.
+ */
+export async function deleteEventAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const back = `/admin/events/${eventId}/settings`;
+  const blocked = deleteBlockedBecause(ev.status);
+  if (blocked) redirect(flashPath(back, `${ev.name} cannot be deleted. ${blocked}`, "error"));
+  if (!confirmsDelete(String(formData.get("confirm_name") ?? ""), ev.name)) {
+    redirect(flashPath(back, "Type the event's name exactly to delete it.", "error"));
+  }
+  await deleteEventFiles(orgId, ev.id);
+  await deleteEvent(ev.id, orgId);
+  revalidatePath("/admin/events");
+  redirect(flashPath("/admin/events", `${ev.name} deleted.`));
 }
 
 // ---- Modules ----

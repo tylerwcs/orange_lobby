@@ -97,3 +97,15 @@ export async function updateEvent(id: string, patch: Partial<Event>): Promise<vo
 export async function setEventStatus(id: string, status: EventStatus) {
   await updateEvent(id, { status });
 }
+
+/**
+ * Deletes an event and, through the foreign keys' ON DELETE CASCADE, every row under it:
+ * attendees, check-ins, agenda, activities, bookings, submissions, messages sent. Scoped by
+ * org as well as id, so an id from another organisation deletes nothing. The event's uploaded
+ * files are not rows; deleteEventFiles clears them first.
+ */
+export async function deleteEvent(id: string, orgId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("events").delete().eq("id", id).eq("org_id", orgId).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}

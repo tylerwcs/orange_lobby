@@ -202,3 +202,23 @@ export async function sweepSubmissionPrefix(prefix: string): Promise<void> {
   const { error } = await serviceClient().storage.from(SUBMISSION_BUCKET).remove(paths);
   if (error) throw error;
 }
+
+/**
+ * Every file an event ever stored, in both buckets: its images (logo, banner, tile icons,
+ * editor pictures) and its attendees' uploads. Both are filed under `<org>/<event>/`
+ * (mediaObjectPath, submissionObjectPath), so a sweep of that prefix finds all of them.
+ *
+ * Throws on a failed removal, and runs BEFORE the event row is deleted: once the row is gone
+ * nothing names these files, so a delete that carried on past a failure here would leave them
+ * in the buckets for good.
+ */
+export async function deleteEventFiles(orgId: string, eventId: string): Promise<void> {
+  const prefix = `${orgId}/${eventId}`;
+  for (const bucket of [MEDIA_BUCKET, SUBMISSION_BUCKET]) {
+    const paths = await listAllObjectPaths(bucket, prefix);
+    for (let i = 0; i < paths.length; i += LIST_PAGE) {
+      const { error } = await serviceClient().storage.from(bucket).remove(paths.slice(i, i + LIST_PAGE));
+      if (error) throw error;
+    }
+  }
+}
