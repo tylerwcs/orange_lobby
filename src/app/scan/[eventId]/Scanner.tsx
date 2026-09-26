@@ -2,7 +2,7 @@
 import { PendingLink } from "@/components/PendingNav";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
-import { Camera, CameraOff, ChevronLeft, ScanBarcode, Search, Undo2, X } from "lucide-react";
+import { Camera, CameraOff, ChevronLeft, CircleAlert, CircleCheck, CircleX, History, ScanBarcode, Search, Undo2, X, type LucideIcon } from "lucide-react";
 import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,32 @@ const TONE: Record<ScanResult["status"], string> = {
   error: "bg-destructive-soft text-destructive-strong",
 };
 
+/** The solid band across the top of a result: white on the strong tone. Asserted in tests/contrast.test.ts. */
+const BAND: Record<ScanResult["status"], string> = {
+  ok: "bg-success-strong text-white",
+  duplicate: "bg-warning text-white",
+  undone: "bg-foreground text-background",
+  notfound: "bg-destructive-strong text-white",
+  error: "bg-destructive-strong text-white",
+};
+
+const ICON: Record<ScanResult["status"], LucideIcon> = {
+  ok: CircleCheck,
+  duplicate: History,
+  undone: Undo2,
+  notfound: CircleX,
+  error: CircleAlert,
+};
+
+/** The recent list's marker for each outcome, the same hue as its band. */
+const DOT: Record<Recent["status"], string> = {
+  ok: "bg-success-strong",
+  duplicate: "bg-warning",
+  undone: "bg-foreground",
+  notfound: "bg-destructive-strong",
+  error: "bg-destructive-strong",
+};
+
 const LABEL: Record<ScanResult["status"], string> = {
   ok: "Checked in",
   duplicate: "Already in",
@@ -96,7 +122,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
       setResult(r);
       if (r.status === "ok") setCount((c) => c + 1);
       if (r.status === "undone") setCount((c) => Math.max(0, c - 1));
-      if (r.attendee && r.status !== "error") setRecent((list) => [{ name: r.attendee!.name, at: new Date().toISOString(), status: r.status }, ...list].slice(0, 4));
+      if (r.attendee && r.status !== "error") setRecent((list) => [{ name: r.attendee!.name, at: new Date().toISOString(), status: r.status }, ...list].slice(0, 8));
       setUndoLeft(r.status === "ok" ? UNDO_SECONDS : 0);
       if (navigator.vibrate) navigator.vibrate(r.status === "ok" ? 100 : [80, 60, 80]);
     } catch {
@@ -195,33 +221,127 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
   // them to a login form they have no business seeing.
   const pickHref = crewToken ? `/crew/${crewToken}?pick=1` : `/scan/${eventId}?pick=1`;
 
-  return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-3 p-3 lg:max-w-5xl lg:gap-4 lg:p-6">
-      <header className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between gap-2">
-          {/* A link, styled as a button: it navigates, so it stays an <a>. Base UI's Button
-              would announce it as a button and take open-in-new-tab away from the crew.
-              PendingLink is still an <a>; it only adds the skeleton while the list loads. */}
-          <PendingLink href={pickHref} className={cn(buttonVariants({ variant: "ghost" }), "-ml-2 h-11 gap-1 px-2 text-base font-extrabold")}>
-            <ChevronLeft data-icon="inline-start" />
-            <span className="truncate">{checkpoint.name}</span>
-          </PendingLink>
-          <p className="flex shrink-0 items-baseline gap-1.5">
-            <span className="text-2xl font-extrabold leading-none tabular-nums">{count}</span>
-            <span className="text-xs font-semibold text-muted-foreground">of {total} in</span>
-          </p>
+  /*
+    The outcome of the last scan: the one thing crew read, so it is built to be read from a
+    step back. In hand-scanner mode it takes the whole main area — there is no camera to look
+    at, and a desk laptop has the width — and in camera mode it sits beside the camera.
+
+    A fixed minimum height, not a box that grows with its contents: when it collapsed back to
+    one line between scans, the search field below jumped up under a thumb already reaching
+    for it. Reserving the space buys a layout that never moves.
+  */
+  const hero = mode === "wedge";
+  const StatusIcon = result ? ICON[result.status] : null;
+  const outcome = (
+    <section
+      role="status"
+      aria-live="polite"
+      className={cn(
+        "flex flex-col overflow-hidden rounded-2xl",
+        hero ? "min-h-72 flex-1 lg:min-h-[480px]" : "min-h-56",
+        busy ? "bg-muted text-foreground"
+          : result ? TONE[result.status]
+          : hero && !focused ? "bg-warning-soft text-warning"
+          : "border border-border bg-card text-muted-foreground",
+      )}
+    >
+      {result && <span className="sr-only">{count} of {total} checked in.</span>}
+
+      {busy && (
+        <div className="flex flex-1 items-center justify-center gap-3">
+          <Spinner className={hero ? "size-7" : "size-5"} />
+          <span className={cn("font-extrabold", hero ? "text-3xl" : "text-lg")}>Checking…</span>
         </div>
+      )}
+
+      {!busy && !result && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+          {hero && <ScanBarcode className={cn("size-14", focused ? "text-primary" : "")} aria-hidden="true" />}
+          {!hero ? (
+            <p className="text-base">Point the camera at a badge, or search by name below.</p>
+          ) : focused ? (
+            <>
+              <p className="text-3xl font-extrabold text-foreground lg:text-4xl">Ready — scan a badge</p>
+              <p className="max-w-sm text-base">It checks in straight away. Badge won&apos;t scan? Search by name instead.</p>
+            </>
+          ) : (
+            // Scans typed while another window has focus go to that window, so the panel says
+            // so rather than looking ready while every badge is lost. Any click on the page
+            // brings the keyboard back.
+            <>
+              <p className="text-3xl font-extrabold lg:text-4xl">Scanner paused</p>
+              <p className="max-w-sm text-base">Another window has the keyboard, so scans go there. Click anywhere on this page to bring them back.</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {result && !busy && StatusIcon && (
+        <>
+          {/* The outcome as a solid band: colour and word together, so it reads at a glance
+              and does not rest on colour alone. */}
+          <div className={cn("flex items-center gap-3", BAND[result.status], hero ? "px-6 py-4 lg:px-8" : "px-4 py-3")}>
+            <StatusIcon className={hero ? "size-8" : "size-6"} aria-hidden="true" />
+            <p className={cn("font-extrabold", hero ? "text-2xl lg:text-3xl" : "text-xl")}>{LABEL[result.status]}</p>
+            {result.status === "duplicate" && result.earlier && (
+              <p className={cn("ml-auto font-semibold tabular-nums", hero ? "text-lg" : "text-sm")}>since {shortTime(result.earlier.at)}</p>
+            )}
+          </div>
+          <div className={cn("flex flex-1 flex-col", hero ? "gap-6 p-6 lg:p-8" : "gap-3 p-4")}>
+            {named
+              ? <p className={cn("font-extrabold leading-[1.05] tracking-tight text-balance", hero ? "text-4xl lg:text-6xl" : "text-3xl")}>{result.attendee!.name}</p>
+              : <p className={cn("font-bold leading-snug text-balance", hero ? "text-2xl lg:text-3xl" : "text-lg")}>{result.message}</p>}
+            {named && result.fields && result.fields.some((f) => f.value) && (
+              <dl className={cn("grid gap-x-6", hero ? "grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-y-4" : "grid-cols-2 gap-y-2")}>
+                {result.fields.filter((f) => f.value).map((f) => (
+                  <div key={f.label} className="min-w-0">
+                    <dt className={cn("font-semibold opacity-80", hero ? "text-base" : "text-sm")}>{f.label}</dt>
+                    <dd className={cn("font-extrabold break-words", hero ? "text-2xl lg:text-3xl" : "text-lg")}>{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {result.status === "ok" && undoLeft > 0 && (
+              <Button type="button" variant="outline" disabled={busy}
+                className={cn("mt-auto w-fit border-current/30 bg-transparent font-bold text-current hover:bg-background/60", hero ? "h-12 px-5 text-base" : "h-11 px-4")}
+                onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id, crewToken))}>
+                <Undo2 data-icon="inline-start" />
+                Undo · {undoLeft}s
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-col gap-3 p-3 lg:max-w-7xl lg:gap-5 lg:p-6">
+      {/* One row at desk width — the door, how badges are read, and how full the room is. On
+          a phone the count stays beside the door name, where it always was, and the rest wraps. */}
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_minmax(12rem,18rem)] lg:gap-x-6">
+        {/* A link, styled as a button: it navigates, so it stays an <a>. Base UI's Button
+            would announce it as a button and take open-in-new-tab away from the crew.
+            PendingLink is still an <a>; it only adds the skeleton while the list loads. */}
+        <PendingLink href={pickHref} className={cn(buttonVariants({ variant: "ghost" }), "-ml-2 h-11 w-fit max-w-full gap-1 px-2 text-base font-extrabold lg:text-lg")}>
+          <ChevronLeft data-icon="inline-start" />
+          <span className="truncate">{checkpoint.name}</span>
+        </PendingLink>
+        <p className="flex shrink-0 items-baseline gap-1.5 lg:order-3">
+          <span className="text-2xl font-extrabold leading-none tabular-nums lg:text-3xl">{count}</span>
+          <span className="text-xs font-semibold text-muted-foreground lg:text-sm">of {total} in</span>
+        </p>
         {/* At the door the real question is how many are still to come, so the count gets a
             length as well as a number. Green to agree with what a check-in means everywhere else. */}
         <Progress
           value={Math.round(meterPercent(count, total))}
-          className="[&_[data-slot=progress-indicator]]:bg-success-strong"
+          className="col-span-2 lg:order-4 lg:col-span-1 [&_[data-slot=progress-indicator]]:bg-success-strong"
           aria-label={`${count} of ${total} checked in at ${checkpoint.name}`}
           aria-valuenow={meterAriaValue(count, total)}
           aria-valuemin={0}
           aria-valuemax={meterAriaMax(total)}
         />
-        <div role="group" aria-label="How badges are read" className="mt-1 flex w-fit gap-1 rounded-lg bg-muted p-1">
+        <div role="group" aria-label="How badges are read" className="col-span-2 flex w-fit gap-1 rounded-lg bg-muted p-1 lg:order-2 lg:col-span-1">
           {([["camera", "Camera", Camera], ["wedge", "Hand scanner", ScanBarcode]] as const).map(([m, label, Icon]) => (
             <Button key={m} type="button" size="sm" variant={mode === m ? "outline" : "ghost"} aria-pressed={mode === m}
               onClick={() => switchMode(m)} className={cn("h-9 gap-1.5 px-3", mode === m ? "bg-background shadow-sm" : "text-muted-foreground")}>
@@ -231,108 +351,37 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
         </div>
       </header>
 
-      {/* Below lg this is just another flex-col in the stack — same gap, same order. At lg
-          it splits into two columns so a desk with real width isn't a phone strip with a
-          void either side: the camera grows on the left, the outcome and search sit right
-          where a mouse already is. */}
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-5">
-        {/* The camera box keeps its measurements: html5-qrcode sizes the video itself, and the
-            crew are trained on this frame. Only its surface changed. */}
-        {/* Hidden rather than unmounted in hand-scanner mode: html5-qrcode keeps hold of the
-            #reader element, and switching back must find the same one. */}
-        <div className={cn("relative min-h-[240px] overflow-hidden rounded-xl bg-foreground lg:min-h-[460px]", mode === "wedge" && "hidden")}>
-          <div id="reader" />
-          {camera.phase === "starting" && (
-            <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-background/70">Starting camera…</p>
-          )}
-          {camera.phase === "error" && camera.problem && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-background">
-              <CameraOff className="size-7 text-background/70" />
-              <p className="text-lg font-extrabold">{camera.problem.title}</p>
-              <p className="text-sm text-background/70">{camera.problem.hint}</p>
-              <Button type="button" variant="secondary" className="mt-2 h-11 px-4" onClick={() => { setCamera({ phase: "starting" }); startCamera(); }}>Retry camera</Button>
-            </div>
-          )}
-        </div>
-
-        {mode === "wedge" && (
-          // The same footprint as the camera, so the result panel and search sit where crew
-          // expect them. Clicking it is also how focus comes back: any click on the page does.
-          <div className={cn(
-            "flex min-h-[240px] flex-col items-center justify-center gap-2 rounded-xl p-6 text-center lg:min-h-[460px]",
-            focused ? "border border-border bg-card" : "bg-warning-soft text-warning",
-          )}>
-            <ScanBarcode className={cn("size-10", focused ? "text-primary" : "")} aria-hidden="true" />
-            {focused ? (
-              <>
-                <p className="text-lg font-extrabold">Ready for the hand scanner</p>
-                <p className="max-w-xs text-sm text-muted-foreground">Scan a badge and it checks in straight away. Nothing needs to be clicked first.</p>
-              </>
-            ) : (
-              <>
-                <p className="text-lg font-extrabold">Scanner paused</p>
-                <p className="max-w-xs text-sm">Another window has the keyboard, so scans go there. Click here to bring them back.</p>
-              </>
+      {/* Below lg this is one column in reading order. At lg it splits: the main area on the
+          left (the camera, or in hand-scanner mode the outcome itself) and a rail on the right
+          for everything crew reach for by hand — search and the recent list. */}
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch lg:gap-5">
+        <div className="flex flex-col gap-3">
+          {/* The camera box keeps its measurements: html5-qrcode sizes the video itself, and the
+              crew are trained on this frame. Hidden rather than unmounted in hand-scanner mode:
+              html5-qrcode keeps hold of the #reader element, and switching back must find it. */}
+          <div className={cn("relative min-h-[240px] overflow-hidden rounded-2xl bg-foreground lg:min-h-[480px]", hero && "hidden")}>
+            <div id="reader" />
+            {camera.phase === "starting" && (
+              <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-background/70">Starting camera…</p>
+            )}
+            {camera.phase === "error" && camera.problem && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-background">
+                <CameraOff className="size-7 text-background/70" />
+                <p className="text-lg font-extrabold">{camera.problem.title}</p>
+                <p className="text-sm text-background/70">{camera.problem.hint}</p>
+                <Button type="button" variant="secondary" className="mt-2 h-11 px-4" onClick={() => { setCamera({ phase: "starting" }); startCamera(); }}>Retry camera</Button>
+              </div>
             )}
           </div>
-        )}
+          {hero && outcome}
+        </div>
 
         <div className="flex flex-col gap-3">
-          {/*
-            A fixed height, not a box that grows with its contents. This panel sits directly
-            above the search field, and when it collapsed back to one line between scans the
-            field jumped up under a thumb already reaching for it. Reserving the space costs a
-            screenful of nothing on an idle scanner and buys a search box that never moves.
-          */}
-          <section
-            role="status"
-            aria-live="polite"
-            className={cn(
-              "flex min-h-44 flex-col justify-center rounded-xl p-4",
-              busy ? "bg-muted text-foreground" : result ? TONE[result.status] : "border border-border bg-card text-muted-foreground"
-            )}
-          >
-            {busy && (
-              <div className="flex items-center gap-2.5">
-                <Spinner className="size-4" />
-                <span className="text-sm font-bold">Checking…</span>
-              </div>
-            )}
-            {!busy && !result && <p className="text-sm">{mode === "wedge" ? "Scan a badge" : "Point the camera at a badge"}, or search by name below.</p>}
-            {result && <span className="sr-only">{count} of {total} checked in.</span>}
-            {result && !busy && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs font-bold uppercase tracking-[0.08em]">
-                  {LABEL[result.status]}
-                  {result.status === "duplicate" && result.earlier && <> · since {shortTime(result.earlier.at)}</>}
-                </p>
-                {named
-                  ? <p className="text-2xl font-extrabold leading-tight text-balance">{result.attendee!.name}</p>
-                  : <p className="text-lg font-bold leading-snug text-balance">{result.message}</p>}
-                {named && result.fields && result.fields.some((f) => f.value) && (
-                  <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                    {result.fields.filter((f) => f.value).map((f) => (
-                      <div key={f.label}>
-                        <dt className="text-xs uppercase tracking-[0.08em] opacity-80">{f.label}</dt>
-                        <dd className="font-bold">{f.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-                {result.status === "ok" && undoLeft > 0 && (
-                  <Button type="button" variant="outline" disabled={busy} className="mt-2 h-11 w-fit px-4 font-bold"
-                    onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id, crewToken))}>
-                    <Undo2 data-icon="inline-start" />
-                    Undo · {undoLeft}s
-                  </Button>
-                )}
-              </div>
-            )}
-          </section>
+          {!hero && outcome}
 
           <div>
             <label htmlFor="scan-search" className="sr-only">Search attendees by name or email</label>
-            <InputGroup className="h-12">
+            <InputGroup className="h-12 bg-card">
               <InputGroupAddon><Search /></InputGroupAddon>
               <InputGroupInput
                 id="scan-search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" enterKeyHint="search"
@@ -375,13 +424,16 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
           )}
 
           {recent.length > 0 && (
-            <section className="mt-2 flex flex-col gap-1.5">
-              <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Recent</h2>
+            <section className="mt-2 flex flex-col gap-2">
+              <h2 className="text-sm font-bold text-muted-foreground">Recent</h2>
               <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-sm">
                 {recent.map((r, i) => (
-                  <li key={`${r.at}-${i}`} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                    <span className="truncate font-semibold">{r.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
+                  // Eight at desk width, where the rail has the room; four on a phone, where
+                  // the list would push everything else off the screen.
+                  <li key={`${r.at}-${i}`} className={cn("flex items-center gap-3 px-3.5 py-2.5", i >= 4 && "hidden lg:flex")}>
+                    <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", DOT[r.status])} />
+                    <span className="min-w-0 flex-1 truncate font-semibold">{r.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
                   </li>
                 ))}
               </ul>

@@ -121,6 +121,10 @@ describe("token contrast (WCAG 2.x, sRGB)", () => {
   it("success-strong on card meets 4.5:1", () => assertPair("success-strong", "card"));
   it("warning on warning-soft meets 4.5:1", () => assertPair("warning", "warning-soft"));
   it("destructive-strong on destructive-soft meets 4.5:1", () => assertPair("destructive-strong", "destructive-soft"));
+  // The scanner's result band: white type on the solid outcome colour.
+  it("white on success-strong meets 4.5:1", () => assertPair("destructive-foreground", "success-strong"));
+  it("white on warning meets 4.5:1", () => assertPair("destructive-foreground", "warning"));
+  it("white on destructive-strong meets 4.5:1", () => assertPair("destructive-foreground", "destructive-strong"));
   it("accent-foreground on accent meets 4.5:1", () => assertPair("accent-foreground", "accent"));
   it("muted-foreground on muted meets 4.5:1", () => assertPair("muted-foreground", "muted"));
   it("muted-foreground on card meets 4.5:1", () => assertPair("muted-foreground", "card"));
