@@ -29,6 +29,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const questions = f.questions.map((q) => ({
       key: q.key,
       label: fileKeys.has(q.key) ? `${q.label} (link expires in 7 days)` : q.label,
+      file: fileKeys.has(q.key),
     }));
     const rows = await Promise.all((byForm.get(f.id) ?? []).map(async (s) => {
       const a = attendeeById.get(s.attendee_id);

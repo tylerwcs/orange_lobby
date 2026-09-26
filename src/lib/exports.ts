@@ -227,7 +227,8 @@ export type FormExportRow = { name: string; email: string | null; category: stri
 export type FormMissingRow = { name: string; email: string | null; category: string | null };
 export type FormSheet = {
   formName: string;
-  questions: { key: string; label: string }[];
+  /** `file` marks an upload question whose answers arrive as signed URLs, written as links. */
+  questions: { key: string; label: string; file?: boolean }[];
   rows: FormExportRow[];
   /**
    * Who has NEVER submitted to this form — not who missed a particular day. The download has
@@ -301,11 +302,20 @@ export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
       ...retiredKeys.map((k) => `${k} (retired)`),
     ]);
     for (const r of f.rows) {
-      ws.addRow([
+      const row = ws.addRow([
         r.name, r.email, r.category, r.submittedOn, r.createdAt,
         ...f.questions.map((q) => r.answers[q.key] ?? ""),
         ...retiredKeys.map((k) => r.answers[k] ?? ""),
       ]);
+      // A URL written as a plain string is inert text in Excel; only a hyperlink cell can be
+      // clicked. Anything that is not a URL ("(file unavailable)", a blank) stays as text.
+      f.questions.forEach((q, i) => {
+        const url = r.answers[q.key];
+        if (!q.file || !/^https?:\/\//.test(url ?? "")) return;
+        const cell = row.getCell(6 + i);
+        cell.value = { text: "Open file", hyperlink: url };
+        cell.font = { color: { argb: "FF0563C1" }, underline: true };
+      });
     }
     ws.columns?.forEach((c) => { c.width = 24; });
 

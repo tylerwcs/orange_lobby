@@ -30,6 +30,25 @@ describe("buildFormsWorkbook", () => {
     expect(ws.getRow(2).getCell(5).value).toBe("2026-09-28T01:23:45.000Z");
   });
 
+  // A bare URL string is plain text in Excel — nobody can click it. File answers must be
+  // written as real hyperlink cells.
+  it("writes a file answer as a clickable hyperlink, and leaves an unavailable file as text", () => {
+    const url = "https://x.supabase.co/storage/v1/object/sign/form-uploads/a.png?token=abc";
+    const withFile = {
+      ...sheet,
+      questions: [...sheet.questions, { key: "receipt", label: "Receipt", file: true }],
+      rows: [
+        { ...sheet.rows[0], answers: { mood: "Good", note: "", receipt: url } },
+        { ...sheet.rows[0], answers: { mood: "Good", note: "", receipt: "(file unavailable)" } },
+        { ...sheet.rows[0], answers: { mood: "Good", note: "" } as Record<string, string> },
+      ],
+    };
+    const ws = buildFormsWorkbook([withFile]).worksheets[0];
+    expect(ws.getRow(2).getCell(8).value).toEqual({ text: "Open file", hyperlink: url });
+    expect(ws.getRow(3).getCell(8).value).toBe("(file unavailable)");
+    expect(ws.getRow(4).getCell(8).value).toBe("");
+  });
+
   it("says so rather than writing an empty file when there are no submission activities", () => {
     const wb = buildFormsWorkbook([]);
     expect(wb.worksheets).toHaveLength(1);
