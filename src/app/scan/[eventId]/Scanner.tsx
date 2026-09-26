@@ -281,22 +281,24 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
           {/* The outcome as a solid band: colour and word together, so it reads at a glance
               and does not rest on colour alone. */}
           <div className={cn("flex items-center gap-3", BAND[result.status], hero ? "px-6 py-4 lg:px-8" : "px-4 py-3")}>
-            <StatusIcon className={hero ? "size-8" : "size-6"} aria-hidden="true" />
-            <p className={cn("font-extrabold", hero ? "text-2xl lg:text-3xl" : "text-xl")}>{LABEL[result.status]}</p>
+            <StatusIcon className={hero ? "size-7" : "size-6"} aria-hidden="true" />
+            <p className={cn("font-extrabold", hero ? "text-2xl" : "text-xl")}>{LABEL[result.status]}</p>
             {result.status === "duplicate" && result.earlier && (
               <p className={cn("ml-auto font-semibold tabular-nums", hero ? "text-lg" : "text-sm")}>since {shortTime(result.earlier.at)}</p>
             )}
           </div>
           <div className={cn("flex flex-1 flex-col", hero ? "gap-6 p-6 lg:p-8" : "gap-3 p-4")}>
             {named
-              ? <p className={cn("font-extrabold leading-[1.05] tracking-tight text-balance", hero ? "text-4xl lg:text-6xl" : "text-3xl")}>{result.attendee!.name}</p>
+              ? <p className={cn("font-extrabold leading-[1.05] tracking-tight text-balance", hero ? "text-3xl lg:text-5xl" : "text-3xl")}>{result.attendee!.name}</p>
               : <p className={cn("font-bold leading-snug text-balance", hero ? "text-2xl lg:text-3xl" : "text-lg")}>{result.message}</p>}
+            {/* Each field as wide as its own value, wrapping whole onto the next line — fixed
+                columns broke a long value like "KOM, YEP, Wellness" mid-word. */}
             {named && result.fields && result.fields.some((f) => f.value) && (
-              <dl className={cn("grid gap-x-6", hero ? "grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-y-4" : "grid-cols-2 gap-y-2")}>
+              <dl className={cn(hero ? "flex flex-wrap gap-x-10 gap-y-4" : "grid grid-cols-2 gap-x-6 gap-y-2")}>
                 {result.fields.filter((f) => f.value).map((f) => (
-                  <div key={f.label} className="min-w-0">
+                  <div key={f.label} className="min-w-0 max-w-full">
                     <dt className={cn("font-semibold opacity-80", hero ? "text-base" : "text-sm")}>{f.label}</dt>
-                    <dd className={cn("font-extrabold break-words", hero ? "text-2xl lg:text-3xl" : "text-lg")}>{f.value}</dd>
+                    <dd className={cn("font-extrabold break-words", hero ? "text-xl lg:text-2xl" : "text-lg")}>{f.value}</dd>
                   </div>
                 ))}
               </dl>
