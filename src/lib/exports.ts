@@ -8,13 +8,25 @@ import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 
 const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 
+/**
+ * Makes a cell a real hyperlink. A URL written as a plain string is inert text in Excel —
+ * nobody can click it — so every export that carries a URL goes through here.
+ */
+function setLink(cell: ExcelJS.Cell, text: string, url: string): void {
+  cell.value = { text, hyperlink: url };
+  cell.font = { color: { argb: "FF0563C1" }, underline: true };
+}
+
 export type LinkRow = { name: string; email: string | null; category: string | null; table_no: string | null; link: string };
 
 export function buildLinksWorkbook(rows: LinkRow[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Links");
   ws.addRow(["Name", "Email", "Category", "Table", "Link"]);
-  for (const r of rows) ws.addRow([r.name, r.email, r.category, r.table_no, r.link]);
+  for (const r of rows) {
+    const row = ws.addRow([r.name, r.email, r.category, r.table_no, r.link]);
+    setLink(row.getCell(5), r.link, r.link);
+  }
   ws.columns?.forEach((c) => { c.width = 24; });
   return wb;
 }
@@ -307,14 +319,10 @@ export function buildFormsWorkbook(forms: FormSheet[]): ExcelJS.Workbook {
         ...f.questions.map((q) => r.answers[q.key] ?? ""),
         ...retiredKeys.map((k) => r.answers[k] ?? ""),
       ]);
-      // A URL written as a plain string is inert text in Excel; only a hyperlink cell can be
-      // clicked. Anything that is not a URL ("(file unavailable)", a blank) stays as text.
+      // Anything that is not a URL ("(file unavailable)", a blank) stays as text.
       f.questions.forEach((q, i) => {
         const url = r.answers[q.key];
-        if (!q.file || !/^https?:\/\//.test(url ?? "")) return;
-        const cell = row.getCell(6 + i);
-        cell.value = { text: "Open file", hyperlink: url };
-        cell.font = { color: { argb: "FF0563C1" }, underline: true };
+        if (q.file && /^https?:\/\//.test(url ?? "")) setLink(row.getCell(6 + i), "Open file", url);
       });
     }
     ws.columns?.forEach((c) => { c.width = 24; });

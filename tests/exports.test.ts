@@ -12,7 +12,8 @@ describe("exports", () => {
     const wb = buildLinksWorkbook([{ name: "A", email: "a@b.co", category: null, table_no: "1", link: "https://x/e/s/a/t" }]);
     const ws = wb.getWorksheet("Links")!;
     expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Table", "Link"]);
-    expect(ws.getRow(2).getCell(5).value).toBe("https://x/e/s/a/t");
+    // Clickable, but the URL stays the visible text: it is what gets copied into a message.
+    expect(ws.getRow(2).getCell(5).value).toEqual({ text: "https://x/e/s/a/t", hyperlink: "https://x/e/s/a/t" });
   });
   it("builds attendance workbook with per-checkpoint columns", () => {
     const attendees = [{ id: "a1", name: "Ann", email: "a@b.co", phone: null, company: null, category: "VIP", table_no: "1", source: "import", extra: { Dietary: "Halal" } }] as never;
