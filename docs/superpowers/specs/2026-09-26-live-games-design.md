@@ -79,10 +79,12 @@ HTTP polling and no Realtime (D256).
   lane is Table 7", "you won") is read only when the version differs from `v`. When nothing
   changed it returns `{ now, v, unchanged: true }`.
 
-- **D260** **`GET /api/display/[token]/state?v=N`** (LED). Same versioning. The heavy parts — the
-  race's lane totals, last one standing's roster of players still in (D272) — are included only
-  when they can have changed: lane totals on every poll while a race is live, the roster only
-  when the version changes.
+- **D260** **`GET /api/display/[token]/state`** (LED) returns the **full view on every poll** — no
+  versioning. The LED is one client, so the largest payload (last one standing's roster, about
+  15 KB at 500 players) every second is nothing, and a view that is always complete cannot get
+  out of step. The host console gets the same treatment from `GET /api/host/[token]/state`, plus
+  what only the host sees: the game list, the draw pool size, and the winner during the spin.
+  Joining is `POST /api/play/[token]/join`, which answers with the phone's fresh state.
 
 - **D261** **Host actions are server actions on `/host/[token]`**, each one an RPC that takes the
   **expected version** and refuses a stale one. Two crew phones pressing "Next" together cannot
@@ -95,8 +97,10 @@ HTTP polling and no Realtime (D256).
 
 ### Tap race
 
-- **D263** **Lanes are picked by the host per race**: `table_no`, `category`, `company`, or
-  **solo**. Attendees with no value for the chosen field race in an **"Others"** lane. Solo means
+- **D263** **Lanes are picked by the host per race**: **category**, **any attendee field** the
+  event defines (table, company and department are ordinary fields in `extra` now), or **solo**.
+  Attendees with no value for the chosen field race in an **"Others"** lane. A numeric value is
+  labelled with its field ("Table 7"); any other value is its own label ("Sales"). Solo means
   every player is their own lane.
 
 - **D264** **Joining.** In the lobby the phone shows the player's lane ("You're racing for
@@ -274,7 +278,8 @@ New:
 - `src/app/host/[token]/` — host console and its server actions
 - `src/app/display/[token]/` — LED page
 - `src/app/e/[slug]/a/[token]/play/` — play page
-- `src/app/api/play/[token]/state`, `.../taps`, `.../answer`; `src/app/api/display/[token]/state`
+- `src/app/api/play/[token]/state`, `.../join`, `.../taps`, `.../answer`;
+  `src/app/api/display/[token]/state`; `src/app/api/host/[token]/state`
 - `src/components/games/` — race lanes, mosaic, draw roller, winner card, tap button
 - `scripts/games-load.mjs` — the load test
 
