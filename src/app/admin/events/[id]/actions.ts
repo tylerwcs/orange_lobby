@@ -612,7 +612,7 @@ export async function addAnnouncementAction(eventId: string, formData: FormData)
   const title = str(formData, "title");
   const body = str(formData, "body");
   if (!title || !body) redirect(flashPath(`/admin/events/${eventId}/announcements`, "An announcement needs a title and a body.", "error"));
-  await createAnnouncement(ev, { title, body, pinned: formData.get("pinned") === "on" });
+  await createAnnouncement(ev, { title, body, pinned: formData.get("pinned") === "on", categories: categoriesFromValues(formData.getAll("categories").map(String)) });
   revalidatePath(`/admin/events/${eventId}/announcements`);
   redirect(flashPath(`/admin/events/${eventId}/announcements`, `“${title}” posted.`));
 }
@@ -624,7 +624,7 @@ export async function updateAnnouncementAction(eventId: string, annId: string, f
   const title = str(formData, "title");
   const body = str(formData, "body");
   if (!title || !body) redirect(flashPath(back, "An announcement needs a title and a body.", "error"));
-  await updateAnnouncement(annId, eventId, { title, body, pinned: formData.get("pinned") === "on" });
+  await updateAnnouncement(annId, eventId, { title, body, pinned: formData.get("pinned") === "on", categories: categoriesFromValues(formData.getAll("categories").map(String)) });
   revalidatePath(back);
   redirect(flashPath(back, `“${title}” saved.`));
 }
@@ -675,7 +675,7 @@ export async function saveInfoTabAction(eventId: string, tabId: string, formData
   if (!(await listInfoTabs(ev.id)).some((t) => t.id === tabId)) redirect(flashPath(infoBack(eventId), "That tab no longer exists.", "error"));
   const title = str(formData, "title");
   if (!title) redirect(flashPath(back, "A tab needs a title.", "error"));
-  await updateInfoTab(tabId, ev.id, { title, html: cleanRichText(str(formData, "html")) });
+  await updateInfoTab(tabId, ev.id, { title, html: cleanRichText(str(formData, "html")), categories: categoriesFromValues(formData.getAll("categories").map(String)) });
   revalidatePath(infoBack(eventId));
   redirect(flashPath(back, "Tab saved."));
 }

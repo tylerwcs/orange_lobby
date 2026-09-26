@@ -206,7 +206,9 @@ export async function purgeAttendeePersonalData(eventId: string, orgId: string):
 }
 
 /**
- * The categories this event's attendees actually have, for the agenda form's toggles.
+ * The categories this event's attendees actually have, for the "Who can see it" toggles. An
+ * attendee in several programmes ("KOM, Wellness", see categoryParts) adds each one, so the
+ * toggles offer KOM and Wellness rather than their combination.
  *
  * One column rather than whole rows: the agenda page needs the names, not the people, and
  * it renders on every event whether or not it runs breakouts.
@@ -214,10 +216,12 @@ export async function purgeAttendeePersonalData(eventId: string, orgId: string):
 export async function listCategories(eventId: string): Promise<string[]> {
   const { data, error } = await serviceClient().from("attendees").select("category").eq("event_id", eventId);
   if (error) throw error;
-  const seen = new Set<string>();
+  // Keyed lowercased, so "KOM" and "kom" are one toggle; the first spelling met is shown.
+  const seen = new Map<string, string>();
   for (const r of (data ?? []) as { category: string | null }[]) {
-    const c = r.category?.trim();
-    if (c) seen.add(c);
+    for (const part of (r.category ?? "").split(/[,+/;]/).map((p) => p.trim()).filter(Boolean)) {
+      if (!seen.has(part.toLowerCase())) seen.set(part.toLowerCase(), part);
+    }
   }
-  return [...seen].sort((a, b) => a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0);
+  return [...seen.values()].sort((a, b) => a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0);
 }

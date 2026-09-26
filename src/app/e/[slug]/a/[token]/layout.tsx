@@ -33,7 +33,7 @@ export default async function PersonalLayout({ children, params }: {
 }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
-  const [activities, hasInfo] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id)]);
+  const [activities, hasInfo] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category)]);
   const chromeEvent = {
     name: event.name,
     logo_url: event.logo_url,

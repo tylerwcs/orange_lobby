@@ -7,8 +7,19 @@ import { shortDate } from "@/lib/text";
 export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlySet<string> } | null;
 
 /**
- * The category rule alone, over a bare list: no categories means everyone; otherwise the
- * viewer's category (case/whitespace-insensitive) must be one of the list's. This says nothing
+ * The parts an attendee's category names. One event can run several programmes side by side
+ * (KOM, YEP, Wellness) and one person can be in more than one of them, so the category may
+ * list several: "KOM, Wellness", "KOM + Wellness" and "KOM/Wellness" all mean both. Compared
+ * lowercased and trimmed, like every category comparison.
+ */
+export function categoryParts(category: string | null): string[] {
+  return (category ?? "").split(/[,+/;]/).map((p) => p.trim().toLowerCase()).filter(Boolean);
+}
+
+/**
+ * The category rule alone, over a bare list: no categories means everyone; otherwise one of
+ * the viewer's category parts (`categoryParts`, case/whitespace-insensitive) must be one of
+ * the list's - so "KOM, Wellness" sees what is for KOM and what is for Wellness. This says nothing
  * about assignment — `visibleTo` ANDs that in separately, and `categoryVisibleBreakoutItems`
  * below uses this rule on its own, on purpose, to answer "was this round ever open to them"
  * rather than "do they have a room in it".
@@ -18,9 +29,9 @@ export type AgendaViewer = { category: string | null; assignedItemIds: ReadonlyS
  * was a second case-folding comparison that agrees today and drifts later.
  */
 export function categoryMatches(categories: string[] | null, category: string | null): boolean {
-  const c = category?.trim().toLowerCase() ?? null;
-  return !categories || categories.length === 0
-    || (c !== null && categories.some((x) => x.trim().toLowerCase() === c));
+  if (!categories || categories.length === 0) return true;
+  const mine = categoryParts(category);
+  return categories.some((x) => mine.includes(x.trim().toLowerCase()));
 }
 
 /** The category rule applied to an `AgendaItem` — see `categoryMatches` for the rule itself. */
@@ -130,12 +141,19 @@ export function categoriesFromValues(values: string[]): string[] | null {
 export type DayTab = { date: string; name: string | null };
 
 /**
- * The portal's day tabs (D199): every day the organiser made, in date order - including an
- * empty one - plus any date the viewer has a row on without a day. That second case is a
- * booking dated outside the agenda, and a booking must never be unreachable.
+ * The portal's day tabs (D199): the days this viewer has something on, in date order, plus any
+ * date they have a row on without a day. That second case is a booking dated outside the
+ * agenda, and a booking must never be unreachable.
+ *
+ * `items` is what this viewer may see, so a day whose every session is for another programme
+ * (a YEP day, to somebody in KOM only) has no tab for them. It used to show, empty. When the
+ * viewer can see nothing at all - an agenda not written yet - the organiser's days still show,
+ * so the page is not blank.
  */
 export function dayTabs(days: Pick<AgendaDay, "date" | "name">[], items: Pick<AgendaItem, "day">[]): DayTab[] {
-  const byDate = new Map<string, string | null>(days.map((d) => [d.date, d.name?.trim() || null]));
+  const withRows = new Set(items.map((i) => i.day));
+  const shown = withRows.size === 0 ? days : days.filter((d) => withRows.has(d.date));
+  const byDate = new Map<string, string | null>(shown.map((d) => [d.date, d.name?.trim() || null]));
   for (const i of items) if (!byDate.has(i.day)) byDate.set(i.day, null);
   return [...byDate].map(([date, name]) => ({ date, name })).sort((a, b) => a.date.localeCompare(b.date));
 }

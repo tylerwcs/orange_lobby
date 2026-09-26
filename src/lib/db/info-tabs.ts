@@ -2,7 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import type { Event, InfoTab } from "@/lib/types";
 
-const COLUMNS = "id, org_id, event_id, title, html, sort_order";
+const COLUMNS = "id, org_id, event_id, title, html, sort_order, categories";
 
 /** The event's tabs in the organiser's order; creation breaks a tie. */
 export async function listInfoTabs(eventId: string): Promise<InfoTab[]> {
@@ -24,7 +24,7 @@ export async function createInfoTab(event: Pick<Event, "id" | "org_id">, title: 
   return (data as { id: string }).id;
 }
 
-export async function updateInfoTab(id: string, eventId: string, patch: { title: string; html: string | null }) {
+export async function updateInfoTab(id: string, eventId: string, patch: { title: string; html: string | null; categories: string[] | null }) {
   const { error } = await serviceClient().from("info_tabs").update(patch).eq("id", id).eq("event_id", eventId);
   if (error) throw error;
 }

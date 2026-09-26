@@ -10,7 +10,7 @@ export async function listAnnouncements(eventId: string): Promise<Announcement[]
   return data as Announcement[];
 }
 
-export type AnnouncementInput = { title: string; body: string; pinned: boolean };
+export type AnnouncementInput = { title: string; body: string; pinned: boolean; categories: string[] | null };
 
 /** A new announcement goes above the others, as the newest always has; dragging moves it from there. */
 export async function createAnnouncement(event: Pick<Event, "id" | "org_id">, input: AnnouncementInput) {

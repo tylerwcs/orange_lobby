@@ -23,7 +23,7 @@ export default async function GenericHome({ params, searchParams }: {
   const basePath = `/e/${slug}`;
   const [{ tiles, banner, agenda, days, day, announcements, now }, hasInfo] = await Promise.all([
     loadHomeData(event, null, basePath, requestedDay),
-    portalHasInfo(event.id),
+    portalHasInfo(event.id, null),
   ]);
   const launcher = launcherItems({ basePath, personal: false, hasInfo, tiles, icons: sectionIcons(event.section_icons) });
 

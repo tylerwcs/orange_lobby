@@ -33,7 +33,7 @@ export function CategoryCombo({ categories, name = "categories", defaultValue = 
       <div className="grid gap-1.5">
         <span className="text-sm font-medium">Who can see it</span>
         <p className="text-xs text-muted-foreground">
-          Everyone. Add attendees with categories and you can restrict a session to some of them.
+          Everyone. Give attendees categories (KOM, or several: KOM, Wellness) and you can restrict it to some of them.
         </p>
       </div>
     );

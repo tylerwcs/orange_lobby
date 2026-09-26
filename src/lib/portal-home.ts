@@ -1,3 +1,4 @@
+import { categoryMatches } from "@/lib/agenda";
 import "server-only";
 import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { listAnnouncements } from "@/lib/db/announcements";
@@ -43,7 +44,7 @@ export async function loadHomeData(
 ): Promise<HomeData> {
   // Two round trips, not four: everything that decides what else to read goes in the first,
   // and every read that depends on it goes together in the second.
-  const [allAgenda, agendaDays, announcements, activities] = await Promise.all([
+  const [allAgenda, agendaDays, allAnnouncements, activities] = await Promise.all([
     listAgenda(event.id),
     listAgendaDays(event.id),
     listAnnouncements(event.id),
@@ -78,6 +79,8 @@ export async function loadHomeData(
     bookedSessions,
     new Map(activities.map((a) => [a.id, a.name])),
   );
+  // Only the announcements meant for this viewer, the banner's included (null: the public portal).
+  const announcements = allAnnouncements.filter((a) => categoryMatches(a.categories, attendee?.category ?? null));
   const banner = announcements.find((a) => a.pinned) ?? announcements[0] ?? null;
   const tiles = resolveTiles({ event, basePath });
   const days = dayTabs(agendaDays, agenda);

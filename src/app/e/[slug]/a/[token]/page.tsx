@@ -64,7 +64,7 @@ export default async function PersonalHome({ params, searchParams }: {
     loadHomeData(event, attendee, basePath, requestedDay),
     arrivalTime(event, attendee.id),
     qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token)),
-    portalHasInfo(event.id),
+    portalHasInfo(event.id, attendee.category),
     // The same answer the layout already read (its queries are memoised): whether there is an
     // Activities button, and whether it carries the dot.
     loadActivityNav(event, attendee),

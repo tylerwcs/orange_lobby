@@ -8,10 +8,10 @@ export default async function PersonalInfo({ params, searchParams }: {
 }) {
   const { slug, token } = await params;
   const { tab } = await searchParams;
-  const { event } = await loadPortalAttendee(slug, token);
+  const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
   const stored = await portalInfoTabsFor(event.id);
-  const tabs = portalInfoTabs(stored);
+  const tabs = portalInfoTabs(stored, attendee.category);
   return <InfoPage event={event} tabs={tabs} selected={pickInfoTab(tabs, tab)} basePath={`/e/${slug}/a/${token}`} />;
 }

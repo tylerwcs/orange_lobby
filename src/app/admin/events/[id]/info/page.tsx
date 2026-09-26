@@ -2,6 +2,8 @@ import { requireAdmin } from "@/lib/auth";
 import { formKey } from "@/lib/form-key";
 import { requireEvent } from "@/lib/db/events";
 import { listInfoTabs } from "@/lib/db/info-tabs";
+import { listCategories } from "@/lib/db/attendees";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -40,7 +42,7 @@ export default async function InfoAdmin({ params, searchParams }: {
   const { tab } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const tabs = await listInfoTabs(ev.id);
+  const [tabs, categories] = await Promise.all([listInfoTabs(ev.id), listCategories(ev.id)]);
   const editing = tabs.find((t) => t.id === tab) ?? tabs[0] ?? null;
   const base = `/admin/events/${ev.id}/info`;
 
@@ -101,6 +103,7 @@ export default async function InfoAdmin({ params, searchParams }: {
                   unselectedClassName="text-foreground/60 hover:text-foreground"
                 >
                   {t.title}
+                  {t.categories?.length ? <span className="text-[11px] font-semibold text-muted-foreground">· {t.categories.join(", ")}</span> : null}
                   {/* Hidden from attendees until it has content (hasInfo), so say so here. */}
                   {!t.html?.trim() && <span className="rounded-full bg-muted-foreground/15 px-1.5 text-[11px] font-semibold text-muted-foreground">Empty</span>}
                 </PendingLink>
@@ -112,7 +115,7 @@ export default async function InfoAdmin({ params, searchParams }: {
           <PendingSwap fallback={<Skeleton className="h-[34rem] rounded-xl" />}>
             {/* Keyed by tab, so switching tabs remounts the editor rather than keeping the last
                 tab's text, and by its saved text (formKey), so a save starts it afresh. */}
-            <form key={`${editing.id}:${formKey([editing.title, editing.html])}`} action={saveInfoTabAction.bind(null, ev.id, editing.id)} className="flex flex-col gap-4">
+            <form key={`${editing.id}:${formKey([editing.title, editing.html, editing.categories])}`} action={saveInfoTabAction.bind(null, ev.id, editing.id)} className="flex flex-col gap-4">
               <Card>
                 <CardContent className="grid gap-4">
                   <div className="flex items-end gap-3">
@@ -126,6 +129,7 @@ export default async function InfoAdmin({ params, searchParams }: {
                       remove={deleteInfoTabAction.bind(null, ev.id, editing.id)}
                     />
                   </div>
+                  <div className="max-w-md"><CategoryCombo categories={categories} defaultValue={editing.categories ?? []} /></div>
                   <RichTextEditor
                     name="html"
                     label="Content"

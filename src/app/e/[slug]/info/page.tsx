@@ -11,7 +11,7 @@ export default async function GenericInfo({ params, searchParams }: {
   const { tab } = await searchParams;
   const event = await loadPortalEvent(slug);
   const stored = await portalInfoTabsFor(event.id);
-  const tabs = portalInfoTabs(stored);
+  const tabs = portalInfoTabs(stored, null);
   return (
     <PortalShell event={event} basePath={`/e/${slug}`} personal={false} current="/info">
       <InfoPage event={event} tabs={tabs} selected={pickInfoTab(tabs, tab)} basePath={`/e/${slug}`} />

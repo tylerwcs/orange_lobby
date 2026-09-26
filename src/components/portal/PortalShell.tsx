@@ -36,7 +36,7 @@ export async function PortalShell({ event, basePath, personal, children }: {
     banner_url: event.banner_url,
   };
   return (
-    <PortalChrome event={chromeEvent} basePath={basePath} personal={personal} hasInfo={await portalHasInfo(event.id)}>
+    <PortalChrome event={chromeEvent} basePath={basePath} personal={personal} hasInfo={await portalHasInfo(event.id, null)}>
       {/* A draft shows only PortalChrome's "Coming soon". Dropped here, on the server, because
           anything handed to that client component is sent to the browser even when it is not
           drawn (see isUnpublished). */}

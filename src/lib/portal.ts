@@ -49,7 +49,8 @@ export const portalBookings = cache((attendeeId: string) => bookingsForAttendee(
  * the bar and the switch) and the Info page asks for the tabs themselves, on the same request.
  */
 export const portalInfoTabsFor = cache((eventId: string) => listInfoTabs(eventId));
-export const portalHasInfo = cache(async (eventId: string) => hasInfo(await portalInfoTabsFor(eventId)));
+/** Whether the Info button shows for this viewer: their category, or null on the public portal. */
+export const portalHasInfo = cache(async (eventId: string, category: string | null) => hasInfo(await portalInfoTabsFor(eventId), category));
 
 export const loadPortalAttendee = cache(
   async (slug: string, token: string): Promise<{ event: Event; attendee: Attendee }> => {

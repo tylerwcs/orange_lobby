@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listAnnouncements } from "@/lib/db/announcements";
+import { listCategories } from "@/lib/db/attendees";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { shortDateTime } from "@/lib/text";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -21,11 +23,13 @@ export default async function AnnouncementsAdmin({ params }: { params: Promise<{
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const list = await listAnnouncements(ev.id);
+  const [list, categories] = await Promise.all([listAnnouncements(ev.id), listCategories(ev.id)]);
   const form = (a?: (typeof list)[number]) => (
     <form action={a ? updateAnnouncementAction.bind(null, ev.id, a.id) : addAnnouncementAction.bind(null, ev.id)} className="grid gap-3 p-1">
       <Field label="Title" name="title" defaultValue={a?.title} placeholder="Breakouts moved to Level 3" />
       <Field label="Message" name="body" textarea defaultValue={a?.body} />
+      {/* Who it is for, as on agenda rows: one event can run several programmes. */}
+      <CategoryCombo categories={categories} defaultValue={a?.categories ?? []} />
       <label className="flex min-h-10 items-center gap-2 text-sm font-bold">
         <input type="checkbox" name="pinned" defaultChecked={a?.pinned} className="size-4 accent-primary" /> {PIN_LABEL}
       </label>
@@ -68,6 +72,7 @@ export default async function AnnouncementsAdmin({ params }: { params: Promise<{
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold">{a.title}</span>
                         {a.pinned && <Badge>Pinned</Badge>}
+                        {a.categories?.length ? <Badge variant="secondary">{a.categories.join(", ")}</Badge> : null}
                         {/* The organiser's only way to tell two alike apart; attendees no longer see it. */}
                         <span className="text-xs text-muted-foreground">{shortDateTime(a.created_at)}</span>
                       </div>

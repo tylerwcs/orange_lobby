@@ -75,6 +75,8 @@ export type InfoTab = {
   /** Null when the organiser has not written anything yet; such a tab is hidden (D205). */
   html: string | null;
   sort_order: number;
+  /** Who sees it, as on agenda rows: null for everyone (categoryMatches). */
+  categories: string[] | null;
 };
 
 export type AttendeeSource = "import" | "registration" | "walkin";
@@ -154,6 +156,8 @@ export type Announcement = {
   /** The organiser's order (D249); attendees see them in it. */
   sort_order: number;
   created_at: string;
+  /** Who sees it, as on agenda rows: null for everyone (categoryMatches). */
+  categories: string[] | null;
 };
 
 export type Checkpoint = { id: string; event_id: string; name: string; day: string; sort_order: number };

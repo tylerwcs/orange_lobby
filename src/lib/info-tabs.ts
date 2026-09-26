@@ -1,4 +1,5 @@
 import type { InfoTab } from "@/lib/types";
+import { categoryMatches } from "@/lib/agenda";
 
 /**
  * One tab as an attendee sees it.
@@ -10,16 +11,20 @@ import type { InfoTab } from "@/lib/types";
  */
 export type PortalInfoTab = { key: string; title: string; html: string };
 
-/** Whether the event has an Info section at all (D205): at least one organiser tab with content. */
-export function hasInfo(tabs: Pick<InfoTab, "html">[]): boolean {
-  return tabs.some((t) => Boolean(t.html?.trim()));
+/**
+ * Whether this viewer has an Info section at all (D205): at least one tab with content that is
+ * for them (its categories, as on agenda rows). `category` is the attendee's, or null on the
+ * public portal, which sees only tabs for everyone.
+ */
+export function hasInfo(tabs: Pick<InfoTab, "html" | "categories">[], category: string | null): boolean {
+  return tabs.some((t) => Boolean(t.html?.trim()) && categoryMatches(t.categories, category));
 }
 
-/** The tabs attendees see (D205): non-empty tabs, in hand order. */
-export function portalInfoTabs(tabs: InfoTab[]): PortalInfoTab[] {
+/** The tabs this viewer sees (D205): non-empty tabs meant for them, in hand order. */
+export function portalInfoTabs(tabs: InfoTab[], category: string | null): PortalInfoTab[] {
   return [...tabs]
     .sort((a, b) => a.sort_order - b.sort_order)
-    .flatMap((t) => (t.html?.trim() ? [{ key: t.id, title: t.title, html: t.html }] : []));
+    .flatMap((t) => (t.html?.trim() && categoryMatches(t.categories, category) ? [{ key: t.id, title: t.title, html: t.html }] : []));
 }
 
 /** The tab `?tab=` names, else the first one - a stale or hand-typed link still lands somewhere. */
