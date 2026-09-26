@@ -358,8 +358,10 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
         <div className="flex flex-col gap-3">
           {/* The camera box keeps its measurements: html5-qrcode sizes the video itself, and the
               crew are trained on this frame. Hidden rather than unmounted in hand-scanner mode:
-              html5-qrcode keeps hold of the #reader element, and switching back must find it. */}
-          <div className={cn("relative min-h-[240px] overflow-hidden rounded-2xl bg-foreground lg:min-h-[480px]", hero && "hidden")}>
+              html5-qrcode keeps hold of the #reader element, and switching back must find it.
+              Also hidden for the first render, before this device's choice is read, so a hand-
+              scanner desk never flashes a camera box on load. */}
+          <div className={cn("relative min-h-[240px] overflow-hidden rounded-2xl bg-foreground lg:min-h-[480px]", mode !== "camera" && "hidden")}>
             <div id="reader" />
             {camera.phase === "starting" && (
               <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-background/70">Starting camera…</p>
