@@ -1,8 +1,8 @@
 "use client";
 import { PendingLink } from "@/components/PendingNav";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
-import { CameraOff, ChevronLeft, Search, Undo2, X } from "lucide-react";
+import { Camera, CameraOff, ChevronLeft, ScanBarcode, Search, Undo2, X } from "lucide-react";
 import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +15,35 @@ import { describeCameraError, type CameraProblem } from "@/lib/scan";
 import { meterAriaMax, meterAriaValue, meterPercent } from "@/lib/meter";
 import { shortTime } from "@/lib/text";
 import { cn } from "@/lib/utils";
+import { createWedgeReader } from "@/lib/wedge";
 
 type Recent = { name: string; at: string; status: ScanResult["status"] };
 type CameraState = { phase: "starting" | "ready" | "error"; problem?: CameraProblem };
 
 const UNDO_SECONDS = 6;
+
+/**
+ * Camera, or a handheld scanner that types like a keyboard. Remembered per device, not per
+ * event: it describes the hardware on this desk, and a registration laptop with a scanner on
+ * a cable should open that way every time, on every event and through the crew link alike.
+ */
+type Mode = "camera" | "wedge";
+const MODE_KEY = "scanner-mode";
+const modeListeners = new Set<() => void>();
+const readMode = (): Mode => {
+  try { return localStorage.getItem(MODE_KEY) === "wedge" ? "wedge" : "camera"; } catch { return "camera"; }
+};
+const subscribeMode = (fn: () => void) => { modeListeners.add(fn); return () => { modeListeners.delete(fn); }; };
+const writeMode = (m: Mode) => {
+  try { localStorage.setItem(MODE_KEY, m); } catch { /* private mode: it falls back to the camera next time */ }
+  modeListeners.forEach((fn) => fn());
+};
+
+/** Whether keystrokes reach this page at all: a hand scanner types into the focused window. */
+const subscribeFocus = (fn: () => void) => {
+  window.addEventListener("focus", fn); window.addEventListener("blur", fn);
+  return () => { window.removeEventListener("focus", fn); window.removeEventListener("blur", fn); };
+};
 
 /** The ground each outcome is read off. Every pair here is asserted in tests/contrast.test.ts. */
 const TONE: Record<ScanResult["status"], string> = {
@@ -49,6 +73,14 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
   const busyRef = useRef(false);
+  // Null on the server and for the first client render, so neither the camera nor the
+  // keyboard listener starts until this device's own choice is known.
+  const mode = useSyncExternalStore<Mode | null>(subscribeMode, readMode, () => null);
+  // A scan that lands while the last one is still on its way. The camera can drop it — the
+  // badge is still in front of the lens and reads again a moment later — but a hand scanner
+  // fires once, so the one waiting runs next instead of vanishing.
+  const queuedRef = useRef<string | null>(null);
+  const focused = useSyncExternalStore(subscribeFocus, () => document.hasFocus(), () => true);
 
   const handle = useCallback(async (fn: () => Promise<ScanResult>) => {
     busyRef.current = true;
@@ -72,6 +104,18 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
     } finally { busyRef.current = false; setBusy(false); setHits([]); setQ(""); }
   }, []);
 
+  /** One decoded code, from either the camera or the hand scanner. */
+  const scanText = useCallback(async (first: string, queueIfBusy: boolean) => {
+    if (busyRef.current) { if (queueIfBusy) queuedRef.current = first; return; }
+    for (let text: string | null = first; text; text = queuedRef.current, queuedRef.current = null) {
+      const now = Date.now();
+      if (text === lastRef.current.text && now - lastRef.current.at < 3000) continue;
+      lastRef.current = { text, at: now };
+      const scanned = text;
+      await handle(() => checkInByTokenAction(eventId, checkpoint.id, scanned, crewToken));
+    }
+  }, [eventId, checkpoint.id, handle, crewToken]);
+
   // No synchronous setState here: the initial state is already "starting", and Retry
   // resets it in the click handler before calling this again.
   const startCamera = useCallback(() => {
@@ -82,23 +126,40 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
       if (cancelled) return;
       const s = scannerRef.current ?? new Html5Qrcode("reader");
       scannerRef.current = s;
-      s.start({ facingMode: "environment" }, { fps: 8, qrbox: 220 }, async (text) => {
-        if (busyRef.current) return;
-        const now = Date.now();
-        if (text === lastRef.current.text && now - lastRef.current.at < 3000) return;
-        lastRef.current = { text, at: now };
-        await handle(() => checkInByTokenAction(eventId, checkpoint.id, text, crewToken));
-      }, () => {})
+      s.start({ facingMode: "environment" }, { fps: 8, qrbox: 220 }, (text) => scanText(text, false), () => {})
         .then(() => { if (!cancelled) setCamera({ phase: "ready" }); })
         .catch((e) => { if (!cancelled) setCamera({ phase: "error", problem: describeCameraError(e) }); });
     });
     return () => { cancelled = true; };
-  }, [eventId, checkpoint.id, handle, crewToken]);
+  }, [scanText]);
 
   useEffect(() => {
+    if (mode !== "camera") return;
     const cancel = startCamera();
-    return () => { cancel(); scannerRef.current?.stop().catch(() => {}); };
-  }, [startCamera]);
+    return () => {
+      cancel();
+      // stop() throws synchronously, not as a rejection, when the camera never got going
+      // (permission refused, no camera) — and switching to the hand scanner must still work then.
+      try { scannerRef.current?.stop().catch(() => {}); } catch { /* nothing was running */ }
+    };
+  }, [mode, startCamera]);
+
+  // The hand scanner types into whatever has focus, so it is listened for on the whole
+  // window rather than in a box that a stray click can take focus away from. A scan that
+  // lands in the name search is still a scan: handle() clears the box once it is recorded.
+  useEffect(() => {
+    if (mode !== "wedge") return;
+    const reader = createWedgeReader();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.isComposing) return;
+      const scanned = reader.feed(e.key, e.timeStamp);
+      if (scanned === null) return;
+      e.preventDefault(); // the Enter (or Tab) that ended it must not also act on the page
+      void scanText(scanned, true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode, scanText]);
 
   useEffect(() => {
     if (undoLeft <= 0) return;
@@ -119,6 +180,12 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
     }, 250);
     return () => clearTimeout(t);
   }, [q, eventId, checkpoint.id, crewToken]);
+
+  const switchMode = (m: Mode) => {
+    if (m === mode) return;
+    if (m === "camera") setCamera({ phase: "starting" });
+    writeMode(m);
+  };
 
   const named = result?.attendee && result.status !== "error" && result.status !== "notfound";
 
@@ -154,6 +221,14 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
           aria-valuemin={0}
           aria-valuemax={meterAriaMax(total)}
         />
+        <div role="group" aria-label="How badges are read" className="mt-1 flex w-fit gap-1 rounded-lg bg-muted p-1">
+          {([["camera", "Camera", Camera], ["wedge", "Hand scanner", ScanBarcode]] as const).map(([m, label, Icon]) => (
+            <Button key={m} type="button" size="sm" variant={mode === m ? "outline" : "ghost"} aria-pressed={mode === m}
+              onClick={() => switchMode(m)} className={cn("h-9 gap-1.5 px-3", mode === m ? "bg-background shadow-sm" : "text-muted-foreground")}>
+              <Icon data-icon="inline-start" />{label}
+            </Button>
+          ))}
+        </div>
       </header>
 
       {/* Below lg this is just another flex-col in the stack — same gap, same order. At lg
@@ -163,7 +238,9 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-5">
         {/* The camera box keeps its measurements: html5-qrcode sizes the video itself, and the
             crew are trained on this frame. Only its surface changed. */}
-        <div className="relative min-h-[240px] overflow-hidden rounded-xl bg-foreground lg:min-h-[460px]">
+        {/* Hidden rather than unmounted in hand-scanner mode: html5-qrcode keeps hold of the
+            #reader element, and switching back must find the same one. */}
+        <div className={cn("relative min-h-[240px] overflow-hidden rounded-xl bg-foreground lg:min-h-[460px]", mode === "wedge" && "hidden")}>
           <div id="reader" />
           {camera.phase === "starting" && (
             <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-background/70">Starting camera…</p>
@@ -177,6 +254,28 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
             </div>
           )}
         </div>
+
+        {mode === "wedge" && (
+          // The same footprint as the camera, so the result panel and search sit where crew
+          // expect them. Clicking it is also how focus comes back: any click on the page does.
+          <div className={cn(
+            "flex min-h-[240px] flex-col items-center justify-center gap-2 rounded-xl p-6 text-center lg:min-h-[460px]",
+            focused ? "border border-border bg-card" : "bg-warning-soft text-warning",
+          )}>
+            <ScanBarcode className={cn("size-10", focused ? "text-primary" : "")} aria-hidden="true" />
+            {focused ? (
+              <>
+                <p className="text-lg font-extrabold">Ready for the hand scanner</p>
+                <p className="max-w-xs text-sm text-muted-foreground">Scan a badge and it checks in straight away. Nothing needs to be clicked first.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-extrabold">Scanner paused</p>
+                <p className="max-w-xs text-sm">Another window has the keyboard, so scans go there. Click here to bring them back.</p>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           {/*
@@ -199,7 +298,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
                 <span className="text-sm font-bold">Checking…</span>
               </div>
             )}
-            {!busy && !result && <p className="text-sm">Point the camera at a badge, or search by name below.</p>}
+            {!busy && !result && <p className="text-sm">{mode === "wedge" ? "Scan a badge" : "Point the camera at a badge"}, or search by name below.</p>}
             {result && <span className="sr-only">{count} of {total} checked in.</span>}
             {result && !busy && (
               <div className="flex flex-col gap-1">
