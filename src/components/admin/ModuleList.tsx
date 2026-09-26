@@ -176,6 +176,7 @@ function Row({ m, editor, toggle, remove }: { m: EventModule; editor: React.Reac
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span className="font-bold">{kind(m)}</span>
           {where && <span className="truncate">{where}</span>}
+          {m.categories?.length ? <span className="font-semibold">· {m.categories.join(", ")}</span> : null}
           {planMissing && <Attention text="No image yet — hidden from attendees" />}
         </div>
         {/* Phone only: status folds under the name. */}

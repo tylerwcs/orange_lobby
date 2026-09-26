@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { formKey } from "@/lib/form-key";
 import { listPassportBooths, listStampsForEvent } from "@/lib/db/booths";
-import { listAttendees } from "@/lib/db/attendees";
+import { listAttendees, listCategories } from "@/lib/db/attendees";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { completionByAttendee } from "@/lib/booths";
 import { eligible } from "@/lib/activities";
 import { appBaseUrl, boothScannerLink } from "@/lib/links";
@@ -37,8 +38,8 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
  */
 export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity: Activity; qr?: string }) {
   const path = `/admin/events/${ev.id}/activities/${activity.id}`;
-  const [booths, allStamps, attendees] = await Promise.all([
-    listPassportBooths(activity.id), listStampsForEvent(ev.id), listAttendees(ev.id),
+  const [booths, allStamps, attendees, categories] = await Promise.all([
+    listPassportBooths(activity.id), listStampsForEvent(ev.id), listAttendees(ev.id), listCategories(ev.id),
   ]);
   const boothIds = new Set(booths.map((b) => b.id));
   const stamps = allStamps.filter((s) => boothIds.has(s.booth_id));
@@ -104,8 +105,8 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
             <Field label="Name" name="name" defaultValue={activity.name} />
             <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
             <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
-            <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
-              placeholder="VIP, Management" description="Comma separated. Leave blank for everyone. Booths refuse anyone outside these." />
+            {/* Booths refuse anyone outside these. */}
+            <CategoryCombo categories={categories} defaultValue={activity.categories ?? []} />
             <div className="flex flex-col gap-1.5">
               <label htmlFor="stamps_required" className="text-sm font-bold">Stamps needed</label>
               <div className="flex items-center gap-2">

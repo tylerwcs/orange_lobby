@@ -87,3 +87,17 @@ describe("reorderModules", () => {
     expect(out.map((m) => ("id" in m ? m.id : m.key))).toEqual(["b", "a"]);
   });
 });
+
+describe("tile categories", () => {
+  const base = { preset: "tile", label: "YEP forms", icon: "file", target_kind: "url", url: "https://x/", enabled: "on" };
+  it("keeps the ticked categories, once each", () => {
+    expect(moduleFromForm(form({ ...base, categories: "YEP,Wellness,YEP" }), "t1")).toMatchObject({ categories: ["YEP", "Wellness"] });
+  });
+  it("stores no categories when none are ticked, which means everyone", () => {
+    expect(moduleFromForm(form({ ...base, categories: "" }), "t1")).not.toHaveProperty("categories");
+    expect(moduleFromForm(form(base), "t1")).not.toHaveProperty("categories");
+  });
+  it("lets the floor plan be for some programmes too", () => {
+    expect(moduleFromForm(form({ preset: "floor_plan", url: "https://x/p.png", enabled: "on", categories: "KOM" }), "x")).toMatchObject({ key: "floor_plan", categories: ["KOM"] });
+  });
+});

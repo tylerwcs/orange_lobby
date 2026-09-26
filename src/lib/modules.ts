@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { categoryMatches } from "@/lib/agenda";
 import type { Event } from "@/lib/types";
 import type { IconName } from "@/components/ui/icon";
 
@@ -63,19 +64,21 @@ export type TileTarget = { kind: "url"; url: string } | { kind: "route"; route: 
  * `icon_image` is an uploaded picture drawn in the launcher's circle in place of the preset
  * icon (D213). The preset stays required: it is what shows when there is no picture.
  */
-export type BuiltinModule = { key: BuiltinKey; enabled: boolean; label?: string; subtitle?: string; url?: string; icon_image?: string };
-export type LinkModule = { key: "link"; id: string; enabled: boolean; label: string; subtitle?: string; url: string; icon: ModuleIcon };
+/** `categories`: who sees the tile on the portal home, as on agenda rows (categoryMatches); absent for everyone. */
+export type BuiltinModule = { key: BuiltinKey; enabled: boolean; label?: string; subtitle?: string; url?: string; icon_image?: string; categories?: string[] };
+export type LinkModule = { key: "link"; id: string; enabled: boolean; label: string; subtitle?: string; url: string; icon: ModuleIcon; categories?: string[] };
 /** An admin-authored tile. Replaces the four fixed `link` slots. */
-export type TileModule = { key: "tile"; id: string; enabled: boolean; label: string; subtitle?: string; icon: ModuleIcon; icon_image?: string; target: TileTarget };
+export type TileModule = { key: "tile"; id: string; enabled: boolean; label: string; subtitle?: string; icon: ModuleIcon; icon_image?: string; target: TileTarget; categories?: string[] };
 export type EventModule = BuiltinModule | LinkModule | TileModule;
 
 const SAFE_URL = /^https?:\/\//i;
 const iconImage = z.string().regex(SAFE_URL, "icon_image must start with http:// or https://").optional();
-const builtinSchema = z.object({ key: z.enum(BUILTIN_MODULES), enabled: z.boolean(), label: z.string().min(1).max(40).optional(), subtitle: z.string().max(60).optional(), url: z.string().regex(SAFE_URL, "url must start with http:// or https://").optional(), icon_image: iconImage });
+const categories = z.array(z.string().trim().min(1).max(60)).max(30).optional();
+const builtinSchema = z.object({ key: z.enum(BUILTIN_MODULES), enabled: z.boolean(), label: z.string().min(1).max(40).optional(), subtitle: z.string().max(60).optional(), url: z.string().regex(SAFE_URL, "url must start with http:// or https://").optional(), icon_image: iconImage, categories });
 const linkSchema = z.object({
   key: z.literal("link"), id: z.string().regex(/^[a-z0-9_-]{1,32}$/), enabled: z.boolean(),
   label: z.string().min(1).max(40), subtitle: z.string().max(60).optional(),
-  url: z.string().regex(SAFE_URL, "url must start with http:// or https://"), icon: z.enum(MODULE_ICONS),
+  url: z.string().regex(SAFE_URL, "url must start with http:// or https://"), icon: z.enum(MODULE_ICONS), categories,
 });
 const targetSchema = z.union([
   z.object({ kind: z.literal("url"), url: z.string().regex(SAFE_URL, "url must start with http:// or https://") }),
@@ -84,7 +87,7 @@ const targetSchema = z.union([
 const tileSchema = z.object({
   key: z.literal("tile"), id: z.string().regex(/^[a-z0-9_-]{1,32}$/), enabled: z.boolean(),
   label: z.string().min(1).max(40), subtitle: z.string().max(60).optional(),
-  icon: z.enum(MODULE_ICONS), icon_image: iconImage, target: targetSchema,
+  icon: z.enum(MODULE_ICONS), icon_image: iconImage, target: targetSchema, categories,
 });
 const moduleSchema = z.union([builtinSchema, linkSchema, tileSchema]);
 
@@ -194,17 +197,21 @@ const safeImage = (url: string | undefined): string | null => (url && SAFE_URL.t
  * `personal`, `attendee`, `next` and `latestAnnouncement` used to be inputs here: they
  * filled the subtitles of the agenda, seat and announcement tiles. Those tiles are gone,
  * and with them the only reason this function needed to know anything about who is looking
- * or what is happening. It now depends on the event and the path, and nothing else.
+ * or what is happening. It depended on the event and the path alone until tiles gained
+ * categories: `category` is the viewer's (null on the public portal), and a tile for other
+ * programmes is left off their home (categoryMatches, as on agenda rows).
  */
 export function resolveTiles(input: {
   event: Pick<Event, "floor_plan_url" | "info_page_title" | "modules">;
   basePath: string;
+  category?: string | null;
 }): Tile[] {
-  const { event, basePath } = input;
+  const { event, basePath, category = null } = input;
   const modules = event.modules?.length ? event.modules : defaultModules();
   const out: Tile[] = [];
   for (const m of modules) {
     if (!m.enabled) continue;
+    if (!categoryMatches(m.categories ?? null, category)) continue;
     // A row for a retired built-in parses but draws nothing.
     if (m.key !== "link" && m.key !== "tile" && !IS_TILE.has(m.key)) continue;
     if (m.key === "tile") {

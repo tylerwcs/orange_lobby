@@ -849,6 +849,7 @@ export async function saveModuleAction(eventId: string, formData: FormData) {
   const readWith = (url: string | null, icon: string | null) => (k: string) => {
     if (k === "url" && isPlan) return url;
     if (k === "icon_image") return icon;
+    if (k === "categories") return formData.getAll("categories").map(String).join(",");
     const v = formData.get(k);
     return typeof v === "string" ? v : null;
   };

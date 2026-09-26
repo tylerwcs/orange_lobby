@@ -82,7 +82,7 @@ export async function loadHomeData(
   // Only the announcements meant for this viewer, the banner's included (null: the public portal).
   const announcements = allAnnouncements.filter((a) => categoryMatches(a.categories, attendee?.category ?? null));
   const banner = announcements.find((a) => a.pinned) ?? announcements[0] ?? null;
-  const tiles = resolveTiles({ event, basePath });
+  const tiles = resolveTiles({ event, basePath, category: attendee?.category ?? null });
   const days = dayTabs(agendaDays, agenda);
   return {
     tiles, banner,

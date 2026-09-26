@@ -11,7 +11,8 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getActivity, listSessions, listBookings, countBookingsBySession, submissionsForActivity } from "@/lib/db/activities";
 import { listRequests } from "@/lib/db/activity-requests";
-import { listAttendees } from "@/lib/db/attendees";
+import { listAttendees, listCategories } from "@/lib/db/attendees";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
 import { capSummary, missingFrom, participation } from "@/lib/submissions";
@@ -67,8 +68,8 @@ export default async function ActivityDetail({ params, searchParams }: {
 }
 
 async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activity; tab?: string }) {
-  const [allSessions, bookings, counts, attendees, allRequests] = await Promise.all([
-    listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id),
+  const [allSessions, bookings, counts, attendees, allRequests, categories] = await Promise.all([
+    listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id), listCategories(ev.id),
   ]);
   const sessions = allSessions.filter((s) => s.activity_id === activity.id);
   const seats = sessions.map((s) => seatsFor(s, counts[s.id] ?? 0));
@@ -151,8 +152,7 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
                   <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
                     defaultValue={activity.max_per_attendee ?? undefined} inputMode="numeric" className={`${input} max-w-32 tabular-nums`} />
                 </div>
-                <Field label="Categories (optional)" name="categories" defaultValue={(activity.categories ?? []).join(", ")}
-                  placeholder="VIP, Management" description="Comma separated. Leave blank to offer it to everyone." />
+                <CategoryCombo categories={categories} defaultValue={activity.categories ?? []} />
                 <label className={check}>
                   <input type="checkbox" name="required" className="size-4" defaultChecked={activity.required} />
                   Everyone must pick one
@@ -224,7 +224,7 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
 }
 
 async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event; activity: Activity; requestedDay?: string; tab?: string }) {
-  const [submissions, attendees] = await Promise.all([submissionsForActivity(activity.id), listAttendees(ev.id)]);
+  const [submissions, attendees, categories] = await Promise.all([submissionsForActivity(activity.id), listAttendees(ev.id), listCategories(ev.id)]);
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
   const submitterFor = (attendeeId: string) => {
     const a = attendeeById.get(attendeeId);
@@ -283,7 +283,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
           <CardHeader><CardTitle>Details, rules and questions</CardTitle></CardHeader>
           <CardContent>
             <form key={formKey({ ...activity, is_open: undefined })} action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
-              <SubmissionFields activity={activity} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+              <SubmissionFields activity={activity} categories={categories} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
               <SaveBar inCard />
             </form>
           </CardContent>

@@ -11,6 +11,8 @@ import { ModuleList } from "@/components/admin/ModuleList";
 import { NewTileMenu } from "@/components/admin/NewTileMenu";
 import { TileTargetFields } from "@/components/admin/TileTargetFields";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
+import { listCategories } from "@/lib/db/attendees";
 import { saveModuleAction, deleteModuleAction, toggleModuleAction, reorderModulesAction } from "../actions";
 
 export const metadata = { title: "Modules" };
@@ -33,7 +35,7 @@ const ICON_LABELS: Record<ModuleIcon, string> = {
  * one. A tile saved before that keeps its stored subtitle through a hidden input, so saving
  * here does not quietly erase it.
  */
-function TileForm({ eventId, module: m }: { eventId: string; module?: EventModule }) {
+function TileForm({ eventId, module: m, categories }: { eventId: string; module?: EventModule; categories: string[] }) {
   const isPlan = m?.key === "floor_plan";
   const tile = m?.key === "tile" ? m : undefined;
   const iconImage = m && "icon_image" in m ? m.icon_image : undefined;
@@ -85,6 +87,9 @@ function TileForm({ eventId, module: m }: { eventId: string; module?: EventModul
         </>
       )}
 
+      {/* Who sees the tile on their home, as on agenda rows. */}
+      <CategoryCombo categories={categories} defaultValue={m?.categories ?? []} />
+
       <label className="flex items-center gap-3 text-sm font-medium">
         <input type="checkbox" name="enabled" defaultChecked={m?.enabled ?? true} className="size-4 accent-primary" />
         Show this tile on the portal home
@@ -100,6 +105,7 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const modules = normalizeModules(ev);
+  const categories = await listCategories(ev.id);
   const hasPlan = modules.some((m) => m.key === "floor_plan");
 
   const shown = modules.filter((m) => m.enabled).length;
@@ -107,7 +113,7 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
 
   // Keyed by id, not position: ModuleList reorders optimistically and would otherwise pair
   // a row with another tile's form mid-drag.
-  const editors = Object.fromEntries(modules.map((m) => [moduleId(m), <TileForm key={moduleId(m)} eventId={ev.id} module={m} />]));
+  const editors = Object.fromEntries(modules.map((m) => [moduleId(m), <TileForm key={moduleId(m)} eventId={ev.id} module={m} categories={categories} />]));
 
   // Laid out like Activities (D179): one "New" menu in the header, then one card holding the
   // list, each row the same shape.
@@ -120,8 +126,8 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
           <NewTileMenu
             disabled={full}
             forms={{
-              tile: <TileForm eventId={ev.id} />,
-              ...(hasPlan ? {} : { floor_plan: <TileForm eventId={ev.id} module={{ key: "floor_plan", enabled: true }} /> }),
+              tile: <TileForm eventId={ev.id} categories={categories} />,
+              ...(hasPlan ? {} : { floor_plan: <TileForm eventId={ev.id} module={{ key: "floor_plan", enabled: true }} categories={categories} /> }),
             }}
           />
         }

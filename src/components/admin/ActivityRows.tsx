@@ -10,6 +10,7 @@ import { QuestionCards } from "@/components/admin/QuestionCards";
 import { ImageField } from "@/components/admin/ImageField";
 import { RichTextEditor, SECTIONS_HINT, type UploadImage } from "@/components/admin/RichTextEditor";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { ActivityMenu, type ActivityMenuProps } from "@/components/admin/ActivityMenu";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -24,7 +25,7 @@ export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 
  * Exported so the "New activity" form and the Settings card on the submission's own page
  * render the identical fields rather than two copies that could drift.
  */
-export function SubmissionFields({ activity, uploadImage }: { activity?: Activity; uploadImage?: UploadImage }) {
+export function SubmissionFields({ activity, categories, uploadImage }: { activity?: Activity; categories: string[]; uploadImage?: UploadImage }) {
   return (
     <>
       <Field label="Name" name="name" defaultValue={activity?.name} placeholder="Feedback" />
@@ -44,8 +45,7 @@ export function SubmissionFields({ activity, uploadImage }: { activity?: Activit
       <Field label="Venue (optional)" name="venue" defaultValue={activity?.venue} placeholder="Level 3 gym" />
       <Field label="Button wording (optional)" name="action_label" defaultValue={activity?.action_label} placeholder="Submit"
         description="What the button on the attendee's page says, like Join now or Upload results. Leave blank for Submit." />
-      <Field label="Categories (optional)" name="categories" defaultValue={activity?.categories?.join(", ")} placeholder="VIP, Management"
-        description="Comma separated. Leave blank to offer it to everyone." />
+      <CategoryCombo categories={categories} defaultValue={activity?.categories ?? []} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="max_per_attendee" className="text-sm font-bold">Total submissions per person (optional)</label>
         <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={366}

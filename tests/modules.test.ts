@@ -281,3 +281,25 @@ describe("floor plan picture", () => {
     expect(tiles("https://x/mine.png")[0].image).toBe("https://x/mine.png");
   });
 });
+
+describe("tiles by category", () => {
+  const event = (categories?: string[]) => ({
+    floor_plan_url: null, info_page_title: "Info",
+    modules: [
+      { key: "tile" as const, id: "all", enabled: true, label: "All", icon: "link" as const, target: { kind: "url" as const, url: "https://x/" } },
+      { key: "tile" as const, id: "yep", enabled: true, label: "YEP", icon: "link" as const, target: { kind: "url" as const, url: "https://x/" }, categories },
+    ],
+  });
+  const ids = (category: string | null) => resolveTiles({ event: event(["YEP"]), basePath: "/e/x", category }).map((t) => t.id);
+  it("shows a tile only to the programmes it is for", () => {
+    expect(ids("KOM, Wellness")).toEqual(["tile:all"]);
+    expect(ids("KOM + YEP")).toEqual(["tile:all", "tile:yep"]);
+  });
+  it("shows the public portal only tiles for everyone", () => {
+    expect(ids(null)).toEqual(["tile:all"]);
+  });
+  it("shows a tile with no categories to everybody", () => {
+    expect(resolveTiles({ event: event(undefined), basePath: "/e/x", category: null })).toHaveLength(2);
+  });
+});
+

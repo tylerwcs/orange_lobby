@@ -4,7 +4,8 @@ import { listActivities, listSessions, countBookingsBySession, listSubmissions }
 import { listBooths, listStampsForEvent } from "@/lib/db/booths";
 import { passportRollup } from "@/lib/booths";
 import { listRequests } from "@/lib/db/activity-requests";
-import { listAttendees } from "@/lib/db/attendees";
+import { listAttendees, listCategories } from "@/lib/db/attendees";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { pendingCountByActivity } from "@/lib/activity-requests";
 import { eligible } from "@/lib/activities";
 import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/lib/activity-row";
@@ -36,6 +37,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
     listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id), listSubmissions(ev.id),
     listBooths(ev.id), listStampsForEvent(ev.id), listAttendees(ev.id),
   ]);
+  const categories = await listCategories(ev.id);
 
   // Everything below is rolled up from what the page already loaded, rather than queried per
   // row: the page shows one line each, and a query per row is how a ten-activity event gets slow.
@@ -71,8 +73,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
     <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
       defaultValue={1} inputMode="numeric" className={`${input} max-w-32 tabular-nums`} />
   </div>
-  <Field label="Categories (optional)" name="categories" placeholder="VIP, Management"
-    description="Comma separated. Leave blank to offer it to everyone." />
+  <CategoryCombo categories={categories} />
   <label className={check}>
     <input type="checkbox" name="required" className="size-4" />
     Everyone must pick one
@@ -86,7 +87,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
               ),
               submission: (
                 <form action={addSubmissionActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
-  <SubmissionFields uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+  <SubmissionFields categories={categories} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
   <label className={check}>
     <input type="checkbox" name="submissions_open" className="size-4" />
     Open for submissions now
@@ -99,8 +100,8 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   <Field label="Name" name="name" defaultValue="Booth Passport" />
   <RichTextEditor name="description" label="Description (optional)" description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
   <ImageField label="Image (optional)" name="image" description={COVER_HINT} />
-  <Field label="Categories (optional)" name="categories" placeholder="VIP, Management"
-    description="Comma separated. Leave blank for everyone. Booths refuse anyone outside these." />
+  {/* Booths refuse anyone outside these. */}
+  <CategoryCombo categories={categories} />
   <div className="flex flex-col gap-1.5">
     <label htmlFor="new_stamps_required" className="text-sm font-bold">Stamps needed</label>
     <input id="new_stamps_required" name="stamps_required" type="number" min={1} inputMode="numeric"

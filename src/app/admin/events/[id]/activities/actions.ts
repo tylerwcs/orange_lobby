@@ -44,8 +44,17 @@ function policyFields(fd: FormData): ActivityFormFields {
     description: text(fd, "description"),
     required: checked(fd, "required"),
     max_per_attendee: text(fd, "max_per_attendee"),
-    categories: text(fd, "categories"),
+    categories: categoryValues(fd),
   };
+}
+
+/**
+ * The ticked categories from the "Who can see it" picker (CategoryCombo), which posts one
+ * `categories` value each. Joined with commas for `parseCategories`, which the policy readers
+ * already use; no category name contains one (categoryParts splits on it).
+ */
+function categoryValues(fd: FormData): string {
+  return fd.getAll("categories").map(String).join(",");
 }
 
 /**
@@ -208,7 +217,7 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
   return {
     name,
     description: cleanRichText(text(fd, "description")),
-    categories: parseCategories(text(fd, "categories")),
+    categories: parseCategories(categoryValues(fd)),
     max_per_attendee,
     per_day: checked(fd, "per_day"),
     questions,
@@ -533,7 +542,7 @@ function readPassportPolicy(fd: FormData, boothCount: number | null) {
   return {
     name,
     description: cleanRichText(text(fd, "description")),
-    categories: parseCategories(text(fd, "categories")),
+    categories: parseCategories(categoryValues(fd)),
     ...readPassportSettings({ stamps_required: text(fd, "stamps_required"), reward_message: text(fd, "reward_message") }, boothCount),
   };
 }
