@@ -224,7 +224,7 @@ HTTP polling and no Realtime (D256).
   - `events.host_token text unique`, `events.display_token text unique`
   - `games (id, event_id, kind, title, config jsonb, position, created_at)`, with `kind` in
     `('tap_race','survival','draw')`
-  - `game_runs (id, game_id, grouping, started_at, ended_at)` — one row per play-through
+  - `game_runs (id, event_id, game_id, grouping, started_at)` — one row per play-through
   - `game_stage (event_id pk, run_id, phase, phase_data jsonb, phase_ends_at, version)`
   - `race_taps (run_id, attendee_id, lane_key, taps, updated_at)`, pk `(run_id, attendee_id)`
   - `survival_players (run_id, attendee_id, out_at_question int null)`, pk
