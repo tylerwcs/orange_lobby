@@ -44,6 +44,10 @@ export function isOver(remaining: number, question: number, total: number): bool
   return remaining <= 1 || question >= total - 1;
 }
 
+/**
+ * The answer window (D272): until the deadline plus the grace. survival_answer in 0049_games.sql
+ * is what decides, on the database's clock (the one survival_reveal waits on); change both together.
+ */
 export function answerAccepted(deadlineMs: number, now: number): boolean {
   return now <= deadlineMs + GRACE_MS;
 }

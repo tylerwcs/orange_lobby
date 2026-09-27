@@ -570,7 +570,8 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
 - **Reveal waits 1.5 s after the deadline.** Answers that arrive up to 1.5 s after a question's
   timer ends still count, so the host's Reveal button reads "Waiting for last answers…" until
   then, and a Reveal sent early is answered "Not yet — the last answers are still coming in."
-  Nobody is eliminated before that.
+  Nobody is eliminated before that. The database's clock decides both the answer window and the
+  reveal, so an answer is either counted by the reveal or refused as "Too late" — never lost.
 - **Race lanes by category use each attendee's first category part.** Someone whose category is
   "KOM, Wellness" (or "KOM + Wellness", "KOM/Wellness") races for **KOM**. No category → "Others".
 - **Draw "Leave out" excludes anyone with any excluded part.** Leaving out "Crew" also leaves out
@@ -588,7 +589,11 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
 - "Someone else moved the game on": two host phones are open. Use one.
 - LED frozen: reload it (F5), then click to start again.
 - A draw winner isn't in the room: **Not here** (tap twice) draws a replacement for the same
-  prize; the absent winner stays on the winners list, struck through.
+  prize; the absent winner stays on the winners list, struck through, and is never redrawn for
+  that prize (they can still win a later one). After **Draw all**, the other winners stay on the
+  LED with the replacement, so any of them can be marked **Not here** in turn. If nobody is left
+  to draw, the host hears "No one is left to draw for this prize" and the LED goes back to the
+  prize's remaining winners.
 - Winners list: Admin → Games → the draw → Download winners (.xlsx).
 
 ### Load test (`npm run load:games`)

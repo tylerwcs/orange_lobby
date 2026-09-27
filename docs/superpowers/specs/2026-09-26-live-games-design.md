@@ -150,6 +150,9 @@ HTTP polling and no Realtime (D256).
   - Eliminated players still see each question, marked "watching", but cannot answer.
   - Elimination is worked out once, by the Reveal action, and stored in
     `survival_players.out_at_question`.
+  - Answers and the Reveal are judged on the same clock, the database's (`survival_answer` and
+    `survival_reveal`), and serialise on the stage row, so an answer is either counted by the
+    Reveal or refused as too late.
 
 - **D273** **Names on the LED are initials plus first name** (e.g. "PR · Priya" for Priya
   Ramasamy): the first letters of the first two words of `attendees.name`, and its first word.
@@ -200,7 +203,10 @@ HTTP polling and no Realtime (D256).
 
 - **D281** **The host sees the winner as soon as it is drawn**, during the spin, so they can
   prepare the call-out. After the reveal they mark **✓ Present** or **Not here — redraw**; redraw
-  sets `void` on that winner (kept on record) and draws again for the same prize.
+  sets `void` on that winner (kept on record) and draws again for the same prize. A voided
+  winner is out of that prize's pool (they were not here for it), so the redraw never lands on
+  them again; they may win a later prize. The spin's other winners stay on the stage with the
+  replacement, so after "Draw all" each absentee can be sent away in turn.
 
 - **D282** **The winner's phone**, if their play page or portal home is open, shows
   "🎉 You won **iPad Air** — come to the stage!". "Draw all" shows the winners as a grid on the

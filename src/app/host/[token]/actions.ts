@@ -5,7 +5,7 @@ import { forgetStage, hostLinkState, liveStage } from "@/lib/games/live";
 import { forgetPool, poolFor } from "@/lib/games/display-state";
 import { createRun, drawSpin, getGame, listWinners, revealQuestion, voidWinner, writeStage } from "@/lib/db/games";
 import {
-  canDo, canReveal, currentQuestion, drawReadyWrite, idleWrite, lobbyWrite, overWrite, questionWrite, raceStartWrite,
+  canDo, canReveal, currentQuestion, drawReadyWrite, drawRevealWrite, idleWrite, lobbyWrite, overWrite, questionWrite, raceStartWrite,
   raceStopWrite, revealFacts, spinFacts, SPIN_MS, type HostAction, type StageRow, type StageWrite,
 } from "@/lib/games/phase";
 import { parseGrouping, type Grouping } from "@/lib/games/race";
@@ -145,9 +145,10 @@ export async function drawAction(token: string, expected: number, mode: "one" | 
   const game = b.game;
   if (game?.kind !== "draw" || !b.stage.run_id || !game.config.checkpoint_id) return fail("Pick a checkpoint for this draw in admin first.");
   forgetPool(game.id);
-  const [winners, pool] = await Promise.all([listWinners(game.id), poolFor(b.event, game)]);
+  const winners = await listWinners(game.id);
   const prize = nextPrize(prizeProgress(game.config.prizes, winners));
   if (!prize) return fail("Every prize has been drawn.");
+  const pool = await poolFor(b.event, game, prize.prize_no);
   const count = drawCount(prize, mode === "all" ? "all" : "one", pool.length);
   if (count === 0) return fail("No one left to draw. Check the checkpoint and the categories left out.");
   const picked = await drawSpin({
@@ -168,9 +169,12 @@ export async function presentAction(token: string, expected: number): Promise<Ho
 
 /**
  * "Not here — redraw" (D281): the winner is voided, kept on record, and one replacement is drawn
- * for the same prize. After "Draw all", redrawing one name shows only the replacement on the
- * LED; the others keep their prizes and stay on the winners list. Only a name the stage itself
- * drew can be voided, so the caller cannot void anyone else.
+ * for the same prize. The voided person is out of that prize's pool (draw_spin), so the redraw
+ * never lands on them again. After "Draw all", the prize's other winners stay on the stage ahead
+ * of the replacement (draw_spin's p_keep), so any of them can be sent away in turn; the LED
+ * reveals them all again. With no one left to draw, the stage goes back to the reveal of the
+ * others (or to the ready screen when there are none). Only a name the stage itself drew can be
+ * voided, so the caller cannot void anyone else.
  */
 export async function redrawAction(token: string, expected: number, attendeeId: string): Promise<HostResult> {
   const b = await begin(token, expected, "redraw");
@@ -180,12 +184,16 @@ export async function redrawAction(token: string, expected: number, attendeeId: 
   if (game?.kind !== "draw" || !spun || !isId(attendeeId) || !spun.winnerIds.includes(attendeeId) || !b.stage.run_id || !game.config.checkpoint_id) return STALE;
   await voidWinner(game.id, attendeeId);
   forgetPool(game.id);
-  const pool = await poolFor(b.event, game);
-  if (pool.length === 0) return commit(b.event, expected, drawReadyWrite(b.stage), "Marked as not here. No one is left to draw for this prize.");
+  const keep = spun.winnerIds.filter((id) => id !== attendeeId);
+  const pool = await poolFor(b.event, game, spun.prizeNo);
+  if (pool.length === 0) {
+    const back = keep.length > 0 ? drawRevealWrite(b.stage, spun.prizeNo, keep) : drawReadyWrite(b.stage);
+    return commit(b.event, expected, back, "Marked as not here. No one is left to draw for this prize.");
+  }
   const picked = await drawSpin({
     eventId: b.event.id, expected, runId: b.stage.run_id, gameId: game.id, prizeNo: spun.prizeNo, count: 1,
     checkpointId: game.config.checkpoint_id, exclude: game.config.exclude_categories,
-    spinEndsAt: new Date(Date.now() + SPIN_MS).toISOString(),
+    spinEndsAt: new Date(Date.now() + SPIN_MS).toISOString(), keep,
   });
   forgetStage(b.event.id);
   forgetPool(game.id);

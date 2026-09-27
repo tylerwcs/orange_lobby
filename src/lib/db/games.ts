@@ -183,13 +183,21 @@ export async function getPlayer(runId: string, attendeeId: string): Promise<Play
   return (data as PlayerRow | null) ?? null;
 }
 
-/** False when this player already answered this question: the first answer counts (D272). */
-export async function recordAnswer(runId: string, attendeeId: string, question: number, choice: number): Promise<boolean> {
-  const { error } = await serviceClient().from("survival_answers")
-    .insert({ run_id: runId, attendee_id: attendeeId, question_no: question, choice });
-  if (!error) return true;
-  if ((error as { code?: string }).code === "23505") return false;
-  throw error;
+export type AnswerResult = { ok: true; choice: number } | { ok: false; refused: "closed" | "not_player" | "out" };
+
+/**
+ * One answer (D272), judged by survival_answer on the database's clock, the one the reveal waits
+ * on: only to the question on this event's stage in this run, until its deadline + 1.5 s, from a
+ * player still in. The first answer counts: a second gets the first's choice back.
+ */
+export async function submitAnswer(eventId: string, runId: string, attendeeId: string, question: number, choice: number): Promise<AnswerResult> {
+  const { data, error } = await serviceClient().rpc("survival_answer", {
+    p_event_id: eventId, p_run_id: runId, p_attendee_id: attendeeId, p_question: question, p_choice: choice,
+  });
+  if (error) throw error;
+  const v = data as number;
+  if (v >= 0) return { ok: true, choice: v };
+  return { ok: false, refused: v === -2 ? "not_player" : v === -3 ? "out" : "closed" };
 }
 
 export async function getAnswer(runId: string, attendeeId: string, question: number): Promise<number | null> {
@@ -216,33 +224,35 @@ export async function revealQuestion(eventId: string, expected: number, runId: s
 
 // --- Lucky draw ---
 
+/** A draw's winners, voided ones included, in the order drawn. Paged (D289): 50 prizes × 500 is past one request. */
 export async function listWinners(gameId: string): Promise<WinnerRow[]> {
-  const { data, error } = await serviceClient().from("draw_winners").select("*").eq("game_id", gameId).order("drawn_at");
-  if (error) throw error;
-  return (data ?? []) as WinnerRow[];
+  return selectAll<WinnerRow>((from, to) => serviceClient().from("draw_winners")
+    .select("*").eq("game_id", gameId).order("drawn_at").order("id").range(from, to));
 }
 
 export async function listEventWinners(eventId: string): Promise<WinnerRow[]> {
-  const { data, error } = await serviceClient().from("draw_winners").select("*").eq("event_id", eventId);
-  if (error) throw error;
-  return (data ?? []) as WinnerRow[];
+  return selectAll<WinnerRow>((from, to) => serviceClient().from("draw_winners")
+    .select("*").eq("event_id", eventId).order("id").range(from, to));
 }
 
-/** Draws and moves the stage to the spin in one transaction (D280). Null when stale. */
+/**
+ * Draws and moves the stage to the spin in one transaction (D280). Null when stale. `keep` is a
+ * redraw's other winners, left on the stage ahead of the replacement (D281).
+ */
 export async function drawSpin(a: {
   eventId: string; expected: number; runId: string; gameId: string; prizeNo: number; count: number;
-  checkpointId: string; exclude: string[]; spinEndsAt: string;
+  checkpointId: string; exclude: string[]; spinEndsAt: string; keep?: string[];
 }): Promise<string[] | null> {
   const { data, error } = await serviceClient().rpc("draw_spin", {
     p_event_id: a.eventId, p_expected: a.expected, p_run_id: a.runId, p_game_id: a.gameId,
     p_prize_no: a.prizeNo, p_count: a.count, p_checkpoint_id: a.checkpointId,
-    p_exclude: a.exclude, p_spin_ends_at: a.spinEndsAt,
+    p_exclude: a.exclude, p_spin_ends_at: a.spinEndsAt, p_keep: a.keep ?? [],
   });
   if (error) throw error;
   return (data as string[] | null) ?? null;
 }
 
-/** "Not here" (D281): the winner stays on record, struck through, and may win again. */
+/** "Not here" (D281): the winner stays on record, struck through, and may win again, but not this prize. */
 export async function voidWinner(gameId: string, attendeeId: string): Promise<boolean> {
   const { data, error } = await serviceClient().from("draw_winners").update({ void: true })
     .eq("game_id", gameId).eq("attendee_id", attendeeId).eq("void", false).select("id");

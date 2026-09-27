@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eligiblePool, standingWinners, prizeProgress, nextPrize, drawCount, poolBeforeDraw, type WinnerRow } from "@/lib/games/draw";
+import { absentFor, eligiblePool, standingWinners, prizeProgress, nextPrize, drawCount, poolBeforeDraw, type WinnerRow } from "@/lib/games/draw";
 
 const a = (id: string, category: string | null = "Staff") => ({ id, category });
 const win = (attendee_id: string, prize_no = 0, isVoid = false): WinnerRow =>
@@ -18,6 +18,9 @@ describe("eligiblePool", () => {
   });
   it("excludes past winners", () => {
     expect(eligiblePool(people, new Set(["1", "4"]), [], new Set(["4"])).map((p) => p.id)).toEqual(["1"]);
+  });
+  it("leaves out whoever was not here for this prize (D281)", () => {
+    expect(eligiblePool(people, new Set(["1", "4"]), [], new Set(), new Set(["4"])).map((p) => p.id)).toEqual(["1"]);
   });
 
   describe("multi-programme categories (mirrors draw_spin's category_matches)", () => {
@@ -41,6 +44,24 @@ describe("eligiblePool", () => {
 describe("standingWinners", () => {
   it("leaves out voided winners, who may win again", () => {
     expect([...standingWinners([win("1"), win("2", 0, true)])]).toEqual(["1"]);
+  });
+});
+
+describe("absentFor", () => {
+  const rows = [win("1", 0, true), win("2", 0), win("3", 1, true), { ...win("4", 0, true), game_id: "g2" }];
+  it("is who was voided for this prize of this draw", () => {
+    expect([...absentFor(rows, "g1", 0)]).toEqual(["1"]);
+  });
+  it("does not carry over to another prize or another draw", () => {
+    expect([...absentFor(rows, "g1", 1)]).toEqual(["3"]);
+    expect([...absentFor(rows, "g2", 0)]).toEqual(["4"]);
+  });
+  it("keeps a redraw off the person just sent away, who can still win the next prize", () => {
+    const people = [a("1"), a("5")];
+    const all = new Set(["1", "5"]);
+    const standing = standingWinners(rows);
+    expect(eligiblePool(people, all, [], standing, absentFor(rows, "g1", 0)).map((p) => p.id)).toEqual(["5"]);
+    expect(eligiblePool(people, all, [], standing, absentFor(rows, "g1", 1)).map((p) => p.id)).toEqual(["1", "5"]);
   });
 });
 

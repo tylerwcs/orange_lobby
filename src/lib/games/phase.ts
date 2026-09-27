@@ -221,9 +221,25 @@ export function revealFacts(s: StageRow): { eliminated: number; remaining: numbe
   return { eliminated, remaining, everyoneSurvived: s.phase_data.everyone_survived === true };
 }
 
-export function spinFacts(s: StageRow): { prizeNo: number; winnerIds: string[] } | null {
+const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null);
+
+/**
+ * A draw on stage (D280, D281). `winnerIds` is everyone the LED reveals for the prize: after a
+ * redraw, the winners kept from the earlier spin and then the replacement (draw_spin's p_keep).
+ * `newIds` is only what this spin drew (all of them for a first spin, or when the stage
+ * predates new_ids).
+ */
+export function spinFacts(s: StageRow): { prizeNo: number; winnerIds: string[]; newIds: string[] } | null {
   const prizeNo = num(s.phase_data.prize_no);
-  const ids = s.phase_data.winner_ids;
-  if (prizeNo === null || !Array.isArray(ids)) return null;
-  return { prizeNo, winnerIds: ids.filter((x): x is string => typeof x === "string") };
+  const winnerIds = ids(s.phase_data.winner_ids);
+  if (prizeNo === null || !winnerIds) return null;
+  return { prizeNo, winnerIds, newIds: ids(s.phase_data.new_ids) ?? winnerIds };
+}
+
+/**
+ * "Not here" with no one left to draw (D281): back to the reveal of the prize's other winners,
+ * so each of them can still be sent away in turn.
+ */
+export function drawRevealWrite(s: StageRow, prizeNo: number, winnerIds: string[]): StageWrite {
+  return { ...keep(s), phase: "draw_reveal", phase_data: { prize_no: prizeNo, winner_ids: winnerIds, new_ids: [] }, phase_ends_at: null };
 }

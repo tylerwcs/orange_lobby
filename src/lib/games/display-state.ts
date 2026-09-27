@@ -4,7 +4,7 @@ import { gameSummary, type DrawGame, type Game, type SurvivalGame } from "@/lib/
 import { allowedActions, currentQuestion, spinFacts, type StageRow } from "@/lib/games/phase";
 import { laneLabel, standings, topTapper, visibleLanes } from "@/lib/games/race";
 import { answerSplit, inGoingInto, outAt, stillIn } from "@/lib/games/survival";
-import { eligiblePool, nextPrize, poolBeforeDraw, prizeProgress, standingWinners } from "@/lib/games/draw";
+import { absentFor, eligiblePool, nextPrize, poolBeforeDraw, prizeProgress, standingWinners, type WinnerRow } from "@/lib/games/draw";
 import { seededOrder } from "@/lib/games/mosaic";
 import { tag, tagLabel } from "@/lib/games/names";
 import { createMemo } from "@/lib/games/memo";
@@ -15,26 +15,31 @@ import { eventFields } from "@/lib/attendee-fields";
 import { listAnswerChoices, listCheckedInIds, listEventWinners, listGames, listPlayers, listWinners } from "@/lib/db/games";
 import { liveStage, rosterFor, runFor, tapsFor } from "@/lib/games/live";
 
-const poolMemo = createMemo<Attendee[]>(3000);
+type PoolRows = { roster: Attendee[]; checkedIn: Set<string>; winners: WinnerRow[] };
+const poolMemo = createMemo<PoolRows>(3000);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The draw's eligible pool (D278), for the host's count and the LED's rolling names. Only this
- * event's attendees can be in it: the roster is the event's, and check-ins are read for this
- * event. Categories follow the multi-programme rule in `eligiblePool` (one excluded part is
- * enough), as draw_spin does.
+ * The draw's eligible pool (D278) for one prize, for the host's count and the LED's rolling
+ * names. Only this event's attendees can be in it: the roster is the event's, and check-ins are
+ * read for this event. Categories follow the multi-programme rule in `eligiblePool` (one
+ * excluded part is enough), as draw_spin does, and whoever was "not here" for `prizeNo` stays
+ * out of it (absentFor); with no prize (all drawn) nobody is absent. The rows are memoised per
+ * game, the prize filter applied on each call.
  */
-export function poolFor(event: Event, game: DrawGame): Promise<Attendee[]> {
-  return poolMemo.get(game.id, async () => {
-    const { checkpoint_id, exclude_categories } = game.config;
-    // A checkpoint id the admin form let through but that is not an id at all reads as unset,
-    // rather than failing the whole LED and host view on a query error.
-    if (!checkpoint_id || !UUID.test(checkpoint_id)) return [];
+export async function poolFor(event: Event, game: DrawGame, prizeNo: number | null): Promise<Attendee[]> {
+  const { checkpoint_id, exclude_categories } = game.config;
+  // hydrateGame already reads a stored checkpoint that is not an id as unset; checked again here
+  // so a bad value can never fail the whole LED and host view on a query error.
+  if (!checkpoint_id || !UUID.test(checkpoint_id)) return [];
+  const rows = await poolMemo.get(game.id, async () => {
     const [roster, checkedIn, winners] = await Promise.all([
       rosterFor(event.id), listCheckedInIds(event.id, checkpoint_id), listEventWinners(event.id),
     ]);
-    return eligiblePool([...roster.values()], checkedIn, exclude_categories, standingWinners(winners));
+    return { roster: [...roster.values()], checkedIn, winners };
   });
+  const absent = prizeNo === null ? new Set<string>() : absentFor(rows.winners, game.id, prizeNo);
+  return eligiblePool(rows.roster, rows.checkedIn, exclude_categories, standingWinners(rows.winners), absent);
 }
 
 export function forgetPool(gameId: string) {
@@ -104,13 +109,15 @@ async function survivalView(event: Event, stage: StageRow, game: SurvivalGame): 
 }
 
 async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<DisplayState["draw"]> {
-  const [winners, pool, roster] = await Promise.all([listWinners(game.id), poolFor(event, game), rosterFor(event.id)]);
+  const [winners, roster] = await Promise.all([listWinners(game.id), rosterFor(event.id)]);
   const spun = spinFacts(stage);
   const prizeNo = spun?.prizeNo ?? nextPrize(prizeProgress(game.config.prizes, winners))?.prize_no ?? null;
+  const pool = await poolFor(event, game, prizeNo);
   // While the names roll, the pool is the one the draw was made from, however fresh the memo
   // (see poolBeforeDraw): its count and sample must not change when the winners drop out of it.
+  // Only this spin's draw is added back; winners kept from an earlier spin were never in it.
   const drawn = stage.phase === "draw_spinning" && spun
-    ? spun.winnerIds.flatMap((id) => { const a = roster.get(id); return a ? [a] : []; })
+    ? spun.newIds.flatMap((id) => { const a = roster.get(id); return a ? [a] : []; })
     : [];
   const shown = poolBeforeDraw(pool, drawn);
   return {

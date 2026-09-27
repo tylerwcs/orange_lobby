@@ -7,13 +7,16 @@
 //   2. race_add_taps caps a batch at ceil(15 × elapsed), refuses taps outside the live window,
 //      refuses a player who never joined, and takes nothing for a race stopped during its
 //      countdown (an empty window), not even in the grace after it.
-//   3. A second answer to the same question is refused and the first stays. survival_reveal is
-//      refused until the question's deadline + 1.5 s grace has passed; then it eliminates wrong
-//      and missing answers; when everyone still in is wrong, nobody is eliminated; a second
-//      Reveal with the old version is refused.
-//   4. draw_spin draws only checked-in, non-excluded, not-yet-won attendees, and a voided
-//      winner can be drawn again. Leaving out "Crew" also leaves out a "KOM, Crew" attendee:
-//      one excluded part is enough (category_matches, 0048).
+//   3. survival_answer takes an answer inside the grace and returns it; a second answer keeps
+//      the first; someone who never joined, a player already out, and a late answer (past the
+//      deadline + 1.5 s) are refused. survival_reveal is refused until the question's deadline
+//      + 1.5 s grace has passed; then it eliminates wrong and missing answers; when everyone
+//      still in is wrong, nobody is eliminated; a second Reveal with the old version is refused.
+//   4. draw_spin draws only checked-in, non-excluded, not-yet-won attendees. A redraw ("Not
+//      here") never draws the person just voided for that prize, keeps the spin's other winners
+//      on the stage (p_keep) so they can be voided in turn, and a voided winner can still win
+//      another prize. Leaving out "Crew" also leaves out a "KOM, Crew" attendee: one excluded
+//      part is enough (category_matches, 0048).
 //   5. Deleting the event removes every game row (cascade).
 //   6. A game or run from another event, or a run of another game, is refused by
 //      game_stage_write, survival_reveal and draw_spin, and none of them moves the version.
@@ -92,16 +95,23 @@ try {
   };
   // The deadline has just passed: answers still count for the 1.5 s grace, so no reveal yet.
   const vGrace = must(await ask(1, 0, Date.now()));
+  const answer = (p, question, choice) => db.rpc("survival_answer", { p_event_id: event.id, p_run_id: quizRun.id, p_attendee_id: p.id, p_question: question, p_choice: choice });
   // Ann right, Ben wrong, Cai no answer.
-  must(await db.from("survival_answers").insert([{ run_id: quizRun.id, attendee_id: ann.id, question_no: 0, choice: 1 }, { run_id: quizRun.id, attendee_id: ben.id, question_no: 0, choice: 0 }]));
-  const dup = await db.from("survival_answers").insert({ run_id: quizRun.id, attendee_id: ben.id, question_no: 0, choice: 1 });
+  const annAnswer = must(await answer(ann, 0, 1));
+  check("an answer inside the grace is taken and its choice returned", annAnswer === 1, `got ${annAnswer}`);
+  const benFirst = must(await answer(ben, 0, 0));
+  const benSecond = must(await answer(ben, 0, 1));
   const benChoice = must(await db.from("survival_answers").select("choice").eq("run_id", quizRun.id).eq("attendee_id", ben.id).eq("question_no", 0).single()).choice;
-  check("a second answer to the same question is refused and the first stays", dup.error?.code === "23505" && benChoice === 0, `error ${dup.error?.code ?? "none"}, choice ${benChoice}`);
+  check("a second answer to the same question keeps the first", benFirst === 0 && benSecond === 0 && benChoice === 0, `got ${benFirst}, ${benSecond}, stored ${benChoice}`);
+  const devAnswer = must(await answer(dev, 0, 1));
+  check("someone who never joined cannot answer", devAnswer === -2, `got ${devAnswer}`);
   const tooSoon = must(await db.rpc("survival_reveal", { p_event_id: event.id, p_expected: vGrace, p_run_id: quizRun.id, p_game_id: quiz.id, p_question: 0, p_correct: 1 }));
   const outEarly = must(await db.from("survival_players").select("attendee_id").eq("run_id", quizRun.id).not("out_at_question", "is", null));
   check("Reveal inside the answer grace is refused and eliminates nobody", tooSoon === -1 && outEarly.length === 0, `got ${tooSoon}, ${outEarly.length} out`);
   // The same question with its deadline well past (> 1.5 s ago): now Reveal goes through.
   const vq = must(await ask(vGrace, 0, Date.now() - 5000));
+  const caiLate = must(await answer(cai, 0, 1));
+  check("a late answer (past the deadline + 1.5 s) is refused", caiLate === -1, `got ${caiLate}`);
   const vr = must(await db.rpc("survival_reveal", { p_event_id: event.id, p_expected: vq, p_run_id: quizRun.id, p_game_id: quiz.id, p_question: 0, p_correct: 1 }));
   check("Reveal after the grace goes through", vr === vq + 1, `got ${vr}`);
   const after = must(await db.from("survival_players").select("attendee_id, out_at_question").eq("run_id", quizRun.id));
@@ -109,9 +119,12 @@ try {
   check("wrong and missing answers are eliminated", JSON.stringify(outIds) === JSON.stringify([ben.id, cai.id].sort()));
   const again = must(await db.rpc("survival_reveal", { p_event_id: event.id, p_expected: vq, p_run_id: quizRun.id, p_game_id: quiz.id, p_question: 0, p_correct: 1 }));
   check("a second Reveal with the old version is refused", again === -1, `got ${again}`);
-  // Question 1: Ann (the only one left) answers wrong -> everyone survives.
-  const vq1 = must(await ask(vr, 1, Date.now() - 5000));
-  must(await db.from("survival_answers").insert({ run_id: quizRun.id, attendee_id: ann.id, question_no: 1, choice: 0 }));
+  // Question 1, open: Ben is out; Ann (the only one left) answers wrong -> everyone survives.
+  const vOpen = must(await ask(vr, 1, Date.now() + 10_000));
+  const benOut = must(await answer(ben, 1, 1));
+  check("a player already out cannot answer", benOut === -3, `got ${benOut}`);
+  must(await answer(ann, 1, 0));
+  const vq1 = must(await ask(vOpen, 1, Date.now() - 5000));
   must(await db.rpc("survival_reveal", { p_event_id: event.id, p_expected: vq1, p_run_id: quizRun.id, p_game_id: quiz.id, p_question: 1, p_correct: 1 }));
   const annRow = must(await db.from("survival_players").select("out_at_question").eq("run_id", quizRun.id).eq("attendee_id", ann.id).single());
   const stage = must(await db.from("game_stage").select("phase_data").eq("event_id", event.id).single());
@@ -124,19 +137,36 @@ try {
   const drawRun = must(await db.from("game_runs").insert({ event_id: event.id, game_id: draw.id }).select("id").single());
   let version = must(await db.from("game_stage").select("version").eq("event_id", event.id).single()).version;
   const drawn = [];
-  const spin = async (count) => {
-    const ids = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: version, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: 0, p_count: count, p_checkpoint_id: cp.id, p_exclude: [" crew "], p_spin_ends_at: new Date(Date.now() + 5000).toISOString() }));
+  const spin = async (count, prizeNo = 0, keep = []) => {
+    const ids = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: version, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: prizeNo, p_count: count, p_checkpoint_id: cp.id, p_exclude: [" crew "], p_spin_ends_at: new Date(Date.now() + 5000).toISOString(), p_keep: keep }));
     version += 1;
     drawn.push(...ids);
     return ids;
   };
+  const stageWinners = async () => must(await db.from("game_stage").select("phase_data").eq("event_id", event.id).single()).phase_data;
+  const sorted = (ids) => JSON.stringify([...ids].sort());
   const all = await spin(10);
-  check("draw takes only checked-in, non-excluded people", JSON.stringify([...all].sort()) === JSON.stringify([ann.id, ben.id].sort()), `drew ${all.length}`);
+  check("draw takes only checked-in, non-excluded people", sorted(all) === sorted([ann.id, ben.id]), `drew ${all.length}`);
   const none = await spin(1);
   check("past winners are excluded", none.length === 0, `drew ${none.length}`);
+  // "Not here — redraw" after "Draw all" (redrawAction): Cai checks in, Ann is voided, one
+  // replacement is drawn for prize 0 with Ben kept on the stage.
+  must(await db.from("checkins").insert({ org_id: event.org_id, event_id: event.id, checkpoint_id: cp.id, attendee_id: cai.id }));
   must(await db.from("draw_winners").update({ void: true }).eq("game_id", draw.id).eq("attendee_id", ann.id));
-  const redraw = await spin(1);
-  check("a voided winner can be drawn again", redraw.length === 1 && redraw[0] === ann.id);
+  const redraw = await spin(1, 0, [ben.id]);
+  check("a redraw never draws the person just voided for that prize", redraw.length === 1 && redraw[0] === cai.id);
+  const afterRedraw = await stageWinners();
+  check("the redraw keeps the other winner on the stage, then the replacement",
+    JSON.stringify(afterRedraw.winner_ids) === JSON.stringify([ben.id, cai.id]) && JSON.stringify(afterRedraw.new_ids) === JSON.stringify([cai.id]));
+  // A second absentee from the same spin: nobody is left for prize 0, and only a standing winner
+  // of the prize is kept (Ann is voided, Dev never won).
+  must(await db.from("draw_winners").update({ void: true }).eq("game_id", draw.id).eq("attendee_id", ben.id));
+  const empty = await spin(1, 0, [cai.id, dev.id, ann.id]);
+  const afterEmpty = await stageWinners();
+  check("with both absentees out of the prize nobody is drawn; only the standing winner is kept",
+    empty.length === 0 && JSON.stringify(afterEmpty.winner_ids) === JSON.stringify([cai.id]), `drew ${empty.length}`);
+  const nextPrize = await spin(10, 1);
+  check("a voided winner can be drawn again for another prize", sorted(nextPrize) === sorted([ann.id, ben.id]));
   const staleSpin = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: version - 1, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: 0, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [], p_spin_ends_at: new Date().toISOString() }));
   check("a stale draw is refused", staleSpin === null);
   check('"KOM, Crew" is never drawn when Crew is left out', !drawn.includes(eve.id) && !drawn.includes(dev.id), `drew ${drawn.length} in all`);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   idleStage, hydrateStage, resolveStage, stageKey, phaseKind, canDo, allowedActions,
-  lobbyWrite, raceStartWrite, raceStopWrite, questionWrite, overWrite, drawReadyWrite, idleWrite,
+  lobbyWrite, raceStartWrite, raceStopWrite, questionWrite, overWrite, drawReadyWrite, drawRevealWrite, idleWrite,
   raceWindow, currentQuestion, questionDeadline, revealFacts, spinFacts, revealReadyAt, canReveal,
   COUNTDOWN_MS, GRACE_MS,
   type StageRow,
@@ -186,7 +186,17 @@ describe("readers", () => {
   });
   it("reads the spin", () => {
     const s = stage({ phase: "draw_spinning", phase_data: { prize_no: 1, winner_ids: ["a1", "a2"] } });
-    expect(spinFacts(s)).toEqual({ prizeNo: 1, winnerIds: ["a1", "a2"] });
+    expect(spinFacts(s)).toEqual({ prizeNo: 1, winnerIds: ["a1", "a2"], newIds: ["a1", "a2"] });
+  });
+  it("reads a redraw's spin: the kept winners, then the replacement, which alone is new (D281)", () => {
+    const s = stage({ phase: "draw_spinning", phase_data: { prize_no: 1, winner_ids: ["a1", "a3", "a4"], new_ids: ["a4"] } });
+    expect(spinFacts(s)).toEqual({ prizeNo: 1, winnerIds: ["a1", "a3", "a4"], newIds: ["a4"] });
+  });
+  it("goes back to the reveal of the other winners when no one is left to redraw", () => {
+    const s = stage({ phase: "draw_reveal", run_id: "r1", game_id: "g1", phase_data: { prize_no: 0, winner_ids: ["a1", "a2"] } });
+    const w = drawRevealWrite(s, 0, ["a1"]);
+    expect(w).toEqual({ run_id: "r1", game_id: "g1", phase: "draw_reveal", phase_data: { prize_no: 0, winner_ids: ["a1"], new_ids: [] }, phase_ends_at: null });
+    expect(spinFacts({ ...s, ...w })).toEqual({ prizeNo: 0, winnerIds: ["a1"], newIds: [] });
   });
   it("returns null for data that is not there", () => {
     const s = stage({ phase: "race_lobby" });

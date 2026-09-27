@@ -80,7 +80,8 @@ create table survival_answers (
   primary key (run_id, attendee_id, question_no)
 );
 
--- void = "not here", redrawn (D281). Kept on record; excluded from "past winners".
+-- void = "not here", redrawn (D281). Kept on record; excluded from "past winners", and keeps
+-- that person out of the same prize's pool (draw_spin), so a redraw cannot pick them again.
 create table draw_winners (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
@@ -172,6 +173,9 @@ $$;
 -- (answerAccepted), and a reveal must not eliminate a player whose in-time answer is in flight.
 -- revealReadyAt in src/lib/games/phase.ts is the host console's copy of this rule. Also refused
 -- when the run is not this game's, or the game not this event's survival game.
+-- The first update takes the stage row's lock, which survival_answer's FOR SHARE read waits on
+-- (and the other way round), so an answer is either in before the eliminations are counted or
+-- sees the reveal's phase and is refused: it can never slip in between.
 create or replace function survival_reveal(
   p_event_id uuid, p_expected int, p_run_id uuid, p_game_id uuid, p_question int, p_correct int
 ) returns int
@@ -189,6 +193,7 @@ begin
        and g.id = p_game_id and g.event_id = p_event_id and g.kind = 'survival') then
     return -1;
   end if;
+  -- Locks the stage row until this transaction ends (see survival_answer).
   update game_stage set version = version + 1, updated_at = now()
    where event_id = p_event_id and version = p_expected and run_id = p_run_id
      and game_id = p_game_id
@@ -228,22 +233,72 @@ begin
 end;
 $$;
 
+-- One answer to the question on stage (D272), judged on the database's clock, the same clock
+-- survival_reveal waits on, so an answer and the reveal never disagree about the deadline.
+-- Taken only while run p_run_id's question p_question is on this event's stage (stored phase
+-- survival_question; survival_locked is the same row moved on by the clock) and until its
+-- deadline + 1.5 s grace, from a player who joined this run and is still in. The first answer
+-- counts. Returns the stored choice (>= 0: this one, or the earlier one on a second answer), or
+-- a refusal: -1 answers are closed (another question or phase, or past the grace), -2 not a
+-- player of this run, -3 already out.
+-- The stage row is read FOR SHARE, which waits on (and holds off) survival_reveal's update of
+-- it: an answer committed first is counted by the reveal, and one that waited reads the
+-- reveal's phase and is refused. Mirrored by answerAccepted in src/lib/games/survival.ts.
+create or replace function survival_answer(
+  p_event_id uuid, p_run_id uuid, p_attendee_id uuid, p_question int, p_choice int
+) returns int
+language plpgsql
+as $$
+declare
+  s game_stage%rowtype;
+  out_at int;
+  stored int;
+begin
+  if p_question is null or p_choice is null or p_choice < 0 then return -1; end if;
+  select * into s from game_stage where event_id = p_event_id for share;
+  if not found
+     or s.run_id is distinct from p_run_id
+     or s.phase not in ('survival_question', 'survival_locked')
+     or s.phase_data->'question' is distinct from to_jsonb(p_question)
+     or not (s.phase_data ? 'deadline')
+     or now() > (s.phase_data->>'deadline')::timestamptz + interval '1.5 seconds' then
+    return -1;
+  end if;
+  select out_at_question into out_at from survival_players
+   where run_id = p_run_id and attendee_id = p_attendee_id;
+  if not found then return -2; end if;
+  if out_at is not null then return -3; end if;
+  insert into survival_answers (run_id, attendee_id, question_no, choice)
+  values (p_run_id, p_attendee_id, p_question, p_choice)
+  on conflict (run_id, attendee_id, question_no) do nothing;
+  select choice into stored from survival_answers
+   where run_id = p_run_id and attendee_id = p_attendee_id and question_no = p_question;
+  return stored;
+end;
+$$;
+
 -- Draws winners (D278, D280), atomically with the stage move to draw_spinning so a double tap
 -- cannot draw twice. Pool: checked in at the checkpoint, no part of their category excluded
 -- (category_matches from 0048, so leaving out Crew also leaves out "KOM, Crew"), not already a
--- standing winner of ANY draw in this event. The game must be this event's draw and the run
--- that game's, or nothing is drawn (null). Ordered by
--- gen_random_uuid(), which draws from a cryptographic source. Mirrored by eligiblePool in
--- src/lib/games/draw.ts; change both together.
+-- standing winner of ANY draw in this event, and not marked "not here" for this very prize
+-- (a void row for this game and prize_no, D281), so a redraw never lands on the person just
+-- sent away. The game must be this event's draw and the run that game's, or nothing is drawn
+-- (null). Ordered by gen_random_uuid(), which draws from a cryptographic source. Mirrored by
+-- eligiblePool/absentFor in src/lib/games/draw.ts; change both together.
+-- p_keep is a redraw's other winners on stage ("Draw all", then one "Not here"): they stay on
+-- the stage ahead of the replacement, so each of them can still be sent away in turn. Only
+-- standing winners of this game's prize are kept. phase_data.new_ids is just this spin's draw
+-- (the LED's rolling pool adds back only those, see poolBeforeDraw).
 create or replace function draw_spin(
   p_event_id uuid, p_expected int, p_run_id uuid, p_game_id uuid, p_prize_no int, p_count int,
-  p_checkpoint_id uuid, p_exclude text[], p_spin_ends_at timestamptz
+  p_checkpoint_id uuid, p_exclude text[], p_spin_ends_at timestamptz, p_keep uuid[] default '{}'
 ) returns uuid[]
 language plpgsql
 as $$
 declare
   v int;
   picked uuid[];
+  kept uuid[];
 begin
   if not exists (
     select 1 from game_runs r join games g on g.id = r.game_id
@@ -265,6 +320,9 @@ begin
        and not exists (
          select 1 from draw_winners w
           where w.event_id = p_event_id and w.attendee_id = a.id and not w.void)
+       and not exists (
+         select 1 from draw_winners w
+          where w.game_id = p_game_id and w.prize_no = p_prize_no and w.attendee_id = a.id and w.void)
      order by gen_random_uuid()
      limit greatest(p_count, 0)
   ) s;
@@ -272,10 +330,18 @@ begin
   insert into draw_winners (event_id, game_id, prize_no, attendee_id)
   select p_event_id, p_game_id, p_prize_no, unnest(picked);
 
+  select coalesce(array_agg(k.id order by k.n), '{}'::uuid[]) into kept
+    from unnest(coalesce(p_keep, '{}'::uuid[])) with ordinality k(id, n)
+   where exists (
+     select 1 from draw_winners w
+      where w.game_id = p_game_id and w.prize_no = p_prize_no and w.attendee_id = k.id and not w.void)
+     and not k.id = any(picked);
+
   update game_stage
      set run_id = p_run_id, game_id = p_game_id, phase = 'draw_spinning',
          phase_ends_at = p_spin_ends_at,
-         phase_data = jsonb_build_object('prize_no', p_prize_no, 'winner_ids', to_jsonb(picked))
+         phase_data = jsonb_build_object('prize_no', p_prize_no, 'winner_ids', to_jsonb(kept || picked),
+                                         'new_ids', to_jsonb(picked))
    where event_id = p_event_id;
   return picked;
 end;
@@ -287,5 +353,7 @@ revoke execute on function race_add_taps(uuid, uuid, int, timestamptz, timestamp
 grant execute on function race_add_taps(uuid, uuid, int, timestamptz, timestamptz) to service_role;
 revoke execute on function survival_reveal(uuid, int, uuid, uuid, int, int) from public, anon, authenticated;
 grant execute on function survival_reveal(uuid, int, uuid, uuid, int, int) to service_role;
-revoke execute on function draw_spin(uuid, int, uuid, uuid, int, int, uuid, text[], timestamptz) from public, anon, authenticated;
-grant execute on function draw_spin(uuid, int, uuid, uuid, int, int, uuid, text[], timestamptz) to service_role;
+revoke execute on function survival_answer(uuid, uuid, uuid, int, int) from public, anon, authenticated;
+grant execute on function survival_answer(uuid, uuid, uuid, int, int) to service_role;
+revoke execute on function draw_spin(uuid, int, uuid, uuid, int, int, uuid, text[], timestamptz, uuid[]) from public, anon, authenticated;
+grant execute on function draw_spin(uuid, int, uuid, uuid, int, int, uuid, text[], timestamptz, uuid[]) to service_role;

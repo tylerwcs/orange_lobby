@@ -14,25 +14,39 @@ export type WinnerRow = {
 
 /**
  * Who can win (D278): checked in at the draw's checkpoint, no part of their category excluded,
- * not already a standing winner of any draw in this event. A category may name several
- * programmes ("KOM, Crew" - see `categoryParts`), and one excluded part is enough to leave the
- * person out, so leaving out Crew also leaves out "KOM, Crew". Excluded names compare trimmed
- * and case-insensitive; an empty list excludes no one, people with no category included.
+ * not already a standing winner of any draw in this event, and not marked "not here" for the
+ * prize being drawn (`absent`, see absentFor). A category may name several programmes
+ * ("KOM, Crew" - see `categoryParts`), and one excluded part is enough to leave the person out,
+ * so leaving out Crew also leaves out "KOM, Crew". Excluded names compare trimmed and
+ * case-insensitive; an empty list excludes no one, people with no category included.
  * Mirrors draw_spin in 0049_games.sql (its category_matches from 0048), which is what actually
  * picks; this is for the host's "184 eligible" and the LED's rolling names. Change both together.
  */
 export function eligiblePool<A extends Pick<Attendee, "id" | "category">>(
   attendees: A[], checkedIn: ReadonlySet<string>, exclude: string[], pastWinners: ReadonlySet<string>,
+  absent: ReadonlySet<string> = new Set(),
 ): A[] {
   const excluded = new Set(exclude.map((s) => s.trim().toLowerCase()));
   return attendees.filter(
-    (a) => checkedIn.has(a.id) && !categoryParts(a.category).some((p) => excluded.has(p)) && !pastWinners.has(a.id),
+    (a) => checkedIn.has(a.id) && !categoryParts(a.category).some((p) => excluded.has(p))
+      && !pastWinners.has(a.id) && !absent.has(a.id),
   );
 }
 
-/** Winners who still hold their prize. A voided winner was "not here" and may win again (D281). */
+/**
+ * Winners who still hold their prize. A voided winner was "not here" and may win again (D281),
+ * but not the same prize (absentFor).
+ */
 export function standingWinners(rows: WinnerRow[]): Set<string> {
   return new Set(rows.filter((r) => !r.void).map((r) => r.attendee_id));
+}
+
+/**
+ * Who was marked "not here" for this prize of this draw (D281). They stay out of its pool, so
+ * "Not here — redraw" never draws the person it just sent away (draw_spin's void rule).
+ */
+export function absentFor(rows: WinnerRow[], gameId: string, prizeNo: number): Set<string> {
+  return new Set(rows.filter((r) => r.void && r.game_id === gameId && r.prize_no === prizeNo).map((r) => r.attendee_id));
 }
 
 export type PrizeProgress = { prize_no: number; name: string; quantity: number; given: number; remaining: number };
