@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   idleStage, hydrateStage, resolveStage, stageKey, phaseKind, canDo, allowedActions,
   lobbyWrite, raceStartWrite, raceStopWrite, questionWrite, overWrite, drawReadyWrite, idleWrite,
-  raceWindow, currentQuestion, questionDeadline, revealFacts, spinFacts, COUNTDOWN_MS,
+  raceWindow, currentQuestion, questionDeadline, revealFacts, spinFacts, revealReadyAt, canReveal,
+  COUNTDOWN_MS, GRACE_MS,
   type StageRow,
 } from "@/lib/games/phase";
 
@@ -58,7 +59,55 @@ describe("resolveStage", () => {
 describe("stageKey", () => {
   it("changes when the clock moves a phase on, though the version did not", () => {
     const q = stage({ phase: "survival_question", phase_ends_at: iso(T0), phase_data: { question: 0 } });
-    expect(stageKey(q)).not.toBe(stageKey(resolveStage(q, T0)));
+    expect(stageKey(q, T0)).not.toBe(stageKey(resolveStage(q, T0), T0));
+  });
+
+  // A race that ended at T0 by the clock: results begin, but late batches count until T0 + grace.
+  const ended = resolveStage(stage({
+    phase: "race_countdown", phase_ends_at: iso(T0 - 23000),
+    phase_data: { live_from: iso(T0 - 20000), live_until: iso(T0) },
+  }), T0);
+
+  it("keeps the results key while late tap batches may still count", () => {
+    expect(ended.phase).toBe("race_results");
+    expect(stageKey(ended, T0)).toBe("4:race_results");
+    expect(stageKey(ended, T0 + GRACE_MS)).toBe("4:race_results");
+  });
+  it("gives the results a new key once the totals have settled, so phones fetch them again", () => {
+    const later = T0 + GRACE_MS + 1000;
+    expect(stageKey(ended, later)).toBe("4:race_results:settled");
+    expect(stageKey(ended, later)).not.toBe(stageKey(ended, T0));
+    expect(stageKey(ended, later + 60_000)).toBe(stageKey(ended, later));
+  });
+  it("treats a race stopped during its countdown as settled at once (it took no taps)", () => {
+    const stopped = stage({ phase: "race_results", phase_data: { live_from: iso(T0 + 2000), live_until: iso(T0 + 2000) } });
+    expect(stageKey(stopped, T0)).toBe("4:race_results:settled");
+  });
+  it("leaves other phases' keys alone", () => {
+    expect(stageKey(stage({ phase: "race_lobby" }), T0)).toBe("4:race_lobby");
+  });
+});
+
+describe("revealReadyAt / canReveal — no reveal while answers may still arrive (D272)", () => {
+  const q = stage({ phase: "survival_question", phase_ends_at: iso(T0), phase_data: { question: 0, deadline: iso(T0) } });
+
+  it("is ready at the deadline plus the answer grace", () => {
+    expect(revealReadyAt(q)).toBe(T0 + GRACE_MS);
+  });
+  it("is null without a deadline", () => {
+    expect(revealReadyAt(stage({ phase: "survival_reveal", phase_data: { question: 0 } }))).toBeNull();
+  });
+  it("waits through the grace although the question is already locked", () => {
+    const locked = resolveStage(q, T0 + 300);
+    expect(locked.phase).toBe("survival_locked");
+    expect(canDo(locked.phase, "reveal")).toBe(true);
+    expect(canReveal(locked, T0 + 300)).toBe(false);
+    expect(canReveal(resolveStage(q, T0 + GRACE_MS - 1), T0 + GRACE_MS - 1)).toBe(false);
+    expect(canReveal(resolveStage(q, T0 + GRACE_MS), T0 + GRACE_MS)).toBe(true);
+  });
+  it("never allows a reveal the phase does not", () => {
+    expect(canReveal(q, T0 - 1)).toBe(false);
+    expect(canReveal(stage({ phase: "survival_reveal", phase_data: { question: 0, deadline: iso(T0) } }), T0 + 60_000)).toBe(false);
   });
 });
 

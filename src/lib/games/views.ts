@@ -39,9 +39,9 @@ const REVEALED: ReadonlySet<Phase> = new Set<Phase>(["survival_reveal", "surviva
 /**
  * The stage as anyone may see it: phones, the LED, the host. The one secret is the correct
  * answer, which is only here once the host has revealed it — never while a question is open,
- * or any phone could read it off the wire.
+ * or any phone could read it off the wire. `s` is the stage resolved at `now` (see stageKey).
  */
-export function publicStage(s: StageRow, game: Game | null): PublicStage {
+export function publicStage(s: StageRow, game: Game | null, now: number): PublicStage {
   const g = game && s.game_id === game.id ? game : null;
   const q = currentQuestion(s);
   let question: PublicQuestion | null = null;
@@ -57,7 +57,7 @@ export function publicStage(s: StageRow, game: Game | null): PublicStage {
   }
   const w = raceWindow(s);
   return {
-    key: stageKey(s),
+    key: stageKey(s, now),
     phase: s.phase,
     endsAt: s.phase_ends_at ? Date.parse(s.phase_ends_at) : null,
     game: g ? { id: g.id, kind: g.kind, title: g.title } : null,

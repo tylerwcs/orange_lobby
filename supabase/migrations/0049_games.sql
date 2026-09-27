@@ -103,7 +103,9 @@ alter table draw_winners enable row level security;
 -- No policies on purpose: only the service role (which bypasses RLS) may access data.
 
 -- Compare-and-set on the stage (D261). Two crew phones pressing Next together: the first
--- moves the version on, the second's expected version is stale and it gets -1.
+-- moves the version on, the second's expected version is stale and it gets -1. A game or run
+-- from another event (or a run of another game) is refused the same way, so a host token can
+-- only ever put its own event's games on its own stage.
 create or replace function game_stage_write(
   p_event_id uuid, p_expected int, p_run_id uuid, p_game_id uuid,
   p_phase text, p_phase_data jsonb, p_phase_ends_at timestamptz
@@ -113,6 +115,15 @@ as $$
 declare
   v int;
 begin
+  if p_game_id is not null
+     and not exists (select 1 from games where id = p_game_id and event_id = p_event_id) then
+    return -1;
+  end if;
+  if p_run_id is not null
+     and not exists (select 1 from game_runs
+                      where id = p_run_id and event_id = p_event_id and game_id = p_game_id) then
+    return -1;
+  end if;
   insert into game_stage (event_id) values (p_event_id) on conflict (event_id) do nothing;
   update game_stage
      set run_id = p_run_id, game_id = p_game_id, phase = p_phase,
@@ -126,7 +137,9 @@ $$;
 
 -- Adds a phone's batch of taps (D266). At most ceil(15 × seconds since this player's last
 -- accepted batch), elapsed capped at 3 s, and only inside the live window plus 1.5 s grace.
--- Mirrored by tapAllowance in src/lib/games/race.ts; change both together.
+-- A race stopped during its countdown has an empty window (raceStopWrite: until = from) and
+-- takes nothing, not even in the grace after it. Mirrored by tapAllowance in
+-- src/lib/games/race.ts; change both together.
 create or replace function race_add_taps(
   p_run_id uuid, p_attendee_id uuid, p_n int, p_live_from timestamptz, p_live_until timestamptz
 ) returns int
@@ -138,6 +151,7 @@ declare
   accepted int;
 begin
   if p_n is null or p_n <= 0 then return 0; end if;
+  if p_live_until <= p_live_from then return 0; end if;
   if now() < p_live_from or now() > p_live_until + interval '1.5 seconds' then return 0; end if;
   select * into r from race_taps where run_id = p_run_id and attendee_id = p_attendee_id for update;
   if not found then return 0; end if;
@@ -153,6 +167,11 @@ $$;
 -- Reveals a question (D272), atomically with the stage move so a second Reveal cannot
 -- eliminate twice. No answer counts as wrong. If every player still in is wrong, nobody is
 -- eliminated. Mirrored by revealOutcome in src/lib/games/survival.ts; change both together.
+-- Refused (-1, version untouched) until the question's deadline (phase_data.deadline, written by
+-- questionWrite) plus the 1.5 s answer grace has passed: answers are still accepted until then
+-- (answerAccepted), and a reveal must not eliminate a player whose in-time answer is in flight.
+-- revealReadyAt in src/lib/games/phase.ts is the host console's copy of this rule. Also refused
+-- when the run is not this game's, or the game not this event's survival game.
 create or replace function survival_reveal(
   p_event_id uuid, p_expected int, p_run_id uuid, p_game_id uuid, p_question int, p_correct int
 ) returns int
@@ -164,8 +183,17 @@ declare
   wrong int;
   everyone boolean;
 begin
+  if not exists (
+    select 1 from game_runs r join games g on g.id = r.game_id
+     where r.id = p_run_id and r.event_id = p_event_id
+       and g.id = p_game_id and g.event_id = p_event_id and g.kind = 'survival') then
+    return -1;
+  end if;
   update game_stage set version = version + 1, updated_at = now()
    where event_id = p_event_id and version = p_expected and run_id = p_run_id
+     and game_id = p_game_id
+     and phase_data ? 'deadline'
+     and now() >= (phase_data->>'deadline')::timestamptz + interval '1.5 seconds'
   returning version into v;
   if v is null then return -1; end if;
 
@@ -203,7 +231,8 @@ $$;
 -- Draws winners (D278, D280), atomically with the stage move to draw_spinning so a double tap
 -- cannot draw twice. Pool: checked in at the checkpoint, no part of their category excluded
 -- (category_matches from 0048, so leaving out Crew also leaves out "KOM, Crew"), not already a
--- standing winner of ANY draw in this event. Ordered by
+-- standing winner of ANY draw in this event. The game must be this event's draw and the run
+-- that game's, or nothing is drawn (null). Ordered by
 -- gen_random_uuid(), which draws from a cryptographic source. Mirrored by eligiblePool in
 -- src/lib/games/draw.ts; change both together.
 create or replace function draw_spin(
@@ -216,7 +245,10 @@ declare
   v int;
   picked uuid[];
 begin
-  if not exists (select 1 from games where id = p_game_id and event_id = p_event_id and kind = 'draw') then
+  if not exists (
+    select 1 from game_runs r join games g on g.id = r.game_id
+     where r.id = p_run_id and r.event_id = p_event_id
+       and g.id = p_game_id and g.event_id = p_event_id and g.kind = 'draw') then
     return null;
   end if;
   update game_stage set version = version + 1, updated_at = now()

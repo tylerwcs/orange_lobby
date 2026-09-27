@@ -74,9 +74,33 @@ export function resolveStage(s: StageRow, now: number): StageRow {
   return cur;
 }
 
-/** Changes whenever anything a client shows could have: a host write, or the clock moving a phase on. */
-export function stageKey(s: StageRow): string {
-  return `${s.version}:${s.phase}`;
+/**
+ * Changes whenever anything a client shows could have: a host write, the clock moving a phase
+ * on, or a race's totals settling. Race results begin at live_until, but race_add_taps takes
+ * batches until live_until + GRACE_MS, so without the ":settled" step a phone that fetched its
+ * result at the whistle would keep those pre-grace totals (its key would never change again).
+ * `s` is the resolved stage at `now`.
+ */
+export function stageKey(s: StageRow, now: number): string {
+  const base = `${s.version}:${s.phase}`;
+  if (s.phase !== "race_results") return base;
+  return raceSettled(s, now) ? `${base}:settled` : base;
+}
+
+/**
+ * Past the grace, with a second's margin for the per-instance taps memo (250 ms) and for the
+ * app and database clocks disagreeing a little.
+ */
+const SETTLE_MARGIN_MS = 1000;
+
+/**
+ * A race's totals can no longer change: the last batch race_add_taps would take (live_until +
+ * GRACE_MS) is behind us, plus a margin. A race stopped during its countdown has an empty
+ * window and takes no taps at all (race_add_taps), so it is settled from the start.
+ */
+function raceSettled(s: StageRow, now: number): boolean {
+  const w = raceWindow(s);
+  return !w || w.until <= w.from || now >= w.until + GRACE_MS + SETTLE_MARGIN_MS;
 }
 
 export function phaseKind(p: Phase): GameKind | null {
@@ -171,6 +195,23 @@ export function currentQuestion(s: StageRow): number | null {
 export function questionDeadline(s: StageRow): number | null {
   const d = str(s.phase_data.deadline);
   return d ? Date.parse(d) : null;
+}
+
+/**
+ * When the host may reveal (D272): once the last in-time answer can no longer arrive, i.e. the
+ * deadline plus the answer grace (answerAccepted). survival_reveal in 0049_games.sql refuses
+ * before then, so the host console waits for this rather than tapping into a refusal. Null when
+ * the stage has no question deadline.
+ */
+export function revealReadyAt(s: StageRow): number | null {
+  const d = questionDeadline(s);
+  return d === null ? null : d + GRACE_MS;
+}
+
+/** Reveal is on the menu (canDo) AND the answer grace is over. `s` is the resolved stage at `now`. */
+export function canReveal(s: StageRow, now: number): boolean {
+  const at = revealReadyAt(s);
+  return canDo(s.phase, "reveal") && at !== null && now >= at;
 }
 
 export function revealFacts(s: StageRow): { eliminated: number; remaining: number; everyoneSurvived: boolean } | null {
