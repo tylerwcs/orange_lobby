@@ -13,7 +13,7 @@ export type Tone = keyof typeof TONES;
 /** One full-screen moment on the play page (D307): a colour, an icon, a big line, a small line. */
 export function Panel({ tone, icon, title, children, pulse = false }: { tone: Tone; icon?: string; title: React.ReactNode; children?: React.ReactNode; pulse?: boolean }) {
   return (
-    <motion.div initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}
+    <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}
       className={`flex min-h-[62dvh] w-full flex-col items-center justify-center gap-4 rounded-3xl p-6 text-center ${TONES[tone]}`}>
       {icon && (
         <motion.span aria-hidden className="text-7xl"

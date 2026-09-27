@@ -39,7 +39,7 @@ export function TapPad({ token, secondsLeft }: { token: string; secondsLeft: num
       <div className="relative flex size-72 items-center justify-center">
         <AnimatePresence>
           {rings.map((id) => (
-            <motion.span key={id} aria-hidden initial={{ scale: 0.8, opacity: 0.7 }} animate={{ scale: 1.6, opacity: 0 }} transition={{ duration: 0.5 }}
+            <motion.span key={id} aria-hidden initial={{ scale: 0.8, opacity: 0.7 }} animate={{ scale: 1.25, opacity: 0 }} transition={{ duration: 0.5 }}
               onAnimationComplete={() => setRings((r) => r.filter((x) => x !== id))}
               className="absolute inset-0 rounded-full border-8 border-primary" />
           ))}

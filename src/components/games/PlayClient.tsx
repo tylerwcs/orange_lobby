@@ -54,7 +54,7 @@ export function PlayClient({ token, initial }: { token: string; initial: PhoneSt
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className={`${gameFont.variable} flex flex-col items-center gap-4 text-center`}>
+      <div className={`${gameFont.variable} flex flex-col items-center gap-4 overflow-x-clip text-center`}>
         {s?.game?.title && <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{s.game.title}</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {!s || !me ? <Panel tone="calm" title="Loading…" /> : (
