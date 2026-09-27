@@ -5,11 +5,14 @@ export const PHASES = [
   "race_lobby", "race_countdown", "race_live", "race_results",
   "survival_lobby", "survival_question", "survival_locked", "survival_reveal", "survival_over",
   "draw_ready", "draw_spinning", "draw_reveal",
+  // Draw formats (D315, D317): the mosaic's rounds, and a card round's pick and flip.
+  "draw_rounds", "draw_card_pick", "draw_card_reveal",
 ] as const;
 export type Phase = (typeof PHASES)[number];
 
 export const COUNTDOWN_MS = 3000;
-export const SPIN_MS = 5000;
+/** A "Not here" redraw's quick reel (D318). A first spin lasts its game's spin_s (D311). */
+export const QUICK_SPIN_MS = 3000;
 /** How late a tap batch or an answer may arrive and still count (D266, D272). */
 export const GRACE_MS = 1500;
 
@@ -69,7 +72,8 @@ export function resolveStage(s: StageRow, now: number): StageRow {
     return { ...cur, phase: "survival_locked", phase_ends_at: null };
   }
   if (cur.phase === "draw_spinning" && passed(cur.phase_ends_at, now)) {
-    return { ...cur, phase: "draw_reveal", phase_ends_at: null };
+    // A card round's reel names the participant, who then picks a card (D317).
+    return { ...cur, phase: cur.phase_data.cards === true ? "draw_card_pick" : "draw_reveal", phase_ends_at: null };
   }
   return cur;
 }
@@ -110,7 +114,9 @@ export function phaseKind(p: Phase): GameKind | null {
   return null;
 }
 
-export type HostAction = "open" | "start" | "stop" | "reveal" | "next" | "finish" | "draw" | "present" | "redraw" | "idle";
+export type HostAction =
+  | "open" | "start" | "stop" | "reveal" | "next" | "finish" | "draw" | "present" | "redraw" | "idle"
+  | "round" | "pick";
 
 /**
  * What the host may do in each phase. "idle" (end the game) is the escape hatch from almost
@@ -131,6 +137,9 @@ const ALLOWED: Record<Phase, HostAction[]> = {
   draw_ready: ["draw", "open", "idle"],
   draw_spinning: [],
   draw_reveal: ["present", "redraw", "idle"],
+  draw_rounds: ["round", "idle"],
+  draw_card_pick: ["pick", "redraw", "idle"],
+  draw_card_reveal: ["draw", "idle"],
 };
 
 export function allowedActions(p: Phase): HostAction[] {
@@ -229,17 +238,48 @@ const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typ
  * `newIds` is only what this spin drew (all of them for a first spin, or when the stage
  * predates new_ids).
  */
-export function spinFacts(s: StageRow): { prizeNo: number; winnerIds: string[]; newIds: string[] } | null {
-  const prizeNo = num(s.phase_data.prize_no);
+export function spinFacts(s: StageRow): { prizeNo: number | null; winnerIds: string[]; newIds: string[] } | null {
   const winnerIds = ids(s.phase_data.winner_ids);
-  if (prizeNo === null || !winnerIds) return null;
-  return { prizeNo, winnerIds, newIds: ids(s.phase_data.new_ids) ?? winnerIds };
+  if (!winnerIds || !("prize_no" in s.phase_data)) return null;
+  return { prizeNo: num(s.phase_data.prize_no), winnerIds, newIds: ids(s.phase_data.new_ids) ?? winnerIds };
 }
 
 /**
  * "Not here" with no one left to draw (D281): back to the reveal of the prize's other winners,
  * so each of them can still be sent away in turn.
  */
-export function drawRevealWrite(s: StageRow, prizeNo: number, winnerIds: string[]): StageWrite {
+export function drawRevealWrite(s: StageRow, prizeNo: number | null, winnerIds: string[]): StageWrite {
   return { ...keep(s), phase: "draw_reveal", phase_data: { prize_no: prizeNo, winner_ids: winnerIds, new_ids: [] }, phase_ends_at: null };
+}
+
+/** What draw_spin and card_pick add to a draw's phase_data (D311, D315, D316, D317). */
+export type DrawExtra = {
+  spinMs: number | null;
+  quick: boolean;
+  cards: boolean;
+  round: number | null;
+  rounds: number | null;
+  poolAt: number | null;
+  cardNo: number | null;
+};
+
+export function drawExtra(s: StageRow): DrawExtra {
+  const at = str(s.phase_data.pool_at);
+  return {
+    spinMs: num(s.phase_data.spin_ms),
+    quick: s.phase_data.quick === true,
+    cards: s.phase_data.cards === true,
+    round: num(s.phase_data.round),
+    rounds: num(s.phase_data.rounds),
+    poolAt: at ? Date.parse(at) : null,
+    cardNo: num(s.phase_data.card_no),
+  };
+}
+
+/** Next round of a mosaic draw (D315); after the last round the winners are revealed. */
+export function roundWrite(s: StageRow): StageWrite | null {
+  const { round, rounds } = drawExtra(s);
+  if (s.phase !== "draw_rounds" || round === null || rounds === null) return null;
+  const next = round + 1;
+  return { ...keep(s), phase: next >= rounds ? "draw_reveal" : "draw_rounds", phase_data: { ...s.phase_data, round: next }, phase_ends_at: null };
 }

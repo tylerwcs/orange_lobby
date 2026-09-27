@@ -53,7 +53,7 @@ async function phoneMe(ctx: PlayContext, stage: StageRow, game: Game | null): Pr
   // The winner's own phone learns only once the LED reveals it (D280, D282).
   const spun = spinFacts(stage);
   const won = stage.phase === "draw_reveal" && spun?.winnerIds.includes(ctx.attendee.id)
-    ? game.config.prizes[spun.prizeNo]?.name ?? "a prize"
+    ? spun.prizeNo === null ? "a prize" : game.config.prizes[spun.prizeNo]?.name ?? "a prize"
     : null;
   return { kind: "draw", won };
 }

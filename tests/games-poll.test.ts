@@ -18,6 +18,12 @@ describe("intervals (D256)", () => {
   });
 });
 
+describe("draw phases (D315, D317)", () => {
+  it("polls phones once a second through the new draw phases", () => {
+    for (const p of ["draw_rounds", "draw_card_pick", "draw_card_reveal"] as const) expect(phoneInterval(p)).toBe(1000);
+  });
+});
+
 describe("backoff", () => {
   it("doubles from one second up to eight", () => {
     expect([1, 2, 3, 4, 5, 9].map(backoff)).toEqual([1000, 2000, 4000, 8000, 8000, 8000]);

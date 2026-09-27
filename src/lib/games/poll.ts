@@ -9,6 +9,7 @@ const ACTIVE: ReadonlySet<Phase> = new Set<Phase>([
   "race_lobby", "race_countdown", "race_live",
   "survival_lobby", "survival_question", "survival_locked", "survival_reveal",
   "draw_ready", "draw_spinning", "draw_reveal",
+  "draw_rounds", "draw_card_pick", "draw_card_reveal",
 ]);
 
 /** Once a second while a game is on, every 5 s otherwise (D256). */

@@ -30,6 +30,9 @@ const PHASE_LABEL: Record<Phase, string> = {
   draw_ready: "Ready to draw",
   draw_spinning: "Drawing…",
   draw_reveal: "Winner on screen",
+  draw_rounds: "Elimination rounds",
+  draw_card_pick: "Pick a card",
+  draw_card_reveal: "Card revealed",
 };
 
 /** Phases whose on-screen time moves: the console's clock ticks only in these. */

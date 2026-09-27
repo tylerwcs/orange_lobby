@@ -3,6 +3,7 @@ import {
   idleStage, hydrateStage, resolveStage, stageKey, phaseKind, canDo, allowedActions,
   lobbyWrite, raceStartWrite, raceStopWrite, questionWrite, overWrite, drawReadyWrite, drawRevealWrite, idleWrite,
   raceWindow, currentQuestion, questionDeadline, revealFacts, spinFacts, revealReadyAt, canReveal,
+  drawExtra, roundWrite,
   COUNTDOWN_MS, GRACE_MS,
   type StageRow,
 } from "@/lib/games/phase";
@@ -201,5 +202,44 @@ describe("readers", () => {
   it("returns null for data that is not there", () => {
     const s = stage({ phase: "race_lobby" });
     expect([raceWindow(s), currentQuestion(s), revealFacts(s), spinFacts(s)]).toEqual([null, null, null, null]);
+  });
+});
+
+const drawStage = (phase: StageRow["phase"], phase_data: Record<string, unknown>, phase_ends_at: string | null = null): StageRow =>
+  ({ event_id: "e", run_id: "r", game_id: "g", phase, phase_data, phase_ends_at, version: 7 });
+
+describe("draw formats (D315, D317)", () => {
+  it("a card spin lands on the card pick, not the reveal", () => {
+    const s = drawStage("draw_spinning", { cards: true, prize_no: null, winner_ids: ["a"] }, new Date(1000).toISOString());
+    expect(resolveStage(s, 2000).phase).toBe("draw_card_pick");
+  });
+  it("a normal spin still lands on the reveal", () => {
+    const s = drawStage("draw_spinning", { prize_no: 0, winner_ids: ["a"] }, new Date(1000).toISOString());
+    expect(resolveStage(s, 2000).phase).toBe("draw_reveal");
+  });
+  it("reads a card turn's facts with no prize", () => {
+    expect(spinFacts(drawStage("draw_card_pick", { cards: true, prize_no: null, winner_ids: ["a"], new_ids: ["a"] })))
+      .toEqual({ prizeNo: null, winnerIds: ["a"], newIds: ["a"] });
+  });
+  it("has no spin facts without a prize key", () => {
+    expect(spinFacts(drawStage("draw_ready", {}))).toBeNull();
+  });
+  it("reads the draw extras", () => {
+    const at = "2026-10-01T02:00:00.000Z";
+    expect(drawExtra(drawStage("draw_rounds", { round: 1, rounds: 4, pool_at: at, spin_ms: 6000, quick: true, cards: false, card_no: 3 })))
+      .toEqual({ spinMs: 6000, quick: true, cards: false, round: 1, rounds: 4, poolAt: Date.parse(at), cardNo: 3 });
+  });
+  it("Next round moves the round on, and the last round goes to the reveal", () => {
+    const s = drawStage("draw_rounds", { prize_no: 0, winner_ids: ["a"], round: 2, rounds: 4 });
+    expect(roundWrite(s)).toMatchObject({ phase: "draw_rounds", phase_data: { round: 3, rounds: 4, winner_ids: ["a"] } });
+    expect(roundWrite({ ...s, phase_data: { ...s.phase_data, round: 3 } })).toMatchObject({ phase: "draw_reveal", phase_data: { round: 4 } });
+  });
+  it("has no round write outside the rounds", () => {
+    expect(roundWrite(drawStage("draw_reveal", { prize_no: 0, winner_ids: ["a"] }))).toBeNull();
+  });
+  it("lets the host do only what each new phase allows", () => {
+    expect(allowedActions("draw_rounds")).toEqual(["round", "idle"]);
+    expect(allowedActions("draw_card_pick")).toEqual(["pick", "redraw", "idle"]);
+    expect(allowedActions("draw_card_reveal")).toEqual(["draw", "idle"]);
   });
 });

@@ -6,7 +6,7 @@ import { forgetPool, poolFor } from "@/lib/games/display-state";
 import { createRun, drawSpin, getGame, listWinners, revealQuestion, voidWinner, writeStage } from "@/lib/db/games";
 import {
   canDo, canReveal, currentQuestion, drawReadyWrite, drawRevealWrite, idleWrite, lobbyWrite, overWrite, questionWrite, raceStartWrite,
-  raceStopWrite, revealFacts, spinFacts, SPIN_MS, type HostAction, type StageRow, type StageWrite,
+  raceStopWrite, revealFacts, spinFacts, QUICK_SPIN_MS, type HostAction, type StageRow, type StageWrite,
 } from "@/lib/games/phase";
 import { parseGrouping, type Grouping } from "@/lib/games/race";
 import { isOver } from "@/lib/games/survival";
@@ -154,7 +154,7 @@ export async function drawAction(token: string, expected: number, mode: "one" | 
   const picked = await drawSpin({
     eventId: b.event.id, expected, runId: b.stage.run_id, gameId: game.id, prizeNo: prize.prize_no, count,
     checkpointId: game.config.checkpoint_id, exclude: game.config.exclude_categories,
-    spinEndsAt: new Date(Date.now() + SPIN_MS).toISOString(),
+    spinEndsAt: new Date(Date.now() + QUICK_SPIN_MS).toISOString(),
   });
   forgetStage(b.event.id);
   forgetPool(game.id);
@@ -181,7 +181,8 @@ export async function redrawAction(token: string, expected: number, attendeeId: 
   if ("ok" in b) return b;
   const game = b.game;
   const spun = spinFacts(b.stage);
-  if (game?.kind !== "draw" || !spun || !isId(attendeeId) || !spun.winnerIds.includes(attendeeId) || !b.stage.run_id || !game.config.checkpoint_id) return STALE;
+  // A card round's turn has no prize until a card is picked (D317); Task 11 rewrites this action for that case.
+  if (game?.kind !== "draw" || !spun || spun.prizeNo === null || !isId(attendeeId) || !spun.winnerIds.includes(attendeeId) || !b.stage.run_id || !game.config.checkpoint_id) return STALE;
   await voidWinner(game.id, attendeeId);
   forgetPool(game.id);
   const keep = spun.winnerIds.filter((id) => id !== attendeeId);
@@ -193,7 +194,7 @@ export async function redrawAction(token: string, expected: number, attendeeId: 
   const picked = await drawSpin({
     eventId: b.event.id, expected, runId: b.stage.run_id, gameId: game.id, prizeNo: spun.prizeNo, count: 1,
     checkpointId: game.config.checkpoint_id, exclude: game.config.exclude_categories,
-    spinEndsAt: new Date(Date.now() + SPIN_MS).toISOString(), keep,
+    spinEndsAt: new Date(Date.now() + QUICK_SPIN_MS).toISOString(), keep,
   });
   forgetStage(b.event.id);
   forgetPool(game.id);

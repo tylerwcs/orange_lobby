@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { DisplayState, Person } from "@/lib/games/wire";
-import { SPIN_MS } from "@/lib/games/phase";
+import { QUICK_SPIN_MS } from "@/lib/games/phase";
 import { Frame } from "./Frame";
 import { JointWinners, WinnerCard } from "./WinnerCard";
 
@@ -68,7 +68,7 @@ function useRoller(count: number, endsAt: number | null, offset: number): number
       if (stopped) return;
       setI((x) => (x + 1) % count);
       const left = endsAt - (Date.now() + offsetRef.current);
-      const done = 1 - Math.max(0, Math.min(1, left / SPIN_MS));
+      const done = 1 - Math.max(0, Math.min(1, left / QUICK_SPIN_MS));
       t = setTimeout(step, 50 + 400 * done * done);
     };
     t = setTimeout(step, 50);
