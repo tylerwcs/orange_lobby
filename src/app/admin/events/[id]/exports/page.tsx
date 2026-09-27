@@ -46,7 +46,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
     },
     ...(breakoutSlots(items).length > 0 ? [{
       href: `${b}/rosters.xlsx`, icon: "file" as IconName, name: "Breakout rosters",
-      what: "One sheet per breakout room, plus one per round for whoever has no room yet. This is what the facilitator or the desk prints.",
+      what: "One sheet per breakout room, plus one per round for whoever has no room yet. This is what the facilitator or the committee prints.",
     }] : []),
     ...(booths.length > 0 ? [{
       href: `${b}/passport.xlsx`, icon: "star" as IconName, name: "Booth Passport",

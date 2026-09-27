@@ -88,7 +88,7 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
       inline={inline}
       label={holding ? "Change session" : "Book your session"}
       title={activity.name}
-      description={holding ? "Pick another time. The desk approves the move." : state.mustPick ? "Choose one session. The desk can move you later." : "Pick a time."}
+      description={holding ? "Pick another time. The committee approves the move." : state.mustPick ? "Choose one session. The committee can move you later." : "Pick a time."}
     >
       <ActivitySessions
         entry={{ state, controls }}

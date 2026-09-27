@@ -51,7 +51,7 @@ describe("bookingCard", () => {
   });
   it("says a change is waiting before anything else", () => {
     const b = booking({ held: 1, sessions: [seat("2026-09-28", "12:30", 3, true)] }, true);
-    expect(bookingCard(b).status).toEqual({ label: "Waiting for the desk", tone: "warning" });
+    expect(bookingCard(b).status).toEqual({ label: "Waiting for the committee", tone: "warning" });
   });
   it("marks a closed activity and points at the desk", () => {
     expect(bookingCard(booking({ closed: true }))).toEqual({

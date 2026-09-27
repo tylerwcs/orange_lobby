@@ -53,7 +53,7 @@ export function bookingCard({ state, pending }: BookingCardInput): CardView {
   const withSeats = { icon: "calendar" as const, text: `${range} · ${left} seat${left === 1 ? "" : "s"} left` };
 
   // Order is priority: a waiting request is the thing to know, even over "Booked".
-  if (pending) return { status: { label: "Waiting for the desk", tone: "warning" }, meta: booked ?? dates, action: view };
+  if (pending) return { status: { label: "Waiting for the committee", tone: "warning" }, meta: booked ?? dates, action: view };
   if (state.held > 0) return { status: { label: "Booked", tone: "success" }, meta: booked, action: view };
   if (state.closed) return { status: { label: "Closed", tone: "muted" }, meta: dates, action: view };
   if (state.mustPick) return { status: { label: "Pick one", tone: "primary" }, meta: withSeats, action: { label: "Choose", primary: true } };

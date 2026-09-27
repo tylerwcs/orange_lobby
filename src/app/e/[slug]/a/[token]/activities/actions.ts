@@ -126,7 +126,7 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
     fromSessionId: from.id, toSessionId: to.id,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to move to ${sessionLabel(to)}. The desk will decide.`)
+    ? flashPath(path, `Asked to move to ${sessionLabel(to)}. The committee will decide.`)
     : flashPath(path, ASK_REFUSALS.duplicate, "error"));
 }
 
@@ -157,7 +157,7 @@ export async function requestCancelAction(slug: string, token: string, fromSessi
     fromSessionId: from.id, toSessionId: null,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to cancel ${sessionLabel(from)}. The desk will decide.`)
+    ? flashPath(path, `Asked to cancel ${sessionLabel(from)}. The committee will decide.`)
     : flashPath(path, ASK_REFUSALS.duplicate, "error"));
 }
 

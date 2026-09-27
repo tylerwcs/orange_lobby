@@ -179,7 +179,7 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
             tone="default"
             triggerVariant="default"
             confirmLabel="Send request"
-            message={`Ask the desk to move you from ${fromSeat ? sessionLabel(fromSeat.session) : "your session"} to ${when}? Your current seat is held until they agree, so nothing changes yet.`}
+            message={`Ask the committee to move you from ${fromSeat ? sessionLabel(fromSeat.session) : "your session"} to ${when}? Your current seat is held until they agree, so nothing changes yet.`}
           >
             Request switch
           </ConfirmButton>

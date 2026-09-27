@@ -49,7 +49,7 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
             : `Waiting for approval: move to ${pending.toLabel ?? "another session"}`}
         </p>
         <p className="mt-1 text-muted-foreground">
-          Your seat is held until the desk agrees, so nothing has changed yet.
+          Your seat is held until the committee agrees, so nothing has changed yet.
         </p>
         <form action={pendingId ? withdraw.bind(null, pendingId) : undefined} className="mt-2">
           <SubmitButton variant="outline">Withdraw request</SubmitButton>
@@ -65,8 +65,8 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
       {declined && (
         <p className="text-sm text-warning">
           {declined.kind === "cancel"
-            ? `The desk declined your request to cancel ${declined.fromLabel ?? "that session"}.`
-            : `The desk declined your request to move to ${declined.toLabel ?? "another session"}.`}
+            ? `The committee declined your request to cancel ${declined.fromLabel ?? "that session"}.`
+            : `The committee declined your request to move to ${declined.toLabel ?? "another session"}.`}
         </p>
       )}
       {held.map((seat) => (
@@ -91,7 +91,7 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
                   triggerVariant="link"
                   className="h-auto p-0 text-success-strong underline"
                   confirmLabel="Send request"
-                  message={`Ask the desk to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
+                  message={`Ask the committee to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
                 >
                   Ask to cancel
                 </ConfirmButton>
@@ -104,7 +104,7 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
           offers the switch. This line only says so, or says why it cannot. */}
       {held.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {switchTargets.length > 0 ? "To move, tap Change session and pick another time. The desk approves it." : "No other session has room right now."}
+          {switchTargets.length > 0 ? "To move, tap Change session and pick another time. The committee approves it." : "No other session has room right now."}
         </p>
       )}
     </div>
