@@ -7,6 +7,7 @@ import Stage3D from "./Stage3D";
 import { ThemeBackdrop } from "./ThemeBackdrop";
 import { Confetti3D } from "./Confetti3D";
 import { SlotReels } from "./SlotReels";
+import { Wheel } from "./Wheel";
 
 /**
  * Everything the LED draws in 3D (D293), in the one canvas: the Theme background, the winner
@@ -35,6 +36,13 @@ function DrawScene3D({ state, offset, synth }: { state: DisplayState; offset: nu
     if (!wheel && d.targets.length <= MAX_REELS) {
       return <SlotReels key={s.key} targets={d.targets} sample={d.sample} endsAt={s.endsAt} spinMs={d.spinMs} offset={offset} synth={synth} />;
     }
+  }
+  if (d.format === "wheel" && d.wheel && (s.phase === "draw_ready" || s.phase === "draw_spinning")) {
+    const spin = s.phase === "draw_spinning" && !d.quick;
+    return (
+      <Wheel key={spin ? s.key : "resting"} people={d.wheel} targetId={spin ? d.targets?.[0]?.id ?? null : null}
+        endsAt={spin ? s.endsAt : null} spinMs={spin ? d.spinMs : null} offset={offset} synth={synth} colour={state.event.colour} />
+    );
   }
   return null;
 }

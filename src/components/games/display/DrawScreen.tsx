@@ -16,12 +16,23 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
   const s = state.stage;
   const d = state.draw!;
   const title = s.game?.title ?? "Lucky draw";
-  // Only Cascade (more winners than reels) needs a ticking clock; the reels animate in 3D off
-  // their own useFrame, so gate the 10×/s re-render on the one screen that reads `now`.
+  // Cascade (more winners than reels) and the wheel's landed-name overlay are the only things
+  // here that read `now` — the reels and the wheel itself animate in 3D off their own useFrame —
+  // so gate the 10x/s re-render on those two HTML cases. Without the wheel branch here, `now`
+  // would freeze at mount (useServerNow only advances while `active`) and the overlay's
+  // `now >= s.endsAt` check would never flip true.
+  const wheelSpinning = s.phase === "draw_spinning" && d.format === "wheel" && !d.quick;
   const cascading = s.phase === "draw_spinning" && (d.targets?.length ?? 0) > MAX_REELS;
-  const now = useServerNow(offset, 100, cascading);
+  const now = useServerNow(offset, 100, cascading || wheelSpinning);
 
   if (s.phase === "draw_ready") {
+    if (d.format === "wheel") {
+      return (
+        <Frame title={title} right={`${d.pool} in the draw`}>
+          <p className="absolute bottom-16 left-0 right-0 text-center font-game text-5xl">{d.prize ? `Spinning for ${d.prize}` : "All prizes drawn 🎉"}</p>
+        </Frame>
+      );
+    }
     return (
       <Frame title={title} right={`${d.pool} in the draw`}>
         <div className="flex h-full flex-col items-center justify-center gap-8">
@@ -39,6 +50,18 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
 
   if (s.phase === "draw_spinning") {
     const targets = d.targets ?? [];
+    if (d.format === "wheel" && !d.quick) {
+      return (
+        <Frame title={title} right={d.prize ?? ""}>
+          {s.endsAt !== null && now >= s.endsAt && d.targets?.[0] && (
+            <motion.div initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, damping: 14 }}
+              className="absolute inset-x-0 bottom-16 text-center font-game text-[120px] leading-none drop-shadow-[0_8px_40px_var(--brand)]">
+              {d.targets[0].first} {d.targets[0].initials}
+            </motion.div>
+          )}
+        </Frame>
+      );
+    }
     return (
       <Frame title={title} right={d.prize ?? ""}>
         {targets.length > MAX_REELS
