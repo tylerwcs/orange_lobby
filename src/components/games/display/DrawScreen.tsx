@@ -22,7 +22,6 @@ const FLIP_END_MS = 2000; // keep equal to CardTable's FLIP_END_MS
 export function DrawScreen({ state, offset }: { state: DisplayState; offset: number; synth?: Synth }) {
   const s = state.stage;
   const d = state.draw!;
-  const title = s.game?.title ?? "Lucky draw";
   // Cascade (more winners than reels) and the wheel's landed-name overlay are the only things
   // here that read `now` — the reels and the wheel itself animate in 3D off their own useFrame —
   // so gate the 10x/s re-render on those two HTML cases. Without the wheel branch here, `now`
@@ -32,7 +31,7 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
   const cascading = s.phase === "draw_spinning" && (d.targets?.length ?? 0) > MAX_REELS;
   const now = useServerNow(offset, 100, cascading || wheelSpinning);
 
-  if (s.phase === "draw_rounds" && d.mosaic) return <MosaicDraw title={title} prize={d.prize} mosaic={d.mosaic} seed={s.key} />;
+  if (s.phase === "draw_rounds" && d.mosaic) return <MosaicDraw prize={d.prize} mosaic={d.mosaic} seed={s.key} />;
 
   if (d.format === "cards" && d.cards && s.phase !== "draw_spinning" && s.phase !== "draw_reveal") {
     const left = d.cards.slots.filter((c) => !c.taken).length;
@@ -40,16 +39,17 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
     const picked = d.cards.slots.find((c) => c.no === d.cards!.picked);
     if (s.phase === "draw_card_pick" && who) {
       return (
-        <Frame title="Pick a card!" right={`${left} left`}>
+        <Frame>
           <motion.p initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            className="-mt-4 text-center font-game text-7xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">{who.name}</motion.p>
+            className="text-center font-game text-6xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">{who.name} — pick a card</motion.p>
+          <p className="absolute inset-x-0 bottom-12 text-center font-game text-4xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>
         </Frame>
       );
     }
     if (s.phase === "draw_card_reveal" && who && picked?.prize) {
       // The last card flipped (D317 step 5): say so under the win, so the room knows the round is over.
       return (
-        <Frame title={title}>
+        <Frame>
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: FLIP_END_MS / 1000 }}
             className="absolute inset-x-0 bottom-14 flex flex-col items-center gap-3 text-center font-game drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
             <p className="text-6xl">{who.name} wins {picked.prize}</p>
@@ -59,8 +59,10 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
       );
     }
     return (
-      <Frame title={title} right={`${left} ${left === 1 ? "card" : "cards"} left`}>
-        {left === 0 && <div className="flex h-full items-center justify-center font-game text-8xl">All cards dealt 🎉</div>}
+      <Frame>
+        {left === 0
+          ? <div className="flex h-full items-center justify-center font-game text-8xl">All cards dealt 🎉</div>
+          : <p className="absolute inset-x-0 bottom-12 text-center font-game text-4xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>}
       </Frame>
     );
   }
@@ -68,19 +70,28 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
   if (s.phase === "draw_ready") {
     if (d.format === "wheel") {
       return (
-        <Frame title={title} right={`${d.pool} in the draw`}>
-          <p className="absolute bottom-16 left-0 right-0 text-center font-game text-5xl">{d.prize ? `Spinning for ${d.prize}` : "All prizes drawn 🎉"}</p>
+        <Frame>
+          <div className="absolute inset-x-0 bottom-16 flex flex-col items-center gap-2 text-center font-game">
+            <p className="text-5xl">{d.prize ? `Spinning for ${d.prize}` : "All prizes drawn 🎉"}</p>
+            {d.prize && <p className="text-3xl opacity-75">{d.pool} in the draw</p>}
+          </div>
         </Frame>
       );
     }
     return (
-      <Frame title={title} right={`${d.pool} in the draw`}>
-        <div className="flex h-full flex-col items-center justify-center gap-8">
+      <Frame>
+        <div className="flex h-full flex-col items-center justify-center gap-6">
           {d.prize ? (
             <>
               <p className="font-game text-5xl opacity-85">Next up</p>
+              {d.prizeImage && (
+                // eslint-disable-next-line @next/next/no-img-element -- an organiser upload; see IdleScreen
+                <img src={d.prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  className="max-h-[520px] max-w-[900px] rounded-3xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.5)]" />
+              )}
               <motion.p key={d.prize} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 180, damping: 14 }}
                 className="line-clamp-4 max-w-[1700px] break-words text-center font-game text-[150px] leading-none drop-shadow-[0_8px_40px_var(--brand)]">{d.prize}</motion.p>
+              <p className="font-game text-4xl opacity-75">{d.pool} in the draw</p>
             </>
           ) : <p className="font-game text-8xl">All prizes drawn 🎉</p>}
         </div>
@@ -92,18 +103,30 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
     const targets = d.targets ?? [];
     if (d.format === "wheel" && !d.quick) {
       return (
-        <Frame title={title} right={d.prize ?? ""}>
+        <Frame>
+          {/* A small centred line, not a corner fact (Requirement 1); none for a card round's turn (there is no prize here anyway). */}
+          {d.prize && (
+            <p className="absolute inset-x-0 top-10 text-center font-game text-4xl opacity-85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]">Drawing for {d.prize}</p>
+          )}
           {s.endsAt !== null && now >= s.endsAt && d.targets?.[0] && (
-            <motion.div initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, damping: 14 }}
-              className="absolute inset-x-0 bottom-16 text-center font-game text-[120px] leading-none drop-shadow-[0_8px_40px_var(--brand)]">
-              {wheelLabel(d.targets[0])}
-            </motion.div>
+            <>
+              {/* Dims the wheel behind the name (Requirement 3). */}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-black/55" />
+              <motion.div initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, damping: 14 }}
+                className="absolute left-1/2 top-1/2 max-w-[1500px] -translate-x-1/2 -translate-y-1/2 rounded-[40px] bg-white px-16 py-10 shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
+                <span className="block truncate text-center font-game text-[120px] leading-none text-[#111]">{wheelLabel(d.targets[0])}</span>
+              </motion.div>
+            </>
           )}
         </Frame>
       );
     }
     return (
-      <Frame title={d.format === "cards" ? "Who picks next?" : title} right={d.prize ?? ""}>
+      <Frame>
+        {/* Cards' own turn-spin has no prize to name (a card round's turn has none). */}
+        {d.format !== "cards" && d.prize && (
+          <p className="absolute inset-x-0 top-10 text-center font-game text-4xl opacity-85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]">Drawing for {d.prize}</p>
+        )}
         {targets.length > MAX_REELS
           ? <Cascade people={targets} endsAt={s.endsAt} now={now} />
           : <ReelFrames count={targets.length} />}
@@ -114,25 +137,35 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
   const winners = d.winners ?? [];
   if (s.phase !== "draw_reveal") return null;
   if (winners.length === 0) {
-    return <Frame title={title}><div className="flex h-full items-center justify-center font-game text-7xl">No one left to draw</div></Frame>;
+    return <Frame><div className="flex h-full items-center justify-center font-game text-7xl">No one left to draw</div></Frame>;
   }
-  if (winners.length === 1) return <WinnerCard label="Winner" name={winners[0].name} company={winners[0].company} prize={d.prize} />;
-  return <JointWinners title="Winners" winners={winners} prize={d.prize} />;
+  if (winners.length === 1) return <WinnerCard label="Winner" name={winners[0].name} company={winners[0].company} prize={d.prize} prizeImage={d.prizeImage} />;
+  return <JointWinners title="Winners" winners={winners} prize={d.prize} prizeImage={d.prizeImage} />;
 }
 
 /**
- * The window round each 3D reel (D313), in LED pixels: a bright border, and fades top and bottom
- * so the names roll in and out. Frame's content box is not positioned, so `absolute inset-0`
- * here is the whole 1920×1080 screen layer — the same pixels reelLayout and the 3D reels use.
+ * The window round each 3D reel (D313, redesigned D323): a soft drop shadow that reads as a white
+ * rounded box (no coloured ring, no glow, no red or brand lines) — the white comes from the 3D
+ * reel's own white faces showing through, not a solid fill here: this HTML layer paints OVER the
+ * 3D canvas (DisplayView stacks the HTML screen above Layer3D), so an opaque background here would
+ * hide the spinning reel entirely instead of framing it. White-to-transparent gradients top and
+ * bottom fade the names as they roll in and out, and two small dark-grey pointer triangles at the
+ * left and right edges — level with the centre row — point inward at the winner. Frame's content
+ * box is not positioned, so `absolute inset-0` here is the whole 1920×1080 screen layer — the same
+ * pixels reelLayout and the 3D reels use.
  */
 function ReelFrames({ count }: { count: number }) {
   return (
     <div className="pointer-events-none absolute inset-0">
       {reelLayout(count).map((b, i) => (
-        <div key={i} className="absolute overflow-hidden rounded-[28px] ring-8 ring-[var(--brand)] shadow-[0_0_60px_var(--brand)]"
+        <div key={i} className="absolute overflow-hidden rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
           style={{ left: b.x - b.w / 2, top: b.y - b.h / 2, width: b.w, height: b.h }}>
-          <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-black/80 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/80 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-white to-transparent" />
+          <div className="absolute left-2 top-1/2 -translate-y-1/2"
+            style={{ width: 0, height: 0, borderTop: "16px solid transparent", borderBottom: "16px solid transparent", borderLeft: "20px solid #3a3a3a" }} />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2"
+            style={{ width: 0, height: 0, borderTop: "16px solid transparent", borderBottom: "16px solid transparent", borderRight: "20px solid #3a3a3a" }} />
         </div>
       ))}
     </div>

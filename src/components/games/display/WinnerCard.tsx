@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { LINE, winnerGrid } from "./winnerGrid";
 
 /** The one place the LED shows a full name and company (D273): someone is walking on stage. */
-export function WinnerCard({ label, name, company, prize }: { label: string; name: string; company: string; prize?: string | null }) {
+export function WinnerCard({ label, name, company, prize, prizeImage }: { label: string; name: string; company: string; prize?: string | null; prizeImage?: string | null }) {
   return (
     <div className="relative flex h-full flex-col items-center justify-center gap-6 px-16 text-center">
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-full w-[1100px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.28),transparent_65%)]" />
@@ -13,8 +13,16 @@ export function WinnerCard({ label, name, company, prize }: { label: string; nam
         className="max-w-[1780px] font-game text-[150px] leading-none drop-shadow-[0_8px_40px_var(--brand)]">{name}</motion.div>
       {company && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.85 }} transition={{ delay: 0.5 }} className="text-5xl">{company}</motion.div>}
       {prize && (
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 12, delay: 0.7 }}
-          className="mt-6 rounded-full bg-[var(--brand)] px-14 py-5 font-game text-6xl shadow-[0_0_60px_var(--brand)]">{prize}</motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="mt-6 flex flex-col items-center gap-4">
+          {prizeImage && (
+            // eslint-disable-next-line @next/next/no-img-element -- an organiser upload; see IdleScreen
+            <img src={prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
+              className="max-h-[280px] max-w-[520px] rounded-2xl object-contain shadow-[0_16px_50px_rgba(0,0,0,0.5)]" />
+          )}
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 12, delay: 0.7 }}
+            className="rounded-full bg-[var(--brand)] px-14 py-5 font-game text-6xl shadow-[0_0_60px_var(--brand)]">{prize}</motion.div>
+        </motion.div>
       )}
     </div>
   );
@@ -23,6 +31,9 @@ export function WinnerCard({ label, name, company, prize }: { label: string; nam
 /** The page is 1080 tall: 48 + 48 of padding, a 48 px title and, with a prize, a 72 px prize line, 24 px apart. */
 const GRID_HEIGHT = 1080 - 96 - 48 - 24;
 const GRID_HEIGHT_WITH_PRIZE = GRID_HEIGHT - 72 - 24;
+/** With a prize picture (D323), the prize block grows by the image's height plus a gap. */
+const PRIZE_IMAGE_H = 170;
+const GRID_HEIGHT_WITH_PRIZE_IMAGE = GRID_HEIGHT_WITH_PRIZE - PRIZE_IMAGE_H - 16;
 /** How long each page of a very long list of winners stays up. */
 const PAGE_MS = 8000;
 
@@ -30,8 +41,9 @@ const PAGE_MS = 8000;
  * Joint winners of last one standing, or a "draw all" (D272, D282). The grid is sized to the
  * count (see winnerGrid) so it never runs off the screen, however many winners there are.
  */
-export function JointWinners({ title, winners, prize }: { title: string; winners: { name: string; company: string }[]; prize?: string | null }) {
-  const g = winnerGrid(winners.length, prize ? GRID_HEIGHT_WITH_PRIZE : GRID_HEIGHT);
+export function JointWinners({ title, winners, prize, prizeImage }: { title: string; winners: { name: string; company: string }[]; prize?: string | null; prizeImage?: string | null }) {
+  const gridHeight = prize ? (prizeImage ? GRID_HEIGHT_WITH_PRIZE_IMAGE : GRID_HEIGHT_WITH_PRIZE) : GRID_HEIGHT;
+  const g = winnerGrid(winners.length, gridHeight);
   const pages = Math.ceil(winners.length / g.perPage);
   const page = usePage(pages, PAGE_MS);
   const from = page * g.perPage;
@@ -42,10 +54,19 @@ export function JointWinners({ title, winners, prize }: { title: string; winners
         {title}
         {pages > 1 && <span className="ml-6 normal-case tracking-normal opacity-80">{from + 1}–{from + shown.length} of {winners.length}</span>}
       </div>
-      {prize && <div className="h-[72px] max-w-full shrink-0 truncate text-7xl font-extrabold leading-none">{prize}</div>}
+      {prize && (
+        <div className="flex shrink-0 flex-col items-center gap-3">
+          {prizeImage && (
+            // eslint-disable-next-line @next/next/no-img-element -- an organiser upload; see IdleScreen
+            <img src={prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
+              className="max-h-[170px] max-w-[420px] rounded-2xl object-contain shadow-[0_12px_40px_rgba(0,0,0,0.5)]" />
+          )}
+          <div className="h-[72px] max-w-full truncate text-7xl font-extrabold leading-none">{prize}</div>
+        </div>
+      )}
       <div className="grid w-full shrink-0 content-center"
         style={{
-          height: prize ? GRID_HEIGHT_WITH_PRIZE : GRID_HEIGHT, gap: g.gap,
+          height: gridHeight, gap: g.gap,
           gridTemplateColumns: `repeat(${g.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${g.rows}, ${g.cellHeight}px)`,
         }}>
         {shown.map((w, i) => (

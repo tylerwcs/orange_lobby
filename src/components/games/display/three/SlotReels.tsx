@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import type { Person } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
 import { reelLayout, reelTimings, toWorld, type Box } from "@/lib/games/layout";
-import { easeOutQuart } from "@/lib/games/wheel";
+import { easeOutQuart, wheelLabel } from "@/lib/games/wheel";
 import { textTexture, useFontReady } from "./textTexture";
 import { useAnimating } from "./useAnimating";
 
@@ -53,15 +53,18 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed by the id list, not identity
   const stableNames = useMemo(() => names, [namesKey]);
 
+  // White reel, black text (D323): one line per face — wheelLabel, the same label the wheel
+  // uses — no initials line. The HTML overlay (ReelFrames) adds the white-to-transparent fade
+  // that makes faces above and below the centre read as fading out; the drum's own curvature
+  // already shrinks the faces that have turned away from the front.
   const textures = useMemo(() => {
     if (!ready) return [];
     const size = Math.min(faceH * 0.55, 150);
     return Array.from({ length: FACES }, (_, i) => {
       const p = i === 0 ? stableTarget : stableNames.length ? stableNames[(i - 1) % stableNames.length] : stableTarget;
       return textTexture(box.w, faceH, [
-        { text: p.first || p.initials, size, colour: "#ffffff" },
-        { text: p.initials, size: size * 0.4, colour: "#ffffff", alpha: 0.7 },
-      ], { background: i % 2 ? "#1c1c24" : "#262632" });
+        { text: wheelLabel(p), size, colour: "#111111" },
+      ], { background: "#ffffff" });
     });
   }, [ready, stableTarget, stableNames, box.w, faceH]);
   useEffect(() => () => textures.forEach((t) => t.dispose()), [textures]);
@@ -98,6 +101,19 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
   });
   return (
     <group position={[x, y, -radius]}>
+      {/* A plain white backstop, fixed (outside the spinning drum) just behind the front face
+          (D323): the drum is flat quads approximating a cylinder, and at this camera's
+          perspective the thin seam between two adjacent faces can otherwise show whatever is
+          behind the reel — the coloured Theme backdrop — as a hairline. It sits close to the
+          front face's own depth (not further back, e.g. behind the whole drum) so its projected
+          size still matches the window at this camera's perspective — placed further back it
+          would project smaller than the box and leave the same gap at the window's edges. Since
+          it's the same white as the faces themselves, any such seam now reads as reel, not a
+          stray line. */}
+      <mesh position={[0, 0, radius - 24]}>
+        <planeGeometry args={[box.w, box.h]} />
+        <meshBasicMaterial color="#ffffff" clippingPlanes={clipPlanes} />
+      </mesh>
       <group ref={drum}>
         {textures.map((tex, i) => {
           const a = (i * TAU) / FACES;
