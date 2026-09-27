@@ -42,19 +42,23 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
         <Frame>
           <motion.p initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
             className="text-center font-game text-6xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">{who.name} — pick a card</motion.p>
-          {/* Smaller and closer to the true bottom edge than before (fix round 1, D323): cardLayout's
-              grid can reach y≈1020 of the 1080-tall canvas at 3–4 rows, and the previous text-4xl/
-              bottom-12 line touched it. Part C re-checks the card layout properly; this just clears it. */}
+          {/* Small and near the true bottom edge (D323): at text-3xl/bottom-2 it starts at y≈1036,
+              and cardLayout's grid ends by y≈994 with its bob (tests/games-layout.test.ts holds it
+              under 1000), so the two never touch. */}
           <p className="absolute inset-x-0 bottom-2 text-center font-game text-3xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>
         </Frame>
       );
     }
     if (s.phase === "draw_card_reveal" && who && picked?.prize) {
       // The last card flipped (D317 step 5): say so under the win, so the room knows the round is over.
+      // bottom-4 (fix round 1 for Part C, D323): the reveal has no "N cards left" line, so the
+      // caption takes the bottom edge (its text-6xl line starts at y≈1004), clear of the card
+      // grid's bottom row (ends by y≈994), which bottom-14 overlapped. The "All cards dealt" line
+      // above it only shows once no cards are left on the table to overlap.
       return (
         <Frame>
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: FLIP_END_MS / 1000 }}
-            className="absolute inset-x-0 bottom-14 flex flex-col items-center gap-3 text-center font-game drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
+            className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-3 text-center font-game drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
             <p className="text-6xl">{who.name} wins {picked.prize}</p>
             {left === 0 && <p className="text-5xl opacity-90">All cards dealt 🎉</p>}
           </motion.div>

@@ -10,6 +10,11 @@ import { useAnimating } from "./useAnimating";
 import { useRemoteImage } from "./remoteImage";
 import { CARD_DEPTH, cardBackTexture, cardGeometries, prizeFaceTexture, type CardGeometries } from "./cardFaces";
 
+/** How much of a card that was not picked still shows while another card is revealed. */
+const DIM_OPACITY = 0.35;
+/** A dimmed card's material settings, fixed at construction (see `dim` in Card). */
+const fadeFor = (dim: boolean) => (dim ? { transparent: true, opacity: DIM_OPACITY } : {});
+
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
@@ -44,14 +49,14 @@ export function CardTable({ cards, picked, revealing, synth, colour, cardBack }:
       {cards.map((c, i) => {
         const active = revealing && c.no === picked;
         if (c.taken && !active) return null;
-        return <Card key={c.no} card={c} box={boxes[i]} geo={geo} active={active} ready={ready} synth={synth} colour={colour} backImg={backImg} />;
+        return <Card key={c.no} card={c} box={boxes[i]} geo={geo} active={active} dim={revealing && !active} ready={ready} synth={synth} colour={colour} backImg={backImg} />;
       })}
     </>
   );
 }
 
-function Card({ card, box, geo, active, ready, synth, colour, backImg }: {
-  card: CardView; box: Box; geo: CardGeometries; active: boolean; ready: boolean; synth: Synth; colour: string; backImg: HTMLImageElement | null | undefined;
+function Card({ card, box, geo, active, dim, ready, synth, colour, backImg }: {
+  card: CardView; box: Box; geo: CardGeometries; active: boolean; dim: boolean; ready: boolean; synth: Synth; colour: string; backImg: HTMLImageElement | null | undefined;
 }) {
   const group = useRef<THREE.Group>(null);
   // Only a taken card carries a picture (cardsView's secrecy rule), so this is null for the rest.
@@ -79,15 +84,24 @@ function Card({ card, box, geo, active, ready, synth, colour, backImg }: {
   // before its texture existed would stay blank forever after. Passing `map` in the constructor's
   // parameter object instead (as here) always compiles a fresh material against its final map, so
   // there is no stale instance to worry about. See Wheel.tsx for the same bug from the mutation side.
+  // `dim`: during a reveal the cards NOT picked fade back (fix round 1 for Part C, D323), so the
+  // picked card and its caption own the moment. A table is keyed per phase in Layer3D (the reveal
+  // mounts a fresh one), so `dim` never changes for a mounted card — but it is still a memo key,
+  // so a material is always built with its final `transparent`/`opacity` rather than toggled
+  // later (flipping `transparent` on a compiled material would need `needsUpdate`).
   // The rim: the event colour, glowing with the numbered side during the lift and fly.
-  const glow = useMemo(() => new THREE.MeshStandardMaterial({ color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0 }), [colour]);
+  const glow = useMemo(() => new THREE.MeshStandardMaterial({ color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0, ...fadeFor(dim) }), [colour, dim]);
   useEffect(() => () => glow.dispose(), [glow]);
   // The numbered back is the face the room actually sees head-on during the lift and fly, so it
   // carries the glow (D317 "the chosen card glows"), driven with the same per-frame intensity
   // below; the thin rim alone is nearly edge-on and barely visible.
+  // With a card back picture, the picture is also the glow's emissiveMap (fix round 1 for Part C,
+  // D323): the glow then follows the picture's own light areas, so its dark lines and the badge's
+  // number stay dark and crisp instead of the whole side washing orange. (Halving the glow instead
+  // was tried on the ?test display at 1600×900: the number and dark lines still turned orange.)
   const backMat = useMemo(() => new THREE.MeshStandardMaterial(back
-    ? { map: back, emissive: new THREE.Color(colour), emissiveIntensity: 0 }
-    : { color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0 }), [back, colour]);
+    ? { map: back, emissive: new THREE.Color(colour), emissiveIntensity: 0, ...(back.userData.picture === true ? { emissiveMap: back } : {}), ...fadeFor(dim) }
+    : { color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0, ...fadeFor(dim) }), [back, colour, dim]);
   useEffect(() => () => backMat.dispose(), [backMat]);
   // Unlit and not tone-mapped: the prize face is the picture people are meant to see as it is, on
   // true white. Lit (MeshStandardMaterial) and through the canvas's ACES tone mapping, the white

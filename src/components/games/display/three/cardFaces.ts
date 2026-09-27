@@ -143,7 +143,10 @@ export function cardBackTexture(w: number, h: number, no: number, colour: string
       ctx.restore();
       const inner = d * 0.72;
       drawText(ctx, String(no), { x: w / 2 - inner / 2, y: h / 2 - inner / 2, w: inner, h: inner }, { maxLines: 1, start: d * 0.62 }, INK);
-      return toTexture(canvas);
+      const tex = toTexture(canvas);
+      // Tells CardTable this back shows the picture (not the fallback), which glows differently.
+      tex.userData.picture = true;
+      return tex;
     }
   }
   const { canvas, ctx } = canvasFor(w, h, 2);
