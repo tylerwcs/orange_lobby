@@ -34,7 +34,7 @@ The host console is not restyled; it only gains the controls the new draw format
   portal. The play page's first-load JavaScript is measured before and after; the increase is
   reported in the pull request.
 
-- **D293** **Three.js on the LED, hybrid.** `three`, `@react-three/fiber` and `@react-three/drei`,
+- **D293** **Three.js on the LED, hybrid.** `three` and `@react-three/fiber`,
   loaded with `next/dynamic` (`ssr: false`) only on `/display/[token]`. 3D is used where it earns
   its place: the Theme background, the slot reels, the wheel, the card round, and the winner
   spotlight and confetti. Text-heavy screens — the quiz board, race lanes, lobbies, counters —
@@ -304,7 +304,7 @@ Changed:
 - `src/app/admin/events/[id]/export/winners.xlsx/route.ts` — D322
 - `scripts/games-db-check.mjs` — the card-round checks in §5
 - `docs/runbook.md` — the `?test` pre-show step and the green-screen note for AV
-- `package.json` — `motion`, `three`, `@react-three/fiber`, `@react-three/drei`
+- `package.json` — `motion`, `three`, `@react-three/fiber`
 
 ## 5. Testing
 
