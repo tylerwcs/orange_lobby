@@ -35,14 +35,14 @@ export function QuestionBoard({ q, now, answered, players, split, showTimer = fa
           const right = q.correct === i;
           const wrong = revealed && !right;
           return (
-            <motion.div key={i} initial={{ opacity: 0, scale: 0.85 }}
+            <motion.div key={i} initial={revealed ? false : { opacity: 0, scale: 0.85 }}
               animate={wrong ? { opacity: 0.25, x: [0, -14, 14, -8, 8, 0], scale: 1 } : right ? { opacity: 1, scale: [1, 1.04, 1] } : { opacity: 1, scale: 1 }}
-              transition={wrong ? { duration: 0.5 } : right ? { repeat: Infinity, duration: 1.2 } : { type: "spring", stiffness: 200, damping: 18, delay: 0.25 + i * 0.08 }}
+              transition={wrong ? { duration: 0.5 } : right ? { scale: { repeat: Infinity, duration: 1.2 }, opacity: { duration: 0.3 } } : { type: "spring", stiffness: 200, damping: 18, delay: 0.25 + i * 0.08 }}
               className={`relative flex items-center gap-6 overflow-hidden rounded-[32px] px-10 font-game text-6xl shadow-[inset_0_-10px_0_rgba(0,0,0,0.25),0_12px_30px_rgba(0,0,0,0.35)] ${right ? "ring-[10px] ring-white" : ""}`}
               style={{ background: styles[i].colour }}>
               <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent" />
               {split && (
-                <motion.div className="absolute inset-y-0 left-0 bg-white/20" initial={{ width: 0 }}
+                <motion.div className="absolute inset-y-0 left-0 bg-white/20" initial={revealed ? false : { width: 0 }}
                   animate={{ width: `${((split[i] ?? 0) / total) * 100}%` }} transition={{ duration: 0.8 }} />
               )}
               <span className="relative text-7xl">{styles[i].shape}</span>

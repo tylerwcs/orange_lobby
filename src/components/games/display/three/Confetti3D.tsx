@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { confettiColours } from "@/lib/games/background";
+import { stepPiece } from "@/lib/games/confetti";
 import { useAnimating } from "./useAnimating";
 
 const COUNT = 260;
@@ -44,13 +45,7 @@ export function Confetti3D({ green, delayMs = 0 }: { green: boolean; delayMs?: n
     if (born.current === null) born.current = clock.elapsedTime;
     const on = (clock.elapsedTime - born.current) * 1000 >= delayMs;
     pieces.current.forEach((p, i) => {
-      if (on) {
-        p.y -= p.vy * dt;
-        p.x += p.vx * dt;
-        p.rx += p.spin * dt;
-        p.ry += p.spin * 0.7 * dt;
-        if (p.y < -600) p.y += 1300;
-      }
+      if (on) stepPiece(p, dt);
       dummy.position.set(p.x, on ? p.y : 5000, p.z);
       dummy.rotation.set(p.rx, p.ry, 0);
       dummy.updateMatrix();
