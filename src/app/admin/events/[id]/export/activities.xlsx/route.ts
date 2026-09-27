@@ -4,7 +4,7 @@ import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSessions, listBookings } from "@/lib/db/activities";
-import { sessionRosters, unbookedByActivity, sessionLabel } from "@/lib/activities";
+import { sessionRosters, unbookedByActivity, sessionPlaceLabel } from "@/lib/activities";
 import { buildActivityRostersWorkbook, type ActivitySessionRoster, type ActivityUnbookedRoster, type RosterPerson } from "@/lib/exports";
 
 // Same shape as rosters.xlsx: the whole door list, not a selection, so there is no `ids` param
@@ -27,11 +27,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const sessionRows: ActivitySessionRoster[] = activities.flatMap((activity) =>
     sessions.filter((s) => s.activity_id === activity.id).map((s) => ({
-      activityName: activity.name, session: sessionLabel(s, { weekday: false }), attendeeIds: bySession.get(s.id) ?? [],
+      activityName: activity.name, session: sessionPlaceLabel(s), capacity: s.capacity, attendeeIds: bySession.get(s.id) ?? [],
     })),
   );
   const unbookedRows: ActivityUnbookedRoster[] = unbookedByActivityId.map((u) => ({
     activityName: activityById.get(u.activityId)!.name,
+    required: activityById.get(u.activityId)!.required,
     attendeeIds: u.attendeeIds,
   }));
 

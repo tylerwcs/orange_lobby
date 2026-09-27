@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook, buildActivityRostersWorkbook, activitySheetName, activityUnbookedSheetName } from "@/lib/exports";
+import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook, buildActivityRostersWorkbook } from "@/lib/exports";
 import { safeFileName } from "@/lib/filenames";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Booth, BoothStamp } from "@/lib/types";
@@ -200,88 +200,54 @@ describe("activity roster workbook", () => {
   const people = new Map([
     ["p1", { name: "Ann Tan", email: "a@b.co" }],
     ["p2", { name: "Bryan Koh", email: null }],
+    ["p3", { name: "Cheryl Lim", email: "c@b.co" }],
   ]);
+  const yogaAm = { activityName: "Yoga", session: "Wed 30 Sep · 10:00, Studio", capacity: 20, attendeeIds: ["p1", "p2"] };
+  const yogaPm = { activityName: "Yoga", session: "Wed 30 Sep · 15:00, Studio", capacity: 20, attendeeIds: [] as string[] };
+  const cells = (ws: import("exceljs").Worksheet) =>
+    Array.from({ length: ws.rowCount }, (_, i) => (ws.getRow(i + 1).values as unknown[]).slice(1));
 
-  it("gives a booked session its own sheet with header and rows", () => {
-    const sessions = [{ activityName: "Yoga", session: "Morning", attendeeIds: ["p1"] }];
-    const ws = buildActivityRostersWorkbook(sessions, [], people).getWorksheet("Yoga — Morning")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email"]);
-    expect(ws.getRow(2).values).toEqual([undefined, "Ann Tan", "a@b.co"]);
+  it("puts every session on one tab, as a titled block of the people booked into it", () => {
+    const wb = buildActivityRostersWorkbook([yogaAm, yogaPm], [], people);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Activity rosters"]);
+    expect(cells(wb.worksheets[0])).toEqual([
+      ["Yoga — Wed 30 Sep · 10:00, Studio (2 of 20)"],
+      ["Name", "Email"],
+      ["Ann Tan", "a@b.co"],
+      ["Bryan Koh", ""],
+      [],
+      ["Yoga — Wed 30 Sep · 15:00, Studio (0 of 20)"],
+      ["No one booked"],
+    ]);
   });
 
-  it("still gives an unbooked session a sheet, with a header and no rows", () => {
-    const sessions = [{ activityName: "Yoga", session: "Evening", attendeeIds: [] }];
-    const wb = buildActivityRostersWorkbook(sessions, [], people);
-    const ws = wb.getWorksheet("Yoga — Evening")!;
-    expect(ws).toBeTruthy();
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email"]);
-    expect(ws.rowCount).toBe(1);
+  it("follows the sessions with who has not booked each activity", () => {
+    const ws = buildActivityRostersWorkbook([yogaAm], [{ activityName: "Yoga", required: true, attendeeIds: ["p3"] }], people).worksheets[0];
+    expect(cells(ws).slice(4)).toEqual([
+      [],
+      ["Not booked — Yoga (required)"],
+      ["Name", "Email"],
+      ["Cheryl Lim", "c@b.co"],
+    ]);
   });
 
-  it("adds a not-booked sheet per required activity", () => {
-    const unbooked = [{ activityName: "Yoga", attendeeIds: ["p2"] }];
-    const ws = buildActivityRostersWorkbook([], unbooked, people).getWorksheet("Yoga — Not booked")!;
-    expect(ws.getRow(2).getCell(1).value).toBe("Bryan Koh");
+  it("says so when everyone has booked an activity, rather than leaving an empty block", () => {
+    const ws = buildActivityRostersWorkbook([], [{ activityName: "City tour", required: false, attendeeIds: [] }], people).worksheets[0];
+    expect(cells(ws)).toEqual([["Not booked — City tour"], ["Everyone has booked"]]);
   });
 
-  it("shortens the activity's name, never the session's time, to fit Excel's 31 characters", () => {
-    const sessions = [
-      { activityName: "InBody Composition Scan", session: "28 Sep · 11:30", attendeeIds: [] },
-      { activityName: "InBody Composition Scan", session: "28 Sep · 11:45", attendeeIds: [] },
-    ];
-    const names = buildActivityRostersWorkbook(sessions, [], people).worksheets.map((w) => w.name);
-    expect(names).toEqual(["InBody Composi — 28 Sep · 11-30", "InBody Composi — 28 Sep · 11-45"]);
-    expect(names.every((n) => n.length <= 31)).toBe(true);
+  it("marks each block's title so it stands out from the names under it", () => {
+    const ws = buildActivityRostersWorkbook([yogaAm], [], people).worksheets[0];
+    expect(ws.getRow(1).font?.bold).toBe(true);
+    expect(ws.getRow(2).font?.bold).toBe(true);
+    expect(ws.getRow(3).font?.bold).toBeFalsy();
   });
 
-  it("does not let two sessions differing only in case collide and throw", () => {
-    const sessions = [
-      { activityName: "Yoga", session: "Morning", attendeeIds: ["p1"] },
-      { activityName: "Yoga", session: "morning", attendeeIds: ["p2"] },
-    ];
-    const wb = buildActivityRostersWorkbook(sessions, [], people);
-    expect(wb.worksheets.length).toBe(2);
-    const [first, second] = wb.worksheets;
-    expect(first.name.toLowerCase()).not.toBe(second.name.toLowerCase());
-  });
-
-  it("keeps two long session names distinct even when they collide after truncation", () => {
-    // Both sessions share an activity name so long that, combined with the separator, it alone
-    // fills the 31-character cap - the naive truncation would make them identical.
-    const activityName = "Regional teams offsite planning workshop";
-    const sessions = [
-      { activityName, session: "Session A", attendeeIds: ["p1"] },
-      { activityName, session: "Session B", attendeeIds: ["p2"] },
-    ];
-    const wb = buildActivityRostersWorkbook(sessions, [], people);
-    expect(wb.worksheets.length).toBe(2);
-    const [first, second] = wb.worksheets;
-    expect(first.name).not.toBe(second.name);
-    expect(first.name.length).toBeLessThanOrEqual(31);
-    expect(second.name.length).toBeLessThanOrEqual(31);
-  });
-
-  it("sanitises and caps a sheet name the same way rosterSheetName does", () => {
-    const taken = new Set<string>();
-    const name = activitySheetName("Team: Building / Trust?", "Round [1]", taken);
-    expect(name).not.toMatch(/[:\\/?*[\]]/);
-    expect(name.length).toBeLessThanOrEqual(31);
-  });
-
-  it("names the unbooked sheet after the activity, sanitised and capped", () => {
-    const taken = new Set<string>();
-    const name = activityUnbookedSheetName("A very long required activity name indeed", taken);
-    expect(name).not.toMatch(/[:\\/?*[\]]/);
-    expect(name.length).toBeLessThanOrEqual(31);
-  });
-
-  it("still writes one sheet when there are no sessions and no required activity to report", () => {
+  it("still writes one sheet when there are no sessions and nothing to report", () => {
     // A workbook with zero worksheets is not a valid xlsx - Excel refuses to open it, which
     // would turn "nothing to print yet" into a download that silently fails.
     const wb = buildActivityRostersWorkbook([], [], people);
     expect(wb.worksheets.length).toBe(1);
-    const ws = wb.getWorksheet("No sessions")!;
-    expect(ws).toBeTruthy();
-    expect(ws.getRow(1).getCell(1).value).toBe("This event's activities have no sessions yet.");
+    expect(wb.worksheets[0].getRow(1).getCell(1).value).toBe("This event's activities have no sessions yet.");
   });
 });

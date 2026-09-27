@@ -1,5 +1,4 @@
-import { sessionLabel } from "@/lib/activities";
-import type { ActivityRequestKind, ActivitySession } from "@/lib/types";
+import type { ActivityRequestKind } from "@/lib/types";
 
 /**
  * The WhatsApp an attendee gets when the desk decides their booking change request.
@@ -44,10 +43,4 @@ export function requestNotice(i: RequestNoticeInput): RequestNotice {
   }
   if (i.kind === "cancel") return { template: "ecphub_booking_cancelled", bodyParams: head };
   return { template: "ecphub_booking_changed", bodyParams: [...head, param(i.toSession ?? "", "your new session")] };
-}
-
-/** A session as the message names it: the day and time, then the place when it has one. */
-export function noticeSessionLabel(s: Pick<ActivitySession, "day" | "starts_at" | "location">): string {
-  const when = sessionLabel(s);
-  return s.location?.trim() ? `${when}, ${s.location.trim()}` : when;
 }

@@ -54,7 +54,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
     }] : []),
     ...(activities.length > 0 ? [{
       href: `${b}/activities.xlsx`, icon: "file" as IconName, name: "Activity rosters",
-      what: "One sheet per session, plus who has not booked.",
+      what: "Every session on one tab: a block per session with who is booked into it, then who has not booked each activity.",
     }] : []),
     ...(forms.length > 0 ? [{
       href: `${b}/submissions.xlsx`, icon: "file" as IconName, name: "Submissions",

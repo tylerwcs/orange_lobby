@@ -141,24 +141,6 @@ export function rosterSheetName(slot: string, code: string, taken: Set<string>):
   return uniqueSheetName(base, taken);
 }
 
-/**
- * The title for one activity session's sheet: "<activity> — <when>", sanitised and unique.
- *
- * Excel stops at 31 characters, and the session's part is what tells InBody's 32 sheets
- * apart, so the activity's name is what gets shortened: "InBody Scan — 28 Sep · 11-30",
- * never "InBody Scan — Mon 28 Sep · 11-3" with the minute cut off.
- */
-export function activitySheetName(activityName: string, session: string, taken: Set<string>): string {
-  const when = sanitizeSheetNamePart(session);
-  const room = Math.max(1, 31 - when.length - 3);
-  return uniqueSheetName(`${sanitizeSheetNamePart(activityName).slice(0, room).trim()} — ${when}`, taken);
-}
-
-/** The title for an activity's "who has not booked" sheet. */
-export function activityUnbookedSheetName(activityName: string, taken: Set<string>): string {
-  return uniqueSheetName(`${sanitizeSheetNamePart(activityName)} — Not booked`, taken);
-}
-
 /** The same shape for a form's chasing list, claimed from the same `taken` set. */
 export function formMissingSheetName(formName: string, taken: Set<string>): string {
   return uniqueSheetName(`${sanitizeSheetNamePart(formName)} — Not submitted`, taken);
@@ -188,26 +170,27 @@ export function buildRosterWorkbook(slots: SlotRoster[], people: Map<string, Ros
   return wb;
 }
 
-export type ActivitySessionRoster = { activityName: string; session: string; attendeeIds: string[] };
-export type ActivityUnbookedRoster = { activityName: string; attendeeIds: string[] };
+export type ActivitySessionRoster = {
+  activityName: string;
+  /** The session as a person reads it: day, time and, when it has one, the place. */
+  session: string;
+  capacity: number;
+  attendeeIds: string[];
+};
+export type ActivityUnbookedRoster = { activityName: string; required: boolean; attendeeIds: string[] };
 
 /**
- * The door list: one printable sheet per session, titled "<activity> — <session>", plus one
- * sheet per required activity listing whoever is eligible and has booked nothing.
+ * The door list, on one tab: every session as a titled block — "Yoga — Wed 30 Sep · 10:00,
+ * Studio (12 of 20)" — with the people booked into it underneath, then a "Not booked" block per
+ * activity. Blocks follow one another down the sheet with a blank row between, so it reads and
+ * prints top to bottom; a sheet per session meant clicking through thirty tabs to find one name.
  *
- * Same shape as `buildRosterWorkbook` on purpose — one sheet per bookable unit plus a sheet for
- * whoever has none — and it reuses the same "Name"/"Email" columns a printed roster carries.
  * `attendeeIds` on both inputs must already be in the order the caller wants printed (the
- * route sorts into `listAttendees` order); this only writes rows.
+ * route sorts into `listAttendees` order); this only writes rows. A session nobody booked still
+ * gets its block, saying so: an empty room is information the door list has to state.
  *
- * A session with no bookings still gets its sheet, header and all: an empty room is
- * information the door list has to state, not a row this function is entitled to skip.
- *
- * When `sessions` and `unbooked` are both empty — an event whose activities have no sessions
- * yet, or no required activity to report on — this still writes one sheet. A workbook with no
- * worksheets is not a valid xlsx (Excel refuses to open it), which would turn "nothing to
- * print yet" into a download that silently fails; a sheet that says so in words is the honest
- * version of the same fact.
+ * When `sessions` and `unbooked` are both empty the sheet says so in words — a workbook with no
+ * rows would read as a broken download.
  */
 export function buildActivityRostersWorkbook(
   sessions: ActivitySessionRoster[],
@@ -216,16 +199,38 @@ export function buildActivityRostersWorkbook(
   columns: ExportColumn[] = [],
 ): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
-  const taken = new Set<string>();
-  // activitySheetName / activityUnbookedSheetName (via uniqueSheetName) claim the name in
-  // `taken` themselves, so this closure only ever receives an already-unique name to write.
-  const sheet = (name: string, ids: string[]) => writeRosterSheet(wb.addWorksheet(name), ids, people, columns);
-  for (const s of sessions) sheet(activitySheetName(s.activityName, s.session, taken), s.attendeeIds);
-  for (const u of unbooked) sheet(activityUnbookedSheetName(u.activityName, taken), u.attendeeIds);
+  const ws = wb.addWorksheet("Activity rosters");
+  const width = 2 + columns.length;
+  ws.columns = [{ width: 28 }, { width: 32 }, ...columns.map(() => ({ width: 20 }))];
+  // Fit the width of a printed page; let the length run over as many pages as it needs.
+  ws.pageSetup = { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: "portrait" };
+
+  const block = (title: string, ids: string[], emptyNote: string) => {
+    if (ws.rowCount > 0) ws.addRow([]);
+    const head = ws.addRow([title]);
+    head.font = { bold: true, size: 13 };
+    for (let c = 1; c <= width; c++) {
+      head.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F1EF" } };
+    }
+    const found = ids.map((id) => people.get(id)).filter((p): p is RosterPerson => p !== undefined);
+    if (found.length === 0) {
+      ws.addRow([emptyNote]).font = { italic: true, color: { argb: "FF6B6B6B" } };
+      return;
+    }
+    const header = ws.addRow(["Name", "Email", ...columns.map((c) => c.label)]);
+    header.font = { bold: true };
+    for (let c = 1; c <= width; c++) header.getCell(c).border = { bottom: { style: "thin", color: { argb: "FFBDBDBD" } } };
+    for (const p of found) ws.addRow([p.name, p.email ?? "", ...columnValues(p.extra, columns)]);
+  };
+
+  for (const s of sessions) {
+    block(`${s.activityName} — ${s.session} (${s.attendeeIds.length} of ${s.capacity})`, s.attendeeIds, "No one booked");
+  }
+  for (const u of unbooked) {
+    block(`Not booked — ${u.activityName}${u.required ? " (required)" : ""}`, u.attendeeIds, "Everyone has booked");
+  }
   if (sessions.length === 0 && unbooked.length === 0) {
-    const ws = wb.addWorksheet("No sessions");
     ws.addRow(["This event's activities have no sessions yet."]);
-    ws.columns = [{ width: 48 }];
   }
   return wb;
 }

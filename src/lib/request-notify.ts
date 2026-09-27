@@ -4,7 +4,8 @@ import { getActivity, listSessions } from "@/lib/db/activities";
 import { eventFields } from "@/lib/attendee-fields";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
-import { noticeSessionLabel, requestNotice } from "@/lib/request-notice";
+import { requestNotice } from "@/lib/request-notice";
+import { sessionPlaceLabel } from "@/lib/activities";
 import type { ActivityChangeRequest, Event } from "@/lib/types";
 
 export type NotifyOutcome = { sent: true } | { sent: false; reason: string };
@@ -41,8 +42,8 @@ export async function notifyRequestDecision(
       attendeeName: attendee.name,
       activityName: activity.name,
       eventName: ev.name,
-      fromSession: from ? noticeSessionLabel(from) : "",
-      toSession: to ? noticeSessionLabel(to) : null,
+      fromSession: from ? sessionPlaceLabel(from) : "",
+      toSession: to ? sessionPlaceLabel(to) : null,
     });
 
     const { recipients, unusable } = splitAudience([attendee], eventFields(ev.registration_questions, ev.attendee_fields));

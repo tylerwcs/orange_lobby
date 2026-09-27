@@ -28,6 +28,12 @@ export function sessionLabel(s: Pick<ActivitySession, "day" | "starts_at">, { we
   return `${weekday ? date : date.slice(date.indexOf(" ") + 1)} · ${s.starts_at}`;
 }
 
+/** A session as a person reads it: the day and time, then the place when it has one. */
+export function sessionPlaceLabel(s: Pick<ActivitySession, "day" | "starts_at" | "location">): string {
+  const when = sessionLabel(s);
+  return s.location?.trim() ? `${when}, ${s.location.trim()}` : when;
+}
+
 export function seatsFor(session: ActivitySession, booked: number): SessionSeats {
   // An organiser may lower a capacity below the bookings already taken. Clamping at zero
   // keeps "minus two seats left" off the card and keeps `full` honest.

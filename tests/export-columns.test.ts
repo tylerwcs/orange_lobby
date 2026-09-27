@@ -55,16 +55,16 @@ describe("chosen columns in each export", () => {
     expect(wb.getWorksheet("B1 · unassigned")!.getRow(2).getCell(3).value).toBe("");
   });
 
-  it("Activity rosters: after Email on session and not-booked sheets", () => {
+  it("Activity rosters: after Email in every session and not-booked block", () => {
     const people = new Map([["p1", { name: "Ann", email: "a@b.co", extra }]]);
-    const wb = buildActivityRostersWorkbook(
-      [{ activityName: "Yoga", session: "AM", attendeeIds: ["p1"] }],
-      [{ activityName: "Yoga", attendeeIds: ["p1"] }],
+    const ws = buildActivityRostersWorkbook(
+      [{ activityName: "Yoga", session: "AM", capacity: 10, attendeeIds: ["p1"] }],
+      [{ activityName: "Yoga", required: false, attendeeIds: ["p1"] }],
       people, nickname,
-    );
-    for (const name of ["Yoga — AM", "Yoga — Not booked"]) {
-      expect(wb.getWorksheet(name)!.getRow(1).values).toEqual([undefined, "Name", "Email", "Nickname"]);
-      expect(wb.getWorksheet(name)!.getRow(2).values).toEqual([undefined, "Ann", "a@b.co", "Annie"]);
+    ).worksheets[0];
+    for (const header of [2, 6]) {
+      expect(ws.getRow(header).values).toEqual([undefined, "Name", "Email", "Nickname"]);
+      expect(ws.getRow(header + 1).values).toEqual([undefined, "Ann", "a@b.co", "Annie"]);
     }
   });
 

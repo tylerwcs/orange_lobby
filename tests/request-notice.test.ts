@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { requestNotice, noticeSessionLabel } from "@/lib/request-notice";
+import { requestNotice } from "@/lib/request-notice";
+import { sessionPlaceLabel } from "@/lib/activities";
 
 const base = {
   attendeeName: "Lim Hock Cheng",
@@ -48,9 +49,9 @@ describe("requestNotice", () => {
   });
 });
 
-describe("noticeSessionLabel", () => {
+describe("sessionPlaceLabel", () => {
   it("names the day and time, and the place when the session has one", () => {
-    expect(noticeSessionLabel({ day: "2026-09-30", starts_at: "11:30", location: "Room 3A" })).toMatch(/30 Sep · 11:30, Room 3A$/);
-    expect(noticeSessionLabel({ day: "2026-09-30", starts_at: "11:30", location: null })).toMatch(/30 Sep · 11:30$/);
+    expect(sessionPlaceLabel({ day: "2026-09-30", starts_at: "11:30", location: "Room 3A" })).toMatch(/30 Sep · 11:30, Room 3A$/);
+    expect(sessionPlaceLabel({ day: "2026-09-30", starts_at: "11:30", location: null })).toMatch(/30 Sep · 11:30$/);
   });
 });
