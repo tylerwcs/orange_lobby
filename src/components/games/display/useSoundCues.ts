@@ -2,19 +2,20 @@
 import { useEffect, useRef } from "react";
 import type { DisplayState } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
-import { celebrationDelay } from "@/lib/games/views";
+import { celebrationDelay, emptyCelebration, showKey } from "@/lib/games/views";
 
 /**
  * The LED's sound cues that follow the stage (D301): countdown ticks and the horn, the last three
  * seconds of a question, the whoosh of a reveal or a mosaic round, the drumroll under a reel, and
- * the fanfare on a winner screen. Once per stage key: a poll that changes nothing else never
- * replays a sound. The reels' clunks, the wheel's ticks and the card's lift and flip belong to
+ * the fanfare on a winner screen. Once per stage key (showKey: race results settling is not a
+ * new screen), so a poll that changes nothing else never replays a sound. No fanfare over an
+ * empty winner screen (emptyCelebration). The reels' clunks, the wheel's ticks and the card's lift and flip belong to
  * those scenes.
  */
 export function useSoundCues(state: DisplayState, offset: number, synth: Synth) {
   const latest = useRef({ state, offset });
   useEffect(() => { latest.current = { state, offset }; });
-  const key = state.stage.key;
+  const key = showKey(state.stage.key);
   useEffect(() => {
     const { state: st, offset: off } = latest.current;
     const s = st.stage;
@@ -30,7 +31,7 @@ export function useSoundCues(state: DisplayState, offset: number, synth: Synth) 
         }
         break;
       // Same delay confetti waits on (celebrationDelay), so the fanfare lands with the podium's rise.
-      case "race_results": after(celebrationDelay(s.phase) ?? 0, () => synth.play("fanfare")); break;
+      case "race_results": if (!emptyCelebration(st)) after(celebrationDelay(s.phase) ?? 0, () => synth.play("fanfare")); break;
       case "survival_question":
         if (s.question?.deadline) for (let k = 3; k >= 1; k--) atServer(s.question.deadline - k * 1000, () => synth.play("tick"));
         break;
@@ -42,7 +43,7 @@ export function useSoundCues(state: DisplayState, offset: number, synth: Synth) 
         break;
       }
       case "draw_rounds": if ((st.draw?.mosaic?.round ?? 0) > 0) synth.play("whoosh"); break;
-      case "draw_reveal": synth.play("fanfare"); break;
+      case "draw_reveal": if (!emptyCelebration(st)) synth.play("fanfare"); break;
     }
     return () => timers.forEach(clearTimeout);
   }, [key, synth]);

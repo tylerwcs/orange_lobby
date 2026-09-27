@@ -1,7 +1,7 @@
 "use client";
 import type { DisplayState } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
-import { celebrationDelay } from "@/lib/games/views";
+import { celebrationDelay, emptyCelebration, showKey } from "@/lib/games/views";
 import { MAX_REELS } from "@/lib/games/layout";
 import Stage3D from "./Stage3D";
 import { ThemeBackdrop } from "./ThemeBackdrop";
@@ -20,8 +20,9 @@ export default function Layer3D({ state, offset, synth, theme, onLost }: { state
     <Stage3D onLost={onLost}>
       {theme && <ThemeBackdrop colour={state.event.colour} />}
       <DrawScene3D state={state} offset={offset} synth={synth} />
-      {celebrationDelay(state.stage.phase) !== null && (
-        <Confetti3D key={state.stage.key} green={state.look.kind === "green"} delayMs={celebrationDelay(state.stage.phase) ?? 0} />
+      {/* Keyed on showKey, so race results settling does not restart the confetti; none over an empty winner screen. */}
+      {celebrationDelay(state.stage.phase) !== null && !emptyCelebration(state) && (
+        <Confetti3D key={showKey(state.stage.key)} green={state.look.kind === "green"} delayMs={celebrationDelay(state.stage.phase) ?? 0} />
       )}
     </Stage3D>
   );

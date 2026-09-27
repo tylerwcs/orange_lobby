@@ -92,3 +92,26 @@ export function celebrationDelay(phase: Phase): number | null {
   if (phase === "survival_over" || phase === "draw_reveal") return 0;
   return null;
 }
+
+/**
+ * The stage key without race results' ":settled" step (stageKey). The totals settling ~2.5 s
+ * after the whistle is new data, not a new screen, so the LED's one-off moments — the fanfare,
+ * the confetti — key on this and do not fire a second time.
+ */
+export function showKey(key: string): string {
+  return key.endsWith(":settled") ? key.slice(0, -":settled".length) : key;
+}
+
+/**
+ * A winner screen with nobody on it: a draw reveal with no one left to draw, or race results
+ * with no lanes. No fanfare and no confetti there (celebrationDelay stays about the phase).
+ */
+export function emptyCelebration(state: {
+  stage: { phase: Phase };
+  race: { lanes: unknown[] } | null;
+  draw: { winners: unknown[] | null } | null;
+}): boolean {
+  if (state.stage.phase === "draw_reveal") return (state.draw?.winners?.length ?? 0) === 0;
+  if (state.stage.phase === "race_results") return (state.race?.lanes.length ?? 0) === 0;
+  return false;
+}
