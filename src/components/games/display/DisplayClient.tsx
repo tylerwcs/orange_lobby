@@ -5,6 +5,7 @@ import { displayInterval } from "@/lib/games/poll";
 import { usePoll } from "../usePoll";
 import { IdleScreen } from "./IdleScreen";
 import { RaceScreen } from "./RaceScreen";
+import { SurvivalScreen } from "./SurvivalScreen";
 
 const displayEvery = (s: DisplayState) => displayInterval(s.stage.phase);
 
@@ -80,9 +81,10 @@ export function DisplayClient({ token, initial }: { token: string; initial: Disp
   );
 }
 
-/** Which screen the stage calls for. Tasks 17 and 18 add last one standing and the lucky draw here. */
+/** Which screen the stage calls for. Task 18 adds the lucky draw here. */
 function Screen({ state, offset }: { state: DisplayState; offset: number }) {
   const kind = state.stage.game?.kind;
   if (kind === "tap_race" && state.race) return <RaceScreen state={state} offset={offset} />;
+  if (kind === "survival" && state.survival) return <SurvivalScreen state={state} offset={offset} />;
   return <IdleScreen event={state.event} />;
 }
