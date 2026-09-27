@@ -18,9 +18,9 @@ drop function draw_spin(uuid, int, uuid, uuid, int, int, uuid, text[], timestamp
 
 -- As 0049's, plus: no prize for a card round's turn (only when the game's format is 'cards');
 -- the run recorded on each winner; voided winners matched with IS NOT DISTINCT FROM, so a
--- person sent away before picking a card is not drawn again in that card round; p_phase
--- 'draw_rounds' for the mosaic, which has no end time (D315); p_extra merged into phase_data;
--- and pool_at stamped from the database clock (D316).
+-- person sent away before picking a card is not drawn again in that card round (the same run);
+-- p_phase 'draw_rounds' for the mosaic, which has no end time (D315); p_extra merged into
+-- phase_data; and pool_at stamped from the database clock (D316).
 create function draw_spin(
   p_event_id uuid, p_expected int, p_run_id uuid, p_game_id uuid, p_prize_no int, p_count int,
   p_checkpoint_id uuid, p_exclude text[], p_spin_ends_at timestamptz, p_keep uuid[] default '{}',
@@ -60,6 +60,7 @@ begin
        and not exists (
          select 1 from draw_winners w
           where w.game_id = p_game_id and w.prize_no is not distinct from p_prize_no
+            and (p_prize_no is not null or w.run_id = p_run_id)
             and w.attendee_id = a.id and w.void)
      order by gen_random_uuid()
      limit greatest(p_count, 0)
@@ -73,6 +74,7 @@ begin
    where exists (
      select 1 from draw_winners w
       where w.game_id = p_game_id and w.prize_no is not distinct from p_prize_no
+        and (p_prize_no is not null or w.run_id = p_run_id)
         and w.attendee_id = k.id and not w.void)
      and not k.id = any(picked);
 
@@ -120,6 +122,9 @@ begin
     return null;
   end if;
   if exists (select 1 from draw_winners where run_id = p_run_id and card_no = p_card_no and not void) then
+    return null;
+  end if;
+  if d[p_card_no] is null then
     return null;
   end if;
   update draw_winners set card_no = p_card_no, prize_no = d[p_card_no]

@@ -192,7 +192,7 @@ try {
   const cardSpin = async (endsAt) => {
     const ids = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: cv, p_run_id: cardRun.id, p_game_id: cards.id, p_prize_no: null, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [" crew "], p_spin_ends_at: new Date(endsAt).toISOString(), p_extra: { cards: true, spin_ms: 50 } }));
     if (ids !== null) cv += 1;
-    return ids ?? [];
+    return ids;
   };
   const pick = (attendeeId, cardNo, expected = cv, runId = cardRun.id, gameId = cards.id) => db.rpc("card_pick", { p_event_id: event.id, p_expected: expected, p_run_id: runId, p_game_id: gameId, p_attendee_id: attendeeId, p_card_no: cardNo });
   const stopReel = () => db.from("game_stage").update({ phase_ends_at: new Date(Date.now() - 1000).toISOString() }).eq("event_id", event.id);
@@ -219,7 +219,7 @@ try {
 
   const [cardSecond] = await cardSpin(Date.now() - 1000);
   const taken = must(await pick(cardSecond, 2));
-  check("a card is taken once", taken === null);
+  check("a card is taken once", taken === null && (await stageVersion()) === cv);
   const mug = must(await pick(cardSecond, 3));
   if (mug !== null) cv += 1;
   check("the next participant takes another card", mug === 0, `got ${mug}`);
@@ -227,7 +227,7 @@ try {
   const [cardThird] = await cardSpin(Date.now() - 1000);
   must(await db.from("draw_winners").update({ void: true }).eq("game_id", cards.id).eq("attendee_id", cardThird));
   const cardAgain = await cardSpin(Date.now() - 1000);
-  check("someone sent away before picking is not drawn again in that card round", !!cardThird && cardAgain.length === 0, `drew ${cardAgain.length}`);
+  check("someone sent away before picking is not drawn again in that card round", !!cardThird && cardAgain !== null && cardAgain.length === 0, `drew ${cardAgain?.length}`);
 
   const rounds = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: cv, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: 0, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [" crew "], p_spin_ends_at: new Date().toISOString(), p_phase: "draw_rounds", p_extra: { round: 0, rounds: 4 } }));
   if (rounds !== null) cv += 1;
