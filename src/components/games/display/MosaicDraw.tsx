@@ -17,7 +17,7 @@ const RIPPLE_MS = 2000;
  * standing fade out in a seeded ripple (the D275 mosaic). Tiles already out stay dark. The
  * server sends only who stands this round, so the winners cannot be spotted early.
  */
-export function MosaicDraw({ title, prize, mosaic, seed }: { title: string; prize: string | null; mosaic: NonNullable<DisplayDraw["mosaic"]>; seed: string }) {
+export function MosaicDraw({ prize, mosaic, seed }: { prize: string | null; mosaic: NonNullable<DisplayDraw["mosaic"]>; seed: string }) {
   const survivorsKey = mosaic.survivorIds.join(",");
   // The LED re-polls every second and hands back a NEW `mosaic` object identity even when the
   // round hasn't actually changed, so this is keyed on the round number and a joined id string
@@ -43,19 +43,15 @@ export function MosaicDraw({ title, prize, mosaic, seed }: { title: string; priz
   }, [mosaic.round, mosaic.survivorIds.length]);
 
   // Round 0 is the whole pool before any round has run: nothing has been taken yet, so the
-  // header says how many are in the draw rather than "Round 0".
-  const header = mosaic.round >= 1
-    ? <span>Round {mosaic.round} <span className="text-4xl opacity-75">of {mosaic.rounds}</span></span>
+  // footer says how many are in the draw rather than "Round 0 of Y · N left".
+  const footer = mosaic.round >= 1
+    ? <span>Round {mosaic.round} <span className="opacity-75">of {mosaic.rounds}</span> · {shown} left</span>
     : <span>{mosaic.people.length} in the draw</span>;
 
   return (
-    <Frame title={title} right={header}>
+    <Frame>
       <div className="flex h-full flex-col gap-4">
-        <div className="flex items-baseline justify-between">
-          <span className="font-game text-4xl opacity-90">{prize ? `Drawing for ${prize}` : ""}</span>
-          <motion.span key={shown} initial={{ scale: 1.5 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 12 }}
-            className="font-game text-6xl tabular-nums text-white drop-shadow-[0_0_30px_var(--brand)]">{shown} left</motion.span>
-        </div>
+        {prize && <p className="text-center font-game text-4xl opacity-90">Drawing for {prize}</p>}
         <div className="min-h-0 flex-1">
           {/* No `key` here (unlike the brief's literal code): Mosaic must stay mounted across
               rounds so a tile going dark this round is a CSS class change on the SAME element,
@@ -63,8 +59,11 @@ export function MosaicDraw({ title, prize, mosaic, seed }: { title: string; priz
               tile's seeded `transitionDelay` — actually run. Remounting per round instead gave
               every already-dark tile (from earlier rounds) no previous style to transition from,
               so the whole set just snapped straight to dark together: no ripple. */}
-          <Mosaic people={mosaic.people} darkIds={dark} darken seed={`${seed}:${mosaic.round}`} height={820} />
+          <Mosaic people={mosaic.people} darkIds={dark} darken seed={`${seed}:${mosaic.round}`} height={780} />
         </div>
+        {/* Centred under the tiles (Requirement 1), not a corner fact. */}
+        <motion.p key={shown} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 12 }}
+          className="text-center font-game text-5xl tabular-nums text-white drop-shadow-[0_0_30px_var(--brand)]">{footer}</motion.p>
       </div>
     </Frame>
   );

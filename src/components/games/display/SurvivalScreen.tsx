@@ -18,22 +18,24 @@ export function SurvivalScreen({ state, offset }: { state: DisplayState; offset:
   const s = state.stage;
   const sv = state.survival!;
   const now = useServerNow(offset, 200, s.phase === "survival_question");
-  const title = s.game?.title ?? "Last one standing";
   const green = s.game?.green ?? false;
 
   if (s.phase === "survival_lobby") {
     return (
-      <Frame title={title} right={`${sv.players.length} in`}>
-        <div className="flex h-full flex-col gap-6">
-          <p className="text-center font-game text-5xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">Open {APP_NAME} → Games and tap “I’m in”</p>
-          <div className="min-h-0 flex-1"><Mosaic people={sv.players} height={780} /></div>
+      <Frame>
+        <div className="flex h-full flex-col gap-4">
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-center font-game text-5xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">Open {APP_NAME} → Games and tap “I’m in”</p>
+            <p className="text-3xl opacity-80">{sv.players.length} in</p>
+          </div>
+          <div className="min-h-0 flex-1"><Mosaic people={sv.players} height={760} /></div>
         </div>
       </Frame>
     );
   }
   if ((s.phase === "survival_question" || s.phase === "survival_locked") && s.question) {
     return (
-      <Frame title={title}>
+      <Frame>
         <QuestionBoard q={s.question} now={now} answered={sv.answered} players={sv.players.length}
           split={s.phase === "survival_locked" ? sv.split : null} showTimer={s.phase === "survival_question"} green={green} />
       </Frame>
@@ -61,17 +63,17 @@ function RevealSequence({ state }: { state: DisplayState }) {
   const everyone = s.reveal?.everyoneSurvived ?? false;
   const before = sv.players.length;
   const after = everyone ? before : s.reveal?.remaining ?? before - dark.size;
-  const title = s.game?.title ?? "Last one standing";
   // At the regroup the eliminated tiles are dropped and the survivors remount without the
   // darken classes, so their pop-in animation runs again at the bigger size.
   const regrouped = step >= 3 && !everyone;
 
   if (step === 0) {
-    return <Frame title={title}><QuestionBoard q={q} now={0} split={sv.split} green={green} /></Frame>;
+    return <Frame><QuestionBoard q={q} now={0} split={sv.split} green={green} /></Frame>;
   }
   return (
     <div className="flex h-full flex-col px-10 pb-6 pt-6">
-      <header className="flex items-baseline justify-between pb-4">
+      {/* Centred, not split into corners (Requirement 1): a title line and the ticking count together. */}
+      <header className="flex flex-col items-center gap-1 pb-4 text-center">
         <span className="font-game text-5xl">{everyone && step >= 2 ? "Everyone survives!" : `Question ${q.no + 1}`}</span>
         <RevealCounter from={before} to={after} running={step >= 2} />
       </header>

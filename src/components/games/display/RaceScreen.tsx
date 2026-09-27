@@ -15,14 +15,13 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
   const s = state.stage;
   const race = state.race!;
   const now = useServerNow(offset, 100, s.phase === "race_countdown" || s.phase === "race_live");
-  const title = s.game?.title ?? "Tap race";
 
-  if (s.phase === "race_lobby") return <Lobby title={title} lanes={race.lanes} />;
+  if (s.phase === "race_lobby") return <Lobby lanes={race.lanes} />;
 
   if (s.phase === "race_countdown" && s.race) {
     const n = Math.max(1, Math.ceil((s.race.liveFrom - now) / 1000));
     return (
-      <Frame title={title}>
+      <Frame>
         <div className="flex h-full items-center justify-center">
           <AnimatePresence mode="popLayout">
             <motion.span key={n} initial={{ scale: 2.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={spring}
@@ -37,7 +36,10 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
     const left = Math.max(0, (s.race.liveUntil - now) / 1000);
     const sinceGo = now - s.race.liveFrom;
     return (
-      <Frame title={title} right={<TimerRing left={left} total={s.race.duration_s} />}>
+      <Frame>
+        {/* The one corner element left (Requirement 1): a graphic, not text. Inset to match
+            Frame's own px-16/pt-10 padding, since absolute children measure from the padding box. */}
+        <div className="absolute right-16 top-10"><TimerRing left={left} total={s.race.duration_s} /></div>
         <div className="relative h-full">
           <Lanes lanes={race.lanes} />
           <AnimatePresence>
@@ -52,20 +54,21 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
   }
 
   return (
-    <Frame title={`${title} — results`}>
+    <Frame>
       <Podium lanes={race.lanes} solo={race.solo} mvp={race.mvp} />
     </Frame>
   );
 }
 
 /** Lanes as cards, with each lane's latest joiners popping in (D305). The player count is not a tap count. */
-function Lobby({ title, lanes }: { title: string; lanes: DisplayLane[] }) {
+function Lobby({ lanes }: { lanes: DisplayLane[] }) {
   const players = lanes.reduce((n, l) => n + l.players, 0);
   return (
-    <Frame title={title} right={<span>{players} <span className="text-4xl opacity-75">{players === 1 ? "player" : "players"}</span></span>}>
+    <Frame>
       <div className="flex h-full flex-col items-center gap-8">
         <motion.p animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 1.8 }} className="font-game text-7xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">Join on your phone!</motion.p>
-        <p className="-mt-4 text-3xl opacity-80">Open {APP_NAME} → Games</p>
+        <p className="-mt-4 text-4xl opacity-85">{players} {players === 1 ? "player" : "players"}</p>
+        <p className="-mt-2 text-3xl opacity-80">Open {APP_NAME} → Games</p>
         <div className="flex max-w-[1760px] flex-wrap justify-center gap-5">
           {lanes.map((l) => (
             <motion.div layout key={l.key} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
