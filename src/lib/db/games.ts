@@ -161,7 +161,7 @@ export async function addTaps(runId: string, attendeeId: string, n: number, live
 
 export async function listTaps(runId: string): Promise<TapRow[]> {
   return selectAll<TapRow>((from, to) => serviceClient().from("race_taps")
-    .select("attendee_id, lane_key, taps").eq("run_id", runId).order("attendee_id").range(from, to));
+    .select("attendee_id, lane_key, taps, joined_at").eq("run_id", runId).order("attendee_id").range(from, to));
 }
 
 export async function getTapRow(runId: string, attendeeId: string): Promise<TapRow | null> {

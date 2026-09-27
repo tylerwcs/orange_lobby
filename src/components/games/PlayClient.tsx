@@ -67,7 +67,7 @@ export function PlayClient({ token, initial }: { token: string; initial: PhoneSt
       )}
       {me.kind === "race" && s.phase === "race_live" && s.race && (
         me.joined
-          ? <TapPad token={token} initial={0} secondsLeft={Math.max(0, Math.ceil((s.race.liveUntil - now) / 1000))} />
+          ? <TapPad token={token} secondsLeft={Math.max(0, Math.ceil((s.race.liveUntil - now) / 1000))} />
           : <Note>The race has started. Catch the next one!</Note>
       )}
       {me.kind === "race" && s.phase === "race_results" && (
@@ -107,8 +107,7 @@ const ordinal = (n: number) => (n % 100 >= 11 && n % 100 <= 13 ? `${n}th` : `${n
  * that fails is dropped, never replayed (D262). The last batch is sent when the race ends and
  * this unmounts, inside the server's 1.5 s grace.
  */
-function TapPad({ token, initial, secondsLeft }: { token: string; initial: number; secondsLeft: number }) {
-  const [count, setCount] = useState(initial);
+function TapPad({ token, secondsLeft }: { token: string; secondsLeft: number }) {
   const pending = useRef(0);
 
   useEffect(() => {
@@ -126,7 +125,6 @@ function TapPad({ token, initial, secondsLeft }: { token: string; initial: numbe
 
   const tap = () => {
     pending.current += 1;
-    setCount((c) => c + 1);
     navigator.vibrate?.(8);
   };
 
@@ -142,7 +140,6 @@ function TapPad({ token, initial, secondsLeft }: { token: string; initial: numbe
       >
         TAP!
       </button>
-      <p className="text-3xl font-extrabold tabular-nums">{count}</p>
     </>
   );
 }

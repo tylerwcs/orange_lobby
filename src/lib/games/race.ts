@@ -48,7 +48,7 @@ export function laneLabel(key: string, g: Grouping, nameOf: (id: string) => stri
   return key;
 }
 
-export type TapRow = { attendee_id: string; lane_key: string; taps: number };
+export type TapRow = { attendee_id: string; lane_key: string; taps: number; joined_at?: string };
 export type LaneStanding = { key: string; players: number; active: number; taps: number; score: number; place: number };
 
 /**

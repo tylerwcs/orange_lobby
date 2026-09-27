@@ -26,10 +26,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Only this event's attendees can be in it: the roster is the event's, and check-ins are read
  * for this event. Categories follow the multi-programme rule in `eligiblePool`, as draw_spin
  * does. Whoever was "not here" for `prizeNo` stays out (absentFor); a card round's turn has no
- * prize, and its absentees are the ones sent away before picking (prize null). `at` freezes the
- * check-ins at the draw (D316). The rows are memoised per game; the filters apply on each call.
+ * prize, and its absentees are per run (mirroring draw_spin's `w.run_id = p_run_id` when the
+ * prize is null): only voids from `runId`'s own run keep someone out, never a void from an
+ * earlier run of the same card game. `at` freezes the check-ins at the draw (D316). The rows
+ * are memoised per game; the filters apply on each call.
  */
-export async function poolFor(event: Event, game: DrawGame, prizeNo: number | null, at: number | null = null): Promise<Attendee[]> {
+export async function poolFor(event: Event, game: DrawGame, prizeNo: number | null, at: number | null = null, runId: string | null = null): Promise<Attendee[]> {
   const { checkpoint_id, exclude_categories } = game.config;
   // hydrateGame already reads a stored checkpoint that is not an id as unset; checked again here
   // so a bad value can never fail the whole LED and host view on a query error.
@@ -41,7 +43,10 @@ export async function poolFor(event: Event, game: DrawGame, prizeNo: number | nu
     return { roster: [...roster.values()], checkins, winners };
   });
   const cards = game.config.format === "cards";
-  const absent = prizeNo === null && !cards ? new Set<string>() : absentFor(rows.winners, game.id, prizeNo);
+  const cardTurn = prizeNo === null && cards;
+  const absent = prizeNo === null && !cards
+    ? new Set<string>()
+    : absentFor(cardTurn ? rows.winners.filter((w) => w.run_id === runId) : rows.winners, game.id, prizeNo);
   return eligiblePool(rows.roster, checkedInBy(rows.checkins, at), exclude_categories, standingWinners(rows.winners), absent);
 }
 
@@ -86,9 +91,13 @@ async function raceView(event: Event, stage: StageRow): Promise<DisplayState["ra
   const shown = stage.phase === "race_results" ? table : visibleLanes(table, grouping);
   const leader = Math.max(0, ...table.map((l) => l.score));
   const lobby = stage.phase === "race_lobby";
-  // The lobby's initials: each lane's latest joiners, newest last (D305).
+  // The lobby's initials: each lane's latest joiners, newest last (D305). listTaps pages by
+  // attendee_id, so the join order is restored here by joined_at before taking the tail.
   const initials = (key: string) => lobby
-    ? rows.filter((r) => r.lane_key === key).slice(-12).map((r) => tag(nameOf(r.attendee_id)).initials)
+    ? rows.filter((r) => r.lane_key === key)
+        .sort((a, b) => (a.joined_at ?? "").localeCompare(b.joined_at ?? ""))
+        .slice(-12)
+        .map((r) => tag(nameOf(r.attendee_id)).initials)
     : [];
   const top = topTapper(rows);
   return {
@@ -130,7 +139,7 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
   const spun = spinFacts(stage);
   const extra = drawExtra(stage);
   const prizeNo = spun ? spun.prizeNo : format === "cards" ? null : nextPrize(prizeProgress(game.config.prizes, winners))?.prize_no ?? null;
-  const pool = await poolFor(event, game, prizeNo, extra.poolAt);
+  const pool = await poolFor(event, game, prizeNo, extra.poolAt, stage.run_id);
   // While a spin or the mosaic's rounds run, the pool is the one the draw was made from, however
   // fresh the memo (see poolBeforeDraw). Only this spin's draw is added back.
   const running = stage.phase === "draw_spinning" || stage.phase === "draw_rounds";
