@@ -111,6 +111,22 @@ export async function getRun(id: string): Promise<Run | null> {
   return data ? hydrateRun(data) : null;
 }
 
+/**
+ * An event's whole attendee list, for names on the LED and the draw pool. Paged like the
+ * player reads (D289): `listAttendees` stops at one request's worth of rows.
+ */
+export async function listRoster(eventId: string): Promise<Attendee[]> {
+  return selectAll<Attendee>((from, to) => serviceClient().from("attendees")
+    .select("*").eq("event_id", eventId).order("id").range(from, to));
+}
+
+/** Who has been checked in at one of this event's checkpoints (the draw's eligibility, D278). */
+export async function listCheckedInIds(eventId: string, checkpointId: string): Promise<Set<string>> {
+  const rows = await selectAll<{ attendee_id: string }>((from, to) => serviceClient().from("checkins")
+    .select("attendee_id").eq("event_id", eventId).eq("checkpoint_id", checkpointId).order("attendee_id").range(from, to));
+  return new Set(rows.map((r) => r.attendee_id));
+}
+
 /** The attendee a personal link belongs to. `attendees.token` is unique across the table. */
 export async function getAttendeeByToken(token: string): Promise<Attendee | null> {
   const { data, error } = await serviceClient().from("attendees").select("*").eq("token", token).maybeSingle();
