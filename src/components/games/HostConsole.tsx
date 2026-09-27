@@ -2,15 +2,15 @@
 import { useState, useTransition } from "react";
 import type { HostState } from "@/lib/games/wire";
 import { canReveal, type Phase, type StageRow } from "@/lib/games/phase";
-import { GAME_KIND_LABELS } from "@/lib/games/config";
+import { DRAW_FORMAT_LABELS, GAME_KIND_LABELS } from "@/lib/games/config";
 import { HOST_INTERVAL } from "@/lib/games/poll";
 import { isOver } from "@/lib/games/survival";
 import { OPTION_STYLES, type PublicStage } from "@/lib/games/views";
 import { Button } from "@/components/ui/button";
 import { usePoll, useServerNow } from "./usePoll";
 import {
-  drawAction, finishAction, idleAction, nextAction, openGameAction, presentAction, redrawAction,
-  revealAction, startAction, stopAction, type HostResult,
+  drawAction, finishAction, idleAction, nextAction, openGameAction, pickCardAction, presentAction, redrawAction,
+  revealAction, roundAction, startAction, stopAction, type HostResult,
 } from "@/app/host/[token]/actions";
 
 const every = () => HOST_INTERVAL;
@@ -108,7 +108,7 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
             <p className="text-center text-5xl font-extrabold tabular-nums" suppressHydrationWarning>
               {s.phase === "race_countdown" ? secondsLeft(s.race?.liveFrom ?? null) : `${secondsLeft(s.race?.liveUntil ?? null)}s`}
             </p>
-            <Facts rows={state.race?.lanes.slice(0, 5).map((l) => [`${l.place}. ${l.label}`, ""]) ?? []} />
+            <Facts rows={state.race?.lanes.slice(0, 5).map((l) => [`${l.place}. ${l.label}`, l.place === 1 ? "Leading" : ""]) ?? []} />
             <Button className={big} variant="destructive" disabled={pending} onClick={() => run(() => stopAction(token, v))}>Stop race</Button>
           </>
         )}
@@ -166,16 +166,22 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
         {/* Lucky draw */}
         {s.phase === "draw_ready" && state.hostDraw && (
           <>
-            <Facts rows={state.hostDraw.progress.map((p) => [p.name, `${p.given}/${p.quantity}`])} />
-            <p className="text-sm text-muted-foreground">{state.draw?.pool ?? 0} eligible</p>
-            <DrawButtons state={state} pending={pending}
-              onDraw={(mode) => run(() => drawAction(token, v, mode))} />
+            <p className="text-sm font-bold">{DRAW_FORMAT_LABELS[state.hostDraw.format]}</p>
+            {state.hostDraw.format === "cards"
+              ? <p className="text-sm text-muted-foreground">{state.hostDraw.cardsLeft ?? 0} cards left · {state.draw?.pool ?? 0} eligible</p>
+              : (
+                <>
+                  <Facts rows={state.hostDraw.progress.map((p) => [p.name, `${p.given}/${p.quantity}`])} />
+                  <p className="text-sm text-muted-foreground">{state.draw?.pool ?? 0} eligible</p>
+                </>
+              )}
+            <DrawButtons state={state} pending={pending} onDraw={(mode) => run(() => drawAction(token, v, mode))} />
           </>
         )}
-        {(s.phase === "draw_spinning" || s.phase === "draw_reveal") && state.hostDraw && (
+        {(s.phase === "draw_spinning" || s.phase === "draw_reveal" || s.phase === "draw_rounds") && state.hostDraw && (
           <>
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
-              {s.phase === "draw_spinning" ? "Drawn — the screen is still rolling" : "On screen now"}
+              {s.phase === "draw_reveal" ? "On screen now" : "Drawn — the screen has not shown it yet"}
             </p>
             <ul className="flex flex-col gap-2">
               {state.hostDraw.spinWinners.map((w) => (
@@ -190,8 +196,28 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
               ))}
               {state.hostDraw.spinWinners.length === 0 && <li className="text-sm text-muted-foreground">No one left to draw.</li>}
             </ul>
+            {s.phase === "draw_rounds" && state.draw?.mosaic && (
+              <>
+                <p className="text-center text-lg font-bold">
+                  Round {state.draw.mosaic.round} of {state.draw.mosaic.rounds} · {state.draw.mosaic.survivorIds.length} left on screen
+                </p>
+                <Button className={big} disabled={pending} onClick={() => run(() => roundAction(token, v))}>
+                  {state.draw.mosaic.round + 1 >= state.draw.mosaic.rounds ? "Final round — show the winner" : `Next round (${state.draw.mosaic.round + 1} of ${state.draw.mosaic.rounds})`}
+                </Button>
+              </>
+            )}
             {s.phase === "draw_reveal" && <Button className={big} disabled={pending} onClick={() => run(() => presentAction(token, v))}>✓ Present — next prize</Button>}
           </>
+        )}
+        {s.phase === "draw_card_pick" && state.draw?.cards && (
+          <CardPicker cards={state.draw.cards} pending={pending} armed={armed}
+            participantId={state.hostDraw?.spinWinners[0]?.id ?? null}
+            onPick={(no) => run(() => pickCardAction(token, v, no))}
+            onAway={(id) => confirmTwice(`redraw:${id}`, () => redrawAction(token, v, id))} />
+        )}
+        {s.phase === "draw_card_reveal" && state.draw?.cards && (
+          <CardRevealed cards={state.draw.cards} cardsLeft={state.hostDraw?.cardsLeft ?? 0} pending={pending}
+            onNext={() => run(() => drawAction(token, v, "one"))} />
         )}
       </section>
 
@@ -217,16 +243,82 @@ function Facts({ rows, empty }: { rows: string[][]; empty?: string }) {
   );
 }
 
-/** The next prize in the admin's order (D279): one at a time, or all that is left of it. */
+/**
+ * The next draw (D279, D310): the next prize in the admin's order, one at a time or all that is
+ * left of it. The wheel draws one per spin; a card round draws the next participant.
+ */
 function DrawButtons({ state, pending, onDraw }: { state: HostState; pending: boolean; onDraw: (mode: "one" | "all") => void }) {
+  const format = state.hostDraw?.format ?? "slot";
+  if (format === "cards") {
+    const left = state.hostDraw?.cardsLeft ?? 0;
+    return left > 0
+      ? <Button className={big} disabled={pending} onClick={() => onDraw("one")}>Draw the next participant</Button>
+      : <p className="text-sm font-bold">All cards have been dealt.</p>;
+  }
   const next = state.hostDraw?.progress.find((p) => p.remaining > 0);
   if (!next) return <p className="text-sm font-bold">Every prize has been drawn.</p>;
+  if (format === "wheel") return <Button className={big} disabled={pending} onClick={() => onDraw("one")}>Spin the wheel for {next.name}</Button>;
+  const verb = format === "mosaic" ? "Start the rounds" : "Draw";
   return (
     <>
-      <Button className={big} disabled={pending} onClick={() => onDraw("one")}>Draw 1 × {next.name}</Button>
+      <Button className={big} disabled={pending} onClick={() => onDraw("one")}>{verb}: 1 × {next.name}</Button>
       {next.remaining > 1 && (
         <Button className={big} variant="outline" disabled={pending} onClick={() => onDraw("all")}>
-          Draw all {next.remaining} remaining
+          {verb}: all {next.remaining} remaining
+        </Button>
+      )}
+    </>
+  );
+}
+
+/** After a card flips (D317): what it held, and the next participant while cards are left. */
+function CardRevealed({ cards, cardsLeft, pending, onNext }: {
+  cards: NonNullable<NonNullable<HostState["draw"]>["cards"]>;
+  cardsLeft: number;
+  pending: boolean;
+  onNext: () => void;
+}) {
+  const c = cards.slots.find((x) => x.no === cards.picked);
+  return (
+    <>
+      <p className="text-center text-lg font-bold">Card {c?.no}: {c?.prize} — {cards.participant?.name}</p>
+      <Button className={big} disabled={pending || cardsLeft === 0} onClick={onNext}>
+        {cardsLeft > 0 ? "Next participant" : "All cards dealt"}
+      </Button>
+    </>
+  );
+}
+
+/**
+ * The card round's pick (D317): the participant calls a number, the host taps it, then confirms.
+ * Taken cards are greyed. "Not here" sends the participant away before a card is chosen (D318).
+ */
+function CardPicker({ cards, pending, armed, participantId, onPick, onAway }: {
+  cards: NonNullable<NonNullable<HostState["draw"]>["cards"]>;
+  pending: boolean;
+  armed: string | null;
+  participantId: string | null;
+  onPick: (no: number) => void;
+  onAway: (id: string) => void;
+}) {
+  const [chosen, setChosen] = useState<number | null>(null);
+  return (
+    <>
+      <p className="text-sm">On stage: <b>{cards.participant?.name ?? "—"}</b></p>
+      <div className="grid grid-cols-5 gap-2">
+        {cards.slots.map((c) => (
+          <button key={c.no} type="button" disabled={c.taken || pending} onClick={() => setChosen(c.no)} aria-pressed={chosen === c.no}
+            className={`h-14 rounded-lg border text-lg font-extrabold tabular-nums ${c.taken ? "opacity-25" : chosen === c.no ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
+            {c.no}
+          </button>
+        ))}
+      </div>
+      <Button className={big} disabled={pending || chosen === null} onClick={() => chosen !== null && onPick(chosen)}>
+        {chosen === null ? "Tap the card they call out" : `Flip card ${chosen}`}
+      </Button>
+      {participantId && (
+        <Button variant="outline" disabled={pending} onClick={() => onAway(participantId)}>
+          {armed === `redraw:${participantId}` ? "Tap again" : "Not here — draw someone else"}
         </Button>
       )}
     </>
