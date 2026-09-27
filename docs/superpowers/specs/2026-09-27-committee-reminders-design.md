@@ -50,11 +50,11 @@ Alongside it, the word "desk" becomes "committee" wherever it names the people w
 1. Load pending requests with `created_at <= now() - 60 min` and `reminded_at is null`.
 2. Group by event. For an event with no alert numbers, skip it and leave its requests
    un-stamped (adding numbers later picks them up).
-3. For each event with numbers: send the template to each number, then stamp `reminded_at` on
-   exactly the requests counted — whether or not Meta accepted the message, so a template still
-   in review cannot cause a send attempt every five minutes.
-4. Stamp with `reminded_at is null` in the update's filter, so two overlapping rounds cannot
-   both count the same request.
+3. For each event with numbers: claim the due requests first — stamp `reminded_at` with
+   `reminded_at is null` in the update's filter, and count only the rows this round won — so two
+   overlapping rounds cannot both announce the same request.
+4. Then send the template to each number with that count. The stamp stands whether or not Meta
+   accepted the message, so a template still in review cannot cause a send every five minutes.
 5. Respond with `{ events, requests, sent, failed }` for the cron log.
 
 `activity_change_requests.reminded_at timestamptz` is the new column.
