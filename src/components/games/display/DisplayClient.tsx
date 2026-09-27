@@ -3,6 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { DisplayState } from "@/lib/games/wire";
 import { displayInterval } from "@/lib/games/poll";
 import { usePoll } from "../usePoll";
+import { DrawScreen } from "./DrawScreen";
 import { IdleScreen } from "./IdleScreen";
 import { RaceScreen } from "./RaceScreen";
 import { SurvivalScreen } from "./SurvivalScreen";
@@ -81,10 +82,11 @@ export function DisplayClient({ token, initial }: { token: string; initial: Disp
   );
 }
 
-/** Which screen the stage calls for. Task 18 adds the lucky draw here. */
+/** Which screen the stage calls for. */
 function Screen({ state, offset }: { state: DisplayState; offset: number }) {
   const kind = state.stage.game?.kind;
   if (kind === "tap_race" && state.race) return <RaceScreen state={state} offset={offset} />;
   if (kind === "survival" && state.survival) return <SurvivalScreen state={state} offset={offset} />;
+  if (kind === "draw" && state.draw) return <DrawScreen state={state} offset={offset} />;
   return <IdleScreen event={state.event} />;
 }

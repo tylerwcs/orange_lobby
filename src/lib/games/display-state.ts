@@ -4,7 +4,7 @@ import { gameSummary, type DrawGame, type Game, type SurvivalGame } from "@/lib/
 import { allowedActions, currentQuestion, spinFacts, type StageRow } from "@/lib/games/phase";
 import { laneLabel, standings, topTapper, visibleLanes } from "@/lib/games/race";
 import { answerSplit, inGoingInto, outAt, stillIn } from "@/lib/games/survival";
-import { eligiblePool, nextPrize, prizeProgress, standingWinners } from "@/lib/games/draw";
+import { eligiblePool, nextPrize, poolBeforeDraw, prizeProgress, standingWinners } from "@/lib/games/draw";
 import { seededOrder } from "@/lib/games/mosaic";
 import { tag, tagLabel } from "@/lib/games/names";
 import { createMemo } from "@/lib/games/memo";
@@ -107,10 +107,16 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
   const [winners, pool, roster] = await Promise.all([listWinners(game.id), poolFor(event, game), rosterFor(event.id)]);
   const spun = spinFacts(stage);
   const prizeNo = spun?.prizeNo ?? nextPrize(prizeProgress(game.config.prizes, winners))?.prize_no ?? null;
+  // While the names roll, the pool is the one the draw was made from, however fresh the memo
+  // (see poolBeforeDraw): its count and sample must not change when the winners drop out of it.
+  const drawn = stage.phase === "draw_spinning" && spun
+    ? spun.winnerIds.flatMap((id) => { const a = roster.get(id); return a ? [a] : []; })
+    : [];
+  const shown = poolBeforeDraw(pool, drawn);
   return {
     prize: prizeNo === null ? null : game.config.prizes[prizeNo]?.name ?? null,
-    pool: pool.length,
-    sample: seededOrder(pool, `${stage.run_id}:${stage.version}`).slice(0, 40).map((a) => person(a.id, a.name)),
+    pool: shown.length,
+    sample: seededOrder(shown, `${stage.run_id}:${stage.version}`).slice(0, 40).map((a) => person(a.id, a.name)),
     // Never before the reveal: the winner is not on the wire while the names are still rolling (D280).
     winners: stage.phase === "draw_reveal" && spun ? spun.winnerIds.map((id) => card(roster.get(id))) : null,
   };

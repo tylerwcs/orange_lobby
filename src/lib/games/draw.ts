@@ -52,3 +52,16 @@ export function nextPrize(progress: PrizeProgress[]): PrizeProgress | null {
 export function drawCount(prize: PrizeProgress, mode: "one" | "all", pool: number): number {
   return Math.max(0, Math.min(mode === "one" ? 1 : prize.remaining, prize.remaining, pool));
 }
+
+/**
+ * The pool as it stood before the draw on stage, in a fixed order, for the LED's rolling names
+ * (D280). draw_spin records the winners at once, so a freshly loaded pool no longer holds them
+ * while a memoised one (another server instance, up to its time-to-live) still does. Adding the
+ * drawn people back and sorting by id makes both give the same set in the same order, so two
+ * polls during a spin never differ by exactly the winners — the answer is not on the wire early.
+ */
+export function poolBeforeDraw<A extends { id: string }>(pool: A[], drawn: A[]): A[] {
+  const byId = new Map(pool.map((a) => [a.id, a]));
+  for (const a of drawn) if (!byId.has(a.id)) byId.set(a.id, a);
+  return [...byId.values()].sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eligiblePool, standingWinners, prizeProgress, nextPrize, drawCount, type WinnerRow } from "@/lib/games/draw";
+import { eligiblePool, standingWinners, prizeProgress, nextPrize, drawCount, poolBeforeDraw, type WinnerRow } from "@/lib/games/draw";
 
 const a = (id: string, category: string | null = "Staff") => ({ id, category });
 const win = (attendee_id: string, prize_no = 0, isVoid = false): WinnerRow =>
@@ -70,5 +70,18 @@ describe("drawCount", () => {
   });
   it("never draws more than the pool holds", () => {
     expect([drawCount(prize, "all", 2), drawCount(prize, "one", 0)]).toEqual([2, 0]);
+  });
+});
+
+describe("poolBeforeDraw", () => {
+  const people = [a("c"), a("a"), a("d"), a("b")];
+  it("gives the same pool whether or not the winners have dropped out of it yet (D280)", () => {
+    const stale = poolBeforeDraw(people, [a("b")]);
+    const fresh = poolBeforeDraw(people.filter((p) => p.id !== "b"), [a("b")]);
+    expect(fresh).toEqual(stale);
+    expect(fresh.map((p) => p.id)).toEqual(["a", "b", "c", "d"]);
+  });
+  it("is the pool in id order when nothing is being drawn", () => {
+    expect(poolBeforeDraw(people, []).map((p) => p.id)).toEqual(["a", "b", "c", "d"]);
   });
 });
