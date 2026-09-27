@@ -51,7 +51,11 @@ function Card({ card, box, active, ready, synth, colour }: { card: CardView; box
     { text: "YOU WIN", size: box.h * 0.09, colour: "#6b7280" },
     { text: card.prize, size: box.h * 0.17, colour: "#111827" },
   ], { background: "#ffffff", radius: 18 }) : null), [ready, card.prize, box.w, box.h]);
-  useEffect(() => () => { back?.dispose(); face?.dispose(); }, [back, face]);
+  // Two effects, not one keyed on both: `back` and `face` change independently (different memo
+  // deps above), so a single combined effect would dispose the texture that DIDN'T just change
+  // too, every time the other one did.
+  useEffect(() => () => back?.dispose(), [back]);
+  useEffect(() => () => face?.dispose(), [face]);
   // Rebuilt (as brand new material instances, never mutated) whenever `back`/`face` changes,
   // including null -> texture once the font loads. This matters in three 0.186: a material whose
   // `.map` is set to a texture AFTER it already compiled (e.g. via R3F's applyProps re-assigning
@@ -65,7 +69,12 @@ function Card({ card, box, active, ready, synth, colour }: { card: CardView; box
   // this codebase (see ThemeBackdrop.tsx) instead of an array element.
   const glow = useMemo(() => new THREE.MeshStandardMaterial({ color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0 }), [colour]);
   useEffect(() => () => glow.dispose(), [glow]);
-  const backMat = useMemo(() => new THREE.MeshStandardMaterial(back ? { map: back } : { color: colour }), [back, colour]);
+  // The numbered back (+z) is the face the room actually sees head-on during the lift and fly, so
+  // it gets the same emissive colour as the sides, driven with the same per-frame intensity below
+  // (D317 "the chosen card glows") — the 10-unit sides alone are nearly edge-on and barely visible.
+  const backMat = useMemo(() => new THREE.MeshStandardMaterial(back
+    ? { map: back, emissive: new THREE.Color(colour), emissiveIntensity: 0 }
+    : { color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0 }), [back, colour]);
   useEffect(() => () => backMat.dispose(), [backMat]);
   const faceMat = useMemo(() => new THREE.MeshStandardMaterial(face ? { map: face } : { color: "#ffffff" }), [face]);
   useEffect(() => () => faceMat.dispose(), [faceMat]);
@@ -104,8 +113,11 @@ function Card({ card, box, active, ready, synth, colour }: { card: CardView; box
     m.position.set(x * (1 - fly), y * (1 - fly) - 30 * fly, 120 * lift + 80 * fly);
     m.rotation.set(0, Math.PI * flip, 0);
     m.scale.setScalar(1 + fly * (grow - 1));
+    const glowIntensity = lift * (0.7 - 0.4 * flip) + 0.15 * Math.sin(e / 120) * lift;
     // eslint-disable-next-line react-hooks/immutability -- the standard R3F pattern: mutate a three.js material per frame instead of re-rendering; confined to display/three/.
-    glow.emissiveIntensity = lift * (0.7 - 0.4 * flip) + 0.15 * Math.sin(e / 120) * lift;
+    glow.emissiveIntensity = glowIntensity;
+    // eslint-disable-next-line react-hooks/immutability -- same as `glow` above: the numbered back is the face actually visible during the lift/fly, so it carries the same glow, fading out as `flip` turns it away from the room.
+    backMat.emissiveIntensity = glowIntensity;
     const p = played.current;
     if (!p.lift) { p.lift = true; synth.play("lift"); }
     if (e >= FLY_END_MS && !p.flip) { p.flip = true; synth.play("flip"); }
