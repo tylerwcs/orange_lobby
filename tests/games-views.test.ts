@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { publicStage } from "@/lib/games/views";
+import { GREEN_SAFE_D, optionStyles, publicStage } from "@/lib/games/views";
 import { hydrateGame, type Game } from "@/lib/games/config";
 import { idleStage, type StageRow } from "@/lib/games/phase";
 
@@ -49,5 +49,21 @@ describe("publicStage", () => {
     const results = at("race_results", { live_from: "2026-10-01T09:59:40.000Z", live_until: "2026-10-01T10:00:00.000Z" }, "g2");
     expect(publicStage(results, race, T0 + 500).key).toBe("3:race_results");
     expect(publicStage(results, race, T0 + 5000).key).toBe("3:race_results:settled");
+  });
+  it("says whether the game on stage keys out green (D299)", () => {
+    const g = { ...race, config: { ...race.config, background: { kind: "green" as const, url: null } } } as Game;
+    expect(publicStage(at("race_lobby", {}, "g2"), g, T0).game?.green).toBe(true);
+  });
+});
+
+describe("optionStyles (D299, D306)", () => {
+  it("gives every option a colour, a letter and a shape", () => {
+    expect(optionStyles(false).map((o) => o.shape)).toEqual(["▲", "◆", "●", "■"]);
+  });
+  it("swaps only the green option in green mode", () => {
+    const normal = optionStyles(false);
+    const green = optionStyles(true);
+    expect(green[3].colour).toBe(GREEN_SAFE_D);
+    expect(green.slice(0, 3)).toEqual(normal.slice(0, 3));
   });
 });

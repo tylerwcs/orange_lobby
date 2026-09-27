@@ -1,16 +1,30 @@
 import type { Game, GameKind } from "@/lib/games/config";
+import { backgroundOf } from "@/lib/games/background";
 import {
   currentQuestion, questionDeadline, raceWindow, revealFacts, spinFacts, stageKey,
   type Phase, type StageRow,
 } from "@/lib/games/phase";
 
-/** Option colours, the same on the LED and the phones so "pick red" works across the room. */
+/**
+ * Option colours and shapes, the same on the LED and the phones so "pick red" and "pick the
+ * triangle" both work across the room (D306); the shape is for colour-blind players.
+ */
 export const OPTION_STYLES = [
-  { letter: "A", colour: "#E5484D" },
-  { letter: "B", colour: "#3E63DD" },
-  { letter: "C", colour: "#F5A524" },
-  { letter: "D", colour: "#30A46C" },
+  { letter: "A", colour: "#E5484D", shape: "▲" },
+  { letter: "B", colour: "#3E63DD", shape: "◆" },
+  { letter: "C", colour: "#F5A524", shape: "●" },
+  { letter: "D", colour: "#30A46C", shape: "■" },
 ] as const;
+
+/** D's colour when the LED is keyed on green (D299). */
+export const GREEN_SAFE_D = "#8E4EC6";
+
+export type OptionStyle = { letter: string; colour: string; shape: string };
+
+/** The options as a green-screened game shows them; the phone uses the same, so colours match. */
+export function optionStyles(green: boolean): OptionStyle[] {
+  return OPTION_STYLES.map((o, i) => ({ letter: o.letter, colour: green && i === 3 ? GREEN_SAFE_D : o.colour, shape: o.shape }));
+}
 
 export type PublicQuestion = {
   no: number;
@@ -27,7 +41,7 @@ export type PublicStage = {
   key: string;
   phase: Phase;
   endsAt: number | null;
-  game: { id: string; kind: GameKind; title: string } | null;
+  game: { id: string; kind: GameKind; title: string; green: boolean } | null;
   race: { liveFrom: number; liveUntil: number; duration_s: number } | null;
   question: PublicQuestion | null;
   reveal: { eliminated: number; remaining: number; everyoneSurvived: boolean } | null;
@@ -60,7 +74,7 @@ export function publicStage(s: StageRow, game: Game | null, now: number): Public
     key: stageKey(s, now),
     phase: s.phase,
     endsAt: s.phase_ends_at ? Date.parse(s.phase_ends_at) : null,
-    game: g ? { id: g.id, kind: g.kind, title: g.title } : null,
+    game: g ? { id: g.id, kind: g.kind, title: g.title, green: backgroundOf(g).kind === "green" } : null,
     race: g?.kind === "tap_race" && w ? { liveFrom: w.from, liveUntil: w.until, duration_s: g.config.duration_s } : null,
     question,
     reveal: revealFacts(s),
