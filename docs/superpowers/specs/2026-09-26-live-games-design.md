@@ -1,7 +1,7 @@
 # Live games — design
 
 Date: 2026-09-26
-Status: approved design, awaiting spec review
+Status: built 2026-09-27 (load-tested at 500: not yet run; 1,000: not yet run)
 Decisions D250–D289. Target: after the KOM pilot (30 Sep 2026); not part of it.
 
 ## 1. Why

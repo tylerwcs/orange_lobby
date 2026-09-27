@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "check:booking": "node --env-file=.env.local scripts/booking-concurrency.mjs",
     "check:submit": "node --env-file=.env.local scripts/submit-concurrency.mjs",
-    "check:games": "node --env-file=.env.local scripts/games-db-check.mjs"
+    "check:games": "node --env-file=.env.local scripts/games-db-check.mjs",
+    "load:games": "node --env-file=.env.local scripts/games-load.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

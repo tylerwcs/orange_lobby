@@ -543,3 +543,71 @@ checks in step 3 flagged, `extra` already held something else before this ran, a
 remains. Past that, the only way back at all is restoring the project from the backup taken in
 step 2 — which is why that backup has to exist, timestamped, before the SQL runs, and why a
 backup taken after the drop is worth nothing.
+
+## Live games
+
+Tap race, last one standing and lucky draw: played from attendees' phones, run from a host link,
+shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-live-games-design.md`).
+
+**Before deploying (one-time)**
+- Migration `supabase/migrations/0049_games.sql` must be applied to the production database
+  **before** the code that uses it is deployed: it adds the games tables, the events'
+  `host_token`/`display_token` columns and the game RPCs. Run it in the Supabase SQL editor, then
+  `npm run check:games` (it creates and deletes its own draft events; it never touches `ecphub`)
+  and expect every line to say PASS.
+
+**Before the day**
+- Admin → Games: create the games. Last one standing needs its questions; a lucky draw needs a
+  checkpoint ("Who is in the draw") and its prizes (grand prize last).
+- Create the **host link** (for the emcee or crew running the games, on their phone) and the
+  **display link** (for the computer feeding the LED).
+- Add a **Games** tile in Modules (a tile that opens the Games page), so attendees can find the
+  play page.
+- Rehearse on a copy or test event. After a rehearsal draw on the real event, use **Reset draw**,
+  or the rehearsal winners stay excluded.
+
+**How the rules behave (so nobody is surprised on stage)**
+- **Reveal waits 1.5 s after the deadline.** Answers that arrive up to 1.5 s after a question's
+  timer ends still count, so the host's Reveal button reads "Waiting for last answers…" until
+  then, and a Reveal sent early is answered "Not yet — the last answers are still coming in."
+  Nobody is eliminated before that.
+- **Race lanes by category use each attendee's first category part.** Someone whose category is
+  "KOM, Wellness" (or "KOM + Wellness", "KOM/Wellness") races for **KOM**. No category → "Others".
+- **Draw "Leave out" excludes anyone with any excluded part.** Leaving out "Crew" also leaves out
+  a "KOM, Crew" attendee. The tick list offers each part on its own.
+- A draw only picks people checked in at its checkpoint who have not already won.
+
+**On the day**
+- LED computer: open the display link in Chrome, click **Click to start display** (goes full
+  screen, keeps the screen awake). A reload is harmless — it comes back to wherever the game is.
+- Host phone: open the host link. If it dies, open the same link on any other phone; nothing is
+  lost.
+- Attendees get a **Game on — tap to join** banner on their portal home while a game is open.
+
+**If something goes wrong**
+- "Someone else moved the game on": two host phones are open. Use one.
+- LED frozen: reload it (F5), then click to start again.
+- A draw winner isn't in the room: **Not here** (tap twice) draws a replacement for the same
+  prize; the absent winner stays on the winners list, struck through.
+- Winners list: Admin → Games → the draw → Download winners (.xlsx).
+
+### Load test (`npm run load:games`)
+
+`scripts/games-load.mjs` simulates phones against a **deployed** app (Vercel, next to Supabase —
+not the dev server) while a person drives the host console. It refuses the event with slug
+`ecphub` in every command; use a published test event. It only touches attendees it seeded
+(`extra.seed = "load"`).
+
+```bash
+npm run load:games -- seed    <event-id> 1000               # ~10 per table, some "KOM, Crew" / "KOM, Wellness"
+npm run load:games -- checkin <event-id> <checkpoint-id>    # so a draw has a pool
+npm run load:games -- run     <deployed-url> <event-id> 500 180 <display-token>
+npm run load:games -- run     <deployed-url> <event-id> 1000 180 <display-token>
+npm run load:games -- cleanup <event-id>                    # always, when done
+```
+
+During each `run`, from the host console: one race with lanes by table, then last one standing
+with 3 questions. Pass: exit 0, `state p95` under 300 ms, no 5xx, and the LED's lane totals equal
+the taps the server accepted (one race per run). `cleanup` deletes the load attendees; their
+check-ins and game rows go with them. If Vercel answers with its own 403/429 pages, the test is
+tripping platform protection from one IP — run from two machines, or ask before adding a bypass.
