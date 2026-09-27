@@ -21,6 +21,9 @@ export default function Stage3D({ children, onLost }: { children: React.ReactNod
       camera={{ fov: CAMERA_FOV, position: [0, 0, CAMERA_Z], near: 10, far: CAMERA_Z * 4 }}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
+        // Lets a mesh's own material.clippingPlanes cut it (SlotReels clips each reel to its
+        // window); off by default because it costs a little on every draw call.
+        gl.localClippingEnabled = true;
         gl.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); onLost(); });
       }}
     >

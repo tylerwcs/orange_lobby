@@ -60,3 +60,22 @@ export function reelLayout(n: number): Box[] {
     return { x: (W - gridW) / 2 + c * (w + gap) + w / 2, y: top + r * (h + 60), w, h };
   });
 }
+
+/** A reel's own spin never starts before the whole draw did. */
+const MAX_STAGGER_MS = 350;
+
+/**
+ * Per-reel spin timing for the slot draw (D313): reels stop left to right and the last stops
+ * exactly at `endsAt`. The gap between reels is 350 ms, scaled down for a short spin (`quick`
+ * "Not here" redraws, or a low `spin_s`) so it never eats more than 40% of `spinMs` — every reel
+ * still starts exactly when the draw did (`endsAt - spinMs`), and every reel spins at least 60%
+ * of `spinMs`.
+ */
+export function reelTimings(count: number, endsAt: number, spinMs: number): { stopAt: number; spinMs: number }[] {
+  const last = Math.max(0, count - 1);
+  const stagger = Math.min(MAX_STAGGER_MS, (spinMs * 0.4) / Math.max(1, last));
+  return Array.from({ length: count }, (_, j) => {
+    const behind = (last - j) * stagger;
+    return { stopAt: endsAt - behind, spinMs: spinMs - behind };
+  });
+}

@@ -16,7 +16,10 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
   const s = state.stage;
   const d = state.draw!;
   const title = s.game?.title ?? "Lucky draw";
-  const now = useServerNow(offset, 100, s.phase === "draw_spinning");
+  // Only Cascade (more winners than reels) needs a ticking clock; the reels animate in 3D off
+  // their own useFrame, so gate the 10×/s re-render on the one screen that reads `now`.
+  const cascading = s.phase === "draw_spinning" && (d.targets?.length ?? 0) > MAX_REELS;
+  const now = useServerNow(offset, 100, cascading);
 
   if (s.phase === "draw_ready") {
     return (

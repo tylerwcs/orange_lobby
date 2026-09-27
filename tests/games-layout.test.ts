@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardGrid, cardLayout, reelLayout, toWorld } from "@/lib/games/layout";
+import { cardGrid, cardLayout, reelLayout, reelTimings, toWorld } from "@/lib/games/layout";
 
 describe("cardGrid (D317)", () => {
   it("is 5×2 for 10 and 3×2 for 6", () => {
@@ -47,6 +47,34 @@ describe("reelLayout (D313)", () => {
   it("has no reels past 10", () => {
     expect(reelLayout(11)).toEqual([]);
   });
+});
+
+describe("reelTimings (D313)", () => {
+  const ENDS_AT = 1_000_000;
+
+  for (const count of [1, 5, 10]) {
+    for (const spinMs of [3000, 6000]) {
+      it(`for ${count} reel(s) at spinMs=${spinMs}`, () => {
+        const timings = reelTimings(count, ENDS_AT, spinMs);
+        expect(timings).toHaveLength(count);
+
+        // The last reel stops exactly when the spin ends.
+        expect(timings[count - 1].stopAt).toBe(ENDS_AT);
+
+        // Reels stop left to right (non-decreasing stopAt by index).
+        for (let j = 1; j < count; j++) {
+          expect(timings[j].stopAt).toBeGreaterThanOrEqual(timings[j - 1].stopAt);
+        }
+
+        for (const t of timings) {
+          // No reel starts before the draw itself did.
+          expect(t.stopAt - t.spinMs).toBeCloseTo(ENDS_AT - spinMs, 5);
+          // Every reel still spins a healthy share of the total.
+          expect(t.spinMs).toBeGreaterThanOrEqual(spinMs * 0.4 - 1e-6);
+        }
+      });
+    }
+  }
 });
 
 describe("toWorld", () => {
