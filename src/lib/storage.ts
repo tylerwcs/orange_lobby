@@ -14,7 +14,7 @@ export const MEDIA_BUCKET = "event-media";
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** What an uploaded image is for. Also the first half of its object name. */
-export type ImageKind = "logo" | "banner" | "floor-plan" | "agenda" | "info" | "activity" | "tile-icon";
+export type ImageKind = "logo" | "banner" | "floor-plan" | "agenda" | "info" | "activity" | "tile-icon" | "game-background" | "game-video";
 
 /**
  * The extension each accepted type is stored under. Browsers send `image/jpg` as well as
@@ -96,6 +96,25 @@ export function mediaPathFromUrl(url: string, supabaseUrl: string): string | nul
  * the upload gate reads, so the file chooser can never offer a type the save would reject.
  */
 export const IMAGE_ACCEPT = Object.keys(EXTENSIONS).join(",");
+
+/**
+ * A game's LED background video (D300). Far past the Server Action's 10 MB cap, so the browser
+ * uploads it straight to the bucket with a signed URL (createVideoUpload); the bucket's own
+ * 30 MB limit is the real gate, and this is the early answer the organiser reads.
+ */
+export const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+
+const VIDEO_EXTENSIONS: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm" };
+
+export function acceptVideo(file: { type: string; size: number }): string {
+  if (file.size === 0) throw new Error("Choose a video first.");
+  const ext = VIDEO_EXTENSIONS[file.type.toLowerCase()];
+  if (!ext) throw new Error("Videos must be MP4 or WebM.");
+  if (file.size > MAX_VIDEO_BYTES) throw new Error("Videos must be 30 MB or smaller.");
+  return ext;
+}
+
+export const VIDEO_ACCEPT = Object.keys(VIDEO_EXTENSIONS).join(",");
 
 /**
  * The one bucket every submitted `file` answer lives in. Private, unlike MEDIA_BUCKET (D168):

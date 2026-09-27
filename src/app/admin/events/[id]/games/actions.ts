@@ -7,6 +7,9 @@ import { createGame, deleteGame, getGame, resetDraw, updateGame } from "@/lib/db
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { GAME_KIND_LABELS, isGameKind } from "@/lib/games/config";
 import { configFromForm } from "@/lib/games/config-form";
+import { backgroundFromForm } from "@/lib/games/background";
+import { acceptVideo, mediaPathFromUrl } from "@/lib/storage";
+import { createVideoUpload, deleteEventImage, nextImage } from "@/lib/db/media";
 import { flashPath } from "@/lib/flash";
 
 const gamesPath = (eventId: string) => `/admin/events/${eventId}/games`;
@@ -63,11 +66,51 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
       redirect(flashPath(path, "That checkpoint is not on this event any more. Pick another and save again.", "error"));
     }
   }
+  // The LED background (D297, D300). An image uploads with this save; a video was already
+  // uploaded by the browser, and is accepted only if it is in our bucket.
+  const current = game.config.background;
+  const kind = String(form.get("background_kind") ?? current.kind);
+  let image: string | null = null;
+  if (kind === "image") {
+    try {
+      image = (await nextImage(form, "background_image", current.kind === "image" ? current.url : null,
+        { orgId: ev.org_id, eventId: ev.id, kind: "game-background" })).url;
+    } catch (e) {
+      redirect(flashPath(path, (e as Error).message, "error"));
+    }
+  }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const bg = backgroundFromForm(kind, {
+    image,
+    video: String(form.get("background_video") ?? "").trim() || null,
+    ours: (u) => mediaPathFromUrl(u, supabaseUrl) !== null,
+  });
+  if (!bg.ok) redirect(flashPath(path, bg.error, "error"));
   const title = (String(form.get("title") ?? "").trim() || game.title).slice(0, 80);
-  await updateGame(game.id, ev.id, { title, config: parsed.config });
+  await updateGame(game.id, ev.id, { title, config: { ...(parsed.config as Record<string, unknown>), background: bg.background } });
+  // The file this save replaced goes only once the row no longer names it (see nextImage).
+  if (current.url && current.url !== bg.background.url) await deleteEventImage(current.url);
   revalidatePath(path);
   revalidatePath(gamesPath(ev.id));
   redirect(flashPath(path, "Saved."));
+}
+
+/** Mints the signed URL a background video uploads to (D300), after checking the game is this event's and the file is one we take. */
+export async function backgroundVideoUploadAction(eventId: string, gameId: string, type: string, size: number): Promise<{ ok: true; path: string; token: string; url: string } | { ok: false; error: string }> {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  if (!(await getGame(gameId, ev.id))) return { ok: false, error: "That game no longer exists." };
+  let ext: string;
+  try {
+    ext = acceptVideo({ type: String(type), size: Number(size) });
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  try {
+    return { ok: true, ...(await createVideoUpload({ orgId: ev.org_id, eventId: ev.id, ext })) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 }
 
 /**

@@ -15,18 +15,25 @@ describe("winnerSheetRows (D283)", () => {
   ]);
   it("has a header and one row per winner, with the prize name and whether they collected", () => {
     const rows = winnerSheetRows([{ name: "Voucher", quantity: 2 }, { name: "iPad", quantity: 1 }], [w("a1", 1), w("a2", 0, true)], people);
-    expect(rows[0]).toEqual(["Prize", "Name", "Company", "Category", "Email", "Drawn at", "Status"]);
-    expect(rows[1]).toEqual(["iPad", "Priya Ramasamy", "Ecopia", "Staff", "p@x.test", "2026-10-01 10:00", "Won"]);
-    expect(rows[2]).toEqual(["Voucher", "Tan Mei Ling", "", "", "", "2026-10-01 10:00", "Not here — redrawn"]);
+    expect(rows[0]).toEqual(["Prize", "Card", "Name", "Company", "Category", "Email", "Drawn at", "Status"]);
+    expect(rows[1]).toEqual(["iPad", "", "Priya Ramasamy", "Ecopia", "Staff", "p@x.test", "2026-10-01 10:00", "Won"]);
+    expect(rows[2]).toEqual(["Voucher", "", "Tan Mei Ling", "", "", "", "2026-10-01 10:00", "Not here — redrawn"]);
+  });
+  it("shows a card round's card, and a participant who never picked (D322)", () => {
+    const picked: WinnerRow = { ...w("a1", 1), card_no: 3 };
+    const pending: WinnerRow = { ...w("a2", 0), prize_no: null, card_no: null };
+    const rows = winnerSheetRows([{ name: "Voucher", quantity: 2 }, { name: "iPad", quantity: 1 }], [picked, pending], people);
+    expect(rows[1].slice(0, 2)).toEqual(["iPad", "3"]);
+    expect(rows[2].slice(0, 2)).toEqual(["No card picked", ""]);
   });
   it("keeps a winner whose attendee was later deleted", () => {
-    expect(winnerSheetRows([{ name: "Voucher", quantity: 1 }], [w("gone", 0)], people)[1][1]).toBe("(removed attendee)");
+    expect(winnerSheetRows([{ name: "Voucher", quantity: 1 }], [w("gone", 0)], people)[1][2]).toBe("(removed attendee)");
   });
   it("carries the event's chosen export columns after Email, blank for a removed attendee", () => {
     const rows = winnerSheetRows([{ name: "Voucher", quantity: 2 }], [w("a1", 0), w("gone", 0)], people, [{ key: "nickname", label: "Nickname" }]);
-    expect(rows[0]).toEqual(["Prize", "Name", "Company", "Category", "Email", "Nickname", "Drawn at", "Status"]);
-    expect(rows[1]).toEqual(["Voucher", "Priya Ramasamy", "Ecopia", "Staff", "p@x.test", "Pri", "2026-10-01 10:00", "Won"]);
-    expect(rows[2]).toEqual(["Voucher", "(removed attendee)", "", "", "", "", "2026-10-01 10:00", "Won"]);
+    expect(rows[0]).toEqual(["Prize", "Card", "Name", "Company", "Category", "Email", "Nickname", "Drawn at", "Status"]);
+    expect(rows[1]).toEqual(["Voucher", "", "Priya Ramasamy", "Ecopia", "Staff", "p@x.test", "Pri", "2026-10-01 10:00", "Won"]);
+    expect(rows[2]).toEqual(["Voucher", "", "(removed attendee)", "", "", "", "", "2026-10-01 10:00", "Won"]);
   });
 });
 

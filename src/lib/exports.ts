@@ -387,11 +387,12 @@ export function winnerSheetRows(
   people: Map<string, Pick<Attendee, "name" | "email" | "category" | "extra">>,
   columns: ExportColumn[] = [],
 ): string[][] {
-  const rows: string[][] = [["Prize", "Name", "Company", "Category", "Email", ...columns.map((c) => c.label), "Drawn at", "Status"]];
+  const rows: string[][] = [["Prize", "Card", "Name", "Company", "Category", "Email", ...columns.map((c) => c.label), "Drawn at", "Status"]];
   for (const w of winners) {
     const a = people.get(w.attendee_id);
     rows.push([
       w.prize_no === null ? "No card picked" : prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`,
+      typeof w.card_no === "number" ? String(w.card_no) : "",
       a?.name ?? "(removed attendee)",
       a ? fieldValue(a, "company") : "",
       a?.category ?? "",

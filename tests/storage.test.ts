@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   acceptImage,
   acceptUpload,
+  acceptVideo,
   mediaObjectPath,
   mediaPathFromUrl,
   submissionObjectPath,
@@ -9,6 +10,7 @@ import {
   imageIntent,
   IMAGE_ACCEPT,
   MAX_IMAGE_BYTES,
+  MAX_VIDEO_BYTES,
 } from "@/lib/storage";
 
 const SUPABASE = "https://abc.supabase.co";
@@ -125,6 +127,18 @@ describe("acceptUpload", () => {
   it("puts a submission's file under its own event and form", () => {
     const path = submissionObjectPath({ orgId: "o", eventId: "e", formId: "f", ext: "png" }, "abc123");
     expect(path).toBe("o/e/f/submission-abc123.png");
+  });
+});
+
+describe("acceptVideo (D300)", () => {
+  it("takes MP4 and WebM up to 30 MB", () => {
+    expect(acceptVideo({ type: "video/mp4", size: 1000 })).toBe("mp4");
+    expect(acceptVideo({ type: "video/webm", size: MAX_VIDEO_BYTES })).toBe("webm");
+  });
+  it("refuses other types, empty files and anything over 30 MB", () => {
+    expect(() => acceptVideo({ type: "video/quicktime", size: 1000 })).toThrow("Videos must be MP4 or WebM.");
+    expect(() => acceptVideo({ type: "video/mp4", size: 0 })).toThrow("Choose a video first.");
+    expect(() => acceptVideo({ type: "video/mp4", size: MAX_VIDEO_BYTES + 1 })).toThrow("Videos must be 30 MB or smaller.");
   });
 });
 

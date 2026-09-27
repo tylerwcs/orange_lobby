@@ -13,6 +13,19 @@ import {
 } from "@/lib/storage";
 
 /**
+ * A signed upload URL for one background video (D300): the browser sends the file straight to
+ * the bucket, past the Server Action's 10 MB cap. The path is minted here, so the browser can
+ * write only this one new object.
+ */
+export async function createVideoUpload(where: { orgId: string; eventId: string; ext: string }): Promise<{ path: string; token: string; url: string }> {
+  const path = mediaObjectPath({ orgId: where.orgId, eventId: where.eventId, kind: "game-video", ext: where.ext }, crypto.randomUUID().slice(0, 8));
+  const storage = serviceClient().storage.from(MEDIA_BUCKET);
+  const { data, error } = await storage.createSignedUploadUrl(path);
+  if (error || !data) throw new Error("Could not start the upload. Try again.");
+  return { path, token: data.token, url: storage.getPublicUrl(path).data.publicUrl };
+}
+
+/**
  * Stores one uploaded image and returns the public URL the event column will hold.
  *
  * Uploads travel through the Server Action and are written with the service role, exactly

@@ -15,6 +15,8 @@ import { SaveBar } from "@/components/admin/SaveBar";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { QuestionsEditor } from "@/components/admin/QuestionsEditor";
 import { PrizesEditor } from "@/components/admin/PrizesEditor";
+import { DrawFormatFields } from "@/components/admin/DrawFormatFields";
+import { BackgroundPicker } from "@/components/admin/BackgroundPicker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resetDrawAction, updateGameAction } from "../actions";
 
@@ -102,8 +104,10 @@ export default async function GameEditor({ params }: { params: Promise<{ id: str
                   <span className="text-sm font-bold">Prizes</span>
                   <PrizesEditor initial={game.config.prizes} />
                 </div>
+                <DrawFormatFields format={game.config.format} spinS={game.config.spin_s} rounds={game.config.rounds} />
               </>
             )}
+            <BackgroundPicker eventId={ev.id} gameId={game.id} current={game.config.background} />
             <SaveBar inCard />
           </form>
         </CardContent>
@@ -127,7 +131,10 @@ export default async function GameEditor({ params }: { params: Promise<{ id: str
                   const company = a ? fieldValue(a, "company") : "";
                   return (
                     <li key={w.id} className={`flex gap-3 py-2 ${w.void ? "text-muted-foreground line-through" : ""}`}>
-                      <span className="w-40 shrink-0 truncate font-bold">{w.prize_no === null ? "No card picked" : game.config.prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`}</span>
+                      <span className="w-40 shrink-0 truncate font-bold">
+                        {w.prize_no === null ? "No card picked" : game.config.prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`}
+                        {typeof w.card_no === "number" ? ` · card ${w.card_no}` : ""}
+                      </span>
                       <span className="min-w-0 flex-1 truncate">{a?.name ?? "(removed attendee)"}{company ? ` · ${company}` : ""}</span>
                     </li>
                   );
