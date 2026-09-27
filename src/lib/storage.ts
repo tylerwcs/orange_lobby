@@ -101,7 +101,7 @@ export const IMAGE_ACCEPT = Object.keys(EXTENSIONS).join(",");
 
 /**
  * A game's LED background video (D300). Far past the Server Action's 10 MB cap, so the browser
- * uploads it straight to the bucket with a signed URL (createVideoUpload); the bucket's own
+ * uploads it straight to the bucket with a signed URL (createMediaUpload); the bucket's own
  * 30 MB limit is the real gate, and this is the early answer the organiser reads.
  */
 export const MAX_VIDEO_BYTES = 30 * 1024 * 1024;

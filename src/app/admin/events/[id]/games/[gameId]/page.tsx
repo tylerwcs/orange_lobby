@@ -102,9 +102,10 @@ export default async function GameEditor({ params }: { params: Promise<{ id: str
                 )}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-sm font-bold">Prizes</span>
-                  <PrizesEditor initial={game.config.prizes} />
+                  <PrizesEditor initial={game.config.prizes} eventId={ev.id} gameId={game.id} />
                 </div>
-                <DrawFormatFields format={game.config.format} spinS={game.config.spin_s} rounds={game.config.rounds} />
+                <DrawFormatFields format={game.config.format} spinS={game.config.spin_s} rounds={game.config.rounds}
+                  eventId={ev.id} gameId={game.id} cardBack={game.config.card_back} />
               </>
             )}
             <BackgroundPicker eventId={ev.id} gameId={game.id} current={game.config.background} />

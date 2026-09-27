@@ -13,12 +13,15 @@ import {
 } from "@/lib/storage";
 
 /**
- * A signed upload URL for one background video (D300): the browser sends the file straight to
- * the bucket, past the Server Action's 10 MB cap. The path is minted here, so the browser can
- * write only this one new object.
+ * A signed upload URL for one media object of the given kind: the browser sends the file
+ * straight to the bucket, past the Server Action's 10 MB cap. The path is minted here, so the
+ * browser can write only this one new object.
+ *
+ * Started for the background video (D300); the prize picture and card back (D323) mint their
+ * signed uploads the same way, just with a different kind.
  */
-export async function createVideoUpload(where: { orgId: string; eventId: string; ext: string }): Promise<{ path: string; token: string; url: string }> {
-  const path = mediaObjectPath({ orgId: where.orgId, eventId: where.eventId, kind: "game-video", ext: where.ext }, crypto.randomUUID().slice(0, 8));
+export async function createMediaUpload(where: { orgId: string; eventId: string; kind: ImageKind; ext: string }): Promise<{ path: string; token: string; url: string }> {
+  const path = mediaObjectPath({ orgId: where.orgId, eventId: where.eventId, kind: where.kind, ext: where.ext }, crypto.randomUUID().slice(0, 8));
   const storage = serviceClient().storage.from(MEDIA_BUCKET);
   const { data, error } = await storage.createSignedUploadUrl(path);
   if (error || !data) throw new Error("Could not start the upload. Try again.");

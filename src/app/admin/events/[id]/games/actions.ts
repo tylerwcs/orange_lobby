@@ -8,8 +8,8 @@ import { listCheckpoints } from "@/lib/db/checkpoints";
 import { GAME_KIND_LABELS, isGameKind, parseConfig } from "@/lib/games/config";
 import { configFromForm } from "@/lib/games/config-form";
 import { backgroundFromForm } from "@/lib/games/background";
-import { acceptVideo, isGameVideoFor, mediaPathInEvent } from "@/lib/storage";
-import { createVideoUpload, deleteEventImage, nextImage } from "@/lib/db/media";
+import { acceptImage, acceptVideo, isEventMediaFor, isGameVideoFor, mediaPathInEvent, type ImageKind } from "@/lib/storage";
+import { createMediaUpload, deleteEventImage, nextImage } from "@/lib/db/media";
 import { flashPath } from "@/lib/flash";
 
 const gamesPath = (eventId: string) => `/admin/events/${eventId}/games`;
@@ -56,6 +56,7 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
   const game = await getGame(gameId, ev.id);
   if (!game) redirect(flashPath(gamesPath(ev.id), "That game no longer exists.", "error"));
   const path = `${gamesPath(ev.id)}/${game.id}`;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const parsed = configFromForm(game.kind, form);
   if (!parsed.ok) redirect(flashPath(path, parsed.error, "error"));
   // A draw's checkpoint must be one of this event's: another event's checkpoint (or a deleted
@@ -65,6 +66,14 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
     if (checkpointId && !(await listCheckpoints(ev.id)).some((c) => c.id === checkpointId)) {
       redirect(flashPath(path, "That checkpoint is not on this event any more. Pick another and save again.", "error"));
     }
+    // A prize picture or the card back rides a plain hidden field, entirely client-controlled:
+    // it must name an image WE minted for THIS event, of the right kind — never merely some
+    // object that happens to sit in the shared bucket, the same rule backgroundFromForm's
+    // `ours` check applies to the background video below.
+    const cfg = parsed.config as { prizes: { image: string | null }[]; card_back: string | null };
+    const badImage = cfg.prizes.some((p) => p.image && !isEventMediaFor(p.image, supabaseUrl, ev.org_id, ev.id, ["game-prize"]));
+    const badCardBack = cfg.card_back && !isEventMediaFor(cfg.card_back, supabaseUrl, ev.org_id, ev.id, ["game-card-back"]);
+    if (badImage || badCardBack) redirect(flashPath(path, "That picture was not uploaded here. Upload it again.", "error"));
   }
   // The LED background (D297, D300). An image uploads with this save; a video was already
   // uploaded by the browser, and is accepted only if it is in our bucket.
@@ -79,7 +88,6 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
       redirect(flashPath(path, (e as Error).message, "error"));
     }
   }
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const bg = backgroundFromForm(kind, {
     image,
     video: String(form.get("background_video") ?? "").trim() || null,
@@ -96,12 +104,26 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
   const typedConfig = parseConfig(game.kind, parsed.config);
   if (!typedConfig) redirect(flashPath(path, "Something on the form is not right. Check it and save again.", "error"));
   const title = (String(form.get("title") ?? "").trim() || game.title).slice(0, 80);
+  // Prize pictures and the card back this save drops or replaces — the same "diff the URLs,
+  // delete only after the write lands" rule as the background image/video below, computed here
+  // (against the config that is ABOUT to be stored) so the write itself is not delayed by it.
+  const staleMedia: string[] = [];
+  if (game.kind === "draw") {
+    const oldCfg = game.config as { prizes: { image: string | null }[]; card_back: string | null };
+    const newCfg = typedConfig as { prizes: { image: string | null }[]; card_back: string | null };
+    const oldUrls = [...oldCfg.prizes.map((p) => p.image), oldCfg.card_back].filter((u): u is string => !!u);
+    const newUrls = new Set([...newCfg.prizes.map((p) => p.image), newCfg.card_back].filter((u): u is string => !!u));
+    staleMedia.push(...oldUrls.filter((u) => !newUrls.has(u)));
+  }
   await updateGame(game.id, ev.id, { title, config: { ...typedConfig, background: bg.background } });
   // The file this save replaced goes only once the row no longer names it (see nextImage) —
   // and only when it is actually ours to remove: a URL outside this event's folder is left
   // alone rather than handed to the service-role delete.
   if (current.url && current.url !== bg.background.url && mediaPathInEvent(current.url, supabaseUrl, ev.org_id, ev.id)) {
     await deleteEventImage(current.url);
+  }
+  for (const u of staleMedia) {
+    if (mediaPathInEvent(u, supabaseUrl, ev.org_id, ev.id)) await deleteEventImage(u);
   }
   revalidatePath(path);
   revalidatePath(gamesPath(ev.id));
@@ -120,7 +142,33 @@ export async function backgroundVideoUploadAction(eventId: string, gameId: strin
     return { ok: false, error: (e as Error).message };
   }
   try {
-    return { ok: true, ...(await createVideoUpload({ orgId: ev.org_id, eventId: ev.id, ext })) };
+    return { ok: true, ...(await createMediaUpload({ orgId: ev.org_id, eventId: ev.id, kind: "game-video", ext })) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * Mints the signed URL a prize picture or a card back uploads to (D323), after checking the
+ * game is this event's draw and the file is one we take. Up to 50 prizes can each carry one,
+ * plus the one card back, so this mints a fresh path per upload rather than the game reusing one.
+ */
+export async function gameImageUploadAction(
+  eventId: string, gameId: string, kind: "prize" | "card-back", type: string, size: number,
+): Promise<{ ok: true; path: string; token: string; url: string } | { ok: false; error: string }> {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const game = await getGame(gameId, ev.id);
+  if (!game || game.kind !== "draw") return { ok: false, error: "That game no longer exists." };
+  let ext: string;
+  try {
+    ext = acceptImage({ type: String(type), size: Number(size) });
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  const imageKind: ImageKind = kind === "prize" ? "game-prize" : "game-card-back";
+  try {
+    return { ok: true, ...(await createMediaUpload({ orgId: ev.org_id, eventId: ev.id, kind: imageKind, ext })) };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
