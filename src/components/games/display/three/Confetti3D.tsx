@@ -54,7 +54,19 @@ export function Confetti3D({ green, delayMs = 0 }: { green: boolean; delayMs?: n
     m.instanceMatrix.needsUpdate = true;
   });
   return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, COUNT]}>
+    <instancedMesh ref={mesh} args={[undefined, undefined, COUNT]}
+      // While `delayMs` hasn't elapsed, every piece sits parked at y = 5000 (see below) so it's
+      // invisible without needing its own on/off state. An InstancedMesh's automatic frustum
+      // culling computes and CACHES a single bounding sphere from whatever the instance matrices
+      // are on the first frame it's ever projected — with a delay, that's while every piece is
+      // still parked at y = 5000, giving a sphere whose Y range (~4000+) the camera frustum can
+      // never reach again, so the whole shower stays silently culled forever even once the pieces
+      // fall back into view (found live: no confetti ever appeared after a card-round win, whose
+      // 2 s delay guarantees at least one parked frame renders first — race/quiz winners have a
+      // shorter or zero delay and mostly dodge it, which is why they looked fine). The shower is
+      // meant to cover the whole 1920×1080 canvas outside the object's own tiny local origin
+      // anyway, so culling it by that local bound was never correct; skip it.
+      frustumCulled={false}>
       <planeGeometry args={[16, 26]} />
       <meshBasicMaterial side={THREE.DoubleSide} />
     </instancedMesh>
