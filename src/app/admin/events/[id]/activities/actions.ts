@@ -9,6 +9,7 @@ import {
   syncSubmissionPerDay, type NewActivity, type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
 import { getRequest, decideRequest } from "@/lib/db/activity-requests";
+import { notifyRequestDecision, decisionFlash } from "@/lib/request-notify";
 import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields, sessionLabel } from "@/lib/activities";
 import { listAttendees } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
@@ -509,8 +510,11 @@ export async function approveRequestAction(eventId: string, activityId: string, 
     redirect(flashPath(path, APPROVE_REFUSALS[result], "error"));
   }
 
+  // After the decision is saved, never before: nobody hears "approved" about a change that did
+  // not happen. notifyRequestDecision never throws, so WhatsApp cannot undo a good approve.
+  const notice = await notifyRequestDecision(ev, request, "approved");
   revalidatePath(path);
-  redirect(flashPath(path, "Request approved."));
+  redirect(flashPath(path, decisionFlash("Request approved.", notice)));
 }
 
 export async function declineRequestAction(eventId: string, activityId: string, requestId: string) {
@@ -527,8 +531,13 @@ export async function declineRequestAction(eventId: string, activityId: string, 
   }
 
   const result = await decideRequest(requestId, "declined", userId);
+  if (result !== "ok") {
+    revalidatePath(path);
+    redirect(flashPath(path, REQUEST_GONE, "error"));
+  }
+  const notice = await notifyRequestDecision(ev, request, "declined");
   revalidatePath(path);
-  redirect(flashPath(path, result === "ok" ? "Request declined." : REQUEST_GONE, result === "ok" ? "ok" : "error"));
+  redirect(flashPath(path, decisionFlash("Request declined.", notice)));
 }
 
 /**

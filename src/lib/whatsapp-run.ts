@@ -6,7 +6,11 @@ import type { AudienceAttendee, Recipient } from "@/lib/whatsapp-audience";
 /** The template the send screen starts on: the one that carries an attendee their portal link. */
 export const DEFAULT_TEMPLATE = "ecphub_portal";
 
-export type RunResult = { sent: number; failed: number; skipped: number };
+export type RunResult = {
+  sent: number; failed: number; skipped: number;
+  /** What Meta (or the config) said about the most recent failure, for a one-recipient send to report. */
+  lastError?: string;
+};
 
 /**
  * Sends one template to a list of recipients, recording every outcome.
@@ -58,6 +62,7 @@ export async function runSend<T extends AudienceAttendee>(input: {
       } else {
         await markFailed(claim.id, res.code, res.title);
         result.failed++;
+        result.lastError = res.title;
       }
     }
   };
