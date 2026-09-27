@@ -61,9 +61,8 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
  * Lanes stay in a fixed order while racing so bars grow instead of rows jumping; the scale is
  * 110% of the leader so the leader never looks finished. Width eases over each 250 ms poll.
  */
-function Lanes({ lanes, solo }: { lanes: DisplayLane[]; solo: boolean }) {
+function Lanes({ lanes }: { lanes: DisplayLane[]; solo: boolean }) {
   const ordered = [...lanes].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
-  const max = Math.max(1, ...lanes.map((l) => l.score)) * 1.1;
   const row = Math.min(110, Math.floor(880 / Math.max(1, ordered.length)));
   const text = Math.min(44, row * 0.45);
   return (
@@ -72,11 +71,8 @@ function Lanes({ lanes, solo }: { lanes: DisplayLane[]; solo: boolean }) {
         <li key={l.key} className="flex items-center gap-6" style={{ height: row - 8 }}>
           <span className="w-[380px] truncate text-right font-bold" style={{ fontSize: text }}>{l.label}</span>
           <div className="relative h-full flex-1 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full bg-[var(--brand)] transition-[width] duration-300 ease-linear" style={{ width: `${(l.score / max) * 100}%` }} />
+            <div className="h-full rounded-full bg-[var(--brand)] transition-[width] duration-300 ease-linear" style={{ width: `${l.progress * 100}%` }} />
           </div>
-          <span className="w-[160px] text-right font-extrabold tabular-nums" style={{ fontSize: text }}>
-            {l.score}{solo ? "" : " avg"}
-          </span>
         </li>
       ))}
     </ol>
@@ -91,7 +87,6 @@ function Podium({ lanes, solo, mvp }: { lanes: DisplayLane[]; solo: boolean; mvp
       <div className="flex w-[440px] flex-col items-center gap-4">
         <span className="text-7xl">{medal}</span>
         <span className="max-w-full truncate text-5xl font-extrabold">{l.label}</span>
-        <span className="text-3xl tabular-nums opacity-70">{l.score} {solo ? "taps" : "avg taps"}</span>
         <div className="w-full rounded-t-3xl bg-[var(--brand)]" style={{ height }} />
       </div>
     ) : <div className="w-[440px]" />;
@@ -105,7 +100,7 @@ function Podium({ lanes, solo, mvp }: { lanes: DisplayLane[]; solo: boolean; mvp
         <div className="flex min-w-0 gap-10 overflow-hidden whitespace-nowrap opacity-70">
           {rest.map((l) => <span key={l.key}>{l.place}. {l.label}</span>)}
         </div>
-        {mvp && !solo && <span className="shrink-0">⚡ Fastest tapper: <b>{mvp.name}</b> · {mvp.taps}</span>}
+        {mvp && !solo && <span className="shrink-0">⚡ Fastest tapper: <b>{mvp.name}</b></span>}
       </div>
     </div>
   );

@@ -67,12 +67,12 @@ export function PlayClient({ token, initial }: { token: string; initial: PhoneSt
       )}
       {me.kind === "race" && s.phase === "race_live" && s.race && (
         me.joined
-          ? <TapPad token={token} initial={me.taps} secondsLeft={Math.max(0, Math.ceil((s.race.liveUntil - now) / 1000))} />
+          ? <TapPad token={token} initial={0} secondsLeft={Math.max(0, Math.ceil((s.race.liveUntil - now) / 1000))} />
           : <Note>The race has started. Catch the next one!</Note>
       )}
       {me.kind === "race" && s.phase === "race_results" && (
         me.joined && me.place
-          ? <Note><b className="text-2xl">{me.lane} finished {ordinal(me.place)}</b><br />of {me.lanes} — you tapped {me.taps}</Note>
+          ? <Note><b className="text-2xl">{me.lane} finished {ordinal(me.place)}</b><br />of {me.lanes}</Note>
           : <Note>Race over — see the screen for the results.</Note>
       )}
 

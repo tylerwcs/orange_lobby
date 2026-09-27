@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  parseGrouping, laneKeyFor, laneLabel, standings, topTapper, tapAllowance, visibleLanes, OTHERS,
+  parseGrouping, laneKeyFor, laneLabel, progressOf, standings, topTapper, tapAllowance, visibleLanes, OTHERS,
   type Grouping, type TapRow,
 } from "@/lib/games/race";
 
@@ -113,5 +113,15 @@ describe("visibleLanes", () => {
   it("shows 12 lanes for teams and 10 for solo", () => {
     expect(visibleLanes(many, byTable)).toHaveLength(12);
     expect(visibleLanes(many, { by: "solo" })).toHaveLength(10);
+  });
+});
+
+describe("progressOf (D303, D304)", () => {
+  it("is the score over 110% of the leader, so the leader never looks finished", () => {
+    expect(progressOf(100, 100)).toBeCloseTo(1 / 1.1);
+    expect(progressOf(50, 100)).toBeCloseTo(0.5 / 1.1);
+  });
+  it("is 0 before anyone taps", () => {
+    expect(progressOf(0, 0)).toBe(0);
   });
 });

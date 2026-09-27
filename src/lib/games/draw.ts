@@ -50,7 +50,7 @@ export function standingWinners(rows: WinnerRow[]): Set<string> {
  * Who was marked "not here" for this prize of this draw (D281). They stay out of its pool, so
  * "Not here — redraw" never draws the person it just sent away (draw_spin's void rule).
  */
-export function absentFor(rows: WinnerRow[], gameId: string, prizeNo: number): Set<string> {
+export function absentFor(rows: WinnerRow[], gameId: string, prizeNo: number | null): Set<string> {
   return new Set(rows.filter((r) => r.void && r.game_id === gameId && r.prize_no === prizeNo).map((r) => r.attendee_id));
 }
 

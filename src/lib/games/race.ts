@@ -90,3 +90,11 @@ export function tapAllowance(n: number, elapsedMs: number): number {
 export function visibleLanes(list: LaneStanding[], g: Grouping): LaneStanding[] {
   return list.slice(0, g.by === "solo" ? MAX_SOLO : MAX_LANES);
 }
+
+/**
+ * How far up its column a lane is on the LED (D303): its score over 110% of the leader's, so the
+ * leader never looks finished. Sent instead of the score, so no count is on the wire (D304).
+ */
+export function progressOf(score: number, leader: number): number {
+  return leader > 0 ? Math.min(1, score / (leader * 1.1)) : 0;
+}

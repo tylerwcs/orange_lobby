@@ -108,14 +108,14 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
             <p className="text-center text-5xl font-extrabold tabular-nums" suppressHydrationWarning>
               {s.phase === "race_countdown" ? secondsLeft(s.race?.liveFrom ?? null) : `${secondsLeft(s.race?.liveUntil ?? null)}s`}
             </p>
-            <Facts rows={state.race?.lanes.slice(0, 5).map((l) => [`${l.place}. ${l.label}`, String(l.score)]) ?? []} />
+            <Facts rows={state.race?.lanes.slice(0, 5).map((l) => [`${l.place}. ${l.label}`, ""]) ?? []} />
             <Button className={big} variant="destructive" disabled={pending} onClick={() => run(() => stopAction(token, v))}>Stop race</Button>
           </>
         )}
         {s.phase === "race_results" && (
           <>
-            <Facts rows={state.race?.lanes.slice(0, 3).map((l) => [`${l.place}. ${l.label}`, String(l.score)]) ?? []} />
-            {state.race?.mvp && <p className="text-sm">Fastest tapper: <b>{state.race.mvp.name}</b> ({state.race.mvp.taps})</p>}
+            <Facts rows={state.race?.lanes.slice(0, 3).map((l) => [`${l.place}. ${l.label}`, ""]) ?? []} />
+            {state.race?.mvp && <p className="text-sm">Fastest tapper: <b>{state.race.mvp.name}</b></p>}
             {s.game && <Button className={big} disabled={pending} onClick={() => run(() => openGameAction(token, v, s.game!.id, state.grouping))}>Run again</Button>}
           </>
         )}

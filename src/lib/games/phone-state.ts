@@ -38,7 +38,7 @@ async function phoneMe(ctx: PlayContext, stage: StageRow, game: Game | null): Pr
       lanes = table.length;
       place = table.find((l) => l.key === laneKey)?.place ?? null;
     }
-    return { kind: "race", joined: mine !== null, lane, taps: mine?.taps ?? 0, place, lanes };
+    return { kind: "race", joined: mine !== null, lane, place, lanes };
   }
 
   if (game.kind === "survival") {
@@ -50,10 +50,13 @@ async function phoneMe(ctx: PlayContext, stage: StageRow, game: Game | null): Pr
     return { kind: "survival", joined: player !== null, outAt: player?.out_at_question ?? null, answered };
   }
 
-  // The winner's own phone learns only once the LED reveals it (D280, D282).
+  // The winner's own phone learns only once the LED reveals it (D280, D282). In a card round
+  // the participant is called up when their reel stops, and learns the prize at the flip (D319).
   const spun = spinFacts(stage);
-  const won = stage.phase === "draw_reveal" && spun?.winnerIds.includes(ctx.attendee.id)
-    ? spun.prizeNo === null ? "a prize" : game.config.prizes[spun.prizeNo]?.name ?? "a prize"
-    : null;
-  return { kind: "draw", won };
+  const mine = !!spun?.winnerIds.includes(ctx.attendee.id);
+  const prizeNo = spun?.prizeNo ?? null;
+  const prize = prizeNo === null ? "a prize" : game.config.prizes[prizeNo]?.name ?? "a prize";
+  if (mine && (stage.phase === "draw_reveal" || stage.phase === "draw_card_reveal")) return { kind: "draw", won: prize, up: false };
+  if (mine && stage.phase === "draw_card_pick") return { kind: "draw", won: null, up: true };
+  return { kind: "draw", won: null, up: false };
 }
