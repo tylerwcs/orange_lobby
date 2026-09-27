@@ -1,0 +1,54 @@
+import type { Attendee } from "@/lib/types";
+import type { Prize } from "@/lib/games/config";
+import { categoryParts } from "@/lib/agenda";
+
+export type WinnerRow = {
+  id: string;
+  event_id: string;
+  game_id: string;
+  prize_no: number;
+  attendee_id: string;
+  drawn_at: string;
+  void: boolean;
+};
+
+/**
+ * Who can win (D278): checked in at the draw's checkpoint, no part of their category excluded,
+ * not already a standing winner of any draw in this event. A category may name several
+ * programmes ("KOM, Crew" - see `categoryParts`), and one excluded part is enough to leave the
+ * person out, so leaving out Crew also leaves out "KOM, Crew". Excluded names compare trimmed
+ * and case-insensitive; an empty list excludes no one, people with no category included.
+ * Mirrors draw_spin in 0049_games.sql (its category_matches from 0048), which is what actually
+ * picks; this is for the host's "184 eligible" and the LED's rolling names. Change both together.
+ */
+export function eligiblePool<A extends Pick<Attendee, "id" | "category">>(
+  attendees: A[], checkedIn: ReadonlySet<string>, exclude: string[], pastWinners: ReadonlySet<string>,
+): A[] {
+  const excluded = new Set(exclude.map((s) => s.trim().toLowerCase()));
+  return attendees.filter(
+    (a) => checkedIn.has(a.id) && !categoryParts(a.category).some((p) => excluded.has(p)) && !pastWinners.has(a.id),
+  );
+}
+
+/** Winners who still hold their prize. A voided winner was "not here" and may win again (D281). */
+export function standingWinners(rows: WinnerRow[]): Set<string> {
+  return new Set(rows.filter((r) => !r.void).map((r) => r.attendee_id));
+}
+
+export type PrizeProgress = { prize_no: number; name: string; quantity: number; given: number; remaining: number };
+
+export function prizeProgress(prizes: Prize[], winners: WinnerRow[]): PrizeProgress[] {
+  return prizes.map((p, prize_no) => {
+    const given = winners.filter((w) => w.prize_no === prize_no && !w.void).length;
+    return { prize_no, name: p.name, quantity: p.quantity, given, remaining: Math.max(0, p.quantity - given) };
+  });
+}
+
+/** Prizes are drawn in the order the admin listed them (D279). */
+export function nextPrize(progress: PrizeProgress[]): PrizeProgress | null {
+  return progress.find((p) => p.remaining > 0) ?? null;
+}
+
+export function drawCount(prize: PrizeProgress, mode: "one" | "all", pool: number): number {
+  return Math.max(0, Math.min(mode === "one" ? 1 : prize.remaining, prize.remaining, pool));
+}
