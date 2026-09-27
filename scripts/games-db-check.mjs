@@ -20,6 +20,12 @@
 //   5. Deleting the event removes every game row (cascade).
 //   6. A game or run from another event, or a run of another game, is refused by
 //      game_stage_write, survival_reveal and draw_spin, and none of them moves the version.
+//   7. Draw formats (0050): draw_spin refuses no prize outside a card round; a card round's turn
+//      records the person, the run and no prize; card_pick refuses a spinning reel, a stale
+//      version, someone other than the participant, a card outside the deck, a taken card and a
+//      run of another game, and gives the deck's prize; someone sent away before picking is not
+//      drawn again in that card round; draw_spin can open the mosaic's rounds (no end time,
+//      round 0, pool_at) and refuses any other phase; the media bucket takes 30 MB videos.
 //
 // HOW TO RUN: npm run check:games (node --env-file=.env.local scripts/games-db-check.mjs).
 // SAFE TO RE-RUN: it creates its own draft event with a random slug and deletes it in `finally`.
@@ -170,6 +176,72 @@ try {
   const staleSpin = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: version - 1, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: 0, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [], p_spin_ends_at: new Date().toISOString() }));
   check("a stale draw is refused", staleSpin === null);
   check('"KOM, Crew" is never drawn when Crew is left out', !drawn.includes(eve.id) && !drawn.includes(dev.id), `drew ${drawn.length} in all`);
+
+  // 7. Draw formats (0050)
+  must(await db.from("draw_winners").delete().eq("game_id", draw.id));
+  const stageVersion = async () => must(await db.from("game_stage").select("version").eq("event_id", event.id).single()).version;
+  let cv = await stageVersion();
+  const noPrize = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: cv, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: null, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [], p_spin_ends_at: new Date().toISOString() }));
+  check("a draw with no prize is refused outside a card round", noPrize === null && (await stageVersion()) === cv);
+
+  const cards = must(await db.from("games").insert({
+    org_id: event.org_id, event_id: event.id, kind: "draw", title: "Cards",
+    config: { format: "cards", checkpoint_id: cp.id, exclude_categories: [], prizes: [{ name: "Mug", quantity: 2 }, { name: "Pen", quantity: 1 }] },
+  }).select("id").single());
+  const cardRun = must(await db.from("game_runs").insert({ event_id: event.id, game_id: cards.id, deck: [0, 1, 0] }).select("id").single());
+  const cardSpin = async (endsAt) => {
+    const ids = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: cv, p_run_id: cardRun.id, p_game_id: cards.id, p_prize_no: null, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [" crew "], p_spin_ends_at: new Date(endsAt).toISOString(), p_extra: { cards: true, spin_ms: 50 } }));
+    if (ids !== null) cv += 1;
+    return ids ?? [];
+  };
+  const pick = (attendeeId, cardNo, expected = cv, runId = cardRun.id, gameId = cards.id) => db.rpc("card_pick", { p_event_id: event.id, p_expected: expected, p_run_id: runId, p_game_id: gameId, p_attendee_id: attendeeId, p_card_no: cardNo });
+  const stopReel = () => db.from("game_stage").update({ phase_ends_at: new Date(Date.now() - 1000).toISOString() }).eq("event_id", event.id);
+
+  const [cardFirst] = await cardSpin(Date.now() + 60_000);
+  const firstRow = cardFirst ? must(await db.from("draw_winners").select("prize_no, card_no, run_id").eq("game_id", cards.id).eq("attendee_id", cardFirst).single()) : null;
+  check("a card round's turn records the person and the run, with no prize yet", !!firstRow && firstRow.prize_no === null && firstRow.card_no === null && firstRow.run_id === cardRun.id);
+  const spinning = must(await pick(cardFirst, 1));
+  check("a card cannot be picked while the reel is still spinning", spinning === null && (await stageVersion()) === cv);
+  must(await stopReel());
+  const stalePick = must(await pick(cardFirst, 1, cv - 1));
+  const someoneElse = must(await pick([ann.id, ben.id, cai.id].find((id) => id !== cardFirst), 1));
+  const zero = must(await pick(cardFirst, 0));
+  const tooFar = must(await pick(cardFirst, 4));
+  const wrongRun = must(await pick(cardFirst, 1, cv, quizRun.id, quiz.id));
+  check("card_pick refuses a stale version, someone else, a card outside the deck and another game's run",
+    [stalePick, someoneElse, zero, tooFar, wrongRun].every((v) => v === null) && (await stageVersion()) === cv);
+  const pen = must(await pick(cardFirst, 2));
+  if (pen !== null) cv += 1;
+  const penRow = must(await db.from("draw_winners").select("prize_no, card_no").eq("game_id", cards.id).eq("attendee_id", cardFirst).single());
+  const afterPick = must(await db.from("game_stage").select("phase, phase_data").eq("event_id", event.id).single());
+  check("card_pick gives the deck's prize and flips the card", pen === 1 && penRow.prize_no === 1 && penRow.card_no === 2
+    && afterPick.phase === "draw_card_reveal" && afterPick.phase_data.card_no === 2, `got ${pen}`);
+
+  const [cardSecond] = await cardSpin(Date.now() - 1000);
+  const taken = must(await pick(cardSecond, 2));
+  check("a card is taken once", taken === null);
+  const mug = must(await pick(cardSecond, 3));
+  if (mug !== null) cv += 1;
+  check("the next participant takes another card", mug === 0, `got ${mug}`);
+
+  const [cardThird] = await cardSpin(Date.now() - 1000);
+  must(await db.from("draw_winners").update({ void: true }).eq("game_id", cards.id).eq("attendee_id", cardThird));
+  const cardAgain = await cardSpin(Date.now() - 1000);
+  check("someone sent away before picking is not drawn again in that card round", !!cardThird && cardAgain.length === 0, `drew ${cardAgain.length}`);
+
+  const rounds = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: cv, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: 0, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [" crew "], p_spin_ends_at: new Date().toISOString(), p_phase: "draw_rounds", p_extra: { round: 0, rounds: 4 } }));
+  if (rounds !== null) cv += 1;
+  const roundStage = must(await db.from("game_stage").select("phase, phase_ends_at, phase_data").eq("event_id", event.id).single());
+  const roundRow = rounds?.length ? must(await db.from("draw_winners").select("run_id").eq("game_id", draw.id).eq("attendee_id", rounds[0]).single()) : null;
+  check("draw_spin opens the mosaic's rounds with no end time, round 0 and pool_at, and records the run",
+    roundStage.phase === "draw_rounds" && roundStage.phase_ends_at === null && roundStage.phase_data.round === 0
+      && typeof roundStage.phase_data.pool_at === "string" && roundRow?.run_id === drawRun.id);
+  const badPhase = must(await db.rpc("draw_spin", { p_event_id: event.id, p_expected: cv, p_run_id: drawRun.id, p_game_id: draw.id, p_prize_no: 0, p_count: 1, p_checkpoint_id: cp.id, p_exclude: [], p_spin_ends_at: new Date().toISOString(), p_phase: "idle" }));
+  check("draw_spin refuses any other phase", badPhase === null && (await stageVersion()) === cv);
+
+  const { data: bucket, error: bucketError } = await db.storage.getBucket("event-media");
+  check("the media bucket takes 30 MB MP4 and WebM videos", !bucketError && bucket?.file_size_limit === 31457280
+    && ["video/mp4", "video/webm"].every((t) => bucket?.allowed_mime_types?.includes(t)));
 
   // 6. Ownership
   const otherQuiz = must(await db.from("games").insert({ org_id: other.org_id, event_id: other.id, kind: "survival", title: "Other quiz" }).select("id").single());
