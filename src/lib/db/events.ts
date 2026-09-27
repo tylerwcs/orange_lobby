@@ -78,6 +78,31 @@ export async function rotateCrewToken(eventId: string): Promise<string> {
   return crew_token;
 }
 
+/** The event behind a host console link (D252). Looked up by token alone, like the crew link. */
+export async function getEventByHostToken(token: string): Promise<Event | null> {
+  const { data } = await serviceClient().from("events").select("*").eq("host_token", token).maybeSingle();
+  return data ? hydrate(data) : null;
+}
+
+/** The event behind an LED display link (D252). */
+export async function getEventByDisplayToken(token: string): Promise<Event | null> {
+  const { data } = await serviceClient().from("events").select("*").eq("display_token", token).maybeSingle();
+  return data ? hydrate(data) : null;
+}
+
+/** Mints or replaces the host link. As with the crew link, rotation IS the revocation (D108, D252). */
+export async function rotateHostToken(eventId: string): Promise<string> {
+  const host_token = generateToken();
+  await updateEvent(eventId, { host_token });
+  return host_token;
+}
+
+export async function rotateDisplayToken(eventId: string): Promise<string> {
+  const display_token = generateToken();
+  await updateEvent(eventId, { display_token });
+  return display_token;
+}
+
 /** Memoised per request, like requireAdmin: the event layout and the page below it both load it. */
 export const requireEvent = cache(async (id: string, orgId: string): Promise<Event> => {
   const ev = await getEvent(id);
