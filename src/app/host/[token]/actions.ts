@@ -186,7 +186,7 @@ export async function drawAction(token: string, expected: number, mode: "one" | 
   return picked === null ? STALE : { ok: true };
 }
 
-/** Next round of a mosaic draw (D315). After the last one the winners are revealed. */
+/** Next round of a mosaic draw (D315). The press after the last round reveals the winners. */
 export async function roundAction(token: string, expected: number): Promise<HostResult> {
   const b = await begin(token, expected, "round");
   if ("ok" in b) return b;

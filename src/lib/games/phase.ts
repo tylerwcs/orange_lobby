@@ -276,10 +276,14 @@ export function drawExtra(s: StageRow): DrawExtra {
   };
 }
 
-/** Next round of a mosaic draw (D315); after the last round the winners are revealed. */
+/**
+ * Next round of a mosaic draw (D315). Round 0 is the full pool; each press shows the next
+ * round, up to and including the last (round === rounds), where only the winners stand. The
+ * press after the last round reveals the winners.
+ */
 export function roundWrite(s: StageRow): StageWrite | null {
   const { round, rounds } = drawExtra(s);
   if (s.phase !== "draw_rounds" || round === null || rounds === null) return null;
-  const next = round + 1;
-  return { ...keep(s), phase: next >= rounds ? "draw_reveal" : "draw_rounds", phase_data: { ...s.phase_data, round: next }, phase_ends_at: null };
+  if (round >= rounds) return { ...keep(s), phase: "draw_reveal", phase_data: { ...s.phase_data }, phase_ends_at: null };
+  return { ...keep(s), phase: "draw_rounds", phase_data: { ...s.phase_data, round: round + 1 }, phase_ends_at: null };
 }

@@ -199,10 +199,10 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
             {s.phase === "draw_rounds" && state.draw?.mosaic && (
               <>
                 <p className="text-center text-lg font-bold">
-                  Round {state.draw.mosaic.round} of {state.draw.mosaic.rounds} · {state.draw.mosaic.survivorIds.length} left on screen
+                  {state.draw.mosaic.round >= 1 ? `Round ${state.draw.mosaic.round} of ${state.draw.mosaic.rounds}` : "Everyone in the draw"} · {state.draw.mosaic.survivorIds.length} left on screen
                 </p>
                 <Button className={big} disabled={pending} onClick={() => run(() => roundAction(token, v))}>
-                  {state.draw.mosaic.round + 1 >= state.draw.mosaic.rounds ? "Final round — show the winner" : `Next round (${state.draw.mosaic.round + 1} of ${state.draw.mosaic.rounds})`}
+                  {state.draw.mosaic.round < state.draw.mosaic.rounds ? `Next round (${state.draw.mosaic.round + 1} of ${state.draw.mosaic.rounds})` : state.hostDraw.spinWinners.length === 1 ? "Show the winner" : "Show the winners"}
                 </Button>
               </>
             )}

@@ -42,8 +42,14 @@ export function MosaicDraw({ title, prize, mosaic, seed }: { title: string; priz
     return () => clearTimeout(id);
   }, [mosaic.round, mosaic.survivorIds.length]);
 
+  // Round 0 is the whole pool before any round has run: nothing has been taken yet, so the
+  // header says how many are in the draw rather than "Round 0".
+  const header = mosaic.round >= 1
+    ? <span>Round {mosaic.round} <span className="text-4xl opacity-75">of {mosaic.rounds}</span></span>
+    : <span>{mosaic.people.length} in the draw</span>;
+
   return (
-    <Frame title={title} right={<span>Round {mosaic.round} <span className="text-4xl opacity-75">of {mosaic.rounds}</span></span>}>
+    <Frame title={title} right={header}>
       <div className="flex h-full flex-col gap-4">
         <div className="flex items-baseline justify-between">
           <span className="font-game text-4xl opacity-90">{prize ? `Drawing for ${prize}` : ""}</span>

@@ -229,10 +229,12 @@ describe("draw formats (D315, D317)", () => {
     expect(drawExtra(drawStage("draw_rounds", { round: 1, rounds: 4, pool_at: at, spin_ms: 6000, quick: true, cards: false, card_no: 3 })))
       .toEqual({ spinMs: 6000, quick: true, cards: false, round: 1, rounds: 4, poolAt: Date.parse(at), cardNo: 3 });
   });
-  it("Next round moves the round on, and the last round goes to the reveal", () => {
+  it("Next round moves the round on, shows the last round, then goes to the reveal", () => {
     const s = drawStage("draw_rounds", { prize_no: 0, winner_ids: ["a"], round: 2, rounds: 4 });
     expect(roundWrite(s)).toMatchObject({ phase: "draw_rounds", phase_data: { round: 3, rounds: 4, winner_ids: ["a"] } });
-    expect(roundWrite({ ...s, phase_data: { ...s.phase_data, round: 3 } })).toMatchObject({ phase: "draw_reveal", phase_data: { round: 4 } });
+    // The last round is shown (only the winners standing), then the next press reveals them.
+    expect(roundWrite({ ...s, phase_data: { ...s.phase_data, round: 3 } })).toMatchObject({ phase: "draw_rounds", phase_data: { round: 4, rounds: 4 } });
+    expect(roundWrite({ ...s, phase_data: { ...s.phase_data, round: 4 } })).toMatchObject({ phase: "draw_reveal", phase_data: { round: 4, rounds: 4, winner_ids: ["a"] } });
   });
   it("has no round write outside the rounds", () => {
     expect(roundWrite(drawStage("draw_reveal", { prize_no: 0, winner_ids: ["a"] }))).toBeNull();
