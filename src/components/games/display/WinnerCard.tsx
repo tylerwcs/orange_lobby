@@ -1,34 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 import { LINE, winnerGrid } from "./winnerGrid";
-
-const COLOURS = ["#F97316", "#FACC15", "#22C55E", "#3B82F6", "#EC4899"];
-// Fixed positions: the same shower on every render and every reload.
-const PIECES = Array.from({ length: 90 }, (_, i) => ({
-  left: (i * 37) % 100, delay: ((i * 53) % 30) / 10, duration: 3 + (i % 5) * 0.7,
-  colour: COLOURS[i % COLOURS.length], rotate: (i * 47) % 360,
-}));
-
-export function Confetti() {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {PIECES.map((p, i) => (
-        <span key={i} className="confetti"
-          style={{ left: `${p.left}%`, background: p.colour, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`, rotate: `${p.rotate}deg` }} />
-      ))}
-    </div>
-  );
-}
 
 /** The one place the LED shows a full name and company (D273): someone is walking on stage. */
 export function WinnerCard({ label, name, company, prize }: { label: string; name: string; company: string; prize?: string | null }) {
   return (
     <div className="relative flex h-full flex-col items-center justify-center gap-6 px-16 text-center">
-      <Confetti />
-      <div className="text-5xl font-bold uppercase tracking-[0.2em] text-[var(--brand)]">{label}</div>
-      <div className="max-w-[1780px] text-[140px] font-extrabold leading-none">{name}</div>
-      {company && <div className="text-5xl opacity-80">{company}</div>}
-      {prize && <div className="mt-6 rounded-full bg-[var(--brand)] px-12 py-4 text-5xl font-extrabold">{prize}</div>}
+      <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-full w-[1100px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.28),transparent_65%)]" />
+      <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="font-game text-5xl uppercase tracking-[0.2em] text-white/90">{label}</motion.div>
+      <motion.div initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.15 }}
+        className="max-w-[1780px] font-game text-[150px] leading-none drop-shadow-[0_8px_40px_var(--brand)]">{name}</motion.div>
+      {company && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.85 }} transition={{ delay: 0.5 }} className="text-5xl">{company}</motion.div>}
+      {prize && (
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 12, delay: 0.7 }}
+          className="mt-6 rounded-full bg-[var(--brand)] px-14 py-5 font-game text-6xl shadow-[0_0_60px_var(--brand)]">{prize}</motion.div>
+      )}
     </div>
   );
 }
@@ -51,8 +38,7 @@ export function JointWinners({ title, winners, prize }: { title: string; winners
   const shown = winners.slice(from, from + g.perPage);
   return (
     <div className="relative flex h-full flex-col items-center gap-6 overflow-hidden px-16 py-12">
-      <Confetti />
-      <div className="flex h-12 shrink-0 items-center text-5xl font-bold uppercase leading-none tracking-[0.15em] text-[var(--brand)]">
+      <div className="flex h-12 shrink-0 items-center font-game text-5xl uppercase leading-none tracking-[0.15em] text-[var(--brand)]">
         {title}
         {pages > 1 && <span className="ml-6 normal-case tracking-normal opacity-80">{from + 1}–{from + shown.length} of {winners.length}</span>}
       </div>
@@ -63,11 +49,12 @@ export function JointWinners({ title, winners, prize }: { title: string; winners
           gridTemplateColumns: `repeat(${g.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${g.rows}, ${g.cellHeight}px)`,
         }}>
         {shown.map((w, i) => (
-          <div key={from + i} className="flex min-w-0 flex-col justify-center overflow-hidden rounded-2xl bg-white/10 text-center"
+          <motion.div key={from + i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: Math.min(1.5, i * 0.04) }}
+            className="flex min-w-0 flex-col justify-center overflow-hidden rounded-2xl bg-white/10 text-center"
             style={{ padding: g.pad, lineHeight: LINE }}>
-            <div className="truncate font-extrabold" style={{ fontSize: g.font }}>{w.name}</div>
+            <div className="truncate font-game" style={{ fontSize: g.font }}>{w.name}</div>
             {g.company && w.company && <div className="truncate opacity-70" style={{ fontSize: g.font * 0.6 }}>{w.company}</div>}
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

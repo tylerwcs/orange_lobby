@@ -39,18 +39,3 @@
   0%, 100% { filter: none; }
   50% { filter: brightness(2.2); }
 }
-
-.confetti {
-  position: absolute;
-  top: -40px;
-  width: 16px;
-  height: 26px;
-  border-radius: 3px;
-  animation-name: confetti-fall;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-@keyframes confetti-fall {
-  from { transform: translateY(0) rotate(0deg); }
-  to { transform: translateY(1160px) rotate(720deg); }
-}

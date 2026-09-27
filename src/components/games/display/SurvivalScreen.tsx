@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import { APP_NAME } from "@/lib/app-name";
 import type { DisplayState } from "@/lib/games/wire";
 import { useServerNow } from "../usePoll";
@@ -18,12 +19,13 @@ export function SurvivalScreen({ state, offset }: { state: DisplayState; offset:
   const sv = state.survival!;
   const now = useServerNow(offset, 200, s.phase === "survival_question");
   const title = s.game?.title ?? "Last one standing";
+  const green = s.game?.green ?? false;
 
   if (s.phase === "survival_lobby") {
     return (
       <Frame title={title} right={`${sv.players.length} in`}>
         <div className="flex h-full flex-col gap-6">
-          <p className="text-center text-5xl font-bold">Open {APP_NAME} → Games and tap “I’m in”</p>
+          <p className="text-center font-game text-5xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">Open {APP_NAME} → Games and tap “I’m in”</p>
           <div className="min-h-0 flex-1"><Mosaic people={sv.players} height={780} /></div>
         </div>
       </Frame>
@@ -33,7 +35,7 @@ export function SurvivalScreen({ state, offset }: { state: DisplayState; offset:
     return (
       <Frame title={title}>
         <QuestionBoard q={s.question} now={now} answered={sv.answered} players={sv.players.length}
-          split={s.phase === "survival_locked" ? sv.split : null} showTimer={s.phase === "survival_question"} />
+          split={s.phase === "survival_locked" ? sv.split : null} showTimer={s.phase === "survival_question"} green={green} />
       </Frame>
     );
   }
@@ -53,6 +55,7 @@ function RevealSequence({ state }: { state: DisplayState }) {
   const s = state.stage;
   const sv = state.survival!;
   const q = s.question!;
+  const green = s.game?.green ?? false;
   const step = useStep(MARKS);
   const dark = useMemo(() => new Set(sv.eliminatedIds), [sv.eliminatedIds]);
   const everyone = s.reveal?.everyoneSurvived ?? false;
@@ -64,12 +67,12 @@ function RevealSequence({ state }: { state: DisplayState }) {
   const regrouped = step >= 3 && !everyone;
 
   if (step === 0) {
-    return <Frame title={title}><QuestionBoard q={q} now={0} split={sv.split} /></Frame>;
+    return <Frame title={title}><QuestionBoard q={q} now={0} split={sv.split} green={green} /></Frame>;
   }
   return (
     <div className="flex h-full flex-col px-10 pb-6 pt-6">
       <header className="flex items-baseline justify-between pb-4">
-        <span className="text-5xl font-extrabold">{everyone && step >= 2 ? "Everyone survives!" : `Question ${q.no + 1}`}</span>
+        <span className="font-game text-5xl">{everyone && step >= 2 ? "Everyone survives!" : `Question ${q.no + 1}`}</span>
         <RevealCounter from={before} to={after} running={step >= 2} />
       </header>
       <div className={`min-h-0 flex-1 ${everyone && step >= 2 ? "mosaic-flash" : ""}`}>
@@ -97,8 +100,9 @@ function RevealCounter({ from, to, running }: { from: number; to: number; runnin
     return () => cancelAnimationFrame(raf);
   }, [running, from, to]);
   return (
-    <span className="text-6xl font-extrabold tabular-nums">
+    <motion.span key={running ? "running" : "idle"} initial={running ? { scale: 1.4 } : false} animate={{ scale: 1 }}
+      transition={{ type: "spring", stiffness: 220, damping: 12, delay: running ? 2 : 0 }} className="font-game text-6xl tabular-nums">
       {running ? <>{from} → <span className="text-[var(--brand)]">{shown}</span> remain</> : `${from} in`}
-    </span>
+    </motion.span>
   );
 }
