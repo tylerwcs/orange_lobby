@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSynth, MUTE_KEY, readMuted, silentSynth, writeMuted } from "@/lib/games/sound";
 
 const memory = () => {
@@ -33,6 +33,17 @@ describe("createSynth", () => {
     const s = createSynth();
     s.setMuted(true);
     expect(s.isMuted()).toBe(true);
+  });
+  describe("where the browser refuses an AudioContext", () => {
+    afterEach(() => { vi.unstubAllGlobals(); });
+    it("stays silent instead of throwing", () => {
+      let made = 0;
+      class Refused { constructor() { made++; throw new Error("NotSupportedError"); } }
+      vi.stubGlobal("window", { AudioContext: Refused });
+      const s = createSynth();
+      expect(() => { s.unlock(); s.play("fanfare"); s.play("drumroll", 3000); s.play("tick"); }).not.toThrow();
+      expect(made).toBe(1);
+    });
   });
   it("has a silent stand-in", () => {
     expect(() => silentSynth.play("tick")).not.toThrow();

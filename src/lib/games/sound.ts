@@ -38,21 +38,35 @@ export function createSynth(): Synth {
   let master: GainNode | null = null;
   let noise: AudioBuffer | null = null;
   let muted = false;
+  /** Web Audio would not start here; stay silent rather than try again on every cue. */
+  let broken = false;
 
   const ready = (): AudioContext | null => {
     if (ctx) return ctx;
+    if (broken) return null;
     const AC = typeof window === "undefined"
       ? undefined
       : window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return null;
-    ctx = new AC();
-    master = ctx.createGain();
-    master.gain.value = 0.6;
-    master.connect(ctx.destination);
-    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const data = noise.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    return ctx;
+    // A browser may refuse an AudioContext (too many open, a locked-down policy). play() runs
+    // inside the LED's frames and effects, so a throw here would take the display down: the
+    // synth goes silent instead.
+    try {
+      const c = new AC();
+      master = c.createGain();
+      master.gain.value = 0.6;
+      master.connect(c.destination);
+      noise = c.createBuffer(1, c.sampleRate, c.sampleRate);
+      const data = noise.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      ctx = c;
+      return ctx;
+    } catch {
+      broken = true;
+      master = null;
+      noise = null;
+      return null;
+    }
   };
 
   const tone = (c: AudioContext, freq: number, start: number, dur: number, type: OscillatorType, gain: number, endFreq?: number) => {
@@ -88,7 +102,7 @@ export function createSynth(): Synth {
   return {
     unlock() {
       const c = ready();
-      if (c && c.state === "suspended") void c.resume();
+      if (c && c.state === "suspended") c.resume().catch(() => {});
     },
     setMuted(m) { muted = m; },
     isMuted: () => muted,
