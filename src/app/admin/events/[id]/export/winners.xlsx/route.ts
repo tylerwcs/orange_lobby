@@ -3,7 +3,7 @@ import { requireEvent } from "@/lib/db/events";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { getGame, listWinners } from "@/lib/db/games";
-import { listAttendees } from "@/lib/db/attendees";
+import { listAttendeesByIds } from "@/lib/db/attendees";
 import { buildWinnersWorkbook, winnerSheetRows } from "@/lib/exports";
 
 // One draw per file (`?game=`), linked from that draw's editor rather than the Exports page.
@@ -14,7 +14,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const gameId = new URL(req.url).searchParams.get("game") ?? "";
   const game = gameId ? await getGame(gameId, ev.id) : null;
   if (!game || game.kind !== "draw") return new Response("No such draw.", { status: 404 });
-  const [winners, attendees] = await Promise.all([listWinners(game.id), listAttendees(ev.id)]);
+  const winners = await listWinners(game.id);
+  const attendees = await listAttendeesByIds(ev.id, winners.map((w) => w.attendee_id));
   const columns = exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields, ["company"]);
   const rows = winnerSheetRows(game.config.prizes, winners, new Map(attendees.map((a) => [a.id, a])), columns);
   const buf = await buildWinnersWorkbook(game.title, rows).xlsx.writeBuffer();

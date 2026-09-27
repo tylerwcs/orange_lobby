@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getGame, listWinners } from "@/lib/db/games";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { listAttendees, listCategories } from "@/lib/db/attendees";
+import { listAttendeesByIds, listCategories } from "@/lib/db/attendees";
 import { GAME_KIND_LABELS } from "@/lib/games/config";
 import { prizeProgress } from "@/lib/games/draw";
 import { fieldValue } from "@/lib/attendee-values";
@@ -30,9 +30,11 @@ export default async function GameEditor({ params }: { params: Promise<{ id: str
   if (!game) notFound();
   const back = `/admin/events/${ev.id}/games`;
 
-  const [checkpoints, categories, winners, people] = game.kind === "draw"
-    ? await Promise.all([listCheckpoints(ev.id), listCategories(ev.id), listWinners(game.id), listAttendees(ev.id)])
-    : [[], [], [], []];
+  const [checkpoints, categories, winners] = game.kind === "draw"
+    ? await Promise.all([listCheckpoints(ev.id), listCategories(ev.id), listWinners(game.id)])
+    : [[], [], []];
+  // Only the winners' rows: the whole list would stop at one request's worth on a big event.
+  const people = await listAttendeesByIds(ev.id, winners.map((w) => w.attendee_id));
   const byId = new Map(people.map((a) => [a.id, a]));
 
   // "Leave out" offers each category PART on its own, from the same source as the "Who can see

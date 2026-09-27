@@ -49,6 +49,14 @@ describe("hydrateGame", () => {
   it("reads a good row", () => {
     expect(hydrateGame(row("tap_race", { duration_s: 15 }))?.config).toEqual({ duration_s: 15 });
   });
+  it("reads a draw whose stored checkpoint is not an id as having none, rather than dropping it", () => {
+    const g = hydrateGame(row("draw", { checkpoint_id: "cp1", prizes: [{ name: "iPad", quantity: 1 }] }));
+    expect(g?.config).toEqual({ checkpoint_id: null, exclude_categories: [], prizes: [{ name: "iPad", quantity: 1 }] });
+  });
+  it("keeps a draw's checkpoint id", () => {
+    const id = "0b7c3d9e-1f2a-4b5c-8d6e-7f8091a2b3c4";
+    expect(hydrateGame(row("draw", { checkpoint_id: id }))?.config).toMatchObject({ checkpoint_id: id });
+  });
 });
 
 describe("isGameKind", () => {

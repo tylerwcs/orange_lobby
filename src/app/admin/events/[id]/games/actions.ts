@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, rotateDisplayToken, rotateHostToken } from "@/lib/db/events";
 import { createGame, deleteGame, getGame, resetDraw, updateGame } from "@/lib/db/games";
+import { listCheckpoints } from "@/lib/db/checkpoints";
 import { GAME_KIND_LABELS, isGameKind } from "@/lib/games/config";
 import { configFromForm } from "@/lib/games/config-form";
 import { flashPath } from "@/lib/flash";
@@ -54,6 +55,14 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
   const path = `${gamesPath(ev.id)}/${game.id}`;
   const parsed = configFromForm(game.kind, form);
   if (!parsed.ok) redirect(flashPath(path, parsed.error, "error"));
+  // A draw's checkpoint must be one of this event's: another event's checkpoint (or a deleted
+  // one) has none of this event's check-ins, so the draw would have nobody to draw from.
+  if (game.kind === "draw") {
+    const checkpointId = (parsed.config as { checkpoint_id: string | null }).checkpoint_id;
+    if (checkpointId && !(await listCheckpoints(ev.id)).some((c) => c.id === checkpointId)) {
+      redirect(flashPath(path, "That checkpoint is not on this event any more. Pick another and save again.", "error"));
+    }
+  }
   const title = (String(form.get("title") ?? "").trim() || game.title).slice(0, 80);
   await updateGame(game.id, ev.id, { title, config: parsed.config });
   revalidatePath(path);

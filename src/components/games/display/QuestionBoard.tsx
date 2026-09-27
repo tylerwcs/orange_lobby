@@ -20,7 +20,7 @@ export function QuestionBoard({ q, now, answered, players, split, showTimer = fa
       <div className="flex items-center justify-between text-4xl font-bold opacity-80">
         <span>Question {q.no + 1} of {q.total}</span>
         {showTimer
-          ? <span className="text-7xl font-extrabold tabular-nums text-[var(--brand)]">{left}</span>
+          ? <span className="text-7xl font-extrabold tabular-nums text-[var(--brand)]" suppressHydrationWarning>{left}</span>
           : q.correct === null && <span>Time&apos;s up!</span>}
       </div>
       <p className="text-center text-[80px] font-extrabold leading-tight">{q.text}</p>

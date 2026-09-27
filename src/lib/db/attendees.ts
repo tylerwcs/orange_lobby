@@ -41,6 +41,25 @@ export async function listAttendees(eventId: string, q?: string, scope: "wide" |
   return data as Attendee[];
 }
 
+/** Ids travel in the query string (`in.(...)`), so a chunk is sized to keep the URL short. */
+const ID_CHUNK = 100;
+
+/**
+ * Some of one event's attendees, by id, in chunks: no row cap to hit (listAttendees stops at one
+ * request's worth), and only the rows asked for. Ids from another event are simply not found.
+ */
+export async function listAttendeesByIds(eventId: string, ids: string[]): Promise<Attendee[]> {
+  const unique = [...new Set(ids)];
+  const out: Attendee[] = [];
+  for (let i = 0; i < unique.length; i += ID_CHUNK) {
+    const { data, error } = await serviceClient().from("attendees").select("*")
+      .eq("event_id", eventId).in("id", unique.slice(i, i + ID_CHUNK));
+    if (error) throw error;
+    out.push(...((data ?? []) as Attendee[]));
+  }
+  return out;
+}
+
 export async function countAttendees(eventId: string): Promise<number> {
   const { count } = await serviceClient().from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
   return count ?? 0;
@@ -125,9 +144,6 @@ export async function eraseExtraKeys(eventId: string, keys: string[]): Promise<n
   return (data as number | null) ?? 0;
 }
 
-/** Ids travel in the query string (`in.(...)`), so a chunk is sized to keep the URL short. */
-const DELETE_CHUNK = 100;
-
 /**
  * Deletes a selection of one event's attendees, and returns how many went.
  *
@@ -142,8 +158,8 @@ const DELETE_CHUNK = 100;
 export async function deleteAttendees(event: Pick<Event, "id" | "org_id">, ids: string[]): Promise<number> {
   const db = serviceClient();
   let deleted = 0;
-  for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
-    const chunk = ids.slice(i, i + DELETE_CHUNK);
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
     const { data: subs, error: readError } = await db.from("activity_submissions")
       .select("answers").eq("event_id", event.id).in("attendee_id", chunk);
     if (readError) throw readError;

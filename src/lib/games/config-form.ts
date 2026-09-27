@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { drawConfigSchema, raceConfigSchema, survivalConfigSchema, type GameKind } from "@/lib/games/config";
+import { drawFormSchema, raceConfigSchema, survivalConfigSchema, type GameKind } from "@/lib/games/config";
 
 type Form = { get(name: string): FormDataEntryValue | null; getAll(name: string): FormDataEntryValue[] };
 export type ConfigResult = { ok: true; config: unknown } | { ok: false; error: string };
@@ -49,6 +49,7 @@ function explain(error: z.ZodError): string {
   if (field === "questions") return "Up to 50 questions.";
   if (field === "prizes" && typeof index === "number") return `Prize ${index + 1} needs a name and a quantity from 1 to 500.`;
   if (field === "prizes") return "Up to 50 prizes.";
+  if (field === "checkpoint_id") return "Pick a checkpoint from the list.";
   return "Something on the form is not right. Check it and save again.";
 }
 
@@ -66,7 +67,7 @@ export function configFromForm(kind: GameKind, form: Form): ConfigResult {
   }
   const prizes = json(form.get("prizes"));
   if (!Array.isArray(prizes)) return { ok: false, error: "The prizes could not be read. Reload the page and try again." };
-  const r = drawConfigSchema.safeParse({
+  const r = drawFormSchema.safeParse({
     checkpoint_id: String(form.get("checkpoint_id") ?? "") || null,
     exclude_categories: form.getAll("exclude").map(String),
     prizes,

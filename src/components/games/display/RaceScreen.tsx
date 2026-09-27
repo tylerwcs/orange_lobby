@@ -36,7 +36,7 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
     return (
       <Frame title={title}>
         <div className="flex h-full items-center justify-center">
-          <span key={n} className="countdown-pop text-[520px] font-extrabold leading-none text-[var(--brand)]">{n}</span>
+          <span key={n} className="countdown-pop text-[520px] font-extrabold leading-none text-[var(--brand)]" suppressHydrationWarning>{n}</span>
         </div>
       </Frame>
     );

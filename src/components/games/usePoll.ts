@@ -11,7 +11,9 @@ type Polled = { now: number; key?: string; unchanged?: true };
  * elsewhere (a join); `pollNow` polls at once (after a host action).
  *
  * Every tick carries a generation number and only the newest reschedules, so a pollNow during
- * a tick in flight cannot leave two timers running. `intervalFor` must be a module-level
+ * a tick in flight cannot leave two timers running. Only the newest tick applies its answer
+ * too, and only if nothing was applied since it was sent (a pollNow's answer, or a join's), so
+ * an old response landing late cannot roll the view back. `intervalFor` must be a module-level
  * (stable) function, or every render restarts the polling.
  */
 export function usePoll<T extends Polled>(url: string, initial: T, intervalFor: (s: T) => number, versioned: boolean) {
@@ -20,11 +22,13 @@ export function usePoll<T extends Polled>(url: string, initial: T, intervalFor: 
   const latest = useRef(initial);
   const failures = useRef(0);
   const generation = useRef(0);
+  const applied = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<() => void>(() => {});
 
   const apply = useCallback((next: T) => {
     if (next.unchanged) return;
+    applied.current += 1;
     latest.current = next;
     setState(next);
   }, []);
@@ -35,15 +39,18 @@ export function usePoll<T extends Polled>(url: string, initial: T, intervalFor: 
       const gen = ++generation.current;
       if (timer.current) clearTimeout(timer.current);
       const sent = Date.now();
+      const seen = applied.current;
       try {
         const key = versioned ? latest.current.key : undefined;
         const res = await fetch(key ? `${url}?v=${encodeURIComponent(key)}` : url, { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));
         const body = (await res.json()) as T;
         if (stopped) return;
-        setOffset(clockOffset(sent, Date.now(), body.now));
         failures.current = 0;
-        apply(body);
+        if (gen === generation.current && applied.current === seen) {
+          setOffset(clockOffset(sent, Date.now(), body.now));
+          apply(body);
+        }
       } catch {
         failures.current += 1;
       }

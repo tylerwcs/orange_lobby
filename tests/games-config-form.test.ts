@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { configFromForm, packQuestions } from "@/lib/games/config-form";
 
+const CP = "0b7c3d9e-1f2a-4b5c-8d6e-7f8091a2b3c4";
+
 const form = (entries: [string, string][]) => {
   const f = new FormData();
   for (const [k, v] of entries) f.append(k, v);
@@ -41,10 +43,14 @@ describe("configFromForm", () => {
   });
   it("reads a draw with exclusions", () => {
     const r = configFromForm("draw", form([
-      ["checkpoint_id", "cp1"], ["exclude", "Crew"], ["exclude", "Management"],
+      ["checkpoint_id", CP], ["exclude", "Crew"], ["exclude", "Management"],
       ["prizes", JSON.stringify([{ name: "iPad", quantity: 1 }])],
     ]));
-    expect(r).toEqual({ ok: true, config: { checkpoint_id: "cp1", exclude_categories: ["Crew", "Management"], prizes: [{ name: "iPad", quantity: 1 }] } });
+    expect(r).toEqual({ ok: true, config: { checkpoint_id: CP, exclude_categories: ["Crew", "Management"], prizes: [{ name: "iPad", quantity: 1 }] } });
+  });
+  it("refuses a checkpoint that is not an id", () => {
+    const r = configFromForm("draw", form([["checkpoint_id", "cp1"], ["prizes", "[]"]]));
+    expect(r).toEqual({ ok: false, error: "Pick a checkpoint from the list." });
   });
   it("reads no checkpoint as null", () => {
     const r = configFromForm("draw", form([["checkpoint_id", ""], ["prizes", "[]"]]));

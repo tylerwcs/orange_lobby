@@ -36,10 +36,16 @@ const prizeSchema = z.object({
 });
 
 export const drawConfigSchema = z.object({
-  checkpoint_id: z.string().nullable().default(null),
+  // Read tolerantly: a stored value that is not an id (an older build let one through) reads as
+  // no checkpoint, rather than the whole game failing to parse. The admin form is strict
+  // (drawFormSchema).
+  checkpoint_id: z.uuid().nullable().catch(null),
   exclude_categories: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
   prizes: z.array(prizeSchema).max(50).default([]),
 });
+
+/** What the draw editor may save: the checkpoint must be an id (updateGameAction checks it is this event's). */
+export const drawFormSchema = drawConfigSchema.extend({ checkpoint_id: z.uuid().nullable() });
 
 export type RaceConfig = z.infer<typeof raceConfigSchema>;
 export type Question = z.infer<typeof questionSchema>;
