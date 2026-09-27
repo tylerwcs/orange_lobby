@@ -1,0 +1,56 @@
+/* The LED page's animations (D275, D284). Only opacity, filter and transform animate, so 500
+   mosaic tiles stay smooth on an ordinary laptop. */
+
+.countdown-pop { animation: countdown-pop 900ms ease-out both; }
+@keyframes countdown-pop {
+  from { transform: scale(1.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.mosaic-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--brand);
+  color: #fff;
+  transition: opacity 500ms ease, filter 500ms ease;
+  /* backwards, not both: once popped in, the class below must be free to dim the tile. */
+  animation: tile-pop 350ms ease-out backwards;
+}
+@keyframes tile-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.mosaic-dark { opacity: 0.12; filter: grayscale(1) brightness(0.5); }
+
+/* Survivors pulse once, after the ripple has run (D275 step 3). */
+.mosaic-lit { animation: tile-pulse 900ms ease-in-out 2200ms 1; }
+@keyframes tile-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); box-shadow: 0 0 24px var(--brand); }
+}
+
+/* "Everyone survives!" — the whole mosaic flashes instead of darkening. */
+.mosaic-flash { animation: mosaic-flash 700ms ease-in-out 2; }
+@keyframes mosaic-flash {
+  0%, 100% { filter: none; }
+  50% { filter: brightness(2.2); }
+}
+
+.confetti {
+  position: absolute;
+  top: -40px;
+  width: 16px;
+  height: 26px;
+  border-radius: 3px;
+  animation-name: confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes confetti-fall {
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(1160px) rotate(720deg); }
+}
