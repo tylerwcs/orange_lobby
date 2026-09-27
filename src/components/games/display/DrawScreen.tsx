@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import type { DisplayState, Person } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
 import { MAX_REELS, reelLayout } from "@/lib/games/layout";
+import { wheelLabel } from "@/lib/games/wheel";
 import { useServerNow } from "../usePoll";
 import { Frame } from "./Frame";
 import { JointWinners, WinnerCard } from "./WinnerCard";
@@ -56,7 +57,7 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
           {s.endsAt !== null && now >= s.endsAt && d.targets?.[0] && (
             <motion.div initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, damping: 14 }}
               className="absolute inset-x-0 bottom-16 text-center font-game text-[120px] leading-none drop-shadow-[0_8px_40px_var(--brand)]">
-              {d.targets[0].first} {d.targets[0].initials}
+              {wheelLabel(d.targets[0])}
             </motion.div>
           )}
         </Frame>

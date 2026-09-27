@@ -4,16 +4,11 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { Person } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
-import { canTick, easeOutQuart, landingAngle, sliceAt, WHEEL_NAMED_MAX } from "@/lib/games/wheel";
+import { canTick, easeOutQuart, landingAngle, sliceAt, wheelLabel, WHEEL_NAMED_MAX } from "@/lib/games/wheel";
 import { GAME_FAMILY, useFontReady } from "./textTexture";
 import { useAnimating } from "./useAnimating";
 
 const RADIUS = 440;
-
-/** A slice's name: first name and surname initial ("Priya R."). */
-export function wheelLabel(p: Person): string {
-  return p.initials.length > 1 ? `${p.first} ${p.initials.slice(1)}.` : p.first || p.initials;
-}
 
 /**
  * The wheel's face: one slice per person, clockwise from the top (the pointer) to match sliceAt,
@@ -126,13 +121,21 @@ export function Wheel({ people, targetId, endsAt, spinMs, offset, synth, colour 
       </mesh>
       <mesh ref={disc}>
         <circleGeometry args={[RADIUS, 256]} />
-        {/* One element, not a texture/colour ternary that swaps JSX branches: React Three Fiber
-            reuses the same material instance across renders and only applies props present on
-            the new element, so switching between <meshBasicMaterial map=.../> and
-            <meshBasicMaterial color=.../> left a stale `color` multiplying the map once the
-            texture arrived, rendering as black. `map` is null until the texture is ready; the
-            explicit `color` is always given, so there is nothing to go stale. */}
-        <meshBasicMaterial map={texture} color={texture ? "#ffffff" : colour} />
+        {/* `key` forces React Three Fiber to build a fresh material whenever `texture` changes
+            (including null -> texture) instead of reusing the same instance and setting `.map`
+            on it: three only recompiles a material's shader (the USE_MAP define) from its own
+            `version`/`needsUpdate`, which applyProps never sets when assigning `.map`. A material
+            that first compiled with `map: null` would keep running its no-map shader forever
+            after, even once a texture arrives — a blank flat disc, not the textured one. This
+            still happens on the wheel's very first mount ever on a page (`useFontReady`'s
+            synchronous `document.fonts.check` only helps once the font has already loaded once;
+            before that it still starts false and flips true a frame or two later), and on any
+            later remount — including the one at every spin start (`key={spin ? s.key :
+            "resting"}` in Layer3D) — if that remount's first frame happens to render before
+            `useAnimating`'s invalidation catches up. Keying on the texture (or "flat" while there
+            is none) sidesteps all of that: a genuinely new material always compiles against the
+            map it is given. */}
+        <meshBasicMaterial key={texture?.uuid ?? "flat"} map={texture} color={texture ? "#ffffff" : colour} />
       </mesh>
       <mesh position={[0, 0, 6]}>
         <circleGeometry args={[56, 64]} />

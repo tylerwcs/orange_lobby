@@ -6,14 +6,21 @@ import { gameFont } from "@/lib/games/font";
 /** The display font's CSS family, for canvas text (D293). */
 export const GAME_FAMILY = gameFont.style.fontFamily;
 
-/** True once the display font can be drawn onto a canvas: canvas text does not wait for fonts. */
+/**
+ * True once the display font can be drawn onto a canvas: canvas text does not wait for fonts.
+ * Initialised from `document.fonts.check` (a synchronous, already-loaded check), not `false`, so
+ * a component that remounts after the font has already loaded once — the wheel remounts on every
+ * spin start (`key={spin ? s.key : "resting"}`) — is ready on its very first render instead of
+ * rendering one flat/blank frame while the (redundant) async load resolves again.
+ */
 export function useFontReady(): boolean {
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => typeof document !== "undefined" && document.fonts.check(`800 64px ${GAME_FAMILY}`));
   useEffect(() => {
+    if (ready) return;
     let live = true;
     document.fonts.load(`800 64px ${GAME_FAMILY}`).catch(() => undefined).finally(() => { if (live) setReady(true); });
     return () => { live = false; };
-  }, []);
+  }, [ready]);
   return ready;
 }
 
