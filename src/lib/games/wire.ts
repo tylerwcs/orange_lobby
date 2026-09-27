@@ -29,6 +29,8 @@ export type DisplayLane = { key: string; label: string; players: number; progres
 export type DisplayDraw = {
   format: DrawFormat;
   prize: string | null;
+  /** The current or next prize's picture, beside `prize` (D323). */
+  prizeImage: string | null;
   pool: number;
   sample: Person[];
   /** During draw_spinning only: who the reels or the wheel land on (D312). */
@@ -40,6 +42,8 @@ export type DisplayDraw = {
   wheel: Person[] | null;
   /** Mosaic format, in draw_rounds: the frozen pool, and who stands after this round (D315). */
   mosaic: { people: Person[]; survivorIds: string[]; round: number; rounds: number } | null;
+  /** The game's card back (D317, D323), whichever format is running. */
+  cardBack: string | null;
   /** Card round (D317). */
   cards: { slots: CardView[]; participant: { name: string; company: string } | null; picked: number | null } | null;
   /** Only in draw_reveal (D280). */

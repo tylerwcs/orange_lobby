@@ -24,8 +24,8 @@ export function testStep(i: number, event: DisplayState["event"], at: number): {
     race: null, question: null, reveal: null, prizeNo: 0,
   });
   const draw = (over: Partial<DisplayDraw>): DisplayDraw => ({
-    format: "slot", prize: "Grand prize", pool: PEOPLE.length, sample: PEOPLE, targets: null, spinMs: null,
-    quick: false, wheel: null, mosaic: null, cards: null, winners: null, ...over,
+    format: "slot", prize: "Grand prize", prizeImage: null, pool: PEOPLE.length, sample: PEOPLE, targets: null, spinMs: null,
+    quick: false, wheel: null, mosaic: null, cardBack: null, cards: null, winners: null, ...over,
   });
   const base = { now: at, event, look: DEFAULT_BACKGROUND, race: null, survival: null };
   if (n === 0) return { holdMs: 7000, state: { ...base, stage: stage("draw_spinning", at + 5000), draw: draw({ targets: [PEOPLE[0]], spinMs: 5000 }) } };

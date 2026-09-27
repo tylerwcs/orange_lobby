@@ -153,6 +153,7 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
   return {
     format,
     prize: prizeNo === null ? null : game.config.prizes[prizeNo]?.name ?? null,
+    prizeImage: prizeNo === null ? null : game.config.prizes[prizeNo]?.image ?? null,
     pool: shown.length,
     sample: people(seededOrder(shown, `${stage.run_id}:${stage.version}`).slice(0, 40)),
     // The display link learns who the reels land on when the spin starts (D312). Phones never do.
@@ -169,6 +170,7 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
         rounds: extra.rounds,
       }
       : null,
+    cardBack: game.config.card_back,
     cards: format === "cards" && stage.run_id
       ? {
         slots: cardsView(run?.deck ?? [], winners, stage.run_id, game.config.prizes, nameOf),
