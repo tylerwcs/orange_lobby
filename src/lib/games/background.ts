@@ -1,6 +1,7 @@
-import { z } from "zod";
-
-/** What the LED shows behind a game (D297). */
+/**
+ * What the LED shows behind a game (D297). No zod here: the play page and the LED reach this
+ * module, so the schema lives in background-schema.ts, which only config.ts imports.
+ */
 export const BACKGROUND_KINDS = ["theme", "green", "image", "video"] as const;
 export type BackgroundKind = (typeof BACKGROUND_KINDS)[number];
 export type Background = { kind: BackgroundKind; url: string | null };
@@ -9,20 +10,6 @@ export const DEFAULT_BACKGROUND: Background = { kind: "theme", url: null };
 
 /** Broadcast chroma green, for the AV team to key out (D299). */
 export const CHROMA_GREEN = "#00B140";
-
-const needsUrl = (k: BackgroundKind) => k === "image" || k === "video";
-
-/**
- * Read tolerantly (D297): a stored background that no longer parses — or an image or video with
- * no file — reads as Theme, so one bad value can never take a game off the LED on the day.
- */
-export const backgroundSchema = z
-  .object({ kind: z.enum(BACKGROUND_KINDS), url: z.url().max(2000).nullable() })
-  .transform((b): Background => {
-    if (!needsUrl(b.kind)) return { kind: b.kind, url: null };
-    return b.url ? { kind: b.kind, url: b.url } : DEFAULT_BACKGROUND;
-  })
-  .catch(DEFAULT_BACKGROUND);
 
 /** The background of the game on stage; Theme when nothing is on (the idle screen, D298). */
 export function backgroundOf(game: { config: { background?: Background } } | null): Background {

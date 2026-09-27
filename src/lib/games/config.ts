@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { backgroundSchema } from "@/lib/games/background";
+import { backgroundSchema } from "@/lib/games/background-schema";
 
 /**
  * The games an event can run on its LED (D250). Keys may be added but never removed, or

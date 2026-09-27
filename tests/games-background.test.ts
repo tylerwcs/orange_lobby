@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  backgroundFromForm, backgroundOf, backgroundSchema, CHROMA_GREEN, confettiColours, DEFAULT_BACKGROUND,
+  backgroundFromForm, backgroundOf, CHROMA_GREEN, confettiColours, DEFAULT_BACKGROUND,
 } from "@/lib/games/background";
+import { backgroundSchema } from "@/lib/games/background-schema";
 
 describe("backgroundSchema (D297)", () => {
   it("reads a missing background as Theme", () => {
