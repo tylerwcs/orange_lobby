@@ -635,13 +635,14 @@ not the dev server) while a person drives the host console. It refuses the event
 ```bash
 npm run load:games -- seed    <event-id> 1000               # ~10 per table, some "KOM, Crew" / "KOM, Wellness"
 npm run load:games -- checkin <event-id> <checkpoint-id>    # so a draw has a pool
-npm run load:games -- run     <deployed-url> <event-id> 500 180 <display-token>
-npm run load:games -- run     <deployed-url> <event-id> 1000 180 <display-token>
+npm run load:games -- run     <deployed-url> <event-id> 500 180 [display-token]
+npm run load:games -- run     <deployed-url> <event-id> 1000 180 [display-token]
 npm run load:games -- cleanup <event-id>                    # always, when done
 ```
 
 During each `run`, from the host console: one race with lanes by table, then last one standing
-with 3 questions. Pass: exit 0, `state p95` under 300 ms, no 5xx, and the LED's lane totals equal
-the taps the server accepted (one race per run). `cleanup` deletes the load attendees; their
+with 3 questions. Pass: exit 0, `state p95` under 300 ms, no 5xx, and the taps stored for the race
+on stage (read from the database, after the grace) equal the taps the server accepted (one race
+per run). `cleanup` deletes the load attendees; their
 check-ins and game rows go with them. If Vercel answers with its own 403/429 pages, the test is
 tripping platform protection from one IP — run from two machines, or ask before adding a bypass.
