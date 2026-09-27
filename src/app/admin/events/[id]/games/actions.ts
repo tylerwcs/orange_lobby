@@ -3,9 +3,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, rotateDisplayToken, rotateHostToken } from "@/lib/db/events";
-import { createGame, deleteGame, getGame, resetDraw, updateGame } from "@/lib/db/games";
+import { createGame, deleteGame, getGame, listGames, resetDraw, updateGame } from "@/lib/db/games";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { GAME_KIND_LABELS, isGameKind, parseConfig } from "@/lib/games/config";
+import { GAME_KIND_LABELS, isGameKind, parseConfig, type DrawGame } from "@/lib/games/config";
 import { configFromForm } from "@/lib/games/config-form";
 import { backgroundFromForm } from "@/lib/games/background";
 import { acceptImage, acceptVideo, isEventMediaFor, isGameVideoFor, mediaPathInEvent, type ImageKind } from "@/lib/storage";
@@ -122,8 +122,22 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
   if (current.url && current.url !== bg.background.url && mediaPathInEvent(current.url, supabaseUrl, ev.org_id, ev.id)) {
     await deleteEventImage(current.url);
   }
-  for (const u of staleMedia) {
-    if (mediaPathInEvent(u, supabaseUrl, ev.org_id, ev.id)) await deleteEventImage(u);
+  if (staleMedia.length > 0) {
+    // A URL this save drops might still be in use — a crafted post could have copied another
+    // draw's prize picture or card back into this one's config, and a legitimate organiser can
+    // reuse an image across two draws by pasting the same upload in twice. Either way, deleting
+    // it here would pull the file out from under whichever other game still names it, so every
+    // other game of this event is checked before anything is removed.
+    const others = (await listGames(ev.id)).filter((g): g is DrawGame => g.id !== game.id && g.kind === "draw");
+    const inUseElsewhere = new Set<string>();
+    for (const g of others) {
+      for (const p of g.config.prizes) if (p.image) inUseElsewhere.add(p.image);
+      if (g.config.card_back) inUseElsewhere.add(g.config.card_back);
+    }
+    for (const u of staleMedia) {
+      if (inUseElsewhere.has(u)) continue;
+      if (mediaPathInEvent(u, supabaseUrl, ev.org_id, ev.id)) await deleteEventImage(u);
+    }
   }
   revalidatePath(path);
   revalidatePath(gamesPath(ev.id));
@@ -152,6 +166,13 @@ export async function backgroundVideoUploadAction(eventId: string, gameId: strin
  * Mints the signed URL a prize picture or a card back uploads to (D323), after checking the
  * game is this event's draw and the file is one we take. Up to 50 prizes can each carry one,
  * plus the one card back, so this mints a fresh path per upload rather than the game reusing one.
+ *
+ * `acceptImage`'s type/size check here is advisory, not the hard limit: it is what lets the
+ * organiser read "PNG, JPEG, WebP or SVG, up to 4 MB" before the file ever leaves the browser,
+ * the same as everywhere else `acceptImage` runs client-side first. The browser then uploads
+ * straight to Storage with the signed URL this mints, past this Server Action entirely — the
+ * bucket's own MIME allow-list and its size cap (30 MB, the same bucket the background video
+ * uses) are what actually refuse an upload that disagrees with what was checked here.
  */
 export async function gameImageUploadAction(
   eventId: string, gameId: string, kind: "prize" | "card-back", type: string, size: number,
@@ -159,7 +180,8 @@ export async function gameImageUploadAction(
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const game = await getGame(gameId, ev.id);
-  if (!game || game.kind !== "draw") return { ok: false, error: "That game no longer exists." };
+  if (!game) return { ok: false, error: "That game no longer exists." };
+  if (game.kind !== "draw") return { ok: false, error: "Pictures are only for lucky draws." };
   let ext: string;
   try {
     ext = acceptImage({ type: String(type), size: Number(size) });

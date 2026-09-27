@@ -103,6 +103,23 @@ describe("mediaPathFromUrl", () => {
     const url = `${SUPABASE}/storage/v1/object/public/event-media/org1/ev1/banner-z9.webp`;
     expect(mediaPathFromUrl(url, `${SUPABASE}/`)).toBe("org1/ev1/banner-z9.webp");
   });
+
+  it("refuses a path that climbs out of its folder with a .. segment, even URL-encoded", () => {
+    const climb = `${SUPABASE}/storage/v1/object/public/event-media/org1/ev1/game-prize-x/../../../other/secret.png`;
+    expect(mediaPathFromUrl(climb, SUPABASE)).toBeNull();
+    const encoded = `${SUPABASE}/storage/v1/object/public/event-media/org1/ev1/game-prize-x/..%2F..%2F..%2Fother/secret.png`;
+    expect(mediaPathFromUrl(encoded, SUPABASE)).toBeNull();
+  });
+
+  it("refuses a path carrying a backslash", () => {
+    const url = `${SUPABASE}/storage/v1/object/public/event-media/org1/ev1/game-prize-x\\..\\..\\other.png`;
+    expect(mediaPathFromUrl(url, SUPABASE)).toBeNull();
+  });
+
+  it("still accepts a legitimate object whose name merely contains the letters 'dot dot'", () => {
+    const url = `${SUPABASE}/storage/v1/object/public/event-media/org1/ev1/game-prize-a1b2c3d4.png`;
+    expect(mediaPathFromUrl(url, SUPABASE)).toBe("org1/ev1/game-prize-a1b2c3d4.png");
+  });
 });
 
 describe("IMAGE_ACCEPT", () => {

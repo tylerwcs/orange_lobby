@@ -20,6 +20,15 @@ const HELP: Record<DrawFormat, string> = {
  * A draw's format, spin time and rounds (D310, D311, D315), plus a card round's back (D323).
  * Both numbers always post; each shows only where it applies. The card back field lives here
  * because the format only exists as state inside this component.
+ *
+ * CardBackField is always mounted, just hidden with a class when the format isn't cards — the
+ * same trick as the spin_s/rounds fields above. It must NOT be conditionally rendered
+ * (`f === "cards" && <CardBackField .../>`): an unmounted field posts nothing, so switching the
+ * radio away from Cards would make its hidden `card_back` input vanish from the form entirely.
+ * configFromForm reads that as an explicit clear (empty string -> null, the same as ticking
+ * nothing), and updateGameAction would then delete the very card back that switching formats
+ * and switching back was supposed to leave untouched — along with losing a just-uploaded one
+ * that never got the chance to be saved.
  */
 export function DrawFormatFields({ format, spinS, rounds, eventId, gameId, cardBack }: {
   format: DrawFormat; spinS: number; rounds: number; eventId: string; gameId: string; cardBack: string | null;
@@ -51,12 +60,10 @@ export function DrawFormatFields({ format, spinS, rounds, eventId, gameId, cardB
           </label>
         </div>
       </fieldset>
-      {f === "cards" && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-bold">Card back image</span>
-          <CardBackField eventId={eventId} gameId={gameId} current={cardBack} />
-        </div>
-      )}
+      <div className={`flex flex-col gap-1.5 ${f === "cards" ? "" : "hidden"}`}>
+        <span className="text-sm font-bold">Card back image</span>
+        <CardBackField eventId={eventId} gameId={gameId} current={cardBack} />
+      </div>
     </>
   );
 }

@@ -100,7 +100,10 @@ function PrizePicture({ eventId, gameId, url, onChange, label }: {
   };
 
   return (
-    <div className="flex shrink-0 items-center gap-1">
+    // flex-wrap + basis-full on the error: a row this narrow has no spare width for an error
+    // message beside the thumbnail and buttons, so it wraps onto its own line below them
+    // instead of squeezing the rest of the prize row.
+    <div className="flex shrink-0 flex-wrap items-center gap-1">
       {url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="size-9 shrink-0 rounded border border-border bg-muted object-contain" />
@@ -115,7 +118,7 @@ function PrizePicture({ eventId, gameId, url, onChange, label }: {
         </Button>
       )}
       <input ref={input} type="file" accept={IMAGE_ACCEPT} aria-label={label} className="sr-only" onChange={(e) => void choose(e.target.files?.[0])} />
-      {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+      {error && <p role="alert" className="basis-full text-xs text-destructive">{error}</p>}
     </div>
   );
 }

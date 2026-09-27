@@ -85,12 +85,22 @@ export function mediaObjectPath(
  * Null is the answer that matters: it is how a link an organiser pasted before uploads
  * existed gets dropped on replacement rather than chased, and how a URL naming some other
  * bucket is never handed to a delete.
+ *
+ * Also null for a path carrying a `..` segment (plain or URL-encoded) or a backslash: nothing
+ * `mediaObjectPath` ever writes contains either, so a URL that does is not one of ours,
+ * however it got past the prefix check. Refusing it here — before `isEventMediaFor` or
+ * `mediaPathInEvent` ever see the path — is what stops a crafted path like
+ * `<org>/<event>/game-prize-x/../../../other/secret.png` from prefix-matching its way past
+ * those checks and reaching a `deleteEventImage` call for an object outside this folder.
  */
 export function mediaPathFromUrl(url: string, supabaseUrl: string): string | null {
   const prefix = `${supabaseUrl.replace(/\/+$/, "")}/storage/v1/object/public/${MEDIA_BUCKET}/`;
   if (!url.startsWith(prefix)) return null;
-  const path = url.slice(prefix.length);
-  return path ? decodeURIComponent(path) : null;
+  const raw = url.slice(prefix.length);
+  if (!raw) return null;
+  const path = decodeURIComponent(raw);
+  if (path.includes("..") || path.includes("\\")) return null;
+  return path;
 }
 
 /**
