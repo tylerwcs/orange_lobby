@@ -3,8 +3,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, rotateDisplayToken, rotateHostToken } from "@/lib/db/events";
-import { createGame, deleteGame } from "@/lib/db/games";
+import { createGame, deleteGame, getGame, resetDraw, updateGame } from "@/lib/db/games";
 import { GAME_KIND_LABELS, isGameKind } from "@/lib/games/config";
+import { configFromForm } from "@/lib/games/config-form";
 import { flashPath } from "@/lib/flash";
 
 const gamesPath = (eventId: string) => `/admin/events/${eventId}/games`;
@@ -43,4 +44,34 @@ export async function rotateDisplayTokenAction(eventId: string) {
   await rotateDisplayToken(ev.id);
   revalidatePath(gamesPath(ev.id));
   redirect(flashPath(gamesPath(ev.id), "New display link ready. The old one has stopped working."));
+}
+
+export async function updateGameAction(eventId: string, gameId: string, form: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const game = await getGame(gameId, ev.id);
+  if (!game) redirect(flashPath(gamesPath(ev.id), "That game no longer exists.", "error"));
+  const path = `${gamesPath(ev.id)}/${game.id}`;
+  const parsed = configFromForm(game.kind, form);
+  if (!parsed.ok) redirect(flashPath(path, parsed.error, "error"));
+  const title = (String(form.get("title") ?? "").trim() || game.title).slice(0, 80);
+  await updateGame(game.id, ev.id, { title, config: parsed.config });
+  revalidatePath(path);
+  revalidatePath(gamesPath(ev.id));
+  redirect(flashPath(path, "Saved."));
+}
+
+/**
+ * After a rehearsal: everyone this draw picked is back in every draw's pool. The game is
+ * looked up in this event first, so a posted id can only ever reset one of its own draws.
+ */
+export async function resetDrawAction(eventId: string, gameId: string) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const game = await getGame(gameId, ev.id);
+  if (!game || game.kind !== "draw") redirect(flashPath(gamesPath(ev.id), "That draw no longer exists.", "error"));
+  await resetDraw(game.id);
+  const path = `${gamesPath(ev.id)}/${game.id}`;
+  revalidatePath(path);
+  redirect(flashPath(path, "Draw reset. Everyone it picked is back in the pool."));
 }
