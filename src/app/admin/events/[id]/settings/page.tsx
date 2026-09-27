@@ -18,12 +18,13 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { ShareLink } from "@/components/admin/ShareLink";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RememberedTabs } from "@/components/admin/RememberedTabs";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction } from "../actions";
+import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { StatusPicker } from "@/components/admin/StatusPicker";
@@ -85,7 +86,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   ]);
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
-  const openTab = rememberedTab(jar, tabScope, ["details", "registration", "checkpoints", "danger"]) ?? "details";
+  const openTab = rememberedTab(jar, tabScope, ["details", "registration", "checkpoints", "alerts", "danger"]) ?? "details";
   const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
@@ -105,6 +106,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
+          <TabsTrigger value="alerts">Committee alerts</TabsTrigger>
           <TabsTrigger value="danger">Danger zone</TabsTrigger>
         </TabsList>
 
@@ -348,6 +350,25 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
       {/* Always there now, since Delete is for any event that is not live; Purge still needs
           the event archived first. */}
+      <TabsContent value="alerts" className="flex flex-col gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Committee alerts</CardTitle>
+            <CardDescription>
+              When an attendee&apos;s request to change or cancel a booking has waited an hour without a decision, these numbers get one WhatsApp saying how many are waiting. One number per line. Leave empty to switch alerts off.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form key={ev.committee_alert_numbers.join(",")} action={updateCommitteeNumbersAction.bind(null, ev.id)} className="flex max-w-sm flex-col items-start gap-3">
+              <label htmlFor="committee_alert_numbers" className="sr-only">Committee alert numbers</label>
+              <Textarea id="committee_alert_numbers" name="committee_alert_numbers" rows={4} placeholder={"012-345 6789\n019-876 5432"}
+                defaultValue={ev.committee_alert_numbers.map((n) => `+${n}`).join("\n")} />
+              <SubmitButton>Save numbers</SubmitButton>
+            </form>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
       <TabsContent value="danger" className="flex flex-col gap-4">
         {ev.status === "archived" && (
           <Card className="border-destructive/30">

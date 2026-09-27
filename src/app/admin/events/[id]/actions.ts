@@ -34,6 +34,7 @@ import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules"
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { exportFieldsFromForm } from "@/lib/export-columns";
+import { parseAlertNumbers } from "@/lib/committee-reminders";
 import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
@@ -103,6 +104,20 @@ export async function updateExportFieldsAction(eventId: string, formData: FormDa
   const path = `/admin/events/${eventId}/exports`;
   revalidatePath(path);
   redirect(flashPath(path, "Export columns saved."));
+}
+
+/** The numbers told when change requests wait an hour. Its own action: the tab sits outside the big settings form. */
+export async function updateCommitteeNumbersAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  const path = `/admin/events/${eventId}/settings`;
+  const { numbers, bad } = parseAlertNumbers(String(formData.get("committee_alert_numbers") ?? ""));
+  if (bad.length > 0) {
+    redirect(flashPath(path, `Couldn't read ${bad.map((b) => `"${b}"`).join(", ")} as a Malaysian number. Nothing was saved.`, "error"));
+  }
+  await updateEvent(eventId, { committee_alert_numbers: numbers });
+  revalidatePath(path);
+  redirect(flashPath(path, numbers.length ? "Committee alert numbers saved." : "Committee alerts switched off."));
 }
 
 /**
