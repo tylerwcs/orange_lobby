@@ -1,13 +1,14 @@
 "use server";
 import type { Event } from "@/lib/types";
-import type { Game } from "@/lib/games/config";
-import { forgetStage, hostLinkState, liveStage } from "@/lib/games/live";
+import { MAX_CARDS, type Game } from "@/lib/games/config";
+import { forgetStage, hostLinkState, liveStage, runFor } from "@/lib/games/live";
 import { forgetPool, poolFor } from "@/lib/games/display-state";
-import { createRun, drawSpin, getGame, listWinners, revealQuestion, voidWinner, writeStage } from "@/lib/db/games";
+import { cardPick, createRun, drawSpin, getGame, listWinners, revealQuestion, voidPendingCard, voidWinner, writeStage } from "@/lib/db/games";
 import {
-  canDo, canReveal, currentQuestion, drawReadyWrite, drawRevealWrite, idleWrite, lobbyWrite, overWrite, questionWrite, raceStartWrite,
-  raceStopWrite, revealFacts, spinFacts, QUICK_SPIN_MS, type HostAction, type StageRow, type StageWrite,
+  canDo, canReveal, currentQuestion, drawExtra, drawReadyWrite, drawRevealWrite, idleWrite, lobbyWrite, overWrite, questionWrite,
+  QUICK_SPIN_MS, raceStartWrite, raceStopWrite, revealFacts, roundWrite, spinFacts, type HostAction, type StageRow, type StageWrite,
 } from "@/lib/games/phase";
+import { cardsLeft, dealDeck, secureRandom } from "@/lib/games/cards";
 import { parseGrouping, type Grouping } from "@/lib/games/race";
 import { isOver } from "@/lib/games/survival";
 import { drawCount, nextPrize, prizeProgress } from "@/lib/games/draw";
@@ -22,6 +23,7 @@ const NOT_YET: HostResult = { ok: false, message: "Not yet — the last answers 
 const fail = (message: string): HostResult => ({ ok: false, message });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
+const at = (ms: number) => new Date(Date.now() + ms).toISOString();
 
 type Ready = { event: Event; stage: StageRow; game: Game | null };
 
@@ -76,7 +78,14 @@ export async function openGameAction(token: string, expected: number, gameId: st
   if (game.kind === "draw" && game.config.prizes.length === 0) return fail("This draw has no prizes yet. Add them in admin first.");
   const lanes = game.kind === "tap_race" ? laneGrouping(b.event, grouping) : { by: "solo" as const };
   if (!lanes) return fail("That field is no longer on this event. Pick other lanes.");
-  const run = await createRun(game, lanes);
+  // A card round deals its deck now, from the prize units still to give (D317).
+  let deck: number[] | null = null;
+  if (game.kind === "draw" && game.config.format === "cards") {
+    deck = dealDeck(prizeProgress(game.config.prizes, await listWinners(game.id)), secureRandom);
+    if (deck.length === 0) return fail("Every prize in this draw has been given. Reset the draw in admin to deal again.");
+    if (deck.length > MAX_CARDS) return fail(`A card round has at most ${MAX_CARDS} cards. Lower the prize quantities in admin.`);
+  }
+  const run = await createRun(game, lanes, deck);
   return commit(b.event, expected, lobbyWrite(game, run.id));
 }
 
@@ -139,26 +148,63 @@ export async function finishAction(token: string, expected: number): Promise<Hos
   return commit(b.event, expected, overWrite(b.stage, currentQuestion(b.stage) ?? 0));
 }
 
+/**
+ * Draw (D279, D310–D317). Slot and wheel spin for the game's spin time; the wheel always draws
+ * one. The mosaic draws the winners, then plays its rounds with no end time. A card round draws
+ * one participant, with no prize until they pick a card, while cards are left.
+ */
 export async function drawAction(token: string, expected: number, mode: "one" | "all"): Promise<HostResult> {
   const b = await begin(token, expected, "draw");
   if ("ok" in b) return b;
   const game = b.game;
-  if (game?.kind !== "draw" || !b.stage.run_id || !game.config.checkpoint_id) return fail("Pick a checkpoint for this draw in admin first.");
+  const runId = b.stage.run_id;
+  if (game?.kind !== "draw" || !runId || !game.config.checkpoint_id) return fail("Pick a checkpoint for this draw in admin first.");
   forgetPool(game.id);
+  const format = game.config.format;
+  const spinMs = game.config.spin_s * 1000;
+  const base = { eventId: b.event.id, expected, runId, gameId: game.id, checkpointId: game.config.checkpoint_id, exclude: game.config.exclude_categories };
   const winners = await listWinners(game.id);
-  const prize = nextPrize(prizeProgress(game.config.prizes, winners));
-  if (!prize) return fail("Every prize has been drawn.");
-  const pool = await poolFor(b.event, game, prize.prize_no);
-  const count = drawCount(prize, mode === "all" ? "all" : "one", pool.length);
-  if (count === 0) return fail("No one left to draw. Check the checkpoint and the categories left out.");
-  const picked = await drawSpin({
-    eventId: b.event.id, expected, runId: b.stage.run_id, gameId: game.id, prizeNo: prize.prize_no, count,
-    checkpointId: game.config.checkpoint_id, exclude: game.config.exclude_categories,
-    spinEndsAt: new Date(Date.now() + QUICK_SPIN_MS).toISOString(),
-  });
+  let picked: string[] | null;
+
+  if (format === "cards") {
+    const run = await runFor(runId, b.event.id);
+    if (cardsLeft(run?.deck ?? [], winners, runId) === 0) return fail("All cards have been dealt.");
+    if ((await poolFor(b.event, game, null, null, runId)).length === 0) return fail("No one left to draw. Check the checkpoint and the categories left out.");
+    picked = await drawSpin({ ...base, prizeNo: null, count: 1, spinEndsAt: at(spinMs), extra: { cards: true, spin_ms: spinMs } });
+  } else {
+    const prize = nextPrize(prizeProgress(game.config.prizes, winners));
+    if (!prize) return fail("Every prize has been drawn.");
+    const pool = await poolFor(b.event, game, prize.prize_no);
+    const count = drawCount(prize, format === "wheel" || mode !== "all" ? "one" : "all", pool.length);
+    if (count === 0) return fail("No one left to draw. Check the checkpoint and the categories left out.");
+    picked = format === "mosaic"
+      ? await drawSpin({ ...base, prizeNo: prize.prize_no, count, spinEndsAt: null, phase: "draw_rounds", extra: { round: 0, rounds: game.config.rounds } })
+      : await drawSpin({ ...base, prizeNo: prize.prize_no, count, spinEndsAt: at(spinMs), extra: { spin_ms: spinMs } });
+  }
   forgetStage(b.event.id);
   forgetPool(game.id);
   return picked === null ? STALE : { ok: true };
+}
+
+/** Next round of a mosaic draw (D315). After the last one the winners are revealed. */
+export async function roundAction(token: string, expected: number): Promise<HostResult> {
+  const b = await begin(token, expected, "round");
+  if ("ok" in b) return b;
+  const w = roundWrite(b.stage);
+  return w ? commit(b.event, expected, w) : STALE;
+}
+
+/** The host taps the card the participant called out (D317). */
+export async function pickCardAction(token: string, expected: number, cardNo: number): Promise<HostResult> {
+  const b = await begin(token, expected, "pick");
+  if ("ok" in b) return b;
+  const game = b.game;
+  const spun = spinFacts(b.stage);
+  if (game?.kind !== "draw" || !spun || spun.winnerIds.length !== 1 || !b.stage.run_id || !Number.isInteger(cardNo)) return STALE;
+  const prize = await cardPick({ eventId: b.event.id, expected, runId: b.stage.run_id, gameId: game.id, attendeeId: spun.winnerIds[0], cardNo });
+  forgetStage(b.event.id);
+  forgetPool(game.id);
+  return prize === null ? fail("That card is taken, or someone else moved the game on. Showing the latest.") : { ok: true };
 }
 
 export async function presentAction(token: string, expected: number): Promise<HostResult> {
@@ -168,33 +214,37 @@ export async function presentAction(token: string, expected: number): Promise<Ho
 }
 
 /**
- * "Not here — redraw" (D281): the winner is voided, kept on record, and one replacement is drawn
- * for the same prize. The voided person is out of that prize's pool (draw_spin), so the redraw
- * never lands on them again. After "Draw all", the prize's other winners stay on the stage ahead
- * of the replacement (draw_spin's p_keep), so any of them can be sent away in turn; the LED
- * reveals them all again. With no one left to draw, the stage goes back to the reveal of the
- * others (or to the ready screen when there are none). Only a name the stage itself drew can be
- * voided, so the caller cannot void anyone else.
+ * "Not here — redraw" (D281, D318): the winner is voided, kept on record, and one replacement is
+ * drawn for the same prize (or, in a card round, the same turn). The voided person is out of that
+ * prize's pool (draw_spin), so the redraw never lands on them again. After "Draw all", the
+ * prize's other winners stay on the stage ahead of the replacement (draw_spin's p_keep), so any of
+ * them can be sent away in turn; the LED reveals them all again. With no one left to draw, the
+ * stage goes back to the reveal of the others (or to the ready screen when there are none). Only a
+ * name the stage itself drew can be voided, so the caller cannot void anyone else.
  */
 export async function redrawAction(token: string, expected: number, attendeeId: string): Promise<HostResult> {
   const b = await begin(token, expected, "redraw");
   if ("ok" in b) return b;
   const game = b.game;
   const spun = spinFacts(b.stage);
-  // A card round's turn has no prize until a card is picked (D317); Task 11 rewrites this action for that case.
-  if (game?.kind !== "draw" || !spun || spun.prizeNo === null || !isId(attendeeId) || !spun.winnerIds.includes(attendeeId) || !b.stage.run_id || !game.config.checkpoint_id) return STALE;
+  if (game?.kind !== "draw" || !spun || !isId(attendeeId) || !spun.winnerIds.includes(attendeeId) || !b.stage.run_id || !game.config.checkpoint_id) return STALE;
+  const cards = drawExtra(b.stage).cards;
   await voidWinner(game.id, attendeeId);
   forgetPool(game.id);
-  const keep = spun.winnerIds.filter((id) => id !== attendeeId);
-  const pool = await poolFor(b.event, game, spun.prizeNo);
+  // A card round has one participant at a time, so there is nobody else to keep.
+  const keep = cards ? [] : spun.winnerIds.filter((id) => id !== attendeeId);
+  const pool = await poolFor(b.event, game, spun.prizeNo, null, b.stage.run_id);
   if (pool.length === 0) {
     const back = keep.length > 0 ? drawRevealWrite(b.stage, spun.prizeNo, keep) : drawReadyWrite(b.stage);
     return commit(b.event, expected, back, "Marked as not here. No one is left to draw for this prize.");
   }
+  // The wheel spins again; everything else rolls a quick reel for the replacement (D318).
+  const wheel = game.config.format === "wheel";
+  const ms = wheel ? game.config.spin_s * 1000 : QUICK_SPIN_MS;
   const picked = await drawSpin({
     eventId: b.event.id, expected, runId: b.stage.run_id, gameId: game.id, prizeNo: spun.prizeNo, count: 1,
     checkpointId: game.config.checkpoint_id, exclude: game.config.exclude_categories,
-    spinEndsAt: new Date(Date.now() + QUICK_SPIN_MS).toISOString(), keep,
+    spinEndsAt: at(ms), keep, extra: { spin_ms: ms, quick: !wheel, ...(cards ? { cards: true } : {}) },
   });
   forgetStage(b.event.id);
   forgetPool(game.id);
@@ -204,5 +254,10 @@ export async function redrawAction(token: string, expected: number, attendeeId: 
 export async function idleAction(token: string, expected: number): Promise<HostResult> {
   const b = await begin(token, expected, "idle");
   if ("ok" in b) return b;
-  return commit(b.event, expected, idleWrite());
+  const pending = b.stage.phase === "draw_card_pick" && b.game?.kind === "draw" ? spinFacts(b.stage)?.winnerIds ?? [] : [];
+  const r = await commit(b.event, expected, idleWrite());
+  // Only once the stage has really moved: a stale End must not void anyone (D318).
+  if (r.ok && b.game) for (const id of pending) await voidPendingCard(b.game.id, id);
+  if (b.game) forgetPool(b.game.id);
+  return r;
 }
