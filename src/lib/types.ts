@@ -61,6 +61,8 @@ export type Event = {
   scan_extra_fields: string[];
   /** Attendee field keys every export except Attendance carries after its fixed columns, in order. */
   export_fields: string[];
+  /** WhatsApp numbers (60…, no plus) told when change requests wait an hour. */
+  committee_alert_numbers: string[];
   /** Facts shown on the badge card, in order. The first gets the large treatment. */
   pinned_fields: PinnedField[];
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
@@ -288,6 +290,8 @@ export type ActivityChangeRequest = {
   decided_at: string | null;
   /** An `auth.users` id, as `checkins.scanned_by` is. */
   decided_by: string | null;
+  /** When the committee was reminded about it; null until then. Set once. */
+  reminded_at: string | null;
 };
 
 /**

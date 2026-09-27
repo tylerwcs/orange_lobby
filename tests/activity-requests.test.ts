@@ -16,7 +16,7 @@ const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySessi
 const request = (over: Partial<ActivityChangeRequest> = {}): ActivityChangeRequest => ({
   id: "req1", event_id: "e", activity_id: "act1", attendee_id: "att1", kind: "switch",
   from_session_id: "s1", to_session_id: "s2", status: "pending",
-  created_at: "2026-09-21T02:00:00Z", decided_at: null, decided_by: null, ...over,
+  created_at: "2026-09-21T02:00:00Z", decided_at: null, decided_by: null, reminded_at: null, ...over,
 });
 const state = (over: { activity?: Activity; mine?: string[]; counts?: Record<string, number> } = {}) =>
   activityState({
