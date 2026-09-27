@@ -303,3 +303,33 @@ describe("tiles by category", () => {
   });
 });
 
+
+describe("the Games tile", () => {
+  const games = (categories?: string[]) => ({
+    floor_plan_url: null, info_page_title: "Info",
+    modules: [
+      { key: "tile" as const, id: "games", enabled: true, label: "Games", icon: "star" as const, target: { kind: "route" as const, route: "play" as const }, ...(categories ? { categories } : {}) },
+    ],
+  });
+
+  it("parses a tile pointing at the play page, labelled Games in the picker", () => {
+    const [m] = parseModules([{ key: "tile", id: "games", enabled: true, label: "Games", icon: "star", target: { kind: "route", route: "play" } }]);
+    expect(m).toMatchObject({ key: "tile", target: { kind: "route", route: "play" } });
+    expect(TILE_ROUTE_LABELS.play).toBe("Games");
+  });
+
+  it("opens the attendee's own play page", () => {
+    const [t] = resolveTiles({ event: games(), basePath: "/e/kom/a/abcdefghjkmn" });
+    expect(t).toMatchObject({ id: "tile:games", href: "/e/kom/a/abcdefghjkmn/play", route: "play", external: false });
+  });
+
+  it("is left off the public portal, which has no play page (D253)", () => {
+    expect(resolveTiles({ event: games(), basePath: "/e/kom", personal: false })).toEqual([]);
+  });
+
+  it("follows its Who can see it categories, one part of a multi-programme category being enough", () => {
+    const ids = (category: string | null) => resolveTiles({ event: games(["KOM"]), basePath: "/e/kom/a/t", category }).map((t) => t.id);
+    expect(ids("KOM, Wellness")).toEqual(["tile:games"]);
+    expect(ids("YEP")).toEqual([]);
+  });
+});

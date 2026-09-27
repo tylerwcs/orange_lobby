@@ -19,7 +19,10 @@ import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolvePins } from "@/lib/pinned-fields";
 import { eventFields } from "@/lib/attendee-fields";
-import type { Event } from "@/lib/types";
+import type { Attendee, Event } from "@/lib/types";
+import { countGames } from "@/lib/db/games";
+import { phoneState } from "@/lib/games/phone-state";
+import { GameBanner } from "@/components/games/GameBanner";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 
@@ -41,6 +44,16 @@ async function arrivalTime(event: Pick<Event, "id" | "check_in_enabled">, attend
   return at ? isoToLocalInput(at).split("T")[1] : null;
 }
 
+/**
+ * The Game on banner's first state, or null when the banner has nothing to follow: only events
+ * with a game pay for the read (D254), and an archived event's play endpoints are closed.
+ * Built here, outside render, because the state is taken at the moment of the request.
+ */
+async function gameBanner(event: Event, attendee: Attendee, hasGames: boolean) {
+  if (!hasGames || event.status === "archived") return null;
+  return phoneState({ event, attendee }, null, Date.now());
+}
+
 export default async function PersonalHome({ params, searchParams }: {
   params: Promise<{ slug: string; token: string }>;
   searchParams: Promise<Record<string, string | undefined>>;
@@ -60,6 +73,7 @@ export default async function PersonalHome({ params, searchParams }: {
     qr,
     hasInfo,
     activities,
+    games,
   ] = await Promise.all([
     loadHomeData(event, attendee, basePath, requestedDay),
     arrivalTime(event, attendee.id),
@@ -68,9 +82,14 @@ export default async function PersonalHome({ params, searchParams }: {
     // The same answer the layout already read (its queries are memoised): whether there is an
     // Activities button, and whether it carries the dot.
     loadActivityNav(event, attendee),
+    countGames(event.id),
   ]);
-  // Only an attendee who can see an activity pays for the cards' queries (D214).
-  const cards = activities.show ? activityCards(await loadActivityEntries(event, attendee), basePath) : [];
+  // Only an attendee who can see an activity pays for the cards' queries (D214), and only an
+  // event with a game for the banner's first state; the two do not wait on each other.
+  const [cards, game] = await Promise.all([
+    activities.show ? loadActivityEntries(event, attendee).then((entries) => activityCards(entries, basePath)) : [],
+    gameBanner(event, attendee, games > 0),
+  ]);
   const launcher = launcherItems({ basePath, personal: true, hasInfo, activities, tiles, icons: sectionIcons(event.section_icons) });
 
   return (
@@ -88,6 +107,7 @@ export default async function PersonalHome({ params, searchParams }: {
       <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
         <div className="flex flex-col gap-4 md:gap-5">
+          {game && <GameBanner token={token} basePath={basePath} initial={game} />}
           <BadgeCard attendee={attendee} door={event.check_in_enabled} qr={qr} checkedInAt={checkedInAt} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields))} />
           <div className="md:hidden">
             {/* No announcements yet: the banner's place holds the home-screen guide instead (D232). */}

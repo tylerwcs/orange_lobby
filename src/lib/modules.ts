@@ -34,8 +34,14 @@ export type ModuleIcon = (typeof MODULE_ICONS)[number];
  * `plan` is deliberately absent: the floor plan is its own preset, because it carries the
  * image URL the page needs and a generic route tile has nowhere to put one.
  */
-export const TILE_ROUTES = ["agenda", "announcements", "info", "me", "seat", "stamps", "activities"] as const;
+export const TILE_ROUTES = ["agenda", "announcements", "info", "me", "seat", "stamps", "activities", "play"] as const;
 export type TileRoute = (typeof TILE_ROUTES)[number];
+
+/**
+ * Routes that only exist on a personal link. Playing needs an identity (D253), so the public
+ * portal has no play page and a Games tile is left off its home rather than drawn as a 404.
+ */
+const PERSONAL_ONLY_ROUTES: ReadonlySet<TileRoute> = new Set<TileRoute>(["play"]);
 
 /**
  * The human label for each route, shown in the tile editor's "Portal page" picker instead
@@ -50,6 +56,7 @@ export const TILE_ROUTE_LABELS: Record<TileRoute, string> = {
   seat: "My seat",
   stamps: "Booth Passport",
   activities: "Activities",
+  play: "Games",
 };
 
 export type TileTarget = { kind: "url"; url: string } | { kind: "route"; route: TileRoute };
@@ -199,14 +206,16 @@ const safeImage = (url: string | undefined): string | null => (url && SAFE_URL.t
  * and with them the only reason this function needed to know anything about who is looking
  * or what is happening. It depended on the event and the path alone until tiles gained
  * categories: `category` is the viewer's (null on the public portal), and a tile for other
- * programmes is left off their home (categoryMatches, as on agenda rows).
+ * programmes is left off their home (categoryMatches, as on agenda rows). `personal` is false on
+ * the public portal, which drops a tile for a page only a personal link has (the Games tile).
  */
 export function resolveTiles(input: {
   event: Pick<Event, "floor_plan_url" | "info_page_title" | "modules">;
   basePath: string;
   category?: string | null;
+  personal?: boolean;
 }): Tile[] {
-  const { event, basePath, category = null } = input;
+  const { event, basePath, category = null, personal = true } = input;
   const modules = event.modules?.length ? event.modules : defaultModules();
   const out: Tile[] = [];
   for (const m of modules) {
@@ -222,6 +231,7 @@ export function resolveTiles(input: {
         out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.target.url, icon: m.icon, image: safeImage(m.icon_image), route: null, external: true });
         continue;
       }
+      if (!personal && PERSONAL_ONLY_ROUTES.has(m.target.route)) continue;
       out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: `${basePath}/${m.target.route}`, icon: m.icon, image: safeImage(m.icon_image), route: m.target.route, external: false });
       continue;
     }
