@@ -6,7 +6,13 @@ import { MAX_REELS, reelLayout } from "@/lib/games/layout";
 import { wheelLabel } from "@/lib/games/wheel";
 import { useServerNow } from "../usePoll";
 import { Frame } from "./Frame";
+import { MosaicDraw } from "./MosaicDraw";
 import { JointWinners, WinnerCard } from "./WinnerCard";
+
+// Kept equal to CardTable's FLIP_END_MS, not imported from it: three/CardTable pulls in three.js,
+// which the display page must only reach through the dynamic, ssr:false Layer3D import (Global
+// Constraints) — importing it here would put three.js in this page's own bundle too.
+const FLIP_END_MS = 2000; // keep equal to CardTable's FLIP_END_MS
 
 /**
  * The lucky draw on the LED (D279–D282, D310–D319): the HTML over the 3D scenes — titles, the
@@ -25,6 +31,37 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
   const wheelSpinning = s.phase === "draw_spinning" && d.format === "wheel" && !d.quick;
   const cascading = s.phase === "draw_spinning" && (d.targets?.length ?? 0) > MAX_REELS;
   const now = useServerNow(offset, 100, cascading || wheelSpinning);
+
+  if (s.phase === "draw_rounds" && d.mosaic) return <MosaicDraw title={title} prize={d.prize} mosaic={d.mosaic} seed={s.key} />;
+
+  if (d.format === "cards" && d.cards && s.phase !== "draw_spinning" && s.phase !== "draw_reveal") {
+    const left = d.cards.slots.filter((c) => !c.taken).length;
+    const who = d.cards.participant;
+    const picked = d.cards.slots.find((c) => c.no === d.cards!.picked);
+    if (s.phase === "draw_card_pick" && who) {
+      return (
+        <Frame title="Pick a card!" right={`${left} left`}>
+          <motion.p initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+            className="-mt-4 text-center font-game text-7xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">{who.name}</motion.p>
+        </Frame>
+      );
+    }
+    if (s.phase === "draw_card_reveal" && who && picked?.prize) {
+      return (
+        <Frame title={title}>
+          <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: FLIP_END_MS / 1000 }}
+            className="absolute inset-x-0 bottom-14 text-center font-game text-6xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
+            {who.name} wins {picked.prize}
+          </motion.p>
+        </Frame>
+      );
+    }
+    return (
+      <Frame title={title} right={`${left} ${left === 1 ? "card" : "cards"} left`}>
+        {left === 0 && <div className="flex h-full items-center justify-center font-game text-8xl">All cards dealt 🎉</div>}
+      </Frame>
+    );
+  }
 
   if (s.phase === "draw_ready") {
     if (d.format === "wheel") {
@@ -64,7 +101,7 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
       );
     }
     return (
-      <Frame title={title} right={d.prize ?? ""}>
+      <Frame title={d.format === "cards" ? "Who picks next?" : title} right={d.prize ?? ""}>
         {targets.length > MAX_REELS
           ? <Cascade people={targets} endsAt={s.endsAt} now={now} />
           : <ReelFrames count={targets.length} />}

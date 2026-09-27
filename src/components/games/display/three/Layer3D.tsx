@@ -8,6 +8,7 @@ import { ThemeBackdrop } from "./ThemeBackdrop";
 import { Confetti3D } from "./Confetti3D";
 import { SlotReels } from "./SlotReels";
 import { Wheel } from "./Wheel";
+import { CardTable } from "./CardTable";
 
 /**
  * Everything the LED draws in 3D (D293), in the one canvas: the Theme background, the winner
@@ -26,7 +27,7 @@ export default function Layer3D({ state, offset, synth, theme, onLost }: { state
   );
 }
 
-/** Which 3D draw scene is on (D313–D317). Tasks 17 and 18 add the wheel and the card table. */
+/** Which 3D draw scene is on (D313–D317). */
 function DrawScene3D({ state, offset, synth }: { state: DisplayState; offset: number; synth: Synth }) {
   const s = state.stage;
   const d = state.draw;
@@ -43,6 +44,10 @@ function DrawScene3D({ state, offset, synth }: { state: DisplayState; offset: nu
       <Wheel key={spin ? s.key : "resting"} people={d.wheel} targetId={spin ? d.targets?.[0]?.id ?? null : null}
         endsAt={spin ? s.endsAt : null} spinMs={spin ? d.spinMs : null} offset={offset} synth={synth} colour={state.event.colour} />
     );
+  }
+  if (d.cards && (s.phase === "draw_ready" || s.phase === "draw_card_pick" || s.phase === "draw_card_reveal")) {
+    const revealing = s.phase === "draw_card_reveal";
+    return <CardTable key={revealing ? s.key : "table"} cards={d.cards.slots} picked={d.cards.picked} revealing={revealing} synth={synth} colour={state.event.colour} />;
   }
   return null;
 }
