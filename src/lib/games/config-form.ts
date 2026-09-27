@@ -50,6 +50,10 @@ function explain(error: z.ZodError): string {
   if (field === "prizes" && typeof index === "number") return `Prize ${index + 1} needs a name and a quantity from 1 to 500.`;
   if (field === "prizes") return "Up to 50 prizes.";
   if (field === "checkpoint_id") return "Pick a checkpoint from the list.";
+  if (field === "spin_s") return "Spin time is 3 to 20 seconds.";
+  if (field === "rounds") return "Rounds are 2 to 8.";
+  if (field === "format") return "Pick a format for the draw.";
+  if (field === "cards") return "A card round has at most 20 cards: its prize quantities must add up to 20 or fewer.";
   return "Something on the form is not right. Check it and save again.";
 }
 
@@ -71,6 +75,9 @@ export function configFromForm(kind: GameKind, form: Form): ConfigResult {
     checkpoint_id: String(form.get("checkpoint_id") ?? "") || null,
     exclude_categories: form.getAll("exclude").map(String),
     prizes,
+    format: String(form.get("format") ?? "slot"),
+    spin_s: int(form.get("spin_s")),
+    rounds: int(form.get("rounds")),
   });
   return r.success ? { ok: true, config: r.data } : { ok: false, error: explain(r.error) };
 }

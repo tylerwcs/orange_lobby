@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { backgroundSchema } from "@/lib/games/background";
 
 /**
  * The games an event can run on its LED (D250). Keys may be added but never removed, or
@@ -15,6 +16,7 @@ export const GAME_KIND_LABELS: Record<GameKind, string> = {
 
 export const raceConfigSchema = z.object({
   duration_s: z.number().int().min(10).max(60).default(20),
+  background: backgroundSchema,
 });
 
 const questionSchema = z
@@ -28,12 +30,31 @@ const questionSchema = z
 export const survivalConfigSchema = z.object({
   answer_s: z.number().int().min(5).max(30).default(10),
   questions: z.array(questionSchema).max(50).default([]),
+  background: backgroundSchema,
 });
 
 const prizeSchema = z.object({
   name: z.string().trim().min(1).max(80),
   quantity: z.number().int().min(1).max(500),
 });
+
+/** How a lucky draw plays on the LED (D310). Keys may be added but never removed. */
+export const DRAW_FORMATS = ["slot", "wheel", "mosaic", "cards"] as const;
+export type DrawFormat = (typeof DRAW_FORMATS)[number];
+
+export const DRAW_FORMAT_LABELS: Record<DrawFormat, string> = {
+  slot: "Slot machine",
+  wheel: "Wheel of names",
+  mosaic: "Mosaic elimination",
+  cards: "Card round",
+};
+
+/** A card round deals one card per prize unit, at most this many (D317). */
+export const MAX_CARDS = 20;
+
+export function prizeUnits(prizes: { quantity: number }[]): number {
+  return prizes.reduce((sum, p) => sum + p.quantity, 0);
+}
 
 export const drawConfigSchema = z.object({
   // Read tolerantly: a stored value that is not an id (an older build let one through) reads as
@@ -42,10 +63,21 @@ export const drawConfigSchema = z.object({
   checkpoint_id: z.uuid().nullable().catch(null),
   exclude_categories: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
   prizes: z.array(prizeSchema).max(50).default([]),
+  // Existing draws read as a slot machine; an unknown stored format does too (D310).
+  format: z.enum(DRAW_FORMATS).catch("slot"),
+  spin_s: z.number().int().min(3).max(20).default(6),
+  rounds: z.number().int().min(2).max(8).default(4),
+  background: backgroundSchema,
 });
 
-/** What the draw editor may save: the checkpoint must be an id (updateGameAction checks it is this event's). */
-export const drawFormSchema = drawConfigSchema.extend({ checkpoint_id: z.uuid().nullable() });
+/**
+ * What the draw editor may save: the checkpoint must be an id (updateGameAction checks it is
+ * this event's), the format must be a real one, and a card round deals at most MAX_CARDS cards.
+ * The 20-card limit lives here, not in drawConfigSchema, so a stored row over it still reads.
+ */
+export const drawFormSchema = drawConfigSchema
+  .extend({ checkpoint_id: z.uuid().nullable(), format: z.enum(DRAW_FORMATS) })
+  .refine((c) => c.format !== "cards" || prizeUnits(c.prizes) <= MAX_CARDS, { path: ["cards"], message: "Too many cards." });
 
 export type RaceConfig = z.infer<typeof raceConfigSchema>;
 export type Question = z.infer<typeof questionSchema>;
@@ -100,6 +132,6 @@ export function gameSummary(g: Game): string {
     return `${n} question${n === 1 ? "" : "s"} · ${g.config.answer_s} s each`;
   }
   const n = g.config.prizes.length;
-  const total = g.config.prizes.reduce((sum, p) => sum + p.quantity, 0);
-  return `${n} prize${n === 1 ? "" : "s"} · ${total} to give`;
+  const total = prizeUnits(g.config.prizes);
+  return `${DRAW_FORMAT_LABELS[g.config.format]} · ${n} prize${n === 1 ? "" : "s"} · ${total} to give`;
 }
