@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent, rotateDisplayToken, rotateHostToken } from "@/lib/db/events";
 import { createGame, deleteGame, getGame, listGames, resetDraw, updateGame } from "@/lib/db/games";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { GAME_KIND_LABELS, isGameKind, parseConfig, type DrawGame } from "@/lib/games/config";
+import { GAME_KIND_LABELS, gameMediaUrls, isGameKind, parseConfig, type Game } from "@/lib/games/config";
 import { configFromForm } from "@/lib/games/config-form";
 import { backgroundFromForm } from "@/lib/games/background";
 import { acceptImage, acceptVideo, isEventMediaFor, isGameVideoFor, mediaPathInEvent, type ImageKind } from "@/lib/storage";
@@ -104,36 +104,27 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
   const typedConfig = parseConfig(game.kind, parsed.config);
   if (!typedConfig) redirect(flashPath(path, "Something on the form is not right. Check it and save again.", "error"));
   const title = (String(form.get("title") ?? "").trim() || game.title).slice(0, 80);
-  // Prize pictures and the card back this save drops or replaces — the same "diff the URLs,
-  // delete only after the write lands" rule as the background image/video below, computed here
-  // (against the config that is ABOUT to be stored) so the write itself is not delayed by it.
-  const staleMedia: string[] = [];
-  if (game.kind === "draw") {
-    const oldCfg = game.config as { prizes: { image: string | null }[]; card_back: string | null };
-    const newCfg = typedConfig as { prizes: { image: string | null }[]; card_back: string | null };
-    const oldUrls = [...oldCfg.prizes.map((p) => p.image), oldCfg.card_back].filter((u): u is string => !!u);
-    const newUrls = new Set([...newCfg.prizes.map((p) => p.image), newCfg.card_back].filter((u): u is string => !!u));
-    staleMedia.push(...oldUrls.filter((u) => !newUrls.has(u)));
-  }
-  await updateGame(game.id, ev.id, { title, config: { ...typedConfig, background: bg.background } });
-  // The file this save replaced goes only once the row no longer names it (see nextImage) —
-  // and only when it is actually ours to remove: a URL outside this event's folder is left
-  // alone rather than handed to the service-role delete.
-  if (current.url && current.url !== bg.background.url && mediaPathInEvent(current.url, supabaseUrl, ev.org_id, ev.id)) {
-    await deleteEventImage(current.url);
-  }
+  // Every media URL (the background, and for a draw, each prize's picture and the card back)
+  // this save drops or replaces — diffed here, against the config that is ABOUT to be stored,
+  // so the write itself is not delayed by it. `newConfig` is the exact shape `updateGame` writes
+  // below: `typedConfig`'s own `background` is only a placeholder (configFromForm never reads
+  // the background_kind/_image/_video fields — backgroundFromForm does, above), so the real one
+  // is spliced in here too, same as the write.
+  const newConfig = { ...typedConfig, background: bg.background };
+  const oldUrls = gameMediaUrls(game);
+  const newUrls = new Set(gameMediaUrls({ ...game, config: newConfig } as Game));
+  const staleMedia = oldUrls.filter((u) => !newUrls.has(u));
+  await updateGame(game.id, ev.id, { title, config: newConfig });
   if (staleMedia.length > 0) {
-    // A URL this save drops might still be in use — a crafted post could have copied another
-    // draw's prize picture or card back into this one's config, and a legitimate organiser can
-    // reuse an image across two draws by pasting the same upload in twice. Either way, deleting
-    // it here would pull the file out from under whichever other game still names it, so every
-    // other game of this event is checked before anything is removed.
-    const others = (await listGames(ev.id)).filter((g): g is DrawGame => g.id !== game.id && g.kind === "draw");
-    const inUseElsewhere = new Set<string>();
-    for (const g of others) {
-      for (const p of g.config.prizes) if (p.image) inUseElsewhere.add(p.image);
-      if (g.config.card_back) inUseElsewhere.add(g.config.card_back);
-    }
+    // A URL this save drops might still be in use by another game of this event — its
+    // background, or (for a draw) a prize picture or card back — whether through a legitimate
+    // reused upload or a crafted post copying another game's URL in and back out. Deleting it
+    // here would pull the file out from under whichever other game still names it, so every
+    // other game of the event (any kind, not only draws) is checked before anything is removed.
+    // Only when it is actually ours to remove, too: a URL outside this event's folder is left
+    // alone rather than handed to the service-role delete (mirrors nextImage's own delete).
+    const others = (await listGames(ev.id)).filter((g) => g.id !== game.id);
+    const inUseElsewhere = new Set(others.flatMap(gameMediaUrls));
     for (const u of staleMedia) {
       if (inUseElsewhere.has(u)) continue;
       if (mediaPathInEvent(u, supabaseUrl, ev.org_id, ev.id)) await deleteEventImage(u);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  defaultConfig, parseConfig, hydrateGame, gameSummary, isGameKind,
+  defaultConfig, parseConfig, hydrateGame, gameMediaUrls, gameSummary, isGameKind,
   DRAW_FORMAT_LABELS, drawFormSchema, prizeUnits, MAX_CARDS,
 } from "@/lib/games/config";
 
@@ -140,5 +140,30 @@ describe("prize picture and card back (games polish, D323)", () => {
     const long = "https://x.test/" + "a".repeat(2000);
     expect(parseConfig("draw", { prizes: [{ name: "iPad", quantity: 1, image: long }] })?.prizes[0].image).toBeNull();
     expect(parseConfig("draw", { card_back: long })?.card_back).toBeNull();
+  });
+});
+
+describe("gameMediaUrls (games polish fix round 2, D323)", () => {
+  const bgImage = (url: string) => ({ background: { kind: "image", url } });
+
+  it("has nothing for a race or last one standing with a Theme background", () => {
+    expect(gameMediaUrls(hydrateGame(row("tap_race", {}))!)).toEqual([]);
+    expect(gameMediaUrls(hydrateGame(row("survival", {}))!)).toEqual([]);
+  });
+  it("includes a race's or last one standing's background image", () => {
+    expect(gameMediaUrls(hydrateGame(row("tap_race", bgImage("https://cdn.test/bg1.png")))!)).toEqual(["https://cdn.test/bg1.png"]);
+    expect(gameMediaUrls(hydrateGame(row("survival", bgImage("https://cdn.test/bg2.png")))!)).toEqual(["https://cdn.test/bg2.png"]);
+  });
+  it("includes a draw's background, every prize picture and the card back, skipping unset ones", () => {
+    const g = hydrateGame(row("draw", {
+      ...bgImage("https://cdn.test/bg.png"),
+      prizes: [{ name: "iPad", quantity: 1, image: "https://cdn.test/ipad.png" }, { name: "Mug", quantity: 1, image: null }],
+      card_back: "https://cdn.test/back.png",
+    }))!;
+    expect(gameMediaUrls(g)).toEqual(["https://cdn.test/bg.png", "https://cdn.test/ipad.png", "https://cdn.test/back.png"]);
+  });
+  it("has nothing for a draw with a Theme background, no prize pictures and no card back", () => {
+    const g = hydrateGame(row("draw", { prizes: [{ name: "iPad", quantity: 1 }] }))!;
+    expect(gameMediaUrls(g)).toEqual([]);
   });
 });

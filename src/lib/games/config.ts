@@ -129,6 +129,19 @@ export function hydrateGame(row: unknown): Game | null {
   } as Game;
 }
 
+/**
+ * Every media URL a game's config points at: its LED background, and — for a draw — each
+ * prize's picture and the card back (D323). The one rule both of `updateGameAction`'s delete
+ * checks go through: "is this URL still in use by some other game of the event" means the same
+ * thing whether the URL came from the background field or a draw's prizes/card_back, so both
+ * checks read the same list rather than one checking a hand-picked subset of fields.
+ */
+export function gameMediaUrls(game: Game): string[] {
+  const urls: (string | null)[] = [game.config.background.url];
+  if (game.kind === "draw") urls.push(...game.config.prizes.map((p) => p.image), game.config.card_back);
+  return urls.filter((u): u is string => !!u);
+}
+
 /** One line for the admin list row and the host's game picker. */
 export function gameSummary(g: Game): string {
   if (g.kind === "tap_race") return `${g.config.duration_s} s race`;
