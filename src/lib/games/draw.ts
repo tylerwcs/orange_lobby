@@ -84,3 +84,13 @@ export function poolBeforeDraw<A extends { id: string }>(pool: A[], drawn: A[]):
   for (const a of drawn) if (!byId.has(a.id)) byId.set(a.id, a);
   return [...byId.values()].sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
 }
+
+export type CheckinRow = { attendee_id: string; scanned_at: string };
+
+/**
+ * Who had checked in by `at` (D316): a wheel or mosaic shows the pool as it stood when the draw
+ * was made, so someone scanning in mid-draw adds no slice or tile. Null = everyone so far.
+ */
+export function checkedInBy(rows: CheckinRow[], at: number | null): Set<string> {
+  return new Set(rows.filter((r) => at === null || Date.parse(r.scanned_at) <= at).map((r) => r.attendee_id));
+}

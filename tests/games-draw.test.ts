@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { absentFor, eligiblePool, standingWinners, prizeProgress, nextPrize, drawCount, poolBeforeDraw, type WinnerRow } from "@/lib/games/draw";
+import { absentFor, eligiblePool, standingWinners, prizeProgress, nextPrize, drawCount, poolBeforeDraw, checkedInBy, type WinnerRow } from "@/lib/games/draw";
 
 const a = (id: string, category: string | null = "Staff") => ({ id, category });
 const win = (attendee_id: string, prize_no = 0, isVoid = false): WinnerRow =>
@@ -91,6 +91,19 @@ describe("drawCount", () => {
   });
   it("never draws more than the pool holds", () => {
     expect([drawCount(prize, "all", 2), drawCount(prize, "one", 0)]).toEqual([2, 0]);
+  });
+});
+
+describe("checkedInBy (D316)", () => {
+  const rows = [
+    { attendee_id: "a", scanned_at: "2026-10-01T02:00:00Z" },
+    { attendee_id: "b", scanned_at: "2026-10-01T02:05:00Z" },
+  ];
+  it("is everyone so far with no draw time", () => {
+    expect(checkedInBy(rows, null)).toEqual(new Set(["a", "b"]));
+  });
+  it("is only who had checked in by the draw", () => {
+    expect(checkedInBy(rows, Date.parse("2026-10-01T02:01:00Z"))).toEqual(new Set(["a"]));
   });
 });
 

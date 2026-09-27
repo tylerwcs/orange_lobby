@@ -5,7 +5,7 @@ import { defaultConfig, hydrateGame, type Game, type GameKind } from "@/lib/game
 import { hydrateStage, type StageRow, type StageWrite } from "@/lib/games/phase";
 import { parseGrouping, type Grouping, type TapRow } from "@/lib/games/race";
 import type { PlayerRow } from "@/lib/games/survival";
-import type { WinnerRow } from "@/lib/games/draw";
+import type { CheckinRow, WinnerRow } from "@/lib/games/draw";
 
 const PAGE = 1000;
 
@@ -91,16 +91,18 @@ export async function writeStage(eventId: string, expected: number, w: StageWrit
 
 // --- Runs ---
 
-export type Run = { id: string; event_id: string; game_id: string; grouping: Grouping; started_at: string };
+export type Run = { id: string; event_id: string; game_id: string; grouping: Grouping; started_at: string; deck: number[] | null };
 
 const hydrateRun = (r: Record<string, unknown>): Run => ({
   id: r.id as string, event_id: r.event_id as string, game_id: r.game_id as string,
   grouping: parseGrouping(r.grouping), started_at: r.started_at as string,
+  deck: Array.isArray(r.deck) ? (r.deck as unknown[]).filter((x): x is number => typeof x === "number") : null,
 });
 
-export async function createRun(game: Game, grouping: Grouping): Promise<Run> {
+/** A new play-through. A card round's run carries its shuffled deck (D317). */
+export async function createRun(game: Game, grouping: Grouping, deck: number[] | null = null): Promise<Run> {
   const { data, error } = await serviceClient().from("game_runs")
-    .insert({ event_id: game.event_id, game_id: game.id, grouping }).select("*").single();
+    .insert({ event_id: game.event_id, game_id: game.id, grouping, deck }).select("*").single();
   if (error) throw error;
   return hydrateRun(data);
 }
@@ -125,6 +127,12 @@ export async function listCheckedInIds(eventId: string, checkpointId: string): P
   const rows = await selectAll<{ attendee_id: string }>((from, to) => serviceClient().from("checkins")
     .select("attendee_id").eq("event_id", eventId).eq("checkpoint_id", checkpointId).order("attendee_id").range(from, to));
   return new Set(rows.map((r) => r.attendee_id));
+}
+
+/** A checkpoint's check-ins with their times, for a pool frozen at the draw (D316). */
+export async function listCheckins(eventId: string, checkpointId: string): Promise<CheckinRow[]> {
+  return selectAll<CheckinRow>((from, to) => serviceClient().from("checkins")
+    .select("attendee_id, scanned_at").eq("event_id", eventId).eq("checkpoint_id", checkpointId).order("attendee_id").range(from, to));
 }
 
 /** The attendee a personal link belongs to. `attendees.token` is unique across the table. */
@@ -236,20 +244,44 @@ export async function listEventWinners(eventId: string): Promise<WinnerRow[]> {
 }
 
 /**
- * Draws and moves the stage to the spin in one transaction (D280). Null when stale. `keep` is a
- * redraw's other winners, left on the stage ahead of the replacement (D281).
+ * Draws and moves the stage on in one transaction (D280). Null when stale or refused. `keep` is
+ * a redraw's other winners, left on the stage ahead of the replacement (D281). `prizeNo` null is
+ * a card round's turn (D317); `phase` "draw_rounds" opens the mosaic's rounds, with no end time
+ * (D315); `extra` is merged into phase_data (spin_ms, quick, cards, round, rounds).
  */
 export async function drawSpin(a: {
-  eventId: string; expected: number; runId: string; gameId: string; prizeNo: number; count: number;
-  checkpointId: string; exclude: string[]; spinEndsAt: string; keep?: string[];
+  eventId: string; expected: number; runId: string; gameId: string; prizeNo: number | null; count: number;
+  checkpointId: string; exclude: string[]; spinEndsAt: string | null; keep?: string[];
+  phase?: "draw_spinning" | "draw_rounds"; extra?: Record<string, unknown>;
 }): Promise<string[] | null> {
   const { data, error } = await serviceClient().rpc("draw_spin", {
     p_event_id: a.eventId, p_expected: a.expected, p_run_id: a.runId, p_game_id: a.gameId,
     p_prize_no: a.prizeNo, p_count: a.count, p_checkpoint_id: a.checkpointId,
     p_exclude: a.exclude, p_spin_ends_at: a.spinEndsAt, p_keep: a.keep ?? [],
+    p_phase: a.phase ?? "draw_spinning", p_extra: a.extra ?? {},
   });
   if (error) throw error;
   return (data as string[] | null) ?? null;
+}
+
+/** The host taps the card the participant called (D317). The prize number, or null when refused. */
+export async function cardPick(a: { eventId: string; expected: number; runId: string; gameId: string; attendeeId: string; cardNo: number }): Promise<number | null> {
+  const { data, error } = await serviceClient().rpc("card_pick", {
+    p_event_id: a.eventId, p_expected: a.expected, p_run_id: a.runId, p_game_id: a.gameId,
+    p_attendee_id: a.attendeeId, p_card_no: a.cardNo,
+  });
+  if (error) throw error;
+  return typeof data === "number" ? data : null;
+}
+
+/**
+ * End game while a participant is still to pick (D318): they are voided, so they are not left
+ * holding a draw with no prize, which would keep them out of every later draw.
+ */
+export async function voidPendingCard(gameId: string, attendeeId: string): Promise<void> {
+  const { error } = await serviceClient().from("draw_winners").update({ void: true })
+    .eq("game_id", gameId).eq("attendee_id", attendeeId).eq("void", false).is("card_no", null).is("prize_no", null);
+  if (error) throw error;
 }
 
 /** "Not here" (D281): the winner stays on record, struck through, and may win again, but not this prize. */
@@ -260,8 +292,14 @@ export async function voidWinner(gameId: string, attendeeId: string): Promise<bo
   return (data?.length ?? 0) > 0;
 }
 
-/** Clears a draw's winners, e.g. after a rehearsal, so everyone is back in the pool. */
+/**
+ * Clears a draw's winners, e.g. after a rehearsal, so everyone is back in the pool. A card
+ * round's decks go too (D322), so reopening deals a fresh one.
+ */
 export async function resetDraw(gameId: string): Promise<void> {
-  const { error } = await serviceClient().from("draw_winners").delete().eq("game_id", gameId);
+  const db = serviceClient();
+  const { error } = await db.from("draw_winners").delete().eq("game_id", gameId);
   if (error) throw error;
+  const { error: deckError } = await db.from("game_runs").update({ deck: null }).eq("game_id", gameId);
+  if (deckError) throw deckError;
 }
