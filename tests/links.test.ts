@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { attendeeLink, attendeePath, genericLink, registrationLink, boothScannerLink, crewLink } from "@/lib/links";
+import { attendeeLink, attendeePath, genericLink, registrationLink, boothScannerLink, crewLink, hostLink, displayLink } from "@/lib/links";
 
 describe("links", () => {
   const base = "https://events.ecopiaevents.com/";
@@ -42,5 +42,14 @@ describe("attendeePath", () => {
   it("is what attendeeLink appends to its base, so the two cannot drift", () => {
     expect(attendeeLink("https://events.example.com", "kom-2026", "abcdefghjkmn"))
       .toBe("https://events.example.com" + attendeePath("kom-2026", "abcdefghjkmn"));
+  });
+});
+
+describe("game links (D252)", () => {
+  it("puts the host console outside the portal, by token alone", () => {
+    expect(hostLink("https://ecphub.vercel.app/", "abcdefghjkmn")).toBe("https://ecphub.vercel.app/host/abcdefghjkmn");
+  });
+  it("puts the LED display outside the portal, by token alone", () => {
+    expect(displayLink("https://ecphub.vercel.app", "abcdefghjkmn")).toBe("https://ecphub.vercel.app/display/abcdefghjkmn");
   });
 });

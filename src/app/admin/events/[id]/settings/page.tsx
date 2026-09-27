@@ -15,7 +15,7 @@ import { ImageField } from "@/components/admin/ImageField";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { CopyButton } from "@/components/admin/CopyButton";
+import { ShareLink } from "@/components/admin/ShareLink";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,18 +73,6 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
  * happen to be standing.
  */
 const SAVE_NOTE = "Saves every tab, not just this one. Changes apply to the portal immediately.";
-
-function ShareLink({ label, url }: { label: string; url: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="flex items-center gap-2">
-        <a href={url} className="min-w-0 flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-xs text-primary">{url}</a>
-        <CopyButton value={url} label={`${label.toLowerCase()} link`} />
-      </div>
-    </div>
-  );
-}
 
 export default async function Settings({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

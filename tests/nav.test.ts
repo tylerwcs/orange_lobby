@@ -26,7 +26,7 @@ describe("groupsFor", () => {
   it("orders the groups the way the sidebar reads", () => {
     const labels = groupsFor({ id: "e1", check_in_enabled: true }).map((g) => [g.title, g.items.map((i) => i.label)]);
     expect(labels).toEqual([
-      ["Onsite", ["Overview", "Attendees", "Scanner"]],
+      ["Onsite", ["Overview", "Attendees", "Games", "Scanner"]],
       ["Portal", ["Agenda", "Info page", "Announcements", "Modules", "Activities"]],
       ["Event", ["WhatsApp", "Settings", "Exports"]],
     ]);
