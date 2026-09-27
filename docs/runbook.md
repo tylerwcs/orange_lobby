@@ -576,6 +576,8 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
 - Each game has an **LED background**: Theme (moving, in the event colour, with the logo), Green
   screen (solid #00B140 for the AV team to key out — tell them the colour), an image, or a looping
   video (MP4/WebM, up to 30 MB).
+- Green screen keys out anything green: if the event's colour is green, pick another background
+  or ask for a different accent colour.
 - On the AV laptop, open the display link with `?test` on the end (for example
   `…/display/abcd?test`) and click to start. It plays a reel, a wheel, a card flip and a winner,
   with sound, and never touches the stage. If it says the display needs hardware graphics, switch
@@ -597,7 +599,8 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
   a "KOM, Crew" attendee. The tick list offers each part on its own.
 - A draw only picks people checked in at its checkpoint who have not already won.
 - **Mosaic draw:** the winners are drawn when the host presses the first button; each **Next
-  round** only fades tiles out. Nobody can tell the winners from the screen until the last round.
+  round** only fades tiles out. Nobody can tell the winners from the screen until the last round,
+  which leaves only the winners' tiles standing; the next press (**Show the winner**) names them.
 - **Card round:** the host taps the card the person calls out. **Not here** works only before a
   card is picked. **End game** while someone is still to pick sends them away (they can be drawn
   again in another draw).
@@ -612,11 +615,14 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
   screen, keeps the screen awake). A reload is harmless — it comes back to wherever the game is.
 - Host phone: open the host link. If it dies, open the same link on any other phone; nothing is
   lost.
-- Attendees get a **Game on — tap to join** banner on their portal home while a game is open.
+- Attendees get a **Game on!** banner with a **Join now** button on their portal home while a
+  game is open (it says **Play** once the game is under way).
 
 **If something goes wrong**
 - "Someone else moved the game on": two host phones are open. Use one.
 - LED frozen: reload it (F5), then click to start again.
+- If the display ever shows "Click to start display" mid-show (the graphics card reset), click it
+  once — the game carries on from where the stage is.
 - A draw winner isn't in the room: **Not here** (tap twice) draws a replacement for the same
   prize; the absent winner stays on the winners list, struck through, and is never redrawn for
   that prize (they can still win a later one). After **Draw all**, the other winners stay on the
