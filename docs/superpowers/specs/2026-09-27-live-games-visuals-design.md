@@ -1,7 +1,7 @@
 # Live games visuals — design
 
 Date: 2026-09-27
-Status: design approved, not built
+Status: built 2026-09-27, migration 0050 applied
 Decisions D290–D322. Builds on [2026-09-26-live-games-design.md](2026-09-26-live-games-design.md)
 (D250–D289); where the two disagree, this one wins and says so.
 Target: after the KOM pilot (30 Sep 2026); not part of it.

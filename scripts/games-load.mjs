@@ -12,10 +12,9 @@
 // finish; then open last one standing and run 3 questions. Phones join every lobby, tap 6–10
 // times a second in batches, and answer at random 0.5–4 s into each question.
 //
-// PASS: state p95 < 300 ms, no 5xx, and — when a display token is given and the stage ends on a
-// race's results — the LED's lane totals equal the taps the server accepted. Run once per race:
-// taps from real phones in the same race, or a second race in the same run, make the numbers
-// differ legitimately.
+// PASS: state p95 < 300 ms, no 5xx, and the taps stored for the race on stage equal the taps the
+// server accepted. Run once per race: taps from real phones in the same race, or a second race
+// in the same run, make the numbers differ legitimately.
 //
 // SAFETY: refuses the event with slug `ecphub` (the live event) in every command, refuses a
 // display token that is not this event's, and only ever touches attendees it seeded itself
@@ -239,23 +238,25 @@ async function run(base, eventId, n, seconds, displayToken) {
   const state = stats.get("state");
   if (state && pct(state.ms, 95) >= 300) { console.log("FAIL  state p95 is 300 ms or more"); failed = true; }
   console.log(`Taps accepted by the server: ${accepted}`);
-  if (displayToken) {
-    const led = async () => {
-      const res = await fetch(`${root}/api/display/${displayToken}/state`);
-      return res.ok ? res.json() : null;
-    };
-    let d = await led();
-    // Late batches still count for 1.5 s after the race ends; read the totals after that.
-    const settleAt = d?.stage?.race ? d.stage.race.liveUntil + SETTLE_MS : 0;
-    if (d && d.now < settleAt) { await sleep(settleAt - d.now); d = await led(); }
-    if (d?.stage?.phase === "race_results" && d.race) {
-      const shown = d.race.lanes.reduce((sum, l) => sum + l.taps, 0);
-      const ok = shown === accepted;
-      console.log(`${ok ? "PASS" : "FAIL"}  LED lane totals ${shown} vs accepted ${accepted}`);
-      if (!ok) failed = true;
-    } else {
-      console.log("Skipped the lane-total check: the stage is not on a race's results.");
+  // D304 took tap totals off the LED, so the check reads the database: the taps the server
+  // accepted must equal what race_taps holds for the run on stage, read after the grace so the
+  // last batches have landed. Paged: one request stops at 1,000 rows.
+  const stage = must(await db.from("game_stage").select("run_id, phase_data").eq("event_id", ev.id).maybeSingle());
+  const liveUntil = stage?.phase_data?.live_until ? Date.parse(stage.phase_data.live_until) : 0;
+  if (stage?.run_id && liveUntil) {
+    const wait = liveUntil + SETTLE_MS - Date.now();
+    if (wait > 0) await sleep(wait);
+    let stored = 0;
+    for (let from = 0; ; from += 1000) {
+      const page = must(await db.from("race_taps").select("taps").eq("run_id", stage.run_id).order("attendee_id").range(from, from + 999));
+      stored += page.reduce((sum, r) => sum + r.taps, 0);
+      if (page.length < 1000) break;
     }
+    const ok = stored === accepted;
+    console.log(`${ok ? "PASS" : "FAIL"}  taps stored ${stored} vs accepted ${accepted}`);
+    if (!ok) failed = true;
+  } else {
+    console.log("Skipped the tap-total check: no race on the stage.");
   }
   console.log(`Done. When finished with this event: npm run load:games -- cleanup ${ev.id}`);
   process.exit(failed ? 1 : 0);

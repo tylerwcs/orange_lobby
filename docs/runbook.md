@@ -555,6 +555,11 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
   `host_token`/`display_token` columns and the game RPCs. Run it in the Supabase SQL editor, then
   `npm run check:games` (it creates and deletes its own draft events; it never touches `ecphub`)
   and expect every line to say PASS.
+- Migration `supabase/migrations/0050_draw_formats.sql` (draw formats) must also be applied
+  **before** its code is deployed. It keeps the older code's draw working, so applying it first is
+  safe. Then run `npm run check:games`; every line should say PASS (the tap-cap line can fail only
+  if this computer's clock runs fast — check with `w32tm /stripchart /computer:time.google.com
+  /samples:3 /dataonly`).
 
 **Before the day**
 - Admin → Games: create the games. Last one standing needs its questions; a lucky draw needs a
@@ -565,6 +570,20 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
   play page.
 - Rehearse on a copy or test event. After a rehearsal draw on the real event, use **Reset draw**,
   or the rehearsal winners stay excluded.
+- Each draw has a **Format**: Slot machine, Wheel of names, Mosaic elimination (with **Rounds**)
+  or Card round. Slot and wheel have a **Spin time** (3–20 s). A card round deals one card per
+  prize, at most 20.
+- Each game has an **LED background**: Theme (moving, in the event colour, with the logo), Green
+  screen (solid #00B140 for the AV team to key out — tell them the colour), an image, or a looping
+  video (MP4/WebM, up to 30 MB).
+- On the AV laptop, open the display link with `?test` on the end (for example
+  `…/display/abcd?test`) and click to start. It plays a reel, a wheel, a card flip and a winner,
+  with sound, and never touches the stage. If it says the display needs hardware graphics, switch
+  to Chrome with hardware acceleration on.
+- The display plays sound (countdown, drumroll, fanfare). Move the mouse to show the **Sound
+  on/off** switch top-right; the laptop remembers it.
+- The display's `?test` mode and the live games need the display laptop's browser to allow sound;
+  if the laptop blocks autoplay, the first click on "Click to start display" turns it on.
 
 **How the rules behave (so nobody is surprised on stage)**
 - **Reveal waits 1.5 s after the deadline.** Answers that arrive up to 1.5 s after a question's
@@ -577,6 +596,16 @@ shown on the LED from a display link (spec `docs/superpowers/specs/2026-09-26-li
 - **Draw "Leave out" excludes anyone with any excluded part.** Leaving out "Crew" also leaves out
   a "KOM, Crew" attendee. The tick list offers each part on its own.
 - A draw only picks people checked in at its checkpoint who have not already won.
+- **Mosaic draw:** the winners are drawn when the host presses the first button; each **Next
+  round** only fades tiles out. Nobody can tell the winners from the screen until the last round.
+- **Card round:** the host taps the card the person calls out. **Not here** works only before a
+  card is picked. **End game** while someone is still to pick sends them away (they can be drawn
+  again in another draw).
+- **No tap counts anywhere.** The race shows positions only, on the LED, the phones and the host
+  console.
+- **If End game fails partway through a card round**, the person on stage can be left with a draw
+  but no prize, which keeps them out of later draws. On the game's page in admin their row shows
+  "No card picked"; use Reset draw after the event, or ask the developer to void that row.
 
 **On the day**
 - LED computer: open the display link in Chrome, click **Click to start display** (goes full
