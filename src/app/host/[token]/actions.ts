@@ -229,14 +229,18 @@ export async function redrawAction(token: string, expected: number, attendeeId: 
   const spun = spinFacts(b.stage);
   if (game?.kind !== "draw" || !spun || !isId(attendeeId) || !spun.winnerIds.includes(attendeeId) || !b.stage.run_id || !game.config.checkpoint_id) return STALE;
   const cards = drawExtra(b.stage).cards;
-  await voidWinner(game.id, attendeeId);
+  // A card turn's row may have already picked between begin() and here (another console's
+  // card_pick landed first): voidPendingCard only touches a row still pending (card_no and
+  // prize_no both null), so a landed pick makes this a no-op rather than voiding their win.
+  if (cards) await voidPendingCard(game.id, attendeeId);
+  else await voidWinner(game.id, attendeeId);
   forgetPool(game.id);
   // A card round has one participant at a time, so there is nobody else to keep.
   const keep = cards ? [] : spun.winnerIds.filter((id) => id !== attendeeId);
   const pool = await poolFor(b.event, game, spun.prizeNo, null, b.stage.run_id);
   if (pool.length === 0) {
     const back = keep.length > 0 ? drawRevealWrite(b.stage, spun.prizeNo, keep) : drawReadyWrite(b.stage);
-    return commit(b.event, expected, back, "Marked as not here. No one is left to draw for this prize.");
+    return commit(b.event, expected, back, cards ? "Marked as not here. No one is left to draw." : "Marked as not here. No one is left to draw for this prize.");
   }
   // The wheel spins again; everything else rolls a quick reel for the replacement (D318).
   const wheel = game.config.format === "wheel";
