@@ -127,7 +127,7 @@ export default async function GameEditor({ params }: { params: Promise<{ id: str
                   const company = a ? fieldValue(a, "company") : "";
                   return (
                     <li key={w.id} className={`flex gap-3 py-2 ${w.void ? "text-muted-foreground line-through" : ""}`}>
-                      <span className="w-40 shrink-0 truncate font-bold">{game.config.prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`}</span>
+                      <span className="w-40 shrink-0 truncate font-bold">{w.prize_no === null ? "No card picked" : game.config.prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`}</span>
                       <span className="min-w-0 flex-1 truncate">{a?.name ?? "(removed attendee)"}{company ? ` · ${company}` : ""}</span>
                     </li>
                   );

@@ -6,10 +6,15 @@ export type WinnerRow = {
   id: string;
   event_id: string;
   game_id: string;
-  prize_no: number;
+  /** Null while a card round's participant has not picked a card yet (D317). */
+  prize_no: number | null;
   attendee_id: string;
   drawn_at: string;
   void: boolean;
+  /** The run that drew them (0050); null on rows drawn before it. */
+  run_id?: string | null;
+  /** The card picked in a card round, numbered from 1 (D317). */
+  card_no?: number | null;
 };
 
 /**

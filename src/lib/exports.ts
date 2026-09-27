@@ -386,7 +386,7 @@ export function winnerSheetRows(
   for (const w of winners) {
     const a = people.get(w.attendee_id);
     rows.push([
-      prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`,
+      w.prize_no === null ? "No card picked" : prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`,
       a?.name ?? "(removed attendee)",
       a ? fieldValue(a, "company") : "",
       a?.category ?? "",
