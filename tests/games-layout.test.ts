@@ -33,6 +33,12 @@ describe("cardLayout", () => {
       }
     }
   });
+  it("keeps clear of DrawScreen's 'N cards left' line at the bottom (polish D323)", () => {
+    // That line (text-3xl at bottom-2) starts at y≈1036; the cards also bob 4px.
+    for (let n = 1; n <= 20; n++) {
+      for (const b of cardLayout(n)) expect(b.y + b.h / 2 + 4).toBeLessThanOrEqual(1000);
+    }
+  });
 });
 
 describe("reelLayout (D313)", () => {

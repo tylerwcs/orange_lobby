@@ -16,9 +16,13 @@ export function cardGrid(n: number): { cols: number; rows: number } {
   return { cols: Math.ceil(count / rows), rows };
 }
 
-const CARD_TOP = 220;
+// The grid's band, clear of DrawScreen's two lines (polish D323): "{name} — pick a card" at the
+// top (text-6xl under the Frame's 40px padding, so it ends by y≈100) and "N cards left" at the
+// bottom (text-3xl at bottom-2, so it starts at y≈1036). The grid's lowest edge is
+// CARD_TOP + CARD_AREA_H = 990 — 994 with the cards' 4px bob — leaving ~40px above that line.
+const CARD_TOP = 200;
 const CARD_AREA_W = 1720;
-const CARD_AREA_H = 800;
+const CARD_AREA_H = 790;
 const CARD_GAP = 28;
 const CARD_RATIO = 1.4;
 

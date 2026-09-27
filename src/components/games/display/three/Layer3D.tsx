@@ -48,7 +48,7 @@ function DrawScene3D({ state, offset, synth }: { state: DisplayState; offset: nu
   }
   if (d.cards && (s.phase === "draw_ready" || s.phase === "draw_card_pick" || s.phase === "draw_card_reveal")) {
     const revealing = s.phase === "draw_card_reveal";
-    return <CardTable key={revealing ? s.key : "table"} cards={d.cards.slots} picked={d.cards.picked} revealing={revealing} synth={synth} colour={state.event.colour} />;
+    return <CardTable key={revealing ? s.key : "table"} cards={d.cards.slots} picked={d.cards.picked} revealing={revealing} synth={synth} colour={state.event.colour} cardBack={d.cardBack} />;
   }
   return null;
 }

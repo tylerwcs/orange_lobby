@@ -5,8 +5,10 @@ import { useFrame } from "@react-three/fiber";
 import type { CardView } from "@/lib/games/cards";
 import type { Synth } from "@/lib/games/sound";
 import { cardLayout, toWorld, type Box } from "@/lib/games/layout";
-import { textTexture, useFontReady } from "./textTexture";
+import { useFontReady } from "./textTexture";
 import { useAnimating } from "./useAnimating";
+import { useRemoteImage } from "./remoteImage";
+import { CARD_DEPTH, cardBackTexture, cardGeometries, prizeFaceTexture, type CardGeometries } from "./cardFaces";
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -19,67 +21,79 @@ export const FLIP_END_MS = 2000;
 /**
  * The card round's table (D317): the cards still face down, numbered, bobbing gently in their
  * fixed places; taken cards are gone. When `revealing`, card `picked` glows and lifts, flies to
- * the centre, grows and flips to show its prize, with a lift, a flip and a fanfare.
+ * the centre, grows and flips to show its prize, with a lift, a flip and a fanfare. Each card is
+ * a rounded, two-sided card (polish D323): the numbered back (the game's card back picture, if
+ * it has one) faces the room, and the prize face faces away until the flip.
  */
-export function CardTable({ cards, picked, revealing, synth, colour }: { cards: CardView[]; picked: number | null; revealing: boolean; synth: Synth; colour: string }) {
+export function CardTable({ cards, picked, revealing, synth, colour, cardBack }: {
+  cards: CardView[]; picked: number | null; revealing: boolean; synth: Synth; colour: string; cardBack: string | null;
+}) {
   const boxes = cardLayout(cards.length);
   const ready = useFontReady();
+  const backImg = useRemoteImage(cardBack);
   useAnimating(true, revealing ? 60 : 30);
+  // Every card on a table is the same size, so they share one set of geometries, keyed on the
+  // size's numbers rather than the fresh-every-render `boxes` array.
+  const w = boxes[0]?.w ?? 0;
+  const h = boxes[0]?.h ?? 0;
+  const geo = useMemo(() => (w > 0 && h > 0 ? cardGeometries(w, h) : null), [w, h]);
+  useEffect(() => () => { geo?.face.dispose(); geo?.edge.dispose(); }, [geo]);
+  if (!geo) return null;
   return (
     <>
       {cards.map((c, i) => {
         const active = revealing && c.no === picked;
         if (c.taken && !active) return null;
-        return <Card key={c.no} card={c} box={boxes[i]} active={active} ready={ready} synth={synth} colour={colour} />;
+        return <Card key={c.no} card={c} box={boxes[i]} geo={geo} active={active} ready={ready} synth={synth} colour={colour} backImg={backImg} />;
       })}
     </>
   );
 }
 
-function Card({ card, box, active, ready, synth, colour }: { card: CardView; box: Box; active: boolean; ready: boolean; synth: Synth; colour: string }) {
-  const mesh = useRef<THREE.Mesh>(null);
+function Card({ card, box, geo, active, ready, synth, colour, backImg }: {
+  card: CardView; box: Box; geo: CardGeometries; active: boolean; ready: boolean; synth: Synth; colour: string; backImg: HTMLImageElement | null | undefined;
+}) {
+  const group = useRef<THREE.Group>(null);
+  // Only a taken card carries a picture (cardsView's secrecy rule), so this is null for the rest.
+  const prizeImg = useRemoteImage(card.image);
   // The LED re-polls every second and hands back a NEW `cards.slots` array — and so a new `card`
   // object — even when nothing about this card changed, so these memos are keyed on the primitive
   // values a texture actually depends on (card.no / card.prize / box size / colour / ready), not
   // on `card` or `box` themselves (the SlotReels/Wheel lesson, D293, D294). Otherwise a canvas
   // texture would be re-rasterised and re-uploaded to the GPU on every poll, for every card on
-  // the table.
-  const back = useMemo(() => (ready ? textTexture(box.w, box.h, [
-    { text: String(card.no), size: box.h * 0.42, colour: "#ffffff" },
-  ], { background: colour, radius: 18 }) : null), [ready, card.no, box.w, box.h, colour]);
-  const face = useMemo(() => (ready && card.prize ? textTexture(box.w, box.h, [
-    { text: "YOU WIN", size: box.h * 0.09, colour: "#6b7280" },
-    { text: card.prize, size: box.h * 0.17, colour: "#111827" },
-  ], { background: "#ffffff", radius: 18 }) : null), [ready, card.prize, box.w, box.h]);
+  // the table. The pictures are the one non-primitive key, and a stable one: useRemoteImage
+  // caches by URL and hands back the very same element on every call, changing only when the
+  // picture finishes loading, which is exactly when the texture should be redrawn with it.
+  const back = useMemo(() => (ready ? cardBackTexture(box.w, box.h, card.no, colour, backImg) : null), [ready, card.no, box.w, box.h, colour, backImg]);
+  const face = useMemo(() => (ready && card.prize ? prizeFaceTexture(box.w, box.h, card.prize, prizeImg) : null), [ready, card.prize, box.w, box.h, prizeImg]);
   // Two effects, not one keyed on both: `back` and `face` change independently (different memo
   // deps above), so a single combined effect would dispose the texture that DIDN'T just change
   // too, every time the other one did.
   useEffect(() => () => back?.dispose(), [back]);
   useEffect(() => () => face?.dispose(), [face]);
   // Rebuilt (as brand new material instances, never mutated) whenever `back`/`face` changes,
-  // including null -> texture once the font loads. This matters in three 0.186: a material whose
-  // `.map` is set to a texture AFTER it already compiled (e.g. via R3F's applyProps re-assigning
-  // `.map` on the SAME material instance) never gets its shader recompiled — R3F does not set
-  // `needsUpdate` for a prop change — so a card that first rendered before its texture existed
-  // would stay blank forever after. Passing `map` in the constructor's parameter object instead
-  // (as here) always compiles a fresh material against its final map, so there is no stale
-  // instance to worry about. See Wheel.tsx for the same bug from the mutation side.
-  // Split from the array below (rather than indexing into it) so the per-frame emissive mutation
-  // targets a plain variable, the same shape as every other R3F per-frame material mutation in
-  // this codebase (see ThemeBackdrop.tsx) instead of an array element.
+  // including null -> texture once the font loads and again once a picture arrives. This matters
+  // in three 0.186: a material whose `.map` is set to a texture AFTER it already compiled (e.g. via
+  // R3F's applyProps re-assigning `.map` on the SAME material instance) never gets its shader
+  // recompiled — R3F does not set `needsUpdate` for a prop change — so a card that first rendered
+  // before its texture existed would stay blank forever after. Passing `map` in the constructor's
+  // parameter object instead (as here) always compiles a fresh material against its final map, so
+  // there is no stale instance to worry about. See Wheel.tsx for the same bug from the mutation side.
+  // The rim: the event colour, glowing with the numbered side during the lift and fly.
   const glow = useMemo(() => new THREE.MeshStandardMaterial({ color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0 }), [colour]);
   useEffect(() => () => glow.dispose(), [glow]);
-  // The numbered back (+z) is the face the room actually sees head-on during the lift and fly, so
-  // it gets the same emissive colour as the sides, driven with the same per-frame intensity below
-  // (D317 "the chosen card glows") — the 10-unit sides alone are nearly edge-on and barely visible.
+  // The numbered back is the face the room actually sees head-on during the lift and fly, so it
+  // carries the glow (D317 "the chosen card glows"), driven with the same per-frame intensity
+  // below; the thin rim alone is nearly edge-on and barely visible.
   const backMat = useMemo(() => new THREE.MeshStandardMaterial(back
     ? { map: back, emissive: new THREE.Color(colour), emissiveIntensity: 0 }
     : { color: colour, emissive: new THREE.Color(colour), emissiveIntensity: 0 }), [back, colour]);
   useEffect(() => () => backMat.dispose(), [backMat]);
-  const faceMat = useMemo(() => new THREE.MeshStandardMaterial(face ? { map: face } : { color: "#ffffff" }), [face]);
+  // Unlit and not tone-mapped: the prize face is the picture people are meant to see as it is, on
+  // true white. Lit (MeshStandardMaterial) and through the canvas's ACES tone mapping, the white
+  // read as a flat light grey (~218/255) and a prize picture's colours as washed out.
+  const faceMat = useMemo(() => new THREE.MeshBasicMaterial(face ? { map: face, toneMapped: false } : { color: "#ffffff", toneMapped: false }), [face]);
   useEffect(() => () => faceMat.dispose(), [faceMat]);
-  // BoxGeometry faces: +x, −x, +y, −y, +z (towards the room: the numbered back), −z (the prize).
-  const materials = useMemo(() => [glow, glow, glow, glow, backMat, faceMat], [glow, backMat, faceMat]);
   const [x, y] = toWorld(box.x, box.y);
   const start = useRef<number | null>(null);
   const played = useRef({ lift: false, flip: false, fanfare: false });
@@ -87,7 +101,7 @@ function Card({ card, box, active, ready, synth, colour }: { card: CardView; box
 
   // eslint-disable-next-line react-hooks/immutability -- the standard R3F pattern: this frame callback mutates the memoized `glow` material's `.emissiveIntensity` below (a direct property, unlike ThemeBackdrop's nested `.uniforms.x.value`, so the linter also flags the callback itself); confined to display/three/.
   useFrame(({ clock }) => {
-    const m = mesh.current;
+    const m = group.current;
     if (!m) return;
     // `clock.elapsedTime` (real time since the canvas mounted), not an accumulated per-frame
     // `dt`: on the demand frameloop a hidden/idle tab can skip many frames, and elapsedTime still
@@ -124,9 +138,16 @@ function Card({ card, box, active, ready, synth, colour }: { card: CardView; box
     if (e >= FLIP_END_MS && !p.fanfare) { p.fanfare = true; synth.play("fanfare"); }
   });
 
+  // Two rounded faces back to back with the thin rim between them (polish D323; it replaces a
+  // box whose rounded-corner textures left black corners). Each face is one-sided and faces
+  // outwards, so from any angle only the side turned towards the room draws, and nothing outside
+  // the rounded outline exists to draw at all. The prize face is turned half a turn about y, so it
+  // reads the right way round once the card has flipped.
   return (
-    <mesh ref={mesh} material={materials}>
-      <boxGeometry args={[box.w, box.h, 10]} />
-    </mesh>
+    <group ref={group}>
+      <mesh geometry={geo.edge} material={glow} />
+      <mesh geometry={geo.face} material={backMat} position={[0, 0, CARD_DEPTH / 2]} />
+      <mesh geometry={geo.face} material={faceMat} position={[0, 0, -CARD_DEPTH / 2]} rotation={[0, Math.PI, 0]} />
+    </group>
   );
 }
