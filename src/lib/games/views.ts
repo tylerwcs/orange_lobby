@@ -81,3 +81,14 @@ export function publicStage(s: StageRow, game: Game | null, now: number): Public
     prizeNo: spinFacts(s)?.prizeNo ?? null,
   };
 }
+
+/**
+ * When a winner screen's confetti starts, in ms after its phase begins: after the podium has
+ * risen (D305), or the card has flipped (D317). Null where there is nothing to celebrate.
+ */
+export function celebrationDelay(phase: Phase): number | null {
+  if (phase === "race_results") return 1600;
+  if (phase === "draw_card_reveal") return 2000;
+  if (phase === "survival_over" || phase === "draw_reveal") return 0;
+  return null;
+}

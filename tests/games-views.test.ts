@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GREEN_SAFE_D, optionStyles, publicStage } from "@/lib/games/views";
+import { GREEN_SAFE_D, celebrationDelay, optionStyles, publicStage } from "@/lib/games/views";
 import { hydrateGame, type Game } from "@/lib/games/config";
 import { idleStage, type StageRow } from "@/lib/games/phase";
 
@@ -65,5 +65,18 @@ describe("optionStyles (D299, D306)", () => {
     const green = optionStyles(true);
     expect(green[3].colour).toBe(GREEN_SAFE_D);
     expect(green.slice(0, 3)).toEqual(normal.slice(0, 3));
+  });
+});
+
+describe("celebrationDelay (D305, D306, D317)", () => {
+  it("throws confetti for every winner screen, after the podium rises or the card flips", () => {
+    expect(celebrationDelay("race_results")).toBe(1600);
+    expect(celebrationDelay("survival_over")).toBe(0);
+    expect(celebrationDelay("draw_reveal")).toBe(0);
+    expect(celebrationDelay("draw_card_reveal")).toBe(2000);
+  });
+  it("throws none anywhere else", () => {
+    expect(celebrationDelay("draw_spinning")).toBeNull();
+    expect(celebrationDelay("idle")).toBeNull();
   });
 });

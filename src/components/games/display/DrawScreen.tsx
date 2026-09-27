@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { DisplayState, Person } from "@/lib/games/wire";
+import type { Synth } from "@/lib/games/sound";
 import { QUICK_SPIN_MS } from "@/lib/games/phase";
 import { Frame } from "./Frame";
 import { JointWinners, WinnerCard } from "./WinnerCard";
 
 /** The lucky draw on the LED (D279–D282): the next prize, the rolling names, the winner. */
-export function DrawScreen({ state, offset }: { state: DisplayState; offset: number }) {
+export function DrawScreen({ state, offset }: { state: DisplayState; offset: number; synth?: Synth }) {
   const s = state.stage;
   const d = state.draw!;
   const title = s.game?.title ?? "Lucky draw";
