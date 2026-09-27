@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import type { DisplayState } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
+import { celebrationDelay } from "@/lib/games/views";
 
 /**
  * The LED's sound cues that follow the stage (D301): countdown ticks and the horn, the last three
@@ -28,7 +29,8 @@ export function useSoundCues(state: DisplayState, offset: number, synth: Synth) 
           atServer(s.race.liveFrom, () => synth.play("go"));
         }
         break;
-      case "race_results": after(1600, () => synth.play("fanfare")); break;
+      // Same delay confetti waits on (celebrationDelay), so the fanfare lands with the podium's rise.
+      case "race_results": after(celebrationDelay(s.phase) ?? 0, () => synth.play("fanfare")); break;
       case "survival_question":
         if (s.question?.deadline) for (let k = 3; k >= 1; k--) atServer(s.question.deadline - k * 1000, () => synth.play("tick"));
         break;

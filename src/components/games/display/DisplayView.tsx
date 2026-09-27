@@ -15,21 +15,37 @@ import { SurvivalScreen } from "./SurvivalScreen";
 // three.js reaches only this page, and only in the browser (D293).
 const Layer3D = dynamic(() => import("./three/Layer3D"), { ssr: false });
 
+let cachedWebGL: boolean | undefined;
+
+/**
+ * Probed once and cached at module level: `useSyncExternalStore` calls its snapshot getter on
+ * every render, and the LED re-renders on every poll (1–4×/s), so a fresh `getContext` call each
+ * time would quickly run into Chrome's ~16 live-WebGL-context limit — eventually evicting
+ * Stage3D's own canvas, whose "context lost" handler reloads the page. The probe's own context
+ * is released immediately after checking so it never counts toward that limit either.
+ */
 function hasWebGL(): boolean {
-  try {
-    const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") ?? c.getContext("webgl"));
-  } catch {
-    return false;
+  if (cachedWebGL === undefined) {
+    try {
+      const c = document.createElement("canvas");
+      const gl = c.getContext("webgl2") ?? c.getContext("webgl");
+      cachedWebGL = !!gl;
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    } catch {
+      cachedWebGL = false;
+    }
   }
+  return cachedWebGL;
 }
 
 // Support never changes after load, so there is nothing to subscribe to — only a snapshot to
 // read. Reading it via useSyncExternalStore (rather than an effect that calls setState) keeps
-// the server's guess (assume WebGL) and the client's real answer from ever fighting each other.
+// the server's "not yet known" state and the client's real answer from ever fighting each
+// other; null renders neither the 3D layer nor the fallback message until the client has
+// actually checked (matching the SSR pass, which cannot check at all).
 const noWebGLUpdates = () => () => {};
-function useHasWebGL(): boolean {
-  return useSyncExternalStore(noWebGLUpdates, hasWebGL, () => true);
+function useHasWebGL(): boolean | null {
+  return useSyncExternalStore<boolean | null>(noWebGLUpdates, hasWebGL, () => null);
 }
 
 /**
