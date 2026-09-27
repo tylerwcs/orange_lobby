@@ -39,7 +39,9 @@ The host console is not restyled; it only gains the controls the new draw format
   its place: the Theme background, the slot reels, the wheel, the card round, and the winner
   spotlight and confetti. Text-heavy screens — the quiz board, race lanes, lobbies, counters —
   are normal HTML with `motion`, laid over the 3D layer on the same 1920×1080 canvas (D284).
-  Text inside a 3D scene uses drei `<Text>` with the D291 font file.
+  Text inside a 3D scene is drawn onto canvas textures with the page's own loaded D291 font
+  (no separate font file). There is one WebGL canvas for the whole display, so a screen change
+  never creates a second context.
 
 - **D294** **The 3D layer renders only while something moves.** `frameloop="demand"`, with
   invalidation driven by a spin, a flip, confetti, or the Theme background's slow drift (which
@@ -71,9 +73,13 @@ The host console is not restyled; it only gains the controls the new draw format
   so both show the same colour for the same answer.
 
 - **D300** **Image or video:** uploaded from the game editor to the existing `event-media`
-  bucket through the existing storage helper. Images: JPEG, PNG or WebP up to 10 MB. Video: MP4
-  (H.264) or WebM up to 30 MB, played muted and looped behind everything. A 35% black overlay
-  keeps white text readable. If the file fails to load, the display falls back to Theme.
+  bucket. Images go through the existing image field and gate (PNG, JPEG, WebP or SVG, up to
+  4 MB). Video: MP4 or WebM up to 30 MB, too big for a Server Action (10 MB cap), so the browser
+  uploads it straight to Storage with a signed upload URL the server mints after checking the
+  type and size; the bucket's limit rises to 30 MB and it gains the two video types, while every
+  image upload keeps its 4 MB gate in the app. Video plays muted and looped behind everything.
+  A 35% black overlay keeps white text readable. If the file fails to load, the display falls
+  back to Theme.
 
 ### Sound
 
@@ -102,7 +108,9 @@ The host console is not restyled; it only gains the controls the new draw format
   computed and ranked exactly as D267 says; they are simply not shown. "Fastest tapper" keeps
   the name without a number. Counts also leave the wire: each display lane carries `progress`
   (0–1, its score over 110% of the leader's) instead of its score, the fastest tapper carries no
-  count, and the phone's state carries no tap total.
+  count, and the phone's state carries no tap total. The host console shows places only. The
+  load test's lane check (D289 §5) compares the server's accepted taps with the sum of
+  `race_taps` in the database instead of the LED's totals.
 
 - **D305** **Race screens:**
   - Lobby: one card per lane; players' initials pop into their lane's card as they join; a big
@@ -191,9 +199,10 @@ The host console is not restyled; it only gains the controls the new draw format
      at most 20 units; the editor refuses more.
   2. **Draw participant** spins one reel (D313) for `spin_s` and names one person. `draw_spin`
      runs with no prize (`p_prize_no` null) and records them with `prize_no` null.
-  3. **`draw_card_pick`** (new phase): the LED shows the remaining cards face down in a grid (5×2
-     for 10; for other counts, 2 rows up to 10 cards, then 3 rows up to 15, then 4 rows) with the
-     participant's name above. The host console shows the same numbered grid. The participant
+  3. **`draw_card_pick`** (new phase, reached by the clock when the reel stops): the LED shows the
+     remaining cards face down in a grid (1 row up to 5 cards, 2 rows up to 10 — so 5×2 for 10
+     and 3×2 for 6 — 3 rows up to 15, 4 rows up to 20), each card keeping its place as others are
+     taken, with the participant's name above. Cards are numbered from 1. The host console shows the same numbered grid. The participant
      calls out a card and the host taps it.
   4. **`draw_card_reveal`** (new phase): the chosen card glows, lifts, flies to the centre and
      flips to show the prize, with a fanfare.
@@ -206,7 +215,8 @@ The host console is not restyled; it only gains the controls the new draw format
 - **D318** **"Not here" per format.** Slot and mosaic: as D281, the redraw uses a quick 3-second
   slot reel for the replacement. Wheel: the wheel spins again. Card round: available in
   `draw_card_pick` only, before a card is chosen; it voids the participant and draws another
-  with a reel.
+  with a reel. **End game** during `draw_card_pick` also voids the participant, so nobody is
+  left holding a draw with no prize (which would keep them out of every later draw).
 
 - **D319** **The drawn person's phone** learns nothing during a spin (D312). It shows "You won
   <prize> — come to the stage!" from `draw_reveal` for slot, wheel and mosaic. In a card round it
@@ -223,15 +233,25 @@ The host console is not restyled; it only gains the controls the new draw format
   - `draw_winners.card_no int null`, and `draw_winners.prize_no` loses `not null`.
   - A partial unique index on `draw_winners (run_id, card_no) where card_no is not null and not
     void`: a card can be taken once per run.
-  - `draw_spin` accepts `p_prize_no` null (card rounds), records `run_id`, and matches voided
-    winners with `is not distinct from` so a person sent away before picking a card is not
-    redrawn for that turn.
+  - `draw_spin` accepts `p_prize_no` null (card rounds only: the game's `config.format` must be
+    `cards`), records `run_id`, and matches voided winners with `is not distinct from` so a
+    person sent away before picking a card is not redrawn for that turn. It gains
+    `p_phase text default 'draw_spinning'` (`draw_rounds` for the mosaic, which then has no end
+    time) and `p_extra jsonb default '{}'` merged into `phase_data` (`spin_ms`, `quick`,
+    `cards`, `round`, `rounds`), and always stamps `phase_data.pool_at` with the database's
+    `now()` (D316). The defaults keep the old call working, so the deployed code survives the
+    migration landing first.
+  - `event-media` bucket: `file_size_limit` 30 MB, `allowed_mime_types` plus `video/mp4` and
+    `video/webm` (D300).
   - New `card_pick(p_event_id, p_expected, p_run_id, p_game_id, p_attendee_id, p_card_no)`: in one
     transaction, checks the run and game belong to the event and the game is a card-round draw,
     that `p_card_no` is inside the deck and not yet taken in this run, and that the attendee is
-    this run's current, non-void, card-less winner; sets `card_no` and `prize_no = deck[card_no]`;
-    bumps the stage version with compare-and-set. Returns the prize number, or null when any
-    check fails (the version does not move). Granted only to `service_role`, like every game RPC.
+    this run's current, non-void, card-less winner, and that the stage is this run's card spin
+    whose reel has stopped (stored phase `draw_spinning` with `cards`, its end time passed, with
+    2 s allowed for the app's and database's clocks disagreeing); sets `card_no` and
+    `prize_no = deck[card_no]`; moves the stage to `draw_card_reveal` and bumps its version with
+    compare-and-set. Returns the prize number, or null when any check fails (the version does
+    not move). Granted only to `service_role`, like every game RPC.
   - New phases `draw_rounds`, `draw_card_pick`, `draw_card_reveal` and host actions `round` and
     `pick` in `src/lib/games/phase.ts`.
 
