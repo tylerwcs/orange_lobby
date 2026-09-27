@@ -57,3 +57,39 @@ export function seededOrder<T>(items: T[], seed: string): T[] {
   }
   return out;
 }
+
+/**
+ * How many tiles stand after each round of a mosaic draw (D315): from `n` down to the `w`
+ * winners, shrinking geometrically (round(n × (w/n)^(round/rounds))). While there are
+ * non-winners left every round takes at least one, and a round never takes so many that a
+ * later round would have nobody to take. Never below `w`. Index 0 is before the first round.
+ */
+export function survivorCounts(n: number, w: number, rounds: number): number[] {
+  const total = Math.max(0, Math.floor(n));
+  const floor = Math.min(total, Math.max(0, Math.floor(w)));
+  const out = [total];
+  for (let r = 1; r <= rounds; r++) {
+    const prev = out[r - 1];
+    const target = r >= rounds ? floor : Math.round(total * Math.pow(Math.max(floor, 1) / Math.max(total, 1), r / rounds));
+    const upper = prev > floor ? prev - 1 : prev;
+    const lower = Math.min(upper, floor + (rounds - r));
+    out.push(Math.max(floor, lower, Math.min(upper, target)));
+  }
+  return out;
+}
+
+/**
+ * Who stands after `round` of `rounds` (D315). Non-winners fall in a seeded order, the same
+ * every time for the same seed, so a reloaded LED shows the same round; each round's survivors
+ * are inside the round before's. Returned in pool order. Only the server calls this: the LED
+ * gets the result, never the winners (D312).
+ */
+export function mosaicSurvivors(poolIds: string[], winnerIds: string[], round: number, rounds: number, seed: string): string[] {
+  const inPool = new Set(poolIds);
+  const winners = new Set(winnerIds.filter((id) => inPool.has(id)));
+  const others = seededOrder(poolIds.filter((id) => !winners.has(id)), seed);
+  const counts = survivorCounts(poolIds.length, winners.size, rounds);
+  const standing = counts[Math.min(Math.max(0, round), rounds)] - winners.size;
+  const kept = new Set([...winners, ...others.slice(others.length - Math.max(0, standing))]);
+  return poolIds.filter((id) => kept.has(id));
+}
