@@ -50,10 +50,27 @@ describe("configFromForm", () => {
     expect(r).toEqual({
       ok: true,
       config: {
-        checkpoint_id: CP, exclude_categories: ["Crew", "Management"], prizes: [{ name: "iPad", quantity: 1 }],
-        format: "slot", spin_s: 6, rounds: 4, background: THEME,
+        checkpoint_id: CP, exclude_categories: ["Crew", "Management"], prizes: [{ name: "iPad", quantity: 1, image: null }],
+        format: "slot", spin_s: 6, rounds: 4, card_back: null, background: THEME,
       },
     });
+  });
+  it("reads the card back from its own field, empty as null", () => {
+    const r = configFromForm("draw", form([
+      ["checkpoint_id", CP], ["prizes", "[]"], ["spin_s", "6"], ["rounds", "4"],
+      ["card_back", "https://abc.supabase.co/storage/v1/object/public/event-media/o1/e1/game-card-back-a1b2c3d4.png"],
+    ]));
+    expect(r.ok && (r.config as { card_back: string | null }).card_back)
+      .toBe("https://abc.supabase.co/storage/v1/object/public/event-media/o1/e1/game-card-back-a1b2c3d4.png");
+    const empty = configFromForm("draw", form([["checkpoint_id", CP], ["prizes", "[]"], ["spin_s", "6"], ["rounds", "4"], ["card_back", ""]]));
+    expect(empty.ok && (empty.config as { card_back: string | null }).card_back).toBeNull();
+  });
+  it("keeps a prize's picture from the posted JSON", () => {
+    const r = configFromForm("draw", form([
+      ["checkpoint_id", CP], ["prizes", JSON.stringify([{ name: "iPad", quantity: 1, image: "https://cdn.test/ipad.png" }])],
+      ["spin_s", "6"], ["rounds", "4"],
+    ]));
+    expect(r.ok && (r.config as { prizes: { image: string | null }[] }).prizes[0].image).toBe("https://cdn.test/ipad.png");
   });
   it("refuses a checkpoint that is not an id", () => {
     const r = configFromForm("draw", form([["checkpoint_id", "cp1"], ["prizes", "[]"], ["spin_s", "6"], ["rounds", "4"]]));

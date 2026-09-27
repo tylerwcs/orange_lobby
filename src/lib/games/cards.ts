@@ -20,7 +20,7 @@ export function dealDeck(progress: PrizeProgress[], rand: () => number): number[
   return deck;
 }
 
-export type CardView = { no: number; taken: boolean; prize: string | null; winner: string | null };
+export type CardView = { no: number; taken: boolean; prize: string | null; image: string | null; winner: string | null };
 
 /** Cards taken in this run: standing winners with a card, by card number. */
 function takenCards(winners: WinnerRow[], runId: string): Map<number, WinnerRow> {
@@ -30,16 +30,18 @@ function takenCards(winners: WinnerRow[], runId: string): Map<number, WinnerRow>
 }
 
 /**
- * The cards as the LED and the host see them (D317). A card's prize is only here once it has
- * been taken: the deck itself never leaves the server, so nobody can read the grid off the wire.
+ * The cards as the LED and the host see them (D317). A card's prize — and its picture — is only
+ * here once it has been taken: the deck itself never leaves the server, so nobody can read the
+ * grid off the wire (games polish, D323).
  */
 export function cardsView(deck: number[], winners: WinnerRow[], runId: string, prizes: Prize[], nameOf: (id: string) => string): CardView[] {
   const taken = takenCards(winners, runId);
   return deck.map((_, i) => {
     const no = i + 1;
     const w = taken.get(no);
-    if (!w) return { no, taken: false, prize: null, winner: null };
-    return { no, taken: true, prize: w.prize_no === null ? null : prizes[w.prize_no]?.name ?? null, winner: nameOf(w.attendee_id) };
+    if (!w) return { no, taken: false, prize: null, image: null, winner: null };
+    const prize = w.prize_no === null ? null : (prizes[w.prize_no] ?? null);
+    return { no, taken: true, prize: prize?.name ?? null, image: prize?.image ?? null, winner: nameOf(w.attendee_id) };
   });
 }
 

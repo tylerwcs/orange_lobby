@@ -36,6 +36,9 @@ export const survivalConfigSchema = z.object({
 const prizeSchema = z.object({
   name: z.string().trim().min(1).max(80),
   quantity: z.number().int().min(1).max(500),
+  // Read tolerantly, like checkpoint_id below: a missing or unreadable picture must never take
+  // the whole draw down, only leave that one prize without one.
+  image: z.string().max(2000).nullable().catch(null),
 });
 
 /** How a lucky draw plays on the LED (D310). Keys may be added but never removed. */
@@ -67,6 +70,8 @@ export const drawConfigSchema = z.object({
   format: z.enum(DRAW_FORMATS).catch("slot"),
   spin_s: z.number().int().min(3).max(20).default(6),
   rounds: z.number().int().min(2).max(8).default(4),
+  // A card round's back (D317 polish): same tolerant reading as a prize's image.
+  card_back: z.string().max(2000).nullable().catch(null),
   background: backgroundSchema,
 });
 

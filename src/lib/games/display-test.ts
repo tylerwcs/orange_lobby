@@ -34,8 +34,8 @@ export function testStep(i: number, event: DisplayState["event"], at: number): {
   }
   if (n === 2) {
     const slots = Array.from({ length: 10 }, (_, k) => (k === 3
-      ? { no: 4, taken: true, prize: "Grand prize", winner: "Ann Lee" }
-      : { no: k + 1, taken: false, prize: null, winner: null }));
+      ? { no: 4, taken: true, prize: "Grand prize", image: null, winner: "Ann Lee" }
+      : { no: k + 1, taken: false, prize: null, image: null, winner: null }));
     return { holdMs: 5000, state: { ...base, stage: stage("draw_card_reveal"), draw: draw({ format: "cards", prize: null, cards: { slots, participant: { name: "Ann Lee", company: "Ecopia" }, picked: 4 } }) } };
   }
   return { holdMs: 5000, state: { ...base, stage: stage("draw_reveal"), draw: draw({ winners: [{ name: "Ann Lee", company: "Ecopia" }] }) } };

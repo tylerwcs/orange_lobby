@@ -66,7 +66,7 @@ describe("absentFor", () => {
 });
 
 describe("prizeProgress", () => {
-  const prizes = [{ name: "Voucher", quantity: 3 }, { name: "iPad", quantity: 1 }];
+  const prizes = [{ name: "Voucher", quantity: 3, image: null }, { name: "iPad", quantity: 1, image: null }];
   it("counts what each prize has given, ignoring voids", () => {
     expect(prizeProgress(prizes, [win("1"), win("2"), win("3", 0, true)])).toEqual([
       { prize_no: 0, name: "Voucher", quantity: 3, given: 2, remaining: 1 },

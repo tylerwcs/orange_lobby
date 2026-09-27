@@ -14,7 +14,9 @@ export const MEDIA_BUCKET = "event-media";
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** What an uploaded image is for. Also the first half of its object name. */
-export type ImageKind = "logo" | "banner" | "floor-plan" | "agenda" | "info" | "activity" | "tile-icon" | "game-background" | "game-video";
+export type ImageKind =
+  | "logo" | "banner" | "floor-plan" | "agenda" | "info" | "activity" | "tile-icon"
+  | "game-background" | "game-video" | "game-prize" | "game-card-back";
 
 /**
  * The extension each accepted type is stored under. Browsers send `image/jpg` as well as
@@ -128,22 +130,27 @@ export function mediaPathInEvent(url: string, supabaseUrl: string, orgId: string
 }
 
 /**
- * True only when `url` is a game background video WE stored for this exact event (D300).
+ * True only when `url` is one of `kinds` WE stored for this exact org and event (D300, D323).
  *
- * The hidden `background_video` field the browser posts is entirely client-controlled — an
- * organiser (or a compromised admin session) could paste in the public URL of any object
- * already sitting in the shared `event-media` bucket, including another event's banner or
- * another org's video. `backgroundFromForm`'s `ours` check exists to stop that, so it must
- * check more than "some object we host": it must check that the object is a game video AND
- * that it was minted for this org and event — `createVideoUpload` always names one
- * `<org>/<event>/game-video-<id>.<ext>` (mediaObjectPath), so that exact prefix is the proof.
- * Accepting anything looser would let a save adopt someone else's video; the next save that
- * moves the background away from it would then call `deleteEventImage` on a URL another row
- * still points at, deleting a file out from under it.
+ * A hidden field naming an uploaded image (a game's background video, a prize's picture, a
+ * card back) is entirely client-controlled — an organiser (or a compromised admin session)
+ * could paste in the public URL of any object already sitting in the shared `event-media`
+ * bucket, including another event's banner or another org's video. A save's `ours` check
+ * exists to stop that, so it must check more than "some object we host": it must check that
+ * the object is one of the right KINDS, minted for THIS org and event — `mediaObjectPath`
+ * always names one `<org>/<event>/<kind>-<id>.<ext>`, so that exact prefix is the proof.
+ * Accepting anything looser would let a save adopt someone else's upload; the next save that
+ * moves the field away from it would then call `deleteEventImage` on a URL another row still
+ * points at, deleting a file out from under it.
  */
-export function isGameVideoFor(url: string, supabaseUrl: string, orgId: string, eventId: string): boolean {
+export function isEventMediaFor(url: string, supabaseUrl: string, orgId: string, eventId: string, kinds: ImageKind[]): boolean {
   const path = mediaPathFromUrl(url, supabaseUrl);
-  return path !== null && path.startsWith(`${orgId}/${eventId}/game-video-`);
+  return path !== null && kinds.some((kind) => path.startsWith(`${orgId}/${eventId}/${kind}-`));
+}
+
+/** True only when `url` is a game background video WE stored for this exact event (D300). */
+export function isGameVideoFor(url: string, supabaseUrl: string, orgId: string, eventId: string): boolean {
+  return isEventMediaFor(url, supabaseUrl, orgId, eventId, ["game-video"]);
 }
 
 /**

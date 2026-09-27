@@ -3,6 +3,7 @@ import {
   acceptImage,
   acceptUpload,
   acceptVideo,
+  isEventMediaFor,
   isGameVideoFor,
   mediaObjectPath,
   mediaPathFromUrl,
@@ -166,6 +167,32 @@ describe("isGameVideoFor (security: a save must never adopt another event's or o
 
   it("refuses a URL hosted somewhere else entirely", () => {
     expect(isGameVideoFor("https://cdn.example.com/game-video-a1b2c3d4.webm", SUPABASE, "org1", "ev1")).toBe(false);
+  });
+});
+
+describe("isEventMediaFor (the same guard, generalised to a set of kinds)", () => {
+  const url = (path: string) => `${SUPABASE}/storage/v1/object/public/event-media/${path}`;
+
+  it("accepts this event's own prize picture when that kind is in the list", () => {
+    expect(isEventMediaFor(url("org1/ev1/game-prize-a1b2c3d4.png"), SUPABASE, "org1", "ev1", ["game-prize"])).toBe(true);
+  });
+
+  it("accepts whichever of several kinds matches", () => {
+    expect(isEventMediaFor(url("org1/ev1/game-card-back-a1b2c3d4.png"), SUPABASE, "org1", "ev1", ["game-prize", "game-card-back"])).toBe(true);
+  });
+
+  it("refuses the right kind for the wrong event or org", () => {
+    expect(isEventMediaFor(url("org1/ev2/game-prize-a1b2c3d4.png"), SUPABASE, "org1", "ev1", ["game-prize"])).toBe(false);
+    expect(isEventMediaFor(url("org2/ev1/game-prize-a1b2c3d4.png"), SUPABASE, "org1", "ev1", ["game-prize"])).toBe(false);
+  });
+
+  it("refuses a kind not in the list, such as a logo or the background video", () => {
+    expect(isEventMediaFor(url("org1/ev1/logo-a1b2c3d4.png"), SUPABASE, "org1", "ev1", ["game-prize"])).toBe(false);
+    expect(isEventMediaFor(url("org1/ev1/game-video-a1b2c3d4.webm"), SUPABASE, "org1", "ev1", ["game-prize", "game-card-back"])).toBe(false);
+  });
+
+  it("refuses a URL hosted somewhere else entirely", () => {
+    expect(isEventMediaFor("https://cdn.example.com/game-prize-a1b2c3d4.png", SUPABASE, "org1", "ev1", ["game-prize"])).toBe(false);
   });
 });
 

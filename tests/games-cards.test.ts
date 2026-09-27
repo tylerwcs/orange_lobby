@@ -34,21 +34,26 @@ describe("dealDeck (D317)", () => {
 });
 
 describe("cardsView (D317)", () => {
-  const prizes = [{ name: "Mug", quantity: 2 }, { name: "Pen", quantity: 1 }];
+  const prizes = [{ name: "Mug", quantity: 2, image: null }, { name: "Pen", quantity: 1, image: "https://cdn.test/pen.png" }];
   const deck = [0, 1, 0];
   const nameOf = (id: string) => ({ a: "Ann Lee", b: "Ben Tan" })[id] ?? "";
 
-  it("numbers cards from 1 and keeps every untaken prize secret", () => {
+  it("numbers cards from 1 and keeps every untaken prize secret, including its picture", () => {
     expect(cardsView(deck, [], "r1", prizes, nameOf)).toEqual([
-      { no: 1, taken: false, prize: null, winner: null },
-      { no: 2, taken: false, prize: null, winner: null },
-      { no: 3, taken: false, prize: null, winner: null },
+      { no: 1, taken: false, prize: null, image: null, winner: null },
+      { no: 2, taken: false, prize: null, image: null, winner: null },
+      { no: 3, taken: false, prize: null, image: null, winner: null },
     ]);
   });
-  it("shows a taken card's prize and winner", () => {
+  it("shows a taken card's prize, picture and winner", () => {
     const v = cardsView(deck, [win("a", 2, 1)], "r1", prizes, nameOf);
-    expect(v[1]).toEqual({ no: 2, taken: true, prize: "Pen", winner: "Ann Lee" });
+    expect(v[1]).toEqual({ no: 2, taken: true, prize: "Pen", image: "https://cdn.test/pen.png", winner: "Ann Lee" });
     expect(v[0].prize).toBeNull();
+    expect(v[0].image).toBeNull();
+  });
+  it("has no picture when the taken prize has none", () => {
+    const v = cardsView(deck, [win("a", 1, 0)], "r1", prizes, nameOf);
+    expect(v[0]).toEqual({ no: 1, taken: true, prize: "Mug", image: null, winner: "Ann Lee" });
   });
   it("ignores void winners, other runs and people still to pick", () => {
     const rows = [win("a", 1, 0, "r1", true), win("b", 3, 0, "r0"), win("c", null, null)];

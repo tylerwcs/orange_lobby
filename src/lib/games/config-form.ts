@@ -78,6 +78,9 @@ export function configFromForm(kind: GameKind, form: Form): ConfigResult {
     format: String(form.get("format") ?? "slot"),
     spin_s: int(form.get("spin_s")),
     rounds: int(form.get("rounds")),
+    // The card back rides its own hidden field (like background_video); an untouched or emptied
+    // field reads as no card back, the same way checkpoint_id's blank option reads as none.
+    card_back: String(form.get("card_back") ?? "") || null,
   });
   return r.success ? { ok: true, config: r.data } : { ok: false, error: explain(r.error) };
 }

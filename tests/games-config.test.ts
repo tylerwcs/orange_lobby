@@ -17,10 +17,10 @@ describe("defaultConfig", () => {
   it("starts last one standing with no questions and 10 s answers", () => {
     expect(defaultConfig("survival")).toEqual({ answer_s: 10, questions: [], background: THEME });
   });
-  it("starts a draw with no checkpoint, no exclusions and no prizes", () => {
+  it("starts a draw with no checkpoint, no exclusions, no prizes and no card back", () => {
     expect(defaultConfig("draw")).toEqual({
       checkpoint_id: null, exclude_categories: [], prizes: [],
-      format: "slot", spin_s: 6, rounds: 4, background: THEME,
+      format: "slot", spin_s: 6, rounds: 4, card_back: null, background: THEME,
     });
   });
 });
@@ -60,8 +60,8 @@ describe("hydrateGame", () => {
   it("reads a draw whose stored checkpoint is not an id as having none, rather than dropping it", () => {
     const g = hydrateGame(row("draw", { checkpoint_id: "cp1", prizes: [{ name: "iPad", quantity: 1 }] }));
     expect(g?.config).toEqual({
-      checkpoint_id: null, exclude_categories: [], prizes: [{ name: "iPad", quantity: 1 }],
-      format: "slot", spin_s: 6, rounds: 4, background: THEME,
+      checkpoint_id: null, exclude_categories: [], prizes: [{ name: "iPad", quantity: 1, image: null }],
+      format: "slot", spin_s: 6, rounds: 4, card_back: null, background: THEME,
     });
   });
   it("keeps a draw's checkpoint id", () => {
@@ -114,5 +114,31 @@ describe("draw formats (D310, D311, D315, D321)", () => {
   });
   it("labels every format", () => {
     expect(Object.keys(DRAW_FORMAT_LABELS).sort()).toEqual(["cards", "mosaic", "slot", "wheel"]);
+  });
+});
+
+describe("prize picture and card back (games polish, D323)", () => {
+  it("an old stored draw with no image and no card_back parses with nulls", () => {
+    const c = parseConfig("draw", { checkpoint_id: null, exclude_categories: [], prizes: [{ name: "iPad", quantity: 1 }] });
+    expect(c?.card_back).toBeNull();
+    expect(c?.prizes).toEqual([{ name: "iPad", quantity: 1, image: null }]);
+  });
+  it("keeps a prize's picture and the card back when they parse", () => {
+    const url = "https://abc.supabase.co/storage/v1/object/public/event-media/o1/e1/game-prize-a1b2c3d4.png";
+    const c = parseConfig("draw", {
+      prizes: [{ name: "iPad", quantity: 1, image: url }],
+      card_back: "https://abc.supabase.co/storage/v1/object/public/event-media/o1/e1/game-card-back-a1b2c3d4.png",
+    });
+    expect(c?.prizes[0].image).toBe(url);
+    expect(c?.card_back).toBe("https://abc.supabase.co/storage/v1/object/public/event-media/o1/e1/game-card-back-a1b2c3d4.png");
+  });
+  it("reads an unreadable image or card_back as null rather than failing the whole game", () => {
+    expect(parseConfig("draw", { prizes: [{ name: "iPad", quantity: 1, image: 42 }] })?.prizes[0].image).toBeNull();
+    expect(parseConfig("draw", { card_back: 42 })?.card_back).toBeNull();
+  });
+  it("rejects an image or card_back over 2000 characters as null, tolerantly", () => {
+    const long = "https://x.test/" + "a".repeat(2000);
+    expect(parseConfig("draw", { prizes: [{ name: "iPad", quantity: 1, image: long }] })?.prizes[0].image).toBeNull();
+    expect(parseConfig("draw", { card_back: long })?.card_back).toBeNull();
   });
 });
