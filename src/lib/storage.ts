@@ -117,6 +117,36 @@ export function acceptVideo(file: { type: string; size: number }): string {
 export const VIDEO_ACCEPT = Object.keys(VIDEO_EXTENSIONS).join(",");
 
 /**
+ * True when `url` names an object filed under this exact org and event's folder (D300) —
+ * `mediaObjectPath` writes everything as `<org>/<event>/<kind>-<id>.<ext>`, so this is the
+ * boundary a save must check before handing a URL to a delete: a stored URL naming another
+ * event's, or another org's, object must never be treated as "ours to remove".
+ */
+export function mediaPathInEvent(url: string, supabaseUrl: string, orgId: string, eventId: string): boolean {
+  const path = mediaPathFromUrl(url, supabaseUrl);
+  return path !== null && path.startsWith(`${orgId}/${eventId}/`);
+}
+
+/**
+ * True only when `url` is a game background video WE stored for this exact event (D300).
+ *
+ * The hidden `background_video` field the browser posts is entirely client-controlled — an
+ * organiser (or a compromised admin session) could paste in the public URL of any object
+ * already sitting in the shared `event-media` bucket, including another event's banner or
+ * another org's video. `backgroundFromForm`'s `ours` check exists to stop that, so it must
+ * check more than "some object we host": it must check that the object is a game video AND
+ * that it was minted for this org and event — `createVideoUpload` always names one
+ * `<org>/<event>/game-video-<id>.<ext>` (mediaObjectPath), so that exact prefix is the proof.
+ * Accepting anything looser would let a save adopt someone else's video; the next save that
+ * moves the background away from it would then call `deleteEventImage` on a URL another row
+ * still points at, deleting a file out from under it.
+ */
+export function isGameVideoFor(url: string, supabaseUrl: string, orgId: string, eventId: string): boolean {
+  const path = mediaPathFromUrl(url, supabaseUrl);
+  return path !== null && path.startsWith(`${orgId}/${eventId}/game-video-`);
+}
+
+/**
  * The one bucket every submitted `file` answer lives in. Private, unlike MEDIA_BUCKET (D168):
  * an attendee's photo or receipt is not a logo, and "nobody will guess the filename" is not
  * access control. Reads go through signedSubmissionUrl instead — see media.ts.

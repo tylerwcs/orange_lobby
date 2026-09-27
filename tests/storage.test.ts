@@ -3,8 +3,10 @@ import {
   acceptImage,
   acceptUpload,
   acceptVideo,
+  isGameVideoFor,
   mediaObjectPath,
   mediaPathFromUrl,
+  mediaPathInEvent,
   submissionObjectPath,
   submissionFilePaths,
   imageIntent,
@@ -139,6 +141,46 @@ describe("acceptVideo (D300)", () => {
     expect(() => acceptVideo({ type: "video/quicktime", size: 1000 })).toThrow("Videos must be MP4 or WebM.");
     expect(() => acceptVideo({ type: "video/mp4", size: 0 })).toThrow("Choose a video first.");
     expect(() => acceptVideo({ type: "video/mp4", size: MAX_VIDEO_BYTES + 1 })).toThrow("Videos must be 30 MB or smaller.");
+  });
+});
+
+describe("isGameVideoFor (security: a save must never adopt another event's or org's upload)", () => {
+  const url = (path: string) => `${SUPABASE}/storage/v1/object/public/event-media/${path}`;
+
+  it("accepts this event's own game video", () => {
+    expect(isGameVideoFor(url("org1/ev1/game-video-a1b2c3d4.webm"), SUPABASE, "org1", "ev1")).toBe(true);
+  });
+
+  it("refuses another event's game video, even in the same org", () => {
+    expect(isGameVideoFor(url("org1/ev2/game-video-a1b2c3d4.webm"), SUPABASE, "org1", "ev1")).toBe(false);
+  });
+
+  it("refuses another org's game video, even under the same event id", () => {
+    expect(isGameVideoFor(url("org2/ev1/game-video-a1b2c3d4.webm"), SUPABASE, "org1", "ev1")).toBe(false);
+  });
+
+  it("refuses a logo or background image in this very event — a video field must not adopt another kind", () => {
+    expect(isGameVideoFor(url("org1/ev1/logo-a1b2c3d4.png"), SUPABASE, "org1", "ev1")).toBe(false);
+    expect(isGameVideoFor(url("org1/ev1/game-background-a1b2c3d4.png"), SUPABASE, "org1", "ev1")).toBe(false);
+  });
+
+  it("refuses a URL hosted somewhere else entirely", () => {
+    expect(isGameVideoFor("https://cdn.example.com/game-video-a1b2c3d4.webm", SUPABASE, "org1", "ev1")).toBe(false);
+  });
+});
+
+describe("mediaPathInEvent (the delete guard)", () => {
+  const url = (path: string) => `${SUPABASE}/storage/v1/object/public/event-media/${path}`;
+
+  it("is true for any of this event's own objects", () => {
+    expect(mediaPathInEvent(url("org1/ev1/game-video-a1b2c3d4.webm"), SUPABASE, "org1", "ev1")).toBe(true);
+    expect(mediaPathInEvent(url("org1/ev1/logo-a1b2c3d4.png"), SUPABASE, "org1", "ev1")).toBe(true);
+  });
+
+  it("is false for another event's, another org's, or an external URL", () => {
+    expect(mediaPathInEvent(url("org1/ev2/logo-a1b2c3d4.png"), SUPABASE, "org1", "ev1")).toBe(false);
+    expect(mediaPathInEvent(url("org2/ev1/logo-a1b2c3d4.png"), SUPABASE, "org1", "ev1")).toBe(false);
+    expect(mediaPathInEvent("https://cdn.example.com/logo.png", SUPABASE, "org1", "ev1")).toBe(false);
   });
 });
 

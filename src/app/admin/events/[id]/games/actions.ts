@@ -5,10 +5,10 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent, rotateDisplayToken, rotateHostToken } from "@/lib/db/events";
 import { createGame, deleteGame, getGame, resetDraw, updateGame } from "@/lib/db/games";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { GAME_KIND_LABELS, isGameKind } from "@/lib/games/config";
+import { GAME_KIND_LABELS, isGameKind, parseConfig } from "@/lib/games/config";
 import { configFromForm } from "@/lib/games/config-form";
 import { backgroundFromForm } from "@/lib/games/background";
-import { acceptVideo, mediaPathFromUrl } from "@/lib/storage";
+import { acceptVideo, isGameVideoFor, mediaPathInEvent } from "@/lib/storage";
 import { createVideoUpload, deleteEventImage, nextImage } from "@/lib/db/media";
 import { flashPath } from "@/lib/flash";
 
@@ -83,13 +83,26 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
   const bg = backgroundFromForm(kind, {
     image,
     video: String(form.get("background_video") ?? "").trim() || null,
-    ours: (u) => mediaPathFromUrl(u, supabaseUrl) !== null,
+    // The hidden field is client-controlled: it must name a game video WE minted for THIS
+    // event, never merely some object that happens to sit in the shared bucket (another
+    // event's or org's upload), or the delete below could remove a file another row still
+    // points at.
+    ours: (u) => isGameVideoFor(u, supabaseUrl, ev.org_id, ev.id),
   });
   if (!bg.ok) redirect(flashPath(path, bg.error, "error"));
+  // Typed rather than cast: parsed.config already passed this kind's schema (configFromForm),
+  // so re-reading it through parseConfig keeps the stored shape checked by tsc instead of
+  // trusting an `as Record<string, unknown>` that would compile no matter what shape it held.
+  const typedConfig = parseConfig(game.kind, parsed.config);
+  if (!typedConfig) redirect(flashPath(path, "Something on the form is not right. Check it and save again.", "error"));
   const title = (String(form.get("title") ?? "").trim() || game.title).slice(0, 80);
-  await updateGame(game.id, ev.id, { title, config: { ...(parsed.config as Record<string, unknown>), background: bg.background } });
-  // The file this save replaced goes only once the row no longer names it (see nextImage).
-  if (current.url && current.url !== bg.background.url) await deleteEventImage(current.url);
+  await updateGame(game.id, ev.id, { title, config: { ...typedConfig, background: bg.background } });
+  // The file this save replaced goes only once the row no longer names it (see nextImage) —
+  // and only when it is actually ours to remove: a URL outside this event's folder is left
+  // alone rather than handed to the service-role delete.
+  if (current.url && current.url !== bg.background.url && mediaPathInEvent(current.url, supabaseUrl, ev.org_id, ev.id)) {
+    await deleteEventImage(current.url);
+  }
   revalidatePath(path);
   revalidatePath(gamesPath(ev.id));
   redirect(flashPath(path, "Saved."));
