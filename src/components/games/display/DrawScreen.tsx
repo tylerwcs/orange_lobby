@@ -42,7 +42,10 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
         <Frame>
           <motion.p initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
             className="text-center font-game text-6xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">{who.name} — pick a card</motion.p>
-          <p className="absolute inset-x-0 bottom-12 text-center font-game text-4xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>
+          {/* Smaller and closer to the true bottom edge than before (fix round 1, D323): cardLayout's
+              grid can reach y≈1020 of the 1080-tall canvas at 3–4 rows, and the previous text-4xl/
+              bottom-12 line touched it. Part C re-checks the card layout properly; this just clears it. */}
+          <p className="absolute inset-x-0 bottom-2 text-center font-game text-3xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>
         </Frame>
       );
     }
@@ -62,7 +65,7 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
       <Frame>
         {left === 0
           ? <div className="flex h-full items-center justify-center font-game text-8xl">All cards dealt 🎉</div>
-          : <p className="absolute inset-x-0 bottom-12 text-center font-game text-4xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>}
+          : <p className="absolute inset-x-0 bottom-2 text-center font-game text-3xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>}
       </Frame>
     );
   }
@@ -85,8 +88,11 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
             <>
               <p className="font-game text-5xl opacity-85">Next up</p>
               {d.prizeImage && (
+                // key={d.prizeImage}: onError sets display:none directly on the DOM node, which React
+                // never clears on its own — without a key tied to the URL, a new prize's <img> would
+                // reuse the same hidden node and never show (fix round 1, D323).
                 // eslint-disable-next-line @next/next/no-img-element -- an organiser upload; see IdleScreen
-                <img src={d.prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
+                <img key={d.prizeImage} src={d.prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
                   className="max-h-[520px] max-w-[900px] rounded-3xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.5)]" />
               )}
               <motion.p key={d.prize} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 180, damping: 14 }}
@@ -106,7 +112,7 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
         <Frame>
           {/* A small centred line, not a corner fact (Requirement 1); none for a card round's turn (there is no prize here anyway). */}
           {d.prize && (
-            <p className="absolute inset-x-0 top-10 text-center font-game text-4xl opacity-85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]">Drawing for {d.prize}</p>
+            <p className="absolute inset-x-0 top-10 truncate px-16 text-center font-game text-4xl opacity-85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]">Drawing for {d.prize}</p>
           )}
           {s.endsAt !== null && now >= s.endsAt && d.targets?.[0] && (
             <>
@@ -125,7 +131,7 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
       <Frame>
         {/* Cards' own turn-spin has no prize to name (a card round's turn has none). */}
         {d.format !== "cards" && d.prize && (
-          <p className="absolute inset-x-0 top-10 text-center font-game text-4xl opacity-85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]">Drawing for {d.prize}</p>
+          <p className="absolute inset-x-0 top-10 truncate px-16 text-center font-game text-4xl opacity-85 drop-shadow-[0_4px_16px_rgba(0,0,0,0.45)]">Drawing for {d.prize}</p>
         )}
         {targets.length > MAX_REELS
           ? <Cascade people={targets} endsAt={s.endsAt} now={now} />
@@ -150,15 +156,18 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
  * 3D canvas (DisplayView stacks the HTML screen above Layer3D), so an opaque background here would
  * hide the spinning reel entirely instead of framing it. White-to-transparent gradients top and
  * bottom fade the names as they roll in and out, and two small dark-grey pointer triangles at the
- * left and right edges — level with the centre row — point inward at the winner. Frame's content
- * box is not positioned, so `absolute inset-0` here is the whole 1920×1080 screen layer — the same
- * pixels reelLayout and the 3D reels use.
+ * left and right edges — level with the centre row — point inward at the winner. A small radius
+ * (12px, fix round 1, D323): the 3D reel behind it is a plain rectangle with square corners, and a
+ * bigger radius here (with the shadow it casts) visibly darkened the reel's own corners where they
+ * showed past this frame's rounded clip. Frame itself is `relative` and fills the whole 1920×1080
+ * screen, so `absolute inset-0` here still covers the whole canvas — the same pixels reelLayout and
+ * the 3D reels use.
  */
 function ReelFrames({ count }: { count: number }) {
   return (
     <div className="pointer-events-none absolute inset-0">
       {reelLayout(count).map((b, i) => (
-        <div key={i} className="absolute overflow-hidden rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
+        <div key={i} className="absolute overflow-hidden rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
           style={{ left: b.x - b.w / 2, top: b.y - b.h / 2, width: b.w, height: b.h }}>
           <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-white to-transparent" />

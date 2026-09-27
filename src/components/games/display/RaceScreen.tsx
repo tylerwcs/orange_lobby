@@ -102,7 +102,10 @@ function Lanes({ lanes }: { lanes: DisplayLane[] }) {
   const ordered = [...lanes].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   const lead = lanes.reduce<DisplayLane | null>((best, l) => (l.progress > 0 && (!best || l.progress > best.progress) ? l : best), null);
   return (
-    <div className="flex h-full items-stretch justify-center gap-5 px-6">
+    // pt-[200px] clears the TimerRing (right-16 top-10, ~40–190px): with Frame's header gone,
+    // lanes start level with it, and with 9+ lanes the row fills wide enough for the rightmost
+    // lane/crown to run under the ring (fix round 1, D323).
+    <div className="flex h-full items-stretch justify-center gap-5 px-6 pt-[200px]">
       {ordered.map((l) => {
         const leader = lead?.key === l.key;
         return (

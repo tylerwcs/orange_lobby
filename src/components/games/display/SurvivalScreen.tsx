@@ -78,9 +78,17 @@ function RevealSequence({ state }: { state: DisplayState }) {
         <RevealCounter from={before} to={after} running={step >= 2} />
       </header>
       <div className={`min-h-0 flex-1 ${everyone && step >= 2 ? "mosaic-flash" : ""}`}>
-        {/* A new key at the regroup remounts the tiles, so the survivors pop into their bigger places. */}
+        {/* A new key at the regroup remounts the tiles, so the survivors pop into their bigger places.
+            height budget reduced from 960 (fix round 1, D323): the container is 1080 - pt-6 - pb-6 =
+            1032px, and the header is now two stacked rows instead of one split left/right — text-5xl
+            (48px) + gap-1 (4px) + text-6xl (60px) + pb-4 (16px) = 128px — leaving ~904px for the
+            tiles, not 960; a few-survivor round's bigger tiles spilled ~56px off the bottom into the
+            logo. 850 leaves real margin below that 904px estimate rather than sitting right at it,
+            since Mosaic's `height` is only a sizing budget (gridFor), and this component's own
+            rendered height isn't measured — undershooting it only makes tiles a little smaller than
+            they could be; overshooting it is what caused the spill. */}
         <Mosaic key={regrouped ? "survivors" : "all"} people={sv.players}
-          darkIds={everyone ? undefined : dark} darken={step >= 2 && !regrouped} hideDark={regrouped} seed={s.key} height={960} />
+          darkIds={everyone ? undefined : dark} darken={step >= 2 && !regrouped} hideDark={regrouped} seed={s.key} height={850} />
       </div>
     </div>
   );

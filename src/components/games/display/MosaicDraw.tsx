@@ -51,7 +51,7 @@ export function MosaicDraw({ prize, mosaic, seed }: { prize: string | null; mosa
   return (
     <Frame>
       <div className="flex h-full flex-col gap-4">
-        {prize && <p className="text-center font-game text-4xl opacity-90">Drawing for {prize}</p>}
+        {prize && <p className="truncate px-16 text-center font-game text-4xl opacity-90">Drawing for {prize}</p>}
         <div className="min-h-0 flex-1">
           {/* No `key` here (unlike the brief's literal code): Mosaic must stay mounted across
               rounds so a tile going dark this round is a CSS class change on the SAME element,

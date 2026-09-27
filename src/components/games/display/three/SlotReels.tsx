@@ -39,6 +39,13 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
   const ready = useFontReady();
   const faceH = box.h * 0.62;
   const radius = (faceH * FACES) / TAU;
+  // The true flat edge length of a regular FACES-gon with this radius as its apothem (fix round 1,
+  // D323): faceH itself is an arc-length approximation (radius = faceH*FACES/TAU treats faceH as if
+  // it were a curved slice of the circumference), which is shorter than the real flat chord at that
+  // radius — 2*radius*tan(π/FACES) is exact. Sizing each face's geometry (and its texture) at that
+  // undersized faceH left a hairline gap between neighbouring faces, visible at this camera's
+  // perspective as a stray line of whatever sat behind the reel; edgeH closes it.
+  const edgeH = 2 * radius * Math.tan(Math.PI / FACES);
   const turns = Math.max(3, Math.round(spinMs / 700));
   const drum = useRef<THREE.Group>(null);
   const landed = useRef(false);
@@ -59,14 +66,14 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
   // already shrinks the faces that have turned away from the front.
   const textures = useMemo(() => {
     if (!ready) return [];
-    const size = Math.min(faceH * 0.55, 150);
+    const size = Math.min(edgeH * 0.55, 150);
     return Array.from({ length: FACES }, (_, i) => {
       const p = i === 0 ? stableTarget : stableNames.length ? stableNames[(i - 1) % stableNames.length] : stableTarget;
-      return textTexture(box.w, faceH, [
+      return textTexture(box.w, edgeH, [
         { text: wheelLabel(p), size, colour: "#111111" },
       ], { background: "#ffffff" });
     });
-  }, [ready, stableTarget, stableNames, box.w, faceH]);
+  }, [ready, stableTarget, stableNames, box.w, edgeH]);
   useEffect(() => () => textures.forEach((t) => t.dispose()), [textures]);
 
   const [x, y] = toWorld(box.x, box.y);
@@ -101,25 +108,12 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
   });
   return (
     <group position={[x, y, -radius]}>
-      {/* A plain white backstop, fixed (outside the spinning drum) just behind the front face
-          (D323): the drum is flat quads approximating a cylinder, and at this camera's
-          perspective the thin seam between two adjacent faces can otherwise show whatever is
-          behind the reel — the coloured Theme backdrop — as a hairline. It sits close to the
-          front face's own depth (not further back, e.g. behind the whole drum) so its projected
-          size still matches the window at this camera's perspective — placed further back it
-          would project smaller than the box and leave the same gap at the window's edges. Since
-          it's the same white as the faces themselves, any such seam now reads as reel, not a
-          stray line. */}
-      <mesh position={[0, 0, radius - 24]}>
-        <planeGeometry args={[box.w, box.h]} />
-        <meshBasicMaterial color="#ffffff" clippingPlanes={clipPlanes} />
-      </mesh>
       <group ref={drum}>
         {textures.map((tex, i) => {
           const a = (i * TAU) / FACES;
           return (
             <mesh key={i} position={[0, radius * Math.sin(a), radius * Math.cos(a)]} rotation={[-a, 0, 0]}>
-              <planeGeometry args={[box.w, faceH]} />
+              <planeGeometry args={[box.w, edgeH]} />
               <meshBasicMaterial map={tex} clippingPlanes={clipPlanes} />
             </mesh>
           );

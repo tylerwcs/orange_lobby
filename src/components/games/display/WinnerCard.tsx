@@ -16,8 +16,11 @@ export function WinnerCard({ label, name, company, prize, prizeImage }: { label:
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
           className="mt-6 flex flex-col items-center gap-4">
           {prizeImage && (
+            // key={prizeImage}: onError sets display:none on the DOM node directly, which React
+            // never clears — without a key tied to the URL, a new prize's <img> reuses the same
+            // hidden node and never shows (fix round 1, D323).
             // eslint-disable-next-line @next/next/no-img-element -- an organiser upload; see IdleScreen
-            <img src={prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
+            <img key={prizeImage} src={prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
               className="max-h-[280px] max-w-[520px] rounded-2xl object-contain shadow-[0_16px_50px_rgba(0,0,0,0.5)]" />
           )}
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 220, damping: 12, delay: 0.7 }}
@@ -57,8 +60,9 @@ export function JointWinners({ title, winners, prize, prizeImage }: { title: str
       {prize && (
         <div className="flex shrink-0 flex-col items-center gap-3">
           {prizeImage && (
+            // key={prizeImage}: see the same note in WinnerCard above (fix round 1, D323).
             // eslint-disable-next-line @next/next/no-img-element -- an organiser upload; see IdleScreen
-            <img src={prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
+            <img key={prizeImage} src={prizeImage} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }}
               className="max-h-[170px] max-w-[420px] rounded-2xl object-contain shadow-[0_12px_40px_rgba(0,0,0,0.5)]" />
           )}
           <div className="h-[72px] max-w-full truncate text-7xl font-extrabold leading-none">{prize}</div>
