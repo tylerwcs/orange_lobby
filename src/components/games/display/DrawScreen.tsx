@@ -47,12 +47,14 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
       );
     }
     if (s.phase === "draw_card_reveal" && who && picked?.prize) {
+      // The last card flipped (D317 step 5): say so under the win, so the room knows the round is over.
       return (
         <Frame title={title}>
-          <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: FLIP_END_MS / 1000 }}
-            className="absolute inset-x-0 bottom-14 text-center font-game text-6xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
-            {who.name} wins {picked.prize}
-          </motion.p>
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: FLIP_END_MS / 1000 }}
+            className="absolute inset-x-0 bottom-14 flex flex-col items-center gap-3 text-center font-game drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
+            <p className="text-6xl">{who.name} wins {picked.prize}</p>
+            {left === 0 && <p className="text-5xl opacity-90">All cards dealt 🎉</p>}
+          </motion.div>
         </Frame>
       );
     }
