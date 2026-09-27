@@ -3,6 +3,9 @@
 Date: 2026-09-26
 Status: built 2026-09-27 (load-tested at 500: not yet run; 1,000: not yet run)
 Decisions D250–D289. Target: after the KOM pilot (30 Sep 2026); not part of it.
+Look, sound, backgrounds and draw formats: see
+[2026-09-27-live-games-visuals-design.md](2026-09-27-live-games-visuals-design.md), which amends
+D280 and drops "Sound" from out of scope.
 
 ## 1. Why
 
