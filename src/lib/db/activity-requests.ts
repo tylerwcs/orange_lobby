@@ -105,3 +105,25 @@ export async function decideRequest(
   if (error) throw error;
   return data as DecideResult;
 }
+
+/** Pending requests old enough to remind about and not yet reminded — the round's input. */
+export async function listDueRequests(cutoffIso: string): Promise<ActivityChangeRequest[]> {
+  const { data, error } = await serviceClient().from("activity_change_requests").select("*")
+    .eq("status", "pending").is("reminded_at", null).lte("created_at", cutoffIso).order("created_at");
+  if (error) throw error;
+  return (data ?? []) as ActivityChangeRequest[];
+}
+
+/**
+ * Stamps `reminded_at` on those of `ids` still un-stamped and returns the ones this call won.
+ * Claim before sending: two overlapping rounds then count each request once, and a template
+ * still in review cannot cause a send attempt every five minutes.
+ */
+export async function claimForReminder(ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await serviceClient().from("activity_change_requests")
+    .update({ reminded_at: new Date().toISOString() })
+    .in("id", ids).is("reminded_at", null).eq("status", "pending").select("id");
+  if (error) throw error;
+  return (data ?? []).map((r) => (r as { id: string }).id);
+}
