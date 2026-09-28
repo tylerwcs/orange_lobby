@@ -318,9 +318,17 @@ export type ActivitySubmission = {
   answers: Record<string, string>;
   /** The Malaysian calendar day this counts against (D165). */
   submitted_on: string; // YYYY-MM-DD
-  /** Room for a review queue that is not built yet; nothing branches on it (D170). */
-  status: string;
+  /** D338: revoked rows stay for the record but never count (D339). */
+  status: "submitted" | "revoked";
   /** Denormalised from the form so the partial unique index needs no join (D165). */
   per_day: boolean;
   created_at: string;
+  /** When this row was revoked; null until then (D338). */
+  revoked_at: string | null;
+  /** An `auth.users` id, as `checkins.scanned_by` is; null until revoked (D338). */
+  revoked_by: string | null;
+  /** When an admin last edited the answers; null until then (D337). */
+  edited_at: string | null;
+  /** An `auth.users` id; null until an admin edits the answers (D337). */
+  edited_by: string | null;
 };

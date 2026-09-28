@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSubmit, capSummary, missingFrom, participation } from "@/lib/submissions";
+import { canSubmit, capSummary, missingFrom, participation, liveSubmissions, perDayCollision } from "@/lib/submissions";
 import { readSubmissionDetails, submitLabel } from "@/lib/submissions";
 import type { Activity, ActivitySubmission } from "@/lib/types";
 
@@ -11,6 +11,7 @@ const form = (over: Partial<Activity> = {}): Activity => ({
 const sub = (day: string): ActivitySubmission => ({
   id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", answers: {},
   submitted_on: day, status: "submitted", per_day: true, created_at: `${day}T01:00:00Z`,
+  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null,
 });
 const TODAY = "2026-09-28";
 
@@ -239,5 +240,20 @@ describe("readSubmissionDetails", () => {
   });
   it("refuses a button label too long for a button", () => {
     expect(() => read({ action_label: "x".repeat(25) })).toThrow(/24/);
+  });
+});
+
+describe("liveSubmissions / perDayCollision (D339, D342)", () => {
+  const row = (id: string, attendee_id: string, day: string, status: "submitted" | "revoked" = "submitted") =>
+    ({ ...sub(day), id, attendee_id, status });
+  it("drops revoked rows", () => {
+    expect(liveSubmissions([row("1", "a1", "2026-09-28"), row("2", "a1", "2026-09-28", "revoked")]).map((s) => s.id)).toEqual(["1"]);
+  });
+  it("finds two live rows from one attendee on one day", () => {
+    expect(perDayCollision([row("1", "a1", "2026-09-28"), row("2", "a2", "2026-09-28"), row("3", "a1", "2026-09-28")]))
+      .toEqual({ attendeeId: "a1", day: "2026-09-28" });
+  });
+  it("does not count a revoked duplicate", () => {
+    expect(perDayCollision([row("1", "a1", "2026-09-28"), row("2", "a1", "2026-09-28", "revoked")])).toBeNull();
   });
 });

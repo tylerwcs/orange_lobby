@@ -6,18 +6,18 @@ import { requireEvent } from "@/lib/db/events";
 import {
   createActivity, updateActivity, deleteActivity, deletePassportIfUnstamped, getActivity,
   createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
-  syncSubmissionPerDay, type NewActivity, type BookResult, type DecisionResult,
+  syncSubmissionPerDay, submissionsForActivity, type NewActivity, type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
 import { getRequest, decideRequest } from "@/lib/db/activity-requests";
 import { notifyRequestDecision, decisionFlash } from "@/lib/request-notify";
 import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields, sessionLabel } from "@/lib/activities";
-import { listAttendees } from "@/lib/db/attendees";
+import { listAttendees, getAttendee } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
 import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
-import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails } from "@/lib/submissions";
+import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, perDayCollision } from "@/lib/submissions";
 import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
 import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
@@ -286,6 +286,18 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
   } catch (e) {
     redirect(flashPath(back, (e as Error).message, "error"));
   }
+  // Turning per_day on for the first time (D342): refuse up front, by name, when someone
+  // already has two LIVE submissions on one day — revoked duplicates don't count (D339).
+  // `syncSubmissionPerDay`'s own index below is the race backstop for the gap between this
+  // check and that write, not the primary way this is caught.
+  if (policy.per_day && !current.per_day) {
+    const collision = perDayCollision(await submissionsForActivity(activityId));
+    if (collision) {
+      if (image.url !== current.image_url) await deleteEventImage(image.url);
+      const attendee = await getAttendee(collision.attendeeId);
+      redirect(flashPath(back, `${attendee?.name ?? "Someone"} submitted twice on ${shortDate(collision.day)}, so this can't become once a day. Revoke one of them first.`, "error"));
+    }
+  }
   try {
     await syncSubmissionPerDay(activityId, policy.per_day);
   } catch (e) {
@@ -296,7 +308,7 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
     // outage, a network failure, some other constraint) re-throws, so it surfaces as a real
     // failure instead of a misleading flash the organiser cannot act on.
     if (!isPerDayCollision(e)) throw e;
-    redirect(flashPath(back, "Someone has already submitted twice in one day, so this submission cannot become once-a-day. Delete the extra submission first.", "error"));
+    redirect(flashPath(back, "Someone has already submitted twice in one day, so this submission cannot become once-a-day. Revoke the extra submission first.", "error"));
   }
   await updateActivity(activityId, ev.id, { ...policy, image_url: image.url });
   // Only now that the row names the new picture (or none) is the old one safe to throw away.

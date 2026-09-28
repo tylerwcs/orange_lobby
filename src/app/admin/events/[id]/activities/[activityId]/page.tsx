@@ -19,7 +19,7 @@ import { boardsByDay } from "@/lib/booking-door";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
-import { capSummary, missingFrom, participation } from "@/lib/submissions";
+import { capSummary, missingFrom, participation, liveSubmissions } from "@/lib/submissions";
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL } from "@/lib/time";
@@ -259,12 +259,16 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
     return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null };
   };
 
+  // A revoked row stays for the record (D340, so SubmissionTable below still gets `submissions`
+  // whole) but never counts toward anything this activity decides from (D339).
+  const live = liveSubmissions(submissions);
+
   // Which question the chasing list is answering, decided HERE rather than inside
   // `missingFrom`, so the rule is visible where somebody reads the page (D175): a per-day
   // activity asks about one day, anything else asks whether they ever submitted at all.
   const today = nowInKL().date;
   const day = activity.per_day ? (requestedDay || today) : null;
-  const missing = missingFrom(activity, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, day)
+  const missing = missingFrom(activity, live, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, day)
     .map((aid) => {
       const a = attendeeById.get(aid)!;
       return { id: a.id, name: a.name, category: a.category };
@@ -274,14 +278,14 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   // every row would be a single mark, which is a fact the submissions table already carries.
   const PARTICIPATION_DAYS = 14;
   const drifting = activity.per_day
-    ? participation(activity, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, today, PARTICIPATION_DAYS)
+    ? participation(activity, live, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, today, PARTICIPATION_DAYS)
         .map((r) => {
           const a = attendeeById.get(r.attendeeId)!;
           return { ...r, name: a.name, category: a.category };
         })
     : null;
 
-  const tabs = activityTabs("submission", { submissions: submissions.length, notSubmitted: missing.length, perDay: activity.per_day });
+  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: missing.length, perDay: activity.per_day });
   const current = resolveTab(tabs, tab);
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
 
@@ -289,7 +293,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
     <div className="flex flex-col gap-4" data-wide>
       <AdminHeader
         title={activity.name}
-        subtitle={`${submissions.length} submission${submissions.length === 1 ? "" : "s"} · ${capSummary(activity)}`}
+        subtitle={`${live.length} submission${live.length === 1 ? "" : "s"} · ${capSummary(activity)}`}
         actions={
           <>
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />

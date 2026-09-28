@@ -8,6 +8,22 @@ export const MAX_SUBMISSION_QUESTIONS = 20;
 export type SubmitReason = "ok" | "closed" | "ineligible" | "limit" | "today";
 export type SubmitState = { can: boolean; reason: SubmitReason; used: number };
 
+/** The rows that count (D339): every reader of "who submitted" goes through this. */
+export function liveSubmissions<T extends Pick<ActivitySubmission, "status">>(subs: T[]): T[] {
+  return subs.filter((s) => s.status === "submitted");
+}
+
+/** D342: the first attendee with two live rows on one day — what makes once-a-day impossible. */
+export function perDayCollision(subs: Pick<ActivitySubmission, "attendee_id" | "submitted_on" | "status">[]): { attendeeId: string; day: string } | null {
+  const seen = new Set<string>();
+  for (const s of liveSubmissions(subs)) {
+    const k = `${s.attendee_id}|${s.submitted_on}`;
+    if (seen.has(k)) return { attendeeId: s.attendee_id, day: s.submitted_on };
+    seen.add(k);
+  }
+  return null;
+}
+
 /**
  * Whether this attendee may submit to this activity right now, and if not, why.
  *

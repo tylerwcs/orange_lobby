@@ -320,14 +320,17 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
 /** Every answer `submit_answers` can give. Mirrors BookResult; `today` replaces `full`. */
 export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today";
 
+// revoked rows never count and never reach an attendee (D339, D341).
 export async function listSubmissions(eventId: string): Promise<ActivitySubmission[]> {
   const { data, error } = await serviceClient().from("activity_submissions").select("*")
-    .eq("event_id", eventId).order("submitted_on", { ascending: false }).order("created_at", { ascending: false });
+    .eq("event_id", eventId).eq("status", "submitted")
+    .order("submitted_on", { ascending: false }).order("created_at", { ascending: false });
   if (error?.code === "PGRST205" || error?.code === "42P01") return [];
   if (error) throw error;
   return (data ?? []) as ActivitySubmission[];
 }
 
+// The admin table shows revoked rows too, D340.
 export async function submissionsForActivity(activityId: string): Promise<ActivitySubmission[]> {
   const { data, error } = await serviceClient().from("activity_submissions").select("*")
     .eq("activity_id", activityId).order("submitted_on", { ascending: false }).order("created_at", { ascending: false });
@@ -335,11 +338,36 @@ export async function submissionsForActivity(activityId: string): Promise<Activi
   return (data ?? []) as ActivitySubmission[];
 }
 
+// revoked rows never count and never reach an attendee (D339, D341).
 export async function submissionsForAttendee(attendeeId: string): Promise<ActivitySubmission[]> {
   const { data, error } = await serviceClient().from("activity_submissions").select("*")
-    .eq("attendee_id", attendeeId).order("submitted_on", { ascending: false });
+    .eq("attendee_id", attendeeId).eq("status", "submitted").order("submitted_on", { ascending: false });
   if (error) throw error;
   return (data ?? []) as ActivitySubmission[];
+}
+
+export async function getSubmission(id: string): Promise<ActivitySubmission | null> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data as ActivitySubmission | null;
+}
+
+/** D337. Only a live row can be edited; false when it was revoked or is gone. */
+export async function updateSubmissionAnswers(id: string, activityId: string, answers: Record<string, string>, userId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("activity_submissions")
+    .update({ answers, edited_at: new Date().toISOString(), edited_by: userId })
+    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/** D338. Status, not a delete: the row and its files stay. False when already revoked or gone. */
+export async function revokeSubmission(id: string, activityId: string, userId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("activity_submissions")
+    .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_by: userId })
+    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 /**
