@@ -109,6 +109,19 @@ describe("doorBoard", () => {
     });
     expect(b2.slots[0].people).toEqual([{ id: "zz", name: "Unknown", arrivedAt: "2026-09-30T02:01:00+00:00", noShow: false }]);
   });
+  it("one check-in marks a person booked into two slots arrived in both, and counts them once (D328)", () => {
+    const twice = doorBoard({
+      day: DAY, sessions: quarterHours, bookings: [b("s1", "p1"), b("s3", "p1"), b("s3", "p2")],
+      checkins: [scan("p1", "2026-09-30T02:02:00+00:00")], names, now: at("10:20"),
+    });
+    const [s1, , s3] = twice.slots;
+    expect(s1.people).toEqual([{ id: "p1", name: "Aisyah", arrivedAt: "2026-09-30T02:02:00+00:00", noShow: false }]);
+    expect(s3.people.map((p) => [p.name, p.arrivedAt])).toEqual([["Aisyah", "2026-09-30T02:02:00+00:00"], ["Ben", null]]);
+    expect([s1.arrived, s3.arrived]).toEqual([1, 1]);
+    expect(twice.expected).toBe(2);
+    expect(twice.arrived).toBe(1);
+    expect(twice.walkIns).toEqual([]);
+  });
 });
 
 describe("doorTallies", () => {
@@ -129,6 +142,27 @@ describe("doorTallies", () => {
   });
   it("a booking door on a day without sessions expects nobody", () => {
     expect(t.empty).toEqual({ arrived: 0, expected: 0, walkIns: 0 });
+  });
+
+  // The door list, Settings and the Overview read doorTallies; the scanner's header reads the
+  // board. The same rows must give the same "n of m" and walk-ins in both (D331).
+  it("agrees with the door's board over the same rows", () => {
+    const door = { id: "d1", activity_id: "a1", day: DAY };
+    const all = [...quarterHours, s("s9", "10:00", "10:15", { day: "2026-10-01" }), s("x1", "10:00", "10:15", { activity_id: "a2" })];
+    const booked = [b("s1", "p1"), b("s1", "p2"), b("s2", "p3"), b("s9", "p9"), b("x1", "p8")];
+    const scans = [
+      scan("p1", "2026-09-30T02:02:00+00:00"), scan("p3", "2026-09-30T02:16:00+00:00"),
+      scan("w1", "2026-09-30T02:05:00+00:00"), // booked nothing: a walk-in
+      scan("p9", "2026-09-30T02:06:00+00:00"), // booked the same activity on another day: a walk-in here
+      scan("p2", "2026-09-30T01:00:00+00:00", "reg"), // another door: not an arrival here
+    ];
+    const board = doorBoard({
+      day: DAY, sessions: doorSessions(door, all), bookings: booked,
+      checkins: scans.filter((c) => c.checkpoint_id === door.id), names, now: at("10:20"),
+    });
+    const tally = doorTallies([door], scans, all, booked, 120).d1;
+    expect(tally).toEqual({ arrived: board.arrived, expected: board.expected, walkIns: board.walkIns.length });
+    expect(tally).toEqual({ arrived: 2, expected: 3, walkIns: 2 });
   });
 });
 

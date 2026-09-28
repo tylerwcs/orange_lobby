@@ -129,7 +129,8 @@ export function doorTallies(
   for (const cp of checkpoints) {
     const here = byDoor.get(cp.id) ?? [];
     if (!cp.activity_id) { out[cp.id] = { arrived: here.length, expected: registered, walkIns: 0 }; continue; }
-    const ids = new Set(sessions.filter((s) => s.activity_id === cp.activity_id && s.day === cp.day).map((s) => s.id));
+    // One statement of which sessions a door covers (D324), shared with boardsByDay.
+    const ids = new Set(doorSessions(cp, sessions).map((s) => s.id));
     const bookers = new Set(bookings.filter((bk) => ids.has(bk.session_id)).map((bk) => bk.attendee_id));
     const arrived = here.filter((id) => bookers.has(id)).length;
     out[cp.id] = { arrived, expected: bookers.size, walkIns: here.length - arrived };
