@@ -21,8 +21,10 @@ entries are still `activity_submissions` rows, and they still go through `submit
 - **D346 — Admins manage groups on a Groups page, in the approved admin style.**
   - The page is a table of groups with name, member count and a ⋯ menu (Rename, Delete).
   - A group's detail view lists its members, with Add members (search) and Remove.
-  - The attendee table gets a Group column and a bulk "Move to group…" action. The action
-    offers every group, "New group…" and "No group".
+  - The attendee table gets a Group column. The bulk editor sets it the same way it already sets
+    a breakout room: a select of every group, where clearing it means "No group". New groups are
+    made on the Groups page. (Amended 29 Sep 2026 while planning: the bulk bar already has this
+    control, so there is no separate "Move to group…" or "New group…" item.)
 - **D347 — Build groups from a column.**
   - The admin picks an attendee field. Every distinct trimmed value becomes a group, and the
     attendees with that value join it.
@@ -99,7 +101,7 @@ entries are still `activity_submissions` rows, and they still go through `submit
   - A footnote counts eligible attendees who have no group.
   - Participation is not shown (D351).
 - **D361 — Exports carry the group.** `submissions.xlsx` gets a Group column on every sheet
-  (blank for individual forms). The attendee export gets a Group column.
+  (blank for individual forms). The attendee links export (`links.xlsx`) gets a Group column.
 
 ## Data — migration 0055_groups.sql
 
@@ -174,8 +176,9 @@ Deleting the attendees clears membership.
   - `planGroupsFromColumn(attendees, fieldKey, groups)` returns `{ create: string[], reuse:
     EventGroup[], moves: { attendeeId, groupName }[], movingOut: number }`.
   - `groupFieldValues(attendee, fields)` returns the fields shown on My group.
-- **`src/lib/submissions.ts`:** `canSubmit` gains the group states `nogroup`, `groupdone` and
-  `waiting` for group forms. `missingFrom` is left alone; group forms use `groupProgress`.
+- **`src/lib/submissions.ts`:** `canSubmit` takes the group's progress and gains the reasons
+  `nogroup` and `groupdone`, matching the RPC. In `everyone` mode a member who has submitted gets
+  `limit`, and the page draws "waiting on N others" from the progress. `missingFrom` is left alone; group forms use `groupProgress`.
 - **`src/lib/db/groups.ts`:**
   - Groups: `listGroups(eventId)` (with member counts), `createGroup`, `renameGroup`,
     `deleteGroup`.
@@ -198,7 +201,7 @@ Deleting the attendees clears membership.
   - `loadActivityEntries` fetches the group's members and the group entries for group forms in
     its existing `Promise.all`.
   - `SubmissionBody` renders `GroupStatus` instead of `SubmissionHistory` on group forms.
-- **Exports:** a Group column in `buildFormsWorkbook` and in the attendee export.
+- **Exports:** a Group column in `submissions.xlsx` and `links.xlsx`.
 
 ## Testing
 
@@ -208,7 +211,7 @@ Deleting the attendees clears membership.
     group.
   - `planGroupsFromColumn`, with blank values, case and whitespace clashes, reused groups, and
     attendees moving out of another group.
-  - `canSubmit` for `nogroup`, `groupdone` and `waiting`.
+  - `canSubmit` for `nogroup`, `groupdone`, and `limit` in `everyone` mode.
   - The Group column in the export.
 - **`npm run check:submit`**, with new scenarios:
   - On an `entries` form with target 2, 20 members of one group submit at once; exactly 2 get
