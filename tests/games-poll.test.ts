@@ -20,7 +20,7 @@ describe("intervals (D256)", () => {
 
 describe("draw phases (D315, D317)", () => {
   it("polls phones once a second through the new draw phases", () => {
-    for (const p of ["draw_rounds", "draw_card_pick", "draw_card_reveal"] as const) expect(phoneInterval(p)).toBe(1000);
+    for (const p of ["draw_rounds", "draw_card_landed", "draw_card_pick", "draw_card_reveal"] as const) expect(phoneInterval(p)).toBe(1000);
   });
 });
 

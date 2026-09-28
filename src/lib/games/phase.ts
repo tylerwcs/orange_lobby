@@ -7,6 +7,9 @@ export const PHASES = [
   "draw_ready", "draw_spinning", "draw_reveal",
   // Draw formats (D315, D317): the mosaic's rounds, and a card round's pick and flip.
   "draw_rounds", "draw_card_pick", "draw_card_reveal",
+  // A card round's reel, stopped on the participant until the host shows the cards. Resolved
+  // only, never stored: it is a finished card spin without cards_shown (resolveStage).
+  "draw_card_landed",
 ] as const;
 export type Phase = (typeof PHASES)[number];
 
@@ -72,8 +75,11 @@ export function resolveStage(s: StageRow, now: number): StageRow {
     return { ...cur, phase: "survival_locked", phase_ends_at: null };
   }
   if (cur.phase === "draw_spinning" && passed(cur.phase_ends_at, now)) {
-    // A card round's reel names the participant, who then picks a card (D317).
-    return { ...cur, phase: cur.phase_data.cards === true ? "draw_card_pick" : "draw_reveal", phase_ends_at: null };
+    // A card round's reel names the participant and stays on them until the host shows the
+    // cards (showCardsWrite); then they pick one (D317).
+    const phase: Phase = cur.phase_data.cards !== true ? "draw_reveal"
+      : cur.phase_data.cards_shown === true ? "draw_card_pick" : "draw_card_landed";
+    return { ...cur, phase, phase_ends_at: null };
   }
   return cur;
 }
@@ -116,7 +122,7 @@ export function phaseKind(p: Phase): GameKind | null {
 
 export type HostAction =
   | "open" | "start" | "stop" | "reveal" | "next" | "finish" | "draw" | "present" | "redraw" | "idle"
-  | "round" | "pick";
+  | "round" | "pick" | "show";
 
 /**
  * What the host may do in each phase. "idle" (end the game) is the escape hatch from almost
@@ -138,8 +144,10 @@ const ALLOWED: Record<Phase, HostAction[]> = {
   draw_spinning: [],
   draw_reveal: ["present", "redraw", "idle"],
   draw_rounds: ["round", "idle"],
+  draw_card_landed: ["show", "redraw", "idle"],
   draw_card_pick: ["pick", "redraw", "idle"],
-  draw_card_reveal: ["draw", "idle"],
+  // Next participant goes back to the waiting reel (present); the host spins from there.
+  draw_card_reveal: ["present", "idle"],
 };
 
 export function allowedActions(p: Phase): HostAction[] {
@@ -273,6 +281,19 @@ export function drawExtra(s: StageRow): DrawExtra {
     rounds: num(s.phase_data.rounds),
     poolAt: at ? Date.parse(at) : null,
     cardNo: num(s.phase_data.card_no),
+  };
+}
+
+/**
+ * Show the cards: a card round's landed reel gives way to the card grid. The stored phase stays
+ * draw_spinning, with its winner and data, because 0050's card_pick only takes a pick from a
+ * stored card spin whose end has passed; cards_shown is what resolves it to draw_card_pick, and
+ * the end is set a second in the past so it has certainly passed. The write bumps the version.
+ */
+export function showCardsWrite(s: StageRow, now: number): StageWrite {
+  return {
+    ...keep(s), phase: "draw_spinning",
+    phase_data: { ...s.phase_data, cards_shown: true }, phase_ends_at: new Date(now - 1000).toISOString(),
   };
 }
 

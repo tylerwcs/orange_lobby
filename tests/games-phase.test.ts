@@ -3,7 +3,7 @@ import {
   idleStage, hydrateStage, resolveStage, stageKey, phaseKind, canDo, allowedActions,
   lobbyWrite, raceStartWrite, raceStopWrite, questionWrite, overWrite, drawReadyWrite, drawRevealWrite, idleWrite,
   raceWindow, currentQuestion, questionDeadline, revealFacts, spinFacts, revealReadyAt, canReveal,
-  drawExtra, roundWrite,
+  drawExtra, roundWrite, showCardsWrite,
   COUNTDOWN_MS, GRACE_MS,
   type StageRow,
 } from "@/lib/games/phase";
@@ -209,9 +209,42 @@ const drawStage = (phase: StageRow["phase"], phase_data: Record<string, unknown>
   ({ event_id: "e", run_id: "r", game_id: "g", phase, phase_data, phase_ends_at, version: 7 });
 
 describe("draw formats (D315, D317)", () => {
-  it("a card spin lands on the card pick, not the reveal", () => {
+  it("a card spin lands on the landed reel, not the card pick or the reveal", () => {
     const s = drawStage("draw_spinning", { cards: true, prize_no: null, winner_ids: ["a"] }, new Date(1000).toISOString());
+    expect(resolveStage(s, 2000)).toMatchObject({ phase: "draw_card_landed", phase_ends_at: null, version: 7 });
+  });
+  it("a card spin still spins before its end", () => {
+    const s = drawStage("draw_spinning", { cards: true, prize_no: null, winner_ids: ["a"] }, new Date(3000).toISOString());
+    expect(resolveStage(s, 2000).phase).toBe("draw_spinning");
+  });
+  it("a card spin whose cards are shown resolves to the card pick", () => {
+    const s = drawStage("draw_spinning", { cards: true, cards_shown: true, prize_no: null, winner_ids: ["a"] }, new Date(1000).toISOString());
     expect(resolveStage(s, 2000).phase).toBe("draw_card_pick");
+  });
+  it("only a true cards_shown shows the cards", () => {
+    const s = drawStage("draw_spinning", { cards: true, cards_shown: "yes", prize_no: null, winner_ids: ["a"] }, new Date(1000).toISOString());
+    expect(resolveStage(s, 2000).phase).toBe("draw_card_landed");
+  });
+  it("Show the cards keeps the stored spin, its winner and its data, adds cards_shown and ends it in the past", () => {
+    const data = { cards: true, prize_no: null, winner_ids: ["a"], new_ids: ["a"], spin_ms: 5000, pool_at: "2026-10-01T02:00:00.000Z" };
+    const s = drawStage("draw_spinning", data, new Date(1000).toISOString());
+    const w = showCardsWrite(s, 5000);
+    expect(w).toEqual({
+      run_id: "r", game_id: "g", phase: "draw_spinning",
+      phase_data: { ...data, cards_shown: true }, phase_ends_at: new Date(4000).toISOString(),
+    });
+    // card_pick (0050) needs a stored draw_spinning with cards and the winner, past its end.
+    expect(resolveStage({ ...s, ...w }, 5000).phase).toBe("draw_card_pick");
+    expect(spinFacts({ ...s, ...w })).toEqual({ prizeNo: null, winnerIds: ["a"], newIds: ["a"] });
+    expect(drawExtra({ ...s, ...w }).cards).toBe(true);
+  });
+  it("Show the cards does not change the stage it was given", () => {
+    const s = drawStage("draw_spinning", { cards: true, prize_no: null, winner_ids: ["a"] }, new Date(1000).toISOString());
+    showCardsWrite(s, 5000);
+    expect(s.phase_data).toEqual({ cards: true, prize_no: null, winner_ids: ["a"] });
+  });
+  it("the landed reel is a draw phase", () => {
+    expect(phaseKind("draw_card_landed")).toBe("draw");
   });
   it("a normal spin still lands on the reveal", () => {
     const s = drawStage("draw_spinning", { prize_no: 0, winner_ids: ["a"] }, new Date(1000).toISOString());
@@ -241,7 +274,11 @@ describe("draw formats (D315, D317)", () => {
   });
   it("lets the host do only what each new phase allows", () => {
     expect(allowedActions("draw_rounds")).toEqual(["round", "idle"]);
+    expect(allowedActions("draw_card_landed")).toEqual(["show", "redraw", "idle"]);
     expect(allowedActions("draw_card_pick")).toEqual(["pick", "redraw", "idle"]);
-    expect(allowedActions("draw_card_reveal")).toEqual(["draw", "idle"]);
+    // Next participant goes back to the waiting reel (present), not straight into a spin.
+    expect(allowedActions("draw_card_reveal")).toEqual(["present", "idle"]);
+    expect(canDo("draw_card_reveal", "draw")).toBe(false);
+    expect(canDo("draw_card_pick", "show")).toBe(false);
   });
 });

@@ -57,6 +57,6 @@ async function phoneMe(ctx: PlayContext, stage: StageRow, game: Game | null): Pr
   const prizeNo = spun?.prizeNo ?? null;
   const prize = prizeNo === null ? "a prize" : game.config.prizes[prizeNo]?.name ?? "a prize";
   if (mine && (stage.phase === "draw_reveal" || stage.phase === "draw_card_reveal")) return { kind: "draw", won: prize, up: false };
-  if (mine && stage.phase === "draw_card_pick") return { kind: "draw", won: null, up: true };
+  if (mine && (stage.phase === "draw_card_landed" || stage.phase === "draw_card_pick")) return { kind: "draw", won: null, up: true };
   return { kind: "draw", won: null, up: false };
 }

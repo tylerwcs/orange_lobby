@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { usePoll, useServerNow } from "./usePoll";
 import {
   drawAction, finishAction, idleAction, nextAction, openGameAction, pickCardAction, presentAction, redrawAction,
-  revealAction, roundAction, startAction, stopAction, type HostResult,
+  revealAction, roundAction, showCardsAction, startAction, stopAction, type HostResult,
 } from "@/app/host/[token]/actions";
 
 const every = () => HOST_INTERVAL;
@@ -31,6 +31,7 @@ const PHASE_LABEL: Record<Phase, string> = {
   draw_spinning: "Drawing…",
   draw_reveal: "Winner on screen",
   draw_rounds: "Elimination rounds",
+  draw_card_landed: "Participant on stage",
   draw_card_pick: "Pick a card",
   draw_card_reveal: "Card revealed",
 };
@@ -209,6 +210,12 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
             {s.phase === "draw_reveal" && <Button className={big} disabled={pending} onClick={() => run(() => presentAction(token, v))}>✓ Present — next prize</Button>}
           </>
         )}
+        {s.phase === "draw_card_landed" && state.draw?.cards && (
+          <CardLanded name={state.draw.cards.participant?.name ?? null} pending={pending} armed={armed}
+            participantId={state.hostDraw?.spinWinners[0]?.id ?? null}
+            onShow={() => run(() => showCardsAction(token, v))}
+            onAway={(id) => confirmTwice(`redraw:${id}`, () => redrawAction(token, v, id))} />
+        )}
         {s.phase === "draw_card_pick" && state.draw?.cards && (
           <CardPicker cards={state.draw.cards} pending={pending} armed={armed}
             participantId={state.hostDraw?.spinWinners[0]?.id ?? null}
@@ -217,7 +224,7 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
         )}
         {s.phase === "draw_card_reveal" && state.draw?.cards && (
           <CardRevealed cards={state.draw.cards} cardsLeft={state.hostDraw?.cardsLeft ?? 0} pending={pending}
-            onNext={() => run(() => drawAction(token, v, "one"))} />
+            onNext={() => run(() => presentAction(token, v))} />
         )}
       </section>
 
@@ -252,7 +259,7 @@ function DrawButtons({ state, pending, onDraw }: { state: HostState; pending: bo
   if (format === "cards") {
     const left = state.hostDraw?.cardsLeft ?? 0;
     return left > 0
-      ? <Button className={big} disabled={pending} onClick={() => onDraw("one")}>Draw the next participant</Button>
+      ? <Button className={big} disabled={pending} onClick={() => onDraw("one")}>Spin for the next participant</Button>
       : <p className="text-sm font-bold">All cards have been dealt.</p>;
   }
   const next = state.hostDraw?.progress.find((p) => p.remaining > 0);
@@ -271,7 +278,11 @@ function DrawButtons({ state, pending, onDraw }: { state: HostState; pending: bo
   );
 }
 
-/** After a card flips (D317): what it held, and the next participant while cards are left. */
+/**
+ * After a card flips (D317): what it held, then back to the waiting reel for the next participant
+ * (the host spins from there). After the last card, the same press finishes the round, and the LED
+ * shows "All cards dealt".
+ */
 function CardRevealed({ cards, cardsLeft, pending, onNext }: {
   cards: NonNullable<NonNullable<HostState["draw"]>["cards"]>;
   cardsLeft: number;
@@ -282,9 +293,34 @@ function CardRevealed({ cards, cardsLeft, pending, onNext }: {
   return (
     <>
       <p className="text-center text-lg font-bold">Card {c?.no}: {c?.prize} — {cards.participant?.name}</p>
-      <Button className={big} disabled={pending || cardsLeft === 0} onClick={onNext}>
-        {cardsLeft > 0 ? "Next participant" : "All cards dealt"}
+      <Button className={big} disabled={pending} onClick={onNext}>
+        {cardsLeft > 0 ? "Next participant" : "Finish — all cards dealt"}
       </Button>
+    </>
+  );
+}
+
+/**
+ * A card round's reel has landed: the participant comes up while their name stays on the LED, and
+ * the host shows the cards when they are ready. "Not here" sends them away first (D318).
+ */
+function CardLanded({ name, pending, armed, participantId, onShow, onAway }: {
+  name: string | null;
+  pending: boolean;
+  armed: string | null;
+  participantId: string | null;
+  onShow: () => void;
+  onAway: (id: string) => void;
+}) {
+  return (
+    <>
+      <p className="text-sm">On stage: <b>{name ?? "—"}</b></p>
+      <Button className={big} disabled={pending} onClick={onShow}>Show the cards</Button>
+      {participantId && (
+        <Button variant="outline" disabled={pending} onClick={() => onAway(participantId)}>
+          {armed === `redraw:${participantId}` ? "Tap again" : "Not here — draw someone else"}
+        </Button>
+      )}
     </>
   );
 }

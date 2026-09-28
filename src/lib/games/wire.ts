@@ -33,7 +33,7 @@ export type DisplayDraw = {
   prizeImage: string | null;
   pool: number;
   sample: Person[];
-  /** During draw_spinning only: who the reels or the wheel land on (D312). */
+  /** During draw_spinning, and a card round's draw_card_landed: who the reels or the wheel land on (D312). */
   targets: Person[] | null;
   spinMs: number | null;
   /** A "Not here" redraw's quick reel (D318). */

@@ -141,14 +141,17 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
   const prizeNo = spun ? spun.prizeNo : format === "cards" ? null : nextPrize(prizeProgress(game.config.prizes, winners))?.prize_no ?? null;
   const pool = await poolFor(event, game, prizeNo, extra.poolAt, stage.run_id);
   // While a spin or the mosaic's rounds run, the pool is the one the draw was made from, however
-  // fresh the memo (see poolBeforeDraw). Only this spin's draw is added back.
-  const running = stage.phase === "draw_spinning" || stage.phase === "draw_rounds";
+  // fresh the memo (see poolBeforeDraw). Only this spin's draw is added back. A card round's
+  // landed reel is the same spin stopped: the same pool (and so the same sample, seeded on the
+  // unchanged version) keeps the reel's other faces as they were when it stopped.
+  const running = stage.phase === "draw_spinning" || stage.phase === "draw_rounds" || stage.phase === "draw_card_landed";
   const drawn = running && spun ? spun.newIds.flatMap((id) => { const a = roster.get(id); return a ? [a] : []; }) : [];
   const shown = poolBeforeDraw(pool, drawn);
   const nameOf = (id: string) => roster.get(id)?.name ?? "";
 
   const run = format === "cards" && stage.run_id ? await runFor(stage.run_id, event.id) : null;
-  const onStage = spun && (stage.phase === "draw_card_pick" || stage.phase === "draw_card_reveal") ? spun.winnerIds[0] : null;
+  const landed = stage.phase === "draw_card_landed";
+  const onStage = spun && (landed || stage.phase === "draw_card_pick" || stage.phase === "draw_card_reveal") ? spun.winnerIds[0] : null;
 
   return {
     format,
@@ -157,7 +160,9 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
     pool: shown.length,
     sample: people(seededOrder(shown, `${stage.run_id}:${stage.version}`).slice(0, 40)),
     // The display link learns who the reels land on when the spin starts (D312). Phones never do.
-    targets: stage.phase === "draw_spinning" && spun ? spun.newIds.map((id) => person(id, nameOf(id))) : null,
+    // A card round's landed reel keeps showing its participant, public by then.
+    targets: stage.phase === "draw_spinning" && spun ? spun.newIds.map((id) => person(id, nameOf(id)))
+      : landed && spun ? spun.winnerIds.slice(0, 1).map((id) => person(id, nameOf(id))) : null,
     spinMs: extra.spinMs,
     quick: extra.quick,
     wheel: format === "wheel" && (stage.phase === "draw_ready" || stage.phase === "draw_spinning") ? people(shown) : null,
@@ -193,7 +198,7 @@ export async function hostState(event: Event, now: number): Promise<HostState> {
     const [winners, roster] = await Promise.all([listWinners(game.id), rosterFor(event.id)]);
     const spun = spinFacts(stage);
     const run = game.config.format === "cards" && stage.run_id ? await runFor(stage.run_id, event.id) : null;
-    const showing: ReadonlySet<string> = new Set(["draw_spinning", "draw_reveal", "draw_rounds", "draw_card_pick", "draw_card_reveal"]);
+    const showing: ReadonlySet<string> = new Set(["draw_spinning", "draw_reveal", "draw_rounds", "draw_card_landed", "draw_card_pick", "draw_card_reveal"]);
     hostDraw = {
       progress: prizeProgress(game.config.prizes, winners),
       spinWinners: spun && showing.has(stage.phase) ? spun.winnerIds.map((id) => ({ id, ...card(roster.get(id)) })) : [],

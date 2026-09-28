@@ -6,7 +6,7 @@ import { forgetPool, poolFor } from "@/lib/games/display-state";
 import { cardPick, createRun, drawSpin, getGame, listWinners, revealQuestion, voidPendingCard, voidWinner, writeStage } from "@/lib/db/games";
 import {
   canDo, canReveal, currentQuestion, drawExtra, drawReadyWrite, drawRevealWrite, idleWrite, lobbyWrite, overWrite, questionWrite,
-  QUICK_SPIN_MS, raceStartWrite, raceStopWrite, revealFacts, roundWrite, spinFacts, type HostAction, type StageRow, type StageWrite,
+  QUICK_SPIN_MS, raceStartWrite, raceStopWrite, revealFacts, roundWrite, showCardsWrite, spinFacts, type HostAction, type StageRow, type StageWrite,
 } from "@/lib/games/phase";
 import { cardsLeft, dealDeck, secureRandom } from "@/lib/games/cards";
 import { parseGrouping, type Grouping } from "@/lib/games/race";
@@ -194,6 +194,18 @@ export async function roundAction(token: string, expected: number): Promise<Host
   return w ? commit(b.event, expected, w) : STALE;
 }
 
+/**
+ * Show the cards: the landed reel gives way to the card grid (draw_card_landed → draw_card_pick).
+ * Only for the card round's own participant on stage; the stored spin is kept for card_pick.
+ */
+export async function showCardsAction(token: string, expected: number): Promise<HostResult> {
+  const b = await begin(token, expected, "show");
+  if ("ok" in b) return b;
+  const spun = spinFacts(b.stage);
+  if (b.game?.kind !== "draw" || !drawExtra(b.stage).cards || !spun || spun.winnerIds.length !== 1) return STALE;
+  return commit(b.event, expected, showCardsWrite(b.stage, Date.now()));
+}
+
 /** The host taps the card the participant called out (D317). */
 export async function pickCardAction(token: string, expected: number, cardNo: number): Promise<HostResult> {
   const b = await begin(token, expected, "pick");
@@ -248,6 +260,7 @@ export async function redrawAction(token: string, expected: number, attendeeId: 
   const picked = await drawSpin({
     eventId: b.event.id, expected, runId: b.stage.run_id, gameId: game.id, prizeNo: spun.prizeNo, count: 1,
     checkpointId: game.config.checkpoint_id, exclude: game.config.exclude_categories,
+    // A card round's replacement lands on the reel again (no cards_shown): the host shows the cards once they are up.
     spinEndsAt: at(ms), keep, extra: { spin_ms: ms, quick: !wheel, ...(cards ? { cards: true } : {}) },
   });
   forgetStage(b.event.id);
@@ -258,7 +271,9 @@ export async function redrawAction(token: string, expected: number, attendeeId: 
 export async function idleAction(token: string, expected: number): Promise<HostResult> {
   const b = await begin(token, expected, "idle");
   if ("ok" in b) return b;
-  const pending = b.stage.phase === "draw_card_pick" && b.game?.kind === "draw" ? spinFacts(b.stage)?.winnerIds ?? [] : [];
+  // A participant on stage who has not picked yet (landed or picking) is voided on End game.
+  const onStage = b.stage.phase === "draw_card_landed" || b.stage.phase === "draw_card_pick";
+  const pending = onStage && b.game?.kind === "draw" ? spinFacts(b.stage)?.winnerIds ?? [] : [];
   const r = await commit(b.event, expected, idleWrite());
   // Only once the stage has really moved: a stale End must not void anyone (D318).
   if (r.ok && b.game) for (const id of pending) await voidPendingCard(b.game.id, id);
