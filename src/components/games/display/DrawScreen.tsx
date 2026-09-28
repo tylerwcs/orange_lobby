@@ -9,14 +9,9 @@ import { Frame } from "./Frame";
 import { MosaicDraw } from "./MosaicDraw";
 import { JointWinners, WinnerCard } from "./WinnerCard";
 
-// Kept equal to CardTable's FLIP_END_MS, not imported from it: three/CardTable pulls in three.js,
-// which the display page must only reach through the dynamic, ssr:false Layer3D import (Global
-// Constraints) — importing it here would put three.js in this page's own bundle too.
-const FLIP_END_MS = 2000; // keep equal to CardTable's FLIP_END_MS
-
 /**
  * The lucky draw on the LED (D279–D282, D310–D319): the HTML over the 3D scenes — titles, the
- * frames round the reels, the wheel's caption, the mosaic, the card round's prompts, and the
+ * frames round the reels, the wheel's caption, the mosaic, the card round's reel window, and the
  * winner cards.
  */
 export function DrawScreen({ state, offset }: { state: DisplayState; offset: number; synth?: Synth }) {
@@ -33,45 +28,18 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
 
   if (s.phase === "draw_rounds" && d.mosaic) return <MosaicDraw prize={d.prize} mosaic={d.mosaic} seed={s.key} />;
 
+  // A card round (D317): the reel waits, spins and stays on the participant, all in the ReelFrames
+  // window with no text (the landed reel names them); then the card grid, text-free as well. The
+  // only words are "All cards dealt" once the round is over. Its spin falls through to the slot
+  // spin below (no prize line for a card turn).
   if (d.format === "cards" && d.cards && s.phase !== "draw_spinning" && s.phase !== "draw_reveal") {
     const left = d.cards.slots.filter((c) => !c.taken).length;
-    const who = d.cards.participant;
-    const picked = d.cards.slots.find((c) => c.no === d.cards!.picked);
-    if (s.phase === "draw_card_pick" && who) {
-      return (
-        <Frame>
-          <motion.p initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            className="text-center font-game text-6xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">{who.name} — pick a card</motion.p>
-          {/* Small and near the true bottom edge (D323): at text-3xl/bottom-2 it starts at y≈1036,
-              and cardLayout's grid ends by y≈994 with its bob (tests/games-layout.test.ts holds it
-              under 1000), so the two never touch. */}
-          <p className="absolute inset-x-0 bottom-2 text-center font-game text-3xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>
-        </Frame>
-      );
+    if (s.phase === "draw_ready" && left === 0) {
+      return <Frame><div className="flex h-full items-center justify-center font-game text-8xl">All cards dealt 🎉</div></Frame>;
     }
-    if (s.phase === "draw_card_reveal" && who && picked?.prize) {
-      // The last card flipped (D317 step 5): say so under the win, so the room knows the round is over.
-      // bottom-4 (fix round 1 for Part C, D323): the reveal has no "N cards left" line, so the
-      // caption takes the bottom edge (its text-6xl line starts at y≈1004), clear of the card
-      // grid's bottom row (ends by y≈994), which bottom-14 overlapped. The "All cards dealt" line
-      // above it only shows once no cards are left on the table to overlap.
-      return (
-        <Frame>
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: FLIP_END_MS / 1000 }}
-            className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-3 text-center font-game drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
-            <p className="text-6xl">{who.name} wins {picked.prize}</p>
-            {left === 0 && <p className="text-5xl opacity-90">All cards dealt 🎉</p>}
-          </motion.div>
-        </Frame>
-      );
-    }
-    return (
-      <Frame>
-        {left === 0
-          ? <div className="flex h-full items-center justify-center font-game text-8xl">All cards dealt 🎉</div>
-          : <p className="absolute inset-x-0 bottom-2 text-center font-game text-3xl opacity-85">{left} {left === 1 ? "card" : "cards"} left</p>}
-      </Frame>
-    );
+    // Layer3D draws the waiting reel from the sample's first name, and the landed one from targets.
+    const reel = s.phase === "draw_ready" ? d.sample.length > 0 : s.phase === "draw_card_landed" && (d.targets?.length ?? 0) > 0;
+    return <Frame>{reel && <ReelFrames count={1} />}</Frame>;
   }
 
   if (s.phase === "draw_ready") {

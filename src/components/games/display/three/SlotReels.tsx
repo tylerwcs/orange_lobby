@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import type { Person } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
 import { reelLayout, reelTimings, toWorld, type Box } from "@/lib/games/layout";
@@ -16,13 +16,20 @@ const TAU = Math.PI * 2;
  * One reel per winner (D313): a drum of name faces that spins and eases to a stop with its winner
  * at the front, reels stopping left to right, the last exactly when the spin ends. A clunk as each
  * reel lands. The winners arrive with the spin (D312); the other faces are names from the pool.
+ * `still`: a reel at rest (a card round's waiting or landed reel), given an `endsAt` already
+ * past. It draws only when something changes instead of 60 times a second; a spinning reel that
+ * turns still keeps its pose (and its clunk, if it already played).
  */
-export function SlotReels({ targets, sample, endsAt, spinMs, offset, synth }: {
-  targets: Person[]; sample: Person[]; endsAt: number; spinMs: number; offset: number; synth: Synth;
+export function SlotReels({ targets, sample, endsAt, spinMs, offset, synth, still = false }: {
+  targets: Person[]; sample: Person[]; endsAt: number; spinMs: number; offset: number; synth: Synth; still?: boolean;
 }) {
   const boxes = reelLayout(targets.length);
   const timings = reelTimings(targets.length, endsAt, spinMs);
-  useAnimating(true, 60);
+  useAnimating(!still, 60);
+  // The demand-rendered canvas draws a frame when the reel's timing changes (a spin turning still
+  // lands at once on that frame, clunking if it moved and had not yet).
+  const invalidate = useThree((st) => st.invalidate);
+  useEffect(() => { invalidate(); }, [invalidate, endsAt, spinMs, still]);
   return (
     <>
       {targets.map((t, j) => (
@@ -75,6 +82,9 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
     });
   }, [ready, stableTarget, stableNames, box.w, edgeH]);
   useEffect(() => () => textures.forEach((t) => t.dispose()), [textures]);
+  // A still reel is not animating, so it asks for a frame once its faces are drawn (the font loads late).
+  const invalidate = useThree((st) => st.invalidate);
+  useEffect(() => { invalidate(); }, [textures, invalidate]);
 
   const [x, y] = toWorld(box.x, box.y);
   // Clips each face to this reel's own window (D313): without it, a drum's side faces reach well
