@@ -6,6 +6,7 @@ import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type Pas
 import { dayRange } from "@/lib/activity-card";
 import { submitLabel } from "@/lib/submissions";
 import { sessionGrid } from "@/lib/session-grid";
+import { allCheckedIn } from "@/lib/booking-door";
 import type { Activity } from "@/lib/types";
 import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction } from "../actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -69,7 +70,7 @@ export default async function ActivityPage({ params, searchParams }: {
   );
 }
 
-function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { entry: ActivityEntry; slug: string; token: string }) {
+function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token }: { entry: ActivityEntry; slug: string; token: string }) {
   const { activity } = state;
   const grid = sessionGrid(state.sessions);
   const left = state.sessions.reduce((n, s) => n + s.left, 0);
@@ -77,6 +78,9 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
   // Something to do in the dialog: a seat to book, or - holding one - another to ask to move to.
   const canAct = !state.closed && !controls.pending && (controls.bookable.length > 0 || controls.switchTargets.length > 0);
   const holding = state.held > 0;
+  // D336: once every held session has an arrival, the session is finished - no calendar
+  // reminder, no change, no cancel; there is nothing left to do here.
+  const done = allCheckedIn({ controls, arrivals });
   const calendarPath = `/e/${slug}/a/${token}/activities/${activity.id}/calendar.ics`;
   // Booked on one session, the thing left to do is put it in the calendar, so that is the big
   // button and Change session becomes a link on the booked line. With several seats one
@@ -113,9 +117,10 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
           controls={controls}
           pendingId={pendingId}
           calendarPath={calendarPath}
-          change={single ? (canAct ? dialog(true) : null) : undefined}
+          change={single ? (done ? null : canAct ? dialog(true) : null) : undefined}
           requestCancel={requestCancelAction.bind(null, slug, token)}
           withdraw={withdrawRequestAction.bind(null, slug, token)}
+          arrivals={arrivals}
         />
         {!holding && !controls.pending && (
           <p className={note}>
@@ -128,17 +133,19 @@ function BookingBody({ entry: { state, controls, pendingId }, slug, token }: { e
         )}
       </section>
       {single ? (
-        <div className="sticky bottom-4 z-10 mt-2">
-          {/* A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
-              No `download` attribute either - iOS would save it instead of offering the calendar. */}
-          <a
-            href={`${calendarPath}?session=${single.session.id}`}
-            className={`${buttonVariants({ size: "lg" })} h-12 w-full gap-2 rounded-full text-base font-bold shadow-lg`}
-          >
-            <CalendarPlus data-icon="inline-start" />
-            Add to calendar
-          </a>
-        </div>
+        !done && (
+          <div className="sticky bottom-4 z-10 mt-2">
+            {/* A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
+                No `download` attribute either - iOS would save it instead of offering the calendar. */}
+            <a
+              href={`${calendarPath}?session=${single.session.id}`}
+              className={`${buttonVariants({ size: "lg" })} h-12 w-full gap-2 rounded-full text-base font-bold shadow-lg`}
+            >
+              <CalendarPlus data-icon="inline-start" />
+              Add to calendar
+            </a>
+          </div>
+        )
       ) : canAct && dialog(false)}
     </>
   );

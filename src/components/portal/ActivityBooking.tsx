@@ -3,6 +3,7 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Icon } from "@/components/ui/icon";
 import { sessionLabel } from "@/lib/activities";
+import { shortTime } from "@/lib/text";
 
 /**
  * The attendee's own seats in one activity: what they hold, any request waiting on the desk,
@@ -19,7 +20,7 @@ import { sessionLabel } from "@/lib/activities";
  * stay per-activity, not per-seat, because D146's index allows only one open request per
  * attendee per activity: while one is open, no seat offers controls.
  */
-export function ActivityBooking({ controls, pendingId, calendarPath, change, requestCancel, withdraw }: {
+export function ActivityBooking({ controls, pendingId, calendarPath, change, requestCancel, withdraw, arrivals }: {
   controls: ActivityControls;
   /**
    * With a single seat, the page's big button is Add to calendar, so the seat's line carries
@@ -36,8 +37,11 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
   calendarPath: string;
   requestCancel: (fromSessionId: string) => Promise<void>;
   withdraw: (requestId: string) => Promise<void>;
+  /** D333: this session's arrival, by session id, when the attendee was checked in at a door for it. */
+  arrivals: Record<string, string>;
 }) {
   const { held, pending, declined, switchTargets, canRequestCancel } = controls;
+  const allIn = held.length > 0 && held.every((s) => arrivals[s.session.id]);
   if (held.length === 0 && !pending && !declined) return null;
 
   if (pending) {
@@ -69,40 +73,45 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
             : `The committee declined your request to move to ${declined.toLabel ?? "another session"}.`}
         </p>
       )}
-      {held.map((seat) => (
-        <div key={seat.session.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-success-soft px-3 py-2 text-sm text-success-strong">
-          <span className="flex items-center gap-1.5 font-bold">
-            <Icon name="check" size={16} />
-            You&apos;re booked {sessionLabel(seat.session)}
-          </span>
-          <span className="flex items-center gap-4">
-            {change !== undefined ? change : (
-              // A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
-              // No `download` attribute either - iOS would save it instead of offering the calendar.
-              <a href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
-                <Icon name="calendar" size={16} />
-                Add to calendar
-              </a>
-            )}
-            {canRequestCancel && (
-              <form action={requestCancel.bind(null, seat.session.id)}>
-                <ConfirmButton
-                  tone="default"
-                  triggerVariant="link"
-                  className="h-auto p-0 text-success-strong underline"
-                  confirmLabel="Send request"
-                  message={`Ask the committee to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
-                >
-                  Ask to cancel
-                </ConfirmButton>
-              </form>
-            )}
-          </span>
-        </div>
-      ))}
+      {held.map((seat) => {
+        const arrivedAt = arrivals[seat.session.id];
+        return (
+          <div key={seat.session.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-success-soft px-3 py-2 text-sm text-success-strong">
+            <span className="flex items-center gap-1.5 font-bold">
+              <Icon name="check" size={16} />
+              {arrivedAt ? `Checked in at ${shortTime(arrivedAt)} · ${sessionLabel(seat.session)}` : <>You&apos;re booked {sessionLabel(seat.session)}</>}
+            </span>
+            {/* D336: a checked-in session is finished - no calendar link, no change, no cancel. */}
+            <span className="flex items-center gap-4">
+              {arrivedAt ? null : change !== undefined ? change : (
+                // A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
+                // No `download` attribute either - iOS would save it instead of offering the calendar.
+                <a href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
+                  <Icon name="calendar" size={16} />
+                  Add to calendar
+                </a>
+              )}
+              {!arrivedAt && canRequestCancel && (
+                <form action={requestCancel.bind(null, seat.session.id)}>
+                  <ConfirmButton
+                    tone="default"
+                    triggerVariant="link"
+                    className="h-auto p-0 text-success-strong underline"
+                    confirmLabel="Send request"
+                    message={`Ask the committee to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
+                  >
+                    Ask to cancel
+                  </ConfirmButton>
+                </form>
+              )}
+            </span>
+          </div>
+        );
+      })}
       {/* Moving is done from the grid in the page's dialog: pick another time and its bar
-          offers the switch. This line only says so, or says why it cannot. */}
-      {held.length > 0 && (
+          offers the switch. Hidden once every held seat is checked in (D336): there is nowhere
+          left to move to that means anything. */}
+      {held.length > 0 && !allIn && (
         <p className="text-xs text-muted-foreground">
           {switchTargets.length > 0 ? "To move, tap Change session and pick another time. The committee approves it." : "No other session has room right now."}
         </p>

@@ -8,10 +8,12 @@ import {
 } from "@/lib/db/activities";
 import { createRequest, withdrawRequest, requestsForAttendee } from "@/lib/db/activity-requests";
 import { uploadSubmissionFile, deleteSubmissionFiles } from "@/lib/db/media";
+import { bookingArrivalsFor } from "@/lib/db/checkins";
 import { validateAnswers } from "@/lib/registration";
 import { nowInKL } from "@/lib/time";
 import { flashPath } from "@/lib/flash";
 import { sessionLabel } from "@/lib/activities";
+import { sessionArrivals } from "@/lib/booking-door";
 import { allow } from "@/lib/ratelimit";
 
 /**
@@ -90,6 +92,7 @@ const ASK_REFUSALS = {
   missing: "That session is no longer on the programme.",
   notYours: "You are not booked on that session.",
   required: "This activity needs a choice. Ask to switch instead.",
+  checkedIn: "You've already checked in to this session.",
 } as const;
 
 export async function requestSwitchAction(slug: string, token: string, fromSessionId: string, fd: FormData) {
@@ -121,6 +124,10 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
   const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
   if (!holds) redirect(flashPath(path, ASK_REFUSALS.notYours, "error"));
 
+  // D336: a session they have attended is finished; a stale page must not reopen it.
+  const arrived = sessionArrivals([from], event.check_in_enabled ? await bookingArrivalsFor(attendee.id) : []);
+  if (arrived[from.id]) redirect(flashPath(path, ASK_REFUSALS.checkedIn, "error"));
+
   const result = await createRequest({
     eventId: event.id, activityId: from.activity_id, attendeeId: attendee.id,
     fromSessionId: from.id, toSessionId: to.id,
@@ -145,6 +152,10 @@ export async function requestCancelAction(slug: string, token: string, fromSessi
 
   const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
   if (!holds) redirect(flashPath(path, ASK_REFUSALS.notYours, "error"));
+
+  // D336: a session they have attended is finished; a stale page must not reopen it.
+  const arrived = sessionArrivals([from], event.check_in_enabled ? await bookingArrivalsFor(attendee.id) : []);
+  if (arrived[from.id]) redirect(flashPath(path, ASK_REFUSALS.checkedIn, "error"));
 
   // D148: a required activity's cancel never reaches the queue. The control is hidden, and
   // this is the check that makes hiding it enforcement rather than decoration.
