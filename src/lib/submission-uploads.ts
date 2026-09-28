@@ -65,7 +65,7 @@ export async function readAnswers(activity: FormActivity, fd: FormData, stored: 
   const typed = { ...input };
   const uploads = await Promise.allSettled(fileQuestions.map(async (q) => {
     const file = fd.get(q.key);
-    const kept = { key: q.key, path: stored[q.key] ?? "", fresh: false };
+    const kept = { key: q.key, path: Object.hasOwn(stored, q.key) ? stored[q.key] : "", fresh: false };
     if (!(file instanceof File) || file.size === 0 || !isQuestionShown(q, typed)) return kept;
     const path = await uploadSubmissionFile({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id, file });
     return { key: q.key, path, fresh: true };
@@ -108,30 +108,36 @@ export async function saveOrDiscard<T>(uploaded: string[], write: () => Promise<
 }
 
 /**
- * The stored files an edit replaced: each file question's old path that the saved answers no
- * longer name. Only a path directly inside this activity's own folder (`submissionFolder`) is
- * ever returned - anything else is left alone, whatever an answer holds. That is defence in
- * depth: a file answer only ever holds an upload's path, but a question that was text before
- * it became a file question holds whatever was typed.
+ * The stored files an edit actually replaced: each file question's old path, but only when the
+ * saved answer for that question is a fresh upload from *this* request (one of `uploaded`, as
+ * `readAnswers` returned it). A question's answer can also change to "" because its `show_when`
+ * now hides it (e.g. a renamed select option) - that is a clear, not a replace, and its stored
+ * object is left alone; the activity/event prefix sweep removes it once the activity or event
+ * itself is deleted. Only a path directly inside this activity's own folder (`submissionFolder`)
+ * is ever returned - anything else is left alone, whatever an answer holds. That is defence in
+ * depth: a file answer only ever holds an upload's path, but a question that was text before it
+ * became a file question holds whatever was typed.
  */
-export function replacedFiles(activity: FormActivity, before: Record<string, string>, after: Record<string, string>): string[] {
+export function replacedFiles(activity: FormActivity, before: Record<string, string>, after: Record<string, string>, uploaded: string[]): string[] {
   const folder = submissionFolder({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id });
+  const fresh = new Set(uploaded);
   return activity.questions.filter((q) => q.type === "file").flatMap((q) => {
-    const old = before[q.key] ?? "";
+    const old = Object.hasOwn(before, q.key) ? before[q.key] : "";
     const name = old.slice(folder.length);
     const ours = old.startsWith(folder) && name !== "" && !name.includes("/");
-    return ours && old !== after[q.key] ? [old] : [];
+    return ours && fresh.has(after[q.key]) ? [old] : [];
   });
 }
 
 /**
- * Deletes the files an edit replaced, once the row naming their replacements is saved - never
- * before, so a failed save still has its old files. A leftover object costs storage; the answers
- * are already saved, so a failure here is swallowed rather than reported as a failed edit.
+ * Deletes the files an edit actually replaced (a fresh upload standing in for the old one), once
+ * the row naming their replacements is saved - never before, so a failed save still has its old
+ * files. A leftover object costs storage; the answers are already saved, so a failure here is
+ * swallowed rather than reported as a failed edit.
  */
-export async function deleteReplacedFiles(activity: FormActivity, before: Record<string, string>, after: Record<string, string>): Promise<void> {
+export async function deleteReplacedFiles(activity: FormActivity, before: Record<string, string>, after: Record<string, string>, uploaded: string[]): Promise<void> {
   try {
-    await deleteSubmissionFiles(replacedFiles(activity, before, after));
+    await deleteSubmissionFiles(replacedFiles(activity, before, after, uploaded));
   } catch {
     // Left behind; see above.
   }

@@ -80,6 +80,21 @@ describe("readAnswers", () => {
     expect(r).toEqual({ ok: false, error: "Note is required" });
     expect(storage.deleted).toEqual([[`${FOLDER}submission-1.png`]]);
   });
+
+  // A question labelled "Constructor" slugifies to the key "constructor". `stored` is a plain
+  // object, so an unguarded `stored[q.key]` reads `Object.prototype.constructor` (a function,
+  // not undefined) instead of falling through to "" - and validateAnswers' `.trim()` on that
+  // throws. A portal submit has no stored answers at all (`stored` defaults to {}), so this is
+  // the shape every first-time submit is in whenever a form has such a question.
+  it("reads a file question keyed \"constructor\" as its own property, never Object.prototype's", async () => {
+    const withConstructor: RegistrationQuestion[] = [
+      { key: "note", label: "Note", type: "text", required: false },
+      { key: "constructor", label: "Constructor", type: "file", required: false },
+    ];
+    const activityWithConstructor = { id: "act1", org_id: "org1", event_id: "ev1", questions: withConstructor };
+    const r = await readAnswers(activityWithConstructor, form({ note: "Hi" }));
+    expect(r).toEqual({ ok: true, answers: { note: "Hi", constructor: "" }, uploaded: [] });
+  });
 });
 
 describe("saveOrDiscard", () => {
@@ -96,37 +111,67 @@ describe("saveOrDiscard", () => {
 });
 
 describe("replacedFiles", () => {
-  it("names a file question's old path the saved answers no longer hold", () => {
+  it("names a file question's old path when the new answer is a fresh upload from this request", () => {
     const before = { photo: `${FOLDER}submission-old.png`, receipt: `${FOLDER}submission-keep.png` };
     const after = { photo: `${FOLDER}submission-new.png`, receipt: `${FOLDER}submission-keep.png` };
-    expect(replacedFiles(activity, before, after)).toEqual([`${FOLDER}submission-old.png`]);
+    expect(replacedFiles(activity, before, after, [`${FOLDER}submission-new.png`])).toEqual([`${FOLDER}submission-old.png`]);
   });
 
-  it("names a file that was cleared, but nothing that was empty", () => {
-    expect(replacedFiles(activity, { photo: `${FOLDER}submission-old.png`, receipt: "" }, { photo: "", receipt: "" }))
-      .toEqual([`${FOLDER}submission-old.png`]);
+  // A question hidden by a show_when change (e.g. a renamed select option) saves "" for its
+  // answer, same as a genuine replace once did - but nothing was uploaded this request, so this
+  // is a clear, not a replace, and the admin never touched the file. It must survive.
+  it("keeps a file that was cleared by its show_when hiding the question, not replaced", () => {
+    const before = { photo: `${FOLDER}submission-old.png`, receipt: "" };
+    const after = { photo: "", receipt: "" };
+    expect(replacedFiles(activity, before, after, [])).toEqual([]);
   });
 
-  it("never names anything outside this activity's own folder", () => {
+  it("keeps a file whose answer is unchanged", () => {
+    const before = { photo: `${FOLDER}submission-old.png`, receipt: "" };
+    expect(replacedFiles(activity, before, before, [])).toEqual([]);
+  });
+
+  it("never deletes anything outside this activity's own folder, even when it looks replaced by a fresh upload", () => {
     const before = {
       photo: "org1/ev1/act2/submission-other.png",
       receipt: "org2/ev1/act1/submission-x.png",
     };
-    expect(replacedFiles(activity, before, { photo: "", receipt: "" })).toEqual([]);
-    expect(replacedFiles(activity, { photo: `${FOLDER}nested/submission-x.png` }, {})).toEqual([]);
-    expect(replacedFiles(activity, { photo: FOLDER }, {})).toEqual([]);
-    expect(replacedFiles(activity, { photo: "typed text" }, {})).toEqual([]);
+    const after = { photo: `${FOLDER}submission-new1.png`, receipt: `${FOLDER}submission-new2.png` };
+    expect(replacedFiles(activity, before, after, [after.photo, after.receipt])).toEqual([]);
+    expect(replacedFiles(activity, { photo: `${FOLDER}nested/submission-x.png` }, { photo: `${FOLDER}submission-new.png` }, [`${FOLDER}submission-new.png`])).toEqual([]);
+    expect(replacedFiles(activity, { photo: FOLDER }, { photo: `${FOLDER}submission-new.png` }, [`${FOLDER}submission-new.png`])).toEqual([]);
+    expect(replacedFiles(activity, { photo: "typed text" }, { photo: `${FOLDER}submission-new.png` }, [`${FOLDER}submission-new.png`])).toEqual([]);
   });
 
   it("ignores answers that are not file questions", () => {
-    expect(replacedFiles(activity, { note: `${FOLDER}submission-looks-like.png` }, { note: "" })).toEqual([]);
+    expect(replacedFiles(activity, { note: `${FOLDER}submission-looks-like.png` }, { note: "" }, [])).toEqual([]);
   });
 });
 
 describe("deleteReplacedFiles", () => {
+  it("deletes the old path once it is replaced by this request's fresh upload", async () => {
+    const before = { photo: `${FOLDER}submission-old.png` };
+    const after = { photo: `${FOLDER}submission-new.png` };
+    await expect(deleteReplacedFiles(activity, before, after, [after.photo])).resolves.toBeUndefined();
+    expect(storage.deleted).toEqual([[`${FOLDER}submission-old.png`]]);
+  });
+
   it("swallows a storage failure: the answers are already saved", async () => {
     storage.deleteThrows = true;
-    await expect(deleteReplacedFiles(activity, { photo: `${FOLDER}submission-old.png` }, { photo: "" })).resolves.toBeUndefined();
+    const before = { photo: `${FOLDER}submission-old.png` };
+    const after = { photo: `${FOLDER}submission-new.png` };
+    await expect(deleteReplacedFiles(activity, before, after, [after.photo])).resolves.toBeUndefined();
     expect(storage.deleted).toEqual([[`${FOLDER}submission-old.png`]]);
+  });
+
+  it("deletes nothing when the answer was cleared rather than replaced", async () => {
+    await expect(deleteReplacedFiles(activity, { photo: `${FOLDER}submission-old.png` }, { photo: "" }, [])).resolves.toBeUndefined();
+    expect(storage.deleted).toEqual([]);
+  });
+
+  it("deletes nothing when the answer is unchanged", async () => {
+    const before = { photo: `${FOLDER}submission-old.png` };
+    await expect(deleteReplacedFiles(activity, before, before, [])).resolves.toBeUndefined();
+    expect(storage.deleted).toEqual([]);
   });
 });

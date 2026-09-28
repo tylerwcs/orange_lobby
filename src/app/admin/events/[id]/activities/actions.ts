@@ -350,9 +350,10 @@ export async function deleteSubmissionActivityAction(eventId: string, activityId
 /**
  * Corrects one submission's answers (D337) through the same read/upload/validate protocol as the
  * portal's submit (`readAnswers`, src/lib/submission-uploads.ts). A file question left empty
- * keeps its file; the file a new one replaces is deleted only once the row names the new one,
- * and only if it sits in this activity's own folder. Answers under retired keys ride along
- * untouched.
+ * keeps its file; the old file is deleted only once the row names its replacement, and only when
+ * that replacement is a fresh upload from this request sitting in this activity's own folder - a
+ * question a `show_when` change hid, whose answer went to "" with nothing uploaded, keeps its
+ * stored file untouched. Answers under retired keys ride along untouched.
  *
  * `getSubmission` is scoped by id alone, so the row's `activity_id` is checked against the
  * activity `submissionOf` has already tied to this event: a posted id from another activity, or
@@ -383,7 +384,7 @@ export async function editSubmissionAction(eventId: string, activityId: string, 
     redirect(flashPath(back, "That submission was revoked while you were editing.", "error"));
   }
 
-  await deleteReplacedFiles(activity, current.answers, answers);
+  await deleteReplacedFiles(activity, current.answers, answers, form.uploaded);
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(back, "Answers updated."));
 }
