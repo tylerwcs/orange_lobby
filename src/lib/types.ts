@@ -168,7 +168,15 @@ export type Announcement = {
   categories: string[] | null;
 };
 
-export type Checkpoint = { id: string; event_id: string; name: string; day: string; sort_order: number };
+export type Checkpoint = {
+  id: string;
+  event_id: string;
+  name: string;
+  day: string;
+  sort_order: number;
+  /** A booking door's activity (D324): who is expected is who booked it on `day`. Null is an ordinary door. */
+  activity_id: string | null;
+};
 
 export type Checkin = {
   id: string;
