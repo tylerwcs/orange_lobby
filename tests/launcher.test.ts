@@ -58,6 +58,13 @@ describe("launcherItems", () => {
     expect(launcherItems({ ...base, tiles: [routeTile("in", "info")] }).map((i) => i.id)).toEqual(["builtin:agenda", "in"]);
   });
 
+  it("adds My group after the built-in sections, only for someone in a group (D348)", () => {
+    expect(launcherItems(base).map((i) => i.label)).toEqual(["Agenda"]);
+    const items = launcherItems({ ...base, hasInfo: true, hasGroup: true });
+    expect(items.map((i) => i.label)).toEqual(["Agenda", "Info", "My group"]);
+    expect(items[2]).toMatchObject({ icon: "users", href: `${BASE}/group`, builtin: true, image: null });
+  });
+
   it("keeps a route tile whose built-in is not on screen", () => {
     // No Activities item for this attendee, and no Me item on the public portal: a tile the
     // organiser added is then the only way there, so it stays.
