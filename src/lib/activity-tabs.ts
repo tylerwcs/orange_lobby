@@ -14,6 +14,10 @@ export type TabCounts = {
   submissions?: number;
   notSubmitted?: number;
   perDay?: boolean;
+  /** D360: a group form is chased by group, not by person, so its tab says Not done, not Not
+   * submitted, and has no Participation strip (that reads per-attendee drift, which a group
+   * form does not track). */
+  grouped?: boolean;
 };
 
 export type TabItem = { tab: ActivityTab; label: string; count: number | null; dot: boolean };
@@ -27,7 +31,8 @@ export function activityTabs(kind: ActivityKind, c: TabCounts): TabItem[] {
     return [setup, item("bookings", "Bookings", c.booked ?? 0, (c.pendingRequests ?? 0) > 0), item("not-booked", "Not booked", c.notBooked ?? 0)];
   }
   if (kind === "submission") {
-    const tabs = [setup, item("submissions", "Submissions", c.submissions ?? 0), item("not-submitted", "Not submitted", c.notSubmitted ?? 0)];
+    const tabs = [setup, item("submissions", "Submissions", c.submissions ?? 0), item("not-submitted", c.grouped ? "Not done" : "Not submitted", c.notSubmitted ?? 0)];
+    if (c.grouped) return tabs;
     return c.perDay ? [...tabs, item("participation", "Participation")] : tabs;
   }
   return [setup];

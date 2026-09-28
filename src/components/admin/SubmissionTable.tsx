@@ -26,7 +26,7 @@ export type SubmitterInfo = { name: string; email: string | null; category: stri
  * revoked row cannot be edited. A live row's ⋯ menu edits its answers in the portal's own
  * fields (D337) or revokes it. The page's count is of live rows only (D339).
  */
-export async function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, adminNames }: {
+export async function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, adminNames, groupFor }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   submitterFor: (attendeeId: string) => SubmitterInfo;
@@ -34,6 +34,8 @@ export async function SubmissionTable({ submissions, questions, submitterFor, ed
   revoke: (submissionId: string) => Promise<void>;
   /** `edited_by`/`revoked_by` resolved to an email via `scannerNames`; unresolved ids are missing. */
   adminNames: Record<string, string>;
+  /** D359: a group form's submissions carry the group they were sent for. */
+  groupFor?: (s: ActivitySubmission) => string;
 }) {
   if (submissions.length === 0) {
     return (
@@ -77,6 +79,7 @@ export async function SubmissionTable({ submissions, questions, submitterFor, ed
         <TableRow className="hover:bg-transparent">
           <TableHead>Submitted</TableHead>
           <TableHead>Attendee</TableHead>
+          {groupFor && <TableHead>Group</TableHead>}
           <TableHead>Category</TableHead>
           {questions.map((q) => <TableHead key={q.key}>{q.label}</TableHead>)}
           {retiredKeys.map((k) => <TableHead key={k}>{k} (retired)</TableHead>)}
@@ -101,6 +104,7 @@ export async function SubmissionTable({ submissions, questions, submitterFor, ed
                 <div className="font-semibold">{who.name}</div>
                 {who.email && <div className="text-xs text-muted-foreground">{who.email}</div>}
               </TableCell>
+              {groupFor && <TableCell className="text-muted-foreground">{groupFor(submission)}</TableCell>}
               <TableCell className="text-muted-foreground">{who.category ?? "—"}</TableCell>
               {cells.map(({ key, value, href }) => (
                 <TableCell key={key}>

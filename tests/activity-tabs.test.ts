@@ -23,6 +23,13 @@ describe("activityTabs", () => {
   });
 });
 
+describe("activityTabs on a group form (D360)", () => {
+  it("calls the chasing tab Not done and has no participation", () => {
+    const tabs = activityTabs("submission", { submissions: 3, notSubmitted: 2, perDay: false, grouped: true });
+    expect(tabs.map((t) => t.label)).toEqual(["Setup", "Submissions", "Not done"]);
+  });
+});
+
 describe("resolveTab", () => {
   const tabs = activityTabs("booking", { booked: 0, notBooked: 0 });
   it("takes a tab this kind has and falls back to Setup otherwise", () => {

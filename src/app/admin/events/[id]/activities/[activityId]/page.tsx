@@ -23,6 +23,9 @@ import { capSummary, missingFrom, participation, liveSubmissions } from "@/lib/s
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL } from "@/lib/time";
+import { groupProgress, groupSummary } from "@/lib/groups";
+import { listGroups } from "@/lib/db/groups";
+import { categoryMatches } from "@/lib/agenda";
 import type { Activity, Checkin, Checkpoint, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ActivityTabs } from "@/components/admin/ActivityTabs";
@@ -32,6 +35,7 @@ import { UnbookedPanel } from "@/components/admin/UnbookedPanel";
 import { RequestQueue } from "@/components/admin/RequestQueue";
 import { SubmissionTable } from "@/components/admin/SubmissionTable";
 import { MissingPanel } from "@/components/admin/MissingPanel";
+import { GroupsNotDonePanel } from "@/components/admin/GroupsNotDonePanel";
 import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
@@ -252,7 +256,9 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
 }
 
 async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event; activity: Activity; requestedDay?: string; tab?: string }) {
-  const [submissions, attendees, categories] = await Promise.all([submissionsForActivity(activity.id), listAttendees(ev.id), listCategories(ev.id)]);
+  const [submissions, attendees, categories, groups] = await Promise.all([
+    submissionsForActivity(activity.id), listAttendees(ev.id), listCategories(ev.id), listGroups(ev.id),
+  ]);
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
   const submitterFor = (attendeeId: string) => {
     const a = attendeeById.get(attendeeId);
@@ -264,6 +270,24 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   const live = liveSubmissions(submissions);
   // Who edited or revoked a row, for its badge's title. Only the ids actually stamped.
   const adminNames = await scannerNames(submissions.flatMap((s) => [s.edited_by, s.revoked_by]));
+
+  // D359/D360: a group form is chased by group, and its rows carry the group they were sent for.
+  const grouped = activity.group_mode !== "off";
+  const groupName = new Map(groups.map((g) => [g.id, g.name]));
+  const bySubmission = [...submissions].sort((a, b) =>
+    (groupName.get(a.group_id ?? "") ?? "￿").localeCompare(groupName.get(b.group_id ?? "") ?? "￿"));
+  const notDone = grouped
+    ? groups.flatMap((g) => {
+        const members = attendees.filter((a) => a.group_id === g.id);
+        const p = groupProgress(activity, g.id, members, live);
+        if (p.done || p.members.length === 0) return [];
+        return [{
+          id: g.id, name: g.name, summary: groupSummary(p, activity.group_mode),
+          waitingOn: activity.group_mode === "everyone" ? p.members.filter((m) => !m.submitted).map((m) => m.name) : [],
+        }];
+      })
+    : [];
+  const ungrouped = grouped ? attendees.filter((a) => !a.group_id && categoryMatches(activity.categories, a.category)).length : 0;
 
   // Which question the chasing list is answering, decided HERE rather than inside
   // `missingFrom`, so the rule is visible where somebody reads the page (D175): a per-day
@@ -287,7 +311,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
         })
     : null;
 
-  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: missing.length, perDay: activity.per_day });
+  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: activity.per_day, grouped });
   const current = resolveTab(tabs, tab);
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
 
@@ -329,12 +353,13 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
           <CardHeader><CardTitle>Submissions</CardTitle></CardHeader>
           <CardContent className="px-0">
             <SubmissionTable
-              submissions={submissions}
+              submissions={grouped ? bySubmission : submissions}
               questions={activity.questions}
               submitterFor={submitterFor}
               edit={editSubmissionAction.bind(null, ev.id, activity.id)}
               revoke={revokeSubmissionAction.bind(null, ev.id, activity.id)}
               adminNames={adminNames}
+              groupFor={grouped ? (s) => (s.group_id ? groupName.get(s.group_id) ?? "Deleted group" : "Deleted group") : undefined}
             />
           </CardContent>
         </Card>
@@ -343,16 +368,20 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
       {current === "not-submitted" && (
         <Card className="overflow-hidden">
           <CardHeader>
-            <CardTitle>Not submitted · {missing.length}</CardTitle>
+            <CardTitle>{grouped ? `Not done · ${notDone.length}` : `Not submitted · ${missing.length}`}</CardTitle>
           </CardHeader>
           <CardContent>
-            <MissingPanel
-              people={missing}
-              day={day}
-              today={today}
-              basePath={`/admin/events/${ev.id}/activities/${activity.id}`}
-              tab="not-submitted"
-            />
+            {grouped ? (
+              <GroupsNotDonePanel groups={notDone} ungrouped={ungrouped} />
+            ) : (
+              <MissingPanel
+                people={missing}
+                day={day}
+                today={today}
+                basePath={`/admin/events/${ev.id}/activities/${activity.id}`}
+                tab="not-submitted"
+              />
+            )}
           </CardContent>
         </Card>
       )}
