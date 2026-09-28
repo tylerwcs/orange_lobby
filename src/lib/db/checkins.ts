@@ -65,3 +65,11 @@ export async function deleteCheckin(eventId: string, checkpointId: string, atten
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }
+
+/** One attendee's check-in at one door, or null. */
+export async function getCheckin(checkpointId: string, attendeeId: string): Promise<Checkin | null> {
+  const { data, error } = await serviceClient().from("checkins").select("*")
+    .eq("checkpoint_id", checkpointId).eq("attendee_id", attendeeId).maybeSingle();
+  if (error) throw error;
+  return data as Checkin | null;
+}

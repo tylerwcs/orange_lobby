@@ -2,7 +2,7 @@
 import { PendingLink } from "@/components/PendingNav";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
-import { Camera, CameraOff, ChevronLeft, CircleAlert, CircleCheck, CircleX, History, ScanBarcode, Search, Undo2, X, type LucideIcon } from "lucide-react";
+import { Camera, CameraOff, ChevronLeft, CircleAlert, CircleCheck, CircleX, History, LogIn, ScanBarcode, Search, Undo2, X, type LucideIcon } from "lucide-react";
 import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,7 @@ const TONE: Record<ScanResult["status"], string> = {
   undone: "bg-foreground text-background",
   notfound: "bg-destructive-soft text-destructive-strong",
   error: "bg-destructive-soft text-destructive-strong",
+  not_booked: "bg-warning-soft text-warning",
 };
 
 /** The solid band across the top of a result: white on the strong tone. Asserted in tests/contrast.test.ts. */
@@ -61,6 +62,7 @@ const BAND: Record<ScanResult["status"], string> = {
   undone: "bg-foreground text-background",
   notfound: "bg-destructive-strong text-white",
   error: "bg-destructive-strong text-white",
+  not_booked: "bg-warning text-white",
 };
 
 const ICON: Record<ScanResult["status"], LucideIcon> = {
@@ -69,6 +71,7 @@ const ICON: Record<ScanResult["status"], LucideIcon> = {
   undone: Undo2,
   notfound: CircleX,
   error: CircleAlert,
+  not_booked: CircleAlert,
 };
 
 /** The recent list's marker for each outcome, the same hue as its band. */
@@ -78,6 +81,7 @@ const DOT: Record<Recent["status"], string> = {
   undone: "bg-foreground",
   notfound: "bg-destructive-strong",
   error: "bg-destructive-strong",
+  not_booked: "bg-warning",
 };
 
 const LABEL: Record<ScanResult["status"], string> = {
@@ -86,6 +90,12 @@ const LABEL: Record<ScanResult["status"], string> = {
   undone: "Check-in undone",
   notfound: "Not on the list",
   error: "Not saved",
+  not_booked: "Not booked for this session",
+};
+
+/** How the recent list words each outcome. */
+const RECENT: Record<Recent["status"], string> = {
+  ok: "in", duplicate: "already in", undone: "undone", not_booked: "not booked", notfound: "", error: "",
 };
 
 export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }: { eventId: string; checkpoint: Checkpoint; initialCount: number; total: number; crewToken?: string }) {
@@ -311,6 +321,16 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
                 Undo · {undoLeft}s
               </Button>
             )}
+            {result.status === "not_booked" && (
+              // D326: nothing was recorded. Letting them in is one deliberate tap, and it records
+              // an ordinary check-in that the door then lists as a walk-in.
+              <Button type="button" disabled={busy}
+                className={cn("mt-auto w-fit font-bold", hero ? "h-12 px-5 text-base" : "h-11 px-4")}
+                onClick={() => handle(() => checkInByIdAction(eventId, checkpoint.id, result.attendee!.id, crewToken, true))}>
+                <LogIn data-icon="inline-start" />
+                Let them in anyway
+              </Button>
+            )}
           </div>
         </>
       )}
@@ -411,7 +431,9 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
                       <span className="truncate text-sm font-bold">{h.name}</span>
                       <span className="truncate text-xs font-normal text-muted-foreground">{[h.category, h.table_no ? `Table ${h.table_no}` : null].filter(Boolean).join(" · ")}</span>
                     </span>
-                    {h.checkedIn ? <Badge variant="success">Already in</Badge> : <Badge>Check in</Badge>}
+                    {h.checkedIn ? <Badge variant="success">Already in</Badge>
+                      : h.booked === false ? <Badge variant="warning">Not booked</Badge>
+                      : <Badge>Check in</Badge>}
                   </Button>
                 </li>
               ))}
@@ -437,7 +459,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken }:
                   <li key={`${r.at}-${i}`} className={cn("flex items-center gap-3 px-3.5 py-2.5", i >= 4 && "hidden lg:flex")}>
                     <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", DOT[r.status])} />
                     <span className="min-w-0 flex-1 truncate font-semibold">{r.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{r.status === "undone" ? "undone" : r.status === "duplicate" ? "already in" : "in"} · {shortTime(r.at)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{RECENT[r.status]} · {shortTime(r.at)}</span>
                   </li>
                 ))}
               </ul>

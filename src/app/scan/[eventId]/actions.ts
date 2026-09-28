@@ -2,8 +2,10 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, getEventByCrewToken } from "@/lib/db/events";
 import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
-import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin } from "@/lib/db/checkins";
+import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin, getCheckin } from "@/lib/db/checkins";
 import { getCheckpoint } from "@/lib/db/checkpoints";
+import { bookedSessionOn, bookerIdsOn } from "@/lib/db/activities";
+import { slotTime } from "@/lib/booking-door";
 import { extractToken, scanResultFields } from "@/lib/scan";
 import { fieldValue } from "@/lib/attendee-values";
 import { eventFields } from "@/lib/attendee-fields";
@@ -14,11 +16,12 @@ import { nowInKL } from "@/lib/time";
 import type { Attendee, Event } from "@/lib/types";
 
 export type ScanResult = {
-  status: "ok" | "duplicate" | "notfound" | "error" | "undone";
+  status: "ok" | "duplicate" | "notfound" | "error" | "undone" | "not_booked";
   attendee?: Attendee; fields?: { label: string; value: string }[]; earlier?: { at: string }; message?: string;
 };
 
-export type SearchHit = Pick<Attendee, "id" | "name" | "category"> & { table_no: string | null; checkedIn: boolean };
+/** `booked` is null at an ordinary door, where there is nothing to have booked. */
+export type SearchHit = Pick<Attendee, "id" | "name" | "category"> & { table_no: string | null; checkedIn: boolean; booked: boolean | null };
 
 /**
  * Two doors into the same scanner (D110).
@@ -58,7 +61,7 @@ async function authorise(eventId: string, crewToken?: string): Promise<{ ev: Eve
   return { ev, userId };
 }
 
-async function doCheckin(ev: Event, userId: string | null, checkpointId: string, attendee: Attendee): Promise<ScanResult> {
+async function doCheckin(ev: Event, userId: string | null, checkpointId: string, attendee: Attendee, walkIn = false): Promise<ScanResult> {
   if (ev.status === "archived") return { status: "error", message: "This event is archived, so check-in is closed." };
   // Beside the archived check because it is the same kind of refusal, and here rather than
   // only on the page because this is the one place a checkin is written (D159). The page
@@ -67,8 +70,19 @@ async function doCheckin(ev: Event, userId: string | null, checkpointId: string,
   if (!ev.check_in_enabled) return { status: "error", message: "Check-in is off for this event." };
   const checkpoint = await getCheckpoint(checkpointId, ev.id);
   if (!checkpoint) return { status: "error", message: "This checkpoint no longer exists. Go back and pick another." };
-  const r = await recordCheckin(ev, checkpointId, attendee.id, userId);
   const fields = scanResultFields(attendee, ev);
+  if (checkpoint.activity_id) {
+    // A booking door (D324): say which slot they booked, and stop to ask about anyone who
+    // booked none that day (D326). Someone already let in is "Already in", not asked again.
+    const slot = await bookedSessionOn(attendee.id, checkpoint.activity_id, checkpoint.day);
+    if (!slot && !walkIn) {
+      const existing = await getCheckin(checkpointId, attendee.id);
+      if (existing) return { status: "duplicate", attendee, fields: [{ label: "Booked", value: "Walk-in" }, ...fields], earlier: { at: existing.scanned_at } };
+      return { status: "not_booked", attendee, fields };
+    }
+    fields.unshift({ label: "Booked", value: slot ? slotTime(slot) : "Walk-in" });
+  }
+  const r = await recordCheckin(ev, checkpointId, attendee.id, userId);
   return r.created ? { status: "ok", attendee, fields } : { status: "duplicate", attendee, fields, earlier: { at: r.existing!.scanned_at } };
 }
 
@@ -83,13 +97,14 @@ export async function checkInByTokenAction(eventId: string, checkpointId: string
   return doCheckin(ev, userId, checkpointId, a);
 }
 
-export async function checkInByIdAction(eventId: string, checkpointId: string, attendeeId: string, crewToken?: string): Promise<ScanResult> {
+/** `walkIn` is the crew's "Let them in anyway" after a `not_booked` answer (D326). */
+export async function checkInByIdAction(eventId: string, checkpointId: string, attendeeId: string, crewToken?: string, walkIn = false): Promise<ScanResult> {
   const auth = await authorise(eventId, crewToken);
   if ("error" in auth) return { status: "error", message: auth.error };
   const { ev, userId } = auth;
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== eventId) return { status: "notfound", message: "That attendee is no longer on the list." };
-  return doCheckin(ev, userId, checkpointId, a);
+  return doCheckin(ev, userId, checkpointId, a, walkIn);
 }
 
 export async function undoCheckinAction(eventId: string, checkpointId: string, attendeeId: string, crewToken?: string): Promise<ScanResult> {
@@ -107,7 +122,12 @@ export async function searchAttendeesAction(eventId: string, q: string, checkpoi
   if ("error" in auth) return [];
   const { ev } = auth;
   if (q.trim().length < 2) return [];
-  const [rows, checkedIn] = await Promise.all([listAttendees(eventId, q), listCheckedInAttendeeIds(checkpointId)]);
+  const checkpoint = await getCheckpoint(checkpointId, ev.id);
+  const [rows, checkedIn, bookers] = await Promise.all([
+    listAttendees(eventId, q),
+    listCheckedInAttendeeIds(checkpointId),
+    checkpoint?.activity_id ? bookerIdsOn(checkpoint.activity_id, checkpoint.day) : Promise.resolve(null),
+  ]);
   // A fact this event does not collect must not reach a crew member's phone at all, rather
   // than being filtered out once it is there. Whether it collects a fact is answered the
   // same way everywhere else in this migration: whether a field for it exists.
@@ -119,5 +139,6 @@ export async function searchAttendeesAction(eventId: string, q: string, checkpoi
     category: a.category,
     table_no: has("table_no") ? fieldValue(a, "table_no") || null : null,
     checkedIn: checkedIn.has(a.id),
+    booked: bookers ? bookers.has(a.id) : null,
   }));
 }

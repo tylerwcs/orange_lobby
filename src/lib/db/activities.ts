@@ -189,6 +189,39 @@ export async function bookingsForAttendee(attendeeId: string): Promise<ActivityB
 }
 
 /**
+ * The session one attendee booked of an activity on one day, or null (D326). Two small
+ * queries - their bookings of the activity, then which of those sessions fall on the day - so
+ * a scan never reads the event's whole booking table.
+ */
+export async function bookedSessionOn(attendeeId: string, activityId: string, day: string): Promise<ActivitySession | null> {
+  const db = serviceClient();
+  const { data: rows, error } = await db.from("activity_bookings").select("session_id")
+    .eq("attendee_id", attendeeId).eq("activity_id", activityId);
+  if (error) throw error;
+  const ids = (rows ?? []).map((r) => r.session_id as string);
+  if (ids.length === 0) return null;
+  const { data, error: e2 } = await db.from("activity_sessions").select("*")
+    .in("id", ids).eq("day", day).order("starts_at").limit(1).maybeSingle();
+  if (e2) throw e2;
+  if (!data) return null;
+  const s = data as ActivitySession;
+  return { ...s, starts_at: s.starts_at.slice(0, 5), ends_at: s.ends_at?.slice(0, 5) ?? null };
+}
+
+/** Everyone booked into an activity on one day: who a booking door expects (D324). */
+export async function bookerIdsOn(activityId: string, day: string): Promise<Set<string>> {
+  const db = serviceClient();
+  const { data: sessions, error } = await db.from("activity_sessions").select("id")
+    .eq("activity_id", activityId).eq("day", day);
+  if (error) throw error;
+  const ids = (sessions ?? []).map((s) => s.id as string);
+  if (ids.length === 0) return new Set();
+  const { data, error: e2 } = await db.from("activity_bookings").select("attendee_id").in("session_id", ids);
+  if (e2) throw e2;
+  return new Set((data ?? []).map((r) => r.attendee_id as string));
+}
+
+/**
  * The only way a booking is ever created.
  *
  * Capacity, the per-activity cap, open/closed and eligibility are all decided inside the
