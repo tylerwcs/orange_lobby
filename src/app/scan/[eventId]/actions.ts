@@ -139,12 +139,13 @@ export async function searchAttendeesAction(eventId: string, q: string, checkpoi
   if ("error" in auth) return [];
   const { ev } = auth;
   if (q.trim().length < 2) return [];
-  const checkpoint = await getCheckpoint(checkpointId, ev.id);
-  const [rows, checkedIn, bookers] = await Promise.all([
+  const [rows, checkedIn, checkpoint] = await Promise.all([
     listAttendees(eventId, q),
     listCheckedInAttendeeIds(checkpointId),
-    checkpoint?.activity_id ? bookerIdsOn(checkpoint.activity_id, checkpoint.day) : Promise.resolve(null),
+    getCheckpoint(checkpointId, ev.id),
   ]);
+  // Only a booking door has bookers to read, so an ordinary door's search stays one round trip.
+  const bookers = checkpoint?.activity_id ? await bookerIdsOn(checkpoint.activity_id, checkpoint.day) : null;
   // A fact this event does not collect must not reach a crew member's phone at all, rather
   // than being filtered out once it is there. Whether it collects a fact is answered the
   // same way everywhere else in this migration: whether a field for it exists.
