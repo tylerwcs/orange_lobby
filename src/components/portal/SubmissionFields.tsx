@@ -1,11 +1,41 @@
 "use client";
 import { useState } from "react";
-import { UPLOAD_ACCEPT } from "@/lib/storage";
+import { MAX_UPLOAD_BYTES, UPLOAD_ACCEPT, UPLOAD_TOO_BIG } from "@/lib/storage";
+import { shrinkImage } from "@/lib/shrink-image";
 import { isQuestionShown } from "@/lib/show-when";
 import type { RegistrationQuestion } from "@/lib/types";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
 
 const inputClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
+
+/**
+ * Swaps a picked photo for a shrunk copy (src/lib/shrink-image.ts) in the input itself, so the
+ * form posts the small one. Until that is done the input is invalid, which stops a quick tap on
+ * Submit sending the full-size original; a file that is still too big afterwards (a large PDF)
+ * stays invalid with the server's own sentence, instead of reaching Vercel's 413 and the error
+ * page. A browser without DataTransfer keeps the original, and the size check still applies.
+ */
+async function prepareFile(input: HTMLInputElement) {
+  const picked = input.files?.[0];
+  input.setCustomValidity("");
+  if (!picked) return;
+  input.setCustomValidity("Preparing your file… try again in a moment.");
+  const file = await shrinkImage(picked);
+  // Picked again while this one was shrinking: that newer change owns the input now.
+  if (input.files?.[0] !== picked) return;
+  if (file !== picked) {
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+    } catch {
+      // Left as picked.
+    }
+  }
+  const sent = input.files?.[0] ?? picked;
+  input.setCustomValidity(sent.size > MAX_UPLOAD_BYTES ? UPLOAD_TOO_BIG : "");
+  if (sent.size > MAX_UPLOAD_BYTES) input.reportValidity();
+}
 
 /**
  * One question, switched on `q.type`. `current` is the answer already given ("" on a fresh
@@ -33,6 +63,7 @@ function renderQuestion(q: RegistrationQuestion, current: string) {
         type="file"
         accept={UPLOAD_ACCEPT}
         required={q.required && !current}
+        onChange={(e) => void prepareFile(e.currentTarget)}
         /* `flex items-center` is the fix for the button sitting high in the box. `inputClass`
            sets a 44px height with no vertical padding, and a file input lays its shadow button
            out on a baseline-aligned line box — unlike a text input, which browsers centre

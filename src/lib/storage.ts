@@ -170,8 +170,16 @@ export function isGameVideoFor(url: string, supabaseUrl: string, orgId: string, 
  */
 export const SUBMISSION_BUCKET = "form-uploads";
 
-/** Per file. Generous next to MAX_IMAGE_BYTES because a receipt scan is not a logo. */
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/**
+ * Per file. Held under Vercel's 4.5 MB cap on a function's request body, which the file rides
+ * in: anything bigger is refused with a 413 before our code runs, and the attendee sees the error
+ * page instead of this sentence. `next.config`'s bodySizeLimit cannot raise that cap. Photos are
+ * shrunk in the browser first (src/lib/shrink-image.ts), so a phone camera stays well under it.
+ */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+/** Said by the server's gate and by the form before it sends, so the two read the same. */
+export const UPLOAD_TOO_BIG = "Files must be 4 MB or smaller.";
 
 /**
  * The extension each accepted submission type is stored under. Kept apart from EXTENSIONS —
@@ -198,7 +206,7 @@ export function acceptUpload(file: { type: string; size: number }): string {
   if (file.size === 0) throw new Error("Choose a file first.");
   const ext = UPLOAD_EXTENSIONS[file.type.toLowerCase()];
   if (!ext) throw new Error("Files must be PNG, JPEG, WebP or PDF.");
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Files must be 10 MB or smaller.");
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error(UPLOAD_TOO_BIG);
   return ext;
 }
 

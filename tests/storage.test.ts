@@ -137,8 +137,9 @@ describe("acceptUpload", () => {
     expect(() => acceptImage({ type: "application/pdf", size: 1000 })).toThrow();
   });
 
-  it("refuses a file over 10 MB", () => {
-    expect(() => acceptUpload({ type: "image/png", size: 10 * 1024 * 1024 + 1 })).toThrow(/10 MB/);
+  it("refuses a file over 4 MB, under Vercel's 4.5 MB request cap", () => {
+    expect(() => acceptUpload({ type: "image/png", size: 4 * 1024 * 1024 + 1 })).toThrow(/4 MB/);
+    expect(acceptUpload({ type: "image/png", size: 4 * 1024 * 1024 })).toBe("png");
   });
 
   it("refuses an empty file", () => {
