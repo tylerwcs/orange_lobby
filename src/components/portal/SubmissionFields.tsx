@@ -7,19 +7,23 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/com
 
 const inputClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
 
-/** One question, switched on `q.type`. */
-function renderQuestion(q: RegistrationQuestion) {
+/**
+ * One question, switched on `q.type`. `current` is the answer already given ("" on a fresh
+ * form): the other types start from it, while a file input cannot be pre-filled, so a stored
+ * file instead stops it being required - left empty, it keeps that file.
+ */
+function renderQuestion(q: RegistrationQuestion, current: string) {
   const id = `q-${q.key}`;
   if (q.type === "select") {
     return (
-      <select id={id} name={q.key} required={q.required} className={inputClass}>
+      <select id={id} name={q.key} required={q.required} defaultValue={current} className={inputClass}>
         <option value="">Select…</option>
         {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     );
   }
   if (q.type === "textarea") {
-    return <textarea id={id} name={q.key} required={q.required} rows={5} className={inputClass} />;
+    return <textarea id={id} name={q.key} required={q.required} rows={5} defaultValue={current} className={inputClass} />;
   }
   if (q.type === "file") {
     return (
@@ -28,7 +32,7 @@ function renderQuestion(q: RegistrationQuestion) {
         name={q.key}
         type="file"
         accept={UPLOAD_ACCEPT}
-        required={q.required}
+        required={q.required && !current}
         /* `flex items-center` is the fix for the button sitting high in the box. `inputClass`
            sets a 44px height with no vertical padding, and a file input lays its shadow button
            out on a baseline-aligned line box — unlike a text input, which browsers centre
@@ -39,7 +43,7 @@ function renderQuestion(q: RegistrationQuestion) {
     );
   }
   const type = q.type === "phone" ? "tel" : q.type === "number" ? "number" : "text";
-  return <input id={id} name={q.key} type={type} required={q.required} className={inputClass} />;
+  return <input id={id} name={q.key} type={type} required={q.required} defaultValue={current} className={inputClass} />;
 }
 
 /**
@@ -51,9 +55,19 @@ function renderQuestion(q: RegistrationQuestion) {
  * the change events that bubble up to the fieldset. A hidden question is not rendered at all,
  * so a required one cannot block the browser's own validation, and a file picked before its
  * question was hidden is never uploaded; the server stores "" for it either way.
+ *
+ * `defaults` pre-fills it with a submission's answers for an admin's edit (D337), and seeds the
+ * `show_when` state too, so the questions those answers opened start open. `fileLinks` holds a
+ * signed link to each stored file, minted by the server. The portal passes neither.
  */
-export function SubmissionFields({ questions }: { questions: RegistrationQuestion[] }) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+export function SubmissionFields({ questions, defaults, fileLinks }: {
+  questions: RegistrationQuestion[];
+  /** Question key to answer, as stored. */
+  defaults?: Record<string, string>;
+  /** Question key to a signed link for its current file; null when it could not be signed. */
+  fileLinks?: Record<string, string | null>;
+}) {
+  const [answers, setAnswers] = useState<Record<string, string>>(defaults ?? {});
   const onChange = (e: React.FormEvent<HTMLFieldSetElement>) => {
     const t = e.target as HTMLInputElement;
     if (!t.name || t.type === "file") return;
@@ -62,16 +76,30 @@ export function SubmissionFields({ questions }: { questions: RegistrationQuestio
   return (
     <FieldSet onChange={onChange}>
       <FieldGroup>
-        {questions.filter((q) => isQuestionShown(q, answers)).map((q) => (
-          <Field key={q.key}>
-            <FieldLabel htmlFor={`q-${q.key}`}>
-              {q.label}
-              {!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}
-            </FieldLabel>
-            {q.description && <FieldDescription>{q.description}</FieldDescription>}
-            {renderQuestion(q)}
-          </Field>
-        ))}
+        {questions.filter((q) => isQuestionShown(q, answers)).map((q) => {
+          const current = defaults?.[q.key] ?? "";
+          const storedFile = q.type === "file" && current !== "";
+          const link = fileLinks?.[q.key];
+          return (
+            <Field key={q.key}>
+              <FieldLabel htmlFor={`q-${q.key}`}>
+                {q.label}
+                {!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}
+              </FieldLabel>
+              {q.description && <FieldDescription>{q.description}</FieldDescription>}
+              {storedFile && (
+                <p className="text-sm">
+                  Current file:{" "}
+                  {link
+                    ? <a href={link} target="_blank" rel="noreferrer" className="text-primary underline">View file</a>
+                    : <span className="text-muted-foreground">Unavailable</span>}
+                </p>
+              )}
+              {renderQuestion(q, current)}
+              {storedFile && <FieldDescription>Choose a file only to replace it.</FieldDescription>}
+            </Field>
+          );
+        })}
       </FieldGroup>
     </FieldSet>
   );

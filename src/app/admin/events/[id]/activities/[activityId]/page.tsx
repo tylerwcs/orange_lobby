@@ -40,7 +40,7 @@ import {
   saveActivityAction, toggleOpenAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
   addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction,
   placeAttendeesAction, approveRequestAction, declineRequestAction,
-  uploadActivityImageAction,
+  uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction,
 } from "../actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -262,6 +262,8 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   // A revoked row stays for the record (D340, so SubmissionTable below still gets `submissions`
   // whole) but never counts toward anything this activity decides from (D339).
   const live = liveSubmissions(submissions);
+  // Who edited or revoked a row, for its badge's title. Only the ids actually stamped.
+  const adminNames = await scannerNames(submissions.flatMap((s) => [s.edited_by, s.revoked_by]));
 
   // Which question the chasing list is answering, decided HERE rather than inside
   // `missingFrom`, so the rule is visible where somebody reads the page (D175): a per-day
@@ -326,7 +328,14 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
         <Card className="overflow-hidden">
           <CardHeader><CardTitle>Submissions</CardTitle></CardHeader>
           <CardContent className="px-0">
-            <SubmissionTable submissions={submissions} questions={activity.questions} submitterFor={submitterFor} />
+            <SubmissionTable
+              submissions={submissions}
+              questions={activity.questions}
+              submitterFor={submitterFor}
+              edit={editSubmissionAction.bind(null, ev.id, activity.id)}
+              revoke={revokeSubmissionAction.bind(null, ev.id, activity.id)}
+              adminNames={adminNames}
+            />
           </CardContent>
         </Card>
       )}
