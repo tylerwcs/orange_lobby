@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues } from "@/lib/groups";
+import { groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, withGroupColumn, GROUP_EXPORT_KEY } from "@/lib/groups";
 import type { Activity, ActivitySubmission, EventGroup } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}) => ({ id: "f1", group_mode: "entries" as const, group_target: 2, categories: null, ...over });
@@ -96,5 +96,13 @@ describe("groupFieldValues (D348)", () => {
     const fields = [{ key: "company", label: "Company", type: "text" as const }, { key: "phone", label: "Phone", type: "phone" as const }];
     expect(groupFieldValues({ extra: { company: " Ecopia ", phone: "" } }, ["phone", "company", "gone"], fields))
       .toEqual([{ label: "Company", value: "Ecopia" }]);
+  });
+});
+
+describe("withGroupColumn (D361)", () => {
+  it("leads with Group when the event has groups, and changes nothing when it has none", () => {
+    const cols = [{ key: "company", label: "Company" }];
+    expect(withGroupColumn(cols, true)).toEqual([{ key: GROUP_EXPORT_KEY, label: "Group" }, ...cols]);
+    expect(withGroupColumn(cols, false)).toBe(cols);
   });
 });

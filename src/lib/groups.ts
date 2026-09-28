@@ -3,6 +3,7 @@ import { liveSubmissions } from "@/lib/submissions";
 import { fieldValue } from "@/lib/attendee-values";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Activity, ActivitySubmission, Attendee, EventGroup, GroupMode } from "@/lib/types";
+import type { ExportColumn } from "@/lib/export-columns";
 
 /**
  * The attendee table's Group column, and the bulk editor's key for it (D346). Leading `:`
@@ -112,4 +113,12 @@ export function groupFieldValues(attendee: Pick<Attendee, "extra">, keys: string
     const value = f ? fieldValue(attendee, k) : "";
     return f && value ? [{ label: f.label, value }] : [];
   });
+}
+
+/** Not a real attendee field: routes write the group's name into `extra` under this key for export only. */
+export const GROUP_EXPORT_KEY = "__group";
+
+/** D361: exports lead with Group when the event has any. */
+export function withGroupColumn(columns: ExportColumn[], hasGroups: boolean): ExportColumn[] {
+  return hasGroups ? [{ key: GROUP_EXPORT_KEY, label: "Group" }, ...columns] : columns;
 }

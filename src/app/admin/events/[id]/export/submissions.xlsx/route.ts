@@ -4,9 +4,11 @@ import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSubmissions } from "@/lib/db/activities";
+import { listGroups } from "@/lib/db/groups";
 import { signedSubmissionUrl } from "@/lib/db/media";
 import { buildFormsWorkbook, type FormSheet } from "@/lib/exports";
 import { fileQuestionKeys, missingFrom } from "@/lib/submissions";
+import { withGroupColumn, GROUP_EXPORT_KEY } from "@/lib/groups";
 
 // Seven days: long enough that a spreadsheet downloaded today still opens its photographs
 // next week, short enough that the bucket stays private in spirit, not just in policy.
@@ -19,9 +21,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
 
-  const [forms, submissions, attendees] = await Promise.all([
-    listActivities(ev.id, "submission"), listSubmissions(ev.id), listAttendees(ev.id),
+  const [forms, submissions, attendees, groups] = await Promise.all([
+    listActivities(ev.id, "submission"), listSubmissions(ev.id), listAttendees(ev.id), listGroups(ev.id),
   ]);
+  const groupName = new Map(groups.map((g) => [g.id, g.name]));
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
   const byForm = new Map<string, typeof submissions>();
   for (const s of submissions) byForm.set(s.activity_id, [...(byForm.get(s.activity_id) ?? []), s]);
@@ -45,9 +48,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           answers[key] = value;
         }
       }
+      // The row's group is the one the entry was sent for (D355), not the attendee's current
+      // one; a group_id gone null (its group was deleted, D349) still says so.
+      const extra = {
+        ...(a?.extra ?? {}),
+        [GROUP_EXPORT_KEY]: s.group_id ? groupName.get(s.group_id) ?? "" : (f.group_mode !== "off" ? "Deleted group" : ""),
+      };
       return {
         name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null,
-        submittedOn: s.submitted_on, createdAt: s.created_at, answers, extra: a?.extra,
+        submittedOn: s.submitted_on, createdAt: s.created_at, answers, extra,
       };
     }));
     // `null` for the day: the download has no day context, so this is who has NEVER
@@ -55,13 +64,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const missing = missingFrom(f, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, null)
       .map((aid) => {
         const a = attendeeById.get(aid);
-        return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null, extra: a?.extra };
+        const extra = { ...(a?.extra ?? {}), [GROUP_EXPORT_KEY]: a?.group_id ? groupName.get(a.group_id) ?? "" : "" };
+        return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null, extra };
       });
 
     return { formName: f.name, questions, rows, missing };
   }));
 
-  const buf = await buildFormsWorkbook(sheets, exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields)).xlsx.writeBuffer();
+  const columns = withGroupColumn(exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields), groups.length > 0);
+  const buf = await buildFormsWorkbook(sheets, columns).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
