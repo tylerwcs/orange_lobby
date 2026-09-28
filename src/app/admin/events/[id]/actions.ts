@@ -19,6 +19,7 @@ import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/
 import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncementOrder, updateAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
+import { settleRequestsAtDoor } from "@/lib/db/activity-requests";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
 import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOrder } from "@/lib/db/info-tabs";
@@ -371,11 +372,13 @@ export async function markCheckedInAction(eventId: string, formData: FormData) {
   // form is not the bar; refuse the write itself the way doCheckin does (D159).
   if (!ev.check_in_enabled) redirect(flashPath(`/admin/events/${ev.id}/attendees`, "Check-in is off for this event.", "error"));
   const checkpointId = String(formData.get("checkpoint_id") ?? "");
-  const onEvent = (await listCheckpoints(ev.id)).some((c) => c.id === checkpointId);
-  if (!onEvent) redirect(flashPath(`/admin/events/${ev.id}/attendees`, "Pick a checkpoint first.", "error"));
+  const checkpoint = (await listCheckpoints(ev.id)).find((c) => c.id === checkpointId);
+  if (!checkpoint) redirect(flashPath(`/admin/events/${ev.id}/attendees`, "Pick a checkpoint first.", "error"));
   const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
   const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
   await recordCheckins(ev, checkpointId, ids, userId);
+  // D343: as at the scanner, arriving at a booking door closes the requests it makes moot.
+  await settleRequestsAtDoor(checkpoint, ids, "closed", userId);
   revalidatePath(`/admin/events/${ev.id}/attendees`);
   revalidatePath(`/admin/events/${ev.id}`);
 }

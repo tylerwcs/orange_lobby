@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pendingFor, lastDeclinedFor, activityControls, pendingCountByActivity } from "@/lib/activity-requests";
+import { pendingFor, lastDeclinedFor, activityControls, pendingCountByActivity, requestsAtDoor, requestStatusLabel } from "@/lib/activity-requests";
 import { activityState } from "@/lib/activities";
 import type { Activity, ActivityChangeRequest, ActivitySession } from "@/lib/types";
 
@@ -230,5 +230,41 @@ describe("pendingCountByActivity", () => {
 
   it("is empty when nothing is pending", () => {
     expect(pendingCountByActivity([request({ status: "declined" })])).toEqual({});
+  });
+});
+
+describe("requestsAtDoor (D343)", () => {
+  const days = new Map([["s1", "2026-10-01"], ["s2", "2026-10-01"], ["s9", "2026-10-02"]]);
+  const door = { activity_id: "act1", day: "2026-10-01" };
+  const who = new Set(["att1"]);
+
+  it("picks this attendee's pending request for a session on the door's day", () => {
+    expect(requestsAtDoor([request()], door, days, who, "pending")).toEqual(["req1"]);
+  });
+  it("leaves a request about another day's session alone", () => {
+    expect(requestsAtDoor([request({ from_session_id: "s9", to_session_id: null, kind: "cancel" })], door, days, who, "pending")).toEqual([]);
+  });
+  it("leaves other attendees, other activities and other statuses alone", () => {
+    expect(requestsAtDoor([
+      request({ id: "a", attendee_id: "att2" }),
+      request({ id: "b", activity_id: "act2" }),
+      request({ id: "c", status: "declined" }),
+    ], door, days, who, "pending")).toEqual([]);
+  });
+  it("finds the closed request an undo reopens, by the same rule", () => {
+    expect(requestsAtDoor([request({ status: "closed" }), request({ id: "p" })], door, days, who, "closed")).toEqual(["req1"]);
+  });
+  it("does nothing at an ordinary door", () => {
+    expect(requestsAtDoor([request()], { activity_id: null, day: "2026-10-01" }, days, who, "pending")).toEqual([]);
+  });
+});
+
+describe("requestStatusLabel", () => {
+  it("says why a request closed on its own", () => {
+    expect(requestStatusLabel("closed")).toBe("closed, they checked in");
+  });
+  it("leaves the committee's and the attendee's outcomes as they read today", () => {
+    expect(requestStatusLabel("approved")).toBe("approved");
+    expect(requestStatusLabel("withdrawn")).toBe("withdrawn");
   });
 });

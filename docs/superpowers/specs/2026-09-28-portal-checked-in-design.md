@@ -24,6 +24,21 @@ activity's card (the Activities tab and the home row) and on the activity's own 
   - The switch and cancel request actions refuse a checked-in session with "You've already
     checked in to this session.", so a stale page cannot send one.
 
+- **D343 — Checking in closes a pending request for that session.** Added 28 Sep 2026.
+  - **What closes:** a check-in at a booking door closes this attendee's *pending* change or
+    cancel request for the door's activity, when the request's session is on the door's day.
+  - **The status:** `closed` (migration 0054), stamped with when and by whom (the scanning
+    admin, or empty for the crew link). Not "withdrawn", which would say the attendee withdrew it.
+  - **Where:** every check-in path — scan, name search, Mark arrived, the crew link and the
+    Attendees bulk check-in.
+  - **Undo:** the scanner's Undo reopens it.
+  - **What people see:**
+    - the committee queue lists it as "closed, they checked in";
+    - it stops counting toward the hourly committee reminder;
+    - approving it from a stale page gets the usual "already decided" answer;
+    - the attendee's page drops "Waiting for approval" for "Checked in at…".
+  - **Left alone:** a request about another day's session.
+
 ## Data
 
 - One reader in `src/lib/db/checkins.ts`: `bookingArrivalsFor(attendeeId)` returns the attendee's

@@ -1,5 +1,6 @@
 import type { ActivityChangeRequest } from "@/lib/types";
 import { elapsed, shortDateTime } from "@/lib/text";
+import { requestStatusLabel } from "@/lib/activity-requests";
 import { shortScanner } from "@/lib/db/users";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,7 +100,7 @@ export function RequestQueue({
                   <li key={r.id} className="py-2.5 text-sm">
                     <span className="font-bold">{name}</span>{" "}
                     <span className="text-muted-foreground">
-                      {what} · {r.status}
+                      {what} · {requestStatusLabel(r.status)}
                       {r.decided_at ? ` · ${shortDateTime(r.decided_at)}` : ""}
                       {decider ? ` · by ${shortScanner(decider)}` : ""}
                     </span>

@@ -6,6 +6,7 @@ import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin, getCheckin } fr
 import { getCheckpoint } from "@/lib/db/checkpoints";
 import { bookedSessionOn, bookerIdsOn } from "@/lib/db/activities";
 import { loadBoard } from "@/lib/db/doors";
+import { settleRequestsAtDoor } from "@/lib/db/activity-requests";
 import { slotTime, type Board } from "@/lib/booking-door";
 import { extractToken, scanResultFields } from "@/lib/scan";
 import { fieldValue } from "@/lib/attendee-values";
@@ -14,7 +15,7 @@ import { crewLinkLive } from "@/lib/crew";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
 import { nowInKL } from "@/lib/time";
-import type { Attendee, Event } from "@/lib/types";
+import type { Attendee, Checkpoint, Event } from "@/lib/types";
 
 export type ScanResult = {
   status: "ok" | "duplicate" | "notfound" | "error" | "undone" | "not_booked";
@@ -84,7 +85,22 @@ async function doCheckin(ev: Event, userId: string | null, checkpointId: string,
     fields.unshift({ label: "Booked", value: slot ? slotTime(slot) : "Walk-in" });
   }
   const r = await recordCheckin(ev, checkpointId, attendee.id, userId);
+  if (r.created) await settleAtDoor(checkpoint, attendee.id, "closed", userId);
   return r.created ? { status: "ok", attendee, fields } : { status: "duplicate", attendee, fields, earlier: { at: r.existing!.scanned_at } };
+}
+
+/**
+ * D343: arriving closes a pending request to move or cancel this session; undoing reopens it.
+ * The check-in (or its undo) is already saved when this runs, so a failure here is logged
+ * rather than turned into an error card - crew would read that as "not checked in" and scan
+ * again, and the request is still there for the committee to decide by hand.
+ */
+async function settleAtDoor(checkpoint: Checkpoint, attendeeId: string, to: "closed" | "pending", userId: string | null) {
+  try {
+    await settleRequestsAtDoor(checkpoint, [attendeeId], to, userId);
+  } catch (e) {
+    console.error(`D343: could not ${to === "closed" ? "close" : "reopen"} requests at checkpoint ${checkpoint.id} for ${attendeeId}`, e);
+  }
 }
 
 export async function checkInByTokenAction(eventId: string, checkpointId: string, scanned: string, crewToken?: string): Promise<ScanResult> {
@@ -115,6 +131,10 @@ export async function undoCheckinAction(eventId: string, checkpointId: string, a
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== ev.id) return { status: "error", message: "That attendee is no longer on the list." };
   const removed = await deleteCheckin(ev.id, checkpointId, attendeeId);
+  if (removed) {
+    const checkpoint = await getCheckpoint(checkpointId, ev.id);
+    if (checkpoint) await settleAtDoor(checkpoint, attendeeId, "pending", null);
+  }
   return removed ? { status: "undone", attendee: a } : { status: "error", message: "Nothing to undo." };
 }
 

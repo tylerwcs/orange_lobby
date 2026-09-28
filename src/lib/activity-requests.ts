@@ -1,5 +1,5 @@
 import { sessionLabel, type ActivityState, type SeatsForViewer } from "@/lib/activities";
-import type { ActivityChangeRequest } from "@/lib/types";
+import type { ActivityChangeRequest, ActivityRequestStatus, Checkpoint } from "@/lib/types";
 
 /**
  * What an attendee's Activities card offers, given what they hold and what they have asked
@@ -47,6 +47,32 @@ export function pendingFor(
   activityId: string,
 ): ActivityChangeRequest | null {
   return requests.find((r) => r.activity_id === activityId && r.status === "pending") ?? null;
+}
+
+/**
+ * The requests an arrival at a booking door settles (D343): this door's activity, a session on
+ * the door's day, one of these attendees, in `status`. A check-in closes the `pending` ones -
+ * attending the session makes asking to move or cancel it moot - and the scanner's undo reopens
+ * the `closed` ones by the same rule, so a check-in and its undo always touch the same rows.
+ * A request about the same activity on another day is left alone.
+ */
+export function requestsAtDoor(
+  requests: Pick<ActivityChangeRequest, "id" | "activity_id" | "attendee_id" | "from_session_id" | "status">[],
+  door: Pick<Checkpoint, "activity_id" | "day">,
+  sessionDays: ReadonlyMap<string, string>,
+  attendeeIds: ReadonlySet<string>,
+  status: ActivityRequestStatus,
+): string[] {
+  if (!door.activity_id) return [];
+  return requests
+    .filter((r) => r.status === status && r.activity_id === door.activity_id
+      && attendeeIds.has(r.attendee_id) && sessionDays.get(r.from_session_id) === door.day)
+    .map((r) => r.id);
+}
+
+/** How the committee's decided list words an outcome. Only `closed` needs its reason said (D343). */
+export function requestStatusLabel(status: ActivityRequestStatus): string {
+  return status === "closed" ? "closed, they checked in" : status;
 }
 
 /**

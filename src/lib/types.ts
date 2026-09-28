@@ -277,7 +277,8 @@ export type ActivityBooking = {
 };
 
 export type ActivityRequestKind = "switch" | "cancel";
-export type ActivityRequestStatus = "pending" | "approved" | "declined" | "withdrawn";
+/** `closed`: settled by a check-in at the session's booking door, not by anyone deciding (D343). */
+export type ActivityRequestStatus = "pending" | "approved" | "declined" | "withdrawn" | "closed";
 
 /**
  * A change an attendee has asked for. The booking it refers to does not move until the

@@ -1,7 +1,8 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
-import type { DecisionResult } from "@/lib/db/activities";
-import type { ActivityChangeRequest } from "@/lib/types";
+import { listSessionsOn, type DecisionResult } from "@/lib/db/activities";
+import { requestsAtDoor } from "@/lib/activity-requests";
+import type { ActivityChangeRequest, Checkpoint } from "@/lib/types";
 
 export type NewRequest = {
   eventId: string;
@@ -66,6 +67,47 @@ export async function withdrawRequest(id: string, attendeeId: string): Promise<b
     .eq("id", id).eq("attendee_id", attendeeId).eq("status", "pending").select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+/**
+ * D343: a check-in at a booking door closes the pending requests it makes moot (`to` =
+ * "closed"), and the scanner's undo reopens them (`to` = "pending"). Which rows is
+ * `requestsAtDoor`'s rule. An ordinary door touches nothing.
+ *
+ * Reads the activity's requests in the one status being left rather than filtering by attendee
+ * in the query: an activity has a handful open at a time, and a bulk check-in can post hundreds
+ * of attendee ids. The update is guarded on that status too, so it never overwrites a decision
+ * that landed in between. Reopening can meet the one-open-request index (D146) if the attendee
+ * raised a new request after the check-in; the closed row then simply stays closed.
+ */
+export async function settleRequestsAtDoor(
+  door: Pick<Checkpoint, "activity_id" | "day">,
+  attendeeIds: string[],
+  to: "closed" | "pending",
+  userId: string | null,
+): Promise<number> {
+  if (!door.activity_id || attendeeIds.length === 0) return 0;
+  const from = to === "closed" ? "pending" : "closed";
+  const db = serviceClient();
+  const [sessions, { data: rows, error }] = await Promise.all([
+    listSessionsOn(door.activity_id, door.day),
+    db.from("activity_change_requests").select("id, activity_id, attendee_id, from_session_id, status")
+      .eq("activity_id", door.activity_id).eq("status", from),
+  ]);
+  if (error) throw error;
+  const ids = requestsAtDoor(
+    (rows ?? []) as Pick<ActivityChangeRequest, "id" | "activity_id" | "attendee_id" | "from_session_id" | "status">[],
+    door, new Map(sessions.map((s) => [s.id, s.day])), new Set(attendeeIds), from,
+  );
+  if (ids.length === 0) return 0;
+  const patch = to === "closed"
+    ? { status: "closed", decided_at: new Date().toISOString(), decided_by: userId }
+    : { status: "pending", decided_at: null, decided_by: null };
+  const { data, error: e2 } = await db.from("activity_change_requests").update(patch)
+    .in("id", ids).eq("status", from).select("id");
+  if (e2?.code === "23505") return 0;
+  if (e2) throw e2;
+  return data?.length ?? 0;
 }
 
 /**
