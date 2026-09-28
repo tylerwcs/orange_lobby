@@ -1,10 +1,8 @@
 import { PendingLink } from "@/components/PendingNav";
 import { notFound } from "next/navigation";
 import { getEventByCrewToken } from "@/lib/db/events";
-import { listCheckpoints } from "@/lib/db/checkpoints";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
-import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
-import { countAttendees } from "@/lib/db/attendees";
+import { loadBoard, loadDoors } from "@/lib/db/doors";
 import { crewLinkLive } from "@/lib/crew";
 import { isValidToken } from "@/lib/tokens";
 import { nowInKL } from "@/lib/time";
@@ -58,9 +56,8 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
     );
   }
 
-  const [cps, counts, total] = await Promise.all([
-    listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id),
-  ]);
+  const doors = await loadDoors(ev.id);
+  const { cps, tallies } = doors;
   const active = cps.find((c) => c.id === cp)
     ?? (pick ? undefined : activeCheckpoint(ev.active_checkpoint_id, cps, today) ?? undefined);
 
@@ -99,7 +96,7 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
                           <span className="truncate text-sm font-bold">{c.name}</span>
                           {c.id === ev.active_checkpoint_id && <span className="text-xs font-semibold text-primary">Running now</span>}
                         </span>
-                        <Badge variant="secondary" className="shrink-0 tabular-nums">{counts[c.id] ?? 0}/{total}</Badge>
+                        <Badge variant="secondary" className="shrink-0 tabular-nums">{tallies[c.id]?.arrived ?? 0}/{tallies[c.id]?.expected ?? doors.registered}</Badge>
                         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                       </PendingLink>
                     </li>
@@ -113,5 +110,7 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
     );
   }
 
-  return <Scanner eventId={ev.id} checkpoint={active} initialCount={counts[active.id] ?? 0} total={total} crewToken={token} />;
+  const tally = tallies[active.id] ?? { arrived: 0, expected: doors.registered, walkIns: 0 };
+  const board = await loadBoard(ev.id, active, doors, nowInKL());
+  return <Scanner eventId={ev.id} checkpoint={active} initialCount={tally.arrived} total={tally.expected} crewToken={token} board={board ?? undefined} />;
 }

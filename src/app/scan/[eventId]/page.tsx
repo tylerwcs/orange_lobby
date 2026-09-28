@@ -2,10 +2,8 @@ import Link from "next/link";
 import { PendingLink } from "@/components/PendingNav";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { listCheckpoints } from "@/lib/db/checkpoints";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
-import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
-import { countAttendees } from "@/lib/db/attendees";
+import { loadBoard, loadDoors } from "@/lib/db/doors";
 import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Scanner } from "./Scanner";
@@ -42,7 +40,8 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
     );
   }
 
-  const [cps, counts, total] = await Promise.all([listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id)]);
+  const doors = await loadDoors(ev.id);
+  const { cps, tallies } = doors;
   const today = nowInKL().date;
   // Crew open the scanner and start scanning: it lands on whatever Settings says the event
   // is running, and the chooser is one tap away for the second door. `?cp=` still wins, so
@@ -91,7 +90,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
                               a second crew member picking the one the first is already working. */}
                           {c.id === ev.active_checkpoint_id && <span className="text-xs font-semibold text-primary">Running now</span>}
                         </span>
-                        <Badge variant="secondary" className="shrink-0 tabular-nums">{counts[c.id] ?? 0}/{total}</Badge>
+                        <Badge variant="secondary" className="shrink-0 tabular-nums">{tallies[c.id]?.arrived ?? 0}/{tallies[c.id]?.expected ?? doors.registered}</Badge>
                         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                       </PendingLink>
                     </li>
@@ -104,5 +103,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
       </main>
     );
   }
-  return <Scanner eventId={ev.id} checkpoint={active} initialCount={counts[active.id] ?? 0} total={total} />;
+  const tally = tallies[active.id] ?? { arrived: 0, expected: doors.registered, walkIns: 0 };
+  const board = await loadBoard(ev.id, active, doors, nowInKL());
+  return <Scanner eventId={ev.id} checkpoint={active} initialCount={tally.arrived} total={tally.expected} board={board ?? undefined} />;
 }
