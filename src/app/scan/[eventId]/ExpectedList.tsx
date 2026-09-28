@@ -49,7 +49,7 @@ export function ExpectedList({ board, busy, onMark, live }: {
               ) : (
                 <>
                   {p.noShow && <Badge className="shrink-0 bg-destructive-soft text-destructive-strong">No-show</Badge>}
-                  <Button type="button" size="sm" variant="outline" disabled={busy} className="h-9 shrink-0" onClick={() => onMark(p.id)}>
+                  <Button type="button" size="sm" variant="outline" disabled={busy} className="h-11 shrink-0" onClick={() => onMark(p.id)}>
                     Mark arrived
                   </Button>
                 </>
