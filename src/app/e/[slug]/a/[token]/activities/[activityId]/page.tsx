@@ -75,12 +75,15 @@ function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, to
   const grid = sessionGrid(state.sessions);
   const left = state.sessions.reduce((n, s) => n + s.left, 0);
   const n = state.sessions.length;
-  // Something to do in the dialog: a seat to book, or - holding one - another to ask to move to.
-  const canAct = !state.closed && !controls.pending && (controls.bookable.length > 0 || controls.switchTargets.length > 0);
   const holding = state.held > 0;
-  // D336: once every held session has an arrival, the session is finished - no calendar
-  // reminder, no change, no cancel; there is nothing left to do here.
+  // D336: once every held session has an arrival, the session is finished. This gates `canAct`
+  // below (so every route to a Change session dialog disappears - the inline link, the
+  // standalone button, and the one passed as `change`), the sticky Add to calendar button, and,
+  // inside ActivityBooking, that seat's own calendar link and Ask to cancel.
   const done = allCheckedIn({ controls, arrivals });
+  // Something to do in the dialog: a seat to book, or - holding one - another to ask to move to.
+  // `!done` first: once every held session is checked in there is nothing left to switch.
+  const canAct = !done && !state.closed && !controls.pending && (controls.bookable.length > 0 || controls.switchTargets.length > 0);
   const calendarPath = `/e/${slug}/a/${token}/activities/${activity.id}/calendar.ics`;
   // Booked on one session, the thing left to do is put it in the calendar, so that is the big
   // button and Change session becomes a link on the booked line. With several seats one
@@ -117,7 +120,7 @@ function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, to
           controls={controls}
           pendingId={pendingId}
           calendarPath={calendarPath}
-          change={single ? (done ? null : canAct ? dialog(true) : null) : undefined}
+          change={single ? (canAct ? dialog(true) : null) : undefined}
           requestCancel={requestCancelAction.bind(null, slug, token)}
           withdraw={withdrawRequestAction.bind(null, slug, token)}
           arrivals={arrivals}
