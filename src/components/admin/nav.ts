@@ -23,6 +23,7 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
     { title: "Onsite", items: [
       { href: b, label: "Overview", icon: "home" },
       { href: `${b}/attendees`, label: "Attendees", icon: "users" },
+      { href: `${b}/groups`, label: "Groups", icon: "layers" },
       { href: `${b}/games`, label: "Games", icon: "star" },
       ...(ev.check_in_enabled ? [{ href: `/scan/${ev.id}`, label: "Scanner", icon: "scan" as IconName, newTab: true }] : []),
     ] },
