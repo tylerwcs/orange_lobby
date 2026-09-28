@@ -85,8 +85,8 @@ exactly as today.
 - **Not booked (D326):** a new result status `not_booked`. It gets an amber band, the
   `CircleAlert` icon and the label "Not booked for this session", then the name and the
   scan fields. A **Let them in anyway** button calls the check-in again with `walkIn: true`,
-  which records it and returns `ok`. The band pair is asserted in `tests/contrast.test.ts`,
-  as the others are.
+  which records it and returns `ok`. It reuses the warning pairs that
+  `tests/contrast.test.ts` already asserts for "Already in".
 - In name search, a non-booker's hit shows a "Not booked" badge in place of "Check in".
   Tapping it gives the `not_booked` card, so the override is always one deliberate tap.
 - Undo works as it does today.
@@ -165,7 +165,6 @@ event.
   - no-shows only in ended slots;
   - walk-ins;
   - the count ignores walk-ins.
-- `tests/contrast.test.ts` gains the `not_booked` pairs.
 - In the browser, on a test event (never ecphub):
   - a booking activity with a few slots today and bookings;
   - a booking door;
