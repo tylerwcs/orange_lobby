@@ -286,6 +286,8 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
   const current = await submissionOf(ev, activityId);
   // D356: who submits is fixed while the form holds live entries - a group form's entries
   // mean nothing under another rule. Refused before any upload, so nothing is left behind.
+  // F7: this count-then-update is not locked, so a submission landing between the count and the
+  // save below lands under the new rule. Accepted as very unlikely while an admin is editing Setup.
   const blocked = groupRuleChangeBlocked(current, policy, liveSubmissions(await submissionsForActivity(activityId)).length);
   if (blocked) redirect(flashPath(back, blocked, "error"));
   // Before syncSubmissionPerDay rather than after it: that call rewrites the submissions

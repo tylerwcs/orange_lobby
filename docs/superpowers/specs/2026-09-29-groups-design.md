@@ -129,7 +129,9 @@ alter table activities
   add column group_mode text not null default 'off'
     check (group_mode in ('off', 'entries', 'everyone')),
   add column group_target int check (group_target between 1 and 50),
-  add constraint activities_group_target_check
+  -- The inline check above auto-names itself activities_group_target_check (Postgres names a
+  -- column check <table>_<column>_check), so the rule below needs a name of its own.
+  add constraint activities_group_target_required_check
     check ((group_mode = 'entries') = (group_target is not null)),
   add constraint activities_group_per_day_check
     check (group_mode = 'off' or not per_day);
