@@ -14,7 +14,7 @@ import { getActivity, listSessions, listBookings, countBookingsBySession, submis
 import { listRequests } from "@/lib/db/activity-requests";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { listCheckinsForEvent } from "@/lib/db/checkins";
+import { listCheckinsAt } from "@/lib/db/checkins";
 import { boardsByDay } from "@/lib/booking-door";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { scannerNames } from "@/lib/db/users";
@@ -80,10 +80,11 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
   const activityBookings = bookings.filter((b) => b.activity_id === activity.id);
 
   // Arrival marks (D324) exist only where check-in runs; an event without it never reads doors.
-  const [cps, checkins]: [Checkpoint[], Checkin[]] = ev.check_in_enabled
-    ? await Promise.all([listCheckpoints(ev.id), listCheckinsForEvent(ev.id)])
-    : [[], []];
-  const hasDoor = cps.some((c) => c.activity_id === activity.id);
+  // Only this activity's doors' check-ins are read, and none at all when it has no door.
+  const cps: Checkpoint[] = ev.check_in_enabled ? await listCheckpoints(ev.id) : [];
+  const doorIds = cps.filter((c) => c.activity_id === activity.id).map((c) => c.id);
+  const checkins: Checkin[] = doorIds.length > 0 ? await listCheckinsAt(doorIds) : [];
+  const hasDoor = doorIds.length > 0;
 
   // `listRequests` already orders by `created_at`, so pending stays oldest-first without a
   // re-sort. "Decided" is everything else — approved, declined or withdrawn — which is what
