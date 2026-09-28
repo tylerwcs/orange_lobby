@@ -92,7 +92,14 @@ export async function buildGroupsFromColumnAction(eventId: string, fd: FormData)
   if (!known) redirect(flashPath(list(eventId), "Pick a column to build groups from.", "error"));
   const [attendees, groups] = await Promise.all([listAttendees(ev.id), listGroups(ev.id)]);
   const plan = planGroupsFromColumn(attendees, field, groups);
-  const made = await createGroups(ev, plan.create);
+  let made: Awaited<ReturnType<typeof createGroups>>;
+  try {
+    made = await createGroups(ev, plan.create);
+  } catch (e) {
+    const msg = refusal(e);
+    if (!msg) throw e;
+    redirect(flashPath(list(eventId), msg, "error"));
+  }
   const idByName = new Map([...groups, ...made].map((g) => [g.name.trim().toLowerCase(), g.id]));
   const byGroup = new Map<string, string[]>();
   for (const m of plan.moves) {

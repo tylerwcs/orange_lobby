@@ -41,7 +41,7 @@ export async function createGroups(ev: Pick<Event, "id" | "org_id">, names: stri
   if (names.length === 0) return [];
   const { data, error } = await serviceClient().from("event_groups")
     .insert(names.map((n) => ({ org_id: ev.org_id, event_id: ev.id, name: cleanName(n) }))).select("*");
-  if (error?.code === "23505") throw new Error("Another admin just made one of these groups. Preview again.");
+  if (error?.code === "23505") throw new GroupNameRefused("Another admin just made one of these groups. Preview again.");
   if (error) throw error;
   return (data ?? []) as EventGroup[];
 }
