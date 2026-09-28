@@ -210,6 +210,13 @@ describe("breakout rounds as table columns", () => {
   });
 });
 
+describe("the Group column", () => {
+  it("puts the Group column last, owned by the Groups page", () => {
+    const cols = allColumns([], [], [], [{ key: "group", label: "Group", type: "select", options: ["Red"] }]);
+    expect(cols.at(-1)).toEqual({ key: "group", label: "Group", source: "group" });
+  });
+});
+
 describe("fields the event may or may not have", () => {
   it("has no built-in column for a field an event may not have", () => {
     expect(BUILTIN_COLUMNS.map((c) => c.key)).toEqual(["email", "category", "checked_in", "source"]);

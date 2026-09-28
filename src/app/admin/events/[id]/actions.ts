@@ -11,6 +11,8 @@ import { importedCategory, importedColumns, parseMasterlist, type MasterlistResu
 import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
 import { addField, renameField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, keysToErase, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
+import { GROUP_COLUMN_KEY } from "@/lib/groups";
+import { listGroups, setGroupMembers } from "@/lib/db/groups";
 import { parseIds } from "@/lib/bulk";
 import type { Attendee, Event, AgendaDay } from "@/lib/types";
 import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem, listAgendaDays, createAgendaDay, updateAgendaDay, deleteAgendaDay, setAgendaOrder } from "@/lib/db/agenda";
@@ -416,6 +418,18 @@ export async function setColumnAction(eventId: string, formData: FormData) {
     if (room) await assignMany(ev.id, ids.map((attendeeId) => ({ attendeeId, itemId: room.id, slot })), true);
     else for (const id of ids) await unassign(ev.id, id, slot);
     revalidatePath(`/admin/events/${ev.id}/attendees`);
+    return;
+  }
+
+  // D346: the Group column is not stored on `extra` - it is attendees.group_id. Same gesture,
+  // its own column. Blank takes them out of any group; an unknown name writes nothing.
+  if (key === GROUP_COLUMN_KEY) {
+    const wanted = raw.trim().toLowerCase();
+    const group = wanted ? (await listGroups(ev.id)).find((g) => g.name.trim().toLowerCase() === wanted) : undefined;
+    if (wanted && !group) return;
+    await setGroupMembers(ev.id, ids, group?.id ?? null);
+    revalidatePath(`/admin/events/${ev.id}/attendees`);
+    revalidatePath(`/admin/events/${ev.id}/groups`);
     return;
   }
 

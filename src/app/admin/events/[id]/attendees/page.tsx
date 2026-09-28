@@ -12,6 +12,8 @@ import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listAgenda } from "@/lib/db/agenda";
 import { breakoutSlots, breakoutColumns } from "@/lib/breakouts";
 import { listAssignments } from "@/lib/db/breakouts";
+import { listGroups } from "@/lib/db/groups";
+import { GROUP_COLUMN_KEY } from "@/lib/groups";
 import { activeCheckpoint } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -52,11 +54,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // With check-in off the two check-in queries are skipped and the rest of the page carries
   // on unchanged: `BulkBar` already hides its check-in menu when handed no checkpoints, and
   // an empty `checkins` leaves every row simply un-scanned (D159).
-  const [everyone, total, checkins, cps, agenda, jar] = await Promise.all([
+  const [everyone, total, checkins, cps, agenda, groups, jar] = await Promise.all([
     listAttendees(ev.id), countAttendees(ev.id),
     ev.check_in_enabled ? listCheckinsForEvent(ev.id) : [],
     ev.check_in_enabled ? listCheckpoints(ev.id) : [],
-    listAgenda(ev.id), cookies(),
+    listAgenda(ev.id), listGroups(ev.id), cookies(),
   ]);
   // Each breakout round is offered as a column in the bulk editor, so putting people in a
   // room is the same gesture as setting their table. Only an event that runs breakouts
@@ -77,13 +79,21 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     roundValues.set(a.attendee_id, row);
   }
 
+  // D346: the group, as one more column. Set in bulk the way a breakout room is: a select
+  // of every group, where clearing it means no group. Only an event with groups grows it.
+  const groupName = new Map(groups.map((g) => [g.id, g.name]));
+  const groupColumns = groups.length > 0
+    ? [{ key: GROUP_COLUMN_KEY, label: "Group", type: "select" as const, options: groups.map((g) => g.name) }]
+    : [];
+  const groupOf = (a: { group_id: string | null }) => (a.group_id ? groupName.get(a.group_id) ?? "" : "");
+
   // Which columns this browser has hidden. Read on the server so the first paint is
   // already right, rather than rendering everything and pulling columns back out.
   // Registration questions are columns without anyone declaring them — the answers are
   // already on file. `attendee_fields` is only what was added on top.
   const registrationFields = fieldsFromQuestions(ev.registration_questions);
   const allFields = eventFields(ev.registration_questions, ev.attendee_fields);
-  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns);
+  const columns = allColumns(registrationFields, ev.attendee_fields, roundColumns, groupColumns);
   // The older cookie only held hidden columns; reading it as a fallback means an organiser
   // who had already tuned their table does not lose that when ordering ships.
   const prefs = parseTablePrefs(jar.get(tableCookieName(ev.id))?.value, columns, jar.get(columnsCookieName(ev.id))?.value);
@@ -96,6 +106,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
       a.name, a.email, a.category, a.source,
       ...allFields.map((f) => fieldValue(a, f.key)),
       ...Object.values(roundValues.get(a.id) ?? {}),
+      groupOf(a),
     ], q))
     : everyone;
 
@@ -132,6 +143,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
       case "category": return a.category;
       case "source": return a.source;
       case "checked_in": return earliestScan.get(a.id) ?? null;
+      case GROUP_COLUMN_KEY: return groupOf(a) || null;
       default: return sort && sort.key.startsWith("breakout:") ? roundValues.get(a.id)?.[sort.key] ?? null : fieldValue(a, sort?.key ?? "");
     }
   };
@@ -234,6 +246,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
             // two disagree the moment somebody is moved, and the assignment is the one the
             // attendee's phone shows.
             ...(roundValues.get(a.id) ?? {}),
+            [GROUP_COLUMN_KEY]: groupOf(a),
           },
         }))}
         // Everyone the current search matches, across every page, so a selection can grow past
@@ -252,7 +265,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
         deleteAttendees={deleteAttendeesAction.bind(null, ev.id)}
-        bulkEditable={[...bulkFields(allFields), ...roundColumns]}
+        bulkEditable={[...bulkFields(allFields), ...roundColumns, ...groupColumns]}
         checkpoints={cps}
         defaultCheckpointId={defaultCheckpointId}
       />

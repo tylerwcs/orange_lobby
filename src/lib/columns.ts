@@ -17,10 +17,10 @@ export const FORMER_BUILTIN_KEYS = ["phone", "table_no"] as const;
 /**
  * Where a column comes from, which decides what its header menu may offer: a built-in is
  * part of the attendee row, a registration column is owned by the form in Settings, a
- * breakout round is owned by the agenda, and only a custom one can be renamed or deleted
- * from the table.
+ * breakout round is owned by the agenda, a group is owned by the Groups page, and only a
+ * custom one can be renamed or deleted from the table.
  */
-export type ColumnSource = "builtin" | "registration" | "custom" | "breakout";
+export type ColumnSource = "builtin" | "registration" | "custom" | "breakout" | "group";
 
 export type ColumnDef = { key: string; label: string; source: ColumnSource };
 
@@ -45,6 +45,7 @@ export function allColumns(
   registrationFields: AttendeeField[],
   customFields: AttendeeField[],
   breakoutFields: AttendeeField[] = [],
+  groupFields: AttendeeField[] = [],
 ): ColumnDef[] {
   const claimed = new Set(registrationFields.map((f) => f.key));
   return [
@@ -52,6 +53,7 @@ export function allColumns(
     ...registrationFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "registration" })),
     ...customFields.filter((f) => !claimed.has(f.key)).map((f): ColumnDef => ({ key: f.key, label: f.label, source: "custom" })),
     ...breakoutFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "breakout" })),
+    ...groupFields.map((f): ColumnDef => ({ key: f.key, label: f.label, source: "group" })),
   ];
 }
 
