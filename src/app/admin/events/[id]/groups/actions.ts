@@ -3,9 +3,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, updateEvent } from "@/lib/db/events";
-import { createGroup, renameGroup, deleteGroup, getGroup, setGroupMembers, GroupNameRefused } from "@/lib/db/groups";
+import { createGroup, createGroups, renameGroup, deleteGroup, getGroup, listGroups, setGroupMembers, GroupNameRefused } from "@/lib/db/groups";
 import { listAttendees } from "@/lib/db/attendees";
 import { eventFields } from "@/lib/attendee-fields";
+import { planGroupsFromColumn } from "@/lib/groups";
 import { exportFieldsFromForm } from "@/lib/export-columns";
 import { flashPath } from "@/lib/flash";
 import { parseIds } from "@/lib/bulk";
@@ -81,4 +82,24 @@ export async function removeFromGroupAction(eventId: string, groupId: string, at
   await setGroupMembers(ev.id, [attendeeId], null);
   revalidatePath(detail(eventId, groupId));
   redirect(flashPath(detail(eventId, groupId), "Removed from the group."));
+}
+
+/** D347. The plan is recomputed here from fresh rows; the preview only showed it. */
+export async function buildGroupsFromColumnAction(eventId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const field = String(fd.get("field") ?? "");
+  const known = field === "category" || eventFields(ev.registration_questions, ev.attendee_fields).some((f) => f.key === field);
+  if (!known) redirect(flashPath(list(eventId), "Pick a column to build groups from.", "error"));
+  const [attendees, groups] = await Promise.all([listAttendees(ev.id), listGroups(ev.id)]);
+  const plan = planGroupsFromColumn(attendees, field, groups);
+  const made = await createGroups(ev, plan.create);
+  const idByName = new Map([...groups, ...made].map((g) => [g.name.trim().toLowerCase(), g.id]));
+  const byGroup = new Map<string, string[]>();
+  for (const m of plan.moves) {
+    const gid = idByName.get(m.groupName.trim().toLowerCase())!;
+    byGroup.set(gid, [...(byGroup.get(gid) ?? []), m.attendeeId]);
+  }
+  for (const [gid, ids] of byGroup) await setGroupMembers(ev.id, ids, gid);
+  revalidatePath(list(eventId));
+  redirect(flashPath(list(eventId), `${made.length} group${made.length === 1 ? "" : "s"} created, ${plan.moves.length} attendee${plan.moves.length === 1 ? "" : "s"} placed.`));
 }

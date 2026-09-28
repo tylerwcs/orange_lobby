@@ -16,7 +16,7 @@ type Variant = React.ComponentProps<typeof Button>["variant"];
  * URL is therefore what closes it: when the address changes, the task that opened this
  * dialog is over.
  */
-export function Modal({ title, hint, trigger, icon, variant = "outline", iconOnly = false, children }: {
+export function Modal({ title, hint, trigger, icon, variant = "outline", iconOnly = false, defaultOpen = false, children }: {
   title: string;
   hint?: string;
   trigger: string;
@@ -24,16 +24,29 @@ export function Modal({ title, hint, trigger, icon, variant = "outline", iconOnl
   variant?: Variant;
   /** Square button, no label - `trigger` becomes the accessible name and the tooltip. */
   iconOnly?: boolean;
+  /**
+   * Open on mount - for a caller whose own GET navigation put the modal's content in the URL
+   * (e.g. `?from=`), so the page loads straight into it. While this stays true, a URL change is
+   * read as more of that caller's own navigation, not the "task is over" signal below, so the
+   * modal does not close under it; the caller drops it back to false once its own URL param is
+   * gone, which does close the modal (see Build from column).
+   */
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+
+  // Read via a ref, not the dependency array, so a `defaultOpen` change alone never re-fires
+  // the closing effect below - only a URL change does, same as before `defaultOpen` existed.
+  const stayOpen = useRef(defaultOpen);
+  useEffect(() => { stayOpen.current = defaultOpen; }, [defaultOpen]);
 
   const url = `${usePathname()}?${useSearchParams().toString()}`;
   const openedAt = useRef<string | null>(null);
   useEffect(() => {
     if (openedAt.current === null || openedAt.current === url) { openedAt.current = url; return; }
     openedAt.current = url;
-    setOpen(false);
+    if (!stayOpen.current) setOpen(false);
   }, [url]);
 
   return (
