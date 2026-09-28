@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { formKey } from "@/lib/form-key";
 import { PassportDetail } from "./PassportDetail";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
@@ -12,6 +13,9 @@ import { requireEvent } from "@/lib/db/events";
 import { getActivity, listSessions, listBookings, countBookingsBySession, submissionsForActivity } from "@/lib/db/activities";
 import { listRequests } from "@/lib/db/activity-requests";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
+import { listCheckpoints } from "@/lib/db/checkpoints";
+import { listCheckinsForEvent } from "@/lib/db/checkins";
+import { boardsByDay } from "@/lib/booking-door";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
@@ -19,7 +23,7 @@ import { capSummary, missingFrom, participation } from "@/lib/submissions";
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL } from "@/lib/time";
-import type { Activity, Event } from "@/lib/types";
+import type { Activity, Checkin, Checkpoint, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ActivityTabs } from "@/components/admin/ActivityTabs";
 import { SessionDays } from "@/components/admin/SessionDays";
@@ -75,6 +79,12 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
   const seats = sessions.map((s) => seatsFor(s, counts[s.id] ?? 0));
   const activityBookings = bookings.filter((b) => b.activity_id === activity.id);
 
+  // Arrival marks (D324) exist only where check-in runs; an event without it never reads doors.
+  const [cps, checkins]: [Checkpoint[], Checkin[]] = ev.check_in_enabled
+    ? await Promise.all([listCheckpoints(ev.id), listCheckinsForEvent(ev.id)])
+    : [[], []];
+  const hasDoor = cps.some((c) => c.activity_id === activity.id);
+
   // `listRequests` already orders by `created_at`, so pending stays oldest-first without a
   // re-sort. "Decided" is everything else — approved, declined or withdrawn — which is what
   // sits behind the queue's "Show decided" disclosure (the desk is working the queue, not
@@ -102,18 +112,29 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
   const current = resolveTab(tabs, tab);
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
   const nameOf = (attendeeId: string) => byId.get(attendeeId)?.name ?? "Unknown";
+  const boards = boardsByDay(activity.id, cps, checkins, sessions, activityBookings, new Map(attendees.map((a) => [a.id, a.name])), nowInKL());
   // Who is in which session (D237), in the same day grouping the Setup tab shows.
-  const bookingDays = groupSessionsByDay(seats).map((g) => ({
-    day: g.day,
-    sessions: g.items.map((i) => ({
-      id: i.session.id,
-      time: i.session.ends_at ? `${i.session.starts_at}–${i.session.ends_at}` : i.session.starts_at,
-      location: i.session.location,
-      booked: i.booked,
-      capacity: i.session.capacity,
-      people: activityBookings.filter((b) => b.session_id === i.session.id).map((b) => nameOf(b.attendee_id)).sort(),
-    })),
-  }));
+  const bookingDays = groupSessionsByDay(seats).map((g) => {
+    const board = boards.get(g.day);
+    return {
+      day: g.day,
+      walkIns: board?.walkIns.map((w) => w.name) ?? [],
+      sessions: g.items.map((i) => {
+        const slot = board?.slots.find((s) => s.id === i.session.id);
+        return {
+          id: i.session.id,
+          time: i.session.ends_at ? `${i.session.starts_at}–${i.session.ends_at}` : i.session.starts_at,
+          location: i.session.location,
+          booked: i.booked,
+          capacity: i.session.capacity,
+          came: slot ? slot.arrived : null,
+          people: slot
+            ? slot.people.map((p) => ({ name: p.name, mark: p.arrivedAt ? "arrived" as const : p.noShow ? "no-show" as const : null }))
+            : activityBookings.filter((b) => b.session_id === i.session.id).map((b) => ({ name: nameOf(b.attendee_id), mark: null })).sort((x, y) => x.name.localeCompare(y.name)),
+        };
+      }),
+    };
+  });
 
   return (
     <div className="flex flex-col gap-4" data-wide>
@@ -192,6 +213,12 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
           <Card className="overflow-hidden">
             <CardHeader><CardTitle>Who booked</CardTitle></CardHeader>
             <CardContent>
+              {ev.check_in_enabled && !hasDoor && sessions.length > 0 && (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  To track who turns up, add a checkpoint for this activity in{" "}
+                  <Link href={`/admin/events/${ev.id}/settings`} className="font-semibold text-primary underline-offset-4 hover:underline">Settings › Checkpoints</Link>.
+                </p>
+              )}
               <BookingsByDay days={bookingDays} />
             </CardContent>
           </Card>

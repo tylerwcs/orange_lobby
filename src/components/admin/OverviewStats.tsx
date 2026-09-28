@@ -11,11 +11,13 @@ import { meterAriaMax, meterAriaValue, meterPercent } from "@/lib/meter";
  * above them and says it once; it still reaches the progress bar's label, which is where
  * a screen reader needs it.
  */
-export function OverviewStats({ checkedIn, registered, scope }: {
+export function OverviewStats({ checkedIn, registered, scope, booking = false }: {
   checkedIn: number;
   registered: number;
   /** The running checkpoint, or null when the event has none yet. */
   scope: string | null;
+  /** The running checkpoint is a booking door: the numbers are its bookers, not the event (D331). */
+  booking?: boolean;
 }) {
   const notYet = Math.max(0, registered - checkedIn);
   const pct = Math.round(meterPercent(checkedIn, registered));
@@ -58,20 +60,20 @@ export function OverviewStats({ checkedIn, registered, scope }: {
         </CardHeader>
         <CardContent>
           <p className="text-xs text-muted-foreground">
-            {notYet === 0 ? "Everyone registered has arrived." : "Expected but not scanned at this checkpoint."}
+            {notYet === 0 ? (booking ? "Everyone booked has arrived." : "Everyone registered has arrived.") : "Expected but not scanned at this checkpoint."}
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardDescription>Registered</CardDescription>
+          <CardDescription>{booking ? "Booked" : "Registered"}</CardDescription>
           <CardTitle>
             <span className="text-4xl font-extrabold leading-none tracking-tight tabular-nums">{registered}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-muted-foreground">On the list, across every checkpoint.</p>
+          <p className="text-xs text-muted-foreground">{booking ? "Booked into this activity on this checkpoint's day." : "On the list, across every checkpoint."}</p>
         </CardContent>
       </Card>
     </div>

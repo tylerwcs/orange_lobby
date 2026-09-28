@@ -1,9 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { countAttendees, listAttendees } from "@/lib/db/attendees";
-import { listCheckpoints } from "@/lib/db/checkpoints";
-import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { listActivities, listSessions, listBookings, countBookingsBySession } from "@/lib/db/activities";
+import { loadDoors } from "@/lib/db/doors";
 import Link from "next/link";
 import { ScanLine } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import { RunningCheckpoint } from "@/components/admin/RunningCheckpoint";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { setActiveCheckpointAction } from "./actions";
-import { checkedInCount, recentScans } from "@/lib/checkins-stats";
+import { recentScans } from "@/lib/checkins-stats";
 import { activitySummaries } from "@/lib/activities";
 import { activeCheckpoint, checkpointOptions } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
@@ -56,9 +55,8 @@ export default async function Overview({ params }: { params: Promise<{ id: strin
     );
   }
 
-  const [total, cps, checkins, attendees] = await Promise.all([
-    countAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id), listAttendees(ev.id),
-  ]);
+  const [doors, attendees] = await Promise.all([loadDoors(ev.id), listAttendees(ev.id)]);
+  const { cps, checkins, registered: total } = doors;
 
   const cpNames = new Map(cps.map((c) => [c.id, c.name]));
   const scans = recentScans(checkins, attendees, 11);
@@ -93,9 +91,10 @@ export default async function Overview({ params }: { params: Promise<{ id: strin
           page exists to answer, and it should not be read out of a side rail after the
           scan log. The log then gets the full width it kept outgrowing. */}
       <OverviewStats
-        checkedIn={checkedInCount(checkins, running?.id ?? null)}
-        registered={total}
+        checkedIn={running ? doors.tallies[running.id]?.arrived ?? 0 : 0}
+        registered={running ? doors.tallies[running.id]?.expected ?? total : total}
         scope={running?.name ?? null}
+        booking={Boolean(running?.activity_id)}
       />
       <RecentScans rows={scans} checkpointNames={cpNames} live={<AutoRefresh seconds={15} />} />
     </div>
