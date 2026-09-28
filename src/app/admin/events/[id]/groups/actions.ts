@@ -3,10 +3,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, updateEvent } from "@/lib/db/events";
-import { createGroup, renameGroup, deleteGroup, getGroup, GroupNameRefused } from "@/lib/db/groups";
+import { createGroup, renameGroup, deleteGroup, getGroup, setGroupMembers, GroupNameRefused } from "@/lib/db/groups";
+import { listAttendees } from "@/lib/db/attendees";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportFieldsFromForm } from "@/lib/export-columns";
 import { flashPath } from "@/lib/flash";
+import { parseIds } from "@/lib/bulk";
 
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
@@ -62,4 +64,21 @@ export async function updateGroupFieldsAction(eventId: string, fd: FormData) {
   await updateEvent(ev.id, { group_fields: exportFieldsFromForm(fd.getAll("group_fields").map(String), fields) });
   revalidatePath(list(eventId));
   redirect(flashPath(list(eventId), "Shared fields saved."));
+}
+
+/** D344: joining this group moves them out of any other; one column, one write. */
+export async function addToGroupAction(eventId: string, groupId: string, fd: FormData) {
+  const ev = await event(eventId);
+  if (!(await getGroup(ev.id, groupId))) redirect(flashPath(list(eventId), "That group no longer exists.", "error"));
+  const ids = parseIds(String(fd.get("ids") ?? ""), new Set((await listAttendees(ev.id)).map((a) => a.id)));
+  if (ids.length) await setGroupMembers(ev.id, ids, groupId);
+  revalidatePath(detail(eventId, groupId));
+  redirect(flashPath(detail(eventId, groupId), ids.length === 1 ? "Added to the group." : `${ids.length} added to the group.`));
+}
+
+export async function removeFromGroupAction(eventId: string, groupId: string, attendeeId: string) {
+  const ev = await event(eventId);
+  await setGroupMembers(ev.id, [attendeeId], null);
+  revalidatePath(detail(eventId, groupId));
+  redirect(flashPath(detail(eventId, groupId), "Removed from the group."));
 }
