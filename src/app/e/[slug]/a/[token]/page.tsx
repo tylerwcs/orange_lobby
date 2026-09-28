@@ -151,8 +151,9 @@ export default async function PersonalHome({ params, searchParams }: {
               <AnnouncementList items={announcements.slice(0, 4)} />
             </CardContent>
           </Card>
-          {/* The header already links to the portal's own sections; only the tiles here. */}
-          <LauncherGrid items={launcher.filter((i) => !i.builtin)} />
+          {/* The header covers Agenda (via Home's Today column, D223) and Info (D216) - only
+              those two are dropped here. My group has no header link (F3), so it stays. */}
+          <LauncherGrid items={launcher.filter((i) => i.id !== "builtin:agenda" && i.id !== "builtin:info")} />
         </div>
 
       </div>
