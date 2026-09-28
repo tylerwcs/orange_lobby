@@ -36,16 +36,30 @@ export function bookingRow(input: { days: string[]; sessions: number; booked: nu
 }
 
 export function submissionRow(input: {
-  form: Pick<Activity, "per_day" | "max_per_attendee" | "starts_on" | "ends_on" | "venue">;
+  form: Pick<Activity, "per_day" | "max_per_attendee" | "starts_on" | "ends_on" | "venue" | "group_mode" | "group_target">;
   /** Distinct people who have submitted at least once — not submissions, which a daily form multiplies. */
   submitters: number;
   eligible: number;
+  /**
+   * F4: a group form's progress, one entry per group with any eligible member (`groupProgress`,
+   * or the F2 helper, over the event's groups) — "of 37 submitted" means nothing when
+   * submitting is a group's job, not a person's. Omitted where the caller has no groups loaded;
+   * the row falls back to a plain count rather than the wrong, person-shaped fraction.
+   */
+  groups?: { done: boolean }[];
 }): ActivityRowView {
-  const { form, submitters, eligible } = input;
+  const { form, submitters, eligible, groups } = input;
   const dates = form.starts_on ? dayRange([form.starts_on, form.ends_on ?? form.starts_on]) : null;
+  const detail = [dates, form.venue, capSummary(form)].filter(Boolean).join(" · ");
+  if (form.group_mode !== "off") {
+    const progress = groups
+      ? { done: groups.filter((g) => g.done).length, total: groups.length, label: `${groups.filter((g) => g.done).length} of ${groups.length} groups done` }
+      : { done: 0, total: 0, label: `${submitters} submission${submitters === 1 ? "" : "s"}` };
+    return { kind: "Submission", detail, progress, attention: null };
+  }
   return {
     kind: "Submission",
-    detail: [dates, form.venue, capSummary(form)].filter(Boolean).join(" · "),
+    detail,
     progress: { done: submitters, total: eligible, label: `${submitters} of ${eligible} submitted` },
     attention: null,
   };

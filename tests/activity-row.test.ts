@@ -32,7 +32,7 @@ describe("bookingRow", () => {
 });
 
 describe("submissionRow", () => {
-  const form = { per_day: false, max_per_attendee: 1, starts_on: null, ends_on: null, venue: null };
+  const form = { per_day: false, max_per_attendee: 1, starts_on: null, ends_on: null, venue: null, group_mode: "off" as const, group_target: null };
 
   it("counts the people who submitted of the people it is for, with its cap", () => {
     expect(submissionRow({ form, submitters: 1, eligible: 37 })).toEqual({
@@ -46,6 +46,23 @@ describe("submissionRow", () => {
   it("puts its dates and venue before the cap", () => {
     const dated = { ...form, starts_on: "2026-09-28", ends_on: "2026-09-30", venue: "Gym", per_day: true, max_per_attendee: null };
     expect(submissionRow({ form: dated, submitters: 0, eligible: 10 }).detail).toBe("28 – 30 Sep · Gym · Once a day");
+  });
+
+  // F4: a group form counts groups done, not people — "of 37 submitted" means nothing when
+  // submitting is a group's job. Individual forms (above) are untouched.
+  it("counts groups done, not people, for a group form", () => {
+    const grouped = { ...form, group_mode: "entries" as const, group_target: 2 };
+    expect(submissionRow({ form: grouped, submitters: 5, eligible: 20, groups: [{ done: true }, { done: false }, { done: true }] })).toEqual({
+      kind: "Submission",
+      detail: "2 entries per group",
+      progress: { done: 2, total: 3, label: "2 of 3 groups done" },
+      attention: null,
+    });
+  });
+
+  it("falls back to a submission count for a group form when group data isn't available", () => {
+    const grouped = { ...form, group_mode: "entries" as const, group_target: 2 };
+    expect(submissionRow({ form: grouped, submitters: 5, eligible: 20 }).progress).toEqual({ done: 0, total: 0, label: "5 submissions" });
   });
 });
 

@@ -5,11 +5,13 @@ import { listBooths, listStampsForEvent } from "@/lib/db/booths";
 import { passportRollup } from "@/lib/booths";
 import { listRequests } from "@/lib/db/activity-requests";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
+import { listGroups } from "@/lib/db/groups";
+import { groupProgress } from "@/lib/groups";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { pendingCountByActivity } from "@/lib/activity-requests";
 import { eligible } from "@/lib/activities";
 import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/lib/activity-row";
-import type { Activity, Event } from "@/lib/types";
+import type { Activity, ActivitySubmission, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -33,9 +35,9 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [activities, sessions, bookings, requests, submissions, booths, stamps, attendees] = await Promise.all([
+  const [activities, sessions, bookings, requests, submissions, booths, stamps, attendees, groups] = await Promise.all([
     listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id), listSubmissions(ev.id),
-    listBooths(ev.id), listStampsForEvent(ev.id), listAttendees(ev.id),
+    listBooths(ev.id), listStampsForEvent(ev.id), listAttendees(ev.id), listGroups(ev.id),
   ]);
   const categories = await listCategories(ev.id);
 
@@ -46,14 +48,28 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   // "Of M" is the people the activity is for, not everyone registered: a VIP-only activity that
   // every VIP has done is done.
   const audience = (a: Activity) => attendees.filter((p) => eligible(a, p.category)).length;
+  // F4: a group form's row counts groups, not people. One `groupProgress` per group, skipping a
+  // group with nobody eligible for this activity — same rule `groupsNotDone` (F2) applies, so a
+  // group with no eligible members isn't counted as "not done" here either.
+  const groupDoneFor = (a: Activity, formSubs: ActivitySubmission[]) =>
+    a.group_mode === "off"
+      ? null
+      : groups
+          .map((g) => groupProgress(a, g.id, attendees.filter((p) => p.group_id === g.id), formSubs))
+          .filter((p) => p.members.length > 0)
+          .map((p) => ({ done: p.done }));
 
-  const items = activities.map((a) => listItem(ev, a, {
-    sessions: sessions.filter((s) => s.activity_id === a.id).map((s) => ({ day: s.day, capacity: s.capacity, booked: bookings[s.id] ?? 0 })),
-    pending: pending[a.id] ?? 0,
-    submissions: submissions.filter((s) => s.activity_id === a.id).map((s) => s.attendee_id),
-    passport: passportCounts[a.id] ?? { booths: 0, completed: 0 },
-    audience: audience(a),
-  }));
+  const items = activities.map((a) => {
+    const formSubs = submissions.filter((s) => s.activity_id === a.id);
+    return listItem(ev, a, {
+      sessions: sessions.filter((s) => s.activity_id === a.id).map((s) => ({ day: s.day, capacity: s.capacity, booked: bookings[s.id] ?? 0 })),
+      pending: pending[a.id] ?? 0,
+      submissions: formSubs.map((s) => s.attendee_id),
+      passport: passportCounts[a.id] ?? { booths: 0, completed: 0 },
+      audience: audience(a),
+      groupDone: groupDoneFor(a, formSubs),
+    });
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -139,6 +155,8 @@ type RowFacts = {
   submissions: string[];
   passport: { booths: number; completed: number };
   audience: number;
+  /** F4: a group form's per-group progress, or null for an individual form. */
+  groupDone: { done: boolean }[] | null;
 };
 
 /**
@@ -172,7 +190,7 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
   if (a.kind === "submission") {
     return {
       activity: a, href,
-      view: submissionRow({ form: a, submitters: new Set(facts.submissions).size, eligible: facts.audience }),
+      view: submissionRow({ form: a, submitters: new Set(facts.submissions).size, eligible: facts.audience, groups: facts.groupDone ?? undefined }),
       toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
       menu: {
         ...base, exportHref: `${exports}/submissions.xlsx`,
