@@ -57,6 +57,43 @@ export function groupSummary(p: Pick<GroupProgress, "have" | "need">, mode: Grou
   return `${p.have} of ${p.need} ${p.need === 1 ? "entry" : "entries"}`;
 }
 
+export type GroupNotDone = {
+  groupId: string;
+  name: string;
+  summary: string;
+  /** Everyone mode only: current, eligible members still holding nothing. */
+  waitingOn: string[];
+  /** Eligible current members with no live entry for this group (D354, D360). */
+  missingIds: string[];
+};
+
+/**
+ * F2: every group this form still needs something from, for the desk's "Not done" tab and the
+ * export's missing sheet — the one computation both read, so they can't disagree on who a group
+ * form is still chasing. A group with nobody eligible is left out entirely, same as `groupProgress`
+ * treats it (never done, but nothing to chase either).
+ */
+export function groupsNotDone(
+  activity: Pick<Activity, "id" | "group_mode" | "group_target" | "categories">,
+  groups: EventGroup[],
+  attendees: (GroupMember & Pick<Attendee, "group_id">)[],
+  subs: ActivitySubmission[],
+): GroupNotDone[] {
+  return groups.flatMap((g) => {
+    const members = attendees.filter((a) => a.group_id === g.id);
+    const p = groupProgress(activity, g.id, members, subs);
+    if (p.done || p.members.length === 0) return [];
+    const missing = p.members.filter((m) => !m.submitted);
+    return [{
+      groupId: g.id,
+      name: g.name,
+      summary: groupSummary(p, activity.group_mode),
+      waitingOn: activity.group_mode === "everyone" ? missing.map((m) => m.name) : [],
+      missingIds: missing.map((m) => m.id),
+    }];
+  });
+}
+
 export type GroupPlan = {
   /** New group names, in first-seen order, spelled as first seen (trimmed). */
   create: string[];

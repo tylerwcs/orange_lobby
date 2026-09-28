@@ -8,7 +8,7 @@ import { listGroups } from "@/lib/db/groups";
 import { signedSubmissionUrl } from "@/lib/db/media";
 import { buildFormsWorkbook, type FormSheet } from "@/lib/exports";
 import { fileQuestionKeys, missingFrom } from "@/lib/submissions";
-import { withGroupColumn, GROUP_EXPORT_KEY } from "@/lib/groups";
+import { withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 
 // Seven days: long enough that a spreadsheet downloaded today still opens its photographs
 // next week, short enough that the bucket stays private in spirit, not just in policy.
@@ -59,14 +59,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         submittedOn: s.submitted_on, createdAt: s.created_at, answers, extra,
       };
     }));
-    // `null` for the day: the download has no day context, so this is who has NEVER
+    const missingRow = (a: (typeof attendees)[number] | undefined) => {
+      const extra = { ...(a?.extra ?? {}), [GROUP_EXPORT_KEY]: a?.group_id ? groupName.get(a.group_id) ?? "" : "" };
+      return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null, extra };
+    };
+    // D354/D360: a group form is chased by group, not by person — the ungrouped and members of
+    // an already-done group are not missing. `groupsNotDone` is the same read `SubmissionDetail`
+    // uses, so the "Not done" tab and this sheet can't disagree on who a group form still needs.
+    // Otherwise (`null` for the day): the download has no day context, so this is who has NEVER
     // submitted (D175). `listAttendees` order is alphabetical and `missingFrom` keeps it.
-    const missing = missingFrom(f, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, null)
-      .map((aid) => {
-        const a = attendeeById.get(aid);
-        const extra = { ...(a?.extra ?? {}), [GROUP_EXPORT_KEY]: a?.group_id ? groupName.get(a.group_id) ?? "" : "" };
-        return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null, extra };
-      });
+    const missing = f.group_mode !== "off"
+      ? groupsNotDone(f, groups, attendees, submissions).flatMap((g) => g.missingIds.map((aid) => missingRow(attendeeById.get(aid))))
+      : missingFrom(f, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, null)
+          .map((aid) => missingRow(attendeeById.get(aid)));
 
     return { formName: f.name, questions, rows, missing };
   }));

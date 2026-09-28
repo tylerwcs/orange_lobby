@@ -23,7 +23,7 @@ import { capSummary, missingFrom, participation, liveSubmissions } from "@/lib/s
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL } from "@/lib/time";
-import { groupProgress, groupSummary } from "@/lib/groups";
+import { groupsNotDone } from "@/lib/groups";
 import { listGroups } from "@/lib/db/groups";
 import { categoryMatches } from "@/lib/agenda";
 import type { Activity, Checkin, Checkpoint, Event } from "@/lib/types";
@@ -276,16 +276,10 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
   const bySubmission = [...submissions].sort((a, b) =>
     (groupName.get(a.group_id ?? "") ?? "￿").localeCompare(groupName.get(b.group_id ?? "") ?? "￿"));
+  // F2: groupsNotDone is also what the export's missing sheet reads, so the two can't disagree
+  // on which groups a form is still chasing. GroupsNotDonePanel wants `id`, not `groupId`.
   const notDone = grouped
-    ? groups.flatMap((g) => {
-        const members = attendees.filter((a) => a.group_id === g.id);
-        const p = groupProgress(activity, g.id, members, live);
-        if (p.done || p.members.length === 0) return [];
-        return [{
-          id: g.id, name: g.name, summary: groupSummary(p, activity.group_mode),
-          waitingOn: activity.group_mode === "everyone" ? p.members.filter((m) => !m.submitted).map((m) => m.name) : [],
-        }];
-      })
+    ? groupsNotDone(activity, groups, attendees, live).map((g) => ({ id: g.groupId, name: g.name, summary: g.summary, waitingOn: g.waitingOn }))
     : [];
   const ungrouped = grouped ? attendees.filter((a) => !a.group_id && categoryMatches(activity.categories, a.category)).length : 0;
 

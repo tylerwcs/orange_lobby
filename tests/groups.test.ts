@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, withGroupColumn, GROUP_EXPORT_KEY } from "@/lib/groups";
+import { groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 import type { Activity, ActivitySubmission, EventGroup } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}) => ({ id: "f1", group_mode: "entries" as const, group_target: 2, categories: null, ...over });
@@ -96,6 +96,51 @@ describe("groupFieldValues (D348)", () => {
     const fields = [{ key: "company", label: "Company", type: "text" as const }, { key: "phone", label: "Phone", type: "phone" as const }];
     expect(groupFieldValues({ extra: { company: " Ecopia ", phone: "" } }, ["phone", "company", "gone"], fields))
       .toEqual([{ label: "Company", value: "Ecopia" }]);
+  });
+});
+
+describe("groupsNotDone (F2)", () => {
+  const g = (id: string, name: string): EventGroup => ({ id, org_id: "o", event_id: "e", name, created_at: "" });
+  const attendee = (id: string, name: string, category: string, groupId: string | null) => ({ id, name, category, group_id: groupId });
+
+  it("lists each not-done group with who's missing, in entries mode", () => {
+    const groups = [g("g1", "Red"), g("g2", "Blue")];
+    const attendees = [attendee("a", "Aisyah", "KOM", "g1"), attendee("b", "Ben", "KOM", "g1"), attendee("c", "Chen", "Crew", "g2")];
+    const subs = [sub("s1", "a", "g1")];
+    expect(groupsNotDone(form(), groups, attendees, subs)).toEqual([
+      { groupId: "g1", name: "Red", summary: "1 of 2 entries", waitingOn: [], missingIds: ["b"] },
+      { groupId: "g2", name: "Blue", summary: "0 of 2 entries", waitingOn: [], missingIds: ["c"] },
+    ]);
+  });
+
+  it("names who it's waiting on in everyone mode", () => {
+    const everyone = form({ group_mode: "everyone", group_target: null, categories: ["KOM"] });
+    const groups = [g("g1", "Red")];
+    const attendees = [attendee("a", "Aisyah", "KOM", "g1"), attendee("b", "Ben", "KOM", "g1")];
+    expect(groupsNotDone(everyone, groups, attendees, [sub("s1", "a", "g1")])).toEqual([
+      { groupId: "g1", name: "Red", summary: "1 of 2 members submitted", waitingOn: ["Ben"], missingIds: ["b"] },
+    ]);
+  });
+
+  it("excludes a group that is already done", () => {
+    const groups = [g("g1", "Red")];
+    const attendees = [attendee("a", "Aisyah", "KOM", "g1"), attendee("b", "Ben", "KOM", "g1")];
+    const subs = [sub("s1", "a", "g1"), sub("s2", "b", "g1")];
+    expect(groupsNotDone(form(), groups, attendees, subs)).toEqual([]);
+  });
+
+  it("leaves out members the activity's categories don't cover", () => {
+    const restricted = form({ categories: ["KOM"] });
+    const groups = [g("g1", "Red")];
+    const attendees = [attendee("a", "Aisyah", "KOM", "g1"), attendee("b", "Ben", "Crew", "g1")];
+    expect(groupsNotDone(restricted, groups, attendees, [])[0].missingIds).toEqual(["a"]);
+  });
+
+  it("skips a group with nobody eligible", () => {
+    const restricted = form({ categories: ["KOM"] });
+    const groups = [g("g1", "Red")];
+    const attendees = [attendee("a", "Aisyah", "Crew", "g1")];
+    expect(groupsNotDone(restricted, groups, attendees, [])).toEqual([]);
   });
 });
 
