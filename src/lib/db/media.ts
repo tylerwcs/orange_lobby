@@ -143,9 +143,11 @@ export async function signedSubmissionUrl(path: string, seconds = 60): Promise<s
  * specifically so a failure here stops that RPC from ever running. A remove() that returns an
  * `error` instead of throwing one would defeat that ordering exactly as thoroughly as a remove()
  * that threw — the database would still end up saying "purged" over files still sitting in the
- * bucket, now with no submission row left to point at them. The other caller (the orphaned-
- * upload cleanup in the portal forms action) already wraps its own call in a try/catch that
- * swallows on purpose, so surfacing the error here changes nothing for it.
+ * bucket, now with no submission row left to point at them. The other callers are the upload
+ * cleanup in src/lib/submission-uploads.ts, shared by the portal's submit and the admin's edit:
+ * `discardUploads` (this request's orphaned uploads) and `deleteReplacedFiles` (the files an
+ * edit replaced). Both wrap the call in a try/catch that swallows on purpose, so surfacing the
+ * error here changes nothing for them.
  */
 export async function deleteSubmissionFiles(paths: string[]): Promise<void> {
   if (paths.length === 0) return;

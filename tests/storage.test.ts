@@ -9,6 +9,7 @@ import {
   mediaPathFromUrl,
   mediaPathInEvent,
   submissionObjectPath,
+  submissionFolder,
   submissionFilePaths,
   imageIntent,
   IMAGE_ACCEPT,
@@ -147,6 +148,12 @@ describe("acceptUpload", () => {
   it("puts a submission's file under its own event and form", () => {
     const path = submissionObjectPath({ orgId: "o", eventId: "e", formId: "f", ext: "png" }, "abc123");
     expect(path).toBe("o/e/f/submission-abc123.png");
+  });
+
+  it("files every upload directly inside the form's own folder", () => {
+    const folder = submissionFolder({ orgId: "o", eventId: "e", formId: "f" });
+    expect(folder).toBe("o/e/f/");
+    expect(submissionObjectPath({ orgId: "o", eventId: "e", formId: "f", ext: "pdf" }, "x1").startsWith(folder)).toBe(true);
   });
 });
 

@@ -15,12 +15,10 @@ import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFo
 import { listAttendees, getAttendee } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
-import {
-  sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, uploadSubmissionFile, deleteSubmissionFiles,
-  type ImageChange,
-} from "@/lib/db/media";
+import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
+import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
 import { questionsFromForm } from "@/lib/questions-form";
-import { FORM_QUESTION_TYPES, validateAnswers } from "@/lib/registration";
+import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, perDayCollision } from "@/lib/submissions";
 import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
@@ -350,25 +348,11 @@ export async function deleteSubmissionActivityAction(eventId: string, activityId
 }
 
 /**
- * Removes files this request uploaded for an edit that was not saved. Never handed anything but
- * this request's own uploads, so a stored answer's file is never touched. Swallows its own
- * failure, like the portal's `cleanupUploads`: the organiser is already being told the real
- * outcome, and a stray object is a cost, not a reason to crash instead.
- */
-async function discardUploads(paths: string[]): Promise<void> {
-  if (paths.length === 0) return;
-  try {
-    await deleteSubmissionFiles(paths);
-  } catch {
-    // Left behind; see above.
-  }
-}
-
-/**
- * Corrects one submission's answers (D337), checked exactly as the portal checks a submit
- * (`validateAnswers`). A file question left empty keeps its file; a new one is uploaded first,
- * the same way `submitAnswersAction` does, and the file it replaces is deleted only once the
- * row names the new one. Answers under retired keys ride along untouched.
+ * Corrects one submission's answers (D337) through the same read/upload/validate protocol as the
+ * portal's submit (`readAnswers`, src/lib/submission-uploads.ts). A file question left empty
+ * keeps its file; the file a new one replaces is deleted only once the row names the new one,
+ * and only if it sits in this activity's own folder. Answers under retired keys ride along
+ * untouched.
  *
  * `getSubmission` is scoped by id alone, so the row's `activity_id` is checked against the
  * activity `submissionOf` has already tied to this event: a posted id from another activity, or
@@ -386,58 +370,20 @@ export async function editSubmissionAction(eventId: string, activityId: string, 
     redirect(flashPath(back, "That submission can no longer be edited.", "error"));
   }
 
-  const input: Record<string, string> = {};
-  for (const q of activity.questions) {
-    if (q.type !== "file") input[q.key] = String(fd.get(q.key) ?? "");
-  }
-  // A file answer is only ever the stored path or a path uploaded here, never a posted string.
-  const fileQuestions = activity.questions.filter((q) => q.type === "file");
-  const uploads = await Promise.allSettled(fileQuestions.map(async (q) => {
-    const file = fd.get(q.key);
-    if (!(file instanceof File) || file.size === 0) return { key: q.key, path: current.answers[q.key] ?? "", fresh: false };
-    const path = await uploadSubmissionFile({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id, file });
-    return { key: q.key, path, fresh: true };
-  }));
-  const uploaded: string[] = [];
-  let uploadError: string | null = null;
-  for (const r of uploads) {
-    if (r.status === "fulfilled") {
-      input[r.value.key] = r.value.path;
-      if (r.value.fresh) uploaded.push(r.value.path);
-    } else {
-      uploadError ??= (r.reason as Error).message;
-    }
-  }
-  if (uploadError) {
-    await discardUploads(uploaded);
-    redirect(flashPath(back, uploadError, "error"));
-  }
-
-  const validated = validateAnswers(input, activity.questions);
-  if (!validated.ok) {
-    await discardUploads(uploaded);
-    redirect(flashPath(back, Object.values(validated.errors)[0] ?? "Check the answers and try again.", "error"));
-  }
+  const form = await readAnswers(activity, fd, current.answers);
+  if (!form.ok) redirect(flashPath(back, form.error, "error"));
 
   const keys = new Set(activity.questions.map((q) => q.key));
   const retired = Object.fromEntries(Object.entries(current.answers).filter(([k]) => !keys.has(k)));
-  const answers = { ...retired, ...validated.answers };
-  if (!(await updateSubmissionAnswers(submissionId, activity.id, answers, userId))) {
-    await discardUploads(uploaded);
+  const answers = { ...retired, ...form.answers };
+  const saved = await saveOrDiscard(form.uploaded, () => updateSubmissionAnswers(submissionId, activity.id, answers, userId));
+  if (!saved) {
+    await discardUploads(form.uploaded);
     revalidatePath(detailPath(eventId, activityId));
     redirect(flashPath(back, "That submission was revoked while you were editing.", "error"));
   }
 
-  // Only now that the row names the new file (or none) is the old one safe to throw away.
-  const replaced = fileQuestions.flatMap((q) => {
-    const old = current.answers[q.key] ?? "";
-    return old !== "" && old !== answers[q.key] ? [old] : [];
-  });
-  try {
-    await deleteSubmissionFiles(replaced);
-  } catch {
-    // A leftover object costs storage; the answers are already saved.
-  }
+  await deleteReplacedFiles(activity, current.answers, answers);
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(back, "Answers updated."));
 }

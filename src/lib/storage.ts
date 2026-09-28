@@ -213,7 +213,16 @@ export function submissionObjectPath(
   input: { orgId: string; eventId: string; formId: string; ext: string },
   id: string,
 ): string {
-  return `${input.orgId}/${input.eventId}/${input.formId}/submission-${id}.${input.ext}`;
+  return `${submissionFolder(input)}submission-${id}.${input.ext}`;
+}
+
+/**
+ * The folder one form's files sit in, with its trailing slash. `submissionObjectPath` files
+ * every upload directly inside it, so "is this one of this form's files" is a check against
+ * the same string the path was built from.
+ */
+export function submissionFolder(input: { orgId: string; eventId: string; formId: string }): string {
+  return `${input.orgId}/${input.eventId}/${input.formId}/`;
 }
 
 /**
