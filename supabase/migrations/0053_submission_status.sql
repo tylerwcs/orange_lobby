@@ -1,5 +1,5 @@
 -- D338/D339 — revoke is a status, and only submitted rows count toward the limit, the day, and
--- the one-a-day index. Do NOT apply it; the controller does.
+-- the one-a-day index.
 
 alter table activity_submissions
   add constraint activity_submissions_status_check check (status in ('submitted', 'revoked')),
