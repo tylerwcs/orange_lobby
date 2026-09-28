@@ -82,6 +82,10 @@ export function formCard({ form, state }: FormCardInput): CardView {
   if (state.can) return { status: { label: "Open", tone: "primary" }, meta, action: { label: submitLabel(form), primary: true } };
   if (state.reason === "today") return { status: { label: "Done for today", tone: "success" }, meta, action: view };
   if (state.reason === "limit") return { status: { label: "Submission done", tone: "success" }, meta, action: view };
+  // A group form's own reasons (F1): a finished group reads like any other finished cap, and an
+  // ungrouped attendee is told what to do about it rather than being told the form is shut.
+  if (state.reason === "groupdone") return { status: { label: "Group done", tone: "success" }, meta, action: view };
+  if (state.reason === "nogroup") return { status: { label: "Needs a group", tone: "muted" }, meta, action: view };
   return { status: { label: "Closed", tone: "muted" }, meta, action: view };
 }
 

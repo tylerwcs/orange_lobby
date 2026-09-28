@@ -124,6 +124,12 @@ describe("formCard", () => {
   it("marks a closed one", () => {
     expect(formCard({ form: form(), state: { can: false, reason: "closed", used: 0 } }).status).toEqual({ label: "Closed", tone: "muted" });
   });
+  it("marks a finished group as done, in the same tone as a finished individual cap (F1)", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "groupdone", used: 0 } }).status).toEqual({ label: "Group done", tone: "success" });
+  });
+  it("tells an ungrouped attendee they need a group, rather than calling the form closed (F1)", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "nogroup", used: 0 } }).status).toEqual({ label: "Needs a group", tone: "muted" });
+  });
 });
 
 describe("passportCard", () => {
