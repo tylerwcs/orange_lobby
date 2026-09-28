@@ -104,6 +104,6 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
     );
   }
   const tally = tallies[active.id] ?? { arrived: 0, expected: doors.registered, walkIns: 0 };
-  const board = await loadBoard(ev.id, active, doors, nowInKL());
+  const board = await loadBoard(ev.id, active, nowInKL());
   return <Scanner eventId={ev.id} checkpoint={active} initialCount={tally.arrived} total={tally.expected} board={board ?? undefined} />;
 }

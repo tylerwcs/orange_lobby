@@ -16,7 +16,7 @@ export function ExpectedList({ board, busy, onMark, live }: {
   board: Board;
   busy: boolean;
   onMark: (attendeeId: string) => void;
-  /** The auto-refresh pill: this list is shared by every phone on the door. */
+  /** The Live/Paused pill: this list is shared by every phone on the door and re-read (D332). */
   live: ReactNode;
 }) {
   const open = board.slots.filter((s) => s.phase === "now" || s.phase === "next");

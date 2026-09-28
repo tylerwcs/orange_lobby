@@ -35,6 +35,10 @@ activity per day, not one per slot.
 - **D331 — The count is booked arrivals.** At a booking door, "n of m in" means bookers who
   arrived out of bookers that day. Walk-ins are counted separately ("+1 walk-in") and never
   push the meter past full.
+- **D332 — The list is re-read, not the page.** A booking door's scanner re-reads its board
+  through a server action every 15 seconds while visible and after its own scans. A failed
+  read keeps the last list and shows "Paused"; the scanner never navigates away, so a wifi
+  drop cannot take a door phone off the screen.
 
 ## Data
 
@@ -110,9 +114,13 @@ At a booking door it replaces "Recent", in the same place in the rail.
   button, which calls the same check-in by id. A no-show in an ended slot shows a "No-show"
   badge and still has **Mark arrived**, because late arrivals happen.
 - **Walk-ins** close the list: name and time.
-- **Keeping phones in step:** the page refreshes itself every 15 seconds while visible, like
-  the Overview's recent scans. A device's own scans and undos update its list and count at
-  once, without waiting for the refresh.
+- **Keeping phones in step (D332):** the scanner re-reads its board — the list and the count —
+  through a server action every 15 seconds while the tab is visible, and once when it becomes
+  visible again. It also re-reads after each of its own scans, marks and undos, so a device's
+  own changes show within one round trip. It never refreshes the page: a failed page refresh
+  falls back to a full browser navigation, which would take a door phone off the scanner. A
+  failed read keeps the last good list on screen and the pill beside "Expected" turns from
+  "Live" to "Paused" until a read succeeds again.
 
 ## Activity › Bookings tab
 
@@ -152,6 +160,9 @@ event.
   returns `not_booked` unless `walkIn` is set, and adds the "Booked" field.
   `checkInByTokenAction`, `checkInByIdAction` and `searchAttendeesAction` pass the door
   through; `SearchHit` gains `booked: boolean | null` (null at an ordinary door).
+  `loadBoardAction` returns a booking door's board, or null (D332).
+- `src/lib/db/doors.ts`: `loadBoard(eventId, cp, now)` reads only that door's sessions,
+  bookings, check-ins and names, so re-reading it every 15 seconds stays cheap.
 - The scanner pages and Settings compute per-door totals through one helper, so the door list,
   the header, Settings and the Overview agree.
 

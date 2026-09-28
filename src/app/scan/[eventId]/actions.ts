@@ -5,7 +5,8 @@ import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
 import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin, getCheckin } from "@/lib/db/checkins";
 import { getCheckpoint } from "@/lib/db/checkpoints";
 import { bookedSessionOn, bookerIdsOn } from "@/lib/db/activities";
-import { slotTime } from "@/lib/booking-door";
+import { loadBoard } from "@/lib/db/doors";
+import { slotTime, type Board } from "@/lib/booking-door";
 import { extractToken, scanResultFields } from "@/lib/scan";
 import { fieldValue } from "@/lib/attendee-values";
 import { eventFields } from "@/lib/attendee-fields";
@@ -115,6 +116,22 @@ export async function undoCheckinAction(eventId: string, checkpointId: string, a
   if (!a || a.event_id !== ev.id) return { status: "error", message: "That attendee is no longer on the list." };
   const removed = await deleteCheckin(ev.id, checkpointId, attendeeId);
   return removed ? { status: "undone", attendee: a } : { status: "error", message: "Nothing to undo." };
+}
+
+/**
+ * A booking door's board, re-read by its scanner every 15 seconds and after each of its own
+ * scans (D332). Null for an ordinary door, and once the door can no longer be scanned —
+ * archived, check-in off, the checkpoint gone, a crew link refused — so the scanner keeps its
+ * last list and says "Paused" rather than showing one it is no longer allowed to act on.
+ */
+export async function loadBoardAction(eventId: string, checkpointId: string, crewToken?: string): Promise<Board | null> {
+  const auth = await authorise(eventId, crewToken);
+  if ("error" in auth) return null;
+  const { ev } = auth;
+  if (ev.status === "archived" || !ev.check_in_enabled) return null;
+  const checkpoint = await getCheckpoint(checkpointId, ev.id);
+  if (!checkpoint?.activity_id) return null;
+  return loadBoard(ev.id, checkpoint, nowInKL());
 }
 
 export async function searchAttendeesAction(eventId: string, q: string, checkpointId: string, crewToken?: string): Promise<SearchHit[]> {

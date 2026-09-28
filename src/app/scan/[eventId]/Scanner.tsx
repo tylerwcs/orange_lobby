@@ -1,13 +1,11 @@
 "use client";
 import { PendingLink } from "@/components/PendingNav";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
 import type { Html5Qrcode } from "html5-qrcode";
 import { Camera, CameraOff, ChevronLeft, CircleAlert, CircleCheck, CircleX, History, LogIn, ScanBarcode, Search, Undo2, X, type LucideIcon } from "lucide-react";
-import { checkInByTokenAction, checkInByIdAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
+import { checkInByTokenAction, checkInByIdAction, loadBoardAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
 import type { Board } from "@/lib/booking-door";
-import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { ExpectedList } from "./ExpectedList";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -25,6 +23,8 @@ type Recent = { name: string; at: string; status: ScanResult["status"] };
 type CameraState = { phase: "starting" | "ready" | "error"; problem?: CameraProblem };
 
 const UNDO_SECONDS = 6;
+/** How often a booking door re-reads its list while the tab is visible (D332). */
+const BOARD_SECONDS = 15;
 
 /**
  * Camera, or a handheld scanner that types like a keyboard. Remembered per device, not per
@@ -121,10 +121,47 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
   // fires once, so the one waiting runs next instead of vanishing.
   const queuedRef = useRef<string | null>(null);
   const focused = useSyncExternalStore(subscribeFocus, () => document.hasFocus(), () => true);
-  const router = useRouter();
   // A booking door's list is shared by every phone at the door, so it comes from the server:
-  // a refresh after each of this phone's own scans, and AutoRefresh for everyone else's.
+  // re-read after each of this phone's own scans, and every 15 seconds for everyone else's.
+  //
+  // Re-read through a server action, never by refreshing the page (D332). A page refresh that
+  // fails in this Next falls back to a full browser navigation, so one wifi blip on a timer
+  // would throw a door phone onto the browser's error page with its camera off. A failed read
+  // here keeps the last good list and says "Paused"; the scanner never leaves the screen.
   const bookingDoor = board !== undefined;
+  const [liveBoard, setLiveBoard] = useState(board);
+  const [paused, setPaused] = useState(false);
+  const reloadBoard = useCallback(async () => {
+    try {
+      const b = await loadBoardAction(eventId, checkpoint.id, crewToken);
+      if (b) { setLiveBoard(b); setPaused(false); } else setPaused(true);
+    } catch { setPaused(true); }
+  }, [eventId, checkpoint.id, crewToken]);
+  // Reached through a ref so `handle` depends on nothing: the camera chain hangs off it
+  // (handle → scanText → startCamera → the camera effect), and a new `handle` restarts the
+  // camera. A no-op at an ordinary door, which has no list to re-read.
+  const reloadRef = useRef<() => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    if (!bookingDoor) return;
+    reloadRef.current = reloadBoard;
+    // Only while the tab is visible, and once on coming back to it, as AutoRefresh does. A
+    // tick is skipped while the last read is still out: server actions run one at a time, and
+    // reads stacked up behind a hung request would all land ahead of the next scan.
+    let reading = false;
+    const tick = async () => {
+      if (document.visibilityState !== "visible" || reading) return;
+      reading = true;
+      try { await reloadBoard(); } finally { reading = false; }
+    };
+    const id = setInterval(tick, BOARD_SECONDS * 1000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+      reloadRef.current = async () => {};
+    };
+  }, [bookingDoor, reloadBoard]);
 
   const handle = useCallback(async (fn: () => Promise<ScanResult>) => {
     busyRef.current = true;
@@ -143,11 +180,11 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
       if (r.attendee && r.status !== "error") setRecent((list) => [{ name: r.attendee!.name, at: new Date().toISOString(), status: r.status }, ...list].slice(0, 8));
       setUndoLeft(r.status === "ok" ? UNDO_SECONDS : 0);
       if (navigator.vibrate) navigator.vibrate(r.status === "ok" ? 100 : [80, 60, 80]);
-      if (bookingDoor && r.status !== "error") router.refresh();
+      if (r.status !== "error") void reloadRef.current();
     } catch {
       setResult({ status: "error", message: "The check-in didn't reach the server. Check the connection and scan again." });
     } finally { busyRef.current = false; setBusy(false); setHits([]); setQ(""); }
-  }, [bookingDoor, router]);
+  }, []);
 
   /** One decoded code, from either the camera or the hand scanner. */
   const scanText = useCallback(async (first: string, queueIfBusy: boolean) => {
@@ -234,9 +271,9 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
 
   // At a booking door the count is booked arrivals over bookers (D331), read from the server's
   // board so every phone agrees. An ordinary door keeps counting its own scans.
-  const shown = board ? board.arrived : count;
-  const of = board ? board.expected : total;
-  const walkIns = board?.walkIns.length ?? 0;
+  const shown = liveBoard ? liveBoard.arrived : count;
+  const of = liveBoard ? liveBoard.expected : total;
+  const walkIns = liveBoard?.walkIns.length ?? 0;
 
   const named = result?.attendee && result.status !== "error" && result.status !== "notfound";
 
@@ -465,8 +502,8 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
             </Empty>
           )}
 
-          {board ? (
-            <ExpectedList board={board} busy={busy} live={<AutoRefresh seconds={15} />}
+          {liveBoard ? (
+            <ExpectedList board={liveBoard} busy={busy} live={<BoardPill paused={paused} />}
               onMark={(id) => handle(() => checkInByIdAction(eventId, checkpoint.id, id, crewToken))} />
           ) : recent.length > 0 && (
             <section className="mt-2 flex flex-col gap-2">
@@ -487,5 +524,25 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
         </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * The expected list's freshness, dressed as AutoRefresh's pill. "Paused" when the last read
+ * failed (D332): the list on screen is the last good one, and crew should know it may be behind.
+ */
+function BoardPill({ paused }: { paused: boolean }) {
+  return paused ? (
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-warning"
+      title={`Can't reach the server — showing the last list. It retries every ${BOARD_SECONDS} seconds.`}>
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-warning" />
+      Paused
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-success-strong"
+      title={`Refreshes every ${BOARD_SECONDS} seconds while this tab is open`}>
+      <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+      Live
+    </span>
   );
 }

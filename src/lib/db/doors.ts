@@ -1,9 +1,9 @@
 import "server-only";
 import { listCheckpoints } from "@/lib/db/checkpoints";
-import { listCheckinsForEvent } from "@/lib/db/checkins";
+import { listCheckinsAt, listCheckinsForEvent } from "@/lib/db/checkins";
 import { countAttendees, listAttendeesByIds } from "@/lib/db/attendees";
-import { listBookings, listSessions } from "@/lib/db/activities";
-import { doorBoard, doorSessions, doorTallies, type Board, type DoorTally, type Now } from "@/lib/booking-door";
+import { listBookings, listBookingsForSessions, listSessions, listSessionsOn } from "@/lib/db/activities";
+import { doorBoard, doorTallies, type Board, type DoorTally, type Now } from "@/lib/booking-door";
 import type { ActivityBooking, ActivitySession, Checkin, Checkpoint } from "@/lib/types";
 
 export type LoadedDoors = {
@@ -27,13 +27,15 @@ export async function loadDoors(eventId: string): Promise<LoadedDoors> {
   return { cps, checkins, sessions, bookings, registered, tallies: doorTallies(cps, checkins, sessions, bookings, registered) };
 }
 
-/** A booking door's board (D324), or null for an ordinary door. Names are read for the people on it only. */
-export async function loadBoard(eventId: string, cp: Checkpoint, doors: LoadedDoors, now: Now): Promise<Board | null> {
+/**
+ * A booking door's board (D324), or null for an ordinary door. It reads this door's rows and
+ * nothing else of the event — its sessions that day, their bookings, its own check-ins and the
+ * names on them — because the scanner re-reads it every 15 seconds (D332).
+ */
+export async function loadBoard(eventId: string, cp: Checkpoint, now: Now): Promise<Board | null> {
   if (!cp.activity_id) return null;
-  const sessions = doorSessions(cp, doors.sessions);
-  const ids = new Set(sessions.map((s) => s.id));
-  const bookings = doors.bookings.filter((b) => ids.has(b.session_id));
-  const checkins = doors.checkins.filter((c) => c.checkpoint_id === cp.id);
+  const [sessions, checkins] = await Promise.all([listSessionsOn(cp.activity_id, cp.day), listCheckinsAt([cp.id])]);
+  const bookings = await listBookingsForSessions(sessions.map((s) => s.id));
   const people = await listAttendeesByIds(eventId, [...bookings.map((b) => b.attendee_id), ...checkins.map((c) => c.attendee_id)]);
   return doorBoard({ day: cp.day, sessions, bookings, checkins, names: new Map(people.map((a) => [a.id, a.name])), now });
 }
