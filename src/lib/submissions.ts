@@ -1,11 +1,12 @@
 import { categoryMatches } from "@/lib/agenda";
 import { lastDays, daysBetween } from "@/lib/time";
 import type { Activity, ActivitySubmission, RegistrationQuestion } from "@/lib/types";
+import type { GroupProgress } from "@/lib/groups";
 
 /** How many questions a submission activity's editor offers, mirroring `MAX_QUESTIONS` for registration. */
 export const MAX_SUBMISSION_QUESTIONS = 20;
 
-export type SubmitReason = "ok" | "closed" | "ineligible" | "limit" | "today";
+export type SubmitReason = "ok" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone";
 export type SubmitState = { can: boolean; reason: SubmitReason; used: number };
 
 /** The rows that count (D339): every reader of "who submitted" goes through this. */
@@ -34,16 +35,27 @@ export function perDayCollision(subs: Pick<ActivitySubmission, "attendee_id" | "
  *
  * Order matters. A closed activity is reported as closed even when the attendee is also
  * ineligible and also at their cap, because "the desk shut this" is the useful sentence.
+ *
+ * A group form (D350) swaps the per-person rules for the group's: `group` is this attendee's
+ * group's progress, null when they have no group (D354). Same codes as `submit_answers`.
  */
 export function canSubmit(
   activity: Activity,
   mine: ActivitySubmission[],
   category: string | null,
   today: string,
+  group: GroupProgress | null = null,
 ): SubmitState {
   const used = mine.length;
   if (!activity.is_open) return { can: false, reason: "closed", used };
   if (!categoryMatches(activity.categories, category)) return { can: false, reason: "ineligible", used };
+  if (activity.group_mode !== "off") {
+    if (!group) return { can: false, reason: "nogroup", used };
+    if (activity.group_mode === "entries") {
+      return group.done ? { can: false, reason: "groupdone", used } : { can: true, reason: "ok", used };
+    }
+    return mine.some((s) => s.group_id === group.groupId) ? { can: false, reason: "limit", used } : { can: true, reason: "ok", used };
+  }
   if (activity.max_per_attendee !== null && used >= activity.max_per_attendee) return { can: false, reason: "limit", used };
   if (activity.per_day && mine.some((s) => s.submitted_on === today)) return { can: false, reason: "today", used };
   return { can: true, reason: "ok", used };
@@ -56,7 +68,9 @@ export function canSubmit(
  * of leaving it to arithmetic: an activity capped at exactly one submission is a different policy
  * from one merely capped low, and the word should say so.
  */
-export function capSummary(activity: Pick<Activity, "per_day" | "max_per_attendee">): string {
+export function capSummary(activity: Pick<Activity, "per_day" | "max_per_attendee"> & Partial<Pick<Activity, "group_mode" | "group_target">>): string {
+  if (activity.group_mode === "entries") return `${activity.group_target} ${activity.group_target === 1 ? "entry" : "entries"} per group`;
+  if (activity.group_mode === "everyone") return "Every group member";
   const total = activity.max_per_attendee === null ? "" : activity.max_per_attendee === 1 ? "Once" : `Up to ${activity.max_per_attendee}`;
   if (activity.per_day) return total ? `Once a day, ${total.toLowerCase()}` : "Once a day";
   return total || "Unlimited";

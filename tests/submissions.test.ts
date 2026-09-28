@@ -257,3 +257,37 @@ describe("liveSubmissions / perDayCollision (D339, D342)", () => {
     expect(perDayCollision([row("1", "a1", "2026-09-28"), row("2", "a1", "2026-09-28", "revoked")])).toBeNull();
   });
 });
+
+describe("canSubmit on a group form (D354, D350)", () => {
+  const progress = (over: Partial<import("@/lib/groups").GroupProgress> = {}): import("@/lib/groups").GroupProgress => ({ groupId: "g1", done: false, have: 0, need: 2, members: [], entries: [], ...over });
+  const gsub = (group: string): ActivitySubmission => ({ ...sub(TODAY), group_id: group });
+
+  it("refuses an attendee with no group", () => {
+    expect(canSubmit(form({ group_mode: "entries", group_target: 2 }), [], null, TODAY, null).reason).toBe("nogroup");
+  });
+
+  it("refuses once the group has its entries, and ignores the per-person cap", () => {
+    const f = form({ group_mode: "entries", group_target: 2, max_per_attendee: 1 });
+    expect(canSubmit(f, [gsub("g1")], null, TODAY, progress({ have: 1 })).can).toBe(true);
+    expect(canSubmit(f, [], null, TODAY, progress({ have: 2, done: true })).reason).toBe("groupdone");
+  });
+
+  it("in everyone mode, refuses a member who already sent one for this group, not for an old group", () => {
+    const f = form({ group_mode: "everyone" });
+    expect(canSubmit(f, [gsub("g1")], null, TODAY, progress()).reason).toBe("limit");
+    expect(canSubmit(f, [gsub("g0")], null, TODAY, progress()).can).toBe(true);
+  });
+
+  it("still reports closed and ineligible first", () => {
+    expect(canSubmit(form({ group_mode: "entries", group_target: 1, is_open: false }), [], null, TODAY, null).reason).toBe("closed");
+    expect(canSubmit(form({ group_mode: "entries", group_target: 1, categories: ["VIP"] }), [], "Crew", TODAY, null).reason).toBe("ineligible");
+  });
+});
+
+describe("capSummary on a group form", () => {
+  it("names the group rule", () => {
+    expect(capSummary({ per_day: false, max_per_attendee: null, group_mode: "entries", group_target: 3 })).toBe("3 entries per group");
+    expect(capSummary({ per_day: false, max_per_attendee: null, group_mode: "entries", group_target: 1 })).toBe("1 entry per group");
+    expect(capSummary({ per_day: false, max_per_attendee: null, group_mode: "everyone", group_target: null })).toBe("Every group member");
+  });
+});
