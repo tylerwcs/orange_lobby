@@ -3,14 +3,16 @@ import { portalActivities, portalBookings } from "@/lib/portal";
 import { listSessions, countBookingsBySession, submissionsForAttendee } from "@/lib/db/activities";
 import { listBooths, stampsForAttendee } from "@/lib/db/booths";
 import { requestsForAttendee } from "@/lib/db/activity-requests";
+import { bookingArrivalsFor } from "@/lib/db/checkins";
 import { activityState, eligible, type ActivityState } from "@/lib/activities";
 import { activityControls, pendingFor, lastDeclinedFor, type ActivityControls } from "@/lib/activity-requests";
+import { sessionArrivals } from "@/lib/booking-door";
 import { canSubmit, type SubmitState } from "@/lib/submissions";
 import { buildPassport, type Passport } from "@/lib/booths";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
-export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null };
+export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string> };
 export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[] };
 /** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
 export type PassportEntry = { activity: Activity; passport: Passport };
@@ -23,12 +25,12 @@ export type PassportEntry = { activity: Activity; passport: Passport };
  * and one shape for both pages is worth more than the rows it saves; `portalActivities` and
  * `portalBookings` are memoised, so the layout's nav dot costs nothing extra.
  */
-export async function loadActivityEntries(event: Pick<Event, "id">, attendee: Pick<Attendee, "id" | "category">): Promise<{
+export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category">): Promise<{
   bookings: ActivityEntry[];
   submissions: SubmissionEntry[];
   passports: PassportEntry[];
 }> {
-  const [activities, sessions, counts, mine, requests, submissions, booths, stamps] = await Promise.all([
+  const [activities, sessions, counts, mine, requests, submissions, booths, stamps, found] = await Promise.all([
     portalActivities(event.id),
     listSessions(event.id),
     countBookingsBySession(event.id),
@@ -37,6 +39,7 @@ export async function loadActivityEntries(event: Pick<Event, "id">, attendee: Pi
     submissionsForAttendee(attendee.id),
     listBooths(event.id),
     stampsForAttendee(attendee.id),
+    event.check_in_enabled ? bookingArrivalsFor(attendee.id) : Promise.resolve([]),
   ]);
 
   const mineBySession = new Set(mine.map((b) => b.session_id));
@@ -52,7 +55,7 @@ export async function loadActivityEntries(event: Pick<Event, "id">, attendee: Pi
     const controls = activityControls(state, pending, lastDeclinedFor(requests, activity.id));
     // `PendingSummary` deliberately carries no id (it is for rendering, not addressing), so
     // the raw pending request's id travels alongside `controls` for `withdraw` to bind to.
-    return { state, controls, pendingId: pending?.id ?? null };
+    return { state, controls, pendingId: pending?.id ?? null, arrivals: sessionArrivals(controls.held.map((h) => h.session), found) };
   });
 
   const today = nowInKL().date;

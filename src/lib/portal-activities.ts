@@ -13,8 +13,10 @@ import type { Passport } from "@/lib/booths";
  */
 export type ActivitySection = "choose" | "booked" | "open" | "done";
 
-export function bookingSection(state: ActivityState, pending: boolean): ActivitySection | null {
+export function bookingSection(state: ActivityState, pending: boolean, checkedIn = false): ActivitySection | null {
   if (!state.eligible) return null;
+  // D335: done like a full passport, below what still needs attention
+  if (checkedIn && state.held > 0) return "done";
   if (state.mustPick) return "choose";
   if (state.held > 0 || pending) return "booked";
   return "open";

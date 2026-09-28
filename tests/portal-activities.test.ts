@@ -44,6 +44,16 @@ describe("bookingSection", () => {
   });
 });
 
+describe("bookingSection — checked in (D335)", () => {
+  it("moves a checked-in booking to Done, even with a request open", () => {
+    expect(bookingSection(state({}, ["s1"]), false, true)).toBe("done");
+    expect(bookingSection(state({}, ["s1"]), true, true)).toBe("done");
+  });
+  it("leaves it under Booked when not checked in", () => {
+    expect(bookingSection(state({}, ["s1"]), false, false)).toBe("booked");
+  });
+});
+
 describe("passportSection", () => {
   it("is Open to you while collecting and Done once complete — never To choose (D192)", () => {
     expect(passportSection({ complete: false })).toBe("open");

@@ -16,9 +16,10 @@ const session = (activityId: string): ActivitySession => ({
   id: `${activityId}-s`, event_id: "e", activity_id: activityId, day: "2026-09-30", starts_at: "08:00",
   ends_at: "09:00", location: "Clubhouse", capacity: 4, sort_order: 0,
 });
-const booking = (id: string, over: Partial<Activity> = {}, held = false, category: string | null = null): ActivityEntry => {
+const booking = (id: string, over: Partial<Activity> = {}, held = false, category: string | null = null, checkedIn = false): ActivityEntry => {
   const state = activityState({ activity: activity(id, over), sessions: [session(id)], counts: {}, mine: new Set(held ? [`${id}-s`] : []), category });
-  return { state, controls: activityControls(state, null), pendingId: null };
+  const arrivals = checkedIn ? { [`${id}-s`]: "2026-09-30T02:00:00+00:00" } : {};
+  return { state, controls: activityControls(state, null), pendingId: null, arrivals };
 };
 const form = (id: string, reason: SubmitReason = "ok"): SubmissionEntry => ({
   form: activity(id, { kind: "submission" }), state: { can: reason === "ok", reason, used: 0 }, mine: [],
@@ -58,5 +59,14 @@ describe("activityCards", () => {
       passports: [],
     }, "/p");
     expect(cards.map((c) => c.activity.id)).toEqual(["closed"]);
+  });
+
+  it("sorts a checked-in booking after open forms and before Done passports", () => {
+    const cards = activityCards({
+      bookings: [booking("checked-in", {}, true, null, true)],
+      submissions: [form("form")],
+      passports: [passport("done-passport", true)],
+    }, "/e/kom/a/tok");
+    expect(cards.map((c) => c.activity.id)).toEqual(["form", "checked-in", "done-passport"]);
   });
 });

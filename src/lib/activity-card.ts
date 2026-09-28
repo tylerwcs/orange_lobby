@@ -37,9 +37,11 @@ export type BookingCardInput = {
   state: Pick<ActivityState, "sessions" | "closed" | "mustPick" | "held">;
   /** A switch or cancel request is waiting for the desk. */
   pending: boolean;
+  /** Every held session has an arrival at its door (D334). */
+  checkedIn: boolean;
 };
 
-export function bookingCard({ state, pending }: BookingCardInput): CardView {
+export function bookingCard({ state, pending, checkedIn }: BookingCardInput): CardView {
   const { sessions } = state;
   if (sessions.length === 0) return { status: null, meta: { icon: "clock", text: "Sessions coming soon" }, action: view };
 
@@ -52,6 +54,8 @@ export function bookingCard({ state, pending }: BookingCardInput): CardView {
   const dates = { icon: "calendar" as const, text: range };
   const withSeats = { icon: "calendar" as const, text: `${range} · ${left} seat${left === 1 ? "" : "s"} left` };
 
+  // Attended outranks a waiting request: once they have been, the request is moot (D334).
+  if (checkedIn && state.held > 0) return { status: { label: "Checked in", tone: "success" }, meta: booked, action: view };
   // Order is priority: a waiting request is the thing to know, even over "Booked".
   if (pending) return { status: { label: "Waiting for the committee", tone: "warning" }, meta: booked ?? dates, action: view };
   if (state.held > 0) return { status: { label: "Booked", tone: "success" }, meta: booked, action: view };

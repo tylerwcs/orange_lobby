@@ -1,5 +1,6 @@
 import { bookingSection, passportSection, type ActivitySection } from "@/lib/portal-activities";
 import { bookingCard, formCard, passportCard, type CardView } from "@/lib/activity-card";
+import { allCheckedIn } from "@/lib/booking-door";
 import type { ActivityEntry, PassportEntry, SubmissionEntry } from "@/lib/portal-activity-entries";
 import type { Activity } from "@/lib/types";
 
@@ -29,10 +30,11 @@ export function activityCards(
 
   const bookings = entries.bookings.flatMap((entry) => {
     const pending = entry.controls.pending !== null;
-    const section = bookingSection(entry.state, pending);
+    const checkedIn = allCheckedIn(entry);
+    const section = bookingSection(entry.state, pending, checkedIn);
     if (!section) return [];
     const activity = entry.state.activity;
-    return [{ activity, view: bookingCard({ state: entry.state, pending }), href: href(activity), emphasis: section === "choose", section }];
+    return [{ activity, view: bookingCard({ state: entry.state, pending, checkedIn }), href: href(activity), emphasis: section === "choose", section }];
   });
   const inSection = (s: ActivitySection) => bookings.filter((b) => b.section === s);
 
@@ -56,6 +58,7 @@ export function activityCards(
     ...inSection("open"),
     ...forms,
     ...passports.filter((p) => p.section === "open"),
+    ...inSection("done"),
     ...passports.filter((p) => p.section === "done"),
   ];
 }

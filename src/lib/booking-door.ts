@@ -1,4 +1,5 @@
 import type { ActivityBooking, ActivitySession, Checkin, Checkpoint } from "@/lib/types";
+import type { ActivityControls } from "@/lib/activity-requests";
 
 /**
  * Booking doors (D324-D331): a checkpoint that stands for one booking activity on one day.
@@ -24,7 +25,7 @@ export type Board = { slots: BoardSlot[]; walkIns: WalkIn[]; arrived: number; ex
 export type DoorTally = { arrived: number; expected: number; walkIns: number };
 
 type Slot = Pick<ActivitySession, "id" | "starts_at" | "ends_at">;
-type Arrival = Pick<Checkin, "attendee_id" | "scanned_at">;
+type Scan = Pick<Checkin, "attendee_id" | "scanned_at">;
 type Booked = Pick<ActivityBooking, "session_id" | "attendee_id">;
 type Door = Pick<Checkpoint, "id" | "activity_id" | "day">;
 
@@ -66,7 +67,7 @@ export function slotPhases(sessions: Slot[], day: string, now: Now): Map<string,
 }
 
 /** Each attendee's first arrival. One door holds one per person, but two doors on a day can hold two. */
-function firstArrivals(checkins: Arrival[]): Map<string, string> {
+function firstArrivals(checkins: Scan[]): Map<string, string> {
   const out = new Map<string, string>();
   for (const c of checkins) {
     const had = out.get(c.attendee_id);
@@ -84,7 +85,7 @@ export function doorBoard({ day, sessions, bookings, checkins, names, now }: {
   day: string;
   sessions: ActivitySession[];
   bookings: Booked[];
-  checkins: Arrival[];
+  checkins: Scan[];
   names: ReadonlyMap<string, string>;
   now: Now;
 }): Board {
@@ -110,6 +111,30 @@ export function doorBoard({ day, sessions, bookings, checkins, names, now }: {
     .map(([id, at]) => ({ id, name: nameOf(id), at }))
     .sort((x, y) => x.at.localeCompare(y.at));
   return { slots, walkIns, arrived: [...bookers].filter((id) => arrivals.has(id)).length, expected: bookers.size };
+}
+
+/** One check-in at a booking door, as the portal reads it (D333). */
+export type Arrival = { activity_id: string; day: string; scanned_at: string };
+
+/**
+ * When the attendee arrived for each session they hold: an arrival at a door of that session's
+ * activity on its day (D333, the per-door-per-day rule of D328). Earliest wins. Sessions with
+ * no arrival are absent.
+ */
+export function sessionArrivals(held: Pick<ActivitySession, "id" | "activity_id" | "day">[], arrivals: Arrival[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const s of held) {
+    for (const a of arrivals) {
+      if (a.activity_id !== s.activity_id || a.day !== s.day) continue;
+      if (!out[s.id] || a.scanned_at < out[s.id]) out[s.id] = a.scanned_at;
+    }
+  }
+  return out;
+}
+
+/** D334: every session they hold has an arrival. False when nothing is held. */
+export function allCheckedIn(entry: { controls: Pick<ActivityControls, "held">; arrivals: Record<string, string> }): boolean {
+  return entry.controls.held.length > 0 && entry.controls.held.every((h) => Boolean(entry.arrivals[h.session.id]));
 }
 
 /** Every door's "n of m" (D331), so the door list, the scanner header, Settings and the Overview agree. */

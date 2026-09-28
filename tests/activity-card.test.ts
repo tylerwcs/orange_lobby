@@ -6,9 +6,10 @@ const seat = (day: string, starts_at: string, left: number, mine = false, locati
   session: { id: `${day}-${starts_at}`, event_id: "e", activity_id: "a", day, starts_at, ends_at: null, location, capacity: 5, sort_order: 0 } as SeatsForViewer["session"],
   booked: 5 - left, left, full: left === 0, mine,
 });
-const booking = (over: Partial<BookingCardInput["state"]> = {}, pending = false): BookingCardInput => ({
+const booking = (over: Partial<BookingCardInput["state"]> = {}, pending = false, checkedIn = false): BookingCardInput => ({
   state: { sessions: [seat("2026-09-28", "12:00", 3), seat("2026-10-02", "09:00", 2)], closed: false, mustPick: false, held: 0, ...over },
   pending,
+  checkedIn,
 });
 
 describe("dayRange", () => {
@@ -71,6 +72,21 @@ describe("bookingCard", () => {
       meta: { icon: "clock", text: "Sessions coming soon" },
       action: { label: "View", primary: false },
     });
+  });
+});
+
+describe("bookingCard — checked in (D334)", () => {
+  const held = { held: 1, sessions: [seat("2026-09-28", "12:30", 3, true), seat("2026-09-29", "09:00", 1)] };
+  it("says Checked in, keeping the booked slot as the meta line", () => {
+    const v = bookingCard(booking(held, false, true));
+    expect(v.status).toEqual({ label: "Checked in", tone: "success" });
+    expect(v.meta).toEqual(bookingCard(booking(held)).meta);
+  });
+  it("wins over a waiting request", () => {
+    expect(bookingCard(booking(held, true, true)).status).toEqual({ label: "Checked in", tone: "success" });
+  });
+  it("is Booked when not checked in", () => {
+    expect(bookingCard(booking(held)).status).toEqual({ label: "Booked", tone: "success" });
   });
 });
 

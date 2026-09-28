@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { boardsByDay, doorBoard, doorSessions, doorTallies, slotEnds, slotPhases, slotTime } from "@/lib/booking-door";
+import { allCheckedIn, boardsByDay, doorBoard, doorSessions, doorTallies, sessionArrivals, slotEnds, slotPhases, slotTime } from "@/lib/booking-door";
 import type { ActivitySession } from "@/lib/types";
+import type { SeatsForViewer } from "@/lib/activities";
 
 const DAY = "2026-09-30";
 const s = (id: string, starts_at: string, ends_at: string | null = null, extra: Partial<ActivitySession> = {}): ActivitySession =>
@@ -185,5 +186,38 @@ describe("boardsByDay", () => {
     expect([...boards.keys()]).toEqual([DAY]);
     expect(boards.get(DAY)!.arrived).toBe(2);
     expect(boards.get(DAY)!.walkIns).toEqual([]);
+  });
+});
+
+describe("sessionArrivals (D333)", () => {
+  const held = [
+    { id: "s1", activity_id: "a1", day: "2026-09-30" },
+    { id: "s2", activity_id: "a1", day: "2026-10-01" },
+  ];
+  it("matches an arrival by activity and day, earliest first", () => {
+    expect(sessionArrivals(held, [
+      { activity_id: "a1", day: "2026-09-30", scanned_at: "2026-09-30T02:09:00+00:00" },
+      { activity_id: "a1", day: "2026-09-30", scanned_at: "2026-09-30T02:01:00+00:00" },
+    ])).toEqual({ s1: "2026-09-30T02:01:00+00:00" });
+  });
+  it("ignores another activity's door and another day", () => {
+    expect(sessionArrivals(held, [
+      { activity_id: "a2", day: "2026-09-30", scanned_at: "2026-09-30T02:00:00+00:00" },
+      { activity_id: "a1", day: "2026-10-02", scanned_at: "2026-10-02T02:00:00+00:00" },
+    ])).toEqual({});
+  });
+});
+
+describe("allCheckedIn (D334)", () => {
+  const heldSeat = (id: string): SeatsForViewer => ({ session: s(id, "10:00"), booked: 0, left: 1, full: false, mine: true });
+  const entry = (heldIds: string[], arrivals: Record<string, string>) => ({ controls: { held: heldIds.map(heldSeat) }, arrivals });
+  it("is true when every held session has an arrival", () => {
+    expect(allCheckedIn(entry(["s1", "s2"], { s1: "2026-09-30T02:00:00+00:00", s2: "2026-09-30T02:00:00+00:00" }))).toBe(true);
+  });
+  it("is false when nothing is held", () => {
+    expect(allCheckedIn(entry([], {}))).toBe(false);
+  });
+  it("is false when one of two held sessions has no arrival", () => {
+    expect(allCheckedIn(entry(["s1", "s2"], { s1: "2026-09-30T02:00:00+00:00" }))).toBe(false);
   });
 });

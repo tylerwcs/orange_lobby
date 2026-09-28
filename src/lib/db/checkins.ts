@@ -1,6 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
+import type { Arrival } from "@/lib/booking-door";
 import type { Checkin, Event } from "@/lib/types";
 
 export async function recordCheckin(event: Pick<Event, "id" | "org_id">, checkpointId: string, attendeeId: string, userId: string | null): Promise<{ created: boolean; existing?: Checkin }> {
@@ -79,4 +80,23 @@ export async function getCheckin(checkpointId: string, attendeeId: string): Prom
     .eq("checkpoint_id", checkpointId).eq("attendee_id", attendeeId).maybeSingle();
   if (error) throw error;
   return data as Checkin | null;
+}
+
+/**
+ * This attendee's check-ins at booking doors (D333): their check-ins, then which of those doors
+ * stand for an activity. Two small queries; an attendee has a handful of check-ins.
+ */
+export async function bookingArrivalsFor(attendeeId: string): Promise<Arrival[]> {
+  const db = serviceClient();
+  const { data: rows, error } = await db.from("checkins").select("checkpoint_id, scanned_at").eq("attendee_id", attendeeId);
+  if (error) throw error;
+  const ids = [...new Set((rows ?? []).map((r) => r.checkpoint_id as string))];
+  if (ids.length === 0) return [];
+  const { data: doors, error: e2 } = await db.from("checkpoints").select("id, activity_id, day").in("id", ids).not("activity_id", "is", null);
+  if (e2) throw e2;
+  const byId = new Map((doors ?? []).map((d) => [d.id as string, d as { activity_id: string; day: string }]));
+  return (rows ?? []).flatMap((r) => {
+    const d = byId.get(r.checkpoint_id as string);
+    return d ? [{ activity_id: d.activity_id, day: d.day, scanned_at: r.scanned_at as string }] : [];
+  });
 }
