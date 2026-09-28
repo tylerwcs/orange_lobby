@@ -17,6 +17,15 @@
 //     partial unique index (activity_submissions_one_a_day, 0025_forms.sql, renamed in 0029) is the backstop the
 //     unique_violation handler turns back into a reason code. Exactly one call wins ('ok'), the
 //     other 19 are refused ('today'), and exactly one row lands in activity_submissions.
+//   - Scenario 3 (revoke frees both checks): a form with max_per_attendee=1 AND per_day=true gets
+//     one submission ('ok'), which is then revoked directly (status='submitted' -> 'revoked') -
+//     the admin action, done by SQL here since only the write matters, not the route around it.
+//     D339 says a revoked row stops counting toward the cap and the day, so 20 simultaneous
+//     submit_answers calls for the same attendee and the same p_today should behave exactly like
+//     a fresh attendee's first submission: one 'ok', 19 refusals ('limit' or 'today' - which one
+//     depends on the check order inside submit_answers, not on anything this script controls),
+//     and, at the end, exactly two rows for that attendee: the original, still revoked, and the
+//     new one, submitted. Proves D338/D339 hold under contention, not just sequentially.
 //
 // HOW TO RUN: npm run check:submit (equivalent to
 // `node --env-file=.env.local scripts/submit-concurrency.mjs`). Requires .env.local with
@@ -175,9 +184,79 @@ async function scenarioPerDay() {
   }
 }
 
+/**
+ * D338/D339: revoking a submission stops it counting toward the cap AND the day, so the
+ * attendee can submit again under the very rule that blocked them, on the very day it blocked
+ * them. This activity carries max_per_attendee=1 and per_day=true together, so a resubmit that
+ * races past a revoke has to clear both live checks under the same row lock scenarios 1 and 2
+ * exercise separately. Which of the two refusals ('limit' or 'today') the 19 losers get depends
+ * on submit_answers' internal check order (0053_submission_status.sql checks max_per_attendee
+ * before per_day) - an implementation detail this script does not pin down, because what
+ * actually matters is that revoking frees the slot at all, and that only one caller ever gets it.
+ */
+async function scenarioResubmitAfterRevoke() {
+  console.log(`\n--- Scenario 3: revoke frees the cap and the day, then ${PARALLEL}-way contention over the resubmit ---`);
+  const { data: event, error: eventErr } = await db.from("events")
+    .insert({ org_id: ORG_ID, slug: `zz-test-submit-3-${runId}`, name: "TEMP submit-concurrency check 3" })
+    .select("id").single();
+  if (eventErr) fail(eventErr.message);
+
+  try {
+    const { data: form, error: formErr } = await db.from("activities")
+      .insert({ org_id: ORG_ID, event_id: event.id, name: "Revoke-and-resubmit race", kind: "submission", is_open: true, max_per_attendee: 1, per_day: true })
+      .select("id").single();
+    if (formErr) fail(formErr.message);
+
+    const { data: attendee, error: attendeeErr } = await db.from("attendees")
+      .insert({ org_id: ORG_ID, event_id: event.id, token: freshToken(), name: "Resubmitter", source: "walkin", status: "active" })
+      .select("id").single();
+    if (attendeeErr) fail(attendeeErr.message);
+
+    const { data: first, error: firstErr } = await db.rpc("submit_answers",
+      { p_activity_id: form.id, p_attendee_id: attendee.id, p_answers: {}, p_today: "2026-10-01" });
+    if (firstErr) fail(firstErr.message);
+    if (first !== "ok") fail(`expected the first submit to be 'ok', got ${first}`);
+
+    const { data: original, error: originalErr } = await db.from("activity_submissions")
+      .select("id").eq("activity_id", form.id).eq("attendee_id", attendee.id).single();
+    if (originalErr) fail(originalErr.message);
+
+    const { error: revokeErr } = await db.from("activity_submissions")
+      .update({ status: "revoked" }).eq("id", original.id);
+    if (revokeErr) fail(revokeErr.message);
+
+    const results = await Promise.all(Array.from({ length: PARALLEL }, () =>
+      db.rpc("submit_answers", { p_activity_id: form.id, p_attendee_id: attendee.id, p_answers: {}, p_today: "2026-10-01" })
+        .then((r) => (r.error ? `error:${r.error.message}` : r.data))));
+
+    const tally = tallyOf(results);
+    const { data: rows, error: rowsErr } = await db.from("activity_submissions")
+      .select("id, status").eq("activity_id", form.id).eq("attendee_id", attendee.id);
+    if (rowsErr) fail(rowsErr.message);
+
+    console.log(`${PARALLEL} parallel calls ->`, tally);
+    console.log(`rows in activity_submissions: ${rows.length}`, rows.map((r) => r.status));
+
+    if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
+    const refused = (tally.limit ?? 0) + (tally.today ?? 0);
+    if (refused !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} refusals ('limit' or 'today'), got ${refused}`);
+    if (rows.length !== 2) fail(`expected 2 rows for this attendee, found ${rows.length}`);
+    const revokedCount = rows.filter((r) => r.status === "revoked").length;
+    const submittedCount = rows.filter((r) => r.status === "submitted").length;
+    if (revokedCount !== 1 || submittedCount !== 1) {
+      fail(`expected 1 revoked and 1 submitted row, got ${revokedCount} revoked, ${submittedCount} submitted`);
+    }
+    console.log("PASS: revoke freed both the cap and the day; exactly one resubmit won.");
+  } finally {
+    const { error: delErr } = await db.from("events").delete().eq("id", event.id);
+    if (delErr) console.error(`WARNING: failed to clean up event ${event.id}: ${delErr.message}`);
+  }
+}
+
 try {
   await scenarioTotalCap();
   await scenarioPerDay();
+  await scenarioResubmitAfterRevoke();
   console.log("\nALL PASS");
 } catch (err) {
   console.error(`\nFAIL: ${err.message}`);

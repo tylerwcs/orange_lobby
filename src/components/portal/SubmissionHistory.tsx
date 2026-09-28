@@ -1,7 +1,7 @@
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate } from "@/lib/text";
 import { signedSubmissionUrl } from "@/lib/db/media";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * This attendee's own submissions to one form, newest first. `submissionsForAttendee` returns
@@ -38,6 +38,9 @@ export async function SubmissionHistory({ submissions, questions }: {
           <Card key={s.id}>
             <CardHeader>
               <CardTitle className="text-[13px] font-bold text-muted-foreground">{shortDate(s.submitted_on)}</CardTitle>
+              {/* D341: their history shows an edited submission's new answers, plus this note - */}
+              {/* nothing is sent to them, so the note is the only sign anything changed. */}
+              {s.edited_at && <CardDescription className="text-[11px]">Updated by the organiser</CardDescription>}
             </CardHeader>
             {rows.length > 0 && (
               <CardContent className="flex flex-col gap-1.5">
