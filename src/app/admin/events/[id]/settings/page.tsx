@@ -2,12 +2,11 @@ import { requireAdmin } from "@/lib/auth";
 import { formKey } from "@/lib/form-key";
 import { deleteBlockedBecause } from "@/lib/event-delete";
 import { requireEvent } from "@/lib/db/events";
-import { listCheckpoints } from "@/lib/db/checkpoints";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
 import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
-import { countCheckinsByCheckpoint } from "@/lib/db/checkins";
-import { countAttendees } from "@/lib/db/attendees";
+import { loadDoors } from "@/lib/db/doors";
+import { listActivities } from "@/lib/db/activities";
 import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
@@ -81,9 +80,10 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const ev = await requireEvent(id, orgId);
   const qs = ev.registration_questions;
   const base = appBaseUrl();
-  const [cps, cpCounts, total, jar] = await Promise.all([
-    listCheckpoints(ev.id), countCheckinsByCheckpoint(ev.id), countAttendees(ev.id), cookies(),
+  const [{ cps, tallies, registered: total }, jar, bookingActivities] = await Promise.all([
+    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"),
   ]);
+  const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
   const openTab = rememberedTab(jar, tabScope, ["details", "registration", "checkpoints", "alerts", "danger"]) ?? "details";
@@ -153,7 +153,18 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
           <Modal title="New checkpoint" hint="A checkpoint is a moment on a date, so several can share one day." trigger="New checkpoint" icon="plus" iconOnly>
             <form action={addCheckpointAction.bind(null, ev.id)} className="grid gap-4 sm:grid-cols-2">
-              <Field label="Name" name="name" placeholder="Registration" />
+              {bookingActivities.length > 0 && (
+                <div className="grid gap-2 sm:col-span-2">
+                  <label className="text-sm font-medium" htmlFor="cp_activity">Who&apos;s expected</label>
+                  <select id="cp_activity" name="activity_id" className={input} defaultValue="">
+                    <option value="">Everyone registered</option>
+                    {bookingActivities.map((a) => <option key={a.id} value={a.id}>Booked for {a.name}</option>)}
+                  </select>
+                  <p className="text-xs text-muted-foreground">A booking door lists who booked that day&apos;s sessions, and shows who didn&apos;t come.</p>
+                </div>
+              )}
+              <Field label="Name" name="name" placeholder="Registration"
+                description={bookingActivities.length > 0 ? "For a booking door, leave blank to use the activity's name." : undefined} />
               <Field label="Date" name="day" type="date" defaultValue={days[0] ?? ev.starts_on} />
               <div className="sm:col-span-2"><SubmitButton>Add checkpoint</SubmitButton></div>
             </form>
@@ -176,8 +187,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                 <CheckpointList
                   day={shortDate(g.day)}
                   items={g.items}
-                  counts={cpCounts}
-                  total={total}
+                  tallies={tallies}
+                  activityNames={activityNames}
                   activeId={running?.id ?? null}
                   reorder={reorderCheckpointsAction.bind(null, ev.id, g.day)}
                   deleteCheckpoint={deleteCheckpointAction.bind(null, ev.id)}

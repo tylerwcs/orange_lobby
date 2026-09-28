@@ -24,7 +24,7 @@ import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/ag
 import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOrder } from "@/lib/db/info-tabs";
 import { parseAgendaColour } from "@/lib/agenda-colours";
 import { localInputToIso, nowInKL } from "@/lib/time";
-import { listActivities, listBookings } from "@/lib/db/activities";
+import { listActivities, listBookings, listSessions } from "@/lib/db/activities";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, moduleId, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
@@ -758,14 +758,24 @@ export async function uploadInfoImageAction(eventId: string, formData: FormData)
 export async function addCheckpointAction(eventId: string, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  const name = str(formData, "name");
+  const activityId = str(formData, "activity_id");
   const day = str(formData, "day");
   const back = `/admin/events/${eventId}/settings`;
+  // A booking door (D324) names one of this event's booking activities. Checked here, not
+  // trusted from the form: a posted id from another event or kind must not become a door.
+  const activity = activityId ? (await listActivities(ev.id, "booking")).find((a) => a.id === activityId) ?? null : null;
+  if (activityId && !activity) redirect(flashPath(back, "That activity no longer exists.", "error"));
+  // A booking door may leave the name blank; it takes the activity's.
+  const name = str(formData, "name") || activity?.name || "";
   if (!name) redirect(flashPath(back, "A checkpoint needs a name.", "error"));
   // A checkpoint names a moment on a date, so the date is not optional — several
   // checkpoints can share one day and the filters need to tell them apart.
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) redirect(flashPath(back, "Pick a date for the checkpoint.", "error"));
-  await createCheckpoint(ev, name, day);
+  // A booking door on a day with no sessions would expect nobody and could only record walk-ins.
+  if (activity && !(await listSessions(ev.id)).some((s) => s.activity_id === activity.id && s.day === day)) {
+    redirect(flashPath(back, `${activity.name} has no sessions on ${shortDate(day)}.`, "error"));
+  }
+  await createCheckpoint(ev, name, day, activity?.id ?? null);
   revalidatePath(back);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(back, `“${name}” added.`));

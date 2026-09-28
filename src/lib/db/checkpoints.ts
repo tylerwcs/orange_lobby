@@ -12,13 +12,13 @@ export async function getCheckpoint(id: string, eventId: string): Promise<Checkp
   if (error) throw error;
   return data as Checkpoint | null;
 }
-/** Appends to the end of its day: a new checkpoint is the next thing that happens, not the first. */
-export async function createCheckpoint(event: Pick<Event, "id" | "org_id">, name: string, day: string) {
+/** Appends to the end of its day: a new checkpoint is the next thing that happens, not the first. `activityId` makes it a booking door (D324). */
+export async function createCheckpoint(event: Pick<Event, "id" | "org_id">, name: string, day: string, activityId: string | null = null) {
   const db = serviceClient();
   const { data: last } = await db.from("checkpoints").select("sort_order")
     .eq("event_id", event.id).eq("day", day).order("sort_order", { ascending: false }).limit(1).maybeSingle();
   const sort_order = (last?.sort_order ?? -1) + 1;
-  const { error } = await db.from("checkpoints").insert({ org_id: event.org_id, event_id: event.id, name, day, sort_order });
+  const { error } = await db.from("checkpoints").insert({ org_id: event.org_id, event_id: event.id, name, day, sort_order, activity_id: activityId });
   if (error) throw error;
 }
 

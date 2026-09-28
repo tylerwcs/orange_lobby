@@ -1,6 +1,7 @@
 "use client";
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import type { Checkpoint } from "@/lib/types";
+import type { DoorTally } from "@/lib/booking-door";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
 import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
@@ -16,11 +17,13 @@ type Reorder = (ids: string[]) => Promise<void>;
  * go through `moveItem`, so they cannot drift apart, and both save immediately — there
  * is no separate "save order" step to forget.
  */
-export function CheckpointList({ day, items, counts, total, activeId, reorder, deleteCheckpoint }: {
+export function CheckpointList({ day, items, tallies, activityNames, activeId, reorder, deleteCheckpoint }: {
   day: string;
   items: Checkpoint[];
-  counts: Record<string, number>;
-  total: number;
+  /** Each door's "n of m" (D331). */
+  tallies: Record<string, DoorTally>;
+  /** Booking activity names by id, for a booking door's badge. */
+  activityNames: Record<string, string>;
   /** The checkpoint the event is running. Chosen on the Overview, only shown here. */
   activeId: string | null;
   reorder: Reorder;
@@ -51,7 +54,9 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
     <div>
       <ul className="divide-y divide-border" aria-busy={pending}>
         {order.map((c, i) => {
-          const n = counts[c.id] ?? 0;
+          const t = tallies[c.id] ?? { arrived: 0, expected: 0, walkIns: 0 };
+          const n = t.arrived + t.walkIns; // every check-in the door holds, for the delete warning
+          const walkIns = t.walkIns ? ` · ${t.walkIns} walk-in${t.walkIns === 1 ? "" : "s"}` : "";
           return (
             <li
               key={c.id}
@@ -84,9 +89,12 @@ export function CheckpointList({ day, items, counts, total, activeId, reorder, d
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold">{c.name}</span>
+                  {c.activity_id && <Badge variant="secondary">Booked for {activityNames[c.activity_id] ?? "an activity"}</Badge>}
                   {c.id === activeId && <Badge variant="success">Running now</Badge>}
                 </div>
-                <div className="text-xs font-semibold text-muted-foreground tabular-nums">{n} of {total} checked in</div>
+                <div className="text-xs font-semibold text-muted-foreground tabular-nums">
+                  {c.activity_id ? `${t.arrived} of ${t.expected} booked in${walkIns}` : `${t.arrived} of ${t.expected} checked in`}
+                </div>
               </div>
               <RowMoveContext.Provider value={{ up: i > 0 ? () => move(i, i - 1) : null, down: i < order.length - 1 ? () => move(i, i + 1) : null }}>
                 <RowActions
