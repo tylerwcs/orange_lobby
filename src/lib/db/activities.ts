@@ -349,6 +349,14 @@ export async function submissionsForAttendee(attendeeId: string): Promise<Activi
   return (data ?? []) as ActivitySubmission[];
 }
 
+// D353: every member reads the same rows - the group's live entries, whoever sent them.
+export async function submissionsForGroup(groupId: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("group_id", groupId).eq("status", "submitted").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
+}
+
 export async function getSubmission(id: string): Promise<ActivitySubmission | null> {
   const { data, error } = await serviceClient().from("activity_submissions").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
