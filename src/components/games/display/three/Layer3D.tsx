@@ -4,6 +4,8 @@ import type { Synth } from "@/lib/games/sound";
 import { celebrationDelay, emptyCelebration, showKey } from "@/lib/games/views";
 import { MAX_REELS } from "@/lib/games/layout";
 import { QUICK_SPIN_MS } from "@/lib/games/phase";
+import { WAITING_FACE } from "@/lib/games/cards";
+import type { Person } from "@/lib/games/wire";
 import Stage3D from "./Stage3D";
 import { ThemeBackdrop } from "./ThemeBackdrop";
 import { Confetti3D } from "./Confetti3D";
@@ -29,13 +31,18 @@ export default function Layer3D({ state, offset, synth, theme, onLost }: { state
   );
 }
 
+/** The waiting reel's props, module constants so no poll hands the reel new ones. */
+const WAITING_REEL: Person[] = [WAITING_FACE];
+const NO_NAMES: Person[] = [];
+
 /** Which 3D draw scene is on (D313–D317). */
 function DrawScene3D({ state, offset, synth }: { state: DisplayState; offset: number; synth: Synth }) {
   const s = state.stage;
   const d = state.draw;
   if (!d) return null;
   if (d.format === "cards" && d.cards) {
-    // A card round (D317): the reel waits (still, on the pool's first sample name), spins, and
+    // A card round (D317): the reel waits (still, "?" on every face — no one's name before a
+    // spin; a constant key and face, so it never remounts as the pool changes), spins, and
     // stays landed on the participant until the host shows the cards; then the card table. The
     // spin and its landed reel share one key, so the reel stays mounted when it stops; the
     // participant is unique to that spin in the run (draw_spin never draws a standing or voided
@@ -44,9 +51,8 @@ function DrawScene3D({ state, offset, synth }: { state: DisplayState; offset: nu
     // moved does).
     const left = d.cards.slots.some((c) => !c.taken);
     if (s.phase === "draw_ready") {
-      const still = d.sample[0];
-      return left && still
-        ? <SlotReels key="waiting" still targets={[still]} sample={d.sample} endsAt={0} spinMs={QUICK_SPIN_MS} offset={offset} synth={synth} />
+      return left
+        ? <SlotReels key="waiting" still targets={WAITING_REEL} sample={NO_NAMES} endsAt={0} spinMs={QUICK_SPIN_MS} offset={offset} synth={synth} />
         : null;
     }
     const spin = d.targets?.length ? `turn:${d.targets.map((t) => t.id).join(",")}` : null;

@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import type { HostState } from "@/lib/games/wire";
 import { canReveal, type Phase, type StageRow } from "@/lib/games/phase";
 import { DRAW_FORMAT_LABELS, GAME_KIND_LABELS } from "@/lib/games/config";
+import { cardsLeftLabel } from "@/lib/games/cards";
 import { HOST_INTERVAL } from "@/lib/games/poll";
 import { isOver } from "@/lib/games/survival";
 import { OPTION_STYLES, type PublicStage } from "@/lib/games/views";
@@ -169,7 +170,7 @@ export function HostConsole({ token, initial }: { token: string; initial: HostSt
           <>
             <p className="text-sm font-bold">{DRAW_FORMAT_LABELS[state.hostDraw.format]}</p>
             {state.hostDraw.format === "cards"
-              ? <p className="text-sm text-muted-foreground">{state.hostDraw.cardsLeft ?? 0} cards left · {state.draw?.pool ?? 0} eligible</p>
+              ? <p className="text-sm text-muted-foreground">{cardsLeftLabel(state.hostDraw.cardsLeft ?? 0)} · {state.draw?.pool ?? 0} eligible</p>
               : (
                 <>
                   <Facts rows={state.hostDraw.progress.map((p) => [p.name, `${p.given}/${p.quantity}`])} />

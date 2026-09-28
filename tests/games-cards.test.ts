@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cardsLeft, cardsView, dealDeck, secureRandom } from "@/lib/games/cards";
+import { cardsLeft, cardsLeftLabel, cardsView, dealDeck, secureRandom, WAITING_FACE } from "@/lib/games/cards";
+import { wheelLabel } from "@/lib/games/wheel";
 import type { PrizeProgress, WinnerRow } from "@/lib/games/draw";
 
 const progress = (quantities: number[], given: number[] = []): PrizeProgress[] =>
@@ -62,5 +63,14 @@ describe("cardsView (D317)", () => {
   });
   it("counts the cards left", () => {
     expect(cardsLeft(deck, [win("a", 2, 1), win("b", 1, 0)], "r1")).toBe(1);
+  });
+});
+
+describe("card round wording and the waiting reel", () => {
+  it("says card or cards by count", () => {
+    expect([0, 1, 2, 9].map(cardsLeftLabel)).toEqual(["0 cards left", "1 card left", "2 cards left", "9 cards left"]);
+  });
+  it("shows only a question mark on the waiting reel's face, never a name", () => {
+    expect(wheelLabel(WAITING_FACE)).toBe("?");
   });
 });

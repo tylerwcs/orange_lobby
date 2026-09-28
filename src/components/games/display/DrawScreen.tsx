@@ -37,8 +37,8 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
     if (s.phase === "draw_ready" && left === 0) {
       return <Frame><div className="flex h-full items-center justify-center font-game text-8xl">All cards dealt 🎉</div></Frame>;
     }
-    // Layer3D draws the waiting reel from the sample's first name, and the landed one from targets.
-    const reel = s.phase === "draw_ready" ? d.sample.length > 0 : s.phase === "draw_card_landed" && (d.targets?.length ?? 0) > 0;
+    // Layer3D draws the waiting reel ("?" on every face) and the landed one from targets.
+    const reel = s.phase === "draw_ready" || (s.phase === "draw_card_landed" && (d.targets?.length ?? 0) > 0);
     return <Frame>{reel && <ReelFrames count={1} />}</Frame>;
   }
 

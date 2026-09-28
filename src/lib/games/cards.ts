@@ -1,5 +1,18 @@
 import type { Prize } from "@/lib/games/config";
 import type { PrizeProgress, WinnerRow } from "@/lib/games/draw";
+import type { Person } from "@/lib/games/wire";
+
+/**
+ * The face on every side of a card round's waiting reel: a question mark, never a name, so the
+ * room cannot read a resting reel as a pick. wheelLabel renders it as just "?". The id is fixed,
+ * so the waiting reel never remounts or redraws when the pool changes.
+ */
+export const WAITING_FACE: Person = { id: "waiting", first: "?", initials: "?" };
+
+/** "1 card left", "2 cards left". */
+export function cardsLeftLabel(n: number): string {
+  return `${n} ${n === 1 ? "card" : "cards"} left`;
+}
 
 /** A uniform number in [0, 1) from the platform's cryptographic source. */
 export function secureRandom(): number {
