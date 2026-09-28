@@ -1,6 +1,6 @@
 import { categoryMatches } from "@/lib/agenda";
 import { lastDays, daysBetween } from "@/lib/time";
-import type { Activity, ActivitySubmission, RegistrationQuestion } from "@/lib/types";
+import type { Activity, ActivitySubmission, RegistrationQuestion, GroupMode } from "@/lib/types";
 import type { GroupProgress } from "@/lib/groups";
 
 /** How many questions a submission activity's editor offers, mirroring `MAX_QUESTIONS` for registration. */
@@ -219,4 +219,27 @@ export function readSubmissionDetails(get: (key: string) => string | null): Pick
   const action_label = val("action_label");
   if (action_label && action_label.length > MAX_LABEL) throw new Error(`Keep the button wording to ${MAX_LABEL} characters or fewer.`);
   return { starts_on, ends_on, venue: val("venue"), action_label };
+}
+
+/** D350: the Setup tab's "Who submits". Throws the sentence the organiser reads. */
+export function readGroupRule(get: (key: string) => string | null): { group_mode: GroupMode; group_target: number | null } {
+  const mode = get("group_mode");
+  if (mode === "everyone") return { group_mode: "everyone", group_target: null };
+  if (mode !== "entries") return { group_mode: "off", group_target: null };
+  const n = Number.parseInt(get("group_target")?.trim() ?? "", 10);
+  if (!Number.isInteger(n) || n < 1 || n > 50) throw new Error("Entries per group must be a whole number between 1 and 50.");
+  return { group_mode: "entries", group_target: n };
+}
+
+/** D356: who submits is fixed once entries exist. The sentence, or null when the save may go ahead. */
+export function groupRuleChangeBlocked(
+  current: Pick<Activity, "group_mode" | "group_target">,
+  next: { group_mode: GroupMode; group_target: number | null },
+  liveCount: number,
+): string | null {
+  if (liveCount === 0) return null;
+  if (current.group_mode === next.group_mode && current.group_target === next.group_target) return null;
+  return liveCount === 1
+    ? "This form has 1 submission. Revoke it before changing who submits."
+    : `This form has ${liveCount} submissions. Revoke them before changing who submits.`;
 }

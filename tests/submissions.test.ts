@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canSubmit, capSummary, missingFrom, participation, liveSubmissions, perDayCollision } from "@/lib/submissions";
-import { readSubmissionDetails, submitLabel } from "@/lib/submissions";
+import { readSubmissionDetails, submitLabel, readGroupRule, groupRuleChangeBlocked } from "@/lib/submissions";
 import type { Activity, ActivitySubmission } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}): Activity => ({
@@ -289,5 +289,33 @@ describe("capSummary on a group form", () => {
     expect(capSummary({ per_day: false, max_per_attendee: null, group_mode: "entries", group_target: 3 })).toBe("3 entries per group");
     expect(capSummary({ per_day: false, max_per_attendee: null, group_mode: "entries", group_target: 1 })).toBe("1 entry per group");
     expect(capSummary({ per_day: false, max_per_attendee: null, group_mode: "everyone", group_target: null })).toBe("Every group member");
+  });
+});
+
+describe("readGroupRule (D350)", () => {
+  const get = (m: Record<string, string>) => (k: string) => m[k] ?? null;
+  it("reads each mode", () => {
+    expect(readGroupRule(get({}))).toEqual({ group_mode: "off", group_target: null });
+    expect(readGroupRule(get({ group_mode: "everyone", group_target: "4" }))).toEqual({ group_mode: "everyone", group_target: null });
+    expect(readGroupRule(get({ group_mode: "entries", group_target: "3" }))).toEqual({ group_mode: "entries", group_target: 3 });
+  });
+  it("refuses a bad target, and treats an unknown mode as off", () => {
+    expect(() => readGroupRule(get({ group_mode: "entries", group_target: "0" }))).toThrow("between 1 and 50");
+    expect(() => readGroupRule(get({ group_mode: "entries", group_target: "" }))).toThrow("between 1 and 50");
+    expect(readGroupRule(get({ group_mode: "nonsense" })).group_mode).toBe("off");
+  });
+});
+
+describe("groupRuleChangeBlocked (D356)", () => {
+  const cur = { group_mode: "entries" as const, group_target: 2 };
+  it("allows any change with no live submissions", () => {
+    expect(groupRuleChangeBlocked(cur, { group_mode: "off", group_target: null }, 0)).toBeNull();
+  });
+  it("allows saving the same rule", () => {
+    expect(groupRuleChangeBlocked(cur, { group_mode: "entries", group_target: 2 }, 5)).toBeNull();
+  });
+  it("refuses a change to the mode or the target once there are live submissions", () => {
+    expect(groupRuleChangeBlocked(cur, { group_mode: "entries", group_target: 3 }, 1)).toBe("This form has 1 submission. Revoke it before changing who submits.");
+    expect(groupRuleChangeBlocked(cur, { group_mode: "off", group_target: null }, 3)).toBe("This form has 3 submissions. Revoke them before changing who submits.");
   });
 });

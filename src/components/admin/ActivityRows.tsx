@@ -12,9 +12,7 @@ import { RichTextEditor, SECTIONS_HINT, type UploadImage } from "@/components/ad
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { ActivityMenu, type ActivityMenuProps } from "@/components/admin/ActivityMenu";
-
-const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-const check = "flex items-center gap-2 text-sm font-bold";
+import { WhoSubmitsFields } from "@/components/admin/WhoSubmitsFields";
 
 /** The hint under every activity's image field, every kind. */
 export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 KB. The card crops it to a 2:1 strip and the page shows it whole, so at 2:1 nothing is cut off.";
@@ -46,15 +44,7 @@ export function SubmissionFields({ activity, categories, uploadImage }: { activi
       <Field label="Button wording (optional)" name="action_label" defaultValue={activity?.action_label} placeholder="Submit"
         description="What the button on the attendee's page says, like Join now or Upload results. Leave blank for Submit." />
       <CategoryCombo categories={categories} defaultValue={activity?.categories ?? []} />
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="max_per_attendee" className="text-sm font-bold">Total submissions per person (optional)</label>
-        <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={366}
-          defaultValue={activity?.max_per_attendee ?? ""} placeholder="Unlimited" inputMode="numeric" className={`${input} max-w-32 tabular-nums`} />
-      </div>
-      <label className={check}>
-        <input type="checkbox" name="per_day" defaultChecked={activity?.per_day ?? false} className="size-4" />
-        At most one submission per day, on top of the total above
-      </label>
+      <WhoSubmitsFields activity={activity} />
       <div className="flex flex-col gap-1.5">
         <h3 className="text-sm font-extrabold">Questions</h3>
         <QuestionCards questions={activity?.questions ?? []} types={FORM_QUESTION_TYPES} max={MAX_SUBMISSION_QUESTIONS} />

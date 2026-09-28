@@ -19,12 +19,12 @@ import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, t
 import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
-import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, perDayCollision } from "@/lib/submissions";
+import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, perDayCollision, readGroupRule, groupRuleChangeBlocked, liveSubmissions } from "@/lib/submissions";
 import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
 import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
 import { readPassportSettings } from "@/lib/booths";
-import type { Activity, Event } from "@/lib/types";
+import type { Activity, Event, GroupMode } from "@/lib/types";
 import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
 import { activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { shortDate } from "@/lib/text";
@@ -200,7 +200,8 @@ function isPerDayCollision(e: unknown): boolean {
  * from creation onward. Throws on anything invalid; both actions below catch that and turn it
  * into a flash rather than a 500.
  */
-function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label"> {
+function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label">
+  & { group_mode: GroupMode; group_target: number | null } {
   const name = text(fd, "name");
   if (!name) throw new Error("A submission needs a name");
   const details = readSubmissionDetails((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; });
@@ -217,14 +218,17 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
     FORM_QUESTION_TYPES,
     MAX_SUBMISSION_QUESTIONS,
   );
+  const group = readGroupRule((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; });
   return {
     name,
     description: cleanRichText(text(fd, "description")),
     categories: parseCategories(categoryValues(fd)),
-    max_per_attendee,
-    per_day: checked(fd, "per_day"),
+    // D351: a group form carries no per-person rules - the group's own rule replaces them.
+    max_per_attendee: group.group_mode === "off" ? max_per_attendee : null,
+    per_day: group.group_mode === "off" ? checked(fd, "per_day") : false,
     questions,
     ...details,
+    ...group,
   };
 }
 
@@ -280,6 +284,10 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
     redirect(flashPath(back, (e as Error).message, "error"));
   }
   const current = await submissionOf(ev, activityId);
+  // D356: who submits is fixed while the form holds live entries - a group form's entries
+  // mean nothing under another rule. Refused before any upload, so nothing is left behind.
+  const blocked = groupRuleChangeBlocked(current, policy, liveSubmissions(await submissionsForActivity(activityId)).length);
+  if (blocked) redirect(flashPath(back, blocked, "error"));
   // Before syncSubmissionPerDay rather than after it: that call rewrites the submissions
   // themselves, so a picture refused after it would leave them out of step with the form.
   let image: ImageChange = { url: current.image_url, stale: null };
