@@ -34,8 +34,13 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   passports: PassportEntry[];
   people: Record<string, { name: string; movedTo: string | null }>;
 }> {
-  const [activities, sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs] = await Promise.all([
-    portalActivities(event.id),
+  // Read first: whether any group reads are worth doing at all depends on it. Most attendees
+  // are not in a group, and most events run no group form, so this keeps `groupMembers` and
+  // `submissionsForGroup` off the hot path for every other page load.
+  const activities = await portalActivities(event.id);
+  const hasGroupForm = attendee.group_id !== null && activities.some((a) => a.kind === "submission" && a.group_mode !== "off");
+
+  const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs] = await Promise.all([
     listSessions(event.id),
     countBookingsBySession(event.id),
     portalBookings(attendee.id),
@@ -44,8 +49,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     listBooths(event.id),
     stampsForAttendee(attendee.id),
     event.check_in_enabled ? bookingArrivalsFor(attendee.id) : Promise.resolve([]),
-    attendee.group_id ? groupMembers(event.id, attendee.group_id) : Promise.resolve([]),
-    attendee.group_id ? submissionsForGroup(attendee.group_id) : Promise.resolve([]),
+    hasGroupForm ? groupMembers(event.id, attendee.group_id!) : Promise.resolve([]),
+    hasGroupForm ? submissionsForGroup(attendee.group_id!) : Promise.resolve([]),
   ]);
 
   const mineBySession = new Set(mine.map((b) => b.session_id));
@@ -74,8 +79,13 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
 
   // Names for every entry on show. A former member (D355) is not in `members`, so they are
   // looked up, with where they are now. Only then are the event's groups read.
+  //
+  // Drawn from `forms[*].group.entries`, not the raw `groupSubs` read: each form's `group` is
+  // built by `groupProgress` (live rows only, that form's own activity), so this can't surface
+  // someone from a revoked submission or from a form that no longer runs as a group form.
   const people: Record<string, { name: string; movedTo: string | null }> = Object.fromEntries(members.map((m) => [m.id, { name: m.name, movedTo: null }]));
-  const former = [...new Set(groupSubs.map((s) => s.attendee_id))].filter((id) => !people[id]);
+  const groupEntryIds = new Set(forms.flatMap((f) => f.group?.entries.map((e) => e.attendee_id) ?? []));
+  const former = [...groupEntryIds].filter((id) => !people[id]);
   if (former.length) {
     const [gone, groups] = await Promise.all([listAttendeesByIds(event.id, former), listGroups(event.id)]);
     const groupName = new Map(groups.map((g) => [g.id, g.name]));

@@ -4,9 +4,11 @@ import { signedSubmissionUrl } from "@/lib/db/media";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
- * This attendee's own submissions to one form, newest first. `submissionsForAttendee` returns
- * every form this attendee has ever answered, so the caller filters to `form_id` before handing
- * the list here — this component only renders what it is given.
+ * One list of submissions, newest first - this component only renders what it is given. Usually
+ * this attendee's own answers to one form (`submissionsForAttendee` returns every form they have
+ * ever answered, so the caller filters to `form_id` first); `GroupStatus` reuses it for a whole
+ * group's entries to one group form, overriding `title`, `empty` and `byline` to say whose entry
+ * each card is, rather than whose it always is.
  *
  * Async because a `file` answer holds an object path, not something to show as-is (D168): the
  * link is a signed URL minted right here, at render time, rather than stored anywhere — a
@@ -37,6 +39,7 @@ export async function SubmissionHistory({ submissions, questions, title = "Your 
           value,
           href: isFile(key) ? await signedSubmissionUrl(value) : null,
         })));
+        const by = byline?.(s);
         return (
           <Card key={s.id}>
             <CardHeader>
@@ -44,7 +47,7 @@ export async function SubmissionHistory({ submissions, questions, title = "Your 
               {/* D341: their history shows an edited submission's new answers, plus this note - */}
               {/* nothing is sent to them, so the note is the only sign anything changed. */}
               {s.edited_at && <CardDescription className="text-[11px]">Updated by the organiser</CardDescription>}
-              {byline?.(s) && <CardDescription className="text-[11px]">{byline(s)}</CardDescription>}
+              {by && <CardDescription className="text-[11px]">{by}</CardDescription>}
             </CardHeader>
             {rows.length > 0 && (
               <CardContent className="flex flex-col gap-1.5">

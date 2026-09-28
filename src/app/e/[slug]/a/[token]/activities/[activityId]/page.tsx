@@ -169,7 +169,15 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
       <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f) }]} />
       <RichSections html={f.description} />
       <section className={block}>
-        {f.group_mode !== "off" ? (
+        {f.group_mode === "off" && (
+          <>
+            {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
+            <SubmissionHistory submissions={mine} questions={f.questions} />
+          </>
+        )}
+        {/* D352: an ineligible viewer gets the plain note below, not the group block - it names */}
+        {/* a group they aren't measured against. */}
+        {f.group_mode !== "off" && state.reason !== "ineligible" && (
           <>
             {/* D353: at most one banner - the group being done trumps any per-person reason. */}
             {group?.done ? (
@@ -179,11 +187,6 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
             ) : null}
             {group && <GroupStatus form={f} group={group} people={people} selfId={selfId} />}
             {state.reason === "nogroup" && <p className={note}>You need to be in a group to submit this.</p>}
-          </>
-        ) : (
-          <>
-            {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
-            <SubmissionHistory submissions={mine} questions={f.questions} />
           </>
         )}
         {state.reason === "closed" && <p className={`mt-3 ${note}`}>Submissions for this are closed.</p>}
