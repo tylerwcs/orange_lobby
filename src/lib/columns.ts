@@ -126,10 +126,10 @@ export function orderedColumns(columns: ColumnDef[], order: string[]): ColumnDef
  */
 export function defaultHidden(columns: ColumnDef[]): string[] {
   return columns
-    // A breakout round is the exception to "everything but the built-ins starts hidden":
-    // the column exists so an organiser can see who is in which room without opening
-    // anybody, and a hidden one is the same as no column at all.
-    .filter((c) => c.source !== "breakout")
+    // A breakout round and the Group column are the exception to "everything but the
+    // built-ins starts hidden": each exists so an organiser can see who is in which room, or
+    // which group, without opening anybody, and a hidden one is the same as no column at all.
+    .filter((c) => c.source !== "breakout" && c.source !== "group")
     // Mobile and Table left BUILTIN_COLUMNS when migration 0014 turned them into ordinary
     // fields, but a viewer opening the table for the first time — a new laptop at the
     // registration desk — still needs to see them without opening the Columns menu, the same

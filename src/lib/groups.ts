@@ -4,8 +4,13 @@ import { fieldValue } from "@/lib/attendee-values";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Activity, ActivitySubmission, Attendee, EventGroup, GroupMode } from "@/lib/types";
 
-/** The attendee table's Group column, and the bulk editor's key for it (D346). */
-export const GROUP_COLUMN_KEY = "group";
+/**
+ * The attendee table's Group column, and the bulk editor's key for it (D346). Leading `:`
+ * keeps it out of reach of an ordinary field: `fieldKey()` builds a key with `slugify`, which
+ * never produces a colon, so a custom column or an imported "Group" header can be keyed
+ * "group" and still be a column distinct from this one — the same trick as "breakout:<slot>".
+ */
+export const GROUP_COLUMN_KEY = ":group";
 
 export type GroupMember = Pick<Attendee, "id" | "name" | "category">;
 

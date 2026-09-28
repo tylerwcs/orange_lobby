@@ -4,6 +4,7 @@ import {
   hiddenFromCookie, hiddenToCookie, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderedColumns, PAGE_SIZES,
   parseTablePrefs, serialiseTablePrefs, tableCookieName, visibleColumns, type TablePrefs,
 } from "@/lib/columns";
+import { GROUP_COLUMN_KEY } from "@/lib/groups";
 import type { AttendeeField } from "@/lib/attendee-fields";
 
 const registration: AttendeeField[] = [
@@ -212,8 +213,29 @@ describe("breakout rounds as table columns", () => {
 
 describe("the Group column", () => {
   it("puts the Group column last, owned by the Groups page", () => {
-    const cols = allColumns([], [], [], [{ key: "group", label: "Group", type: "select", options: ["Red"] }]);
-    expect(cols.at(-1)).toEqual({ key: "group", label: "Group", source: "group" });
+    const cols = allColumns([], [], [], [{ key: GROUP_COLUMN_KEY, label: "Group", type: "select", options: ["Red"] }]);
+    expect(cols.at(-1)).toEqual({ key: GROUP_COLUMN_KEY, label: "Group", source: "group" });
+  });
+
+  it("stays distinct from a custom field an organiser or a masterlist import keyed \"group\"", () => {
+    // GROUP_COLUMN_KEY is ":group" precisely so this cannot collide: `fieldKey()` slugifies
+    // a label, which can never produce a colon, so an ordinary column keyed "group" (from
+    // "Add a column" labelled "Group", or a masterlist "Group" header) and the system's own
+    // Group column are always two columns, never one merged or overwritten by the other.
+    const customGroupField: AttendeeField[] = [{ key: "group", label: "Group", type: "text" }];
+    const groupColumn: AttendeeField[] = [{ key: GROUP_COLUMN_KEY, label: "Group", type: "select", options: ["Red"] }];
+    const cols = allColumns(registration, [...fields, ...customGroupField], [], groupColumn);
+    expect(cols.filter((c) => c.label === "Group")).toEqual([
+      { key: "group", label: "Group", source: "custom" },
+      { key: GROUP_COLUMN_KEY, label: "Group", source: "group" },
+    ]);
+  });
+
+  it("starts visible by default, like a breakout round", () => {
+    // The whole point of the column is to see who is in which group without opening anyone,
+    // so starting hidden would be the same as not having it.
+    const cols = allColumns(registration, fields, [], [{ key: GROUP_COLUMN_KEY, label: "Group", type: "select", options: ["Red"] }]);
+    expect(defaultHidden(cols)).not.toContain(GROUP_COLUMN_KEY);
   });
 });
 
