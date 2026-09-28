@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listAttendees } from "@/lib/db/attendees";
-import { listGroups, liveGroupEntryCount } from "@/lib/db/groups";
+import { listGroups, liveEntryCountsByGroup } from "@/lib/db/groups";
 import { eventFields, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
@@ -32,8 +32,9 @@ export default async function Groups({ params, searchParams }: { params: Promise
   const counts = new Map<string, number>();
   for (const a of attendees) if (a.group_id) counts.set(a.group_id, (counts.get(a.group_id) ?? 0) + 1);
   const grouped = attendees.filter((a) => a.group_id).length;
-  // D349's confirmation names what a delete leaves behind. One small count per group.
-  const entries = new Map(await Promise.all(groups.map(async (g) => [g.id, await liveGroupEntryCount(ev.id, g.id)] as const)));
+  // D349's confirmation names what a delete leaves behind. F5: one query for every group's
+  // count, not one query per row.
+  const entries = await liveEntryCountsByGroup(ev.id);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   const shared = ev.group_fields.filter((k) => fields.some((f) => f.key === k));
 

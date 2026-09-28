@@ -79,7 +79,9 @@ export async function addToGroupAction(eventId: string, groupId: string, fd: For
 
 export async function removeFromGroupAction(eventId: string, groupId: string, attendeeId: string) {
   const ev = await event(eventId);
-  await setGroupMembers(ev.id, [attendeeId], null);
+  // F6: scoped to `groupId` so a stale page can't pull someone out of a group they were just
+  // moved to since this page was loaded.
+  await setGroupMembers(ev.id, [attendeeId], null, groupId);
   revalidatePath(detail(eventId, groupId));
   redirect(flashPath(detail(eventId, groupId), "Removed from the group."));
 }

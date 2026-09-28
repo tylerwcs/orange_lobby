@@ -71,13 +71,19 @@ const ID_CHUNK = 100;
  * Puts these attendees in `groupId`, or out of any group with null (D344: one column, so moving
  * is one write). Scoped by event: an id from another event matches nothing, and the composite
  * foreign key refuses a group from another event outright.
+ *
+ * F6: `onlyFrom`, when given, also requires `group_id = onlyFrom` — a remove acts on stale data
+ * otherwise: from a page that has not seen a since-happened move, it would pull someone out of
+ * the group they are actually in now, not the one the page still shows them in.
  */
-export async function setGroupMembers(eventId: string, attendeeIds: string[], groupId: string | null): Promise<void> {
+export async function setGroupMembers(eventId: string, attendeeIds: string[], groupId: string | null, onlyFrom?: string): Promise<void> {
   const ids = [...new Set(attendeeIds)];
   for (let i = 0; i < ids.length; i += ID_CHUNK) {
-    const { error } = await serviceClient().from("attendees")
+    let q = serviceClient().from("attendees")
       .update({ group_id: groupId, updated_at: new Date().toISOString() })
       .eq("event_id", eventId).in("id", ids.slice(i, i + ID_CHUNK));
+    if (onlyFrom) q = q.eq("group_id", onlyFrom);
+    const { error } = await q;
     if (error) throw error;
   }
 }
@@ -88,4 +94,21 @@ export async function liveGroupEntryCount(eventId: string, groupId: string): Pro
     .eq("event_id", eventId).eq("group_id", groupId).eq("status", "submitted");
   if (error) throw error;
   return count ?? 0;
+}
+
+/**
+ * F5: the same count as `liveGroupEntryCount`, for every group in one query rather than one per
+ * row — what the Groups list wants, and `liveGroupEntryCount` stays for the single group a
+ * delete confirmation asks about.
+ */
+export async function liveEntryCountsByGroup(eventId: string): Promise<Map<string, number>> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("group_id")
+    .eq("event_id", eventId).eq("status", "submitted").not("group_id", "is", null);
+  if (error) throw error;
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const groupId = row.group_id as string | null;
+    if (groupId) counts.set(groupId, (counts.get(groupId) ?? 0) + 1);
+  }
+  return counts;
 }
