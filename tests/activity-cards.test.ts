@@ -22,7 +22,7 @@ const booking = (id: string, over: Partial<Activity> = {}, held = false, categor
   return { state, controls: activityControls(state, null), pendingId: null, arrivals };
 };
 const form = (id: string, reason: SubmitReason = "ok"): SubmissionEntry => ({
-  form: activity(id, { kind: "submission" }), state: { can: reason === "ok", reason, used: 0 }, mine: [],
+  form: activity(id, { kind: "submission" }), state: { can: reason === "ok", reason, used: 0 }, mine: [], group: null,
 });
 const passport = (id: string, complete: boolean): PassportEntry => ({
   activity: activity(id, { kind: "passport" }),

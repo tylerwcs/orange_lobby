@@ -12,6 +12,7 @@ import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAc
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { buttonVariants } from "@/components/ui/button";
 import { SubmissionHistory } from "@/components/portal/SubmissionHistory";
+import { GroupStatus } from "@/components/portal/GroupStatus";
 import { SubmissionFields } from "@/components/portal/SubmissionFields";
 import { ActivitySessions } from "@/components/portal/ActivitySessions";
 import { ActivityBooking } from "@/components/portal/ActivityBooking";
@@ -45,7 +46,7 @@ export default async function ActivityPage({ params, searchParams }: {
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const { bookings, submissions, passports } = await loadActivityEntries(event, attendee);
+  const { bookings, submissions, passports, people } = await loadActivityEntries(event, attendee);
   const basePath = `/e/${slug}/a/${token}`;
 
   const booking = bookings.find((b) => b.state.activity.id === activityId && b.state.eligible);
@@ -64,7 +65,7 @@ export default async function ActivityPage({ params, searchParams }: {
       {booking
         ? <BookingBody entry={booking} slug={slug} token={token} />
         : form
-          ? <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} />
+          ? <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} />
           : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
     </div>
   );
@@ -154,11 +155,13 @@ function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, to
   );
 }
 
-function SubmissionBody({ entry: { form: f, state, mine }, slug, token, writing }: {
+function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, writing, people, selfId }: {
   entry: SubmissionEntry;
   slug: string;
   token: string;
   writing: boolean;
+  people: Record<string, { name: string; movedTo: string | null }>;
+  selfId: string;
 }) {
   const dates = f.starts_on ? dayRange([f.starts_on, f.ends_on ?? f.starts_on]) : null;
   return (
@@ -166,13 +169,28 @@ function SubmissionBody({ entry: { form: f, state, mine }, slug, token, writing 
       <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f) }]} />
       <RichSections html={f.description} />
       <section className={block}>
-        {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
-        <SubmissionHistory submissions={mine} questions={f.questions} />
+        {f.group_mode !== "off" ? (
+          <>
+            {/* D353: at most one banner - the group being done trumps any per-person reason. */}
+            {group?.done ? (
+              <GroupDone text="Your group is done" />
+            ) : state.reason === "limit" && group ? (
+              <GroupDone text={`You've submitted — waiting on ${group.need - group.have} other${group.need - group.have === 1 ? "" : "s"}`} />
+            ) : null}
+            {group && <GroupStatus form={f} group={group} people={people} selfId={selfId} />}
+            {state.reason === "nogroup" && <p className={note}>You need to be in a group to submit this.</p>}
+          </>
+        ) : (
+          <>
+            {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
+            <SubmissionHistory submissions={mine} questions={f.questions} />
+          </>
+        )}
         {state.reason === "closed" && <p className={`mt-3 ${note}`}>Submissions for this are closed.</p>}
         {state.reason === "ineligible" && <p className={`mt-3 ${note}`}>This is not open to your group.</p>}
       </section>
       {state.can && (
-        <ActivityActionDialog key={mine.length} label={submitLabel(f)} title={f.name} defaultOpen={writing}>
+        <ActivityActionDialog key={group ? group.entries.length : mine.length} label={submitLabel(f)} title={f.name} defaultOpen={writing}>
           <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
             {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
             <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
@@ -215,6 +233,15 @@ function Done({ today }: { today: boolean }) {
         <div className="font-bold">{today ? "Submission done for today" : "Submission done"}</div>
         {today && <div className="text-sm">Come back tomorrow to send the next one.</div>}
       </div>
+    </div>
+  );
+}
+
+/** A group form's version of Done (D353): the group's news, in one line. */
+function GroupDone({ text }: { text: string }) {
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-xl border border-success/30 bg-success-soft px-4 py-3 font-bold text-success-strong">
+      <CircleCheck aria-hidden className="size-5 shrink-0" />{text}
     </div>
   );
 }

@@ -1,19 +1,22 @@
 import "server-only";
 import { portalActivities, portalBookings } from "@/lib/portal";
-import { listSessions, countBookingsBySession, submissionsForAttendee } from "@/lib/db/activities";
+import { listSessions, countBookingsBySession, submissionsForAttendee, submissionsForGroup } from "@/lib/db/activities";
 import { listBooths, stampsForAttendee } from "@/lib/db/booths";
 import { requestsForAttendee } from "@/lib/db/activity-requests";
 import { bookingArrivalsFor } from "@/lib/db/checkins";
+import { groupMembers, listGroups } from "@/lib/db/groups";
+import { listAttendeesByIds } from "@/lib/db/attendees";
 import { activityState, eligible, type ActivityState } from "@/lib/activities";
 import { activityControls, pendingFor, lastDeclinedFor, type ActivityControls } from "@/lib/activity-requests";
 import { sessionArrivals } from "@/lib/booking-door";
 import { canSubmit, type SubmitState } from "@/lib/submissions";
+import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "@/lib/booths";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
 export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string> };
-export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[] };
+export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null };
 /** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
 export type PassportEntry = { activity: Activity; passport: Passport };
 
@@ -25,12 +28,13 @@ export type PassportEntry = { activity: Activity; passport: Passport };
  * and one shape for both pages is worth more than the rows it saves; `portalActivities` and
  * `portalBookings` are memoised, so the layout's nav dot costs nothing extra.
  */
-export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category">): Promise<{
+export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category" | "group_id">): Promise<{
   bookings: ActivityEntry[];
   submissions: SubmissionEntry[];
   passports: PassportEntry[];
+  people: Record<string, { name: string; movedTo: string | null }>;
 }> {
-  const [activities, sessions, counts, mine, requests, submissions, booths, stamps, found] = await Promise.all([
+  const [activities, sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs] = await Promise.all([
     portalActivities(event.id),
     listSessions(event.id),
     countBookingsBySession(event.id),
@@ -40,6 +44,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     listBooths(event.id),
     stampsForAttendee(attendee.id),
     event.check_in_enabled ? bookingArrivalsFor(attendee.id) : Promise.resolve([]),
+    attendee.group_id ? groupMembers(event.id, attendee.group_id) : Promise.resolve([]),
+    attendee.group_id ? submissionsForGroup(attendee.group_id) : Promise.resolve([]),
   ]);
 
   const mineBySession = new Set(mine.map((b) => b.session_id));
@@ -61,8 +67,20 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   const today = nowInKL().date;
   const forms = activities.filter((a) => a.kind === "submission").map((form) => {
     const sent = submissions.filter((s) => s.activity_id === form.id);
-    return { form, state: canSubmit(form, sent, attendee.category, today), mine: sent };
+    // D353: on a group form every member reads the same progress, built from the group's rows.
+    const group = form.group_mode !== "off" && attendee.group_id ? groupProgress(form, attendee.group_id, members, groupSubs) : null;
+    return { form, state: canSubmit(form, sent, attendee.category, today, group), mine: sent, group };
   });
+
+  // Names for every entry on show. A former member (D355) is not in `members`, so they are
+  // looked up, with where they are now. Only then are the event's groups read.
+  const people: Record<string, { name: string; movedTo: string | null }> = Object.fromEntries(members.map((m) => [m.id, { name: m.name, movedTo: null }]));
+  const former = [...new Set(groupSubs.map((s) => s.attendee_id))].filter((id) => !people[id]);
+  if (former.length) {
+    const [gone, groups] = await Promise.all([listAttendeesByIds(event.id, former), listGroups(event.id)]);
+    const groupName = new Map(groups.map((g) => [g.id, g.name]));
+    for (const a of gone) people[a.id] = { name: a.name, movedTo: a.group_id ? groupName.get(a.group_id) ?? null : null };
+  }
 
   // Hidden outright when ineligible, like a booking: the booth would refuse them anyway, so a
   // card they can never fill is not something to show them.
@@ -73,5 +91,5 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
       passport: buildPassport(booths.filter((b) => b.activity_id === activity.id), stamps, activity.stamps_required),
     }));
 
-  return { bookings, submissions: forms, passports };
+  return { bookings, submissions: forms, passports, people };
 }

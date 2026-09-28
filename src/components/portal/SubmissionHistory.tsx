@@ -12,18 +12,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
  * link is a signed URL minted right here, at render time, rather than stored anywhere — a
  * stored one would be dead by the time the attendee came back to look at it.
  */
-export async function SubmissionHistory({ submissions, questions }: {
+export async function SubmissionHistory({ submissions, questions, title = "Your submissions", empty = "You have not submitted anything yet.", byline }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
+  title?: string;
+  empty?: string;
+  byline?: (s: ActivitySubmission) => string | null;
 }) {
   if (submissions.length === 0) {
-    return <p className="text-sm text-muted-foreground">You have not submitted anything yet.</p>;
+    return <p className="text-sm text-muted-foreground">{empty}</p>;
   }
   const labelFor = (key: string) => questions.find((q) => q.key === key)?.label ?? key;
   const isFile = (key: string) => questions.find((q) => q.key === key)?.type === "file";
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-extrabold">Your submissions</h2>
+      <h2 className="text-sm font-extrabold">{title}</h2>
       {await Promise.all(submissions.map(async (s) => {
         // A show_when-hidden question stores "" rather than being omitted (see validateAnswers),
         // which would otherwise print as an empty line for every conditional question an
@@ -41,6 +44,7 @@ export async function SubmissionHistory({ submissions, questions }: {
               {/* D341: their history shows an edited submission's new answers, plus this note - */}
               {/* nothing is sent to them, so the note is the only sign anything changed. */}
               {s.edited_at && <CardDescription className="text-[11px]">Updated by the organiser</CardDescription>}
+              {byline?.(s) && <CardDescription className="text-[11px]">{byline(s)}</CardDescription>}
             </CardHeader>
             {rows.length > 0 && (
               <CardContent className="flex flex-col gap-1.5">
