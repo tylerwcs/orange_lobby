@@ -26,6 +26,9 @@
 //     depends on the check order inside submit_answers, not on anything this script controls),
 //     and, at the end, exactly two rows for that attendee: the original, still revoked, and the
 //     new one, submitted. Proves D338/D339 hold under contention, not just sequentially.
+//   - Scenario 4 (group target): 20 members of one group race for the group's 2 entries under group_mode='entries'.
+//   - Scenario 5 (every member, one each): one member firing 20 simultaneous calls at a group_mode='everyone' form gets exactly one entry.
+//   - Scenario 6 (no group; moved member; revoke reopens): an ungrouped attendee is refused, a member moved to a new group submits for it, and revoking a group's only entry reopens its target.
 //
 // HOW TO RUN: npm run check:submit (equivalent to
 // `node --env-file=.env.local scripts/submit-concurrency.mjs`). Requires .env.local with
@@ -253,10 +256,114 @@ async function scenarioResubmitAfterRevoke() {
   }
 }
 
+/** Makes a throwaway event with one group of `n` members; returns ids. Caller deletes the event. */
+async function groupFixture(label, n) {
+  const { data: event, error: eventErr } = await db.from("events")
+    .insert({ org_id: ORG_ID, slug: `zz-test-submit-${label}-${runId}`, name: `TEMP submit-concurrency ${label}` })
+    .select("id").single();
+  if (eventErr) fail(eventErr.message);
+  const { data: group, error: groupErr } = await db.from("event_groups")
+    .insert({ org_id: ORG_ID, event_id: event.id, name: "Team 1" }).select("id").single();
+  if (groupErr) fail(groupErr.message);
+  const { data: members, error: membersErr } = await db.from("attendees")
+    .insert(Array.from({ length: n }, (_, i) => ({
+      org_id: ORG_ID, event_id: event.id, token: freshToken(), name: `Member ${i + 1}`,
+      source: "walkin", status: "active", group_id: group.id,
+    }))).select("id");
+  if (membersErr) fail(membersErr.message);
+  return { eventId: event.id, groupId: group.id, memberIds: members.map((m) => m.id) };
+}
+
+const submit = (activityId, attendeeId) =>
+  db.rpc("submit_answers", { p_activity_id: activityId, p_attendee_id: attendeeId, p_answers: {}, p_today: "2026-10-01" })
+    .then((r) => (r.error ? `error:${r.error.message}` : r.data));
+
+/** D358: 20 members race for a group's 2 entries; exactly 2 land. */
+async function scenarioGroupTarget() {
+  console.log(`\n--- Scenario 4: group_mode=entries, target 2, ${PARALLEL} members at once ---`);
+  const fx = await groupFixture("4", PARALLEL);
+  try {
+    const { data: form, error } = await db.from("activities")
+      .insert({ org_id: ORG_ID, event_id: fx.eventId, name: "Group race", kind: "submission", is_open: true, group_mode: "entries", group_target: 2 })
+      .select("id").single();
+    if (error) fail(error.message);
+    const tally = tallyOf(await Promise.all(fx.memberIds.map((id) => submit(form.id, id))));
+    const { count } = await db.from("activity_submissions").select("id", { count: "exact", head: true })
+      .eq("activity_id", form.id).eq("group_id", fx.groupId);
+    console.log(`${PARALLEL} parallel calls ->`, tally, `rows: ${count}`);
+    if (tally.ok !== 2) fail(`expected exactly 2 'ok', got ${tally.ok ?? 0}`);
+    if (tally.groupdone !== PARALLEL - 2) fail(`expected ${PARALLEL - 2} 'groupdone', got ${tally.groupdone ?? 0}`);
+    if (count !== 2) fail(`expected 2 rows, found ${count}`);
+    console.log("PASS: group target held.");
+  } finally {
+    const { error } = await db.from("events").delete().eq("id", fx.eventId);
+    if (error) console.error(`WARNING: failed to clean up event ${fx.eventId}: ${error.message}`);
+  }
+}
+
+/** D358: in 'everyone' mode one member firing 20 times gets one entry. */
+async function scenarioEveryMemberOnce() {
+  console.log(`\n--- Scenario 5: group_mode=everyone, one member ${PARALLEL} times at once ---`);
+  const fx = await groupFixture("5", 3);
+  try {
+    const { data: form, error } = await db.from("activities")
+      .insert({ org_id: ORG_ID, event_id: fx.eventId, name: "Everyone race", kind: "submission", is_open: true, group_mode: "everyone" })
+      .select("id").single();
+    if (error) fail(error.message);
+    const tally = tallyOf(await Promise.all(Array.from({ length: PARALLEL }, () => submit(form.id, fx.memberIds[0]))));
+    console.log(`${PARALLEL} parallel calls ->`, tally);
+    if (tally.ok !== 1) fail(`expected exactly 1 'ok', got ${tally.ok ?? 0}`);
+    if (tally.limit !== PARALLEL - 1) fail(`expected ${PARALLEL - 1} 'limit', got ${tally.limit ?? 0}`);
+    if ((await submit(form.id, fx.memberIds[1])) !== "ok") fail("a second member should still be able to submit");
+    console.log("PASS: one entry per member.");
+  } finally {
+    const { error } = await db.from("events").delete().eq("id", fx.eventId);
+    if (error) console.error(`WARNING: failed to clean up event ${fx.eventId}: ${error.message}`);
+  }
+}
+
+/** D354, D355, D357: no group is refused; a moved member submits for the new group; a revoke reopens. */
+async function scenarioGroupEdges() {
+  console.log("\n--- Scenario 6: no group, moved member, revoke reopens ---");
+  const fx = await groupFixture("6", 2);
+  try {
+    const { data: form, error } = await db.from("activities")
+      .insert({ org_id: ORG_ID, event_id: fx.eventId, name: "Edges", kind: "submission", is_open: true, group_mode: "everyone" })
+      .select("id").single();
+    if (error) fail(error.message);
+    const { data: loner } = await db.from("attendees")
+      .insert({ org_id: ORG_ID, event_id: fx.eventId, token: freshToken(), name: "Loner", source: "walkin", status: "active" })
+      .select("id").single();
+    if ((await submit(form.id, loner.id)) !== "nogroup") fail("an ungrouped attendee should get 'nogroup'");
+
+    const mover = fx.memberIds[0];
+    if ((await submit(form.id, mover)) !== "ok") fail("first submit should be ok");
+    const { data: team2 } = await db.from("event_groups").insert({ org_id: ORG_ID, event_id: fx.eventId, name: "Team 2" }).select("id").single();
+    await db.from("attendees").update({ group_id: team2.id }).eq("id", mover);
+    if ((await submit(form.id, mover)) !== "ok") fail("a moved member should be able to submit for the new group");
+
+    const { data: target } = await db.from("activities")
+      .insert({ org_id: ORG_ID, event_id: fx.eventId, name: "Target 1", kind: "submission", is_open: true, group_mode: "entries", group_target: 1 })
+      .select("id").single();
+    const other = fx.memberIds[1];
+    if ((await submit(target.id, other)) !== "ok") fail("first entry should be ok");
+    if ((await submit(target.id, other)) !== "groupdone") fail("a full group should get 'groupdone'");
+    await db.from("activity_submissions").update({ status: "revoked" }).eq("activity_id", target.id);
+    if ((await submit(target.id, other)) !== "ok") fail("a revoke should reopen the group");
+    console.log("PASS: edges hold.");
+  } finally {
+    const { error } = await db.from("events").delete().eq("id", fx.eventId);
+    if (error) console.error(`WARNING: failed to clean up event ${fx.eventId}: ${error.message}`);
+  }
+}
+
 try {
   await scenarioTotalCap();
   await scenarioPerDay();
   await scenarioResubmitAfterRevoke();
+  await scenarioGroupTarget();
+  await scenarioEveryMemberOnce();
+  await scenarioGroupEdges();
   console.log("\nALL PASS");
 } catch (err) {
   console.error(`\nFAIL: ${err.message}`);

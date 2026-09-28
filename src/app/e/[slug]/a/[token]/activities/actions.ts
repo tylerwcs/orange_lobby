@@ -202,6 +202,8 @@ const SUBMIT_RESULT_MESSAGES: Record<SubmitCode, string> = {
   ineligible: "This is not open to your group.",
   limit: "Submission done. There is nothing more to send.",
   today: "You have already submitted today. Come back tomorrow.",
+  nogroup: "You need to be in a group to submit this.",
+  groupdone: "Your group has already sent everything this needs.",
 };
 
 /** Renamed from submitFormAction: there is no `forms` route left for it to be named after (D178). */

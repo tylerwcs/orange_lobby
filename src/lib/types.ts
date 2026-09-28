@@ -65,6 +65,8 @@ export type Event = {
   committee_alert_numbers: string[];
   /** Facts shown on the badge card, in order. The first gets the large treatment. */
   pinned_fields: PinnedField[];
+  /** D348: attendee field keys group members see about each other. Names are always shown. */
+  group_fields: string[];
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
   crew_token: string | null;
   /** The host console link's authority (D252). Null until an admin creates one on the Games page. */
@@ -97,6 +99,8 @@ export type Attendee = {
   name: string;
   email: string | null;
   category: string | null;
+  /** D344: at most one group per event. Null is no group. */
+  group_id: string | null;
   extra: Record<string, string>;
   source: AttendeeSource;
   status: string;
@@ -212,6 +216,12 @@ export type BoothStamp = {
 /** What an attendee does with an activity: take a seat, send answers, or collect stamps (D178, D179). */
 export type ActivityKind = "booking" | "submission" | "passport";
 
+/** Who submits a submission form (D350). `off` is one attendee at a time, as before groups. */
+export type GroupMode = "off" | "entries" | "everyone";
+
+/** A named set of one event's attendees (D345). An attendee is in at most one (D344). */
+export type EventGroup = { id: string; org_id: string; event_id: string; name: string; created_at: string };
+
 export type Activity = {
   id: string;
   org_id: string;
@@ -237,6 +247,10 @@ export type Activity = {
   questions: RegistrationQuestion[];
   /** Submission kind only. At most one submission per Malaysian calendar day (D171). */
   per_day: boolean;
+  /** Submission kind only (D350). Not `off`: `per_day` is false and `max_per_attendee` unused (D351). */
+  group_mode: GroupMode;
+  /** `entries` mode only: entries a group needs, which is also its limit (D350). 1..50. */
+  group_target: number | null;
   /** The organiser's picture for the activity - a poster, the rules: cropped on its card, whole across the top of its page. Either kind. */
   image_url: string | null;
   /** Submission kind only - a booking's dates and place come from its sessions. YYYY-MM-DD. */
@@ -315,6 +329,8 @@ export type ActivitySubmission = {
   event_id: string;
   activity_id: string;
   attendee_id: string;
+  /** D355: the submitter's group when it was sent, on a group form; null otherwise or once the group is deleted (D349). */
+  group_id: string | null;
   /** Question key to answer. A `file` answer holds an object path, never a URL (D167). */
   answers: Record<string, string>;
   /** The Malaysian calendar day this counts against (D165). */

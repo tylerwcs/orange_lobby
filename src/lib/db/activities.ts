@@ -1,7 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
-import type { RegistrationQuestion } from "@/lib/types";
+import type { RegistrationQuestion, GroupMode } from "@/lib/types";
 import type { Activity, ActivityBooking, ActivityKind, ActivitySession, ActivitySubmission, Event } from "@/lib/types";
 
 export type NewActivity = {
@@ -16,6 +16,9 @@ export type NewActivity = {
   /** Empty on a booking activity. */
   questions: RegistrationQuestion[];
   per_day: boolean;
+  /** Submission kind only (D350). Left out, the column's 'off' stands. */
+  group_mode?: GroupMode;
+  group_target?: number | null;
   /** Left out, the column's null stands - as for the four submission details below. */
   image_url?: string | null;
   starts_on?: string | null;
@@ -318,7 +321,7 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
 // ---- Submissions: the other kind's child table (D178) ----
 
 /** Every answer `submit_answers` can give. Mirrors BookResult; `today` replaces `full`. */
-export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today";
+export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone";
 
 // revoked rows never count and never reach an attendee (D339, D341).
 export async function listSubmissions(eventId: string): Promise<ActivitySubmission[]> {
