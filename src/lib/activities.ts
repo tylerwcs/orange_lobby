@@ -105,7 +105,7 @@ export function unbookedIds(
 
 /**
  * Every session's booked attendee ids, sorted into `attendeeIds`' own order rather than the
- * order bookings happen to arrive in (`listBookings` has no `ORDER BY`). The same trick
+ * order bookings happen to arrive in (`listBookings` orders by id, only so it can page). The same trick
  * `rosters()` in `src/lib/breakouts.ts` plays for breakout rooms: `attendeeIds` is expected to
  * already be alphabetical (`listAttendees`'s order), so ranking bookings into it makes every
  * session's list both deterministic and printable as-is.

@@ -1,29 +1,12 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { selectAll } from "@/lib/db/select-all";
 import type { Attendee, Event } from "@/lib/types";
 import { defaultConfig, hydrateGame, type Game, type GameKind } from "@/lib/games/config";
 import { hydrateStage, type StageRow, type StageWrite } from "@/lib/games/phase";
 import { parseGrouping, type Grouping, type TapRow } from "@/lib/games/race";
 import type { PlayerRow } from "@/lib/games/survival";
 import type { CheckinRow, WinnerRow } from "@/lib/games/draw";
-
-const PAGE = 1000;
-
-/**
- * Every row of a one-row-per-player query. PostgREST returns at most 1,000 rows per request on
- * Supabase, and a race or a quiz is one row per player, so reads page rather than silently
- * stopping at the 1,001st player (D289).
- */
-async function selectAll<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await page(from, from + PAGE - 1);
-    if (error) throw error;
-    const rows = (data ?? []) as T[];
-    out.push(...rows);
-    if (rows.length < PAGE) return out;
-  }
-}
 
 // --- Games ---
 

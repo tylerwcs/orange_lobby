@@ -1,5 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { selectAll } from "@/lib/db/select-all";
 import type { Checkin, Event } from "@/lib/types";
 
 export async function recordCheckin(event: Pick<Event, "id" | "org_id">, checkpointId: string, attendeeId: string, userId: string | null): Promise<{ created: boolean; existing?: Checkin }> {
@@ -27,10 +28,21 @@ export async function recordCheckins(event: Pick<Event, "id" | "org_id">, checkp
   if (error) throw error;
 }
 
+/**
+ * Every check-in of the event. Paged (D289): door tallies, the Overview, the Bookings tab and
+ * the attendance export all count from it, and one scan per person per door passes 1,000 rows
+ * on any event of size.
+ */
 export async function listCheckinsForEvent(eventId: string): Promise<Checkin[]> {
-  const { data, error } = await serviceClient().from("checkins").select("*").eq("event_id", eventId);
-  if (error) throw error;
-  return data as Checkin[];
+  return selectAll<Checkin>((from, to) => serviceClient().from("checkins")
+    .select("*").eq("event_id", eventId).order("id").range(from, to));
+}
+
+/** Every check-in at these doors, and nothing else of the event: a booking door's arrivals (D324). Paged as above. */
+export async function listCheckinsAt(checkpointIds: string[]): Promise<Checkin[]> {
+  if (checkpointIds.length === 0) return [];
+  return selectAll<Checkin>((from, to) => serviceClient().from("checkins")
+    .select("*").in("checkpoint_id", checkpointIds).order("id").range(from, to));
 }
 
 /**
@@ -44,11 +56,6 @@ export async function firstCheckinAt(eventId: string, attendeeId: string): Promi
     .order("scanned_at").limit(1).maybeSingle();
   if (error) throw error;
   return (data?.scanned_at as string | undefined) ?? null;
-}
-
-export async function countCheckinsByCheckpoint(eventId: string): Promise<Record<string, number>> {
-  const rows = await listCheckinsForEvent(eventId);
-  return rows.reduce<Record<string, number>>((acc, r) => { acc[r.checkpoint_id] = (acc[r.checkpoint_id] ?? 0) + 1; return acc; }, {});
 }
 
 /** Attendee ids already checked in at one checkpoint; used to label search hits. */

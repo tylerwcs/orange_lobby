@@ -1,5 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { selectAll } from "@/lib/db/select-all";
 import type { RegistrationQuestion } from "@/lib/types";
 import type { Activity, ActivityBooking, ActivityKind, ActivitySession, ActivitySubmission, Event } from "@/lib/types";
 
@@ -124,6 +125,16 @@ export async function listSessions(eventId: string): Promise<ActivitySession[]> 
   }));
 }
 
+/** One activity's sessions on one day: what a booking door covers (D325). Trimmed and ordered as `listSessions`. */
+export async function listSessionsOn(activityId: string, day: string): Promise<ActivitySession[]> {
+  const { data, error } = await serviceClient().from("activity_sessions").select("*")
+    .eq("activity_id", activityId).eq("day", day).order("starts_at").order("sort_order");
+  if (error) throw error;
+  return (data as ActivitySession[]).map((s) => ({
+    ...s, starts_at: s.starts_at.slice(0, 5), ends_at: s.ends_at?.slice(0, 5) ?? null,
+  }));
+}
+
 /** One insert for a whole batch (D241): it all lands or none of it does. `sort_order` only breaks ties between sessions starting together, so it continues from the last. */
 export async function createSessions(eventId: string, activityId: string, inputs: NewSession[]): Promise<void> {
   if (inputs.length === 0) return;
@@ -166,10 +177,24 @@ export async function deleteSessionsOnDay(eventId: string, activityId: string, d
   return data?.length ?? 0;
 }
 
+/**
+ * Every booking of the event. Paged (D289): it decides seat counts, door tallies and the
+ * Bookings tab's marks, and an event where everyone books a few sessions passes 1,000 rows.
+ * Ordered by id only so the pages neither overlap nor skip; it means nothing else.
+ */
 export async function listBookings(eventId: string): Promise<ActivityBooking[]> {
-  const { data, error } = await serviceClient().from("activity_bookings").select("*").eq("event_id", eventId);
-  if (error) throw error;
-  return (data ?? []) as ActivityBooking[];
+  return selectAll<ActivityBooking>((from, to) => serviceClient().from("activity_bookings")
+    .select("*").eq("event_id", eventId).order("id").range(from, to));
+}
+
+/**
+ * The bookings of these sessions only: one booking door's bookers, without the event's whole
+ * table. Paged like `listBookings`, since a door is only as small as its sessions' capacity.
+ */
+export async function listBookingsForSessions(sessionIds: string[]): Promise<ActivityBooking[]> {
+  if (sessionIds.length === 0) return [];
+  return selectAll<ActivityBooking>((from, to) => serviceClient().from("activity_bookings")
+    .select("*").in("session_id", sessionIds).order("id").range(from, to));
 }
 
 export async function countBookingsBySession(eventId: string): Promise<Record<string, number>> {
