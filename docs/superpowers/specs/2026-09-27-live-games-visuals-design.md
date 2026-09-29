@@ -98,8 +98,8 @@ The host console is not restyled; it only gains the controls the new draw format
 ### Tap race
 
 - **D303** **Vertical lanes.** Lanes are columns side by side, each racing from the bottom of the
-  screen to the top, with the lane's label under its column. Up to 30 lanes (`MAX_LANES`,
-  `MAX_SOLO`) fit across 1920 px, thinning as more join (D363). Each lane's marker climbs with a spring as its
+  screen to the top, with the lane's label under its column. Up to 30 lanes (`MAX_LANES`)
+  fit across 1920 px, thinning as more join (D363); past 30 the LED holds its columns (D364). Each lane's marker climbs with a spring as its
   score moves; the leader's column glows and wears a crown; a timer ring runs down in the
   top-right corner. Lanes keep a fixed order while racing (as now), and the scale stays at 110%
   of the leader so nobody looks finished.
@@ -109,7 +109,17 @@ The host console is not restyled; it only gains the controls the new draw format
   columns narrow to 80 px with smaller runners; from 21 to 30, to 56 px. Past 12, lane labels run
   up the screen like a book's spine, in a fixed-height strip so every column's foot stays level,
   and the lobby's cards shrink to 200 px showing the last 4 joiners. The host's "Everyone solo"
-  option reads its number from `MAX_SOLO`.
+  option reads its number from `MAX_LANES`.
+
+- **D364** **More than 30 lanes.** Added 30 Sep 2026. Everyone who joins races and ranks; the LED
+  shows 30 at a time. Lobby: "N players" counts everyone who joined (it used to add up only the
+  lanes on screen), the cards are the 30 lanes joined most recently (`lobbyLanes`), and a last
+  "+N more" card counts the rest; the host console shows the same. Racing: every lane is sent, and
+  the LED picks its columns (`heldLanes`). Until 2.5 s after GO (`HOLD_AFTER_GO_MS`, time for each
+  phone's first tap batch) it shows the top 30; then it holds those columns to the end, so they
+  stop popping in and out as places change. The one exception: a lane that reaches the top 3 swaps
+  in for the held lane placed lowest, so the crown is always on screen. The held set lives on the
+  LED page; a reload re-holds from the current top 30. Results rank everyone, as before.
 
 - **D304** **No tap counts anywhere.** Not on the lanes, the podium or the phone. Scores are still
   computed and ranked exactly as D267 says; they are simply not shown. "Fastest tapper" keeps

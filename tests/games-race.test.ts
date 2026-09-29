@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  parseGrouping, laneKeyFor, laneLabel, progressOf, standings, topTapper, tapAllowance, visibleLanes, OTHERS,
+  parseGrouping, laneKeyFor, laneLabel, progressOf, standings, topTapper, tapAllowance, lobbyLanes, heldLanes, OTHERS,
   type Grouping, type TapRow,
 } from "@/lib/games/race";
 
@@ -108,11 +108,55 @@ describe("tapAllowance", () => {
   });
 });
 
-describe("visibleLanes", () => {
-  const many = Array.from({ length: 40 }, (_, i) => ({ key: String(i), players: 1, active: 1, taps: 1, score: 1, place: i + 1 }));
-  it("shows up to 30 lanes, for teams and solo alike (D363)", () => {
-    expect(visibleLanes(many, byTable)).toHaveLength(30);
-    expect(visibleLanes(many, { by: "solo" })).toHaveLength(30);
+describe("lobbyLanes (D364)", () => {
+  const lane = (i: number) => ({ key: `p${String(i).padStart(2, "0")}`, players: 1, active: 0, taps: 0, score: 0, place: i + 1 });
+  const joined = (n: number) => Array.from({ length: n }, (_, i) => ({
+    attendee_id: lane(i).key, lane_key: lane(i).key, taps: 0, joined_at: `2026-09-30T10:00:${String(i).padStart(2, "0")}Z`,
+  }));
+  it("shows every lane up to 30", () => {
+    const list = Array.from({ length: 30 }, (_, i) => lane(i));
+    expect(lobbyLanes(list, joined(30))).toEqual(list);
+  });
+  it("past 30, shows the 30 newest joiners in the list's order", () => {
+    const list = Array.from({ length: 50 }, (_, i) => lane(i));
+    const shown = lobbyLanes(list, joined(50));
+    expect(shown.map((l) => l.key)).toEqual(list.slice(20).map((l) => l.key));
+  });
+  it("counts a group lane by its newest joiner", () => {
+    const list = Array.from({ length: 31 }, (_, i) => lane(i));
+    const rows = [...joined(31), { attendee_id: "late", lane_key: "p00", taps: 0, joined_at: "2026-09-30T11:00:00Z" }];
+    const keys = lobbyLanes(list, rows).map((l) => l.key);
+    expect(keys).toContain("p00");
+    expect(keys).not.toContain("p01");
+  });
+});
+
+describe("heldLanes (D364)", () => {
+  const ranked = (order: string[]) => order.map((key, i) => ({ key, place: i + 1 }));
+  const keys = Array.from({ length: 50 }, (_, i) => `k${i}`);
+  it("holds the top 30 when nothing is held", () => {
+    expect(heldLanes(null, ranked(keys))).toEqual(keys.slice(0, 30));
+  });
+  it("keeps the held lanes as places change below the podium", () => {
+    const held = keys.slice(0, 30);
+    const now = [...keys.slice(0, 3), ...keys.slice(40), ...keys.slice(3, 40)];
+    expect(heldLanes(held, ranked(now))).toEqual(held);
+  });
+  it("swaps a podium lane in for the held lane placed lowest", () => {
+    const held = keys.slice(0, 30);
+    const now = ["k45", ...keys.filter((k) => k !== "k45")];
+    const out = heldLanes(held, ranked(now));
+    expect(out).toContain("k45");
+    expect(out).not.toContain("k29");
+    expect(out).toHaveLength(30);
+  });
+  it("returns what it holds unchanged once settled", () => {
+    const now = ranked(["k45", "k46", ...keys.filter((k) => k !== "k45" && k !== "k46")]);
+    const once = heldLanes(keys.slice(0, 30), now);
+    expect(heldLanes(once, now)).toEqual(once);
+  });
+  it("holds everyone when 30 or fewer race", () => {
+    expect(heldLanes(null, ranked(keys.slice(0, 8)))).toEqual(keys.slice(0, 8));
   });
 });
 

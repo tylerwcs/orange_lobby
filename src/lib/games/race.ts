@@ -12,9 +12,10 @@ export type Grouping = { by: "solo" } | { by: "category" } | { by: "field"; key:
 export const OTHERS = "__others";
 export const TAP_RATE = 15;
 export const TAP_ELAPSED_CAP_S = 3;
-/** Lanes the LED races at once (D363): up to 30 across 1920 px, thinning as more join. */
+/** Lanes the LED shows at once (D363): up to 30 across 1920 px, thinning as more join. */
 export const MAX_LANES = 30;
-export const MAX_SOLO = 30;
+/** How long after GO the LED holds its columns (D364): time for every phone's first batch or two. */
+export const HOLD_AFTER_GO_MS = 2500;
 
 export function parseGrouping(raw: unknown): Grouping {
   const r = raw as { by?: unknown; key?: unknown; label?: unknown } | null | undefined;
@@ -87,9 +88,40 @@ export function tapAllowance(n: number, elapsedMs: number): number {
   return Math.min(want, Math.ceil((TAP_RATE * elapsed) / 1000));
 }
 
-/** The lanes the LED shows while racing (D268); the full ranking is shown at the end. */
-export function visibleLanes(list: LaneStanding[], g: Grouping): LaneStanding[] {
-  return list.slice(0, g.by === "solo" ? MAX_SOLO : MAX_LANES);
+/**
+ * The lobby's cards (D364): the MAX_LANES lanes someone joined most recently, in `list`'s order, so
+ * every new joiner sees their card land. The rest are counted on a "+N more" card.
+ */
+export function lobbyLanes(list: LaneStanding[], rows: TapRow[]): LaneStanding[] {
+  if (list.length <= MAX_LANES) return list;
+  const last = new Map<string, string>();
+  for (const r of rows) {
+    const at = r.joined_at ?? "";
+    if (at > (last.get(r.lane_key) ?? "")) last.set(r.lane_key, at);
+  }
+  const at = (k: string) => last.get(k) ?? "";
+  const newest = new Set([...list].sort((a, b) => at(b.key).localeCompare(at(a.key)) || a.key.localeCompare(b.key))
+    .slice(0, MAX_LANES).map((l) => l.key));
+  return list.filter((l) => newest.has(l.key));
+}
+
+/**
+ * The columns the LED races past MAX_LANES (D364). With nothing held yet: the top MAX_LANES now.
+ * Once held: the same lanes to the end, so columns never pop in and out, except that anyone on
+ * the podium places swaps in for the held lane placed lowest, so the crown is always on screen.
+ * Holding what it returns returns it unchanged.
+ */
+export function heldLanes(held: string[] | null, lanes: { key: string; place: number }[]): string[] {
+  const place = new Map(lanes.map((l) => [l.key, l.place]));
+  const at = (k: string) => place.get(k) ?? Infinity;
+  const out = held ? [...held] : [...lanes].sort((a, b) => a.place - b.place).slice(0, MAX_LANES).map((l) => l.key);
+  for (const l of lanes.filter((x) => x.place <= 3)) {
+    if (out.includes(l.key)) continue;
+    let worst = -1;
+    out.forEach((k, i) => { if (at(k) > 3 && (worst < 0 || at(k) > at(out[worst]))) worst = i; });
+    if (worst >= 0) out[worst] = l.key;
+  }
+  return out;
 }
 
 /**

@@ -1,6 +1,8 @@
 "use client";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { APP_NAME } from "@/lib/app-name";
+import { HOLD_AFTER_GO_MS, heldLanes } from "@/lib/games/race";
 import type { DisplayLane, DisplayState } from "@/lib/games/wire";
 import { useServerNow } from "../usePoll";
 import { Frame } from "./Frame";
@@ -16,7 +18,7 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
   const race = state.race!;
   const now = useServerNow(offset, 100, s.phase === "race_countdown" || s.phase === "race_live");
 
-  if (s.phase === "race_lobby") return <Lobby lanes={race.lanes} />;
+  if (s.phase === "race_lobby") return <Lobby lanes={race.lanes} players={race.players} more={race.more} />;
 
   if (s.phase === "race_countdown" && s.race) {
     const n = Math.max(1, Math.ceil((s.race.liveFrom - now) / 1000));
@@ -41,7 +43,7 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
             Frame's own px-16/pt-10 padding, since absolute children measure from the padding box. */}
         <div className="absolute right-16 top-10"><TimerRing left={left} total={s.race.duration_s} /></div>
         <div className="relative h-full">
-          <Lanes lanes={race.lanes} />
+          <Lanes lanes={race.lanes} sinceGo={sinceGo} />
           <AnimatePresence>
             {sinceGo < 900 && (
               <motion.div key="go" initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 2, opacity: 0 }}
@@ -62,10 +64,10 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
 
 /**
  * Lanes as cards, with each lane's latest joiners popping in (D305). The player count is not a tap
- * count. Past 12 lanes the cards shrink and show only the last few joiners, so 30 still fit (D363).
+ * count. Past 12 lanes the cards shrink and show only the last few joiners, so 30 still fit (D363);
+ * past 30 the newest lanes get cards and the rest are counted on a last "+N more" card (D364).
  */
-function Lobby({ lanes }: { lanes: DisplayLane[] }) {
-  const players = lanes.reduce((n, l) => n + l.players, 0);
+function Lobby({ lanes, players, more }: { lanes: DisplayLane[]; players: number; more: number }) {
   const compact = lanes.length > 12;
   return (
     <Frame>
@@ -91,6 +93,12 @@ function Lobby({ lanes }: { lanes: DisplayLane[] }) {
               </div>
             </motion.div>
           ))}
+          {more > 0 && (
+            <motion.div layout key="more"
+              className={`flex items-center justify-center bg-black/40 ring-2 ring-white/15 backdrop-blur-sm ${compact ? "w-[200px] rounded-2xl p-3" : "w-[330px] rounded-3xl p-5"}`}>
+              <span className={`font-game tabular-nums ${compact ? "text-3xl" : "text-5xl"}`}>+{more} more</span>
+            </motion.div>
+          )}
         </div>
       </div>
     </Frame>
@@ -112,8 +120,18 @@ function laneDensity(n: number) {
  * Vertical lanes racing bottom to top (D303), in a fixed order so columns grow instead of
  * swapping. The leader's column glows and wears a crown. Heights come from `progress`, which is
  * already scaled to 110% of the leader (progressOf), so nobody looks finished.
+ *
+ * Every lane arrives; past 30 the columns are held HOLD_AFTER_GO_MS after GO (D364), so they stop
+ * popping in and out as places change. The held keys are state set during render, React's pattern
+ * for keeping something from the previous render: heldLanes returns what it is given once settled,
+ * so it sets at most once per change.
  */
-function Lanes({ lanes }: { lanes: DisplayLane[] }) {
+function Lanes({ lanes: all, sinceGo }: { lanes: DisplayLane[]; sinceGo: number }) {
+  const [held, setHeld] = useState<string[] | null>(null);
+  const next = sinceGo >= HOLD_AFTER_GO_MS ? heldLanes(held, all) : null;
+  if (next && (!held || next.some((k, i) => k !== held[i]))) setHeld(next);
+  const keys = new Set(next ?? heldLanes(null, all));
+  const lanes = all.filter((l) => keys.has(l.key));
   const ordered = [...lanes].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   const lead = lanes.reduce<DisplayLane | null>((best, l) => (l.progress > 0 && (!best || l.progress > best.progress) ? l : best), null);
   const d = laneDensity(lanes.length);

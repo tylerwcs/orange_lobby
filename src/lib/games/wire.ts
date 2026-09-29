@@ -57,7 +57,11 @@ export type DisplayState = {
   event: { name: string; logoUrl: string | null; colour: string };
   /** The LED background of the game on stage; Theme when idle (D297, D298). */
   look: Background;
-  race: { lanes: DisplayLane[]; solo: boolean; mvp: { name: string } | null } | null;
+  /**
+   * `players` is everyone who joined; `more` is the lanes the lobby leaves off (D364). While racing
+   * every lane is sent and the LED picks its columns (heldLanes).
+   */
+  race: { lanes: DisplayLane[]; players: number; more: number; solo: boolean; mvp: { name: string } | null } | null;
   survival: {
     players: Person[];
     eliminatedIds: string[];

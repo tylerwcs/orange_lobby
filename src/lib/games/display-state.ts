@@ -2,7 +2,7 @@ import "server-only";
 import type { Attendee, Event } from "@/lib/types";
 import { gameSummary, type DrawGame, type Game, type SurvivalGame } from "@/lib/games/config";
 import { allowedActions, currentQuestion, drawExtra, spinFacts, type StageRow } from "@/lib/games/phase";
-import { laneLabel, progressOf, standings, topTapper, visibleLanes } from "@/lib/games/race";
+import { laneLabel, lobbyLanes, progressOf, standings, topTapper } from "@/lib/games/race";
 import { answerSplit, inGoingInto, outAt, stillIn } from "@/lib/games/survival";
 import { absentFor, checkedInBy, eligiblePool, nextPrize, poolBeforeDraw, prizeProgress, standingWinners, type CheckinRow, type WinnerRow } from "@/lib/games/draw";
 import { mosaicSurvivors, seededOrder } from "@/lib/games/mosaic";
@@ -88,9 +88,10 @@ async function raceView(event: Event, stage: StageRow): Promise<DisplayState["ra
   const grouping = run?.grouping ?? { by: "solo" as const };
   const nameOf = (id: string) => roster.get(id)?.name ?? "";
   const table = standings(rows);
-  const shown = stage.phase === "race_results" ? table : visibleLanes(table, grouping);
-  const leader = Math.max(0, ...table.map((l) => l.score));
   const lobby = stage.phase === "race_lobby";
+  // The lobby shows the newest joiners; racing and results send every lane (D364).
+  const shown = lobby ? lobbyLanes(table, rows) : table;
+  const leader = Math.max(0, ...table.map((l) => l.score));
   // The lobby's initials: each lane's latest joiners, newest last (D305). listTaps pages by
   // attendee_id, so the join order is restored here by joined_at before taking the tail.
   const initials = (key: string) => lobby
@@ -105,6 +106,8 @@ async function raceView(event: Event, stage: StageRow): Promise<DisplayState["ra
       key: l.key, label: laneLabel(l.key, grouping, nameOf), players: l.players,
       progress: progressOf(l.score, leader), place: l.place, initials: initials(l.key),
     })),
+    players: rows.length,
+    more: table.length - shown.length,
     solo: grouping.by === "solo",
     // The name only (D304).
     mvp: stage.phase === "race_results" && top ? { name: tagLabel(nameOf(top.attendee_id)) } : null,
