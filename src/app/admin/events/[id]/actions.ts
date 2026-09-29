@@ -1437,7 +1437,7 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
 /**
  * The picture for one of the launcher's own sections, set from that section's admin page
  * (D222). Upload, replace or remove - the same ImageField as a tile's icon. Removing it puts
- * the portal's default illustration back (for My group, which has none, its glyph).
+ * the portal's default illustration back.
  */
 export async function saveSectionIconAction(eventId: string, section: IconSection, formData: FormData) {
   const { orgId } = await requireAdmin();

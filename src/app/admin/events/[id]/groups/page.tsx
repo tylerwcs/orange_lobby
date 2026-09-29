@@ -50,7 +50,7 @@ export default async function Groups({ params, searchParams }: { params: Promise
           <>
             {/* D362: the My group button's picture, set here as Agenda's and Info's are on their pages. */}
             <Modal title="My group icon" hint="The round button group members tap on the portal home." trigger="My group tile settings" icon="settings" iconOnly>
-              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "group")} section="group" current={sectionIcons(ev.section_icons).group} glyph="users" />
+              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "group")} section="group" current={sectionIcons(ev.section_icons).group} />
             </Modal>
             <BuildFromColumn eventId={ev.id} fields={[{ key: "category", label: "Category" }, ...fields]} from={from ?? null} attendees={attendees} groups={groups} />
             <Modal title="New group" trigger="New group" icon="plus" variant="default">

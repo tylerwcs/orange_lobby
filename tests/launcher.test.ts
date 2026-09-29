@@ -62,7 +62,7 @@ describe("launcherItems", () => {
     expect(launcherItems(base).map((i) => i.label)).toEqual(["Agenda"]);
     const items = launcherItems({ ...base, hasInfo: true, hasGroup: true });
     expect(items.map((i) => i.label)).toEqual(["Agenda", "Info", "My group"]);
-    expect(items[2]).toMatchObject({ icon: "users", href: `${BASE}/group`, builtin: true, image: null });
+    expect(items[2]).toMatchObject({ icon: "users", href: `${BASE}/group`, builtin: true, image: "/portal-icons/group.webp" });
   });
 
   it("keeps a route tile whose built-in is not on screen", () => {
@@ -97,10 +97,10 @@ describe("launcherItems with an organiser's section pictures", () => {
     expect(items.map((i) => i.image)).toEqual(["https://x/a.png", "/portal-icons/info.webp"]);
   });
 
-  it("draws My group with the organiser's picture, and with the people glyph when there is none (D362)", () => {
+  it("draws My group with the organiser's picture, and with the portal's own when there is none (D362)", () => {
     const withPicture = launcherItems({ ...base, hasGroup: true, icons: { agenda: null, info: null, group: "https://x/g.png" } });
     expect(withPicture.find((i) => i.id === "builtin:group")).toMatchObject({ image: "https://x/g.png", icon: "users" });
     const without = launcherItems({ ...base, hasGroup: true, icons: { agenda: null, info: null, group: null } });
-    expect(without.find((i) => i.id === "builtin:group")).toMatchObject({ image: null, icon: "users" });
+    expect(without.find((i) => i.id === "builtin:group")).toMatchObject({ image: "/portal-icons/group.webp", icon: "users" });
   });
 });

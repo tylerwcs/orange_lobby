@@ -1,5 +1,4 @@
 import { DEFAULT_SECTION_ICONS, type IconSection } from "@/lib/launcher";
-import { Icon, type IconName } from "@/components/ui/icon";
 import { ImageField } from "@/components/admin/ImageField";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 
@@ -9,26 +8,18 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
  *
  * The field holds only the organiser's own upload. The default illustration is shown beside it
  * as what attendees see now, not inside it - otherwise Remove would offer to delete a picture
- * that is not theirs, and would do nothing. A section with no default illustration (My group)
- * shows the glyph its button falls back to instead.
+ * that is not theirs, and would do nothing.
  */
-export function SectionIconForm({ action, section, current, glyph = "grid" }: {
+export function SectionIconForm({ action, section, current }: {
   action: (formData: FormData) => Promise<void>;
   section: IconSection;
   current: string | null;
-  /** What the button shows with no picture at all; only reached by a section with no default. */
-  glyph?: IconName;
 }) {
-  const shown = current ?? DEFAULT_SECTION_ICONS[section] ?? null;
   return (
     <form action={action} className="grid gap-4 p-1">
       <div className="flex items-center gap-3">
-        {shown ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={shown} alt="" className="size-16 shrink-0 rounded-full bg-accent object-contain" />
-        ) : (
-          <span aria-hidden className="flex size-16 shrink-0 items-center justify-center rounded-full bg-accent text-primary"><Icon name={glyph} size={28} /></span>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={current ?? DEFAULT_SECTION_ICONS[section]} alt="" className="size-16 shrink-0 rounded-full bg-accent object-contain" />
         <p className="text-sm text-muted-foreground">
           {current ? "Your picture, on the portal home." : "The default picture, on the portal home."}{" "}
           Upload one to replace it{current ? ", or remove yours to go back to the default" : ""}.

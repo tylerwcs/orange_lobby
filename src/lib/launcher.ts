@@ -22,14 +22,11 @@ export const ICON_SECTIONS = ["agenda", "info", "group"] as const;
 export type IconSection = (typeof ICON_SECTIONS)[number];
 export type SectionIcons = Record<IconSection, string | null>;
 
-/**
- * The portal's own illustrations, drawn when the organiser has not set one (D221). My group has
- * none yet, so without an upload it is drawn with its glyph, like an organiser's tile with no
- * picture (D362).
- */
-export const DEFAULT_SECTION_ICONS: Partial<Record<IconSection, string>> = {
+/** The portal's own illustrations, drawn when the organiser has not set one (D221, D362). */
+export const DEFAULT_SECTION_ICONS: Record<IconSection, string> = {
   agenda: "/portal-icons/agenda.webp",
   info: "/portal-icons/info.webp",
+  group: "/portal-icons/group.webp",
 };
 
 const SAFE_URL = /^https?:\/\//i;
@@ -80,9 +77,9 @@ export function launcherItems(input: {
   });
 
   const items: LauncherItem[] = [
-    section("agenda", "Agenda", "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda ?? null),
-    ...(hasInfo ? [section("info", "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info ?? null)] : []),
-    ...(hasGroup ? [section("group", "My group", "/group", "users", icons?.group ?? DEFAULT_SECTION_ICONS.group ?? null)] : []),
+    section("agenda", "Agenda", "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda),
+    ...(hasInfo ? [section("info", "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
+    ...(hasGroup ? [section("group", "My group", "/group", "users", icons?.group ?? DEFAULT_SECTION_ICONS.group)] : []),
   ];
 
   const covered = new Set<TileRoute>(["agenda"]);

@@ -106,7 +106,8 @@ entries are still `activity_submissions` rows, and they still go through `submit
   - The Groups admin page gets a settings button, the same as Agenda's and Info's (D222). It
     stores the picture in `events.section_icons.group`. There is one picture per event, not one
     per group.
-  - There is no default illustration, so without an upload the tile keeps its people glyph.
+  - Without an upload the tile shows the portal's own illustration, `public/portal-icons/group.webp`
+    (the user's artwork, 192 × 192 like Agenda's and Info's).
   - No database change.
 
 ## Data — migration 0055_groups.sql
