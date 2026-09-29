@@ -5,6 +5,7 @@ import { canReveal, type Phase, type StageRow } from "@/lib/games/phase";
 import { DRAW_FORMAT_LABELS, GAME_KIND_LABELS } from "@/lib/games/config";
 import { cardsLeftLabel } from "@/lib/games/cards";
 import { HOST_INTERVAL } from "@/lib/games/poll";
+import { MAX_SOLO } from "@/lib/games/race";
 import { isOver } from "@/lib/games/survival";
 import { OPTION_STYLES, type PublicStage } from "@/lib/games/views";
 import { Button } from "@/components/ui/button";
@@ -393,7 +394,7 @@ function GamePicker({ state, pending, onOpen }: { state: HostState; pending: boo
         <label className="flex flex-col gap-1 text-sm font-bold">
           Lanes
           <select value={lanes} onChange={(e) => setLanes(e.target.value)} className="h-11 rounded-md border border-input bg-transparent px-3 text-base">
-            <option value="solo">Everyone solo (top 10)</option>
+            <option value="solo">Everyone solo (top {MAX_SOLO})</option>
             <option value="category">By category</option>
             {state.fields.map((f) => <option key={f.key} value={`field:${f.key}`}>By {f.label}</option>)}
           </select>

@@ -12,8 +12,9 @@ export type Grouping = { by: "solo" } | { by: "category" } | { by: "field"; key:
 export const OTHERS = "__others";
 export const TAP_RATE = 15;
 export const TAP_ELAPSED_CAP_S = 3;
-export const MAX_LANES = 12;
-export const MAX_SOLO = 10;
+/** Lanes the LED races at once (D363): up to 30 across 1920 px, thinning as more join. */
+export const MAX_LANES = 30;
+export const MAX_SOLO = 30;
 
 export function parseGrouping(raw: unknown): Grouping {
   const r = raw as { by?: unknown; key?: unknown; label?: unknown } | null | undefined;

@@ -109,10 +109,10 @@ describe("tapAllowance", () => {
 });
 
 describe("visibleLanes", () => {
-  const many = Array.from({ length: 15 }, (_, i) => ({ key: String(i), players: 1, active: 1, taps: 1, score: 1, place: i + 1 }));
-  it("shows 12 lanes for teams and 10 for solo", () => {
-    expect(visibleLanes(many, byTable)).toHaveLength(12);
-    expect(visibleLanes(many, { by: "solo" })).toHaveLength(10);
+  const many = Array.from({ length: 40 }, (_, i) => ({ key: String(i), players: 1, active: 1, taps: 1, score: 1, place: i + 1 }));
+  it("shows up to 30 lanes, for teams and solo alike (D363)", () => {
+    expect(visibleLanes(many, byTable)).toHaveLength(30);
+    expect(visibleLanes(many, { by: "solo" })).toHaveLength(30);
   });
 });
 

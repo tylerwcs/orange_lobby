@@ -60,28 +60,32 @@ export function RaceScreen({ state, offset }: { state: DisplayState; offset: num
   );
 }
 
-/** Lanes as cards, with each lane's latest joiners popping in (D305). The player count is not a tap count. */
+/**
+ * Lanes as cards, with each lane's latest joiners popping in (D305). The player count is not a tap
+ * count. Past 12 lanes the cards shrink and show only the last few joiners, so 30 still fit (D363).
+ */
 function Lobby({ lanes }: { lanes: DisplayLane[] }) {
   const players = lanes.reduce((n, l) => n + l.players, 0);
+  const compact = lanes.length > 12;
   return (
     <Frame>
       <div className="flex h-full flex-col items-center gap-8">
         <motion.p animate={{ scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 1.8 }} className="font-game text-7xl drop-shadow-[0_6px_24px_rgba(0,0,0,0.5)]">Join on your phone!</motion.p>
         <p className="-mt-4 text-4xl opacity-85">{players} {players === 1 ? "player" : "players"}</p>
         <p className="-mt-2 text-3xl opacity-80">Open {APP_NAME} → Games</p>
-        <div className="flex max-w-[1760px] flex-wrap justify-center gap-5">
+        <div className={`flex max-w-[1760px] flex-wrap justify-center ${compact ? "gap-3" : "gap-5"}`}>
           {lanes.map((l) => (
             <motion.div layout key={l.key} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="w-[330px] rounded-3xl bg-black/40 p-5 ring-2 ring-white/15 backdrop-blur-sm">
+              className={`bg-black/40 ring-2 ring-white/15 backdrop-blur-sm ${compact ? "w-[200px] rounded-2xl p-3" : "w-[330px] rounded-3xl p-5"}`}>
               <div className="flex items-baseline justify-between gap-3">
-                <span className="truncate font-game text-3xl">{l.label}</span>
-                <span className="text-2xl tabular-nums opacity-70">{l.players}</span>
+                <span className={`truncate font-game ${compact ? "text-xl" : "text-3xl"}`}>{l.label}</span>
+                <span className={`tabular-nums opacity-70 ${compact ? "text-lg" : "text-2xl"}`}>{l.players}</span>
               </div>
-              <div className="mt-4 flex min-h-12 flex-wrap gap-2">
+              <div className={`flex flex-wrap ${compact ? "mt-2 min-h-8 gap-1.5" : "mt-4 min-h-12 gap-2"}`}>
                 <AnimatePresence>
-                  {l.initials.map((ini, i) => (
+                  {(compact ? l.initials.slice(-4) : l.initials).map((ini, i) => (
                     <motion.span key={`${ini}-${i}`} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={spring}
-                      className="flex size-12 items-center justify-center rounded-full bg-[var(--brand)] text-lg font-extrabold">{ini}</motion.span>
+                      className={`flex items-center justify-center rounded-full bg-[var(--brand)] font-extrabold ${compact ? "size-8 text-xs" : "size-12 text-lg"}`}>{ini}</motion.span>
                   ))}
                 </AnimatePresence>
               </div>
@@ -94,6 +98,17 @@ function Lobby({ lanes }: { lanes: DisplayLane[] }) {
 }
 
 /**
+ * How thick the lanes are for how many there are (D363). Up to 12 keep the original look; past
+ * that the columns, gaps and runners thin out and labels turn to run up the screen, so 30 lanes
+ * still fit across 1920 px. Full class strings, so Tailwind sees every one of them.
+ */
+function laneDensity(n: number) {
+  if (n <= 12) return { gap: "gap-5", width: "max-w-[150px]", round: "rounded-[32px]", runner: "size-16 text-3xl", leadRing: "ring-8", label: "text-2xl", upright: false };
+  if (n <= 20) return { gap: "gap-3", width: "max-w-[80px]", round: "rounded-[24px]", runner: "size-12 text-2xl", leadRing: "ring-4", label: "text-2xl", upright: true };
+  return { gap: "gap-2", width: "max-w-[56px]", round: "rounded-2xl", runner: "size-10 text-xl", leadRing: "ring-4", label: "text-xl", upright: true };
+}
+
+/**
  * Vertical lanes racing bottom to top (D303), in a fixed order so columns grow instead of
  * swapping. The leader's column glows and wears a crown. Heights come from `progress`, which is
  * already scaled to 110% of the leader (progressOf), so nobody looks finished.
@@ -101,25 +116,30 @@ function Lobby({ lanes }: { lanes: DisplayLane[] }) {
 function Lanes({ lanes }: { lanes: DisplayLane[] }) {
   const ordered = [...lanes].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   const lead = lanes.reduce<DisplayLane | null>((best, l) => (l.progress > 0 && (!best || l.progress > best.progress) ? l : best), null);
+  const d = laneDensity(lanes.length);
   return (
     // pt-[200px] clears the TimerRing (right-16 top-10, ~40–190px): with Frame's header gone,
     // lanes start level with it, and with 9+ lanes the row fills wide enough for the rightmost
     // lane/crown to run under the ring (fix round 1, D323).
-    <div className="flex h-full items-stretch justify-center gap-5 px-6 pt-[200px]">
+    <div className={`flex h-full items-stretch justify-center px-6 pt-[200px] ${d.gap}`}>
       {ordered.map((l) => {
         const leader = lead?.key === l.key;
         return (
-          <div key={l.key} className="flex min-w-0 max-w-[150px] flex-1 flex-col items-center gap-3">
-            <div className="relative w-full flex-1 rounded-[32px] bg-white/10">
-              <motion.div className="absolute inset-x-0 bottom-0 rounded-[32px] bg-[var(--brand)]" initial={false}
+          <div key={l.key} className={`flex min-w-0 flex-1 flex-col items-center gap-3 ${d.width}`}>
+            <div className={`relative w-full flex-1 bg-white/10 ${d.round}`}>
+              <motion.div className={`absolute inset-x-0 bottom-0 bg-[var(--brand)] ${d.round}`} initial={false}
                 animate={{ height: `${l.progress * 100}%` }} transition={climb}
                 style={{ boxShadow: leader ? "0 0 48px var(--brand)" : "none" }} />
               <motion.div className="absolute inset-x-0 flex justify-center" initial={false}
                 animate={{ bottom: `calc(${l.progress * 100}% - 8px)` }} transition={climb}>
-                <span className={`flex size-16 items-center justify-center rounded-full bg-white text-3xl shadow-xl ${leader ? "ring-8 ring-white/40" : ""}`}>{leader ? "👑" : "🏃"}</span>
+                <span className={`flex shrink-0 items-center justify-center rounded-full bg-white shadow-xl ${d.runner} ${leader ? `${d.leadRing} ring-white/40` : ""}`}>{leader ? "👑" : "🏃"}</span>
               </motion.div>
             </div>
-            <span className="w-full truncate text-center font-game text-2xl">{l.label}</span>
+            {/* Thin lanes read their label bottom to top, like a book's spine, instead of cutting it to a
+                letter. A fixed height keeps every column's foot level; text-end hangs it from the column. */}
+            {d.upright
+              ? <span className={`h-[180px] truncate text-end font-game leading-none [writing-mode:vertical-rl] rotate-180 ${d.label}`}>{l.label}</span>
+              : <span className={`w-full truncate text-center font-game ${d.label}`}>{l.label}</span>}
           </div>
         );
       })}

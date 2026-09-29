@@ -98,11 +98,18 @@ The host console is not restyled; it only gains the controls the new draw format
 ### Tap race
 
 - **D303** **Vertical lanes.** Lanes are columns side by side, each racing from the bottom of the
-  screen to the top, with the lane's label under its column. Up to 12 lanes (`MAX_LANES`) or 10
-  solo players (`MAX_SOLO`) fit across 1920 px. Each lane's marker climbs with a spring as its
+  screen to the top, with the lane's label under its column. Up to 30 lanes (`MAX_LANES`,
+  `MAX_SOLO`) fit across 1920 px, thinning as more join (D363). Each lane's marker climbs with a spring as its
   score moves; the leader's column glows and wears a crown; a timer ring runs down in the
   top-right corner. Lanes keep a fixed order while racing (as now), and the scale stays at 110%
   of the leader so nobody looks finished.
+
+- **D363** **Thinner lanes for big crowds.** Added 29 Sep 2026. The race shows up to 30 lanes,
+  solo or grouped (was 12 grouped, 10 solo). Up to 12 lanes keep the D303 look. From 13 to 20 the
+  columns narrow to 80 px with smaller runners; from 21 to 30, to 56 px. Past 12, lane labels run
+  up the screen like a book's spine, in a fixed-height strip so every column's foot stays level,
+  and the lobby's cards shrink to 200 px showing the last 4 joiners. The host's "Everyone solo"
+  option reads its number from `MAX_SOLO`.
 
 - **D304** **No tap counts anywhere.** Not on the lanes, the podium or the phone. Scores are still
   computed and ranked exactly as D267 says; they are simply not shown. "Fastest tapper" keeps
