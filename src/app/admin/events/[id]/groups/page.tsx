@@ -15,6 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { createGroupAction, renameGroupAction, deleteGroupAction, updateGroupFieldsAction } from "./actions";
 import { BuildFromColumn } from "./build-from-column";
+import { SectionIconForm } from "@/components/admin/SectionIconForm";
+import { saveSectionIconAction } from "../actions";
+import { sectionIcons } from "@/lib/launcher";
 
 export const metadata = { title: "Groups" };
 
@@ -45,6 +48,10 @@ export default async function Groups({ params, searchParams }: { params: Promise
         subtitle={`${groups.length} group${groups.length === 1 ? "" : "s"} · ${grouped} of ${attendees.length} attendees grouped`}
         actions={
           <>
+            {/* D362: the My group button's picture, set here as Agenda's and Info's are on their pages. */}
+            <Modal title="My group icon" hint="The round button group members tap on the portal home." trigger="My group tile settings" icon="settings" iconOnly>
+              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "group")} section="group" current={sectionIcons(ev.section_icons).group} glyph="users" />
+            </Modal>
             <BuildFromColumn eventId={ev.id} fields={[{ key: "category", label: "Category" }, ...fields]} from={from ?? null} attendees={attendees} groups={groups} />
             <Modal title="New group" trigger="New group" icon="plus" variant="default">
               <form action={createGroupAction.bind(null, ev.id)} className="grid gap-3">

@@ -102,6 +102,12 @@ entries are still `activity_submissions` rows, and they still go through `submit
   - Participation is not shown (D351).
 - **D361 — Exports carry the group.** `submissions.xlsx` gets a Group column on every sheet
   (blank for individual forms). The attendee links export (`links.xlsx`) gets a Group column.
+- **D362 — The My group tile's picture is the organiser's to set.** Added 29 Sep 2026.
+  - The Groups admin page gets a settings button, the same as Agenda's and Info's (D222). It
+    stores the picture in `events.section_icons.group`. There is one picture per event, not one
+    per group.
+  - There is no default illustration, so without an upload the tile keeps its people glyph.
+  - No database change.
 
 ## Data — migration 0055_groups.sql
 

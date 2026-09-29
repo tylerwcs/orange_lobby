@@ -1437,13 +1437,14 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
 /**
  * The picture for one of the launcher's own sections, set from that section's admin page
  * (D222). Upload, replace or remove - the same ImageField as a tile's icon. Removing it puts
- * the portal's default illustration back.
+ * the portal's default illustration back (for My group, which has none, its glyph).
  */
 export async function saveSectionIconAction(eventId: string, section: IconSection, formData: FormData) {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   if (!ICON_SECTIONS.includes(section)) redirect(flashPath(`/admin/events/${eventId}`, "That section has no icon.", "error"));
-  const back = section === "agenda" ? agendaBack(eventId) : infoBack(eventId);
+  // Each section's picture is set from its own admin page, and lands back there (My group's from Groups, D362).
+  const back = section === "agenda" ? agendaBack(eventId) : section === "group" ? `/admin/events/${eventId}/groups` : infoBack(eventId);
   const current = sectionIcons(ev.section_icons)[section];
   let image: ImageChange = { url: current, stale: null };
   try {
