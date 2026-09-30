@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import type { Person } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
 import { reelLayout, reelTimings, toWorld, type Box } from "@/lib/games/layout";
-import { easeOutQuart, wheelLabel } from "@/lib/games/wheel";
+import { easeOutQuart } from "@/lib/games/wheel";
 import { textTexture, useFontReady } from "./textTexture";
 import { useAnimating } from "./useAnimating";
 
@@ -67,7 +67,7 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed by the id list, not identity
   const stableNames = useMemo(() => names, [namesKey]);
 
-  // White reel, black text (D323): one line per face — wheelLabel, the same label the wheel
+  // White reel, black text (D323): one line per face — the player's label, the same one the wheel
   // uses — no initials line. The HTML overlay (ReelFrames) adds the white-to-transparent fade
   // that makes faces above and below the centre read as fading out; the drum's own curvature
   // already shrinks the faces that have turned away from the front.
@@ -77,7 +77,7 @@ function Reel({ box, target, names, stopAt, spinMs, offset, synth }: {
     return Array.from({ length: FACES }, (_, i) => {
       const p = i === 0 ? stableTarget : stableNames.length ? stableNames[(i - 1) % stableNames.length] : stableTarget;
       return textTexture(box.w, edgeH, [
-        { text: wheelLabel(p), size, colour: "#111111" },
+        { text: p.label, size, colour: "#111111" },
       ], { background: "#ffffff" });
     });
   }, [ready, stableTarget, stableNames, box.w, edgeH]);

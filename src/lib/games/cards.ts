@@ -7,7 +7,7 @@ import type { Person } from "@/lib/games/wire";
  * room cannot read a resting reel as a pick. wheelLabel renders it as just "?". The id is fixed,
  * so the waiting reel never remounts or redraws when the pool changes.
  */
-export const WAITING_FACE: Person = { id: "waiting", first: "?", initials: "?" };
+export const WAITING_FACE: Person = { id: "waiting", label: "?", initials: "?" };
 
 /** "1 card left", "2 cards left". */
 export function cardsLeftLabel(n: number): string {

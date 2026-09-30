@@ -3,7 +3,6 @@ import { motion } from "motion/react";
 import type { DisplayState, Person } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
 import { MAX_REELS, reelLayout } from "@/lib/games/layout";
-import { wheelLabel } from "@/lib/games/wheel";
 import { useServerNow } from "../usePoll";
 import { Frame } from "./Frame";
 import { MosaicDraw } from "./MosaicDraw";
@@ -92,7 +91,7 @@ export function DrawScreen({ state, offset }: { state: DisplayState; offset: num
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-black/55" />
               <motion.div initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, damping: 14 }}
                 className="absolute left-1/2 top-1/2 max-w-[1500px] -translate-x-1/2 -translate-y-1/2 rounded-[40px] bg-white px-16 py-10 shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
-                <span className="block truncate text-center font-game text-[120px] leading-none text-[#111]">{wheelLabel(d.targets[0])}</span>
+                <span className="block truncate text-center font-game text-[120px] leading-none text-[#111]">{d.targets[0].label}</span>
               </motion.div>
             </>
           )}
@@ -161,7 +160,7 @@ function Cascade({ people, endsAt, now }: { people: Person[]; endsAt: number | n
       {people.map((p, i) => (
         <motion.div key={p.id} initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: (i / people.length) * Math.max(0.5, left / 1000 - 0.5) }}
-          className="truncate rounded-2xl bg-black/40 px-4 py-3 text-center font-game text-3xl">{p.first} {p.initials}</motion.div>
+          className="truncate rounded-2xl bg-black/40 px-4 py-3 text-center font-game text-3xl">{p.label}</motion.div>
       ))}
     </div>
   );

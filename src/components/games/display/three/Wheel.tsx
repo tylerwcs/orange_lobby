@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { Person } from "@/lib/games/wire";
 import type { Synth } from "@/lib/games/sound";
-import { canTick, easeOutQuart, landingAngle, sliceAt, wheelLabel, WHEEL_NAMED_MAX } from "@/lib/games/wheel";
+import { canTick, easeOutQuart, landingAngle, sliceAt, WHEEL_NAMED_MAX } from "@/lib/games/wheel";
 import { GAME_FAMILY, useFontReady } from "./textTexture";
 import { useAnimating } from "./useAnimating";
 
@@ -49,7 +49,7 @@ function wheelTexture(people: Person[], colour: string): THREE.CanvasTexture {
       ctx.save();
       ctx.translate(c, c);
       ctx.rotate(-Math.PI / 2 + (i + 0.5) * step);
-      ctx.fillText(wheelLabel(people[i]), r - 36, 0, r * 0.72);
+      ctx.fillText(people[i].label, r - 36, 0, r * 0.72);
       ctx.restore();
     }
   }

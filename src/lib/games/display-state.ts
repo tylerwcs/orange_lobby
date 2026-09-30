@@ -8,7 +8,7 @@ import { absentFor, checkedInBy, eligiblePool, nextPrize, poolBeforeDraw, prizeP
 import { mosaicSurvivors, seededOrder } from "@/lib/games/mosaic";
 import { backgroundOf } from "@/lib/games/background";
 import { cardsLeft, cardsView } from "@/lib/games/cards";
-import { tag, tagLabel } from "@/lib/games/names";
+import { tagsFor, type Tag } from "@/lib/games/names";
 import { createMemo } from "@/lib/games/memo";
 import { publicStage } from "@/lib/games/views";
 import type { DisplayState, HostState, Person } from "@/lib/games/wire";
@@ -54,7 +54,15 @@ export function forgetPool(gameId: string) {
   poolMemo.clear(gameId);
 }
 
-const person = (id: string, name: string): Person => ({ id, ...tag(name) });
+/** Everyone's LED name (D365), worked out once per roster read: rosterFor memoises the Map. */
+const tagMemo = new WeakMap<Map<string, Attendee>, Map<string, Tag>>();
+function tagsOf(roster: Map<string, Attendee>): Map<string, Tag> {
+  let tags = tagMemo.get(roster);
+  if (!tags) tagMemo.set(roster, (tags = tagsFor([...roster.values()])));
+  return tags;
+}
+const UNKNOWN: Tag = { initials: "?", label: "?" };
+const person = (id: string, tags: Map<string, Tag>): Person => ({ id, ...(tags.get(id) ?? UNKNOWN) });
 /** Winner cards are the one place with the full name and company (D273). */
 const card = (a: Attendee | undefined) => ({ name: a?.name ?? "", company: a ? fieldValue(a, "company") : "" });
 
@@ -86,7 +94,8 @@ async function raceView(event: Event, stage: StageRow): Promise<DisplayState["ra
   const runId = stage.run_id!;
   const [run, rows, roster] = await Promise.all([runFor(runId, event.id), tapsFor(runId), rosterFor(event.id)]);
   const grouping = run?.grouping ?? { by: "solo" as const };
-  const nameOf = (id: string) => roster.get(id)?.name ?? "";
+  const tags = tagsOf(roster);
+  const labelOf = (id: string) => tags.get(id)?.label ?? "";
   const table = standings(rows);
   const lobby = stage.phase === "race_lobby";
   // The lobby shows the newest joiners; racing and results send every lane (D364).
@@ -98,26 +107,26 @@ async function raceView(event: Event, stage: StageRow): Promise<DisplayState["ra
     ? rows.filter((r) => r.lane_key === key)
         .sort((a, b) => (a.joined_at ?? "").localeCompare(b.joined_at ?? ""))
         .slice(-12)
-        .map((r) => tag(nameOf(r.attendee_id)).initials)
+        .map((r) => (tags.get(r.attendee_id) ?? UNKNOWN).initials)
     : [];
   const top = topTapper(rows);
   return {
     lanes: shown.map((l) => ({
-      key: l.key, label: laneLabel(l.key, grouping, nameOf), players: l.players,
+      key: l.key, label: laneLabel(l.key, grouping, labelOf), players: l.players,
       progress: progressOf(l.score, leader), place: l.place, initials: initials(l.key),
     })),
     players: rows.length,
     more: table.length - shown.length,
     solo: grouping.by === "solo",
     // The name only (D304).
-    mvp: stage.phase === "race_results" && top ? { name: tagLabel(nameOf(top.attendee_id)) } : null,
+    mvp: stage.phase === "race_results" && top ? { name: labelOf(top.attendee_id) } : null,
   };
 }
 
 async function survivalView(event: Event, stage: StageRow, game: SurvivalGame): Promise<DisplayState["survival"]> {
   const runId = stage.run_id!;
   const [rows, roster] = await Promise.all([listPlayers(runId), rosterFor(event.id)]);
-  const nameOf = (id: string) => roster.get(id)?.name ?? "";
+  const tags = tagsOf(roster);
   const q = currentQuestion(stage);
   const ids = stage.phase === "survival_lobby" ? rows.map((r) => r.attendee_id)
     : stage.phase === "survival_over" || q === null ? stillIn(rows)
@@ -126,7 +135,7 @@ async function survivalView(event: Event, stage: StageRow, game: SurvivalGame): 
   const choices = counting ? await listAnswerChoices(runId, q) : [];
   const optionCount = q === null ? 0 : game.config.questions[q]?.options.length ?? 0;
   return {
-    players: ids.map((id) => person(id, nameOf(id))),
+    players: ids.map((id) => person(id, tags)),
     eliminatedIds: stage.phase === "survival_reveal" && q !== null ? outAt(rows, q) : [],
     answered: choices.length,
     split: stage.phase === "survival_locked" || stage.phase === "survival_reveal" ? answerSplit(choices, optionCount) : null,
@@ -134,7 +143,7 @@ async function survivalView(event: Event, stage: StageRow, game: SurvivalGame): 
   };
 }
 
-const people = (list: Attendee[]) => list.map((a) => person(a.id, a.name));
+const people = (list: Attendee[], tags: Map<string, Tag>) => list.map((a) => person(a.id, tags));
 
 async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<DisplayState["draw"]> {
   const [winners, roster] = await Promise.all([listWinners(game.id), rosterFor(event.id)]);
@@ -150,7 +159,9 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
   const running = stage.phase === "draw_spinning" || stage.phase === "draw_rounds" || stage.phase === "draw_card_landed";
   const drawn = running && spun ? spun.newIds.flatMap((id) => { const a = roster.get(id); return a ? [a] : []; }) : [];
   const shown = poolBeforeDraw(pool, drawn);
+  // Winner cards keep the full name (D273); every other name on the draw is the LED name (D365).
   const nameOf = (id: string) => roster.get(id)?.name ?? "";
+  const tags = tagsOf(roster);
 
   const run = format === "cards" && stage.run_id ? await runFor(stage.run_id, event.id) : null;
   const landed = stage.phase === "draw_card_landed";
@@ -161,17 +172,17 @@ async function drawView(event: Event, stage: StageRow, game: DrawGame): Promise<
     prize: prizeNo === null ? null : game.config.prizes[prizeNo]?.name ?? null,
     prizeImage: prizeNo === null ? null : game.config.prizes[prizeNo]?.image ?? null,
     pool: shown.length,
-    sample: people(seededOrder(shown, `${stage.run_id}:${stage.version}`).slice(0, 40)),
+    sample: people(seededOrder(shown, `${stage.run_id}:${stage.version}`).slice(0, 40), tags),
     // The display link learns who the reels land on when the spin starts (D312). Phones never do.
     // A card round's landed reel keeps showing its participant, public by then.
-    targets: stage.phase === "draw_spinning" && spun ? spun.newIds.map((id) => person(id, nameOf(id)))
-      : landed && spun ? spun.winnerIds.slice(0, 1).map((id) => person(id, nameOf(id))) : null,
+    targets: stage.phase === "draw_spinning" && spun ? spun.newIds.map((id) => person(id, tags))
+      : landed && spun ? spun.winnerIds.slice(0, 1).map((id) => person(id, tags)) : null,
     spinMs: extra.spinMs,
     quick: extra.quick,
-    wheel: format === "wheel" && (stage.phase === "draw_ready" || stage.phase === "draw_spinning") ? people(shown) : null,
+    wheel: format === "wheel" && (stage.phase === "draw_ready" || stage.phase === "draw_spinning") ? people(shown, tags) : null,
     mosaic: stage.phase === "draw_rounds" && spun && extra.round !== null && extra.rounds !== null
       ? {
-        people: people(shown),
+        people: people(shown, tags),
         // Only who still stands this round: the winners cannot be picked out early (D315).
         survivorIds: mosaicSurvivors(shown.map((a) => a.id), spun.winnerIds, extra.round, extra.rounds, `${stage.run_id}:${spun.winnerIds.join(",")}`),
         round: extra.round,

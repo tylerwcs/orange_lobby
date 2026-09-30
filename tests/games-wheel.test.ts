@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canTick, easeOutQuart, landingAngle, sliceAt, TICK_MIN_MS, wheelLabel } from "@/lib/games/wheel";
+import { canTick, easeOutQuart, landingAngle, sliceAt, TICK_MIN_MS } from "@/lib/games/wheel";
 
 const TAU = Math.PI * 2;
 
@@ -33,11 +33,3 @@ describe("wheel geometry (D314)", () => {
   });
 });
 
-describe("wheelLabel (D314)", () => {
-  it("shortens a two-part name to first name and surname initial", () => {
-    expect(wheelLabel({ id: "1", first: "Priya", initials: "PR" })).toBe("Priya R.");
-  });
-  it("falls back to the first name alone when there is no surname initial", () => {
-    expect(wheelLabel({ id: "2", first: "Cher", initials: "C" })).toBe("Cher");
-  });
-});

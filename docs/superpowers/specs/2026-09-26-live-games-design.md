@@ -157,7 +157,7 @@ HTTP polling and no Realtime (D256).
     `survival_reveal`), and serialise on the stage row, so an answer is either counted by the
     Reveal or refused as too late.
 
-- **D273** **Names on the LED are initials plus first name** (e.g. "PR · Priya" for Priya
+- **D273** **Names on the LED are initials plus first name** (superseded by D365: nicknames; winner cards unchanged) (e.g. "PR · Priya" for Priya
   Ramasamy): the first letters of the first two words of `attendees.name`, and its first word.
   For names written surname-first ("Tan Mei Ling") the first word is the surname; the initials
   still tell two Tans apart. This holds for every tile, podium

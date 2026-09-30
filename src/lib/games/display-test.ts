@@ -8,7 +8,7 @@ const NAMES = [
   "Ivan Koh", "Jia Hui Ong", "Kumar Das", "Lina Chua", "Mei Ling Tan", "Nik Hassan", "Omar Said",
   "Priya Rama", "Qi Wei", "Rosa Diaz", "Sam Yeo", "Tara Singh", "Uma Devi", "Victor Lau", "Wen Jie", "Yusof Ali",
 ];
-const PEOPLE: Person[] = NAMES.map((n, i) => ({ id: `test-${i}`, ...tag(n) }));
+const PEOPLE: Person[] = NAMES.map((n, i) => ({ id: `test-${i}`, ...tag({ name: n }) }));
 
 export const TEST_STEPS = 4;
 

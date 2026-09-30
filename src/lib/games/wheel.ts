@@ -1,4 +1,3 @@
-import type { Person } from "@/lib/games/wire";
 
 /**
  * The wheel of names (D314). Slice i spans [i, i+1) × 2π/n clockwise from the pointer at the
@@ -38,11 +37,3 @@ export function canTick(lastAt: number, now: number): boolean {
   return now - lastAt >= TICK_MIN_MS;
 }
 
-/**
- * A slice's name: first name and surname initial ("Priya R."). Shared by the wheel's own texture
- * and the landed-name overlay (DrawScreen), so the enlarged name always matches the slice under
- * the pointer.
- */
-export function wheelLabel(p: Person): string {
-  return p.initials.length > 1 ? `${p.first} ${p.initials.slice(1)}.` : p.first || p.initials;
-}

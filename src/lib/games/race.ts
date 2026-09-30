@@ -1,6 +1,5 @@
 import type { Attendee } from "@/lib/types";
 import { fieldValue } from "@/lib/attendee-values";
-import { tagLabel } from "@/lib/games/names";
 
 /**
  * How a race's lanes are made (D263): the attendee's category (its first part, when it lists
@@ -42,10 +41,10 @@ function firstCategoryPart(category: string | null): string {
   return (category ?? "").split(/[,+/;]/).map((p) => p.trim()).find(Boolean) ?? "";
 }
 
-/** "Table 7" for a bare number, the value itself otherwise (D263). */
-export function laneLabel(key: string, g: Grouping, nameOf: (id: string) => string = () => ""): string {
+/** "Table 7" for a bare number, the value itself otherwise (D263); solo, the player's LED name (D365). */
+export function laneLabel(key: string, g: Grouping, labelOf: (id: string) => string = () => ""): string {
   if (key === OTHERS) return "Others";
-  if (g.by === "solo") return tagLabel(nameOf(key));
+  if (g.by === "solo") return labelOf(key) || "?";
   if (g.by === "field" && /^\d+$/.test(key)) return `${g.label} ${key}`;
   return key;
 }

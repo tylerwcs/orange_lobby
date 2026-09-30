@@ -17,7 +17,8 @@ export type PhoneMe =
 export type PhoneState = { now: number; key: string; unchanged?: true; stage?: PublicStage; me?: PhoneMe };
 
 /** A tile on the LED: initials plus first name (D273). */
-export type Person = { id: string; initials: string; first: string };
+/** A player on the LED (D365): `label` is their nickname, or "Priya R." without one. */
+export type Person = { id: string; initials: string; label: string };
 
 /**
  * A race lane on the LED. `progress` (0–1) replaces the score (D304); `initials` are the lane's

@@ -2,6 +2,7 @@ import "server-only";
 import type { Game } from "@/lib/games/config";
 import { currentQuestion, spinFacts, stageKey, type StageRow } from "@/lib/games/phase";
 import { laneKeyFor, laneLabel, standings } from "@/lib/games/race";
+import { tag } from "@/lib/games/names";
 import { publicStage } from "@/lib/games/views";
 import type { PhoneMe, PhoneState } from "@/lib/games/wire";
 import { getAnswer, getPlayer, getTapRow } from "@/lib/db/games";
@@ -30,7 +31,7 @@ async function phoneMe(ctx: PlayContext, stage: StageRow, game: Game | null): Pr
     const [run, mine] = await Promise.all([runFor(runId, ctx.event.id), getTapRow(runId, ctx.attendee.id)]);
     const grouping = run?.grouping ?? { by: "solo" as const };
     const laneKey = mine?.lane_key ?? laneKeyFor(ctx.attendee, grouping);
-    const lane = laneLabel(laneKey, grouping, () => ctx.attendee.name);
+    const lane = laneLabel(laneKey, grouping, () => tag(ctx.attendee).label);
     let place: number | null = null;
     let lanes = 0;
     if (stage.phase === "race_results" && mine) {

@@ -53,8 +53,9 @@ describe("laneLabel", () => {
   it("names the Others lane", () => {
     expect(laneLabel(OTHERS, byTable)).toBe("Others");
   });
-  it("names a solo lane by initials and first name", () => {
-    expect(laneLabel("a1", { by: "solo" }, () => "Priya Ramasamy")).toBe("PR · Priya");
+  it("names a solo lane by the player's LED name (D365)", () => {
+    expect(laneLabel("a1", { by: "solo" }, () => "Cai Shen")).toBe("Cai Shen");
+    expect(laneLabel("a1", { by: "solo" })).toBe("?");
   });
 });
 

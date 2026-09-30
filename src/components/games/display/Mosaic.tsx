@@ -45,7 +45,7 @@ export const Mosaic = memo(function Mosaic({
             style={{ transitionDelay: out ? `${delays.get(p.id) ?? 0}ms` : undefined, borderRadius: Math.max(4, size * 0.08) }}>
             <span className="font-extrabold leading-none" style={{ fontSize: size * (finalist ? 0.28 : 0.34) }}>{p.initials}</span>
             <span className="mt-[0.2em] max-w-full truncate px-[6%] leading-none opacity-85" style={{ fontSize: Math.max(9, size * (finalist ? 0.12 : 0.15)) }}>
-              {p.first}
+              {p.label}
             </span>
           </div>
         );

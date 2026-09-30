@@ -121,6 +121,16 @@ The host console is not restyled; it only gains the controls the new draw format
   in for the held lane placed lowest, so the crown is always on screen. The held set lives on the
   LED page; a reload re-holds from the current top 30. Results rank everyone, as before.
 
+- **D365** **Nicknames on the LED.** Added 30 Sep 2026; replaces D273's "initials · first word",
+  which showed surname-first names as "WC · WONG". Every game names a player by the attendee
+  field keyed `nickname` (the masterlist imports one for all 164 ecphub attendees): race lanes,
+  the podium and fastest tapper, the Last One Standing mosaic, slot reels, the wheel and the
+  cascade. Without a nickname the name falls back to "Priya R." (first word, next initial). Two
+  people who would read the same get their full name's initials added, "Jason (TJ)". The small
+  circles and mosaic tiles show the shown name's initials. Winner cards keep the full name and
+  company (D273). Players are not asked to type a name: that slows joining and puts unvetted
+  text on the LED.
+
 - **D304** **No tap counts anywhere.** Not on the lanes, the podium or the phone. Scores are still
   computed and ranked exactly as D267 says; they are simply not shown. "Fastest tapper" keeps
   the name without a number. Counts also leave the wire: each display lane carries `progress`
