@@ -67,6 +67,8 @@ export type Event = {
   pinned_fields: PinnedField[];
   /** D348: attendee field keys group members see about each other. Names are always shown. */
   group_fields: string[];
+  /** D367: My group's tile and page are on the portal. Off hides both; groups and group forms carry on. */
+  group_tile: boolean;
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
   crew_token: string | null;
   /** The host console link's authority (D252). Null until an admin creates one on the Games page. */

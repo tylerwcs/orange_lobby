@@ -143,13 +143,34 @@ export function planGroupsFromColumn(
   return { create, reuse: [...reused.values()], moves, movingOut, blank };
 }
 
-/** D348: the fields the admin chose to share, that this member has filled in, by label. */
-export function groupFieldValues(attendee: Pick<Attendee, "extra">, keys: string[], fields: AttendeeField[]): { label: string; value: string }[] {
+/**
+ * What makes a shared value a tag (D366). Only words: a number field holding 1 is a table
+ * number, not a yes.
+ */
+const YES = new Set(["yes", "y", "true"]);
+
+/**
+ * D348: the fields the admin chose to share, that this member has filled in, by label.
+ * D366: a yes is a `tag` — the page shows just the label ("Captain"), not "Captain: Yes".
+ */
+export function groupFieldValues(attendee: Pick<Attendee, "extra">, keys: string[], fields: AttendeeField[]): { label: string; value: string; tag: boolean }[] {
   return keys.flatMap((k) => {
     const f = fields.find((x) => x.key === k);
     const value = f ? fieldValue(attendee, k) : "";
-    return f && value ? [{ label: f.label, value }] : [];
+    return f && value ? [{ label: f.label, value, tag: YES.has(value.toLowerCase()) }] : [];
   });
+}
+
+/**
+ * D366: members holding a tag lead the list — a Captain column shared ahead of Vice Captain
+ * puts the captain first, then the vice — and everyone else keeps the order they came in.
+ */
+export function taggedFirst<T extends Pick<Attendee, "extra">>(members: T[], keys: string[], fields: AttendeeField[]): T[] {
+  const rank = (m: T) => {
+    const i = keys.findIndex((k) => groupFieldValues(m, [k], fields)[0]?.tag);
+    return i < 0 ? Infinity : i;
+  };
+  return members.map((m) => ({ m, r: rank(m) })).sort((a, b) => a.r - b.r).map((x) => x.m);
 }
 
 /** Not a real attendee field: routes write the group's name into `extra` under this key for export only. */

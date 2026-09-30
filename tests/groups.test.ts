@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
+import { groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, taggedFirst, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 import type { Activity, ActivitySubmission, EventGroup } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}) => ({ id: "f1", group_mode: "entries" as const, group_target: 2, categories: null, ...over });
@@ -95,7 +95,37 @@ describe("groupFieldValues (D348)", () => {
   it("returns the chosen fields that have a value, in the chosen order, by label", () => {
     const fields = [{ key: "company", label: "Company", type: "text" as const }, { key: "phone", label: "Phone", type: "phone" as const }];
     expect(groupFieldValues({ extra: { company: " Ecopia ", phone: "" } }, ["phone", "company", "gone"], fields))
-      .toEqual([{ label: "Company", value: "Ecopia" }]);
+      .toEqual([{ label: "Company", value: "Ecopia", tag: false }]);
+  });
+
+  it("marks a yes as a tag, so Captain: Yes reads as Captain (D366)", () => {
+    const fields = [
+      { key: "captain", label: "Captain", type: "text" as const },
+      { key: "vice", label: "Vice Captain", type: "select" as const, options: ["Yes", "No"] },
+      { key: "table", label: "Table", type: "number" as const },
+      { key: "team", label: "Team", type: "text" as const },
+    ];
+    expect(groupFieldValues({ extra: { captain: "yes", vice: "No", table: "1", team: "True" } }, ["captain", "vice", "table", "team"], fields)).toEqual([
+      { label: "Captain", value: "yes", tag: true },
+      { label: "Vice Captain", value: "No", tag: false },
+      { label: "Table", value: "1", tag: false },
+      { label: "Team", value: "True", tag: true },
+    ]);
+  });
+});
+
+describe("taggedFirst (D366)", () => {
+  const fields = [{ key: "captain", label: "Captain", type: "text" as const }, { key: "vice", label: "Vice Captain", type: "text" as const }];
+  const m = (name: string, extra: Record<string, string> = {}) => ({ name, extra });
+
+  it("puts members holding a tag first, in the order the tags were chosen, and keeps the rest as they were", () => {
+    const list = [m("Ann"), m("Bo", { vice: "Yes" }), m("Cy"), m("Di", { captain: "Yes" }), m("Ed", { captain: "No" })];
+    expect(taggedFirst(list, ["captain", "vice"], fields).map((x) => x.name)).toEqual(["Di", "Bo", "Ann", "Cy", "Ed"]);
+  });
+
+  it("leaves the order alone when nothing is shared", () => {
+    const list = [m("Bo", { vice: "Yes" }), m("Ann")];
+    expect(taggedFirst(list, [], fields).map((x) => x.name)).toEqual(["Bo", "Ann"]);
   });
 });
 

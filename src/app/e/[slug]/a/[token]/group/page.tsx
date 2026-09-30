@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { getGroup, groupMembers } from "@/lib/db/groups";
 import { loadActivityEntries } from "@/lib/portal-activity-entries";
-import { groupFieldValues } from "@/lib/groups";
+import { groupFieldValues, taggedFirst } from "@/lib/groups";
+import { Badge } from "@/components/ui/badge";
 import { eventFields } from "@/lib/attendee-fields";
 import { GroupStatus } from "@/components/portal/GroupStatus";
 
@@ -18,7 +19,8 @@ export default async function MyGroupPage({ params }: { params: Promise<{ slug: 
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   if (isUnpublished(event)) return null;
-  if (!attendee.group_id) notFound();
+  // D367: hidden by the organiser closes the page too, not only its tile.
+  if (!attendee.group_id || !event.group_tile) notFound();
   const [group, members, { submissions, people }] = await Promise.all([
     getGroup(event.id, attendee.group_id),
     groupMembers(event.id, attendee.group_id),
@@ -39,12 +41,16 @@ export default async function MyGroupPage({ params }: { params: Promise<{ slug: 
       </div>
 
       <ul className="-mx-4 divide-y border-y md:mx-0 md:rounded-xl md:border">
-        {members.map((m) => {
+        {taggedFirst(members, event.group_fields, fields).map((m) => {
           const facts = groupFieldValues(m, event.group_fields, fields);
+          const tags = facts.filter((f) => f.tag);
           return (
             <li key={m.id} className="px-4 py-3">
-              <div className="font-bold">{m.name}{m.id === attendee.id && <span className="font-normal text-muted-foreground"> (you)</span>}</div>
-              {facts.map((f) => <div key={f.label} className="text-sm text-muted-foreground">{f.label}: {f.value}</div>)}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-bold">{m.name}{m.id === attendee.id && <span className="font-normal text-muted-foreground"> (you)</span>}</span>
+                {tags.map((f) => <Badge key={f.label}>{f.label}</Badge>)}
+              </div>
+              {facts.filter((f) => !f.tag).map((f) => <div key={f.label} className="text-sm text-muted-foreground">{f.label}: {f.value}</div>)}
             </li>
           );
         })}

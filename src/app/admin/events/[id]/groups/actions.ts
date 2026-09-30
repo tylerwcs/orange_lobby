@@ -67,6 +67,15 @@ export async function updateGroupFieldsAction(eventId: string, fd: FormData) {
   redirect(flashPath(list(eventId), "Shared fields saved."));
 }
 
+/** D367: shows or hides My group on the portal. */
+export async function setGroupTileAction(eventId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const on = fd.get("group_tile") === "on";
+  await updateEvent(ev.id, { group_tile: on });
+  revalidatePath(list(eventId));
+  redirect(flashPath(list(eventId), on ? "My group is shown on the portal." : "My group is hidden from the portal."));
+}
+
 /** D344: joining this group moves them out of any other; one column, one write. */
 export async function addToGroupAction(eventId: string, groupId: string, fd: FormData) {
   const ev = await event(eventId);

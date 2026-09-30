@@ -13,7 +13,7 @@ import { FieldPicker } from "@/components/admin/FieldPicker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { createGroupAction, renameGroupAction, deleteGroupAction, updateGroupFieldsAction } from "./actions";
+import { createGroupAction, renameGroupAction, deleteGroupAction, updateGroupFieldsAction, setGroupTileAction } from "./actions";
 import { BuildFromColumn } from "./build-from-column";
 import { SectionIconForm } from "@/components/admin/SectionIconForm";
 import { saveSectionIconAction } from "../actions";
@@ -49,7 +49,14 @@ export default async function Groups({ params, searchParams }: { params: Promise
         actions={
           <>
             {/* D362: the My group button's picture, set here as Agenda's and Info's are on their pages. */}
-            <Modal title="My group icon" hint="The round button group members tap on the portal home." trigger="My group tile settings" icon="settings" iconOnly>
+            <Modal title="My group tile" hint="The round button group members tap on the portal home." trigger="My group tile settings" icon="settings" iconOnly>
+              {/* D367: separate form, so turning the tile off never re-saves the picture. */}
+              <form action={setGroupTileAction.bind(null, ev.id)} className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b p-1 pb-4">
+                <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
+                  <input type="checkbox" name="group_tile" defaultChecked={ev.group_tile} className="size-4 accent-primary" /> Show My group on the portal
+                </label>
+                <SubmitButton variant="outline">Save</SubmitButton>
+              </form>
               <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "group")} section="group" current={sectionIcons(ev.section_icons).group} />
             </Modal>
             <BuildFromColumn eventId={ev.id} fields={[{ key: "category", label: "Category" }, ...fields]} from={from ?? null} attendees={attendees} groups={groups} />

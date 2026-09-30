@@ -109,6 +109,16 @@ entries are still `activity_submissions` rows, and they still go through `submit
   - Without an upload the tile shows the portal's own illustration, `public/portal-icons/group.webp`
     (the user's artwork, 192 × 192 like Agenda's and Info's).
   - No database change.
+- **D366 — A shared "Yes" is a tag.** Added 1 Oct 2026, for the Wellness captains.
+  - On My group, a shared field whose value is Yes, Y or True shows as a badge with the field's
+    label next to the member's name, so it reads "Captain" instead of "Captain: Yes".
+  - Members with a badge are listed first, in the order the fields are shared (Captain before
+    Vice Captain). Everyone else keeps the name order.
+  - Numbers don't count as yes, so a Table of 1 stays "Table: 1".
+- **D367 — My group can be hidden.** Added 1 Oct 2026.
+  - A "Show My group on the portal" checkbox sits in the Groups page's tile settings. It is
+    stored in `events.group_tile` (migration 0056), which is on by default.
+  - Turning it off removes the tile and closes the page. Groups, group forms and exports carry on.
 
 ## Data — migration 0055_groups.sql
 

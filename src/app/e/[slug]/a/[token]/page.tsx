@@ -90,7 +90,7 @@ export default async function PersonalHome({ params, searchParams }: {
     activities.show ? loadActivityEntries(event, attendee).then((entries) => activityCards(entries, basePath)) : [],
     gameBanner(event, attendee, games > 0),
   ]);
-  const launcher = launcherItems({ basePath, personal: true, hasInfo, hasGroup: !!attendee.group_id, activities, tiles, icons: sectionIcons(event.section_icons) });
+  const launcher = launcherItems({ basePath, personal: true, hasInfo, hasGroup: event.group_tile && !!attendee.group_id, activities, tiles, icons: sectionIcons(event.section_icons) });
 
   return (
     <>
