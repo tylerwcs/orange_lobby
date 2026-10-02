@@ -4,7 +4,7 @@ import type { ChallengeScore, Team } from "@/lib/challenge-score";
 import type { ChallengeWeek } from "@/lib/challenge";
 import type { Disqualification } from "@/lib/db/challenge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { DisqualifyForm } from "@/components/admin/DisqualifyForm";
 
 /** D381: one team's members against the week's days, km in each cell, with Disqualify and Undo (D380). */
 export function TeamGrid({ team, week, score, names, dq, dailyMin, back, disqualify, undo }: {
@@ -14,11 +14,14 @@ export function TeamGrid({ team, week, score, names, dq, dailyMin, back, disqual
   undo: (attendeeId: string) => (fd: FormData) => Promise<void>;
 }) {
   const dqBy = new Map(dq.map((d) => [d.attendee_id, d]));
+  // A disqualified member voids the whole team (D380), which the heading says rather than leaving it to the table.
+  const isVoid = score.standings.find((x) => x.id === team.id)?.void ?? false;
   const short = (d: string) => `${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))}`;
   return (
     <div className="flex flex-col gap-3">
       <Link href={back} className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />All teams</Link>
       <h3 className="text-base font-extrabold">{team.name}</h3>
+      {isVoid && <p className="text-sm font-bold text-destructive">Void: a member is disqualified.</p>}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-muted-foreground">
@@ -39,21 +42,9 @@ export function TeamGrid({ team, week, score, names, dq, dailyMin, back, disqual
                   })}
                   <td className="py-2 pl-3">
                     {d ? (
-                      <form action={undo(id)}><input type="hidden" name="team" value={team.id} /><SubmitButton size="sm" variant="outline">Undo</SubmitButton></form>
+                      <form action={undo(id)}><input type="hidden" name="team" value={team.id} /><input type="hidden" name="week" value={week.number} /><SubmitButton size="sm" variant="outline">Undo</SubmitButton></form>
                     ) : (
-                      <form action={disqualify(id)} className="flex gap-1.5">
-                        <input type="hidden" name="team" value={team.id} />
-                        <input name="reason" required placeholder="Reason" aria-label={`Reason to disqualify ${name}`} className="h-8 w-32 rounded-md border border-input bg-transparent px-2 text-xs" />
-                        {/* A whole team goes Void on one press, so it asks first (D380). */}
-                        <ConfirmButton
-                          message={`Disqualify ${name}? ${team.name} will show Void on every leaderboard.`}
-                          confirmLabel="Disqualify"
-                          triggerVariant="destructive"
-                          className="h-8 px-2.5 text-xs"
-                        >
-                          Disqualify
-                        </ConfirmButton>
-                      </form>
+                      <DisqualifyForm action={disqualify(id)} teamId={team.id} week={week.number} name={name} teamName={team.name} />
                     )}
                   </td>
                 </tr>

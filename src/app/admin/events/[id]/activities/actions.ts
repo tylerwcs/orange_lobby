@@ -431,6 +431,12 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
   redirect(flashPath(back, `${name}'s submission is revoked. They can submit again${activity.is_open ? "." : " once it's open."}`));
 }
 
+/** Back to the team grid on the same week it was posted from (D381). */
+function leaderboardBack(eventId: string, activityId: string, fd: FormData): string {
+  const week = text(fd, "week");
+  return activityHref(eventId, activityId, "leaderboard", { team: text(fd, "team"), ...(/^\d+$/.test(week) ? { week } : {}) });
+}
+
 /**
  * D380: disqualify a person from a scored challenge. Their team shows Void everywhere and drops
  * out of the podium; their entries stay for the record. Undo is the delete below.
@@ -439,7 +445,7 @@ export async function disqualifyAction(eventId: string, activityId: string, atte
   const { orgId, userId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const activity = await submissionOf(ev, activityId);
-  const back = activityHref(eventId, activityId, "leaderboard", { team: String(fd.get("team") ?? "") });
+  const back = leaderboardBack(eventId, activityId, fd);
   const reason = text(fd, "reason");
   if (!activity.scoring) redirect(flashPath(back, "This activity isn't scored.", "error"));
   if (!reason) redirect(flashPath(back, "Add a reason for the record.", "error"));
@@ -454,7 +460,7 @@ export async function undoDisqualifyAction(eventId: string, activityId: string, 
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const activity = await submissionOf(ev, activityId);
-  const back = activityHref(eventId, activityId, "leaderboard", { team: String(fd.get("team") ?? "") });
+  const back = leaderboardBack(eventId, activityId, fd);
   await undoDisqualify(activity.id, attendeeId);
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(back, "Disqualification undone."));

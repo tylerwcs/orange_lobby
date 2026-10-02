@@ -16,10 +16,21 @@ export function LeaderboardPanel({ score, week, today, href }: {
   href: (extra: Record<string, string>) => string;
 }) {
   const picked = week === null ? null : score.weeks.find((w) => w.week.number === week) ?? null;
-  const rows = score.standings.map((s) => {
-    const w = picked?.teams[s.id];
-    return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, total: w.tier1 + w.bonus + w.podium } : s;
-  });
+  // A picked week is ranked on its own numbers, not on the all-weeks standings it would otherwise
+  // inherit its order and "#" from: by that week's total, then name, standard competition ranking,
+  // Void teams last and unranked.
+  const rows = picked
+    ? (() => {
+        const weekly = score.standings.map((s) => {
+          const w = picked.teams[s.id];
+          return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, total: w.tier1 + w.bonus + w.podium } : s;
+        });
+        const live = weekly.filter((r) => !r.void);
+        return [...weekly]
+          .sort((x, y) => Number(x.void) - Number(y.void) || (x.void ? 0 : y.total - x.total) || x.name.localeCompare(y.name))
+          .map((r) => ({ ...r, rank: r.void ? null : 1 + live.filter((o) => o.total > r.total).length }));
+      })()
+    : score.standings;
   const chip = (active: boolean) => `rounded-full border px-3 py-1 text-xs font-bold ${active ? "border-primary bg-primary/10 text-primary" : "border-border"}`;
   return (
     <div className="flex flex-col gap-3">
