@@ -6,7 +6,9 @@ import { listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSubmissions } from "@/lib/db/activities";
 import { listGroups } from "@/lib/db/groups";
 import { signedSubmissionUrl } from "@/lib/db/media";
-import { buildFormsWorkbook, type FormSheet } from "@/lib/exports";
+import { buildFormsWorkbook, leaderboardRows, addLeaderboardSheet, type FormSheet } from "@/lib/exports";
+import { loadChallenge } from "@/lib/challenge-data";
+import { nowInKL } from "@/lib/time";
 import { fileQuestionKeys, missingFrom, isGroupForm } from "@/lib/submissions";
 import { withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 
@@ -77,7 +79,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }));
 
   const columns = withGroupColumn(exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields), groups.length > 0);
-  const buf = await buildFormsWorkbook(sheets, columns).xlsx.writeBuffer();
+  const wb = buildFormsWorkbook(sheets, columns);
+  // D381: a scored challenge also gets its leaderboard, scored by the same read the tab uses.
+  for (const f of forms.filter((x) => x.scoring)) {
+    const { score } = await loadChallenge(ev, f, nowInKL().date);
+    addLeaderboardSheet(wb, `${f.name} leaderboard`, leaderboardRows(score));
+  }
+  const buf = await wb.xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

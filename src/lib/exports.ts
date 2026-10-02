@@ -9,6 +9,8 @@ import type { ExportColumn } from "@/lib/export-columns";
 import type { Prize } from "@/lib/games/config";
 import type { WinnerRow } from "@/lib/games/draw";
 import { isoToLocalInput } from "@/lib/time";
+import { weekLabel } from "@/lib/challenge";
+import type { ChallengeScore } from "@/lib/challenge-score";
 
 const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 
@@ -411,4 +413,31 @@ export function buildWinnersWorkbook(title: string, rows: string[][]): ExcelJS.W
   for (const r of rows) ws.addRow(r);
   ws.columns?.forEach((c) => { c.width = 24; });
   return wb;
+}
+
+/**
+ * D381: one row per team per week that has begun, then each team's totals. A week lists its
+ * teams in that week's order (week total, then name, Void last) like the committee tab's week
+ * view; "Void" stands in for the Total of a voided team (D380) in the weeks and the totals alike.
+ */
+export function leaderboardRows(score: ChallengeScore): (string | number)[][] {
+  const header = ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Total"];
+  const weekly = score.weeks
+    .filter((w) => Object.values(w.teams).some((t) => t.km > 0) || w.ended)
+    .flatMap((w) => score.standings
+      .map((s) => {
+        const t = w.teams[s.id];
+        return { s, t, total: t.tier1 + t.bonus + t.podium };
+      })
+      .sort((a, b) => Number(a.s.void) - Number(b.s.void) || (a.s.void ? 0 : b.total - a.total) || a.s.name.localeCompare(b.s.name))
+      .map(({ s, t, total }) => [weekLabel(w.week), s.name, t.km, t.tier1, t.bonus, t.podium, s.void ? "Void" : total]));
+  const totals = score.standings.map((s) => ["All weeks", s.name, s.km, s.tier1, s.bonus, s.podium, s.void ? "Void" : s.total]);
+  return [header, ...weekly, ...totals];
+}
+
+export function addLeaderboardSheet(wb: ExcelJS.Workbook, title: string, rows: (string | number)[][]): void {
+  const ws = wb.addWorksheet(uniqueSheetName(sanitizeSheetNamePart(title), new Set(wb.worksheets.map((w) => w.name.toLowerCase()))));
+  for (const r of rows) ws.addRow(r);
+  ws.getRow(1).font = { bold: true };
+  ws.columns = [{ width: 26 }, { width: 22 }, { width: 10 }, { width: 13 }, { width: 12 }, { width: 10 }, { width: 10 }];
 }

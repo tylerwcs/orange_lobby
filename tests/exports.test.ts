@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook, buildActivityRostersWorkbook } from "@/lib/exports";
+import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook, buildActivityRostersWorkbook, leaderboardRows } from "@/lib/exports";
 import { safeFileName } from "@/lib/filenames";
+import { scoreChallenge } from "@/lib/challenge-score";
+import { challengeWeeks } from "@/lib/challenge";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Booth, BoothStamp } from "@/lib/types";
 
@@ -249,5 +251,51 @@ describe("activity roster workbook", () => {
     const wb = buildActivityRostersWorkbook([], [], people);
     expect(wb.worksheets.length).toBe(1);
     expect(wb.worksheets[0].getRow(1).getCell(1).value).toBe("This event's activities have no sessions yet.");
+  });
+});
+
+describe("leaderboardRows (D381)", () => {
+  it("lists every week's tiers per team, then the totals", () => {
+    const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-10-11", daily_steps: [{ at: 1, pts: 1 }], podium: [20] };
+    const score = scoreChallenge({
+      totals: [{ attendeeId: "a1", groupId: "A", day: "2026-10-05", km: 2 }],
+      teams: [{ id: "A", name: "Group 01", memberIds: ["a1"] }],
+      disqualified: new Set(), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-12",
+    });
+    expect(leaderboardRows(score)).toEqual([
+      ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Total"],
+      ["Week 2 · 5–11 Oct", "Group 01", 2, 1, 0, 20, 21],
+      ["All weeks", "Group 01", 2, 1, 0, 20, 21],
+    ]);
+  });
+
+  it("orders each week by that week's total, voided teams last and shown as Void", () => {
+    const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-10-18", daily_steps: [{ at: 1, pts: 1 }], podium: [] };
+    const score = scoreChallenge({
+      totals: [
+        { attendeeId: "a1", groupId: "A", day: "2026-10-05", km: 5 }, // A: 1 pt in week 2
+        { attendeeId: "a1", groupId: "A", day: "2026-10-06", km: 5 }, // A: 2 pts in week 2
+        { attendeeId: "a1", groupId: "A", day: "2026-10-07", km: 5 }, // A: 3 pts in week 2
+        { attendeeId: "b1", groupId: "B", day: "2026-10-12", km: 5 }, // B: 1 pt in week 3
+        { attendeeId: "b1", groupId: "B", day: "2026-10-13", km: 5 },
+        { attendeeId: "b1", groupId: "B", day: "2026-10-14", km: 5 },
+        { attendeeId: "b1", groupId: "B", day: "2026-10-15", km: 5 },
+        { attendeeId: "c1", groupId: "C", day: "2026-10-06", km: 5 },
+      ],
+      teams: [
+        { id: "A", name: "Alpha", memberIds: ["a1"] },
+        { id: "B", name: "Bravo", memberIds: ["b1"] },
+        { id: "C", name: "Charlie", memberIds: ["c1"] },
+      ],
+      disqualified: new Set(["c1"]), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-20",
+    });
+    // Overall: Bravo (4) ahead of Alpha (3), Charlie voided. Week 2 flips Alpha ahead of Bravo.
+    expect(score.standings.map((s) => s.name)).toEqual(["Bravo", "Alpha", "Charlie"]);
+    const rows = leaderboardRows(score);
+    const week2 = rows.filter((r) => String(r[0]).startsWith("Week 2")).map((r) => [r[1], r[6]]);
+    expect(week2).toEqual([["Alpha", 3], ["Bravo", 0], ["Charlie", "Void"]]);
+    const week3 = rows.filter((r) => String(r[0]).startsWith("Week 3")).map((r) => [r[1], r[6]]);
+    expect(week3).toEqual([["Bravo", 4], ["Alpha", 0], ["Charlie", "Void"]]);
+    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[6]])).toEqual([["Bravo", 4], ["Alpha", 3], ["Charlie", "Void"]]);
   });
 });
