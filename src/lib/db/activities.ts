@@ -351,6 +351,17 @@ export async function submissionsForAttendee(attendeeId: string): Promise<Activi
   return (data ?? []) as ActivitySubmission[];
 }
 
+/**
+ * D374: one attendee's entries to one scored activity, revoked ones INCLUDED - the tracker shows a
+ * removed workout faded with "Removed by the organiser", where `submissionsForAttendee` hides it.
+ */
+export async function entriesForAttendee(activityId: string, attendeeId: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("activity_id", activityId).eq("attendee_id", attendeeId).order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
+}
+
 // D353: every member reads the same rows - the group's live entries, whoever sent them.
 export async function submissionsForGroup(groupId: string): Promise<ActivitySubmission[]> {
   const { data, error } = await serviceClient().from("activity_submissions").select("*")

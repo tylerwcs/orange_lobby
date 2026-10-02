@@ -9,7 +9,7 @@ import { listAttendeesByIds } from "@/lib/db/attendees";
 import { activityState, eligible, type ActivityState } from "@/lib/activities";
 import { activityControls, pendingFor, lastDeclinedFor, type ActivityControls } from "@/lib/activity-requests";
 import { sessionArrivals } from "@/lib/booking-door";
-import { canSubmit, type SubmitState } from "@/lib/submissions";
+import { canSubmit, isGroupForm, type SubmitState } from "@/lib/submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "@/lib/booths";
 import { nowInKL } from "@/lib/time";
@@ -38,7 +38,7 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   // are not in a group, and most events run no group form, so this keeps `groupMembers` and
   // `submissionsForGroup` off the hot path for every other page load.
   const activities = await portalActivities(event.id);
-  const hasGroupForm = attendee.group_id !== null && activities.some((a) => a.kind === "submission" && a.group_mode !== "off");
+  const hasGroupForm = attendee.group_id !== null && activities.some((a) => a.kind === "submission" && isGroupForm(a.group_mode));
 
   const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs] = await Promise.all([
     listSessions(event.id),
@@ -73,8 +73,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   const forms = activities.filter((a) => a.kind === "submission").map((form) => {
     const sent = submissions.filter((s) => s.activity_id === form.id);
     // D353: on a group form every member reads the same progress, built from the group's rows.
-    const group = form.group_mode !== "off" && attendee.group_id ? groupProgress(form, attendee.group_id, members, groupSubs) : null;
-    return { form, state: canSubmit(form, sent, attendee.category, today, group), mine: sent, group };
+    const group = isGroupForm(form.group_mode) && attendee.group_id ? groupProgress(form, attendee.group_id, members, groupSubs) : null;
+    return { form, state: canSubmit(form, sent, attendee.category, today, group, attendee.group_id), mine: sent, group };
   });
 
   // Names for every entry on show. A former member (D355) is not in `members`, so they are
