@@ -38,8 +38,7 @@ export function activityCards(
   });
   const inSection = (s: ActivitySection) => bookings.filter((b) => b.section === s);
 
-  // A closed form still shows to somebody outside its categories, because `canSubmit` reports
-  // closed first; only "ineligible" hides one.
+  // Only "ineligible" hides a form here; a closed one never arrives (D384, `shownToAttendees`).
   const forms: ActivityCardItem[] = entries.submissions
     .filter((s) => s.state.reason !== "ineligible")
     .map(({ form, state }) => ({ activity: form, view: formCard({ form, state }), href: href(form), emphasis: false, section: "open" }));

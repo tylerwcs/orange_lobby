@@ -24,7 +24,9 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
     activities.length ? portalBookings(attendee.id) : [],
     activities.length ? listSessions(event.id) : [],
   ]);
-  const bookedSessions = sessions.filter((s) => myBookings.some((b) => b.session_id === s.id));
+  // A closed activity's sessions leave the agenda with it (D384): `activities` holds only open ones.
+  const shown = new Set(activities.map((a) => a.id));
+  const bookedSessions = sessions.filter((s) => shown.has(s.activity_id) && myBookings.some((b) => b.session_id === s.id));
   // Same composition loadHomeData uses - see personalAgenda's own doc for the ordering.
   const items = personalAgenda(
     allAgenda,

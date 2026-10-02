@@ -3,13 +3,23 @@ import type { Activity } from "@/lib/types";
 import type { Passport } from "@/lib/booths";
 
 /**
+ * The activities the attendee portal may show: the open ones (D384). Closing an activity takes
+ * it off the portal for everyone, held seats and filled passports included — the home row, the
+ * tab, its own page, the agenda's booked rows and the nav button all read through this. The
+ * organiser's list and the exports still see everything.
+ */
+export function shownToAttendees<T extends Pick<Activity, "is_open">>(activities: T[]): T[] {
+  return activities.filter((a) => a.is_open);
+}
+
+/**
  * Where an activity sits on the attendee's Activities tab.
  *
  * "choose" is the one that is owed — required, eligible, nothing held — and leads the page for
  * the same reason the old home card led with it (D129). "booked" is anything they hold a seat
  * in or have a request open on, because that is where the switch and cancel controls live.
- * "open" is everything else they can see, closed ones included: a closed activity still has a
- * desk to ask. "done" is a completed passport. Null is an activity their category cannot see at all.
+ * "open" is everything else they can see. "done" is a completed passport. Null is an activity
+ * their category cannot see at all. A closed activity never reaches here (`shownToAttendees`).
  */
 export type ActivitySection = "choose" | "booked" | "open" | "done";
 

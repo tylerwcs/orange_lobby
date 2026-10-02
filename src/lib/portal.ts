@@ -20,6 +20,7 @@ import { listActivities, bookingsForAttendee } from "@/lib/db/activities";
 import { listInfoTabs } from "@/lib/db/info-tabs";
 import { isValidToken } from "@/lib/tokens";
 import { hasInfo } from "@/lib/info-tabs";
+import { shownToAttendees } from "@/lib/portal-activities";
 import type { Attendee, Event } from "@/lib/types";
 
 /**
@@ -39,9 +40,10 @@ export const loadPortalEvent = cache(async (slug: string): Promise<Event> => {
 
 /**
  * The same per-request memo for the two activity reads the layout's Activities slot and the
- * page below it both need: without it, every portal page paid for them twice.
+ * page below it both need: without it, every portal page paid for them twice. Closed
+ * activities are already gone from what this returns (D384).
  */
-export const portalActivities = cache((eventId: string) => listActivities(eventId));
+export const portalActivities = cache(async (eventId: string) => shownToAttendees(await listActivities(eventId)));
 export const portalBookings = cache((attendeeId: string) => bookingsForAttendee(attendeeId));
 
 /**

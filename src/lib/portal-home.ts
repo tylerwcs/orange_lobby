@@ -67,7 +67,9 @@ export async function loadHomeData(
     hasActivities ? portalBookings(attendee.id) : [],
   ]);
   const mineBySession = new Set(myBookings.map((b) => b.session_id));
-  const bookedSessions = sessions.filter((s) => mineBySession.has(s.id));
+  // A closed activity's sessions leave the agenda with it (D384): `activities` holds only open ones.
+  const shown = new Set(activities.map((a) => a.id));
+  const bookedSessions = sessions.filter((s) => mineBySession.has(s.id) && shown.has(s.activity_id));
   const { date, time } = nowInKL();
   // Computed once, here: everything downstream - the day tabs and the desktop
   // agenda column - must agree about what this attendee is allowed to see, bookings included.

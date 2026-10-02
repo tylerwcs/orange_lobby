@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activityState } from "@/lib/activities";
-import { activityNav, bookingSection, passportSection } from "@/lib/portal-activities";
+import { activityNav, bookingSection, passportSection, shownToAttendees } from "@/lib/portal-activities";
 import type { Activity, ActivitySession } from "@/lib/types";
 
 const activity = (over: Partial<Activity> = {}): Activity => ({
@@ -35,7 +35,7 @@ describe("bookingSection", () => {
     expect(bookingSection(state(), false)).toBe("open");
   });
 
-  it("still lists a closed optional activity, so the desk can be asked about it", () => {
+  it("files a closed optional activity under Open to you, if one ever reaches it (the portal drops them first, D384)", () => {
     expect(bookingSection(state({ is_open: false }), false)).toBe("open");
   });
 
@@ -98,5 +98,18 @@ describe("activityNav", () => {
   it("does not flag a required activity the attendee cannot see", () => {
     const acts = [activity({ required: true, categories: ["VIP"] }), activity({ id: "act2" })];
     expect(activityNav(acts, "Staff", new Set())).toEqual({ show: true, owed: false });
+  });
+});
+
+describe("shownToAttendees", () => {
+  it("drops every closed activity, whatever its kind (D384)", () => {
+    const list = [
+      activity({ id: "b-open" }),
+      activity({ id: "b-closed", is_open: false }),
+      activity({ id: "f-closed", kind: "submission", is_open: false }),
+      activity({ id: "p-closed", kind: "passport", is_open: false }),
+      activity({ id: "p-open", kind: "passport" }),
+    ];
+    expect(shownToAttendees(list).map((a) => a.id)).toEqual(["b-open", "p-open"]);
   });
 });
