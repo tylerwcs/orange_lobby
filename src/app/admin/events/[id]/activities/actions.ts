@@ -24,7 +24,8 @@ import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
 import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
 import { readPassportSettings } from "@/lib/booths";
-import type { Activity, Event, GroupMode } from "@/lib/types";
+import type { Activity, ChallengeScoring, Event, GroupMode } from "@/lib/types";
+import { readScoring } from "@/lib/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
 import { activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { shortDate } from "@/lib/text";
@@ -201,7 +202,7 @@ function isPerDayCollision(e: unknown): boolean {
  * into a flash rather than a 500.
  */
 function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label">
-  & { group_mode: GroupMode; group_target: number | null } {
+  & { group_mode: GroupMode; group_target: number | null; scoring: ChallengeScoring | null } {
   const name = text(fd, "name");
   if (!name) throw new Error("A submission needs a name");
   const details = readSubmissionDetails((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; });
@@ -219,6 +220,8 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
     MAX_SUBMISSION_QUESTIONS,
   );
   const group = readGroupRule((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; });
+  // D372: read against the questions in this same post, so the score question can't be one being removed.
+  const scoring = readScoring((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; }, questions);
   return {
     name,
     description: cleanRichText(text(fd, "description")),
@@ -229,6 +232,7 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
     questions,
     ...details,
     ...group,
+    scoring,
   };
 }
 

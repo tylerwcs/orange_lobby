@@ -7,7 +7,7 @@ import { listActivities, listSubmissions } from "@/lib/db/activities";
 import { listGroups } from "@/lib/db/groups";
 import { signedSubmissionUrl } from "@/lib/db/media";
 import { buildFormsWorkbook, type FormSheet } from "@/lib/exports";
-import { fileQuestionKeys, missingFrom } from "@/lib/submissions";
+import { fileQuestionKeys, missingFrom, isGroupForm } from "@/lib/submissions";
 import { withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 
 // Seven days: long enough that a spreadsheet downloaded today still opens its photographs
@@ -68,7 +68,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     // uses, so the "Not done" tab and this sheet can't disagree on who a group form still needs.
     // Otherwise (`null` for the day): the download has no day context, so this is who has NEVER
     // submitted (D175). `listAttendees` order is alphabetical and `missingFrom` keeps it.
-    const missing = f.group_mode !== "off"
+    const missing = isGroupForm(f.group_mode)
       ? groupsNotDone(f, groups, attendees, submissions).flatMap((g) => g.missingIds.map((aid) => missingRow(attendeeById.get(aid))))
       : missingFrom(f, submissions, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, null)
           .map((aid) => missingRow(attendeeById.get(aid)));

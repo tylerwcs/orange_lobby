@@ -7,6 +7,7 @@ import { listRequests } from "@/lib/db/activity-requests";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
 import { groupProgress } from "@/lib/groups";
+import { isGroupForm } from "@/lib/submissions";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { pendingCountByActivity } from "@/lib/activity-requests";
 import { eligible } from "@/lib/activities";
@@ -52,7 +53,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   // group with nobody eligible for this activity — same rule `groupsNotDone` (F2) applies, so a
   // group with no eligible members isn't counted as "not done" here either.
   const groupDoneFor = (a: Activity, formSubs: ActivitySubmission[]) =>
-    a.group_mode === "off"
+    !isGroupForm(a.group_mode)
       ? null
       : groups
           .map((g) => groupProgress(a, g.id, attendees.filter((p) => p.group_id === g.id), formSubs))

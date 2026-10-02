@@ -13,6 +13,7 @@ import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { ActivityMenu, type ActivityMenuProps } from "@/components/admin/ActivityMenu";
 import { WhoSubmitsFields } from "@/components/admin/WhoSubmitsFields";
+import { ScoringFields } from "@/components/admin/ScoringFields";
 
 /** The hint under every activity's image field, every kind. */
 export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 KB. The card crops it to a 2:1 strip and the page shows it whole, so at 2:1 nothing is cut off.";
@@ -45,6 +46,7 @@ export function SubmissionFields({ activity, categories, uploadImage }: { activi
         description="What the button on the attendee's page says, like Join now or Upload results. Leave blank for Submit." />
       <CategoryCombo categories={categories} defaultValue={activity?.categories ?? []} />
       <WhoSubmitsFields activity={activity} />
+      <ScoringFields activity={activity} />
       <div className="flex flex-col gap-1.5">
         <h3 className="text-sm font-extrabold">Questions</h3>
         <QuestionCards questions={activity?.questions ?? []} types={FORM_QUESTION_TYPES} max={MAX_SUBMISSION_QUESTIONS} />

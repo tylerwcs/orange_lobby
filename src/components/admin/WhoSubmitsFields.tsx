@@ -9,6 +9,7 @@ const MODES: { value: GroupMode; label: string; hint: string }[] = [
   { value: "off", label: "Each attendee", hint: "Everyone submits for themselves." },
   { value: "entries", label: "Group — set number of entries", hint: "Any member submits for the group, until it has the entries it needs." },
   { value: "everyone", label: "Group — every member", hint: "Each member submits once. The group is done when all of them have." },
+  { value: "members", label: "Each member, counted by team", hint: "Every team member submits their own entries, as often as they like. Each entry counts for their team." },
 ];
 
 /**

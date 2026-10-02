@@ -19,7 +19,7 @@ import { boardsByDay } from "@/lib/booking-door";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
-import { capSummary, missingFrom, participation, liveSubmissions } from "@/lib/submissions";
+import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } from "@/lib/submissions";
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL } from "@/lib/time";
@@ -272,7 +272,12 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   const adminNames = await scannerNames(submissions.flatMap((s) => [s.edited_by, s.revoked_by]));
 
   // D359/D360: a group form is chased by group, and its rows carry the group they were sent for.
-  const grouped = activity.group_mode !== "off";
+  const grouped = isGroupForm(activity.group_mode);
+  // D369: a members-mode entry carries its team, so the table shows it, but chasing stays per person.
+  const teamed = activity.group_mode !== "off";
+  // D373: a scored challenge is chased day by day, like a per-day form, and only among team members.
+  const daily = activity.per_day || activity.scoring !== null;
+  const chased = activity.group_mode === "members" ? attendees.filter((a) => a.group_id) : attendees;
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
   const bySubmission = [...submissions].sort((a, b) =>
     (groupName.get(a.group_id ?? "") ?? "￿").localeCompare(groupName.get(b.group_id ?? "") ?? "￿"));
@@ -287,8 +292,8 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   // `missingFrom`, so the rule is visible where somebody reads the page (D175): a per-day
   // activity asks about one day, anything else asks whether they ever submitted at all.
   const today = nowInKL().date;
-  const day = activity.per_day ? (requestedDay || today) : null;
-  const missing = missingFrom(activity, live, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, day)
+  const day = daily ? (requestedDay || today) : null;
+  const missing = missingFrom(activity, live, chased.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, day)
     .map((aid) => {
       const a = attendeeById.get(aid)!;
       return { id: a.id, name: a.name, category: a.category };
@@ -297,15 +302,15 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
   // Only a per-day activity has a pattern over time worth drawing: on a once-only activity
   // every row would be a single mark, which is a fact the submissions table already carries.
   const PARTICIPATION_DAYS = 14;
-  const drifting = activity.per_day
-    ? participation(activity, live, attendees.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, today, PARTICIPATION_DAYS)
+  const drifting = daily
+    ? participation(activity, live, chased.map((a) => a.id), (aid) => attendeeById.get(aid)?.category ?? null, today, PARTICIPATION_DAYS)
         .map((r) => {
           const a = attendeeById.get(r.attendeeId)!;
           return { ...r, name: a.name, category: a.category };
         })
     : null;
 
-  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: activity.per_day, grouped });
+  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: daily, grouped });
   const current = resolveTab(tabs, tab);
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
 
@@ -353,7 +358,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
               edit={editSubmissionAction.bind(null, ev.id, activity.id)}
               revoke={revokeSubmissionAction.bind(null, ev.id, activity.id)}
               adminNames={adminNames}
-              groupFor={grouped ? (s) => (s.group_id ? groupName.get(s.group_id) ?? "Deleted group" : "Deleted group") : undefined}
+              groupFor={teamed ? (s) => (s.group_id ? groupName.get(s.group_id) ?? "Deleted group" : "Deleted group") : undefined}
             />
           </CardContent>
         </Card>

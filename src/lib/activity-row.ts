@@ -1,5 +1,5 @@
 import { dayRange } from "@/lib/activity-card";
-import { capSummary } from "@/lib/submissions";
+import { capSummary, isGroupForm } from "@/lib/submissions";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -51,7 +51,7 @@ export function submissionRow(input: {
   const { form, submitters, eligible, groups } = input;
   const dates = form.starts_on ? dayRange([form.starts_on, form.ends_on ?? form.starts_on]) : null;
   const detail = [dates, form.venue, capSummary(form)].filter(Boolean).join(" · ");
-  if (form.group_mode !== "off") {
+  if (isGroupForm(form.group_mode)) {
     const progress = groups
       ? { done: groups.filter((g) => g.done).length, total: groups.length, label: `${groups.filter((g) => g.done).length} of ${groups.length} groups done` }
       : { done: 0, total: 0, label: `${submitters} submission${submitters === 1 ? "" : "s"}` };
