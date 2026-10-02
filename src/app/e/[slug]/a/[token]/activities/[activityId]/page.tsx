@@ -4,7 +4,10 @@ import { Armchair, ArrowLeft, CalendarDays, CalendarPlus, CircleCheck, Clock, Ma
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type PassportEntry } from "@/lib/portal-activity-entries";
 import { dayRange } from "@/lib/activity-card";
-import { submitLabel } from "@/lib/submissions";
+import { isGroupForm, submitLabel } from "@/lib/submissions";
+import { nowInKL } from "@/lib/time";
+import { buildTracker } from "@/lib/tracker";
+import { entriesForAttendee } from "@/lib/db/activities";
 import { sessionGrid } from "@/lib/session-grid";
 import { allCheckedIn } from "@/lib/booking-door";
 import type { Activity } from "@/lib/types";
@@ -20,6 +23,9 @@ import { ActivityActionDialog } from "@/components/portal/ActivityActionDialog";
 import { ActivityCover } from "@/components/portal/ActivityParts";
 import { RichSections } from "@/components/portal/RichSections";
 import { PassportGrid } from "@/components/portal/PassportGrid";
+import { WeekStrip } from "@/components/portal/tracker/WeekStrip";
+import { DayRing } from "@/components/portal/tracker/DayRing";
+import { EntryTimeline } from "@/components/portal/tracker/EntryTimeline";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +42,16 @@ const note = "text-sm text-muted-foreground";
  * Every action redirects back here, so the toast lands on the page it is about. The dialog is
  * keyed by what each action changes (seats held and requests open; submissions sent), so a
  * success remounts it closed and a refusal leaves it open.
+ *
+ * A scored challenge (D374) swaps the submission body for its tracker, and takes `?day=` to
+ * show another day of it.
  */
 export default async function ActivityPage({ params, searchParams }: {
   params: Promise<{ slug: string; token: string; activityId: string }>;
-  searchParams: Promise<{ new?: string }>;
+  searchParams: Promise<{ new?: string | string[]; day?: string | string[] }>;
 }) {
   const { slug, token, activityId } = await params;
-  const { new: writing } = await searchParams;
+  const { new: writing, day } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
@@ -65,7 +74,10 @@ export default async function ActivityPage({ params, searchParams }: {
       {booking
         ? <BookingBody entry={booking} slug={slug} token={token} />
         : form
-          ? <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} />
+          ? form.form.scoring
+            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} eventStartsOn={event.starts_on}
+                day={typeof day === "string" ? day : null} writing={writing === "1"} />
+            : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} />
           : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
     </div>
   );
@@ -169,7 +181,8 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
       <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f) }]} />
       <RichSections html={f.description} />
       <section className={block}>
-        {f.group_mode === "off" && (
+        {/* D369: members mode is per-person, so it shows the person's own history like "off". */}
+        {!isGroupForm(f.group_mode) && (
           <>
             {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
             <SubmissionHistory submissions={mine} questions={f.questions} />
@@ -177,7 +190,7 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
         )}
         {/* D352: an ineligible viewer gets the plain note below, not the group block - it names */}
         {/* a group they aren't measured against. */}
-        {f.group_mode !== "off" && state.reason !== "ineligible" && (
+        {isGroupForm(f.group_mode) && state.reason !== "ineligible" && (
           <>
             {/* D353: at most one banner - the group being done trumps any per-person reason. */}
             {group?.done ? (
@@ -189,11 +202,67 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
             {state.reason === "nogroup" && <p className={note}>You need to be in a group to submit this.</p>}
           </>
         )}
+        {f.group_mode === "members" && state.reason === "nogroup" && <p className={`mt-3 ${note}`}>You need to be in a team to submit this.</p>}
         {state.reason === "closed" && <p className={`mt-3 ${note}`}>Submissions for this are closed.</p>}
         {state.reason === "ineligible" && <p className={`mt-3 ${note}`}>This is not open to your group.</p>}
       </section>
       {state.can && (
         <ActivityActionDialog key={group ? group.entries.length : mine.length} label={submitLabel(f)} title={f.name} defaultOpen={writing}>
+          <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
+            {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
+            <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
+          </form>
+        </ActivityActionDialog>
+      )}
+    </>
+  );
+}
+
+/**
+ * D374: a scored challenge's page - week strip, ring, the day's workouts, and "Add a new entry".
+ * The tracker comes straight under the name, before the About and rules: it is what the
+ * attendee opens this page for every day. Phase 2 adds My team below the entries.
+ */
+async function TrackerBody({ entry: { form: f, state }, slug, token, attendeeId, eventStartsOn, day, writing }: {
+  entry: SubmissionEntry; slug: string; token: string; attendeeId: string; eventStartsOn: string | null; day: string | null; writing: boolean;
+}) {
+  const scoring = f.scoring!;
+  const today = nowInKL().date;
+  const all = await entriesForAttendee(f.id, attendeeId);
+  const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day });
+  const path = `/e/${slug}/a/${token}/activities/${f.id}`;
+  const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
+  return (
+    <>
+      <section className={`${block} flex flex-col gap-4`}>
+        {t ? (
+          <>
+            <WeekStrip t={t} href={(d) => (d === today ? path : `${path}?day=${d}`)} />
+            <DayRing t={t} />
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-lg font-extrabold">{t.isToday ? "Today's entries" : "Entries"}</h2>
+              <span className="text-xs text-muted-foreground">{workouts} workout{workouts === 1 ? "" : "s"}</span>
+            </div>
+            <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key}
+              empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} />
+          </>
+        ) : (
+          <p className={note}>This challenge has no days set yet.</p>
+        )}
+        {state.reason === "nogroup" && <p className={note}>You&apos;re not in a team for this challenge.</p>}
+        {state.reason === "ineligible" && <p className={note}>This is not open to your group.</p>}
+        {state.reason === "closed" && (
+          <p className={note}>
+            {today < scoring.starts_on ? "The challenge hasn't started yet." : today > scoring.ends_on ? "The challenge has ended." : "Entries for this are closed."}
+          </p>
+        )}
+      </section>
+      <RichSections html={f.description} />
+      {state.can && (
+        // Keyed by every entry, not the shown day's: a submit redirects to today, so the key
+        // changes only when an entry was added, and a refusal leaves the dialog open (D374).
+        <ActivityActionDialog key={all.length} label="Add a new entry" title={f.name} defaultOpen={writing}
+          description={t && !t.isToday ? "This entry counts for today." : undefined}>
           <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
             {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
             <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
