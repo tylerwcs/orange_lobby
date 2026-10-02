@@ -68,6 +68,9 @@ describe("buildTracker (D374)", () => {
     expect(build([], "2026-10-02").selected).toBe("2026-10-05");
     expect(build([], "2026-12-20").selected).toBe("2026-12-04");
     expect(build([], "2026-10-06", "nonsense").selected).toBe("2026-10-06");
+    // Well-formed but not a real day (D374): a hand-edited URL must not take the page down.
+    expect(build([], "2026-10-06", "2026-11-31").selected).toBe("2026-10-06");
+    expect(build([], "2026-10-06", "2026-10-32").selected).toBe("2026-10-06");
   });
 
   it("links to the previous week, and to the next one only once it has started", () => {

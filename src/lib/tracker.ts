@@ -20,6 +20,7 @@ export type Tracker = {
   km: number;
   /** Null when the challenge has no points steps. */
   pts: number | null;
+  /** Null means no goal left: the top step is reached (`pts` is set), or, with no steps, the daily minimum is met (`pts` is null). */
   goal: { at: number; pts: number; gap: number } | null;
   /** Where the ring's ticks go, and the total that fills it. */
   marks: number[];
@@ -61,8 +62,11 @@ export function buildTracker(input: {
   const first = weeks[0].days[0];
   const last = weeks[weeks.length - 1].days[weeks[weeks.length - 1].days.length - 1];
   const clamp = (d: string) => (d < first ? first : d > last ? last : d);
-  const selected = clamp(input.requested && DAY.test(input.requested) ? input.requested : today);
-  const week = weekFor(weeks, selected)!;
+  // A requested day is used only if it is a real challenge day: "2026-11-31" passes the shape
+  // check and the string clamp but is in no week, and a hand-edited URL must not 500 the page.
+  const asked = input.requested && DAY.test(input.requested) ? clamp(input.requested) : null;
+  const selected = asked && weekFor(weeks, asked) ? asked : clamp(today);
+  const week = weekFor(weeks, selected) ?? weeks[0];
   const i = weeks.indexOf(week);
 
   const km = dailyKm(entries, scoring.metric_key);
