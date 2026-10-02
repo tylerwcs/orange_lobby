@@ -26,6 +26,7 @@ import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPa
 import { readPassportSettings } from "@/lib/booths";
 import type { Activity, ChallengeScoring, Event, GroupMode } from "@/lib/types";
 import { readScoring } from "@/lib/challenge";
+import { disqualify, undoDisqualify } from "@/lib/db/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
 import { activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { shortDate } from "@/lib/text";
@@ -428,6 +429,35 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(back, `${name}'s submission is revoked. They can submit again${activity.is_open ? "." : " once it's open."}`));
+}
+
+/**
+ * D380: disqualify a person from a scored challenge. Their team shows Void everywhere and drops
+ * out of the podium; their entries stay for the record. Undo is the delete below.
+ */
+export async function disqualifyAction(eventId: string, activityId: string, attendeeId: string, fd: FormData) {
+  const { orgId, userId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const activity = await submissionOf(ev, activityId);
+  const back = activityHref(eventId, activityId, "leaderboard", { team: String(fd.get("team") ?? "") });
+  const reason = text(fd, "reason");
+  if (!activity.scoring) redirect(flashPath(back, "This activity isn't scored.", "error"));
+  if (!reason) redirect(flashPath(back, "Add a reason for the record.", "error"));
+  const attendee = await getAttendee(attendeeId);
+  if (!attendee || attendee.event_id !== ev.id) redirect(flashPath(back, "That person is no longer in this event.", "error"));
+  await disqualify(ev, activity.id, attendeeId, reason.slice(0, 500), userId);
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(back, `${attendee.name} disqualified. Their team now shows Void.`));
+}
+
+export async function undoDisqualifyAction(eventId: string, activityId: string, attendeeId: string, fd: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  const activity = await submissionOf(ev, activityId);
+  const back = activityHref(eventId, activityId, "leaderboard", { team: String(fd.get("team") ?? "") });
+  await undoDisqualify(activity.id, attendeeId);
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(back, "Disqualification undone."));
 }
 
 function readSession(fd: FormData) {

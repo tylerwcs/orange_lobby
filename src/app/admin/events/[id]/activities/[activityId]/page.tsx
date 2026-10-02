@@ -23,6 +23,8 @@ import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } 
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL } from "@/lib/time";
+import { loadChallenge } from "@/lib/challenge-data";
+import { weekFor } from "@/lib/challenge";
 import { groupsNotDone } from "@/lib/groups";
 import { listGroups } from "@/lib/db/groups";
 import { categoryMatches } from "@/lib/agenda";
@@ -37,6 +39,8 @@ import { SubmissionTable } from "@/components/admin/SubmissionTable";
 import { MissingPanel } from "@/components/admin/MissingPanel";
 import { GroupsNotDonePanel } from "@/components/admin/GroupsNotDonePanel";
 import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
+import { LeaderboardPanel } from "@/components/admin/LeaderboardPanel";
+import { TeamGrid } from "@/components/admin/TeamGrid";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +48,7 @@ import {
   saveActivityAction, toggleOpenAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
   addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction,
   placeAttendeesAction, approveRequestAction, declineRequestAction,
-  uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction,
+  uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction, disqualifyAction, undoDisqualifyAction,
 } from "../actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -52,10 +56,10 @@ const check = "flex items-center gap-2 text-sm font-bold";
 
 export default async function ActivityDetail({ params, searchParams }: {
   params: Promise<{ id: string; activityId: string }>;
-  searchParams: Promise<{ day?: string; qr?: string; tab?: string }>;
+  searchParams: Promise<{ day?: string; qr?: string; tab?: string; week?: string; team?: string }>;
 }) {
   const { id, activityId } = await params;
-  const { day: requestedDay, qr, tab } = await searchParams;
+  const { day: requestedDay, qr, tab, week, team } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const activity = await getActivity(activityId, ev.id);
@@ -71,7 +75,7 @@ export default async function ActivityDetail({ params, searchParams }: {
   // what the organiser comes back for, and what attendees have done is one tab away rather than
   // stacked above it.
   if (activity.kind === "passport") return <PassportDetail ev={ev} activity={activity} qr={qr} />;
-  if (activity.kind === "submission") return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} tab={tab} />;
+  if (activity.kind === "submission") return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} tab={tab} week={week} teamId={team} />;
   return <BookingDetail ev={ev} activity={activity} tab={tab} />;
 }
 
@@ -255,7 +259,9 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
   );
 }
 
-async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event; activity: Activity; requestedDay?: string; tab?: string }) {
+async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId }: {
+  ev: Event; activity: Activity; requestedDay?: string; tab?: string; week?: string; teamId?: string;
+}) {
   const [submissions, attendees, categories, groups] = await Promise.all([
     submissionsForActivity(activity.id), listAttendees(ev.id), listCategories(ev.id), listGroups(ev.id),
   ]);
@@ -310,8 +316,18 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
         })
     : null;
 
-  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: daily, grouped });
+  // D381: a scored challenge has a committee Leaderboard tab.
+  const scored = activity.scoring !== null;
+  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: daily, grouped, scored });
   const current = resolveTab(tabs, tab);
+  // Scored from the same read the portal and the export use (D375), and only when its tab is open.
+  const challenge = current === "leaderboard" && scored ? await loadChallenge(ev, activity, today) : null;
+  // A hand-edited ?week= that is not a number reads as every week.
+  const weekNum = week && /^\d+$/.test(week) ? Number(week) : null;
+  const gridTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) : undefined;
+  const gridWeek = challenge && gridTeam
+    ? challenge.weeks.find((w) => w.number === weekNum) ?? weekFor(challenge.weeks, today) ?? challenge.weeks[0]
+    : undefined;
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
 
   return (
@@ -390,6 +406,27 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab }: { ev: Event
           <CardHeader><CardTitle>Participation</CardTitle></CardHeader>
           <CardContent>
             <ParticipationPanel people={drifting} windowDays={PARTICIPATION_DAYS} today={today} />
+          </CardContent>
+        </Card>
+      )}
+
+      {current === "leaderboard" && challenge && (
+        <Card className="overflow-hidden">
+          <CardHeader><CardTitle>Leaderboard</CardTitle></CardHeader>
+          <CardContent>
+            {gridTeam && gridWeek ? (
+              <TeamGrid
+                team={gridTeam} week={gridWeek}
+                score={challenge.score} names={challenge.names} dq={challenge.disqualifications}
+                dailyMin={activity.scoring!.daily_min}
+                back={activityHref(ev.id, activity.id, "leaderboard", week ? { week } : {})}
+                disqualify={(aid) => disqualifyAction.bind(null, ev.id, activity.id, aid)}
+                undo={(aid) => undoDisqualifyAction.bind(null, ev.id, activity.id, aid)}
+              />
+            ) : (
+              <LeaderboardPanel score={challenge.score} week={weekNum} today={today}
+                href={(extra) => activityHref(ev.id, activity.id, "leaderboard", extra)} />
+            )}
           </CardContent>
         </Card>
       )}

@@ -5,7 +5,7 @@ import type { ActivityKind } from "@/lib/types";
  * to them uses (D239). Setup is the default, so its URL carries no `tab` at all: a bare link
  * to an activity is a link to its setup, which is what the organiser comes back for.
  */
-export type ActivityTab = "setup" | "bookings" | "not-booked" | "submissions" | "not-submitted" | "participation";
+export type ActivityTab = "setup" | "bookings" | "not-booked" | "submissions" | "not-submitted" | "participation" | "leaderboard";
 
 export type TabCounts = {
   booked?: number;
@@ -18,6 +18,8 @@ export type TabCounts = {
    * submitted, and has no Participation strip (that reads per-attendee drift, which a group
    * form does not track). */
   grouped?: boolean;
+  /** D381: a scored challenge has a Leaderboard tab. */
+  scored?: boolean;
 };
 
 export type TabItem = { tab: ActivityTab; label: string; count: number | null; dot: boolean };
@@ -33,7 +35,8 @@ export function activityTabs(kind: ActivityKind, c: TabCounts): TabItem[] {
   if (kind === "submission") {
     const tabs = [setup, item("submissions", "Submissions", c.submissions ?? 0), item("not-submitted", c.grouped ? "Not done" : "Not submitted", c.notSubmitted ?? 0)];
     if (c.grouped) return tabs;
-    return c.perDay ? [...tabs, item("participation", "Participation")] : tabs;
+    const withDaily = c.perDay ? [...tabs, item("participation", "Participation")] : tabs;
+    return c.scored ? [...withDaily, item("leaderboard", "Leaderboard")] : withDaily;
   }
   return [setup];
 }
