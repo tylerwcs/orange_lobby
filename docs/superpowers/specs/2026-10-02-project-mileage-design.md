@@ -59,9 +59,13 @@ Source: the PROJECT MILEAGE 2.0 EDM (2 pages: rules plus FAQ).
 - **D370 — Number questions get optional `min`, `max` and `decimals`.**
   - These are set in the question editor.
   - The portal input enforces them: `inputmode="decimal"`, with a `step` taken from `decimals`.
-  - The server enforces them too, in both `validateAnswers` and `submit_answers`. A blank answer is
-    still only rejected when the question is required. A non-blank answer must be a plain decimal
-    number inside the limits, with no more decimal places than allowed.
+  - The server enforces them too, in `validateAnswers`. That runs server-side on every submit and
+    every admin edit (`readAnswers`), and `submit_answers` is callable only by the service role,
+    so it doesn't re-check answers. (Amended 2 Oct 2026 while planning.) A blank answer is still
+    only rejected when the question is required. On a number question with any limit set, a
+    non-blank answer must be a plain decimal number inside the limits, with no more decimal places
+    than allowed. Number questions without limits behave exactly as before, so existing
+    registration forms are unaffected.
   - Messages read like "Distance must be at least 1.0 km". The question's unit comes from its
     label, so no unit field is added.
   - Number answers are still stored as strings (D161), and the stored string is normalised: "2.50"
@@ -88,7 +92,10 @@ Source: the PROJECT MILEAGE 2.0 EDM (2 pages: rules plus FAQ).
   - `starts_on` and `ends_on`: the challenge dates, 2026-10-05 and 2026-12-04. They limit which
     days count and which weeks exist.
 
-  Phase 2 adds the remaining fields (D376). Setting `scoring` is only allowed on a
+  Phase 2 adds the remaining fields (D376). (Amended 2 Oct 2026 while planning: all the fields,
+  including the D376 ones, are read and saved in Phase 1, because each is one input. So the
+  Phase 1 ring already shows today's points and the next goal. Only the scoring across teams
+  waits for Phase 2.) Setting `scoring` is only allowed on a
   `kind = 'submission'` activity whose `metric_key` names a number question. Scoring is configured
   in a **Scoring** section of the Setup tab, in the approved admin style.
 - **D373 — An entry's day is the Malaysian date it was submitted** (`submitted_on`, already stored).
