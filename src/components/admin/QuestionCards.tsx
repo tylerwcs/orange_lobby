@@ -11,7 +11,7 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
 const TYPE_LABELS: Record<QuestionType, string> = { text: "Text", phone: "Phone", number: "Number", select: "Choice", textarea: "Long text", file: "File" };
 
 type Card = QuestionDraft & { id: number };
-const blank = (): QuestionDraft => ({ key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "" });
+const blank = (): QuestionDraft => ({ key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "" });
 
 /**
  * The one question editor (D174, D243), for the registration form and for a submission
@@ -95,6 +95,15 @@ export function QuestionCards({ questions, types, max }: {
                       <textarea rows={4} value={c.options.join("\n")} className={`${input} h-auto py-2`}
                         onChange={(e) => update(c.id, { options: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
                       <span className="text-xs text-muted-foreground">One per line. A choice can’t contain a comma.</span></label>
+                  )}
+                  {c.type === "number" && (
+                    <div className="flex flex-wrap gap-4">
+                      {([["min", "Smallest allowed"], ["max", "Largest allowed"], ["decimals", "Decimal places"]] as const).map(([k, label]) => (
+                        <label key={k} className="grid gap-1.5 text-sm"><span className="font-bold">{label}</span>
+                          <input inputMode="decimal" value={c[k]} placeholder="Any" onChange={(e) => update(c.id, { [k]: e.target.value })}
+                            className={`${input} w-28 tabular-nums`} /></label>
+                      ))}
+                    </div>
                   )}
                   <label className="grid gap-1.5 text-sm"><span className="font-bold">Help text (optional)</span>
                     <input value={c.description} onChange={(e) => update(c.id, { description: e.target.value })} className={input} /></label>

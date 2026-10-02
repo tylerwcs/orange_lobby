@@ -20,6 +20,14 @@ export type RegistrationQuestion = {
   description?: string;
   /** Show (and require) this question only when another answer contains a phrase. */
   show_when?: { key: string; includes: string };
+  /**
+   * D370: number questions only, all optional. With any of the three set, an answer must be a
+   * plain decimal number inside them; with none set, a number question behaves as it always has.
+   */
+  min?: number;
+  max?: number;
+  /** Most digits after the point; 0 means a whole number. */
+  decimals?: number;
 };
 
 export type Event = {

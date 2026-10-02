@@ -3,6 +3,7 @@ import { useState } from "react";
 import { MAX_UPLOAD_BYTES, UPLOAD_ACCEPT, UPLOAD_TOO_BIG } from "@/lib/storage";
 import { shrinkImage } from "@/lib/shrink-image";
 import { isQuestionShown } from "@/lib/show-when";
+import { numberInputAttrs } from "@/lib/number-answer";
 import type { RegistrationQuestion } from "@/lib/types";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
 
@@ -74,7 +75,9 @@ function renderQuestion(q: RegistrationQuestion, current: string) {
     );
   }
   const type = q.type === "phone" ? "tel" : q.type === "number" ? "number" : "text";
-  return <input id={id} name={q.key} type={type} required={q.required} defaultValue={current} className={inputClass} />;
+  // D370: a limited number question opens the decimal keypad and lets the browser say "at least 1" first.
+  const limits = q.type === "number" ? numberInputAttrs(q) : null;
+  return <input id={id} name={q.key} type={type} required={q.required} defaultValue={current} className={inputClass} {...limits} />;
 }
 
 /**

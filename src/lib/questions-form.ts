@@ -21,11 +21,18 @@ export function questionsFromForm(
     const type: QuestionType = isQuestionType(typeRaw) ? typeRaw : "text";
     const options = t(`q_${n}_options`).split(",").map((s) => s.trim()).filter(Boolean);
     const showKey = t(`q_${n}_show_key`), showValue = t(`q_${n}_show_value`);
+    // D370: a limit is only a number question's; blank means unset, and anything not a number
+    // reaches parseQuestions as NaN so the organiser reads zod's refusal instead of a silent drop.
+    const limit = (k: string) => (t(`q_${n}_${k}`) === "" ? undefined : Number(t(`q_${n}_${k}`)));
+    const limits = type === "number"
+      ? Object.fromEntries((["min", "max", "decimals"] as const).map((k) => [k, limit(k)]).filter(([, v]) => v !== undefined))
+      : {};
     raw.push({
       key, label, type, required: get(`q_${n}_required`) === "on",
       ...(type === "select" ? { options } : {}),
       ...(t(`q_${n}_description`) ? { description: t(`q_${n}_description`) } : {}),
       ...(showKey && showValue ? { show_when: { key: keyFor(showKey), includes: showValue } } : {}),
+      ...limits,
     });
   }
   return parseQuestions(raw, allowed);
@@ -47,12 +54,17 @@ export type QuestionDraft = {
   description: string;
   showKey: string;
   showValue: string;
+  /** D370, number questions only: each as typed, "" for unset. */
+  min: string;
+  max: string;
+  decimals: string;
 };
 
 export function draftFrom(q: RegistrationQuestion): QuestionDraft {
   return {
     key: q.key, label: q.label, type: q.type, required: q.required, options: q.options ?? [],
     description: q.description ?? "", showKey: q.show_when?.key ?? "", showValue: q.show_when?.includes ?? "",
+    min: q.min?.toString() ?? "", max: q.max?.toString() ?? "", decimals: q.decimals?.toString() ?? "",
   };
 }
 
@@ -70,6 +82,7 @@ export function questionFormEntries(drafts: QuestionDraft[]): [string, string][]
     if (d.required) out.push([`q_${n}_required`, "on"]);
     out.push([`q_${n}_options`, d.options.join(", ")], [`q_${n}_description`, d.description]);
     out.push([`q_${n}_show_key`, d.showKey], [`q_${n}_show_value`, d.showValue]);
+    out.push([`q_${n}_min`, d.min], [`q_${n}_max`, d.max], [`q_${n}_decimals`, d.decimals]);
   });
   return out;
 }

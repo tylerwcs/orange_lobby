@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dropBlankAnswers, isQuestionShown, parseQuestions, validateRegistration } from "@/lib/registration";
+import { dropBlankAnswers, FORM_QUESTION_TYPES, isQuestionShown, parseQuestions, validateAnswers, validateRegistration } from "@/lib/registration";
 
 const qs = parseQuestions(JSON.stringify([
   { key: "tshirt", label: "T-shirt", type: "select", required: true, options: ["S", "M"] },
@@ -123,5 +123,31 @@ describe("dropBlankAnswers", () => {
 
   it("is a no-op on an already-empty extra", () => {
     expect(dropBlankAnswers({})).toEqual({});
+  });
+});
+
+describe("number limits (D370)", () => {
+  const km = { key: "km", label: "Distance (km)", type: "number" as const, required: true, min: 1, max: 50, decimals: 2 };
+
+  it("keeps min, max and decimals through parseQuestions", () => {
+    expect(parseQuestions([km], FORM_QUESTION_TYPES)[0]).toMatchObject({ min: 1, max: 50, decimals: 2 });
+  });
+
+  it("refuses a min above the max", () => {
+    expect(() => parseQuestions([{ ...km, min: 60 }], FORM_QUESTION_TYPES)).toThrow(/smallest/);
+  });
+
+  it("validates and normalises a limited number answer", () => {
+    expect(validateAnswers({ km: "2.50" }, [km])).toEqual({ ok: true, answers: { km: "2.5" } });
+    expect(validateAnswers({ km: "0.8" }, [km])).toEqual({ ok: false, errors: { km: "Distance (km) must be at least 1" } });
+  });
+
+  it("leaves an unlimited number question exactly as before", () => {
+    const age = { key: "age", label: "Age", type: "number" as const, required: false };
+    expect(validateAnswers({ age: "about 30" }, [age])).toEqual({ ok: true, answers: { age: "about 30" } });
+  });
+
+  it("does not check a blank optional limited answer", () => {
+    expect(validateAnswers({ km: "" }, [{ ...km, required: false }])).toEqual({ ok: true, answers: { km: "" } });
   });
 });

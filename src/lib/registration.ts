@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 import { isQuestionShown } from "@/lib/show-when";
+import { checkNumber, hasNumberLimits } from "@/lib/number-answer";
 
 export { isQuestionShown };
 
@@ -17,7 +18,11 @@ const schemaFor = (allowed: readonly QuestionType[]) => z.object({
   options: z.array(z.string().min(1)).optional(),
   description: z.string().optional(),
   show_when: z.object({ key: z.string().min(1), includes: z.string().min(1) }).optional(),
-}).refine((q) => q.type !== "select" || (q.options && q.options.length > 0), { message: "select questions need options" });
+  min: z.number().optional(),
+  max: z.number().optional(),
+  decimals: z.number().int().min(0).max(4).optional(),
+}).refine((q) => q.type !== "select" || (q.options && q.options.length > 0), { message: "select questions need options" })
+  .refine((q) => q.min === undefined || q.max === undefined || q.min <= q.max, { message: "the smallest number allowed is above the largest" });
 
 export function parseQuestions(
   input: string | unknown,
@@ -71,6 +76,12 @@ export function validateAnswers(
     if (!isQuestionShown(q, input)) { answers[q.key] = ""; continue; }
     if (q.required && !v) errors[q.key] = `${q.label} is required`;
     else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = "Choose one of the listed options";
+    else if (q.type === "number" && v && hasNumberLimits(q)) {
+      // D370: checked and normalised here, server-side, for the portal's submit and the admin's edit alike.
+      const n = checkNumber(q, v);
+      if (!n.ok) errors[q.key] = n.error;
+      else { answers[q.key] = n.value; continue; }
+    }
     answers[q.key] = v;
   }
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, answers };

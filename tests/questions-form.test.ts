@@ -54,14 +54,37 @@ describe("questionFormEntries", () => {
   });
 
   it("gives a new question the key its label makes, the same rule keyFor states", () => {
-    const fresh = { key: "", label: "Before photo", type: "file" as const, required: true, options: [], description: "", showKey: "", showValue: "" };
+    const fresh = { key: "", label: "Before photo", type: "file" as const, required: true, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "" };
     expect(read(questionFormEntries([fresh]))[0].key).toBe("before_photo");
     expect(keyFor("Before photo")).toBe("before_photo");
   });
 
   it("numbers questions in their on-screen order and drops unlabelled drafts", () => {
     const drafts = saved.map(draftFrom).reverse();
-    drafts.splice(1, 0, { key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "" });
+    drafts.splice(1, 0, { key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "" });
     expect(read(questionFormEntries(drafts)).map((q) => q.key)).toEqual(["target_kg", "track", "goal"]);
+  });
+});
+
+describe("number limits in the editor (D370)", () => {
+  const fields = (entries: [string, string][]) => { const m = new Map(entries); return (k: string) => m.get(k) ?? null; };
+
+  it("reads min, max and decimals for a number question", () => {
+    const q = questionsFromForm(fields([
+      ["q_1_label", "Distance (km)"], ["q_1_key", "km"], ["q_1_type", "number"], ["q_1_required", "on"],
+      ["q_1_min", "1"], ["q_1_max", "50"], ["q_1_decimals", "2"],
+    ]), FORM_QUESTION_TYPES, 20);
+    expect(q[0]).toMatchObject({ key: "km", min: 1, max: 50, decimals: 2 });
+  });
+
+  it("ignores limits on a question that is not a number", () => {
+    const q = questionsFromForm(fields([["q_1_label", "Name"], ["q_1_type", "text"], ["q_1_min", "1"]]), FORM_QUESTION_TYPES, 20);
+    expect(q[0].min).toBeUndefined();
+  });
+
+  it("round-trips through the card draft", () => {
+    const original = { key: "km", label: "Distance (km)", type: "number" as const, required: true, min: 1, max: 50, decimals: 2 };
+    const back = questionsFromForm(fields(questionFormEntries([draftFrom(original)])), FORM_QUESTION_TYPES, 20);
+    expect(back[0]).toMatchObject({ min: 1, max: 50, decimals: 2 });
   });
 });
