@@ -26,6 +26,9 @@ import { PassportGrid } from "@/components/portal/PassportGrid";
 import { WeekStrip } from "@/components/portal/tracker/WeekStrip";
 import { DayRing } from "@/components/portal/tracker/DayRing";
 import { EntryTimeline } from "@/components/portal/tracker/EntryTimeline";
+import { MyTeam } from "@/components/portal/tracker/MyTeam";
+import { TeamTable } from "@/components/portal/tracker/TeamTable";
+import { loadChallenge } from "@/lib/challenge-data";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +78,7 @@ export default async function ActivityPage({ params, searchParams }: {
         ? <BookingBody entry={booking} slug={slug} token={token} />
         : form
           ? form.form.scoring
-            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} eventStartsOn={event.starts_on}
+            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on}
                 day={typeof day === "string" ? day : null} writing={writing === "1"} />
             : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} />
           : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
@@ -221,15 +224,18 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
 /**
  * D374: a scored challenge's page - week strip, ring, the day's workouts, and "Add a new entry".
  * The tracker comes straight under the name, before the About and rules: it is what the
- * attendee opens this page for every day. Phase 2 adds My team below the entries.
+ * attendee opens this page for every day. My team and the team table (D379) follow the entries.
  */
-async function TrackerBody({ entry: { form: f, state }, slug, token, attendeeId, eventStartsOn, day, writing }: {
-  entry: SubmissionEntry; slug: string; token: string; attendeeId: string; eventStartsOn: string | null; day: string | null; writing: boolean;
+async function TrackerBody({ entry: { form: f, state }, slug, token, attendeeId, teamId, eventStartsOn, day, writing }: {
+  entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null; day: string | null; writing: boolean;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
   const all = await entriesForAttendee(f.id, attendeeId);
   const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day });
+  const challenge = await loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today);
+  const myTeam = teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
+  const thisWeek = t ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
   const path = `/e/${slug}/a/${token}/activities/${f.id}`;
   const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
   return (
@@ -256,6 +262,11 @@ async function TrackerBody({ entry: { form: f, state }, slug, token, attendeeId,
             {today < scoring.starts_on ? "The challenge hasn't started yet." : today > scoring.ends_on ? "The challenge has ended." : "Entries for this are closed."}
           </p>
         )}
+        {t && myTeam && thisWeek?.teams[myTeam.id] && (
+          <MyTeam team={myTeam} week={thisWeek.teams[myTeam.id]} weekInfo={thisWeek.week} score={challenge.score} scoring={scoring}
+            day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />
+        )}
+        <TeamTable standings={challenge.score.standings} mine={teamId} />
       </section>
       <RichSections html={f.description} />
       {state.can && (
