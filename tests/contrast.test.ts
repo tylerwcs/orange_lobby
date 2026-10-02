@@ -121,6 +121,10 @@ describe("token contrast (WCAG 2.x, sRGB)", () => {
   it("success-strong on card meets 4.5:1", () => assertPair("success-strong", "card"));
   it("warning on warning-soft meets 4.5:1", () => assertPair("warning", "warning-soft"));
   it("destructive-strong on destructive-soft meets 4.5:1", () => assertPair("destructive-strong", "destructive-soft"));
+  // D386: the leaderboard podium's places - each place's number and icon sit on its own tint.
+  it("gold-strong on gold-soft meets 4.5:1", () => assertPair("gold-strong", "gold-soft"));
+  it("silver-strong on silver-soft meets 4.5:1", () => assertPair("silver-strong", "silver-soft"));
+  it("bronze-strong on bronze-soft meets 4.5:1", () => assertPair("bronze-strong", "bronze-soft"));
   // The scanner's result band: white type on the solid outcome colour.
   it("white on success-strong meets 4.5:1", () => assertPair("destructive-foreground", "success-strong"));
   it("white on warning meets 4.5:1", () => assertPair("destructive-foreground", "warning"));

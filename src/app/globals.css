@@ -46,6 +46,14 @@
   --destructive-soft: oklch(0.9566 0.0185 17.48); /* #FDECEC */
   --destructive-strong: oklch(0.5054 0.1905 27.52); /* #B91C1C */
 
+  /* --- D386: the leaderboard podium's places; each -strong is the text on its own -soft --- */
+  --gold-soft: oklch(0.9243 0.1151 95.75); /* #FDE68A */
+  --gold-strong: oklch(0.4732 0.1247 46.2); /* #92400E */
+  --silver-soft: oklch(0.9288 0.0126 255.51); /* #E2E8F0 */
+  --silver-strong: oklch(0.3717 0.0392 257.29); /* #334155 */
+  --bronze-soft: oklch(0.9015 0.0729 70.7); /* #FED7AA */
+  --bronze-strong: oklch(0.4698 0.143 37.3); /* #9A3412 */
+
   /* --- charts: real inks, each contrast-checked against --card --- */
   --chart-1: oklch(0.5534 0.1739 38.4); /* #C2410C */
   --chart-2: oklch(0.4882 0.2172 264.38); /* #1D4ED8 */
@@ -106,6 +114,12 @@
   --color-warning-soft: var(--warning-soft);
   --color-destructive-soft: var(--destructive-soft);
   --color-destructive-strong: var(--destructive-strong);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-strong: var(--gold-strong);
+  --color-silver-soft: var(--silver-soft);
+  --color-silver-strong: var(--silver-strong);
+  --color-bronze-soft: var(--bronze-soft);
+  --color-bronze-strong: var(--bronze-strong);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -177,6 +191,11 @@ input, textarea { touch-action: manipulation; }
 .rich-text li > p { margin-top: 0; margin-bottom: 0; }
 .rich-text li { margin-top: 0.25em; margin-bottom: 0.25em; }
 .rich-text a { color: var(--primary); }
+
+/* D386: the leaderboard's podium blocks rise from the floor and its bars fill from the left,
+   once, as the tab opens. Used through `motion-safe:` so reduced motion draws them still. */
+@keyframes podium-rise { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes bar-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

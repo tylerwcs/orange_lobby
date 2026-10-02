@@ -6,7 +6,9 @@ import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type Pas
 import { dayRange } from "@/lib/activity-card";
 import { isGroupForm, submitLabel } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
-import { buildTracker } from "@/lib/tracker";
+import { buildTracker, trackerTab, type TrackerTab } from "@/lib/tracker";
+import { gridWeek } from "@/lib/challenge";
+import { standingLine } from "@/lib/leaderboard";
 import { entriesForAttendee } from "@/lib/db/activities";
 import { sessionGrid } from "@/lib/session-grid";
 import { allCheckedIn } from "@/lib/booking-door";
@@ -27,7 +29,10 @@ import { WeekStrip } from "@/components/portal/tracker/WeekStrip";
 import { DayRing } from "@/components/portal/tracker/DayRing";
 import { EntryTimeline } from "@/components/portal/tracker/EntryTimeline";
 import { MyTeam } from "@/components/portal/tracker/MyTeam";
-import { TeamTable } from "@/components/portal/tracker/TeamTable";
+import { Leaderboard } from "@/components/portal/tracker/Leaderboard";
+import { TrackerTabs } from "@/components/portal/tracker/TrackerTabs";
+import { PendingScope, PendingSwap } from "@/components/PendingNav";
+import { Skeleton } from "@/components/ui/skeletons";
 import { loadChallenge } from "@/lib/challenge-data";
 
 export const dynamic = "force-dynamic";
@@ -46,15 +51,15 @@ const note = "text-sm text-muted-foreground";
  * keyed by what each action changes (seats held and requests open; submissions sent), so a
  * success remounts it closed and a refusal leaves it open.
  *
- * A scored challenge (D374) swaps the submission body for its tracker, and takes `?day=` to
- * show another day of it.
+ * A scored challenge (D374) swaps the submission body for its tracker, in three tabs (D385):
+ * `?tab=info`, My stats (no param; `?day=` shows another day of it) and `?tab=leaderboard`.
  */
 export default async function ActivityPage({ params, searchParams }: {
   params: Promise<{ slug: string; token: string; activityId: string }>;
-  searchParams: Promise<{ new?: string | string[]; day?: string | string[] }>;
+  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[] }>;
 }) {
   const { slug, token, activityId } = await params;
-  const { new: writing, day } = await searchParams;
+  const { new: writing, day, tab } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
@@ -79,7 +84,9 @@ export default async function ActivityPage({ params, searchParams }: {
         : form
           ? form.form.scoring
             ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on}
-                day={typeof day === "string" ? day : null} writing={writing === "1"} />
+                day={typeof day === "string" ? day : null} writing={writing === "1"}
+                // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
+                tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined)} />
             : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} />
           : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
     </div>
@@ -222,27 +229,56 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
 }
 
 /**
- * D374: a scored challenge's page - week strip, ring, the day's workouts, and "Add a new entry".
- * The tracker comes straight under the name, before the About and rules: it is what the
- * attendee opens this page for every day. My team and the team table (D379) follow the entries.
+ * D374/D385: a scored challenge's page, in three tabs under the name. My stats - the week strip,
+ * ring, the day's workouts and "Add a new entry" - is the default, since it is what the attendee
+ * opens this page for every day; Info holds the About and rules; Leaderboard the standings and
+ * My team (D386). Each tab reads only what it draws, so only the Leaderboard scores every team.
  */
-async function TrackerBody({ entry: { form: f, state }, slug, token, attendeeId, teamId, eventStartsOn, day, writing }: {
-  entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null; day: string | null; writing: boolean;
+function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab }: {
+  entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
+  day: string | null; writing: boolean; tab: TrackerTab;
+}) {
+  const path = `/e/${slug}/a/${token}/activities/${entry.form.id}`;
+  return (
+    // `?tab=` changes no route segment, so no loading.tsx sees it; the scope moves the underline
+    // at once and swaps the tab for a skeleton until it arrives, as the Info page does (D206).
+    <PendingScope>
+      <TrackerTabs path={path} tab={tab} />
+      <PendingSwap fallback={<Skeleton className="mt-5 h-40 rounded-[14px]" />}>
+        {tab === "info"
+          ? <TrackerInfo html={entry.form.description} />
+          : tab === "leaderboard"
+            ? <TrackerLeaderboard entry={entry} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} />
+            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} eventStartsOn={eventStartsOn} day={day} writing={writing} />}
+      </PendingSwap>
+    </PendingScope>
+  );
+}
+
+/** D385: the About and rules. The tab bar is the rule above them, so the first block drops its own. */
+function TrackerInfo({ html }: { html: string | null }) {
+  return (
+    <div className="[&>div>section:first-child]:border-t-0">
+      {html?.trim() ? <RichSections html={html} /> : <p className={`pt-5 ${note}`}>Details will be added soon.</p>}
+    </div>
+  );
+}
+
+/** D374/D385: the attendee's own days - and the only tab with "Add a new entry". */
+async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, eventStartsOn, day, writing }: {
+  entry: SubmissionEntry; slug: string; token: string; path: string; attendeeId: string; eventStartsOn: string | null; day: string | null; writing: boolean;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
   const all = await entriesForAttendee(f.id, attendeeId);
   const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day });
-  const challenge = await loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today);
-  const myTeam = teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
-  const thisWeek = t ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
-  const path = `/e/${slug}/a/${token}/activities/${f.id}`;
   const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
   return (
     <>
-      <section className={`${block} flex flex-col gap-4`}>
+      <section className="flex flex-col gap-4 py-5">
         {t ? (
           <>
+            {/* No `tab` param on a day's link: a day belongs to My stats, the tab without one. */}
             <WeekStrip t={t} href={(d) => (d === today ? path : `${path}?day=${d}`)} />
             <DayRing t={t} />
             <div className="flex items-baseline justify-between">
@@ -262,13 +298,7 @@ async function TrackerBody({ entry: { form: f, state }, slug, token, attendeeId,
             {today < scoring.starts_on ? "The challenge hasn't started yet." : today > scoring.ends_on ? "The challenge has ended." : "Entries for this are closed."}
           </p>
         )}
-        {t && myTeam && thisWeek?.teams[myTeam.id] && (
-          <MyTeam team={myTeam} week={thisWeek.teams[myTeam.id]} weekInfo={thisWeek.week} score={challenge.score} scoring={scoring}
-            day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />
-        )}
-        <TeamTable standings={challenge.score.standings} mine={teamId} />
       </section>
-      <RichSections html={f.description} />
       {state.can && (
         // Keyed by every entry, not the shown day's: a submit redirects to today, so the key
         // changes only when an entry was added, and a refusal leaves the dialog open (D374).
@@ -281,6 +311,36 @@ async function TrackerBody({ entry: { form: f, state }, slug, token, attendeeId,
         </ActivityActionDialog>
       )}
     </>
+  );
+}
+
+/**
+ * D386: every team's standing, then My team, closed. The only tab that scores the challenge.
+ * My team always shows today and the current week (`gridWeek`: today's, else the first before the
+ * challenge, the last after it) - not My stats' `?day=`. Today is moved inside the challenge's
+ * dates, so before it starts the members read "–" (D383) rather than "Not logged".
+ */
+async function TrackerLeaderboard({ entry: { form: f }, attendeeId, teamId, eventStartsOn }: {
+  entry: SubmissionEntry; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
+}) {
+  const scoring = f.scoring!;
+  const today = nowInKL().date;
+  const challenge = await loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today);
+  const standings = challenge.score.standings;
+  const myTeam = teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
+  const week = gridWeek(challenge.weeks, null, today);
+  const thisWeek = week ? challenge.score.weeks.find((w) => w.week.number === week.number) : undefined;
+  const day = today < scoring.starts_on ? scoring.starts_on : today > scoring.ends_on ? scoring.ends_on : today;
+  return (
+    <section className="flex flex-col gap-4 py-5">
+      <Leaderboard standings={standings} mine={teamId}
+        stand={standingLine(standings, teamId, { startsOn: scoring.starts_on, today })}
+        podiumPoints={(scoring.podium ?? []).some((p) => p > 0)} />
+      {myTeam && thisWeek?.teams[myTeam.id] && (
+        <MyTeam team={myTeam} week={thisWeek.teams[myTeam.id]} weekInfo={thisWeek.week} score={challenge.score} scoring={scoring}
+          day={day} today={today} selfId={attendeeId} names={challenge.names} />
+      )}
+    </section>
   );
 }
 

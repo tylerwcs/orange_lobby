@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTracker, dailyKm, teamDayRows } from "@/lib/tracker";
+import { buildTracker, dailyKm, teamDayRows, trackerTab } from "@/lib/tracker";
 import type { ActivitySubmission, ChallengeScoring } from "@/lib/types";
 
 const S: ChallengeScoring = {
@@ -112,5 +112,23 @@ describe("teamDayRows (D379, D383)", () => {
   it("names a member it can't find Unknown", () => {
     const r = teamDayRows({ memberIds: ["z"], names, kmOf: () => 0, dailyMin: 1, day: "2026-10-06", today: "2026-10-06" });
     expect(r[0].name).toBe("Unknown");
+  });
+});
+
+describe("trackerTab (D385)", () => {
+  it("opens My stats by default", () => {
+    expect(trackerTab(undefined)).toBe("stats");
+    expect(trackerTab("")).toBe("stats");
+  });
+
+  it("reads the Info and Leaderboard tabs", () => {
+    expect(trackerTab("info")).toBe("info");
+    expect(trackerTab("leaderboard")).toBe("leaderboard");
+  });
+
+  it("treats anything else, including a hand-typed stats, as My stats", () => {
+    expect(trackerTab("stats")).toBe("stats");
+    expect(trackerTab("Leaderboard")).toBe("stats");
+    expect(trackerTab("teams")).toBe("stats");
   });
 });

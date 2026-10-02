@@ -125,3 +125,14 @@ export function teamDayRows(input: {
     })
     .sort((a, b) => Number(a.state === "logged") - Number(b.state === "logged") || a.name.localeCompare(b.name));
 }
+
+export type TrackerTab = "info" | "stats" | "leaderboard";
+
+/**
+ * D385: the scored challenge's page is three tabs, driven by `?tab=`. My stats is the default and
+ * has no param, so the bare page - where a submit and the WhatsApp links land - opens on it, and
+ * anything unknown falls back to it rather than to an empty page.
+ */
+export function trackerTab(raw: string | undefined): TrackerTab {
+  return raw === "info" || raw === "leaderboard" ? raw : "stats";
+}
