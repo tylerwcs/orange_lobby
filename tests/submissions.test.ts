@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { canSubmit, capSummary, missingFrom, participation, liveSubmissions, perDayCollision } from "@/lib/submissions";
-import { readSubmissionDetails, submitLabel, readGroupRule, groupRuleChangeBlocked } from "@/lib/submissions";
+import { readSubmissionDetails, submitLabel, readGroupRule, groupRuleChangeBlocked, isGroupForm } from "@/lib/submissions";
 import type { Activity, ActivitySubmission } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}): Activity => ({
   id: "f1", org_id: "o", event_id: "e", name: "Daily check-in", description: null,
   kind: "submission", required: false, is_open: true, categories: null,
-  max_per_attendee: null, questions: [], per_day: false, group_mode: "off", group_target: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
+  max_per_attendee: null, questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const sub = (day: string): ActivitySubmission => ({
   id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", group_id: null, answers: {},
@@ -317,5 +317,36 @@ describe("groupRuleChangeBlocked (D356)", () => {
   it("refuses a change to the mode or the target once there are live submissions", () => {
     expect(groupRuleChangeBlocked(cur, { group_mode: "entries", group_target: 3 }, 1)).toBe("This form has 1 submission. Revoke it before changing who submits.");
     expect(groupRuleChangeBlocked(cur, { group_mode: "off", group_target: null }, 3)).toBe("This form has 3 submissions. Revoke them before changing who submits.");
+  });
+});
+
+describe("members mode and challenge dates (D369, D373)", () => {
+  const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-12-04" };
+  const mileage = form({ group_mode: "members", scoring });
+
+  it("lets a team member submit as often as they like", () => {
+    expect(canSubmit(mileage, [sub("2026-10-06"), sub("2026-10-06")], null, "2026-10-06", null, "g1"))
+      .toEqual({ can: true, reason: "ok", used: 2 });
+  });
+
+  it("refuses someone with no team", () => {
+    expect(canSubmit(mileage, [], null, "2026-10-06", null, null).reason).toBe("nogroup");
+  });
+
+  it("is closed before and after the challenge dates", () => {
+    expect(canSubmit(mileage, [], null, "2026-10-04", null, "g1").reason).toBe("closed");
+    expect(canSubmit(mileage, [], null, "2026-12-05", null, "g1").reason).toBe("closed");
+  });
+
+  it("reads and summarises the new mode", () => {
+    expect(readGroupRule((k) => (k === "group_mode" ? "members" : null))).toEqual({ group_mode: "members", group_target: null });
+    expect(capSummary(mileage)).toBe("Each member, counted by team");
+  });
+
+  it("only calls entries and everyone group forms", () => {
+    expect(isGroupForm("entries")).toBe(true);
+    expect(isGroupForm("everyone")).toBe(true);
+    expect(isGroupForm("members")).toBe(false);
+    expect(isGroupForm("off")).toBe(false);
   });
 });

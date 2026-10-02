@@ -1,4 +1,5 @@
 import { categoryMatches } from "@/lib/agenda";
+import { inChallenge } from "@/lib/challenge";
 import { lastDays, daysBetween } from "@/lib/time";
 import type { Activity, ActivitySubmission, RegistrationQuestion, GroupMode } from "@/lib/types";
 import type { GroupProgress } from "@/lib/groups";
@@ -12,6 +13,15 @@ export type SubmitState = { can: boolean; reason: SubmitReason; used: number };
 /** The rows that count (D339): every reader of "who submitted" goes through this. */
 export function liveSubmissions<T extends Pick<ActivitySubmission, "status">>(subs: T[]): T[] {
   return subs.filter((s) => s.status === "submitted");
+}
+
+/**
+ * D369: the two modes where submitting is the GROUP's job (a target, or every member once).
+ * `members` is not one of them: each person submits for themselves, and the team is only
+ * stamped on the entry. Every "is this a group form" branch asks this, not `!== "off"`.
+ */
+export function isGroupForm(mode: GroupMode): boolean {
+  return mode === "entries" || mode === "everyone";
 }
 
 /** D342: the first attendee with two live rows on one day — what makes once-a-day impossible. */
@@ -45,10 +55,17 @@ export function canSubmit(
   category: string | null,
   today: string,
   group: GroupProgress | null = null,
+  /** D369: the attendee's current team, for `members` mode. */
+  teamId: string | null = null,
 ): SubmitState {
   const used = mine.length;
   if (!activity.is_open) return { can: false, reason: "closed", used };
+  // D373: a scored challenge takes entries only on its own days - the same 'closed' submit_answers gives.
+  if (activity.scoring && !inChallenge(activity.scoring, today)) return { can: false, reason: "closed", used };
   if (!categoryMatches(activity.categories, category)) return { can: false, reason: "ineligible", used };
+  if (activity.group_mode === "members") {
+    return teamId ? { can: true, reason: "ok", used } : { can: false, reason: "nogroup", used };
+  }
   if (activity.group_mode !== "off") {
     if (!group) return { can: false, reason: "nogroup", used };
     if (activity.group_mode === "entries") {
@@ -69,6 +86,7 @@ export function canSubmit(
  * from one merely capped low, and the word should say so.
  */
 export function capSummary(activity: Pick<Activity, "per_day" | "max_per_attendee"> & Partial<Pick<Activity, "group_mode" | "group_target">>): string {
+  if (activity.group_mode === "members") return "Each member, counted by team";
   if (activity.group_mode === "entries") return `${activity.group_target} ${activity.group_target === 1 ? "entry" : "entries"} per group`;
   if (activity.group_mode === "everyone") return "Every group member";
   const total = activity.max_per_attendee === null ? "" : activity.max_per_attendee === 1 ? "Once" : `Up to ${activity.max_per_attendee}`;
@@ -225,6 +243,7 @@ export function readSubmissionDetails(get: (key: string) => string | null): Pick
 export function readGroupRule(get: (key: string) => string | null): { group_mode: GroupMode; group_target: number | null } {
   const mode = get("group_mode");
   if (mode === "everyone") return { group_mode: "everyone", group_target: null };
+  if (mode === "members") return { group_mode: "members", group_target: null };
   if (mode !== "entries") return { group_mode: "off", group_target: null };
   const n = Number.parseInt(get("group_target")?.trim() ?? "", 10);
   if (!Number.isInteger(n) || n < 1 || n > 50) throw new Error("Entries per group must be a whole number between 1 and 50.");

@@ -227,7 +227,26 @@ export type BoothStamp = {
 export type ActivityKind = "booking" | "submission" | "passport";
 
 /** Who submits a submission form (D350). `off` is one attendee at a time, as before groups. */
-export type GroupMode = "off" | "entries" | "everyone";
+/** D350, D369: `members` is each member submitting their own entries, stamped with their team. */
+export type GroupMode = "off" | "entries" | "everyone" | "members";
+
+/** D376: a daily total at or above `at` km earns `pts`. Kept ascending by `at`. */
+export type DailyStep = { at: number; pts: number };
+
+/**
+ * D372/D376: what makes a submission activity a scored challenge. `metric_key` names the number
+ * question whose answers are summed per person per day. Dates are Malaysian days, inclusive.
+ * The three optional fields switch Tier 1, Tier 2 and Tier 3 on.
+ */
+export type ChallengeScoring = {
+  metric_key: string;
+  daily_min: number;
+  starts_on: string;
+  ends_on: string;
+  daily_steps?: DailyStep[];
+  team_bonus?: number;
+  podium?: number[];
+};
 
 /** A named set of one event's attendees (D345). An attendee is in at most one (D344). */
 export type EventGroup = { id: string; org_id: string; event_id: string; name: string; created_at: string };
@@ -261,6 +280,8 @@ export type Activity = {
   group_mode: GroupMode;
   /** `entries` mode only: entries a group needs, which is also its limit (D350). 1..50. */
   group_target: number | null;
+  /** Submission kind only (D372). Null is an ordinary form; set, it is a scored challenge. */
+  scoring: ChallengeScoring | null;
   /** The organiser's picture for the activity - a poster, the rules: cropped on its card, whole across the top of its page. Either kind. */
   image_url: string | null;
   /** Submission kind only - a booking's dates and place come from its sessions. YYYY-MM-DD. */

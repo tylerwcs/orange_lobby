@@ -1,7 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
-import type { RegistrationQuestion, GroupMode } from "@/lib/types";
+import type { RegistrationQuestion, GroupMode, ChallengeScoring } from "@/lib/types";
 import type { Activity, ActivityBooking, ActivityKind, ActivitySession, ActivitySubmission, Event } from "@/lib/types";
 
 export type NewActivity = {
@@ -19,6 +19,8 @@ export type NewActivity = {
   /** Submission kind only (D350). Left out, the column's 'off' stands. */
   group_mode?: GroupMode;
   group_target?: number | null;
+  /** Submission kind only (D372). Left out, the column's null stands. */
+  scoring?: ChallengeScoring | null;
   /** Left out, the column's null stands - as for the four submission details below. */
   image_url?: string | null;
   starts_on?: string | null;
