@@ -38,9 +38,9 @@ export function Leaderboard({ standings, mine, stand, podiumPoints }: {
   const columns: Column[] = view.scored
     ? view.podium.map((s) => ({ key: s.id, name: s.name, total: s.total, rank: s.rank ?? 3, mine: s.id === mine }))
     : [1, 2, 3].map((rank) => ({ key: `place-${rank}`, name: "–", total: null, rank, mine: false }));
-  // Drawn 2nd · 1st · 3rd. The rise runs 3rd, 2nd, then 1st, so the winner lands last.
-  const order = [columns[1], columns[0], columns[2]].filter((c): c is Column => Boolean(c));
-  const delay = (c: Column) => (columns.length - 1 - columns.indexOf(c)) * 120;
+  // In rank order in the DOM, so a screen reader announces 1st first; `order-*` draws them
+  // 2nd · 1st · 3rd. The rise runs 3rd, 2nd, then 1st, so the winner lands last.
+  const VISUAL = ["order-2", "order-1", "order-3"];
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between gap-3">
@@ -50,18 +50,19 @@ export function Leaderboard({ standings, mine, stand, podiumPoints }: {
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card bg-[radial-gradient(ellipse_at_50%_0%,var(--gold-soft)_0%,transparent_70%)] px-3 pt-4">
         <ol className="flex items-end justify-center gap-2" aria-label="Podium">
-          {order.map((c) => {
+          {columns.map((c, i) => {
             const { height, tint, Icon } = place(c.rank);
-            const first = columns.indexOf(c) === 0;
+            const first = i === 0;
             return (
-              <li key={c.key} className={`flex min-w-0 flex-col items-center gap-0.5 text-center ${first ? "w-[36%]" : "w-[29%]"}`}>
+              <li key={c.key} className={`flex min-w-0 flex-col items-center gap-0.5 text-center ${VISUAL[i]} ${first ? "w-[36%]" : "w-[29%]"}`}>
                 {c.rank === 1 && <Crown aria-hidden className="mb-0.5 size-6 text-gold-strong" />}
-                <span className="w-full truncate text-sm font-extrabold">{c.name}</span>
+                {/* An empty place's "–" says nothing aloud; its "Place n" below still does. */}
+                <span aria-hidden={c.total === null || undefined} className="w-full truncate text-sm font-extrabold">{c.name}</span>
                 {c.total !== null && <span className="text-xs font-bold tabular-nums text-muted-foreground">{pts(c.total)}</span>}
                 {c.mine && <span className="rounded-full bg-success-soft px-2 text-[11px] font-bold text-success-strong">Your team</span>}
                 <div
                   className={`mt-1.5 flex w-full flex-col items-center gap-0.5 rounded-t-xl pt-2.5 shadow-[inset_0_2px_0_rgb(255_255_255/0.6)] ${tint} ${RISE}`}
-                  style={{ height, animationDelay: `${delay(c)}ms` }}
+                  style={{ height, animationDelay: `${(columns.length - 1 - i) * 120}ms` }}
                 >
                   <Icon aria-hidden className={first ? "size-6" : "size-5"} />
                   <span className={`font-extrabold leading-none tabular-nums ${first ? "text-3xl" : "text-2xl"}`}>
@@ -79,7 +80,8 @@ export function Leaderboard({ standings, mine, stand, podiumPoints }: {
           <div className="shrink-0 text-4xl font-extrabold leading-none tabular-nums">{stand.rank}</div>
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="text-xs font-bold">Where you stand</div>
-            <div className="truncate font-extrabold">{stand.title}</div>
+            {/* Wraps rather than truncates, so a long team name never cuts off its points. */}
+            <div className="line-clamp-2 break-words font-extrabold">{stand.title}</div>
             <div className="text-sm text-foreground/80">{stand.line}</div>
           </div>
         </div>
@@ -99,7 +101,8 @@ export function Leaderboard({ standings, mine, stand, podiumPoints }: {
                   <span className={`truncate text-sm ${isMine ? "font-extrabold" : "font-bold"} ${s.void ? "text-muted-foreground" : ""}`}>
                     {s.name}{isMine ? " (your team)" : ""}
                   </span>
-                  {!s.void && (
+                  {/* Before any points every bar is empty, so the tracks would only be noise. */}
+                  {!s.void && view.scored && (
                     <span aria-hidden className={`h-1.5 overflow-hidden rounded-full ${isMine ? "bg-success/15" : "bg-muted"}`}>
                       <span
                         className={`block h-full origin-left rounded-full ${isMine ? "bg-success-strong" : "bg-primary"} ${FILL}`}

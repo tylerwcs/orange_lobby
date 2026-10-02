@@ -27,6 +27,10 @@ describe("standingLine (D386)", () => {
     });
   });
 
+  it("gives 4th only the podium gap, since the team just above is the podium's third", () => {
+    expect(standingLine(table, "09")).toEqual({ rank: "#4", title: "Group 09 · 185 pts", line: "13 pts to reach the podium." });
+  });
+
   it("leaves out the podium sentence for 3rd", () => {
     expect(standingLine(table, "02")).toEqual({ rank: "#3", title: "Group 02 · 198 pts", line: "50 pts behind Group 07." });
   });
@@ -47,7 +51,7 @@ describe("standingLine (D386)", () => {
     const tied = [row("04", 260, 1), row("07", 200, 2), row("02", 200, 2), row("09", 150, 4)];
     expect(standingLine(tied, "02")?.line).toBe("60 pts behind Group 04.");
     // 4th behind a tie for 2nd: the podium's third team is the second of the pair.
-    expect(standingLine(tied, "09")?.line).toBe("50 pts behind Group 02. 50 pts to reach the podium.");
+    expect(standingLine(tied, "09")?.line).toBe("50 pts to reach the podium.");
   });
 
   it("explains a void team", () => {

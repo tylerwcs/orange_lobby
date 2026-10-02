@@ -33,7 +33,8 @@ export type StandingLine = { rank: string; title: string; line: string };
 /**
  * The "Where you stand" card: the viewer's team's rank, its points, and the gap that matters -
  * to the team just above (the row above the viewer's tie, not a twin on the same total), and,
- * below 3rd, to the podium's third team. Null when the viewer has no team on the table.
+ * below 3rd, to the podium's third team - only that, when the team just above is that third.
+ * Null when the viewer has no team on the table.
  *
  * Before any team has a point every team ties for 1st, which says nothing, so the rank is "–" and
  * the line says when the race starts (`timing`), or, once it has, that nobody has scored yet.
@@ -58,7 +59,10 @@ export function standingLine(standings: Standing[], myTeamId: string | null, tim
   }
   // Standings run highest first, so the last team with more points is the one just above.
   const above = live.filter((s) => s.total > me.total).at(-1)!;
-  let line = `${pts(above.total - me.total)} behind ${above.name}.`;
-  if (me.rank > 3) line += ` ${pts(live[2].total - me.total)} to reach the podium.`;
-  return { rank, title, line };
+  const behind = `${pts(above.total - me.total)} behind ${above.name}.`;
+  if (me.rank <= 3) return { rank, title, line: behind };
+  // Rank 4+ means three live teams are ahead, so the podium's third exists.
+  const toPodium = `${pts(live[2].total - me.total)} to reach the podium.`;
+  // Just below the podium the team above IS its third, and both sentences would give one number.
+  return { rank, title, line: above.id === live[2].id ? toPodium : `${behind} ${toPodium}` };
 }
