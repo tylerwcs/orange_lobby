@@ -326,21 +326,27 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
 export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone";
 
 // revoked rows never count and never reach an attendee (D339, D341).
+// Paged (D289): a daily challenge passes 1,000 rows within days, and newest-first would drop the
+// OLDEST past the cap. `id` last keeps pages from overlapping or skipping (D383).
 export async function listSubmissions(eventId: string): Promise<ActivitySubmission[]> {
-  const { data, error } = await serviceClient().from("activity_submissions").select("*")
-    .eq("event_id", eventId).eq("status", "submitted")
-    .order("submitted_on", { ascending: false }).order("created_at", { ascending: false });
-  if (error?.code === "PGRST205" || error?.code === "42P01") return [];
-  if (error) throw error;
-  return (data ?? []) as ActivitySubmission[];
+  try {
+    return await selectAll<ActivitySubmission>((from, to) => serviceClient().from("activity_submissions").select("*")
+      .eq("event_id", eventId).eq("status", "submitted")
+      .order("submitted_on", { ascending: false }).order("created_at", { ascending: false }).order("id")
+      .range(from, to));
+  } catch (error) {
+    const code = (error as { code?: string } | null)?.code;
+    if (code === "PGRST205" || code === "42P01") return [];
+    throw error;
+  }
 }
 
-// The admin table shows revoked rows too, D340.
+// The admin table shows revoked rows too, D340. Paged like `listSubmissions` (D383).
 export async function submissionsForActivity(activityId: string): Promise<ActivitySubmission[]> {
-  const { data, error } = await serviceClient().from("activity_submissions").select("*")
-    .eq("activity_id", activityId).order("submitted_on", { ascending: false }).order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as ActivitySubmission[];
+  return selectAll<ActivitySubmission>((from, to) => serviceClient().from("activity_submissions").select("*")
+    .eq("activity_id", activityId)
+    .order("submitted_on", { ascending: false }).order("created_at", { ascending: false }).order("id")
+    .range(from, to));
 }
 
 // revoked rows never count and never reach an attendee (D339, D341).

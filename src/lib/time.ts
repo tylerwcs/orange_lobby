@@ -98,3 +98,17 @@ export function daysBetween(from: string, to: string): number {
   const b = new Date(`${to}T00:00:00Z`).getTime();
   return Math.round((b - a) / 86400000);
 }
+
+/**
+ * D383: the day a one-day-at-a-time list shows, and its neighbours. A requested day is used only
+ * if it is a real calendar day ("2026-11-31" fits the shape but is not one, and a hand-edited URL
+ * must not 500 the page); anything else is today. There is no next day after today: nothing can
+ * have been submitted on it yet.
+ */
+export function dayNav(requested: string | null | undefined, today: string): { day: string; prev: string; next: string | null } {
+  const shift = (d: string, n: number) => new Date(new Date(`${d}T00:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10);
+  const real = !!requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)
+    && !Number.isNaN(new Date(`${requested}T00:00:00Z`).getTime()) && shift(requested, 0) === requested;
+  const day = real ? requested : today;
+  return { day, prev: shift(day, -1), next: day < today ? shift(day, 1) : null };
+}

@@ -51,6 +51,19 @@ export function weekFor(weeks: ChallengeWeek[], day: string): ChallengeWeek | nu
   return weeks.find((w) => w.days.includes(day)) ?? null;
 }
 
+/**
+ * D381: the week a team's grid opens on - the one asked for, else today's, else (the challenge
+ * over) the last, which is what the committee checks after it ends, else (not begun) the first.
+ */
+export function gridWeek(weeks: ChallengeWeek[], requested: number | null, today: string): ChallengeWeek | undefined {
+  const asked = weeks.find((w) => w.number === requested);
+  if (asked) return asked;
+  const now = weekFor(weeks, today);
+  if (now) return now;
+  const last = weeks[weeks.length - 1];
+  return last && today > last.days[last.days.length - 1] ? last : weeks[0];
+}
+
 /** "Week 2 · 5–11 Oct", or "Week 5 · 26 Oct – 1 Nov" when the week crosses a month. */
 export function weekLabel(w: ChallengeWeek): string {
   const [first, last] = [w.days[0], w.days[w.days.length - 1]];

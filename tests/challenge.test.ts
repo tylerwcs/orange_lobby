@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addDays, mondayOf, inChallenge, challengeWeeks, weekFor, weekLabel,
+  addDays, mondayOf, inChallenge, challengeWeeks, weekFor, gridWeek, weekLabel,
   stepPoints, nextStep, parseSteps, stepsText, readScoring,
 } from "@/lib/challenge";
 import type { ChallengeScoring, RegistrationQuestion } from "@/lib/types";
@@ -53,6 +53,17 @@ describe("challengeWeeks (D378)", () => {
     expect(weekLabel(weeks[0])).toBe("Week 2 · 5–11 Oct");
     expect(weekLabel(weeks[3])).toBe("Week 5 · 26 Oct – 1 Nov");
     expect(weekLabel(weeks[8])).toBe("Week 10 · 30 Nov – 4 Dec");
+  });
+
+  it("opens a team grid on the asked week, else today's, else the last once it's over (D381)", () => {
+    expect(gridWeek(weeks, 4, "2026-11-10")?.number).toBe(4);
+    expect(gridWeek(weeks, null, "2026-11-10")?.number).toBe(7);
+    // A week that doesn't exist reads as no week asked.
+    expect(gridWeek(weeks, 99, "2026-10-06")?.number).toBe(2);
+    expect(gridWeek(weeks, null, "2026-12-05")?.number).toBe(10);
+    expect(gridWeek(weeks, null, "2027-01-20")?.number).toBe(10);
+    expect(gridWeek(weeks, null, "2026-10-01")?.number).toBe(2);
+    expect(gridWeek([], null, "2026-10-01")).toBeUndefined();
   });
 });
 

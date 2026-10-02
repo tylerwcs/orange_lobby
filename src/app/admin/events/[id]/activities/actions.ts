@@ -24,7 +24,7 @@ import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
 import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
 import { readPassportSettings } from "@/lib/booths";
-import type { Activity, ChallengeScoring, Event, GroupMode } from "@/lib/types";
+import type { Activity, ActivitySubmission, ChallengeScoring, Event, GroupMode } from "@/lib/types";
 import { readScoring } from "@/lib/challenge";
 import { disqualify, undoDisqualify } from "@/lib/db/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
@@ -379,8 +379,8 @@ export async function editSubmissionAction(eventId: string, activityId: string, 
   const { orgId, userId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const activity = await submissionOf(ev, activityId);
-  const back = activityHref(eventId, activityId, "submissions");
   const current = await getSubmission(submissionId);
+  const back = submissionsBack(eventId, activity, current);
   if (!current || current.activity_id !== activity.id || current.status !== "submitted") {
     revalidatePath(detailPath(eventId, activityId));
     redirect(flashPath(back, "That submission can no longer be edited.", "error"));
@@ -413,8 +413,8 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
   const { orgId, userId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const activity = await submissionOf(ev, activityId);
-  const back = activityHref(eventId, activityId, "submissions");
   const current = await getSubmission(submissionId);
+  const back = submissionsBack(eventId, activity, current);
   if (!current || current.activity_id !== activity.id) {
     revalidatePath(detailPath(eventId, activityId));
     redirect(flashPath(back, "That submission no longer exists.", "error"));
@@ -429,6 +429,15 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(back, `${name}'s submission is revoked. They can submit again${activity.is_open ? "." : " once it's open."}`));
+}
+
+/**
+ * Back to the Submissions tab - on the row's own day for a scored challenge, whose tab shows one
+ * day at a time (D383), so a committee member auditing a past day keeps their place.
+ */
+function submissionsBack(eventId: string, activity: Activity, row: ActivitySubmission | null): string {
+  const onDay = activity.scoring !== null && row && row.activity_id === activity.id;
+  return activityHref(eventId, activity.id, "submissions", onDay ? { day: row.submitted_on } : {});
 }
 
 /** Back to the team grid on the same week it was posted from (D381). */

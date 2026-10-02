@@ -1,6 +1,6 @@
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate, shortDateTime } from "@/lib/text";
-import { signedSubmissionUrl } from "@/lib/db/media";
+import { signedSubmissionUrls } from "@/lib/db/media";
 import { retiredAnswerKeys } from "@/lib/exports";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -61,17 +61,21 @@ export async function SubmissionTable({ submissions, questions, submitterFor, ed
   const stamp = (verb: string, by: string | null, at: string | null) =>
     `${verb} by ${(by ? adminNames[by] : undefined) ?? "an admin"}${at ? ` on ${shortDateTime(at)}` : ""}`;
 
-  const rows = await Promise.all(submissions.map(async (s) => {
+  // One Storage request per batch of photos, not one per cell (D383).
+  const fileKeys = questions.filter((q) => q.type === "file").map((q) => q.key);
+  const links = await signedSubmissionUrls(submissions.flatMap((s) => fileKeys.map((k) => s.answers[k] ?? "")));
+
+  const rows = submissions.map((s) => {
     const who = submitterFor(s.attendee_id);
-    const cells = await Promise.all(questions.map(async (q) => {
+    const cells = questions.map((q) => {
       const value = s.answers[q.key] ?? "";
       if (!isFile(q.key)) return { key: q.key, value, href: null as string | null };
-      return { key: q.key, value, href: value ? await signedSubmissionUrl(value) : null };
-    }));
+      return { key: q.key, value, href: value ? links.get(value) ?? null : null };
+    });
     const retiredCells = retiredKeys.map((key) => ({ key, value: s.answers[key] ?? "" }));
     const fileLinks = Object.fromEntries(cells.filter((c) => isFile(c.key)).map((c) => [c.key, c.href]));
     return { submission: s, who, cells, retiredCells, fileLinks };
-  }));
+  });
 
   return (
     <Table>

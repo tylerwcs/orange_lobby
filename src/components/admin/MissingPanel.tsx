@@ -1,7 +1,5 @@
-import Form from "next/form";
-import Link from "next/link";
 import { shortDate } from "@/lib/text";
-import { SubmitButton } from "@/components/admin/SubmitButton";
+import { DayNav } from "@/components/admin/DayNav";
 
 export type MissingPerson = { id: string; name: string; category: string | null };
 
@@ -14,10 +12,7 @@ export type MissingPerson = { id: string; name: string; category: string | null 
  * a form is not — the answers are the attendee's own — so there is nothing to offer here
  * beyond the names (D175).
  *
- * The day form is a GET so the chosen day lives in the URL: a desk working through the
- * morning can bookmark it, reload it, or send it to a colleague and get the same list. It is
- * `next/form` rather than a bare <form> so Show navigates in place - the page's keyed
- * Suspense puts up a skeleton - instead of reloading the whole admin.
+ * The day picker is `DayNav`, shared with a scored challenge's Submissions tab (D383).
  */
 export function MissingPanel({ people, day, today, basePath, tab }: {
   people: MissingPerson[];
@@ -31,25 +26,9 @@ export function MissingPanel({ people, day, today, basePath, tab }: {
    */
   tab?: string;
 }) {
-  const todayHref = tab ? `${basePath}?tab=${tab}` : basePath;
   return (
     <div className="flex flex-col gap-3">
-      {day !== null && (
-        <Form action={basePath} className="flex flex-wrap items-end gap-2">
-          {tab && <input type="hidden" name="tab" value={tab} />}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">Day</span>
-            <input
-              type="date" name="day" defaultValue={day}
-              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
-          <SubmitButton variant="outline">Show</SubmitButton>
-          {day !== today && (
-            <Link href={todayHref} className="text-sm font-bold text-primary underline-offset-4 hover:underline">Back to today</Link>
-          )}
-        </Form>
-      )}
+      {day !== null && <DayNav day={day} today={today} basePath={basePath} tab={tab} />}
 
       {people.length === 0 ? (
         <p className="text-sm text-muted-foreground">

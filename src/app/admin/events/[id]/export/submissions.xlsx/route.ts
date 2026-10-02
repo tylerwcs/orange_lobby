@@ -5,7 +5,7 @@ import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSubmissions } from "@/lib/db/activities";
 import { listGroups } from "@/lib/db/groups";
-import { signedSubmissionUrl } from "@/lib/db/media";
+import { signedSubmissionUrls } from "@/lib/db/media";
 import { buildFormsWorkbook, leaderboardRows, addLeaderboardSheet, type FormSheet } from "@/lib/exports";
 import { loadChallenge } from "@/lib/challenge-data";
 import { nowInKL } from "@/lib/time";
@@ -31,21 +31,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const byForm = new Map<string, typeof submissions>();
   for (const s of submissions) byForm.set(s.activity_id, [...(byForm.get(s.activity_id) ?? []), s]);
 
-  const sheets: FormSheet[] = await Promise.all(forms.map(async (f) => {
+  // Every photo link in the workbook, signed in batches up front rather than one Storage call
+  // per photo (D383).
+  const formById = new Map(forms.map((f) => [f.id, f]));
+  const links = await signedSubmissionUrls(submissions.flatMap((s) => {
+    const f = formById.get(s.activity_id);
+    return f ? fileQuestionKeys(f.questions).map((k) => s.answers[k] ?? "") : [];
+  }), LINK_SECONDS);
+
+  const sheets: FormSheet[] = forms.map((f) => {
     const fileKeys = new Set(fileQuestionKeys(f.questions));
     const questions = f.questions.map((q) => ({
       key: q.key,
       label: fileKeys.has(q.key) ? `${q.label} (link expires in 7 days)` : q.label,
       file: fileKeys.has(q.key),
     }));
-    const rows = await Promise.all((byForm.get(f.id) ?? []).map(async (s) => {
+    const rows = (byForm.get(f.id) ?? []).map((s) => {
       const a = attendeeById.get(s.attendee_id);
       const answers: Record<string, string> = {};
       for (const [key, value] of Object.entries(s.answers)) {
         if (fileKeys.has(key) && value) {
           // A null here means the object went missing from storage, not that the answer was
           // empty — render that honestly instead of a link that 404s.
-          answers[key] = (await signedSubmissionUrl(value, LINK_SECONDS)) ?? "(file unavailable)";
+          answers[key] = links.get(value) ?? "(file unavailable)";
         } else {
           answers[key] = value;
         }
@@ -60,7 +68,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null,
         submittedOn: s.submitted_on, createdAt: s.created_at, answers, extra,
       };
-    }));
+    });
     const missingRow = (a: (typeof attendees)[number] | undefined) => {
       const extra = { ...(a?.extra ?? {}), [GROUP_EXPORT_KEY]: a?.group_id ? groupName.get(a.group_id) ?? "" : "" };
       return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null, extra };
@@ -76,7 +84,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           .map((aid) => missingRow(attendeeById.get(aid)));
 
     return { formName: f.name, questions, rows, missing };
-  }));
+  });
 
   const columns = withGroupColumn(exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields), groups.length > 0);
   const wb = buildFormsWorkbook(sheets, columns);

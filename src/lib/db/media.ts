@@ -133,6 +133,30 @@ export async function signedSubmissionUrl(path: string, seconds = 60): Promise<s
   return data?.signedUrl ?? null;
 }
 
+/** How many paths one `createSignedUrls` request carries. */
+const SIGN_BATCH = 500;
+
+/**
+ * `signedSubmissionUrl` for many files at once: one Storage request per batch of paths rather
+ * than one per photo, which at a daily challenge's volume would be thousands per page or export
+ * (D383). Same lifetime rules as the single version.
+ *
+ * Every requested path is a key of the result. A null means no link - the object went missing,
+ * or the batch failed - and callers show that as "Unavailable", as they do for a single null.
+ */
+export async function signedSubmissionUrls(paths: string[], seconds = 60): Promise<Map<string, string | null>> {
+  const unique = [...new Set(paths.filter((p) => p !== ""))];
+  const out = new Map<string, string | null>(unique.map((p) => [p, null]));
+  const storage = serviceClient().storage.from(SUBMISSION_BUCKET);
+  for (let i = 0; i < unique.length; i += SIGN_BATCH) {
+    const { data } = await storage.createSignedUrls(unique.slice(i, i + SIGN_BATCH), seconds);
+    for (const d of data ?? []) {
+      if (d.path && out.has(d.path) && !d.error) out.set(d.path, d.signedUrl ?? null);
+    }
+  }
+  return out;
+}
+
 /**
  * Removes submitted files from the bucket outright — unlike deleteEventImage there is no URL
  * to parse a path out of first, because nothing here ever stored one.

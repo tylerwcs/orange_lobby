@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MY_TZ, isoToLocalInput, localInputToIso, nowInKL, eventDays, lastDays, daysBetween } from "@/lib/time";
+import { MY_TZ, isoToLocalInput, localInputToIso, nowInKL, eventDays, lastDays, daysBetween, dayNav } from "@/lib/time";
 
 describe("time", () => {
   it("uses the Malaysian timezone", () => {
@@ -99,5 +99,22 @@ describe("daysBetween", () => {
 
   it("is negative when the first day is later", () => {
     expect(daysBetween("2026-09-23", "2026-09-20")).toBe(-3);
+  });
+});
+
+describe("dayNav (D383)", () => {
+  it("shows a requested real day with both neighbours", () => {
+    expect(dayNav("2026-10-31", "2026-11-05")).toEqual({ day: "2026-10-31", prev: "2026-10-30", next: "2026-11-01" });
+  });
+
+  it("has no next day on today, or after it", () => {
+    expect(dayNav(undefined, "2026-10-06")).toEqual({ day: "2026-10-06", prev: "2026-10-05", next: null });
+    expect(dayNav("2026-10-09", "2026-10-06").next).toBeNull();
+  });
+
+  it("falls back to today for anything that is not a real calendar day", () => {
+    for (const bad of ["", "2026-11-31", "2026-13-01", "yesterday", "2026-1-5"]) {
+      expect(dayNav(bad, "2026-10-06").day).toBe("2026-10-06");
+    }
   });
 });

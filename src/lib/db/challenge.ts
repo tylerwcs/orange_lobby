@@ -13,7 +13,10 @@ export type Disqualification = { attendee_id: string; reason: string; created_at
  */
 export async function dailyTotals(activityId: string): Promise<DailyTotal[]> {
   const rows = await selectAll<{ attendee_id: string; group_id: string | null; day: string; km: number | string }>(
-    (from, to) => serviceClient().rpc("challenge_daily_totals", { p_activity_id: activityId }).range(from, to),
+    // Ordered here as well as in the function body (0059), so paging never rests on a SQL
+    // ORDER BY that a later migration could drop; the three columns are the unique group-by key.
+    (from, to) => serviceClient().rpc("challenge_daily_totals", { p_activity_id: activityId })
+      .order("attendee_id").order("day").order("group_id").range(from, to),
   );
   return rows.map((r) => ({ attendeeId: r.attendee_id, groupId: r.group_id, day: r.day, km: Number(r.km) }));
 }

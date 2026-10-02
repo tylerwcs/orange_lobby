@@ -105,3 +105,23 @@ export function buildTracker(input: {
     entries: entries.filter((s) => s.submitted_on === selected).sort((a, b) => a.created_at.localeCompare(b.created_at)),
   };
 }
+
+export type TeamDayRow = { id: string; name: string; km: number; state: "logged" | "missing" | "future" };
+
+/**
+ * D379: My team's rows for the shown day. A day still to come has nothing to be logged on it yet,
+ * so it is "future" for everyone and stays in name order (D383); otherwise the ones still to log
+ * come first, so teammates can nudge them.
+ */
+export function teamDayRows(input: {
+  memberIds: string[]; names: Map<string, string>; kmOf: (attendeeId: string) => number;
+  dailyMin: number; day: string; today: string;
+}): TeamDayRow[] {
+  const future = input.day > input.today;
+  return input.memberIds
+    .map((id): TeamDayRow => {
+      const km = input.kmOf(id);
+      return { id, name: input.names.get(id) ?? "Unknown", km, state: future ? "future" : km >= input.dailyMin ? "logged" : "missing" };
+    })
+    .sort((a, b) => Number(a.state === "logged") - Number(b.state === "logged") || a.name.localeCompare(b.name));
+}

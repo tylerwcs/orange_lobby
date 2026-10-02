@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTracker, dailyKm } from "@/lib/tracker";
+import { buildTracker, dailyKm, teamDayRows } from "@/lib/tracker";
 import type { ActivitySubmission, ChallengeScoring } from "@/lib/types";
 
 const S: ChallengeScoring = {
@@ -91,5 +91,26 @@ describe("buildTracker (D374)", () => {
     expect(t.weekPts).toBeNull();
     expect(t.marks).toEqual([1]);
     expect(t.goal).toEqual({ at: 1, pts: 0, gap: 0.5 });
+  });
+});
+
+describe("teamDayRows (D379, D383)", () => {
+  const names = new Map([["a", "Aida"], ["b", "Ben"], ["c", "Chong"]]);
+  const km: Record<string, number> = { a: 3, b: 0, c: 0.5 };
+  const rows = (day: string, today: string) =>
+    teamDayRows({ memberIds: ["a", "b", "c"], names, kmOf: (id) => km[id], dailyMin: 1, day, today });
+
+  it("puts the ones still to log first on a day that has come", () => {
+    expect(rows("2026-10-06", "2026-10-06").map((r) => [r.name, r.state])).toEqual([["Ben", "missing"], ["Chong", "missing"], ["Aida", "logged"]]);
+    expect(rows("2026-10-05", "2026-10-06").map((r) => r.state)).toEqual(["missing", "missing", "logged"]);
+  });
+
+  it("marks every member future, in name order, on a day still to come", () => {
+    expect(rows("2026-10-07", "2026-10-06").map((r) => [r.name, r.state])).toEqual([["Aida", "future"], ["Ben", "future"], ["Chong", "future"]]);
+  });
+
+  it("names a member it can't find Unknown", () => {
+    const r = teamDayRows({ memberIds: ["z"], names, kmOf: () => 0, dailyMin: 1, day: "2026-10-06", today: "2026-10-06" });
+    expect(r[0].name).toBe("Unknown");
   });
 });

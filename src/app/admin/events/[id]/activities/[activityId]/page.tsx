@@ -22,9 +22,10 @@ import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
 import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } from "@/lib/submissions";
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/lib/activity-tabs";
 import { groupSessionsByDay } from "@/lib/session-slots";
-import { nowInKL } from "@/lib/time";
+import { nowInKL, dayNav } from "@/lib/time";
+import { shortDate } from "@/lib/text";
 import { loadChallenge } from "@/lib/challenge-data";
-import { weekFor } from "@/lib/challenge";
+import { gridWeek } from "@/lib/challenge";
 import { groupsNotDone } from "@/lib/groups";
 import { listGroups } from "@/lib/db/groups";
 import { categoryMatches } from "@/lib/agenda";
@@ -37,6 +38,7 @@ import { UnbookedPanel } from "@/components/admin/UnbookedPanel";
 import { RequestQueue } from "@/components/admin/RequestQueue";
 import { SubmissionTable } from "@/components/admin/SubmissionTable";
 import { MissingPanel } from "@/components/admin/MissingPanel";
+import { DayNav } from "@/components/admin/DayNav";
 import { GroupsNotDonePanel } from "@/components/admin/GroupsNotDonePanel";
 import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
 import { LeaderboardPanel } from "@/components/admin/LeaderboardPanel";
@@ -318,6 +320,13 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
 
   // D381: a scored challenge has a committee Leaderboard tab.
   const scored = activity.scoring !== null;
+  // D383: a scored challenge's Submissions tab is the committee's audit, one day at a time - a
+  // whole challenge is thousands of rows, each with a photo to sign. The tab's count and the
+  // subtitle still count every live row; any other activity keeps its whole table.
+  const shownDay = scored ? dayNav(requestedDay, today) : null;
+  const tableRows = (grouped ? bySubmission : submissions).filter((s) => !shownDay || s.submitted_on === shownDay.day);
+  const dayLive = liveSubmissions(tableRows).length;
+  const dayRevoked = tableRows.length - dayLive;
   const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: daily, grouped, scored });
   const current = resolveTab(tabs, tab);
   // Scored from the same read the portal and the export use (D375), and only when its tab is open.
@@ -325,9 +334,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
   // A hand-edited ?week= that is not a number reads as every week.
   const weekNum = week && /^\d+$/.test(week) ? Number(week) : null;
   const gridTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) : undefined;
-  const gridWeek = challenge && gridTeam
-    ? challenge.weeks.find((w) => w.number === weekNum) ?? weekFor(challenge.weeks, today) ?? challenge.weeks[0]
-    : undefined;
+  const gridWeekShown = challenge && gridTeam ? gridWeek(challenge.weeks, weekNum, today) : undefined;
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
 
   return (
@@ -367,8 +374,17 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
         <Card className="overflow-hidden">
           <CardHeader><CardTitle>Submissions</CardTitle></CardHeader>
           <CardContent className="px-0">
+            {shownDay && (
+              <div className="flex flex-col gap-3 px-(--card-spacing) pb-4">
+                <DayNav day={shownDay.day} today={today} prev={shownDay.prev} next={shownDay.next}
+                  basePath={`/admin/events/${ev.id}/activities/${activity.id}`} tab="submissions" />
+                <p className="text-sm text-muted-foreground">
+                  {dayLive} submission{dayLive === 1 ? "" : "s"} on {shortDate(shownDay.day)}{dayRevoked > 0 ? ` · ${dayRevoked} revoked` : ""}.
+                </p>
+              </div>
+            )}
             <SubmissionTable
-              submissions={grouped ? bySubmission : submissions}
+              submissions={tableRows}
               questions={activity.questions}
               submitterFor={submitterFor}
               edit={editSubmissionAction.bind(null, ev.id, activity.id)}
@@ -414,9 +430,9 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
         <Card className="overflow-hidden">
           <CardHeader><CardTitle>Leaderboard</CardTitle></CardHeader>
           <CardContent>
-            {gridTeam && gridWeek ? (
+            {gridTeam && gridWeekShown ? (
               <TeamGrid
-                team={gridTeam} week={gridWeek}
+                team={gridTeam} week={gridWeekShown}
                 score={challenge.score} names={challenge.names} dq={challenge.disqualifications}
                 dailyMin={activity.scoring!.daily_min}
                 back={activityHref(ev.id, activity.id, "leaderboard", week ? { week } : {})}
