@@ -7,7 +7,7 @@ import type { ChallengeScoring } from "@/lib/types";
  * so teammates can nudge), Tier 2 progress, and the team's own km for the week.
  *
  * The Tier 2 line depends on where the shown week sits against today: only the current week has
- * a "so far" (before it starts everyone counts as on track, which would mislead), and a past
+ * a "so far" (before it starts, or on its first day, everyone counts as on track, which would mislead), and a past
  * week is settled, so it says what happened. A future week says nothing.
  */
 export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfId, names }: {
@@ -21,7 +21,8 @@ export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfI
   const bonus = scoring.team_bonus ?? 0;
   const first = weekInfo.days[0];
   const last = weekInfo.days[weekInfo.days.length - 1];
-  const current = first <= today && today <= last;
+  // On the week's first day nothing has elapsed, so "M of M so far" would say nothing true.
+  const current = first < today && today <= last;
   const past = last < today;
   return (
     <section className="flex flex-col gap-2">
