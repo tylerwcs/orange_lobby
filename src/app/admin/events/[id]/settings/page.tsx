@@ -7,6 +7,7 @@ import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { loadDoors } from "@/lib/db/doors";
 import { listActivities } from "@/lib/db/activities";
+import { listGroups } from "@/lib/db/groups";
 import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
@@ -23,7 +24,7 @@ import { RememberedTabs } from "@/components/admin/RememberedTabs";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction } from "../actions";
+import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction } from "../actions";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { StatusPicker } from "@/components/admin/StatusPicker";
@@ -80,8 +81,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const ev = await requireEvent(id, orgId);
   const qs = ev.registration_questions;
   const base = appBaseUrl();
-  const [{ cps, tallies, registered: total }, jar, bookingActivities] = await Promise.all([
-    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"),
+  const [{ cps, tallies, registered: total }, jar, bookingActivities, groups] = await Promise.all([
+    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id),
   ]);
   const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
   // Reopen on the tab that was open: every action on this page redirects back to it.
@@ -93,7 +94,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const days = eventDays(ev.starts_on, ev.ends_on);
   const crewExpiry = crewLinkLastDay(ev);
 
-  const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields);
+  const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields, groups.length > 0);
   const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
   const scanFields = eventFields(ev.registration_questions, ev.attendee_fields);
 
@@ -139,6 +140,20 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <p className="text-xs text-muted-foreground">
             {CHECK_IN_CHOICES.find((c) => c.value === ev.check_in_enabled)?.what}
           </p>
+          {ev.check_in_enabled && (
+            /* D388: its own form, like the door switch above, so it never re-saves anything else. */
+            <form action={setBadgeCheckinAction.bind(null, ev.id)} className="flex flex-col gap-2 border-t pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
+                  <input type="checkbox" name="badge_checkin" defaultChecked={ev.badge_checkin} className="size-4 accent-primary" /> Show check-in on the attendee&apos;s badge
+                </label>
+                <SubmitButton variant="outline">Save</SubmitButton>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The badge on the portal home follows the checkpoint running now: &ldquo;Lunch · 12:05&rdquo; once they are scanned there, &ldquo;Not checked in to Lunch yet&rdquo; before.
+              </p>
+            </form>
+          )}
         </CardContent>
       </Card>
 

@@ -1,4 +1,5 @@
 import type { Attendee } from "@/lib/types";
+import type { BadgeCheckin } from "@/lib/checkpoints";
 import { pinScale, type ResolvedPin } from "@/lib/pinned-fields";
 import { Icon } from "@/components/ui/icon";
 import { displayName } from "@/lib/text";
@@ -19,11 +20,11 @@ import { BadgeQrDialog } from "./BadgeQrDialog";
  * an event whose badges should carry it pins it in Settings, and `pinnableFields` offers it
  * the moment the event defines the column.
  */
-export function BadgeCard({ attendee, door, checkedInAt, pins, qr }: {
+export function BadgeCard({ attendee, checkin, pins, qr }: {
   attendee: Attendee;
-  /** Whether the event checks people in at all (D159). Without a door there is no status to show. */
-  door: boolean;
-  checkedInAt: string | null; pins: ResolvedPin[];
+  /** The running checkpoint and when they came through it (D388); null shows no pill at all. */
+  checkin: BadgeCheckin | null;
+  pins: ResolvedPin[];
   /** The attendee's QR as a data URL; the square button opens it in place (was a link to Me). */
   qr: string;
 }) {
@@ -31,9 +32,9 @@ export function BadgeCard({ attendee, door, checkedInAt, pins, qr }: {
     <section className="@container flex flex-col gap-3 rounded-xl bg-foreground p-4 text-background">
       <div className="flex items-center gap-3.5">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-          {door && (checkedInAt
-            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-success-soft"><span aria-hidden="true" className="size-1.5 rounded-full bg-success-soft" />Checked in {checkedInAt}</span>
-            : <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-background/70">Not checked in yet</span>)}
+          {checkin && (checkin.at
+            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-success-soft"><span aria-hidden="true" className="size-1.5 rounded-full bg-success-soft" /><span className="sr-only">Checked in: </span>{checkin.name} · {checkin.at}</span>
+            : <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-background/70">Not checked in to {checkin.name} yet</span>)}
           <div className="text-lg font-extrabold leading-tight text-balance @2xs:text-xl">{displayName(attendee.name)}</div>
         </div>
         <BadgeQrDialog

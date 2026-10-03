@@ -52,6 +52,21 @@ export function activeCheckpoint(activeId: string | null, checkpoints: Checkpoin
   return byDay.find((g) => g.day === today)?.items[0] ?? byDay[0]?.items[0] ?? null;
 }
 
+/** The badge's check-in pill: which door is running, and when this attendee came through it. */
+export type BadgeCheckin = { name: string; at: string | null };
+
+/**
+ * What the badge says about checking in (D388): the checkpoint running now, not the first scan
+ * this attendee ever had, so the pill moves on to lunch when the event does. A booking door
+ * only expects the people who booked it, so it is shown to someone only once they are through
+ * it; everyone else sees no pill rather than "not checked in" to a session they never booked.
+ */
+export function badgeCheckin(running: Checkpoint | null, scannedAt: string | null): BadgeCheckin | null {
+  if (!running) return null;
+  if (running.activity_id && !scannedAt) return null;
+  return { name: running.name, at: scannedAt };
+}
+
 /** Checkpoints as pickable options, dated only when the event runs longer than a day. */
 export function checkpointOptions(checkpoints: Checkpoint[]): CheckpointOption[] {
   const days = checkpointsByDay(checkpoints);

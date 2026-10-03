@@ -157,6 +157,16 @@ export async function setCheckInEnabledAction(eventId: string, enabled: boolean)
   redirect(flashPath(`/admin/events/${eventId}/settings`, enabled ? "Check-in is on." : "Check-in is off."));
 }
 
+/** D388: shows or hides the check-in pill on the portal badge. Its own form, like the door switch. */
+export async function setBadgeCheckinAction(eventId: string, fd: FormData) {
+  const { orgId } = await requireAdmin();
+  await requireEvent(eventId, orgId);
+  const on = fd.get("badge_checkin") === "on";
+  await updateEvent(eventId, { badge_checkin: on });
+  revalidatePath(`/admin/events/${eventId}/settings`);
+  redirect(flashPath(`/admin/events/${eventId}/settings`, on ? "The badge shows check-in." : "The badge no longer shows check-in."));
+}
+
 export async function setStatusAction(eventId: string, status: EventStatus) {
   const { orgId } = await requireAdmin();
   await requireEvent(eventId, orgId);

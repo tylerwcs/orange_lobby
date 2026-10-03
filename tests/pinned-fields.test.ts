@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parsePinnedFields, resolvePins, pinnableFields, addPin, removePin, reorderPins, pinScale, hydratePins, MAX_PINS,
-  pinValue, NATIVE_PINNABLE,
+  pinValue, NATIVE_PINNABLE, GROUP_PIN,
 } from "@/lib/pinned-fields";
 import type { Attendee } from "@/lib/types";
 
@@ -162,3 +162,19 @@ describe("pins without native company, phone or table", () => {
   });
 });
 
+
+describe("the Group pin (D389)", () => {
+  it("is offered only when the event has groups", () => {
+    expect(pinnableFields([], [], false).map((f) => f.key)).not.toContain(GROUP_PIN.key);
+    expect(pinnableFields([], [], true).map((f) => f.key)).toContain(GROUP_PIN.key);
+  });
+
+  it("shows the attendee's group name, and drops out for someone in no group", () => {
+    const pins = [{ key: GROUP_PIN.key }, { key: "room_no", label: "Room" }];
+    expect(resolvePins(pins, attendee(), fields, "Group 07")).toEqual([
+      { key: GROUP_PIN.key, label: "Group", value: "Group 07" },
+      { key: "room_no", label: "Room", value: "1204" },
+    ]);
+    expect(resolvePins(pins, attendee(), fields, null).map((p) => p.key)).toEqual(["room_no"]);
+  });
+});

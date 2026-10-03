@@ -77,6 +77,8 @@ export type Event = {
   group_fields: string[];
   /** D367: My group's tile and page are on the portal. Off hides both; groups and group forms carry on. */
   group_tile: boolean;
+  /** D388: the check-in pill on the portal badge. It follows the running checkpoint; off hides it. */
+  badge_checkin: boolean;
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
   crew_token: string | null;
   /** The host console link's authority (D252). Null until an admin creates one on the Games page. */

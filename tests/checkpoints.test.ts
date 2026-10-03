@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { activeCheckpoint, checkpointOptions, checkpointsByDay, pickCheckpoint } from "@/lib/checkpoints";
+import { activeCheckpoint, badgeCheckin, checkpointOptions, checkpointsByDay, pickCheckpoint } from "@/lib/checkpoints";
 import type { Checkpoint } from "@/lib/types";
 
 const cp = (id: string, name: string, day: string, sort_order = 0): Checkpoint =>
@@ -107,5 +107,27 @@ describe("checkpointOptions", () => {
 
   it("has nothing to offer when there are no checkpoints", () => {
     expect(checkpointOptions([])).toEqual([]);
+  });
+});
+
+describe("badgeCheckin", () => {
+  const lunch = cp("c2", "Lunch", "2026-09-30");
+  const door = { ...cp("c9", "HIIT Workout", "2026-10-05"), activity_id: "act1" };
+
+  it("names the running checkpoint and the time they were scanned there (D388)", () => {
+    expect(badgeCheckin(lunch, "12:05")).toEqual({ name: "Lunch", at: "12:05" });
+  });
+
+  it("still names it before they are scanned, so the pill can say where they are not yet in", () => {
+    expect(badgeCheckin(lunch, null)).toEqual({ name: "Lunch", at: null });
+  });
+
+  it("shows a booking door only to someone scanned at it: everyone else was never expected there", () => {
+    expect(badgeCheckin(door, null)).toBeNull();
+    expect(badgeCheckin(door, "08:01")).toEqual({ name: "HIIT Workout", at: "08:01" });
+  });
+
+  it("shows nothing when there is no checkpoint at all", () => {
+    expect(badgeCheckin(null, null)).toBeNull();
   });
 });

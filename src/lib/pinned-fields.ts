@@ -1,5 +1,6 @@
 import { eventFields, type AttendeeField } from "@/lib/attendee-fields";
 import { fieldValue } from "@/lib/attendee-values";
+import { GROUP_COLUMN_KEY } from "@/lib/groups";
 import type { Attendee, RegistrationQuestion } from "@/lib/types";
 
 /**
@@ -28,6 +29,12 @@ export const NATIVE_PINNABLE: AttendeeField[] = [
 ];
 
 const NATIVE_KEYS = new Set(NATIVE_PINNABLE.map((f) => f.key));
+
+/**
+ * The attendee's group (D389). Not a value on their row - the row holds the group's id - so the
+ * caller looks the name up and hands it to `resolvePins`. Offered only once the event has groups.
+ */
+export const GROUP_PIN: AttendeeField = { key: GROUP_COLUMN_KEY, label: "Group", type: "text" };
 
 /**
  * Reads the stored jsonb. Anything malformed is dropped rather than thrown — a pin that
@@ -72,13 +79,15 @@ export function resolvePins(
   pins: PinnedField[],
   attendee: Attendee,
   fields: AttendeeField[],
+  /** The attendee's group name, for the Group pin; null when they are in none. */
+  groupName: string | null = null,
 ): ResolvedPin[] {
-  const known = new Map([...NATIVE_PINNABLE, ...fields].map((f) => [f.key, f]));
+  const known = new Map([...NATIVE_PINNABLE, GROUP_PIN, ...fields].map((f) => [f.key, f]));
   const out: ResolvedPin[] = [];
   for (const pin of pins) {
     const field = known.get(pin.key);
     if (!field) continue; // the column was deleted; the pin stops rendering
-    const value = pinValue(attendee, pin.key);
+    const value = pin.key === GROUP_PIN.key ? groupName ?? "" : pinValue(attendee, pin.key);
     if (!value) continue;
     out.push({ key: pin.key, label: pin.label || field.label, value });
   }
@@ -93,10 +102,12 @@ export function resolvePins(
 export function pinnableFields(
   questions: RegistrationQuestion[],
   custom: AttendeeField[],
+  /** Whether the event has any groups, which is when the Group pin is offered (D389). */
+  hasGroups = false,
 ): AttendeeField[] {
   const own = eventFields(questions, custom);
   const claimed = new Set(own.map((f) => f.key));
-  return [...NATIVE_PINNABLE.filter((f) => !claimed.has(f.key)), ...own];
+  return [...NATIVE_PINNABLE.filter((f) => !claimed.has(f.key)), ...(hasGroups ? [GROUP_PIN] : []), ...own];
 }
 
 export type PinResult = { ok: true; pins: PinnedField[] } | { ok: false; error: string };
