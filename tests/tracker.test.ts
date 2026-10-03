@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTracker, dailyKm, teamDayRows, trackerTab } from "@/lib/tracker";
+import { buildTracker, dailyKm, teamDayRows, teamSummary, trackerTab } from "@/lib/tracker";
 import type { ActivitySubmission, ChallengeScoring } from "@/lib/types";
 
 const S: ChallengeScoring = {
@@ -130,5 +130,26 @@ describe("trackerTab (D385)", () => {
     expect(trackerTab("stats")).toBe("stats");
     expect(trackerTab("Leaderboard")).toBe("stats");
     expect(trackerTab("teams")).toBe("stats");
+  });
+});
+
+describe("teamSummary (D387)", () => {
+  const base = { startsOn: "2026-10-05", today: "2026-10-08", logged: 8, members: 10, weekKm: 61.4 };
+
+  it("speaks of today and this week on today", () => {
+    expect(teamSummary({ ...base, day: "2026-10-08", weekHasToday: true })).toBe("8 of 10 logged today · 61.4 km this week");
+  });
+
+  it("names a past day, in this week or an earlier one", () => {
+    expect(teamSummary({ ...base, day: "2026-10-06", weekHasToday: true })).toBe("8 of 10 logged on Tue 6 Oct · 61.4 km this week");
+    expect(teamSummary({ ...base, day: "2026-09-30", weekHasToday: false })).toBe("8 of 10 logged on Wed 30 Sep · 61.4 km that week");
+  });
+
+  it("says a day to come is still to come", () => {
+    expect(teamSummary({ ...base, day: "2026-10-10", weekHasToday: true })).toBe("Sat 10 Oct is still to come");
+  });
+
+  it("says when the challenge starts before it has", () => {
+    expect(teamSummary({ ...base, today: "2026-10-03", day: "2026-10-05", weekHasToday: false })).toBe("Starts Mon 5 Oct");
   });
 });

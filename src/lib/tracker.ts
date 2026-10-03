@@ -1,4 +1,5 @@
 import { addDays, challengeWeeks, inChallenge, nextStep, round2, stepPoints, weekFor, type ChallengeWeek } from "@/lib/challenge";
+import { shortDate } from "@/lib/text";
 import type { ActivitySubmission, ChallengeScoring } from "@/lib/types";
 
 /**
@@ -124,6 +125,20 @@ export function teamDayRows(input: {
       return { id, name: input.names.get(id) ?? "Unknown", km, state: future ? "future" : km >= input.dailyMin ? "logged" : "missing" };
     })
     .sort((a, b) => Number(a.state === "logged") - Number(b.state === "logged") || a.name.localeCompare(b.name));
+}
+
+/**
+ * D387: My team's folded line on My stats. It follows the day picked in the week strip, so it
+ * names that day ("today", or "on Tue 6 Oct") and that day's week ("this" or "that" week). A day
+ * still to come has nothing to count yet, and before the challenge starts it says when it does.
+ */
+export function teamSummary(input: {
+  day: string; today: string; startsOn: string; logged: number; members: number; weekKm: number; weekHasToday: boolean;
+}): string {
+  const { day, today } = input;
+  if (day > today) return today < input.startsOn ? `Starts ${shortDate(input.startsOn)}` : `${shortDate(day)} is still to come`;
+  const when = day === today ? "today" : `on ${shortDate(day)}`;
+  return `${input.logged} of ${input.members} logged ${when} · ${input.weekKm} km ${input.weekHasToday ? "this" : "that"} week`;
 }
 
 export type TrackerTab = "info" | "stats" | "leaderboard";

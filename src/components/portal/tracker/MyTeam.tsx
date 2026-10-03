@@ -1,7 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { stepPoints, type ChallengeWeek } from "@/lib/challenge";
-import { teamDayRows } from "@/lib/tracker";
-import { shortDate } from "@/lib/text";
+import { teamDayRows, teamSummary } from "@/lib/tracker";
 import type { ChallengeScore, Team, TeamWeek } from "@/lib/challenge-score";
 import type { ChallengeScoring } from "@/lib/types";
 
@@ -10,9 +9,9 @@ import type { ChallengeScoring } from "@/lib/types";
  * so teammates can nudge), Tier 2 progress, and the team's own km for the week. The only km of
  * any team the portal shows, and only to that team's members.
  *
- * D386: it sits under the Leaderboard, closed - a native <details>, so it needs no client JS - and
- * its summary row is the news a teammate wants first: how many have logged today and the week's
- * km. The Leaderboard passes today (moved inside the challenge's dates) and the current week.
+ * D386/D387: it sits at the foot of My stats, closed - a native <details>, so it needs no client
+ * JS - and its summary row is the news a teammate wants first: how many have logged and the
+ * week's km. It follows the day picked in the week strip, and that day's week (`teamSummary`).
  *
  * The Tier 2 line depends on where the shown week sits against today: only the current week has
  * a "so far" (before it starts, or on its first day, everyone counts as on track, which would mislead), and a past
@@ -33,12 +32,10 @@ export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfI
   // On the week's first day nothing has elapsed, so "M of M so far" would say nothing true.
   const current = first < today && today <= last;
   const past = last < today;
-  const logged = rows.filter((r) => r.state === "logged").length;
-  const summary = today < scoring.starts_on
-    ? `Starts ${shortDate(scoring.starts_on)}`
-    : today > scoring.ends_on
-      ? `Ended ${shortDate(scoring.ends_on)} · ${week.km} km in the last week`
-      : `${logged} of ${rows.length} logged today · ${week.km} km this week`;
+  const summary = teamSummary({
+    day, today, startsOn: scoring.starts_on, logged: rows.filter((r) => r.state === "logged").length,
+    members: rows.length, weekKm: week.km, weekHasToday: first <= today && today <= last,
+  });
   return (
     <details className="group overflow-hidden rounded-xl border border-border bg-card">
       <summary className="flex min-h-14 list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">

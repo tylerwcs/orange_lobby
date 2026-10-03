@@ -7,7 +7,6 @@ import { dayRange } from "@/lib/activity-card";
 import { isGroupForm, submitLabel } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
 import { buildTracker, trackerTab, type TrackerTab } from "@/lib/tracker";
-import { gridWeek } from "@/lib/challenge";
 import { standingLine } from "@/lib/leaderboard";
 import { entriesForAttendee } from "@/lib/db/activities";
 import { sessionGrid } from "@/lib/session-grid";
@@ -231,8 +230,8 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
 /**
  * D374/D385: a scored challenge's page, in three tabs under the name. My stats - the week strip,
  * ring, the day's workouts and "Add a new entry" - is the default, since it is what the attendee
- * opens this page for every day; Info holds the About and rules; Leaderboard the standings and
- * My team (D386). Each tab reads only what it draws, so only the Leaderboard scores every team.
+ * opens this page for every day, with My team at its foot (D387); Info holds the About and rules;
+ * Leaderboard the standings (D386). Each tab reads only what it draws.
  */
 function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab }: {
   entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
@@ -248,8 +247,8 @@ function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, da
         {tab === "info"
           ? <TrackerInfo html={entry.form.description} />
           : tab === "leaderboard"
-            ? <TrackerLeaderboard entry={entry} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} />
-            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} eventStartsOn={eventStartsOn} day={day} writing={writing} />}
+            ? <TrackerLeaderboard entry={entry} teamId={teamId} eventStartsOn={eventStartsOn} />
+            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} />}
       </PendingSwap>
     </PendingScope>
   );
@@ -264,15 +263,26 @@ function TrackerInfo({ html }: { html: string | null }) {
   );
 }
 
-/** D374/D385: the attendee's own days - and the only tab with "Add a new entry". */
-async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, eventStartsOn, day, writing }: {
-  entry: SubmissionEntry; slug: string; token: string; path: string; attendeeId: string; eventStartsOn: string | null; day: string | null; writing: boolean;
+/**
+ * D374/D385: the attendee's own days - and the only tab with "Add a new entry". D387: My team
+ * sits at its foot, closed, and follows the day picked in the week strip (`t.selected`, already
+ * held inside the challenge's dates) and that day's week. The team's scores are only read for
+ * someone who has a team.
+ */
+async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing }: {
+  entry: SubmissionEntry; slug: string; token: string; path: string; attendeeId: string; teamId: string | null;
+  eventStartsOn: string | null; day: string | null; writing: boolean;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
-  const all = await entriesForAttendee(f.id, attendeeId);
+  const [all, challenge] = await Promise.all([
+    entriesForAttendee(f.id, attendeeId),
+    teamId ? loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today) : Promise.resolve(null),
+  ]);
   const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day });
   const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
+  const myTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
+  const shownWeek = t && challenge ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
   return (
     <>
       <section className="flex flex-col gap-4 py-5">
@@ -287,6 +297,10 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
             </div>
             <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key}
               empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} />
+            {challenge && myTeam && shownWeek?.teams[myTeam.id] && (
+              <MyTeam team={myTeam} week={shownWeek.teams[myTeam.id]} weekInfo={shownWeek.week} score={challenge.score} scoring={scoring}
+                day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />
+            )}
           </>
         ) : (
           <p className={note}>This challenge has no days set yet.</p>
@@ -314,32 +328,19 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
   );
 }
 
-/**
- * D386: every team's standing, then My team, closed. The only tab that scores the challenge.
- * My team always shows today and the current week (`gridWeek`: today's, else the first before the
- * challenge, the last after it) - not My stats' `?day=`. Today is moved inside the challenge's
- * dates, so before it starts the members read "–" (D383) rather than "Not logged".
- */
-async function TrackerLeaderboard({ entry: { form: f }, attendeeId, teamId, eventStartsOn }: {
-  entry: SubmissionEntry; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
+/** D386: every team's standing - the podium, where you stand, and the rest. My team is on My stats (D387). */
+async function TrackerLeaderboard({ entry: { form: f }, teamId, eventStartsOn }: {
+  entry: SubmissionEntry; teamId: string | null; eventStartsOn: string | null;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
   const challenge = await loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today);
   const standings = challenge.score.standings;
-  const myTeam = teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
-  const week = gridWeek(challenge.weeks, null, today);
-  const thisWeek = week ? challenge.score.weeks.find((w) => w.week.number === week.number) : undefined;
-  const day = today < scoring.starts_on ? scoring.starts_on : today > scoring.ends_on ? scoring.ends_on : today;
   return (
     <section className="flex flex-col gap-4 py-5">
       <Leaderboard standings={standings} mine={teamId}
         stand={standingLine(standings, teamId, { startsOn: scoring.starts_on, today })}
         podiumPoints={(scoring.podium ?? []).some((p) => p > 0)} />
-      {myTeam && thisWeek?.teams[myTeam.id] && (
-        <MyTeam team={myTeam} week={thisWeek.teams[myTeam.id]} weekInfo={thisWeek.week} score={challenge.score} scoring={scoring}
-          day={day} today={today} selfId={attendeeId} names={challenge.names} />
-      )}
     </section>
   );
 }
