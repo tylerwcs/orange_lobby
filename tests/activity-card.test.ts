@@ -95,6 +95,11 @@ describe("formCard", () => {
     ({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: "Level 3 gym", action_label: null, ...over });
   const open = { can: true, reason: "ok" as const, used: 0 };
 
+  it("says when a challenge that has not started yet starts, rather than Closed (D390)", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "closed", used: 0, startsOn: "2026-10-05" } }).status)
+      .toEqual({ label: "Starts 5 Oct", tone: "muted" });
+  });
+
   it("invites a first answer with the dates and place, under the organiser's button wording", () => {
     expect(formCard({ form: form({ action_label: "Join now" }), state: open })).toEqual({
       status: { label: "Open", tone: "primary" },

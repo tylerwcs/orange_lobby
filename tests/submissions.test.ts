@@ -338,6 +338,11 @@ describe("members mode and challenge dates (D369, D373)", () => {
     expect(canSubmit(mileage, [], null, "2026-12-05", null, "g1").reason).toBe("closed");
   });
 
+  it("says when it starts while it has not yet, and nothing once it has ended (D390)", () => {
+    expect(canSubmit(mileage, [], null, "2026-10-04", null, "g1").startsOn).toBe("2026-10-05");
+    expect(canSubmit(mileage, [], null, "2026-12-05", null, "g1").startsOn).toBeUndefined();
+  });
+
   it("reads and summarises the new mode", () => {
     expect(readGroupRule((k) => (k === "group_mode" ? "members" : null))).toEqual({ group_mode: "members", group_target: null });
     expect(capSummary(mileage)).toBe("Each member, counted by team");

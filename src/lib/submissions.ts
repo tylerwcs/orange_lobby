@@ -8,7 +8,13 @@ import type { GroupProgress } from "@/lib/groups";
 export const MAX_SUBMISSION_QUESTIONS = 20;
 
 export type SubmitReason = "ok" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone";
-export type SubmitState = { can: boolean; reason: SubmitReason; used: number };
+export type SubmitState = {
+  can: boolean;
+  reason: SubmitReason;
+  used: number;
+  /** D390: set only on a scored challenge that has not started - still "closed", as the database says, but the card can say when it opens. */
+  startsOn?: string;
+};
 
 /** The rows that count (D339): every reader of "who submitted" goes through this. */
 export function liveSubmissions<T extends Pick<ActivitySubmission, "status">>(subs: T[]): T[] {
@@ -61,7 +67,9 @@ export function canSubmit(
   const used = mine.length;
   if (!activity.is_open) return { can: false, reason: "closed", used };
   // D373: a scored challenge takes entries only on its own days - the same 'closed' submit_answers gives.
-  if (activity.scoring && !inChallenge(activity.scoring, today)) return { can: false, reason: "closed", used };
+  if (activity.scoring && !inChallenge(activity.scoring, today)) {
+    return { can: false, reason: "closed", used, ...(today < activity.scoring.starts_on ? { startsOn: activity.scoring.starts_on } : {}) };
+  }
   if (!categoryMatches(activity.categories, category)) return { can: false, reason: "ineligible", used };
   if (activity.group_mode === "members") {
     return teamId ? { can: true, reason: "ok", used } : { can: false, reason: "nogroup", used };

@@ -86,6 +86,8 @@ export function formCard({ form, state }: FormCardInput): CardView {
   // ungrouped attendee is told what to do about it rather than being told the form is shut.
   if (state.reason === "groupdone") return { status: { label: "Group done", tone: "success" }, meta, action: view };
   if (state.reason === "nogroup") return { status: { label: "Needs a group", tone: "muted" }, meta, action: view };
+  // D390: a challenge before its first day is not over, it is coming - "Closed" read as the end.
+  if (state.startsOn) return { status: { label: `Starts ${shortDate(state.startsOn).split(" ").slice(1).join(" ")}`, tone: "muted" }, meta, action: view };
   return { status: { label: "Closed", tone: "muted" }, meta, action: view };
 }
 
