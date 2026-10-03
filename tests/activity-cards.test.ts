@@ -9,7 +9,7 @@ import type { Activity, ActivitySession } from "@/lib/types";
 
 const activity = (id: string, over: Partial<Activity> = {}): Activity => ({
   id, org_id: "o", event_id: "e", name: id, description: null,
-  kind: "booking", required: false, is_open: true, max_per_attendee: 1, categories: null,
+  kind: "booking", required: false, is_open: true, pinned: false, max_per_attendee: 1, categories: null,
   questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const session = (activityId: string): ActivitySession => ({
@@ -68,5 +68,23 @@ describe("activityCards", () => {
       passports: [passport("done-passport", true)],
     }, "/e/kom/a/tok");
     expect(cards.map((c) => c.activity.id)).toEqual(["form", "checked-in", "done-passport"]);
+  });
+  it("puts pinned activities first, under Pinned, in the organiser's order whatever their kind (D387)", () => {
+    const cards = activityCards({
+      bookings: [booking("must-pick", { required: true }), booking("pinned-booking", { pinned: true, sort_order: 3 }, true)],
+      submissions: [{ ...form("pinned-form"), form: activity("pinned-form", { kind: "submission", pinned: true, sort_order: 1 }) }],
+      passports: [passport("collecting", false)],
+    }, "/p");
+    expect(cards.map((c) => [c.activity.id, c.section])).toEqual([
+      ["pinned-form", "pinned"],
+      ["pinned-booking", "pinned"],
+      ["must-pick", "choose"],
+      ["collecting", "open"],
+    ]);
+  });
+
+  it("keeps the ring on a pinned activity that is still owed", () => {
+    const [card] = activityCards({ bookings: [booking("a", { required: true, pinned: true })], submissions: [], passports: [] }, "/p");
+    expect([card.section, card.emphasis]).toEqual(["pinned", true]);
   });
 });

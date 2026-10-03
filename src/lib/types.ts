@@ -268,6 +268,8 @@ export type Activity = {
   required: boolean;
   /** Flipped by hand; there is deliberately no scheduled close (D127). */
   is_open: boolean;
+  /** Leads the attendee's home row and the Activities tab, under its own heading (D387). */
+  pinned: boolean;
   /** The total one attendee may ever take. Null is no cap (D178); otherwise 1..366. */
   max_per_attendee: number | null;
   /** Null or empty means everyone, exactly as on an agenda item. */

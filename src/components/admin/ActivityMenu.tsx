@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Download, Ellipsis, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, Download, Ellipsis, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -19,6 +19,9 @@ export type ActivityMenuProps = {
   pageHref?: string;
   settingsHref: string;
   exportHref: string;
+  /** D387: whether it leads the attendee's activities now, and the action that flips it. */
+  pinned: boolean;
+  togglePin: () => Promise<void>;
   remove: () => Promise<void>;
   /** What deleting takes with it, in this kind's terms: sessions and bookings, submissions, booths. */
   removeMessage: string;
@@ -26,14 +29,14 @@ export type ActivityMenuProps = {
 
 /**
  * The same menu behind every activity, whatever its kind, on the list and on its own page:
- * open it, edit it, export it, delete it. What each item DOES differs by kind — which export,
+ * open it, edit it, pin it, export it, delete it. What each item DOES differs by kind — which export,
  * which delete — and the server works that out and binds it; this component only lays the
  * choices out the same way every time.
  *
  * Delete confirms in an AlertDialog opened from the menu rather than living inside it: a menu
  * closes on click, and a confirmation that closes with it is no confirmation.
  */
-export function ActivityMenu({ name, pageHref, settingsHref, exportHref, remove, removeMessage }: ActivityMenuProps) {
+export function ActivityMenu({ name, pageHref, settingsHref, exportHref, pinned, togglePin, remove, removeMessage }: ActivityMenuProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -55,6 +58,9 @@ export function ActivityMenu({ name, pageHref, settingsHref, exportHref, remove,
             )}
             <DropdownMenuItem onClick={() => router.push(settingsHref)}>
               <Pencil />Edit settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startTransition(() => togglePin())}>
+              {pinned ? <><PinOff />Unpin</> : <><Pin />Pin to top</>}
             </DropdownMenuItem>
             {/* The response is an attachment, so assigning it downloads without leaving the page. */}
             <DropdownMenuItem onClick={() => window.location.assign(exportHref)}>

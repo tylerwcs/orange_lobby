@@ -161,6 +161,22 @@ export async function toggleOpenAction(eventId: string, activityId: string, from
   redirect(flashPath(path, LABELS[activity.kind][opened ? 0 : 1]));
 }
 
+/**
+ * Pins or unpins an activity (D387): a pinned one leads the attendee's home row and the
+ * Activities tab. Its own action, like `toggleOpenAction`, so the settings form can never
+ * clear it by leaving it out; the organiser lands back where they clicked.
+ */
+export async function togglePinAction(eventId: string, activityId: string, from: "list" | ActivityTab) {
+  const ev = await event(eventId);
+  const activity = await getActivity(activityId, ev.id);
+  if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  await updateActivity(activityId, ev.id, { pinned: !activity.pinned });
+  const path = from === "list" ? listPath(eventId) : activityHref(eventId, activityId, from);
+  revalidatePath(listPath(eventId));
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(path, activity.pinned ? "Unpinned." : "Pinned to the top of the attendee's activities."));
+}
+
 /** Cascades sessions and bookings (D135), so the confirm dialog says how many seats go with it. */
 export async function deleteActivityAction(eventId: string, activityId: string) {
   const ev = await event(eventId);

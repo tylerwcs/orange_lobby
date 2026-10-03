@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, CircleAlert, FileText, Stamp } from "lucide-react";
+import { CalendarClock, CircleAlert, FileText, Pin, Stamp } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import type { ActivityRowView } from "@/lib/activity-row";
 import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
@@ -145,6 +145,7 @@ function Row({ activity, view, href, toggle, menu }: ActivityListItem) {
         </Link>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span className="font-bold">{view.kind}</span>
+          {activity.pinned && <span className="inline-flex items-center gap-1 font-bold text-primary"><Pin aria-hidden className="size-3" />Pinned</span>}
           {view.detail && <span className="truncate">{view.detail}</span>}
           {view.attention && <AttentionBadge text={view.attention} />}
         </div>

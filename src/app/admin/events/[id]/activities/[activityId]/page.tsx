@@ -47,7 +47,7 @@ import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  saveActivityAction, toggleOpenAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
+  saveActivityAction, toggleOpenAction, togglePinAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
   addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction,
   placeAttendeesAction, approveRequestAction, declineRequestAction,
   uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction, disqualifyAction, undoDisqualifyAction,
@@ -157,6 +157,8 @@ async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activ
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
             <ActivityMenu
               name={activity.name}
+              pinned={activity.pinned}
+              togglePin={togglePinAction.bind(null, ev.id, activity.id, current)}
               settingsHref={href("setup")}
               exportHref={`/admin/events/${ev.id}/export/activities.xlsx`}
               remove={deleteActivityAction.bind(null, ev.id, activity.id)}
@@ -347,6 +349,8 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
             <ActivityMenu
               name={activity.name}
+              pinned={activity.pinned}
+              togglePin={togglePinAction.bind(null, ev.id, activity.id, current)}
               settingsHref={href("setup")}
               exportHref={`/admin/events/${ev.id}/export/submissions.xlsx`}
               remove={deleteSubmissionActivityAction.bind(null, ev.id, activity.id)}

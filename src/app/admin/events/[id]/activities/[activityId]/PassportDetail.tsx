@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  toggleOpenAction, savePassportActivityAction, deletePassportActivityAction,
+  toggleOpenAction, togglePinAction, savePassportActivityAction, deletePassportActivityAction,
   addBoothAction, renameBoothAction, reorderBoothsAction, deleteBoothAction,
   uploadActivityImageAction,
 } from "../actions";
@@ -86,6 +86,8 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
             </Modal>
             <ActivityMenu
               name={activity.name}
+              pinned={activity.pinned}
+              togglePin={togglePinAction.bind(null, ev.id, activity.id, "setup")}
               settingsHref={path}
               exportHref={`/admin/events/${ev.id}/export/passport.xlsx`}
               remove={deletePassportActivityAction.bind(null, ev.id, activity.id)}

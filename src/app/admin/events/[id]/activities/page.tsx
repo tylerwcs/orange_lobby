@@ -22,7 +22,7 @@ import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor
 import { ImageField } from "@/components/admin/ImageField";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  addActivityAction, addSubmissionActivityAction, toggleOpenAction, addPassportActivityAction,
+  addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction,
   deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction,
   uploadActivityImageAction,
 } from "./actions";
@@ -169,7 +169,7 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
   const href = `/admin/events/${ev.id}/activities/${a.id}`;
   const exports = `/admin/events/${ev.id}/export`;
   // Setup is the default tab, so the page itself is where settings are (D236).
-  const base = { name: a.name, pageHref: href, settingsHref: href };
+  const base = { name: a.name, pageHref: href, settingsHref: href, pinned: a.pinned, togglePin: togglePinAction.bind(null, ev.id, a.id, "list" as const) };
 
   if (a.kind === "booking") {
     const booked = facts.sessions.reduce((sum, s) => sum + s.booked, 0);

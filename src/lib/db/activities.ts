@@ -30,6 +30,8 @@ export type NewActivity = {
   /** Passport kind only (D182). Left out, the column's null stands. */
   stamps_required?: number | null;
   reward_message?: string | null;
+  /** D387. Left out, the column's false stands; `togglePinAction` alone flips it. */
+  pinned?: boolean;
 };
 
 export type NewSession = {

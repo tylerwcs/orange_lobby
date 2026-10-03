@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { activityCards, type ActivityCardItem } from "@/lib/activity-cards";
-import type { ActivitySection } from "@/lib/portal-activities";
+import { activityCards, type ActivityCardItem, type CardSection } from "@/lib/activity-cards";
 import type { CardView } from "@/lib/activity-card";
 import type { ActivityEntry, SubmissionEntry, PassportEntry } from "@/lib/portal-activity-entries";
 import type { Activity } from "@/lib/types";
@@ -8,7 +7,8 @@ import { ActivityCover, KindTag, MetaLine, StatusChip } from "./ActivityParts";
 
 const caption = "px-0.5 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
-const SECTIONS: { key: ActivitySection; title: string }[] = [
+const SECTIONS: { key: CardSection; title: string }[] = [
+  { key: "pinned", title: "Pinned" },
   { key: "choose", title: "To choose" },
   { key: "booked", title: "Booked" },
   { key: "open", title: "Open to you" },
@@ -17,7 +17,7 @@ const SECTIONS: { key: ActivitySection; title: string }[] = [
 
 /**
  * The Activities tab: every activity this attendee can see, as a card with its picture, sorted
- * by what they need to do about it - To choose, Booked, Open to you, Done. A section with
+ * by what they need to do about it - Pinned (D387), To choose, Booked, Open to you, Done. A section with
  * nothing in it is not drawn. The order is `activityCards`', shared with the home page's row.
  *
  * Every card goes to the activity's own page, whichever kind it is: that is where the poster is
