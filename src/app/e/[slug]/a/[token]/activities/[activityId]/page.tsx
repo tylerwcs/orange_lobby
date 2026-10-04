@@ -4,20 +4,24 @@ import { Armchair, ArrowLeft, CalendarDays, CalendarPlus, CircleCheck, Clock, Ma
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type PassportEntry } from "@/lib/portal-activity-entries";
 import { dayRange } from "@/lib/activity-card";
-import { canEditOwn, isGroupForm, submitLabel } from "@/lib/submissions";
+import { canEditOwn, isGroupForm, isProxy, submitLabel } from "@/lib/submissions";
+import type { SubmitState } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
 import { buildTracker, trackerTab, type TrackerTab } from "@/lib/tracker";
 import { standingLine } from "@/lib/leaderboard";
-import { entriesForAttendee } from "@/lib/db/activities";
+import { entriesForAttendee, submissionsAddedBy } from "@/lib/db/activities";
+import { groupMembers } from "@/lib/db/groups";
+import { listAttendeesByIds } from "@/lib/db/attendees";
 import { sessionGrid } from "@/lib/session-grid";
 import { allCheckedIn } from "@/lib/booking-door";
-import type { Activity, Attendee } from "@/lib/types";
+import type { Activity, ActivitySubmission, Attendee } from "@/lib/types";
 import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction, editMySubmissionAction } from "../actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { buttonVariants } from "@/components/ui/button";
 import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
 import { GroupStatus } from "@/components/portal/GroupStatus";
 import { SubmissionFields } from "@/components/portal/SubmissionFields";
+import { SubmitFor } from "@/components/portal/SubmitFor";
 import { ActivitySessions } from "@/components/portal/ActivitySessions";
 import { ActivityBooking } from "@/components/portal/ActivityBooking";
 import { ActivityActionDialog } from "@/components/portal/ActivityActionDialog";
@@ -70,6 +74,7 @@ export default async function ActivityPage({ params, searchParams }: {
   const stampCard = passports.find((p) => p.activity.id === activityId);
   if (!booking && !form && !stampCard) notFound();
   const activity = booking ? booking.state.activity : form ? form.form : stampCard!.activity;
+  const proxy = form ? await proxyFor(form.form, attendee) : null;
 
   return (
     <div className="flex flex-col">
@@ -82,11 +87,11 @@ export default async function ActivityPage({ params, searchParams }: {
         ? <BookingBody entry={booking} slug={slug} token={token} />
         : form
           ? form.form.scoring
-            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)}
+            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy}
                 day={typeof day === "string" ? day : null} writing={writing === "1"}
                 // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
                 tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined)} />
-            : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} />
+            : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />
           : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
     </div>
   );
@@ -197,7 +202,58 @@ function editorFor(f: Activity, slug: string, token: string, attendee: Pick<Atte
   };
 }
 
-function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, writing, people, selfId, edit }: {
+/**
+ * D392: what an attendee who may submit for their group needs - the other members, and what
+ * they already sent for them today (theirs to check and, where D391 allows, edit). Null for
+ * everyone else, which is nearly everyone, so the reads happen only for a proxy.
+ */
+type Proxy = { members: Attendee[]; added: ActivitySubmission[] };
+
+async function proxyFor(f: Activity, attendee: Attendee): Promise<Proxy | null> {
+  if (!attendee.group_id || !isProxy(f, attendee)) return null;
+  const [members, added] = await Promise.all([
+    groupMembers(f.event_id, attendee.group_id),
+    submissionsAddedBy(f.id, attendee.id, nowInKL().date),
+  ]);
+  return { members: members.filter((m) => m.id !== attendee.id), added };
+}
+
+/** D392: "Added by <name>" for entries a group member sent for this attendee. One read, and only when there are any. */
+async function addedByLine(eventId: string, entries: Pick<ActivitySubmission, "submitted_by">[]) {
+  const ids = [...new Set(entries.flatMap((s) => (s.submitted_by ? [s.submitted_by] : [])))];
+  const names = new Map(ids.length ? (await listAttendeesByIds(eventId, ids)).map((a) => [a.id, a.name]) : []);
+  return (s: ActivitySubmission) => (s.submitted_by ? `Added by ${names.get(s.submitted_by) ?? "a group member"}` : null);
+}
+
+/** Whether the submit dialog shows: their own entry is open, or (D392) they may send one for a member. */
+function canAdd(state: SubmitState, proxy: Proxy | null): boolean {
+  return state.can || (!!proxy?.members.length && !["closed", "ineligible", "nogroup"].includes(state.reason));
+}
+
+/** The submit dialog's form, with D392's "Submitting for" picker for someone who may submit for their group. */
+function SubmitForm({ f, slug, token, state, proxy }: { f: Activity; slug: string; token: string; state: SubmitState; proxy: Proxy | null }) {
+  return (
+    <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
+      {proxy && proxy.members.length > 0 && <SubmitFor members={proxy.members} self={state.can} />}
+      {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
+      <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
+    </form>
+  );
+}
+
+/** D392: what a proxy sent for their group today, each card saying for whom, with Edit where allowed. */
+function AddedForGroup({ f, proxy, edit }: { f: Activity; proxy: Proxy | null; edit?: EditEntry }) {
+  if (!proxy || proxy.added.length === 0) return null;
+  const name = new Map(proxy.members.map((m) => [m.id, m.name]));
+  return (
+    <div className="mt-4">
+      <SubmissionHistory submissions={proxy.added} questions={f.questions} title="You added for your group today"
+        byline={(s) => `For ${name.get(s.attendee_id) ?? "a former member"}`} edit={edit} />
+    </div>
+  );
+}
+
+async function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, writing, people, selfId, edit, proxy }: {
   entry: SubmissionEntry;
   slug: string;
   token: string;
@@ -205,8 +261,10 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
   people: Record<string, { name: string; movedTo: string | null }>;
   selfId: string;
   edit?: EditEntry;
+  proxy: Proxy | null;
 }) {
   const dates = f.starts_on ? dayRange([f.starts_on, f.ends_on ?? f.starts_on]) : null;
+  const addedBy = await addedByLine(f.event_id, mine);
   return (
     <>
       <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f) }]} />
@@ -216,7 +274,8 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
         {!isGroupForm(f.group_mode) && (
           <>
             {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
-            <SubmissionHistory submissions={mine} questions={f.questions} edit={edit} />
+            <SubmissionHistory submissions={mine} questions={f.questions} edit={edit} addedBy={addedBy} />
+            <AddedForGroup f={f} proxy={proxy} edit={edit} />
           </>
         )}
         {/* D352: an ineligible viewer gets the plain note below, not the group block - it names */}
@@ -237,12 +296,10 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
         {state.reason === "closed" && <p className={`mt-3 ${note}`}>Submissions for this are closed.</p>}
         {state.reason === "ineligible" && <p className={`mt-3 ${note}`}>This is not open to your group.</p>}
       </section>
-      {state.can && (
-        <ActivityActionDialog key={group ? group.entries.length : mine.length} label={submitLabel(f)} title={f.name} defaultOpen={writing}>
-          <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
-            {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
-            <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
-          </form>
+      {canAdd(state, proxy) && (
+        // D392: what a proxy sent for others counts too, so their submit also remounts it closed.
+        <ActivityActionDialog key={`${group ? group.entries.length : mine.length}:${proxy?.added.length ?? 0}`} label={submitLabel(f)} title={f.name} defaultOpen={writing}>
+          <SubmitForm f={f} slug={slug} token={token} state={state} proxy={proxy} />
         </ActivityActionDialog>
       )}
     </>
@@ -255,9 +312,9 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
  * opens this page for every day, with My team at its foot (D387); Info holds the About and rules;
  * Leaderboard the standings (D386). Each tab reads only what it draws.
  */
-function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit }: {
+function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit, proxy }: {
   entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
-  day: string | null; writing: boolean; tab: TrackerTab; edit?: EditEntry;
+  day: string | null; writing: boolean; tab: TrackerTab; edit?: EditEntry; proxy: Proxy | null;
 }) {
   const path = `/e/${slug}/a/${token}/activities/${entry.form.id}`;
   return (
@@ -270,7 +327,7 @@ function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, da
           ? <TrackerInfo html={entry.form.description} />
           : tab === "leaderboard"
             ? <TrackerLeaderboard entry={entry} teamId={teamId} eventStartsOn={eventStartsOn} />
-            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} edit={edit} />}
+            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} edit={edit} proxy={proxy} />}
       </PendingSwap>
     </PendingScope>
   );
@@ -291,9 +348,9 @@ function TrackerInfo({ html }: { html: string | null }) {
  * held inside the challenge's dates) and that day's week. The team's scores are only read for
  * someone who has a team.
  */
-async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing, edit }: {
+async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing, edit, proxy }: {
   entry: SubmissionEntry; slug: string; token: string; path: string; attendeeId: string; teamId: string | null;
-  eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry;
+  eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry; proxy: Proxy | null;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
@@ -302,6 +359,7 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
     teamId ? loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today) : Promise.resolve(null),
   ]);
   const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day });
+  const addedBy = await addedByLine(f.event_id, t?.entries ?? []);
   const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
   const myTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
   const shownWeek = t && challenge ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
@@ -318,7 +376,8 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
               <span className="text-xs text-muted-foreground">{workouts} workout{workouts === 1 ? "" : "s"}</span>
             </div>
             <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key}
-              empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} />
+              empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} addedBy={addedBy} />
+            {t.isToday && <AddedForGroup f={f} proxy={proxy} edit={edit} />}
             {challenge && myTeam && shownWeek?.teams[myTeam.id] && (
               <MyTeam team={myTeam} week={shownWeek.teams[myTeam.id]} weekInfo={shownWeek.week} score={challenge.score} scoring={scoring}
                 day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />
@@ -335,15 +394,13 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
           </p>
         )}
       </section>
-      {state.can && (
+      {canAdd(state, proxy) && (
         // Keyed by every entry, not the shown day's: a submit redirects to today, so the key
         // changes only when an entry was added, and a refusal leaves the dialog open (D374).
-        <ActivityActionDialog key={all.length} label="Add a new entry" title={f.name} defaultOpen={writing}
+        // D392: entries sent for the group count too.
+        <ActivityActionDialog key={`${all.length}:${proxy?.added.length ?? 0}`} label="Add a new entry" title={f.name} defaultOpen={writing}
           description={t && !t.isToday ? "This entry counts for today." : undefined}>
-          <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
-            {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
-            <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
-          </form>
+          <SubmitForm f={f} slug={slug} token={token} state={state} proxy={proxy} />
         </ActivityActionDialog>
       )}
     </>

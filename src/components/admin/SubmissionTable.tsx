@@ -111,6 +111,7 @@ export async function SubmissionTable({ submissions, questions, submitterFor, ed
               </TableCell>
               <TableCell>
                 <div className="font-semibold">{who.name}</div>
+                {submission.submitted_by && <div className="text-xs text-muted-foreground">Added by {submitterFor(submission.submitted_by).name}</div>}
                 {who.email && <div className="text-xs text-muted-foreground">{who.email}</div>}
               </TableCell>
               {groupFor && <TableCell className="text-muted-foreground">{groupFor(submission)}</TableCell>}

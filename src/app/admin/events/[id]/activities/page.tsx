@@ -1,3 +1,4 @@
+import { eventFields } from "@/lib/attendee-fields";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listActivities, listSessions, countBookingsBySession, listSubmissions } from "@/lib/db/activities";
@@ -104,7 +105,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
               ),
               submission: (
                 <form action={addSubmissionActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
-  <SubmissionFields categories={categories} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+  <SubmissionFields categories={categories} fields={eventFields(ev.registration_questions, ev.attendee_fields)} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
   <label className={check}>
     <input type="checkbox" name="submissions_open" className="size-4" />
     Open for submissions now

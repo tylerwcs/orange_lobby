@@ -45,7 +45,7 @@ export async function GroupStatus({ form, group, people, selfId, compact = false
           questions={form.questions}
           title="Your group's submissions"
           empty="Nobody in your group has submitted yet."
-          byline={(s) => `${who(s.attendee_id)} · ${shortDateTime(s.created_at)}`}
+          byline={(s) => `${who(s.attendee_id)}${s.submitted_by ? ` (added by ${s.submitted_by === selfId ? "you" : who(s.submitted_by)})` : ""} · ${shortDateTime(s.created_at)}`}
           edit={edit}
         />
       )}

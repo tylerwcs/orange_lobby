@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { canEditOwn, canSubmit, capSummary, missingFrom, participation, liveSubmissions, perDayCollision } from "@/lib/submissions";
+import { canEditOwn, canSubmit, isProxy, capSummary, missingFrom, participation, liveSubmissions, perDayCollision } from "@/lib/submissions";
 import { readSubmissionDetails, submitLabel, readGroupRule, groupRuleChangeBlocked, isGroupForm } from "@/lib/submissions";
 import type { Activity, ActivitySubmission } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}): Activity => ({
   id: "f1", org_id: "o", event_id: "e", name: "Daily check-in", description: null,
-  kind: "submission", required: false, is_open: true, pinned: false, attendee_edit: false, categories: null,
+  kind: "submission", required: false, is_open: true, pinned: false, attendee_edit: false, proxy_fields: [], categories: null,
   max_per_attendee: null, questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const sub = (day: string): ActivitySubmission => ({
   id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", group_id: null, answers: {},
   submitted_on: day, status: "submitted", per_day: true, created_at: `${day}T01:00:00Z`,
-  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null,
+  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null, submitted_by: null,
 });
 const TODAY = "2026-09-28";
 
@@ -379,5 +379,30 @@ describe("canEditOwn (D391)", () => {
     expect(canEditOwn(editable, { ...sub(TODAY), status: "revoked" }, "a1", null, TODAY)).toBe(false);
     expect(canEditOwn(form({ attendee_edit: true, is_open: false }), sub(TODAY), "a1", null, TODAY)).toBe(false);
     expect(canEditOwn(form({ attendee_edit: true, categories: ["VIP"] }), sub(TODAY), "a1", "Guest", TODAY)).toBe(false);
+  });
+});
+
+describe("submitting for the group (D392)", () => {
+  const captains = form({ group_mode: "members", proxy_fields: ["captain", "vice_captain"] });
+  const who = (extra: Record<string, string>) => ({ extra });
+
+  it("makes anyone whose ticked field says Yes a proxy, however it is written", () => {
+    expect(isProxy(captains, who({ captain: "Yes" }))).toBe(true);
+    expect(isProxy(captains, who({ vice_captain: "yes" }))).toBe(true);
+    expect(isProxy(captains, who({ captain: "TRUE" }))).toBe(true);
+  });
+
+  it("is nobody when the field says anything else, or when no field is ticked", () => {
+    expect(isProxy(captains, who({ captain: "No" }))).toBe(false);
+    expect(isProxy(captains, who({}))).toBe(false);
+    expect(isProxy(form(), who({ captain: "Yes" }))).toBe(false);
+  });
+
+  it("lets the proxy who added an entry edit it that day, as well as the member it belongs to", () => {
+    const added = { ...sub(TODAY), attendee_id: "m2", submitted_by: "a1" };
+    const editable = form({ attendee_edit: true });
+    expect(canEditOwn(editable, added, "a1", null, TODAY)).toBe(true);
+    expect(canEditOwn(editable, added, "m2", null, TODAY)).toBe(true);
+    expect(canEditOwn(editable, added, "x9", null, TODAY)).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarClock, CircleAlert, FileText, Pin, Stamp } from "lucide-react";
 import type { Activity } from "@/lib/types";
+import type { AttendeeField } from "@/lib/attendee-fields";
 import type { ActivityRowView } from "@/lib/activity-row";
 import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
@@ -24,7 +25,7 @@ export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 
  * Exported so the "New activity" form and the Settings card on the submission's own page
  * render the identical fields rather than two copies that could drift.
  */
-export function SubmissionFields({ activity, categories, uploadImage }: { activity?: Activity; categories: string[]; uploadImage?: UploadImage }) {
+export function SubmissionFields({ activity, categories, fields, uploadImage }: { activity?: Activity; categories: string[]; fields: AttendeeField[]; uploadImage?: UploadImage }) {
   return (
     <>
       <Field label="Name" name="name" defaultValue={activity?.name} placeholder="Feedback" />
@@ -51,6 +52,23 @@ export function SubmissionFields({ activity, categories, uploadImage }: { activi
         <input type="checkbox" name="attendee_edit" defaultChecked={activity?.attendee_edit ?? false} className="size-4" />
         Let people edit what they sent, on the day they sent it
       </label>
+      {/* D392 */}
+      {fields.length > 0 && (
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="text-sm font-bold">Who can also submit for their group (optional)</legend>
+          <p className="text-xs text-muted-foreground">
+            Members whose answer to a ticked field is Yes, like a Captain column, can submit on behalf of anyone in their group. Each entry says who added it.
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {fields.map((f) => (
+              <label key={f.key} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="proxy_fields" value={f.key} defaultChecked={activity?.proxy_fields.includes(f.key) ?? false} className="size-4" />
+                {f.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <ScoringFields activity={activity} />
       <div className="flex flex-col gap-1.5">
         <h3 className="text-sm font-extrabold">Questions</h3>

@@ -20,12 +20,14 @@ export type EditEntry = (s: ActivitySubmission, fileLinks: Record<string, string
  * link is a signed URL minted right here, at render time, rather than stored anywhere — a
  * stored one would be dead by the time the attendee came back to look at it.
  */
-export async function SubmissionHistory({ submissions, questions, title = "Your submissions", empty = "You have not submitted anything yet.", byline, edit }: {
+export async function SubmissionHistory({ submissions, questions, title = "Your submissions", empty = "You have not submitted anything yet.", byline, addedBy, edit }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   title?: string;
   empty?: string;
   byline?: (s: ActivitySubmission) => string | null;
+  /** D392: "Added by Adrian" on an entry a group member sent for this attendee. */
+  addedBy?: (s: ActivitySubmission) => string | null;
   edit?: EditEntry;
 }) {
   if (submissions.length === 0) {
@@ -47,6 +49,7 @@ export async function SubmissionHistory({ submissions, questions, title = "Your 
           href: isFile(key) ? await signedSubmissionUrl(value) : null,
         })));
         const by = byline?.(s);
+        const added = s.submitted_by ? addedBy?.(s) : null;
         const editor = edit?.(s, Object.fromEntries(rows.filter((r) => isFile(r.key)).map((r) => [r.key, r.href])));
         return (
           <Card key={s.id}>
@@ -58,6 +61,7 @@ export async function SubmissionHistory({ submissions, questions, title = "Your 
                 ? <CardDescription className="text-[11px]">Updated by the organiser</CardDescription>
                 : s.attendee_edited_at && <CardDescription className="text-[11px]">Edited</CardDescription>}
               {by && <CardDescription className="text-[11px]">{by}</CardDescription>}
+              {added && <CardDescription className="text-[11px]">{added}</CardDescription>}
               {editor && <div className="text-xs font-bold text-primary">{editor}</div>}
             </CardHeader>
             {rows.length > 0 && (

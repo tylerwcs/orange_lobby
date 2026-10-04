@@ -218,7 +218,7 @@ function isPerDayCollision(e: unknown): boolean {
  * from creation onward. Throws on anything invalid; both actions below catch that and turn it
  * into a flash rather than a 500.
  */
-function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label" | "attendee_edit">
+function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label" | "attendee_edit" | "proxy_fields">
   & { group_mode: GroupMode; group_target: number | null; scoring: ChallengeScoring | null } {
   const name = text(fd, "name");
   if (!name) throw new Error("A submission needs a name");
@@ -247,6 +247,8 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
     max_per_attendee: group.group_mode === "off" ? max_per_attendee : null,
     per_day: group.group_mode === "off" ? checked(fd, "per_day") : false,
     attendee_edit: checked(fd, "attendee_edit"),
+    // D392: field keys, as ticked. A key no attendee holds a Yes in simply makes nobody a proxy.
+    proxy_fields: [...new Set(fd.getAll("proxy_fields").map((v) => String(v).trim()).filter(Boolean))].slice(0, 10),
     questions,
     ...details,
     ...group,

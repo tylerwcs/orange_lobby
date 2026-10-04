@@ -1,3 +1,4 @@
+import { eventFields } from "@/lib/attendee-fields";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { formKey } from "@/lib/form-key";
@@ -367,7 +368,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
           <CardHeader><CardTitle>Details, rules and questions</CardTitle></CardHeader>
           <CardContent>
             <form key={formKey({ ...activity, is_open: undefined })} action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
-              <SubmissionFields activity={activity} categories={categories} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+              <SubmissionFields activity={activity} categories={categories} fields={eventFields(ev.registration_questions, ev.attendee_fields)} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
               <SaveBar inCard />
             </form>
           </CardContent>

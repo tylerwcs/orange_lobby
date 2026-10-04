@@ -34,6 +34,8 @@ export type NewActivity = {
   pinned?: boolean;
   /** Submission kind only (D391). Left out, the column's false stands. */
   attendee_edit?: boolean;
+  /** Submission kind only (D392). Left out, the column's empty list stands. */
+  proxy_fields?: string[];
 };
 
 export type NewSession = {
@@ -327,7 +329,8 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
 // ---- Submissions: the other kind's child table (D178) ----
 
 /** Every answer `submit_answers` can give. Mirrors BookResult; `today` replaces `full`. */
-export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone";
+/** D392 adds `proxy`: the sender may not submit for that member. */
+export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone" | "proxy";
 
 // revoked rows never count and never reach an attendee (D339, D341).
 // Paged (D289): a daily challenge passes 1,000 rows within days, and newest-first would drop the
@@ -403,10 +406,19 @@ export async function updateSubmissionAnswers(id: string, activityId: string, an
 export async function updateOwnSubmissionAnswers(id: string, activityId: string, attendeeId: string, today: string, answers: Record<string, string>): Promise<boolean> {
   const { data, error } = await serviceClient().from("activity_submissions")
     .update({ answers, attendee_edited_at: new Date().toISOString() })
-    .eq("id", id).eq("activity_id", activityId).eq("attendee_id", attendeeId)
+    .eq("id", id).eq("activity_id", activityId).or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`)
     .eq("status", "submitted").eq("submitted_on", today).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+/** D392: the live entries this attendee sent today for other members of their group, newest first. */
+export async function submissionsAddedBy(activityId: string, attendeeId: string, today: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("activity_id", activityId).eq("submitted_by", attendeeId).eq("submitted_on", today).eq("status", "submitted")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
 }
 
 /** D338. Status, not a delete: the row and its files stay. False when already revoked or gone. */
@@ -427,9 +439,11 @@ export async function revokeSubmission(id: string, activityId: string, userId: s
  */
 export async function submitAnswers(
   activityId: string, attendeeId: string, answers: Record<string, string>, today: string,
+  /** D392: the group member sending this for `attendeeId`; null when they send it themselves. */
+  submittedBy: string | null = null,
 ): Promise<SubmitCode> {
   const { data, error } = await serviceClient().rpc("submit_answers", {
-    p_activity_id: activityId, p_attendee_id: attendeeId, p_answers: answers, p_today: today,
+    p_activity_id: activityId, p_attendee_id: attendeeId, p_answers: answers, p_today: today, p_submitted_by: submittedBy,
   });
   if (error) throw error;
   return data as SubmitCode;

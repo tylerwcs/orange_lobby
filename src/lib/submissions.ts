@@ -1,8 +1,9 @@
 import { categoryMatches } from "@/lib/agenda";
 import { inChallenge } from "@/lib/challenge";
 import { lastDays, daysBetween } from "@/lib/time";
-import type { Activity, ActivitySubmission, RegistrationQuestion, GroupMode } from "@/lib/types";
-import type { GroupProgress } from "@/lib/groups";
+import type { Activity, ActivitySubmission, Attendee, RegistrationQuestion, GroupMode } from "@/lib/types";
+import { isYes, type GroupProgress } from "@/lib/groups";
+import { fieldValue } from "@/lib/attendee-values";
 
 /** How many questions a submission activity's editor offers, mirroring `MAX_QUESTIONS` for registration. */
 export const MAX_SUBMISSION_QUESTIONS = 20;
@@ -38,14 +39,23 @@ export function isGroupForm(mode: GroupMode): boolean {
  */
 export function canEditOwn(
   activity: Pick<Activity, "attendee_edit" | "is_open" | "categories">,
-  submission: Pick<ActivitySubmission, "attendee_id" | "status" | "submitted_on">,
+  submission: Pick<ActivitySubmission, "attendee_id" | "status" | "submitted_on" | "submitted_by">,
   attendeeId: string,
   category: string | null,
   today: string,
 ): boolean {
   return activity.attendee_edit && activity.is_open
-    && submission.attendee_id === attendeeId && submission.status === "submitted" && submission.submitted_on === today
+    && (submission.attendee_id === attendeeId || submission.submitted_by === attendeeId)
+    && submission.status === "submitted" && submission.submitted_on === today
     && categoryMatches(activity.categories, category);
+}
+
+/**
+ * D392: whether this attendee may submit for the members of their group - a Yes in any of the
+ * activity's proxy fields. What the page offers; `submit_answers` re-checks it, group included.
+ */
+export function isProxy(activity: Pick<Activity, "proxy_fields">, attendee: Pick<Attendee, "extra">): boolean {
+  return activity.proxy_fields.some((k) => isYes(fieldValue(attendee, k)));
 }
 
 /** D342: the first attendee with two live rows on one day — what makes once-a-day impossible. */

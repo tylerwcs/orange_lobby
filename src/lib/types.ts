@@ -274,6 +274,8 @@ export type Activity = {
   pinned: boolean;
   /** Submission kind only (D391). Attendees may edit their own entries on the day they sent them. */
   attendee_edit: boolean;
+  /** D392: attendee fields whose Yes lets a member submit for anyone in their group (a Captain column). Empty is nobody. */
+  proxy_fields: string[];
   /** The total one attendee may ever take. Null is no cap (D178); otherwise 1..366. */
   max_per_attendee: number | null;
   /** Null or empty means everyone, exactly as on an agenda item. */
@@ -387,4 +389,6 @@ export type ActivitySubmission = {
   edited_by: string | null;
   /** D391: when the attendee last edited their own answers; null until then. Separate from the organiser's stamp. */
   attendee_edited_at: string | null;
+  /** D392: the group member who sent this on the attendee's behalf; null when they sent it themselves. */
+  submitted_by: string | null;
 };

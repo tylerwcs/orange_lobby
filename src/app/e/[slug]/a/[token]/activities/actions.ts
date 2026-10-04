@@ -7,6 +7,7 @@ import {
   submitAnswers, getSubmission, updateOwnSubmissionAnswers, type BookResult, type SubmitCode,
 } from "@/lib/db/activities";
 import { canEditOwn } from "@/lib/submissions";
+import { getAttendee } from "@/lib/db/attendees";
 import { createRequest, withdrawRequest, requestsForAttendee } from "@/lib/db/activity-requests";
 import { bookingArrivalsFor } from "@/lib/db/checkins";
 import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
@@ -205,6 +206,7 @@ const SUBMIT_RESULT_MESSAGES: Record<SubmitCode, string> = {
   today: "You have already submitted today. Come back tomorrow.",
   nogroup: "You need to be in a group to submit this.",
   groupdone: "Your group has already sent everything this needs.",
+  proxy: "You can only submit for members of your own group.",
 };
 
 /** Renamed from submitFormAction: there is no `forms` route left for it to be named after (D178). */
@@ -224,6 +226,13 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   const activity = await getActivity(activityId, event.id);
   if (!activity) redirect(flashPath(listPath, SUBMIT_RESULT_MESSAGES.missing, "error"));
 
+  // D392: `:for` names the group member this is sent for (a colon, so no question key can be it).
+  // Only checked to be in this event here; `submit_answers` decides whether they may, below.
+  const forId = String(fd.get(":for") ?? "") || attendee.id;
+  const member = forId === attendee.id ? attendee : await getAttendee(forId);
+  if (!member || member.event_id !== event.id) redirect(flashPath(path, SUBMIT_RESULT_MESSAGES.proxy, "error"));
+  const onBehalf = member.id !== attendee.id;
+
   // Uploads, validation and cleaning up after a refusal are the one protocol the admin's edit
   // shares (src/lib/submission-uploads.ts): a `file` answer stores the object path the upload
   // returns (D168), and anything this request uploaded that does not end up in a stored
@@ -235,9 +244,10 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   // `canSubmit` decided what the page drew; it is never consulted here. Only `submit_answers`
   // decides what is allowed, and it is asked regardless of what the stale page believed.
   const today = nowInKL().date;
-  const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, attendee.id, form.answers, today));
+  const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, member.id, form.answers, today, onBehalf ? attendee.id : null));
   if (result !== "ok") await discardUploads(form.uploaded);
-  redirect(flashPath(path, SUBMIT_RESULT_MESSAGES[result], result === "ok" ? "ok" : "error"));
+  const message = result === "ok" && onBehalf ? `Submitted for ${member.name}. Thanks!` : SUBMIT_RESULT_MESSAGES[result];
+  redirect(flashPath(path, message, result === "ok" ? "ok" : "error"));
 }
 
 /**

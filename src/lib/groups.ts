@@ -149,6 +149,11 @@ export function planGroupsFromColumn(
  */
 const YES = new Set(["yes", "y", "true"]);
 
+/** A field value that reads as yes (D366) - the Captain badge's test, and D392's proxy test. */
+export function isYes(value: string): boolean {
+  return YES.has(value.trim().toLowerCase());
+}
+
 /**
  * D348: the fields the admin chose to share, that this member has filled in, by label.
  * D366: a yes is a `tag` — the page shows just the label ("Captain"), not "Captain: Yes".
@@ -157,7 +162,7 @@ export function groupFieldValues(attendee: Pick<Attendee, "extra">, keys: string
   return keys.flatMap((k) => {
     const f = fields.find((x) => x.key === k);
     const value = f ? fieldValue(attendee, k) : "";
-    return f && value ? [{ label: f.label, value, tag: YES.has(value.toLowerCase()) }] : [];
+    return f && value ? [{ label: f.label, value, tag: isYes(value) }] : [];
   });
 }
 

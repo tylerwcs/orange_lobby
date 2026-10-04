@@ -17,12 +17,14 @@ const PHOTO_SECONDS = 60 * 60;
  * choice answered (how it was recorded) and the first photo as a thumbnail. A revoked entry
  * stays, faded and not counted (D339), so the attendee can see why their total dropped.
  */
-export async function EntryTimeline({ entries, questions, metricKey, unit = "km", empty, edit }: {
+export async function EntryTimeline({ entries, questions, metricKey, unit = "km", empty, addedBy, edit }: {
   entries: ActivitySubmission[];
   questions: RegistrationQuestion[];
   metricKey: string;
   unit?: string;
   empty: string;
+  /** D392: "Added by Adrian" on an entry a group member sent for this attendee. */
+  addedBy?: (s: ActivitySubmission) => string | null;
   /** D391: the Edit control on an entry the attendee may still change. */
   edit?: EditEntry;
 }) {
@@ -40,6 +42,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
           url: await signedSubmissionUrl(s.answers[q.key], PHOTO_SECONDS),
         })));
         const editor = revoked ? null : edit?.(s, Object.fromEntries(photos.map((p) => [p.key, p.url])));
+        const added = s.submitted_by ? addedBy?.(s) : null;
         const at = shortTime(s.created_at);
         const km = `${metricKm(s, metricKey)} ${unit}`;
         return (
@@ -52,7 +55,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
               <div className={`font-extrabold tabular-nums ${revoked ? "line-through" : ""}`}>{km}</div>
               {choice && s.answers[choice.key] && <div className="truncate text-sm text-muted-foreground">{s.answers[choice.key]}</div>}
               <div className="text-xs text-muted-foreground">
-                {at}{revoked ? " · Removed by the organiser" : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}
+                {at}{revoked ? " · Removed by the organiser" : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}{added ? ` · ${added}` : ""}
               </div>
               {editor && <div className="mt-0.5 text-xs font-bold text-primary">{editor}</div>}
             </div>
