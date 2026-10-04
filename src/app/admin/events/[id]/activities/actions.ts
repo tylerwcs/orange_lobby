@@ -218,7 +218,7 @@ function isPerDayCollision(e: unknown): boolean {
  * from creation onward. Throws on anything invalid; both actions below catch that and turn it
  * into a flash rather than a 500.
  */
-function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label">
+function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label" | "attendee_edit">
   & { group_mode: GroupMode; group_target: number | null; scoring: ChallengeScoring | null } {
   const name = text(fd, "name");
   if (!name) throw new Error("A submission needs a name");
@@ -246,6 +246,7 @@ function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "descrip
     // D351: a group form carries no per-person rules - the group's own rule replaces them.
     max_per_attendee: group.group_mode === "off" ? max_per_attendee : null,
     per_day: group.group_mode === "off" ? checked(fd, "per_day") : false,
+    attendee_edit: checked(fd, "attendee_edit"),
     questions,
     ...details,
     ...group,

@@ -272,6 +272,8 @@ export type Activity = {
   is_open: boolean;
   /** Leads the attendee's home row and the Activities tab, under its own heading (D387). */
   pinned: boolean;
+  /** Submission kind only (D391). Attendees may edit their own entries on the day they sent them. */
+  attendee_edit: boolean;
   /** The total one attendee may ever take. Null is no cap (D178); otherwise 1..366. */
   max_per_attendee: number | null;
   /** Null or empty means everyone, exactly as on an agenda item. */
@@ -383,4 +385,6 @@ export type ActivitySubmission = {
   edited_at: string | null;
   /** An `auth.users` id; null until an admin edits the answers (D337). */
   edited_by: string | null;
+  /** D391: when the attendee last edited their own answers; null until then. Separate from the organiser's stamp. */
+  attendee_edited_at: string | null;
 };

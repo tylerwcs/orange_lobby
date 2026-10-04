@@ -30,6 +30,24 @@ export function isGroupForm(mode: GroupMode): boolean {
   return mode === "entries" || mode === "everyone";
 }
 
+/**
+ * D391: whether this attendee may edit this entry now. Only where the organiser allowed it, only
+ * their own (a group form shows every member's entries to every member), only a live one, only
+ * on the Malaysian day they sent it, and only while the activity is open and theirs to see. The
+ * day rule is what keeps a scored challenge's finished days, and so its podiums, as they were.
+ */
+export function canEditOwn(
+  activity: Pick<Activity, "attendee_edit" | "is_open" | "categories">,
+  submission: Pick<ActivitySubmission, "attendee_id" | "status" | "submitted_on">,
+  attendeeId: string,
+  category: string | null,
+  today: string,
+): boolean {
+  return activity.attendee_edit && activity.is_open
+    && submission.attendee_id === attendeeId && submission.status === "submitted" && submission.submitted_on === today
+    && categoryMatches(activity.categories, category);
+}
+
 /** D342: the first attendee with two live rows on one day — what makes once-a-day impossible. */
 export function perDayCollision(subs: Pick<ActivitySubmission, "attendee_id" | "submitted_on" | "status">[]): { attendeeId: string; day: string } | null {
   const seen = new Set<string>();

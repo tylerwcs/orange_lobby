@@ -11,7 +11,7 @@ const e = (day: string, km: string, over: Partial<ActivitySubmission> = {}): Act
   id: `s${++n}`, event_id: "e", activity_id: "m", attendee_id: "a1", group_id: "g1", answers: { km },
   // A zero-padded counter, so created_at sorts in the order the fixtures were made.
   submitted_on: day, status: "submitted", per_day: false, created_at: `${day}T00:00:00.${String(n).padStart(6, "0")}Z`,
-  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, ...over,
+  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null, ...over,
 });
 const build = (entries: ActivitySubmission[], today: string, requested: string | null = null) =>
   buildTracker({ scoring: S, eventStartsOn: "2026-09-28", entries, today, requested })!;

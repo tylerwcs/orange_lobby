@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { canSubmit, capSummary, missingFrom, participation, liveSubmissions, perDayCollision } from "@/lib/submissions";
+import { canEditOwn, canSubmit, capSummary, missingFrom, participation, liveSubmissions, perDayCollision } from "@/lib/submissions";
 import { readSubmissionDetails, submitLabel, readGroupRule, groupRuleChangeBlocked, isGroupForm } from "@/lib/submissions";
 import type { Activity, ActivitySubmission } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}): Activity => ({
   id: "f1", org_id: "o", event_id: "e", name: "Daily check-in", description: null,
-  kind: "submission", required: false, is_open: true, pinned: false, categories: null,
+  kind: "submission", required: false, is_open: true, pinned: false, attendee_edit: false, categories: null,
   max_per_attendee: null, questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const sub = (day: string): ActivitySubmission => ({
   id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", group_id: null, answers: {},
   submitted_on: day, status: "submitted", per_day: true, created_at: `${day}T01:00:00Z`,
-  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null,
+  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null,
 });
 const TODAY = "2026-09-28";
 
@@ -353,5 +353,31 @@ describe("members mode and challenge dates (D369, D373)", () => {
     expect(isGroupForm("everyone")).toBe(true);
     expect(isGroupForm("members")).toBe(false);
     expect(isGroupForm("off")).toBe(false);
+  });
+});
+
+describe("canEditOwn (D391)", () => {
+  const editable = form({ attendee_edit: true });
+
+  it("lets someone edit their own live submission on the day they sent it", () => {
+    expect(canEditOwn(editable, sub(TODAY), "a1", null, TODAY)).toBe(true);
+  });
+
+  it("refuses when the organiser has not allowed editing", () => {
+    expect(canEditOwn(form(), sub(TODAY), "a1", null, TODAY)).toBe(false);
+  });
+
+  it("refuses the day after", () => {
+    expect(canEditOwn(editable, sub("2026-09-27"), "a1", null, TODAY)).toBe(false);
+  });
+
+  it("refuses someone else's entry, as on a group form where members see each other's", () => {
+    expect(canEditOwn(editable, sub(TODAY), "a2", null, TODAY)).toBe(false);
+  });
+
+  it("refuses a revoked entry, a closed activity and an attendee outside its categories", () => {
+    expect(canEditOwn(editable, { ...sub(TODAY), status: "revoked" }, "a1", null, TODAY)).toBe(false);
+    expect(canEditOwn(form({ attendee_edit: true, is_open: false }), sub(TODAY), "a1", null, TODAY)).toBe(false);
+    expect(canEditOwn(form({ attendee_edit: true, categories: ["VIP"] }), sub(TODAY), "a1", "Guest", TODAY)).toBe(false);
   });
 });

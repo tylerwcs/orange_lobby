@@ -32,6 +32,8 @@ export type NewActivity = {
   reward_message?: string | null;
   /** D387. Left out, the column's false stands; `togglePinAction` alone flips it. */
   pinned?: boolean;
+  /** Submission kind only (D391). Left out, the column's false stands. */
+  attendee_edit?: boolean;
 };
 
 export type NewSession = {
@@ -389,6 +391,20 @@ export async function updateSubmissionAnswers(id: string, activityId: string, an
   const { data, error } = await serviceClient().from("activity_submissions")
     .update({ answers, edited_at: new Date().toISOString(), edited_by: userId })
     .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/**
+ * D391: an attendee's edit of their own entry. Every rule `canEditOwn` checked is re-checked in
+ * the write itself - their row, still live, sent today - so a revoke or midnight landing between
+ * the check and the save wins. False when any of them no longer holds.
+ */
+export async function updateOwnSubmissionAnswers(id: string, activityId: string, attendeeId: string, today: string, answers: Record<string, string>): Promise<boolean> {
+  const { data, error } = await serviceClient().from("activity_submissions")
+    .update({ answers, attendee_edited_at: new Date().toISOString() })
+    .eq("id", id).eq("activity_id", activityId).eq("attendee_id", attendeeId)
+    .eq("status", "submitted").eq("submitted_on", today).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }

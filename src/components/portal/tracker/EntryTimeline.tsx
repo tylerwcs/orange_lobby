@@ -4,6 +4,7 @@ import { metricKm } from "@/lib/tracker";
 import { shortTime } from "@/lib/text";
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { EntryPhotos } from "./EntryPhotos";
+import type { EditEntry } from "@/components/portal/SubmissionHistory";
 
 /**
  * The photos open in a dialog some time after the page renders, so their signed URLs outlive
@@ -16,12 +17,14 @@ const PHOTO_SECONDS = 60 * 60;
  * choice answered (how it was recorded) and the first photo as a thumbnail. A revoked entry
  * stays, faded and not counted (D339), so the attendee can see why their total dropped.
  */
-export async function EntryTimeline({ entries, questions, metricKey, unit = "km", empty }: {
+export async function EntryTimeline({ entries, questions, metricKey, unit = "km", empty, edit }: {
   entries: ActivitySubmission[];
   questions: RegistrationQuestion[];
   metricKey: string;
   unit?: string;
   empty: string;
+  /** D391: the Edit control on an entry the attendee may still change. */
+  edit?: EditEntry;
 }) {
   if (entries.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>;
   const files = questions.filter((q) => q.type === "file");
@@ -32,9 +35,11 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
         const revoked = s.status === "revoked";
         // A show_when-hidden file question stores "" (see validateAnswers), so it is skipped.
         const photos = await Promise.all(files.filter((q) => s.answers[q.key]).map(async (q) => ({
+          key: q.key,
           label: q.label,
           url: await signedSubmissionUrl(s.answers[q.key], PHOTO_SECONDS),
         })));
+        const editor = revoked ? null : edit?.(s, Object.fromEntries(photos.map((p) => [p.key, p.url])));
         const at = shortTime(s.created_at);
         const km = `${metricKm(s, metricKey)} ${unit}`;
         return (
@@ -47,8 +52,9 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
               <div className={`font-extrabold tabular-nums ${revoked ? "line-through" : ""}`}>{km}</div>
               {choice && s.answers[choice.key] && <div className="truncate text-sm text-muted-foreground">{s.answers[choice.key]}</div>}
               <div className="text-xs text-muted-foreground">
-                {at}{revoked ? " · Removed by the organiser" : s.edited_at ? " · Updated by the organiser" : ""}
+                {at}{revoked ? " · Removed by the organiser" : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}
               </div>
+              {editor && <div className="mt-0.5 text-xs font-bold text-primary">{editor}</div>}
             </div>
             {photos[0]?.url && (
               // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed URL, not an optimisable asset

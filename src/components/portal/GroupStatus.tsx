@@ -2,20 +2,22 @@ import { CircleCheck, Circle } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import { groupSummary, type GroupProgress } from "@/lib/groups";
 import { shortDateTime } from "@/lib/text";
-import { SubmissionHistory } from "@/components/portal/SubmissionHistory";
+import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
 
 /**
  * D353: what every member of a group sees on a group form, identically - where the group
  * stands, who has sent something, and every entry in full with who sent it. Used on the form's
  * own page and on My group.
  */
-export async function GroupStatus({ form, group, people, selfId, compact = false }: {
+export async function GroupStatus({ form, group, people, selfId, compact = false, edit }: {
   form: Pick<Activity, "group_mode" | "questions">;
   group: GroupProgress;
   people: Record<string, { name: string; movedTo: string | null }>;
   selfId: string;
   /** My group lists several forms: the line and the ticks, without the entries. */
   compact?: boolean;
+  /** D391: Edit on the viewer's own entries; `canEditOwn` leaves everyone else's alone. */
+  edit?: EditEntry;
 }) {
   const who = (id: string) => {
     const p = people[id];
@@ -44,6 +46,7 @@ export async function GroupStatus({ form, group, people, selfId, compact = false
           title="Your group's submissions"
           empty="Nobody in your group has submitted yet."
           byline={(s) => `${who(s.attendee_id)} · ${shortDateTime(s.created_at)}`}
+          edit={edit}
         />
       )}
     </div>

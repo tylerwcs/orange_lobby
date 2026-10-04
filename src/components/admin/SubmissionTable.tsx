@@ -97,10 +97,15 @@ export async function SubmissionTable({ submissions, questions, submitterFor, ed
             <TableRow key={submission.id} className={revoked ? "opacity-60" : undefined}>
               <TableCell className="whitespace-nowrap text-muted-foreground">
                 <div>{shortDate(submission.submitted_on)}</div>
-                {(revoked || submission.edited_at) && (
+                {(revoked || submission.edited_at || submission.attendee_edited_at) && (
                   <div className="mt-1 flex gap-1">
                     {revoked && <Badge variant="secondary" title={stamp("Revoked", submission.revoked_by, submission.revoked_at)}>Revoked</Badge>}
-                    {submission.edited_at && <Badge variant="outline" title={stamp("Edited", submission.edited_by, submission.edited_at)}>Edited</Badge>}
+                    {(submission.edited_at || submission.attendee_edited_at) && (
+                      <Badge variant="outline" title={[
+                        submission.edited_at && stamp("Edited", submission.edited_by, submission.edited_at),
+                        submission.attendee_edited_at && `Edited by the attendee on ${shortDateTime(submission.attendee_edited_at)}`,
+                      ].filter(Boolean).join("\n")}>Edited</Badge>
+                    )}
                   </div>
                 )}
               </TableCell>

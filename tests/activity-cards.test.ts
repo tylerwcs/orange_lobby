@@ -9,7 +9,7 @@ import type { Activity, ActivitySession } from "@/lib/types";
 
 const activity = (id: string, over: Partial<Activity> = {}): Activity => ({
   id, org_id: "o", event_id: "e", name: id, description: null,
-  kind: "booking", required: false, is_open: true, pinned: false, max_per_attendee: 1, categories: null,
+  kind: "booking", required: false, is_open: true, pinned: false, attendee_edit: false, max_per_attendee: 1, categories: null,
   questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const session = (activityId: string): ActivitySession => ({

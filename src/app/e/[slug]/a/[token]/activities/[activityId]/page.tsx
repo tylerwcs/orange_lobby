@@ -4,18 +4,18 @@ import { Armchair, ArrowLeft, CalendarDays, CalendarPlus, CircleCheck, Clock, Ma
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type PassportEntry } from "@/lib/portal-activity-entries";
 import { dayRange } from "@/lib/activity-card";
-import { isGroupForm, submitLabel } from "@/lib/submissions";
+import { canEditOwn, isGroupForm, submitLabel } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
 import { buildTracker, trackerTab, type TrackerTab } from "@/lib/tracker";
 import { standingLine } from "@/lib/leaderboard";
 import { entriesForAttendee } from "@/lib/db/activities";
 import { sessionGrid } from "@/lib/session-grid";
 import { allCheckedIn } from "@/lib/booking-door";
-import type { Activity } from "@/lib/types";
-import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction } from "../actions";
+import type { Activity, Attendee } from "@/lib/types";
+import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction, editMySubmissionAction } from "../actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { buttonVariants } from "@/components/ui/button";
-import { SubmissionHistory } from "@/components/portal/SubmissionHistory";
+import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
 import { GroupStatus } from "@/components/portal/GroupStatus";
 import { SubmissionFields } from "@/components/portal/SubmissionFields";
 import { ActivitySessions } from "@/components/portal/ActivitySessions";
@@ -82,11 +82,11 @@ export default async function ActivityPage({ params, searchParams }: {
         ? <BookingBody entry={booking} slug={slug} token={token} />
         : form
           ? form.form.scoring
-            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on}
+            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)}
                 day={typeof day === "string" ? day : null} writing={writing === "1"}
                 // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
                 tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined)} />
-            : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} />
+            : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} />
           : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
     </div>
   );
@@ -176,13 +176,35 @@ function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, to
   );
 }
 
-function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, writing, people, selfId }: {
+/**
+ * D391: Edit on each entry this attendee may still change (`canEditOwn`), in the same dialog the
+ * submit uses, filled with what they sent. Keyed by the edit stamp, so a save remounts it closed
+ * and a refusal leaves it open with the toast saying why - the submit dialog's own contract.
+ */
+function editorFor(f: Activity, slug: string, token: string, attendee: Pick<Attendee, "id" | "category">): EditEntry | undefined {
+  if (!f.attendee_edit || f.questions.length === 0) return undefined;
+  const today = nowInKL().date;
+  return function EditLink(s, fileLinks) {
+    if (!canEditOwn(f, s, attendee.id, attendee.category, today)) return null;
+    return (
+      <ActivityActionDialog key={s.attendee_edited_at ?? "unedited"} inline label="Edit" title={f.name} description="Change your answers and save. You can edit this until the end of today.">
+        <form action={editMySubmissionAction.bind(null, slug, token, f.id, s.id)} className="flex flex-col gap-6">
+          <SubmissionFields questions={f.questions} defaults={s.answers} fileLinks={fileLinks} />
+          <SubmitButton className="h-12 w-full text-base font-bold">Save changes</SubmitButton>
+        </form>
+      </ActivityActionDialog>
+    );
+  };
+}
+
+function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, writing, people, selfId, edit }: {
   entry: SubmissionEntry;
   slug: string;
   token: string;
   writing: boolean;
   people: Record<string, { name: string; movedTo: string | null }>;
   selfId: string;
+  edit?: EditEntry;
 }) {
   const dates = f.starts_on ? dayRange([f.starts_on, f.ends_on ?? f.starts_on]) : null;
   return (
@@ -194,7 +216,7 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
         {!isGroupForm(f.group_mode) && (
           <>
             {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
-            <SubmissionHistory submissions={mine} questions={f.questions} />
+            <SubmissionHistory submissions={mine} questions={f.questions} edit={edit} />
           </>
         )}
         {/* D352: an ineligible viewer gets the plain note below, not the group block - it names */}
@@ -207,7 +229,7 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
             ) : state.reason === "limit" && group ? (
               <GroupDone text={`You've submitted — waiting on ${group.need - group.have} other${group.need - group.have === 1 ? "" : "s"}`} />
             ) : null}
-            {group && <GroupStatus form={f} group={group} people={people} selfId={selfId} />}
+            {group && <GroupStatus form={f} group={group} people={people} selfId={selfId} edit={edit} />}
             {state.reason === "nogroup" && <p className={note}>You need to be in a group to submit this.</p>}
           </>
         )}
@@ -233,9 +255,9 @@ function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, w
  * opens this page for every day, with My team at its foot (D387); Info holds the About and rules;
  * Leaderboard the standings (D386). Each tab reads only what it draws.
  */
-function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab }: {
+function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit }: {
   entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
-  day: string | null; writing: boolean; tab: TrackerTab;
+  day: string | null; writing: boolean; tab: TrackerTab; edit?: EditEntry;
 }) {
   const path = `/e/${slug}/a/${token}/activities/${entry.form.id}`;
   return (
@@ -248,7 +270,7 @@ function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, da
           ? <TrackerInfo html={entry.form.description} />
           : tab === "leaderboard"
             ? <TrackerLeaderboard entry={entry} teamId={teamId} eventStartsOn={eventStartsOn} />
-            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} />}
+            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} edit={edit} />}
       </PendingSwap>
     </PendingScope>
   );
@@ -269,9 +291,9 @@ function TrackerInfo({ html }: { html: string | null }) {
  * held inside the challenge's dates) and that day's week. The team's scores are only read for
  * someone who has a team.
  */
-async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing }: {
+async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing, edit }: {
   entry: SubmissionEntry; slug: string; token: string; path: string; attendeeId: string; teamId: string | null;
-  eventStartsOn: string | null; day: string | null; writing: boolean;
+  eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
@@ -296,7 +318,7 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
               <span className="text-xs text-muted-foreground">{workouts} workout{workouts === 1 ? "" : "s"}</span>
             </div>
             <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key}
-              empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} />
+              empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} />
             {challenge && myTeam && shownWeek?.teams[myTeam.id] && (
               <MyTeam team={myTeam} week={shownWeek.teams[myTeam.id]} weekInfo={shownWeek.week} score={challenge.score} scoring={scoring}
                 day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />

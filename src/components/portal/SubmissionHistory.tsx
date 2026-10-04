@@ -4,6 +4,12 @@ import { signedSubmissionUrl } from "@/lib/db/media";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
+ * D391: the Edit control for one entry, or null where it may not be edited. Handed the signed
+ * links to the entry's current files, already minted here, so the form can show them.
+ */
+export type EditEntry = (s: ActivitySubmission, fileLinks: Record<string, string | null>) => React.ReactNode;
+
+/**
  * One list of submissions, newest first - this component only renders what it is given. Usually
  * this attendee's own answers to one form (`submissionsForAttendee` returns every form they have
  * ever answered, so the caller filters to `form_id` first); `GroupStatus` reuses it for a whole
@@ -14,12 +20,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
  * link is a signed URL minted right here, at render time, rather than stored anywhere — a
  * stored one would be dead by the time the attendee came back to look at it.
  */
-export async function SubmissionHistory({ submissions, questions, title = "Your submissions", empty = "You have not submitted anything yet.", byline }: {
+export async function SubmissionHistory({ submissions, questions, title = "Your submissions", empty = "You have not submitted anything yet.", byline, edit }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   title?: string;
   empty?: string;
   byline?: (s: ActivitySubmission) => string | null;
+  edit?: EditEntry;
 }) {
   if (submissions.length === 0) {
     return <p className="text-sm text-muted-foreground">{empty}</p>;
@@ -40,14 +47,18 @@ export async function SubmissionHistory({ submissions, questions, title = "Your 
           href: isFile(key) ? await signedSubmissionUrl(value) : null,
         })));
         const by = byline?.(s);
+        const editor = edit?.(s, Object.fromEntries(rows.filter((r) => isFile(r.key)).map((r) => [r.key, r.href])));
         return (
           <Card key={s.id}>
             <CardHeader>
               <CardTitle className="text-[13px] font-bold text-muted-foreground">{shortDate(s.submitted_on)}</CardTitle>
               {/* D341: their history shows an edited submission's new answers, plus this note - */}
               {/* nothing is sent to them, so the note is the only sign anything changed. */}
-              {s.edited_at && <CardDescription className="text-[11px]">Updated by the organiser</CardDescription>}
+              {s.edited_at
+                ? <CardDescription className="text-[11px]">Updated by the organiser</CardDescription>
+                : s.attendee_edited_at && <CardDescription className="text-[11px]">Edited</CardDescription>}
               {by && <CardDescription className="text-[11px]">{by}</CardDescription>}
+              {editor && <div className="text-xs font-bold text-primary">{editor}</div>}
             </CardHeader>
             {rows.length > 0 && (
               <CardContent className="flex flex-col gap-1.5">

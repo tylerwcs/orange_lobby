@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { loadPortalAttendee } from "@/lib/portal";
 import {
   bookSession, getActivity, listSessions, bookingsForAttendee,
-  submitAnswers, type BookResult, type SubmitCode,
+  submitAnswers, getSubmission, updateOwnSubmissionAnswers, type BookResult, type SubmitCode,
 } from "@/lib/db/activities";
+import { canEditOwn } from "@/lib/submissions";
 import { createRequest, withdrawRequest, requestsForAttendee } from "@/lib/db/activity-requests";
 import { bookingArrivalsFor } from "@/lib/db/checkins";
-import { readAnswers, discardUploads, saveOrDiscard } from "@/lib/submission-uploads";
+import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
 import { nowInKL } from "@/lib/time";
 import { flashPath } from "@/lib/flash";
 import { sessionLabel } from "@/lib/activities";
@@ -237,4 +238,44 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, attendee.id, form.answers, today));
   if (result !== "ok") await discardUploads(form.uploaded);
   redirect(flashPath(path, SUBMIT_RESULT_MESSAGES[result], result === "ok" ? "ok" : "error"));
+}
+
+/**
+ * D391: an attendee edits one of their own entries, where the organiser allows it. The admin's
+ * edit (`editSubmissionAction`, D337) is the template: the same upload protocol, answers under
+ * retired keys kept, a replaced file deleted only after the save. `canEditOwn` is asked against
+ * fresh reads, and `updateOwnSubmissionAnswers` re-checks the row's own rules in its write.
+ * `submitted_on` and `group_id` never change, so a day's score and a group's count stay put.
+ */
+export async function editMySubmissionAction(slug: string, token: string, activityId: string, submissionId: string, fd: FormData) {
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const path = `/e/${slug}/a/${token}/activities/${activityId}`;
+  const gone = "That entry can no longer be edited.";
+
+  // Shares the submit action's budget: both spend the same token on the same kind of work.
+  if (!allow(`form:${token}`, 20, 60_000)) {
+    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+  }
+
+  const [activity, current] = await Promise.all([getActivity(activityId, event.id), getSubmission(submissionId)]);
+  const today = nowInKL().date;
+  if (!activity || activity.kind !== "submission" || !current || current.activity_id !== activity.id
+    || !canEditOwn(activity, current, attendee.id, attendee.category, today)) {
+    redirect(flashPath(path, gone, "error"));
+  }
+
+  const form = await readAnswers(activity, fd, current.answers);
+  if (!form.ok) redirect(flashPath(path, form.error, "error"));
+
+  const keys = new Set(activity.questions.map((q) => q.key));
+  const retired = Object.fromEntries(Object.entries(current.answers).filter(([k]) => !keys.has(k)));
+  const answers = { ...retired, ...form.answers };
+  const saved = await saveOrDiscard(form.uploaded, () => updateOwnSubmissionAnswers(current.id, activity.id, attendee.id, today, answers));
+  if (!saved) {
+    await discardUploads(form.uploaded);
+    redirect(flashPath(path, gone, "error"));
+  }
+
+  await deleteReplacedFiles(activity, current.answers, answers, form.uploaded);
+  redirect(flashPath(path, "Changes saved."));
 }
