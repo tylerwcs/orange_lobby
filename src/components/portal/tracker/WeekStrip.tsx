@@ -8,6 +8,9 @@ import type { Tracker } from "@/lib/tracker";
  * D374: the day picker and the week as chips - the team bonus at a glance, since one missed day
  * sinks it. Links, not state: a day is a URL (`?day=`), so Back works and the server draws it.
  * The chips share the row with `gap-1` so seven of them stay at least 44 px wide at 375 px.
+ *
+ * `scroll={false}` on every link: the page starts with the cover, so a plain link scrolled back
+ * up to it on each tap, taking the reader away from the strip they were using.
  */
 export function WeekStrip({ t, href }: { t: Tracker; href: (day: string) => string }) {
   const nav = "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground hover:bg-border";
@@ -15,14 +18,14 @@ export function WeekStrip({ t, href }: { t: Tracker; href: (day: string) => stri
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         {t.prev
-          ? <Link href={href(t.prev)} aria-label="Previous week" className={nav}><ChevronLeft aria-hidden className="size-5" /></Link>
+          ? <Link href={href(t.prev)} scroll={false} aria-label="Previous week" className={nav}><ChevronLeft aria-hidden className="size-5" /></Link>
           : <span aria-hidden className="size-11 shrink-0" />}
         <div className="min-w-0 text-center">
           <div className="text-base font-extrabold">{t.isToday ? "Today" : shortDate(t.selected)}</div>
           <div className="text-xs text-muted-foreground">{weekLabel(t.week)}</div>
         </div>
         {t.next
-          ? <Link href={href(t.next)} aria-label="Next week" className={nav}><ChevronRight aria-hidden className="size-5" /></Link>
+          ? <Link href={href(t.next)} scroll={false} aria-label="Next week" className={nav}><ChevronRight aria-hidden className="size-5" /></Link>
           : <span aria-hidden className="size-11 shrink-0" />}
       </div>
       <ol className="grid gap-1" style={{ gridTemplateColumns: `repeat(${t.days.length}, minmax(0, 1fr))` }}>
@@ -32,6 +35,7 @@ export function WeekStrip({ t, href }: { t: Tracker; href: (day: string) => stri
             <li key={d.day}>
               <Link
                 href={href(d.day)}
+                scroll={false}
                 aria-current={selected ? "date" : undefined}
                 aria-label={`${shortDate(d.day)}: ${d.state === "future" ? "to come" : d.logged ? "logged" : d.state === "today" ? "not logged yet" : "missed"}`}
                 className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border text-xs font-bold ${selected ? "border-primary bg-primary/5" : "border-border bg-card"}`}
