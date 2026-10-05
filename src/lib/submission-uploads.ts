@@ -2,7 +2,7 @@ import "server-only";
 import { uploadSubmissionFile, deleteSubmissionFiles } from "@/lib/db/media";
 import { validateAnswers } from "@/lib/registration";
 import { isQuestionShown } from "@/lib/show-when";
-import { submissionFolder } from "@/lib/storage";
+import { isOwnSubmissionPath } from "@/lib/storage";
 import { sha256Hex, type FileHashes } from "@/lib/file-hashes";
 import type { Activity } from "@/lib/types";
 
@@ -134,9 +134,7 @@ export function replacedFiles(activity: FormActivity, before: Record<string, str
 
 /** Whether a stored answer is a path directly inside this activity's own folder; see `replacedFiles`. */
 function ownFile(activity: FormActivity, path: string): boolean {
-  const folder = submissionFolder({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id });
-  const name = path.slice(folder.length);
-  return path.startsWith(folder) && name !== "" && !name.includes("/");
+  return isOwnSubmissionPath({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id }, path);
 }
 
 /**

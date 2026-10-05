@@ -1,6 +1,6 @@
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate, shortDateTime } from "@/lib/text";
-import { signedSubmissionUrls } from "@/lib/db/media";
+import { adminFileHref } from "@/lib/file-links";
 import { retiredAnswerKeys } from "@/lib/exports";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -17,16 +17,15 @@ export type SubmitterInfo = { name: string; email: string | null; category: stri
  * form declares them, matching the shape of the xlsx export so the two agree on what "the
  * columns" are.
  *
- * Async for the same reason SubmissionHistory is: a `file` answer is an object path, and the
- * signed link that makes it clickable is minted at render time, not stored (D168). A signature
- * that came back null (the object went missing from storage) is shown as "Unavailable" rather
- * than a link that 404s.
+ * A `file` answer is an object path (D168). Its "View file" points at the admin file route
+ * (D399), which signs a fresh link at the click: one minted here at render time was dead a
+ * minute later, long before a committee working down the table clicked it.
  *
  * Every row stays, revoked ones too (D340): greyed, marked Revoked, and with no menu, since a
  * revoked row cannot be edited. A live row's ⋯ menu edits its answers in the portal's own
  * fields (D337) or revokes it. The page's count is of live rows only (D339).
  */
-export async function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, adminNames, groupFor }: {
+export function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, adminNames, groupFor }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   submitterFor: (attendeeId: string) => SubmitterInfo;
@@ -61,16 +60,12 @@ export async function SubmissionTable({ submissions, questions, submitterFor, ed
   const stamp = (verb: string, by: string | null, at: string | null) =>
     `${verb} by ${(by ? adminNames[by] : undefined) ?? "an admin"}${at ? ` on ${shortDateTime(at)}` : ""}`;
 
-  // One Storage request per batch of photos, not one per cell (D383).
-  const fileKeys = questions.filter((q) => q.type === "file").map((q) => q.key);
-  const links = await signedSubmissionUrls(submissions.flatMap((s) => fileKeys.map((k) => s.answers[k] ?? "")));
-
   const rows = submissions.map((s) => {
     const who = submitterFor(s.attendee_id);
     const cells = questions.map((q) => {
       const value = s.answers[q.key] ?? "";
       if (!isFile(q.key)) return { key: q.key, value, href: null as string | null };
-      return { key: q.key, value, href: value ? links.get(value) ?? null : null };
+      return { key: q.key, value, href: value ? adminFileHref(s.event_id, s.id, q.key) : null };
     });
     const retiredCells = retiredKeys.map((key) => ({ key, value: s.answers[key] ?? "" }));
     const fileLinks = Object.fromEntries(cells.filter((c) => isFile(c.key)).map((c) => [c.key, c.href]));

@@ -32,6 +32,19 @@ export function isGroupForm(mode: GroupMode): boolean {
 }
 
 /**
+ * D399: whether an attendee may open a file in this entry - the same entries the portal already
+ * shows them: their own (revoked too, which the tracker shows faded), those they added for a
+ * group member (D392), and, on a group form, their group's live entries (D353).
+ */
+export function canViewFile(
+  submission: Pick<ActivitySubmission, "attendee_id" | "submitted_by" | "group_id" | "status">,
+  viewer: { id: string; group_id: string | null },
+): boolean {
+  if (submission.attendee_id === viewer.id || submission.submitted_by === viewer.id) return true;
+  return submission.status === "submitted" && submission.group_id !== null && submission.group_id === viewer.group_id;
+}
+
+/**
  * D391: whether this attendee may edit this entry now. Only where the organiser allowed it, only
  * their own (a group form shows every member's entries to every member), only a live one, only
  * on the Malaysian day they sent it, and only while the activity is open and theirs to see. The

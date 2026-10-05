@@ -234,6 +234,18 @@ export function submissionFolder(input: { orgId: string; eventId: string; formId
 }
 
 /**
+ * Whether a stored answer is a file directly inside this form's own folder - the only paths
+ * anything here deletes or signs. A file answer only ever holds an upload's path, but a question
+ * that was text before it became a file question holds whatever was typed (D399 signs, the
+ * cleanup in submission-uploads deletes).
+ */
+export function isOwnSubmissionPath(input: { orgId: string; eventId: string; formId: string }, path: string): boolean {
+  const folder = submissionFolder(input);
+  const name = path.slice(folder.length);
+  return path.startsWith(folder) && name !== "" && !name.includes("/");
+}
+
+/**
  * The uploaded files among some submissions' answers, for deleting a few attendees without
  * leaving their files in the bucket. The event-wide purge sweeps the whole event folder; this
  * cannot, because paths do not name the attendee, so it reads them off the answers instead.

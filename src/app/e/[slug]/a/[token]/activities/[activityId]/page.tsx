@@ -17,6 +17,7 @@ import { allCheckedIn } from "@/lib/booking-door";
 import type { Activity, ActivitySubmission, Attendee } from "@/lib/types";
 import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction, editMySubmissionAction, deleteMySubmissionAction } from "../actions";
 import { EntryActions } from "@/components/portal/EntryActions";
+import { portalFileHref } from "@/lib/file-links";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { buttonVariants } from "@/components/ui/button";
 import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
@@ -245,13 +246,16 @@ function SubmitForm({ f, slug, token, state, proxy }: { f: Activity; slug: strin
   );
 }
 
+/** D399: "View file" on the portal goes through the attendee's own file route, signed at the click. */
+const filesFor = (slug: string, token: string) => (s: ActivitySubmission, key: string) => portalFileHref(slug, token, s.id, key);
+
 /** D392: what a proxy sent for their group today, each card saying for whom, with Edit where allowed. */
-function AddedForGroup({ f, proxy, edit }: { f: Activity; proxy: Proxy | null; edit?: EditEntry }) {
+function AddedForGroup({ f, slug, token, proxy, edit }: { f: Activity; slug: string; token: string; proxy: Proxy | null; edit?: EditEntry }) {
   if (!proxy || proxy.added.length === 0) return null;
   const name = new Map(proxy.members.map((m) => [m.id, m.name]));
   return (
     <div className="mt-4">
-      <SubmissionHistory submissions={proxy.added} questions={f.questions} title="You added for your group today"
+      <SubmissionHistory submissions={proxy.added} questions={f.questions} fileHref={filesFor(slug, token)} title="You added for your group today"
         byline={(s) => `For ${name.get(s.attendee_id) ?? "a former member"}`} edit={edit} />
     </div>
   );
@@ -278,8 +282,8 @@ async function SubmissionBody({ entry: { form: f, state, mine, group }, slug, to
         {!isGroupForm(f.group_mode) && (
           <>
             {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
-            <SubmissionHistory submissions={mine} questions={f.questions} edit={edit} addedBy={addedBy} />
-            <AddedForGroup f={f} proxy={proxy} edit={edit} />
+            <SubmissionHistory submissions={mine} questions={f.questions} fileHref={filesFor(slug, token)} edit={edit} addedBy={addedBy} />
+            <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />
           </>
         )}
         {/* D352: an ineligible viewer gets the plain note below, not the group block - it names */}
@@ -292,7 +296,7 @@ async function SubmissionBody({ entry: { form: f, state, mine, group }, slug, to
             ) : state.reason === "limit" && group ? (
               <GroupDone text={`You've submitted — waiting on ${group.need - group.have} other${group.need - group.have === 1 ? "" : "s"}`} />
             ) : null}
-            {group && <GroupStatus form={f} group={group} people={people} selfId={selfId} edit={edit} />}
+            {group && <GroupStatus form={f} group={group} people={people} selfId={selfId} edit={edit} fileHref={filesFor(slug, token)} />}
             {state.reason === "nogroup" && <p className={note}>You need to be in a group to submit this.</p>}
           </>
         )}
@@ -381,7 +385,7 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
             </div>
             <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key}
               empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} addedBy={addedBy} />
-            {t.isToday && <AddedForGroup f={f} proxy={proxy} edit={edit} />}
+            {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
             {challenge && myTeam && shownWeek?.teams[myTeam.id] && (
               <MyTeam team={myTeam} week={shownWeek.teams[myTeam.id]} weekInfo={shownWeek.week} score={challenge.score} scoring={scoring}
                 day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />

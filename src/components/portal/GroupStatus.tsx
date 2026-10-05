@@ -1,5 +1,5 @@
 import { CircleCheck, Circle } from "lucide-react";
-import type { Activity } from "@/lib/types";
+import type { Activity, ActivitySubmission } from "@/lib/types";
 import { groupSummary, type GroupProgress } from "@/lib/groups";
 import { shortDateTime } from "@/lib/text";
 import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
@@ -9,7 +9,7 @@ import { SubmissionHistory, type EditEntry } from "@/components/portal/Submissio
  * stands, who has sent something, and every entry in full with who sent it. Used on the form's
  * own page and on My group.
  */
-export async function GroupStatus({ form, group, people, selfId, compact = false, edit }: {
+export function GroupStatus({ form, group, people, selfId, compact = false, edit, fileHref = () => null }: {
   form: Pick<Activity, "group_mode" | "questions">;
   group: GroupProgress;
   people: Record<string, { name: string; movedTo: string | null }>;
@@ -18,6 +18,8 @@ export async function GroupStatus({ form, group, people, selfId, compact = false
   compact?: boolean;
   /** D391: Edit on the viewer's own entries; `canEditOwn` leaves everyone else's alone. */
   edit?: EditEntry;
+  /** D399: where "View file" goes. Not needed when `compact`, which shows no entries. */
+  fileHref?: (s: ActivitySubmission, key: string) => string | null;
 }) {
   const who = (id: string) => {
     const p = people[id];
@@ -43,6 +45,7 @@ export async function GroupStatus({ form, group, people, selfId, compact = false
         <SubmissionHistory
           submissions={group.entries}
           questions={form.questions}
+          fileHref={fileHref}
           title="Your group's submissions"
           empty="Nobody in your group has submitted yet."
           byline={(s) => `${who(s.attendee_id)}${s.submitted_by ? ` (added by ${s.submitted_by === selfId ? "you" : who(s.submitted_by)})` : ""} · ${shortDateTime(s.created_at)}`}

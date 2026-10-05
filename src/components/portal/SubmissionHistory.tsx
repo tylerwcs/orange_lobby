@@ -1,12 +1,10 @@
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate } from "@/lib/text";
-import { signedSubmissionUrl } from "@/lib/db/media";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * D391/D398: the Edit and Delete controls for one entry, or null where it may not be changed.
- * Handed the signed links to the entry's current files, already minted here, so the form can
- * show them. `variant`: text links under the answers (default), or the tracker's ⋯ menu.
+ * Handed the links to the entry's current files, so the form can show them. `variant`: text links under the answers (default), or the tracker's ⋯ menu.
  */
 export type EditEntry = (s: ActivitySubmission, fileLinks: Record<string, string | null>, variant?: "menu" | "links") => React.ReactNode;
 
@@ -17,13 +15,15 @@ export type EditEntry = (s: ActivitySubmission, fileLinks: Record<string, string
  * group's entries to one group form, overriding `title`, `empty` and `byline` to say whose entry
  * each card is, rather than whose it always is.
  *
- * Async because a `file` answer holds an object path, not something to show as-is (D168): the
- * link is a signed URL minted right here, at render time, rather than stored anywhere — a
- * stored one would be dead by the time the attendee came back to look at it.
+ * A `file` answer holds an object path, not something to show as-is (D168). Its "View file"
+ * goes to `fileHref` - the portal's file route (D399), which signs a fresh link at the click.
+ * One signed here at render time was dead a minute later.
  */
-export async function SubmissionHistory({ submissions, questions, title = "Your submissions", empty = "You have not submitted anything yet.", byline, addedBy, edit }: {
+export function SubmissionHistory({ submissions, questions, fileHref, title = "Your submissions", empty = "You have not submitted anything yet.", byline, addedBy, edit }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
+  /** D399: where "View file" for this entry's answer to `key` goes; null shows "Unavailable". */
+  fileHref: (s: ActivitySubmission, key: string) => string | null;
   title?: string;
   empty?: string;
   byline?: (s: ActivitySubmission) => string | null;
@@ -39,16 +39,12 @@ export async function SubmissionHistory({ submissions, questions, title = "Your 
   return (
     <div className="flex flex-col gap-3">
       <h2 className="text-sm font-extrabold">{title}</h2>
-      {await Promise.all(submissions.map(async (s) => {
+      {submissions.map((s) => {
         // A show_when-hidden question stores "" rather than being omitted (see validateAnswers),
         // which would otherwise print as an empty line for every conditional question an
         // attendee never saw.
         const answered = Object.entries(s.answers).filter(([, v]) => v !== "");
-        const rows = await Promise.all(answered.map(async ([key, value]) => ({
-          key,
-          value,
-          href: isFile(key) ? await signedSubmissionUrl(value) : null,
-        })));
+        const rows = answered.map(([key, value]) => ({ key, value, href: isFile(key) ? fileHref(s, key) : null }));
         const by = byline?.(s);
         const added = s.submitted_by ? addedBy?.(s) : null;
         const editor = edit?.(s, Object.fromEntries(rows.filter((r) => isFile(r.key)).map((r) => [r.key, r.href])));
@@ -85,7 +81,7 @@ export async function SubmissionHistory({ submissions, questions, title = "Your 
             )}
           </Card>
         );
-      }))}
+      })}
     </div>
   );
 }
