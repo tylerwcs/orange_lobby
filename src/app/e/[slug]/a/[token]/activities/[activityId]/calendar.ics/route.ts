@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { loadPortalAttendee, portalActivities, portalBookings, isUnpublished } from "@/lib/portal";
 import { listSessions } from "@/lib/db/activities";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
-import { bookingIcs, outlookComposeUrl } from "@/lib/ics";
+import { bookingIcs, googleCalendarUrl, outlookComposeUrl } from "@/lib/ics";
 
 /**
  * One booked seat as a calendar file: `?session=<id>`. The attendee's token is the only
@@ -13,7 +13,8 @@ import { bookingIcs, outlookComposeUrl } from "@/lib/ics";
  * directly, and desktop browsers, which cannot render text/calendar, download it anyway.
  *
  * D393: `&app=outlook` sends the same seat to Outlook on the web instead, after the same
- * checks, because iOS gives a .ics file to Apple Calendar only.
+ * checks, because iOS gives a .ics file to Apple Calendar only. D394: `&app=google` does the
+ * same for Google Calendar, because Android does not reliably open a .ics at all.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string; token: string; activityId: string }> }) {
   const { slug, token, activityId } = await params;
@@ -41,10 +42,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     description: event.name,
     url: `${attendeeLink(appBaseUrl(), slug, token)}/activities/${activityId}`,
   };
-  if (query.get("app") === "outlook") {
+  const app = query.get("app");
+  if (app === "outlook" || app === "google") {
     return new Response(null, {
       status: 302,
-      headers: { Location: outlookComposeUrl(entry), "Cache-Control": "private, no-store" },
+      headers: {
+        Location: app === "outlook" ? outlookComposeUrl(entry) : googleCalendarUrl(entry),
+        "Cache-Control": "private, no-store",
+      },
     });
   }
 

@@ -119,7 +119,28 @@ export function outlookComposeUrl(b: Omit<BookingIcsInput, "uid" | "now">): stri
     body: `${b.description}\n\n${b.url}`,
     ...(b.location ? { location: b.location } : {}),
   };
-  // %20, not URLSearchParams's `+`: Outlook can show a `+` literally in the title.
-  const query = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
-  return `https://outlook.office.com/calendar/0/deeplink/compose?${query}`;
+  return `https://outlook.office.com/calendar/0/deeplink/compose?${queryString(params)}`;
+}
+
+/**
+ * D394: the same seat for Google Calendar, for Android. Chrome downloads a .ics rather than
+ * offering to add it, and the Google Calendar app often will not open one, so Android had no
+ * reliable way in. This link opens the Google Calendar app on Android (the website elsewhere)
+ * with the session filled in. Same snapshot, same no-reminder caveat as Outlook's.
+ */
+export function googleCalendarUrl(b: Omit<BookingIcsInput, "uid" | "now">): string {
+  const start = klToUtc(b.day, b.startsAt);
+  return `https://calendar.google.com/calendar/render?${queryString({
+    action: "TEMPLATE",
+    text: b.title,
+    // Both ends are required; with no end time, end where it starts, as the .ics does.
+    dates: `${start}/${b.endsAt ? klToUtc(b.day, b.endsAt) : start}`,
+    details: `${b.description}\n\n${b.url}`,
+    ...(b.location ? { location: b.location } : {}),
+  })}`;
+}
+
+/** %20, not URLSearchParams's `+`: Outlook can show a `+` literally in the title. */
+function queryString(params: Record<string, string>): string {
+  return Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
 }

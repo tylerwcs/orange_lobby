@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingIcs, icsText, foldLine, klToUtc, outlookComposeUrl } from "@/lib/ics";
+import { bookingIcs, icsText, foldLine, klToUtc, outlookComposeUrl, googleCalendarUrl } from "@/lib/ics";
 
 const input = {
   uid: "3f1c2a9e-0000-4000-8000-000000000001",
@@ -141,5 +141,33 @@ describe("outlookComposeUrl", () => {
 
   it("omits the location when the session has none", () => {
     expect(params(outlookComposeUrl({ ...input, location: null })).has("location")).toBe(false);
+  });
+});
+
+describe("googleCalendarUrl", () => {
+  const params = (url: string) => new URL(url).searchParams;
+
+  it("opens Google Calendar's new-event template", () => {
+    const url = new URL(googleCalendarUrl(input));
+    expect(url.origin + url.pathname).toBe("https://calendar.google.com/calendar/render");
+    expect(url.searchParams.get("action")).toBe("TEMPLATE");
+  });
+
+  it("fills in the session's name, place, notes and UTC times", () => {
+    const p = params(googleCalendarUrl(input));
+    expect(p.get("text")).toBe("Wellness screening");
+    expect(p.get("location")).toBe("Level 3, Room A");
+    expect(p.get("dates")).toBe("20260930T013000Z/20260930T020000Z");
+    expect(p.get("details")).toBe(`Ecopia Kick-Off Meeting 2026
+
+${input.url}`);
+  });
+
+  it("ends where it starts when the session has no end time", () => {
+    expect(params(googleCalendarUrl({ ...input, endsAt: null })).get("dates")).toBe("20260930T013000Z/20260930T013000Z");
+  });
+
+  it("omits the location when the session has none", () => {
+    expect(params(googleCalendarUrl({ ...input, location: null })).has("location")).toBe(false);
   });
 });

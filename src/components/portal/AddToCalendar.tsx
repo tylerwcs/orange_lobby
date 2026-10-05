@@ -3,9 +3,10 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 /**
- * D393: Add to calendar as a choice of two. On an iPhone, Safari gives a .ics file to Apple
- * Calendar and nothing else, so Outlook needs its own way in: the same route with
- * `&app=outlook`, which redirects to Outlook on the web with the session filled in.
+ * D393: Add to calendar as a choice. On an iPhone, Safari gives a .ics file to Apple Calendar
+ * and nothing else, so Outlook needs its own way in: the same route with `&app=outlook`, which
+ * redirects to Outlook on the web with the session filled in. D394: `&app=google` likewise,
+ * for Android, where a .ics downloads rather than opening a calendar.
  *
  * Each caller keeps its own look for the trigger (a link on the booked line, a pill on the
  * agenda, the big sticky button) and passes it as `className` and `children`.
@@ -21,11 +22,15 @@ export function AddToCalendar({ href, className, children, align = "end" }: {
     <DropdownMenu>
       <DropdownMenuTrigger className={className}>{children}</DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-60">
-        {/* Plain links, not router pushes: one is a file, the other leaves the app. No
+        {/* Plain links, not router pushes: one is a file, the others leave the app. No
             `download` on the file - iOS would save it instead of offering the calendar. */}
         <DropdownMenuItem render={<a href={href} />} className="flex-col items-start gap-0 py-2">
           <span className="font-bold">Apple Calendar</span>
           <span className="text-xs text-muted-foreground">iPhone, iPad or Mac</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem render={<a href={`${href}&app=google`} target="_blank" rel="noopener noreferrer" />} className="flex-col items-start gap-0 py-2">
+          <span className="font-bold">Google Calendar</span>
+          <span className="text-xs text-muted-foreground">Android or Gmail</span>
         </DropdownMenuItem>
         <DropdownMenuItem render={<a href={`${href}&app=outlook`} target="_blank" rel="noopener noreferrer" />} className="flex-col items-start gap-0 py-2">
           <span className="font-bold">Outlook</span>
