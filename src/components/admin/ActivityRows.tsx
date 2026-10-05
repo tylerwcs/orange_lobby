@@ -47,10 +47,10 @@ export function SubmissionFields({ activity, categories, fields, uploadImage }: 
         description="What the button on the attendee's page says, like Join now or Upload results. Leave blank for Submit." />
       <CategoryCombo categories={categories} defaultValue={activity?.categories ?? []} />
       <WhoSubmitsFields activity={activity} />
-      {/* D391 */}
+      {/* D391, D398 */}
       <label className="flex items-center gap-2 text-sm font-bold">
         <input type="checkbox" name="attendee_edit" defaultChecked={activity?.attendee_edit ?? false} className="size-4" />
-        Let people edit what they sent, on the day they sent it
+        Let people edit or delete what they sent, on the day they sent it
       </label>
       {/* D392 */}
       {fields.length > 0 && (

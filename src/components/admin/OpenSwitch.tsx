@@ -10,7 +10,7 @@ import { useFormStatus } from "react-dom";
  * where it is going, not where it was: at a venue the round trip is long enough to look like
  * the click did nothing, and a second click would flip it straight back.
  */
-export function OpenSwitch({ open, action, name, verb = "Open", showLabel = false }: {
+export function OpenSwitch({ open, action, name, verb = "Open", showLabel = false, states = ["Open", "Closed"] }: {
   open: boolean;
   action: () => Promise<void>;
   /** The activity's name, for the accessible label: "Open InBody Scan". */
@@ -19,15 +19,17 @@ export function OpenSwitch({ open, action, name, verb = "Open", showLabel = fals
   verb?: string;
   /** Words beside the switch, for a page header where there is no column heading to explain it. */
   showLabel?: boolean;
+  /** What those words say, on and off: D397's leaderboard is shown or hidden, not open. */
+  states?: [string, string];
 }) {
   return (
     <form action={action}>
-      <Switch open={open} label={`${verb} ${name}`} showLabel={showLabel} />
+      <Switch open={open} label={`${verb} ${name}`} showLabel={showLabel} states={states} />
     </form>
   );
 }
 
-function Switch({ open, label, showLabel }: { open: boolean; label: string; showLabel: boolean }) {
+function Switch({ open, label, showLabel, states }: { open: boolean; label: string; showLabel: boolean; states: [string, string] }) {
   const { pending } = useFormStatus();
   const on = pending ? !open : open;
   return (
@@ -42,7 +44,7 @@ function Switch({ open, label, showLabel }: { open: boolean; label: string; show
       <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${on ? "bg-success" : "bg-input"}`}>
         <span className={`size-4 rounded-full bg-white shadow-sm transition-transform ${on ? "translate-x-4.5" : "translate-x-0.5"}`} />
       </span>
-      {showLabel && <span className={on ? "text-success-strong" : "text-muted-foreground"}>{on ? "Open" : "Closed"}</span>}
+      {showLabel && <span className={on ? "text-success-strong" : "text-muted-foreground"}>{on ? states[0] : states[1]}</span>}
     </button>
   );
 }

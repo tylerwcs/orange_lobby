@@ -41,7 +41,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
           label: q.label,
           url: await signedSubmissionUrl(s.answers[q.key], PHOTO_SECONDS),
         })));
-        const editor = revoked ? null : edit?.(s, Object.fromEntries(photos.map((p) => [p.key, p.url])));
+        const editor = revoked ? null : edit?.(s, Object.fromEntries(photos.map((p) => [p.key, p.url])), "menu");
         const added = s.submitted_by ? addedBy?.(s) : null;
         const at = shortTime(s.created_at);
         const km = `${metricKm(s, metricKey)} ${unit}`;
@@ -57,13 +57,9 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
               <div className="text-xs text-muted-foreground">
                 {at}{revoked ? " · Removed by the organiser" : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}{added ? ` · ${added}` : ""}
               </div>
-              {editor && <div className="mt-0.5 text-xs font-bold text-primary">{editor}</div>}
             </div>
-            {photos[0]?.url && (
-              // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed URL, not an optimisable asset
-              <img src={photos[0].url} alt="" className="size-12 shrink-0 rounded-lg border border-border object-cover" />
-            )}
             {photos.length > 0 && <EntryPhotos title={`${km} at ${at}`} photos={photos} />}
+            {editor}
           </li>
         );
       }))}

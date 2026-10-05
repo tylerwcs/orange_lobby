@@ -18,6 +18,7 @@ import { flashPath } from "@/lib/flash";
 import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
 import { questionsFromForm } from "@/lib/questions-form";
+import { nextFileHashes } from "@/lib/file-hashes";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, perDayCollision, readGroupRule, groupRuleChangeBlocked, liveSubmissions } from "@/lib/submissions";
 import { parseCategories } from "@/lib/agenda";
@@ -159,6 +160,21 @@ export async function toggleOpenAction(eventId: string, activityId: string, from
     passport: ["Stamping open.", "Stamping closed."],
   };
   redirect(flashPath(path, LABELS[activity.kind][opened ? 0 : 1]));
+}
+
+/**
+ * D397: shows or hides a scored challenge's Leaderboard tab in the portal. Its own action, like
+ * `toggleOpenAction`, so the settings form can never flip it by leaving it out. Lands back on the
+ * admin Leaderboard tab, which is always there.
+ */
+export async function toggleLeaderboardAction(eventId: string, activityId: string) {
+  const ev = await event(eventId);
+  const activity = await getActivity(activityId, ev.id);
+  if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  await updateActivity(activityId, ev.id, { show_leaderboard: !activity.show_leaderboard });
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(activityHref(eventId, activityId, "leaderboard"),
+    activity.show_leaderboard ? "Leaderboard hidden from attendees." : "Leaderboard shown to attendees."));
 }
 
 /**
@@ -411,7 +427,10 @@ export async function editSubmissionAction(eventId: string, activityId: string, 
   const keys = new Set(activity.questions.map((q) => q.key));
   const retired = Object.fromEntries(Object.entries(current.answers).filter(([k]) => !keys.has(k)));
   const answers = { ...retired, ...form.answers };
-  const saved = await saveOrDiscard(form.uploaded, () => updateSubmissionAnswers(submissionId, activity.id, answers, userId));
+  // D396: kept up to date so a replaced photo's old fingerprint no longer blocks a re-send. The
+  // organiser's edit is never refused as a duplicate: that rule is for attendees.
+  const hashes = nextFileHashes(activity.questions, current.answers, current.file_hashes, answers, form.hashes);
+  const saved = await saveOrDiscard(form.uploaded, () => updateSubmissionAnswers(submissionId, activity.id, answers, userId, hashes));
   if (!saved) {
     await discardUploads(form.uploaded);
     revalidatePath(detailPath(eventId, activityId));

@@ -274,8 +274,10 @@ export type Activity = {
   is_open: boolean;
   /** Leads the attendee's home row and the Activities tab, under its own heading (D387). */
   pinned: boolean;
-  /** Submission kind only (D391). Attendees may edit their own entries on the day they sent them. */
+  /** Submission kind only (D391). Attendees may edit or delete (D398) their own entries on the day they sent them. */
   attendee_edit: boolean;
+  /** D397: a scored challenge's Leaderboard tab is shown to attendees. The admin tab is always there. */
+  show_leaderboard: boolean;
   /** D392: attendee fields whose Yes lets a member submit for anyone in their group (a Captain column). Empty is nobody. */
   proxy_fields: string[];
   /** The total one attendee may ever take. Null is no cap (D178); otherwise 1..366. */
@@ -393,4 +395,6 @@ export type ActivitySubmission = {
   attendee_edited_at: string | null;
   /** D392: the group member who sent this on the attendee's behalf; null when they sent it themselves. */
   submitted_by: string | null;
+  /** D396: question key to the SHA-256 of its uploaded file; empty on rows sent before fingerprints. */
+  file_hashes: Record<string, string>;
 };

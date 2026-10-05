@@ -7,7 +7,7 @@ import { dayRange } from "@/lib/activity-card";
 import { canEditOwn, isGroupForm, isProxy, submitLabel } from "@/lib/submissions";
 import type { SubmitState } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
-import { buildTracker, trackerTab, type TrackerTab } from "@/lib/tracker";
+import { buildTracker, trackerTab, trackerTabs, type TrackerTab } from "@/lib/tracker";
 import { standingLine } from "@/lib/leaderboard";
 import { entriesForAttendee, submissionsAddedBy } from "@/lib/db/activities";
 import { groupMembers } from "@/lib/db/groups";
@@ -15,7 +15,8 @@ import { listAttendeesByIds } from "@/lib/db/attendees";
 import { sessionGrid } from "@/lib/session-grid";
 import { allCheckedIn } from "@/lib/booking-door";
 import type { Activity, ActivitySubmission, Attendee } from "@/lib/types";
-import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction, editMySubmissionAction } from "../actions";
+import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, submitAnswersAction, editMySubmissionAction, deleteMySubmissionAction } from "../actions";
+import { EntryActions } from "@/components/portal/EntryActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { buttonVariants } from "@/components/ui/button";
 import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
@@ -91,7 +92,7 @@ export default async function ActivityPage({ params, searchParams }: {
             ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy}
                 day={typeof day === "string" ? day : null} writing={writing === "1"}
                 // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
-                tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined)} />
+                tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined, form.form.show_leaderboard)} />
             : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />
           : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
     </div>
@@ -182,22 +183,25 @@ function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, to
 }
 
 /**
- * D391: Edit on each entry this attendee may still change (`canEditOwn`), in the same dialog the
- * submit uses, filled with what they sent. Keyed by the edit stamp, so a save remounts it closed
- * and a refusal leaves it open with the toast saying why - the submit dialog's own contract.
+ * D391/D398: Edit and Delete on each entry this attendee may still change (`canEditOwn`) - the
+ * edit in a dialog like the submit's, filled with what they sent. Keyed by the edit stamp, so a
+ * save remounts it closed and a refusal leaves it open with the toast saying why - the submit
+ * dialog's own contract. A delete redirects back to a page without the entry.
  */
 function editorFor(f: Activity, slug: string, token: string, attendee: Pick<Attendee, "id" | "category">): EditEntry | undefined {
   if (!f.attendee_edit || f.questions.length === 0) return undefined;
   const today = nowInKL().date;
-  return function EditLink(s, fileLinks) {
+  return function EditLink(s, fileLinks, variant = "links") {
     if (!canEditOwn(f, s, attendee.id, attendee.category, today)) return null;
     return (
-      <ActivityActionDialog key={s.attendee_edited_at ?? "unedited"} inline label="Edit" title={f.name} description="Change your answers and save. You can edit this until the end of today.">
-        <form action={editMySubmissionAction.bind(null, slug, token, f.id, s.id)} className="flex flex-col gap-6">
-          <SubmissionFields questions={f.questions} defaults={s.answers} fileLinks={fileLinks} />
-          <SubmitButton className="h-12 w-full text-base font-bold">Save changes</SubmitButton>
-        </form>
-      </ActivityActionDialog>
+      <EntryActions key={s.attendee_edited_at ?? "unedited"} title={f.name} variant={variant}
+        remove={deleteMySubmissionAction.bind(null, slug, token, f.id, s.id)}
+        editForm={
+          <form action={editMySubmissionAction.bind(null, slug, token, f.id, s.id)} className="flex flex-col gap-6">
+            <SubmissionFields questions={f.questions} defaults={s.answers} fileLinks={fileLinks} />
+            <SubmitButton className="h-12 w-full text-base font-bold">Save changes</SubmitButton>
+          </form>
+        } />
     );
   };
 }
@@ -321,7 +325,7 @@ function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, da
     // `?tab=` changes no route segment, so no loading.tsx sees it; the scope moves the underline
     // at once and swaps the tab for a skeleton until it arrives, as the Info page does (D206).
     <PendingScope>
-      <TrackerTabs path={path} tab={tab} />
+      <TrackerTabs path={path} tab={tab} tabs={trackerTabs(entry.form.show_leaderboard)} />
       <PendingSwap fallback={<Skeleton className="mt-5 h-40 rounded-[14px]" />}>
         {tab === "info"
           ? <TrackerInfo html={entry.form.description} />

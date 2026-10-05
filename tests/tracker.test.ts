@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTracker, dailyKm, teamDayRows, teamSummary, trackerTab } from "@/lib/tracker";
+import { buildTracker, dailyKm, teamDayRows, teamSummary, trackerTab, trackerTabs } from "@/lib/tracker";
 import type { ActivitySubmission, ChallengeScoring } from "@/lib/types";
 
 const S: ChallengeScoring = {
@@ -11,7 +11,7 @@ const e = (day: string, km: string, over: Partial<ActivitySubmission> = {}): Act
   id: `s${++n}`, event_id: "e", activity_id: "m", attendee_id: "a1", group_id: "g1", answers: { km },
   // A zero-padded counter, so created_at sorts in the order the fixtures were made.
   submitted_on: day, status: "submitted", per_day: false, created_at: `${day}T00:00:00.${String(n).padStart(6, "0")}Z`,
-  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null, submitted_by: null, ...over,
+  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null, submitted_by: null, file_hashes: {}, ...over,
 });
 const build = (entries: ActivitySubmission[], today: string, requested: string | null = null) =>
   buildTracker({ scoring: S, eventStartsOn: "2026-09-28", entries, today, requested })!;
@@ -130,6 +130,18 @@ describe("trackerTab (D385)", () => {
     expect(trackerTab("stats")).toBe("stats");
     expect(trackerTab("Leaderboard")).toBe("stats");
     expect(trackerTab("teams")).toBe("stats");
+  });
+
+  it("sends an old Leaderboard link to My stats while the leaderboard is hidden (D397)", () => {
+    expect(trackerTab("leaderboard", false)).toBe("stats");
+    expect(trackerTab("info", false)).toBe("info");
+  });
+});
+
+describe("trackerTabs (D397)", () => {
+  it("lists all three tabs, or drops Leaderboard while it is hidden", () => {
+    expect(trackerTabs(true)).toEqual(["info", "stats", "leaderboard"]);
+    expect(trackerTabs(false)).toEqual(["info", "stats"]);
   });
 });
 

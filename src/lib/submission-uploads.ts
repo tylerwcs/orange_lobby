@@ -3,6 +3,7 @@ import { uploadSubmissionFile, deleteSubmissionFiles } from "@/lib/db/media";
 import { validateAnswers } from "@/lib/registration";
 import { isQuestionShown } from "@/lib/show-when";
 import { submissionFolder } from "@/lib/storage";
+import { sha256Hex, type FileHashes } from "@/lib/file-hashes";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -17,7 +18,8 @@ import type { Activity } from "@/lib/types";
 type FormActivity = Pick<Activity, "id" | "org_id" | "event_id" | "questions">;
 
 export type ReadAnswers =
-  | { ok: true; answers: Record<string, string>; uploaded: string[] }
+  /** `hashes`: question key to the SHA-256 of each file uploaded by this call (D396). */
+  | { ok: true; answers: Record<string, string>; uploaded: string[]; hashes: FileHashes }
   | { ok: false; error: string };
 
 /**
@@ -65,17 +67,21 @@ export async function readAnswers(activity: FormActivity, fd: FormData, stored: 
   const typed = { ...input };
   const uploads = await Promise.allSettled(fileQuestions.map(async (q) => {
     const file = fd.get(q.key);
-    const kept = { key: q.key, path: Object.hasOwn(stored, q.key) ? stored[q.key] : "", fresh: false };
+    const kept = { key: q.key, path: Object.hasOwn(stored, q.key) ? stored[q.key] : "", fresh: false, hash: "" };
     if (!(file instanceof File) || file.size === 0 || !isQuestionShown(q, typed)) return kept;
-    const path = await uploadSubmissionFile({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id, file });
-    return { key: q.key, path, fresh: true };
+    const [path, hash] = await Promise.all([
+      uploadSubmissionFile({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id, file }),
+      sha256Hex(file),
+    ]);
+    return { key: q.key, path, fresh: true, hash };
   }));
   const uploaded: string[] = [];
+  const hashes: FileHashes = {};
   let uploadError: string | null = null;
   for (const r of uploads) {
     if (r.status === "fulfilled") {
       input[r.value.key] = r.value.path;
-      if (r.value.fresh) uploaded.push(r.value.path);
+      if (r.value.fresh) { uploaded.push(r.value.path); hashes[r.value.key] = r.value.hash; }
     } else {
       uploadError ??= (r.reason as Error).message;
     }
@@ -90,7 +96,7 @@ export async function readAnswers(activity: FormActivity, fd: FormData, stored: 
     await discardUploads(uploaded);
     return { ok: false, error: Object.values(validated.errors)[0] ?? "Check your answers and try again." };
   }
-  return { ok: true, answers: validated.answers, uploaded };
+  return { ok: true, answers: validated.answers, uploaded, hashes };
 }
 
 /**
@@ -119,14 +125,27 @@ export async function saveOrDiscard<T>(uploaded: string[], write: () => Promise<
  * became a file question holds whatever was typed.
  */
 export function replacedFiles(activity: FormActivity, before: Record<string, string>, after: Record<string, string>, uploaded: string[]): string[] {
-  const folder = submissionFolder({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id });
   const fresh = new Set(uploaded);
   return activity.questions.filter((q) => q.type === "file").flatMap((q) => {
     const old = Object.hasOwn(before, q.key) ? before[q.key] : "";
-    const name = old.slice(folder.length);
-    const ours = old.startsWith(folder) && name !== "" && !name.includes("/");
-    return ours && fresh.has(after[q.key]) ? [old] : [];
+    return ownFile(activity, old) && fresh.has(after[q.key]) ? [old] : [];
   });
+}
+
+/** Whether a stored answer is a path directly inside this activity's own folder; see `replacedFiles`. */
+function ownFile(activity: FormActivity, path: string): boolean {
+  const folder = submissionFolder({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id });
+  const name = path.slice(folder.length);
+  return path.startsWith(folder) && name !== "" && !name.includes("/");
+}
+
+/**
+ * D398: the files of an entry the attendee deleted, once its row is gone. The same folder rule as
+ * `replacedFiles`; a failure leaves an object nothing names, and is swallowed for the same reason.
+ */
+export async function deleteEntryFiles(activity: FormActivity, answers: Record<string, string>): Promise<void> {
+  const paths = activity.questions.filter((q) => q.type === "file").map((q) => answers[q.key] ?? "").filter((p) => ownFile(activity, p));
+  await discardUploads(paths);
 }
 
 /**

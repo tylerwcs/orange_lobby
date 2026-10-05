@@ -4,10 +4,11 @@ import { signedSubmissionUrl } from "@/lib/db/media";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
- * D391: the Edit control for one entry, or null where it may not be edited. Handed the signed
- * links to the entry's current files, already minted here, so the form can show them.
+ * D391/D398: the Edit and Delete controls for one entry, or null where it may not be changed.
+ * Handed the signed links to the entry's current files, already minted here, so the form can
+ * show them. `variant`: text links under the answers (default), or the tracker's ⋯ menu.
  */
-export type EditEntry = (s: ActivitySubmission, fileLinks: Record<string, string | null>) => React.ReactNode;
+export type EditEntry = (s: ActivitySubmission, fileLinks: Record<string, string | null>, variant?: "menu" | "links") => React.ReactNode;
 
 /**
  * One list of submissions, newest first - this component only renders what it is given. Usually

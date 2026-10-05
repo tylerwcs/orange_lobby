@@ -148,6 +148,12 @@ export type TrackerTab = "info" | "stats" | "leaderboard";
  * has no param, so the bare page - where a submit and the WhatsApp links land - opens on it, and
  * anything unknown falls back to it rather than to an empty page.
  */
-export function trackerTab(raw: string | undefined): TrackerTab {
-  return raw === "info" || raw === "leaderboard" ? raw : "stats";
+export function trackerTab(raw: string | undefined, showLeaderboard = true): TrackerTab {
+  // D397: a hidden leaderboard has no tab, so an old link to it lands on My stats.
+  return raw === "info" || (raw === "leaderboard" && showLeaderboard) ? raw : "stats";
+}
+
+/** D397: the tabs in order; Leaderboard only while the organiser shows it. */
+export function trackerTabs(showLeaderboard: boolean): TrackerTab[] {
+  return showLeaderboard ? ["info", "stats", "leaderboard"] : ["info", "stats"];
 }

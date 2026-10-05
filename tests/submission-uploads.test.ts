@@ -16,7 +16,7 @@ vi.mock("@/lib/db/media", () => ({
   },
 }));
 
-const { readAnswers, saveOrDiscard, replacedFiles, deleteReplacedFiles } = await import("@/lib/submission-uploads");
+const { readAnswers, saveOrDiscard, replacedFiles, deleteReplacedFiles, deleteEntryFiles } = await import("@/lib/submission-uploads");
 
 const FOLDER = "org1/ev1/act1/";
 const questions: RegistrationQuestion[] = [
@@ -28,6 +28,8 @@ const questions: RegistrationQuestion[] = [
 const activity = { id: "act1", org_id: "org1", event_id: "ev1", questions };
 
 const png = (name: string) => new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" });
+/** SHA-256 of png()'s three bytes (D396). */
+const PNG_HASH = "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81";
 function form(fields: Record<string, string | File>): FormData {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
@@ -48,6 +50,7 @@ describe("readAnswers", () => {
       ok: true,
       answers: { note: "Hi", kind: "Photo", photo: `${FOLDER}submission-1.png`, receipt: `${FOLDER}submission-2.png` },
       uploaded: [`${FOLDER}submission-1.png`, `${FOLDER}submission-2.png`],
+      hashes: { photo: PNG_HASH, receipt: PNG_HASH },
     });
   });
 
@@ -58,12 +61,13 @@ describe("readAnswers", () => {
       ok: true,
       answers: { note: "New", kind: "Photo", photo: `${FOLDER}submission-old.png`, receipt: `${FOLDER}submission-1.png` },
       uploaded: [`${FOLDER}submission-1.png`],
+      hashes: { receipt: PNG_HASH },
     });
   });
 
   it("does not upload a file posted for a question its show_when hides", async () => {
     const r = await readAnswers(activity, form({ note: "Hi", kind: "None", photo: png("a.png") }));
-    expect(r).toEqual({ ok: true, answers: { note: "Hi", kind: "None", photo: "", receipt: "" }, uploaded: [] });
+    expect(r).toEqual({ ok: true, answers: { note: "Hi", kind: "None", photo: "", receipt: "" }, uploaded: [], hashes: {} });
     expect(storage.next).toBe(0);
   });
 
@@ -93,7 +97,7 @@ describe("readAnswers", () => {
     ];
     const activityWithConstructor = { id: "act1", org_id: "org1", event_id: "ev1", questions: withConstructor };
     const r = await readAnswers(activityWithConstructor, form({ note: "Hi" }));
-    expect(r).toEqual({ ok: true, answers: { note: "Hi", constructor: "" }, uploaded: [] });
+    expect(r).toEqual({ ok: true, answers: { note: "Hi", constructor: "" }, uploaded: [], hashes: {} });
   });
 });
 
@@ -173,5 +177,17 @@ describe("deleteReplacedFiles", () => {
     const before = { photo: `${FOLDER}submission-old.png` };
     await expect(deleteReplacedFiles(activity, before, before, [])).resolves.toBeUndefined();
     expect(storage.deleted).toEqual([]);
+  });
+});
+
+describe("deleteEntryFiles (D398)", () => {
+  it("deletes a deleted entry's own files, never a path outside this activity's folder or a typed answer", async () => {
+    await deleteEntryFiles(activity, { note: `${FOLDER}submission-9.png`, kind: "Photo", photo: `${FOLDER}submission-1.png`, receipt: "org1/ev1/other/submission-2.png" });
+    expect(storage.deleted).toEqual([[`${FOLDER}submission-1.png`]]);
+  });
+
+  it("swallows a storage failure: the entry is already gone", async () => {
+    storage.deleteThrows = true;
+    await expect(deleteEntryFiles(activity, { photo: `${FOLDER}submission-1.png` })).resolves.toBeUndefined();
   });
 });

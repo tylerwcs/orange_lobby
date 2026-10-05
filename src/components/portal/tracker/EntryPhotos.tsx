@@ -1,13 +1,21 @@
 "use client";
-import { MoreHorizontal } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-/** D374: an entry's ⋯ offers its photos only - attendees cannot edit or delete (D368). */
+/**
+ * D374/D398: an entry's photos, opened by tapping its thumbnail - the first photo, or a picture
+ * icon when that one could not be signed. Edit and Delete live in the ⋯ beside it (EntryActions).
+ */
 export function EntryPhotos({ title, photos }: { title: string; photos: { label: string; url: string | null }[] }) {
+  const thumb = photos[0]?.url;
   return (
     <Dialog>
-      <DialogTrigger render={<button type="button" aria-label={`View photos for ${title}`} className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" />}>
-        <MoreHorizontal aria-hidden className="size-5" />
+      <DialogTrigger render={<button type="button" aria-label={`View photos for ${title}`}
+        className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />}>
+        {thumb
+          // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed URL, not an optimisable asset
+          ? <img src={thumb} alt="" className="size-full object-cover" />
+          : <ImageIcon aria-hidden className="size-5" />}
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] grid-cols-1 overflow-y-auto sm:max-w-lg">
         <DialogTitle className="pr-8 text-lg font-extrabold">{title}</DialogTitle>

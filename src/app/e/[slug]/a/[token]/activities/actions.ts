@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { loadPortalAttendee } from "@/lib/portal";
 import {
   bookSession, getActivity, listSessions, bookingsForAttendee,
-  submitAnswers, getSubmission, updateOwnSubmissionAnswers, type BookResult, type SubmitCode,
+  submitAnswers, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type BookResult, type SubmitCode,
 } from "@/lib/db/activities";
+import { nextFileHashes, sharesFile } from "@/lib/file-hashes";
 import { canEditOwn } from "@/lib/submissions";
 import { getAttendee } from "@/lib/db/attendees";
 import { createRequest, withdrawRequest, requestsForAttendee } from "@/lib/db/activity-requests";
 import { bookingArrivalsFor } from "@/lib/db/checkins";
-import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
+import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles, deleteEntryFiles } from "@/lib/submission-uploads";
 import { nowInKL } from "@/lib/time";
 import { flashPath } from "@/lib/flash";
 import { sessionLabel } from "@/lib/activities";
@@ -190,6 +191,9 @@ export async function withdrawRequestAction(slug: string, token: string, request
     : flashPath(path, "That request is no longer waiting.", "error"));
 }
 
+/** D396: the same file is already in one of this person's live entries. */
+const DUPLICATE = "This photo was already sent in another entry. Check your entries before sending it again.";
+
 /**
  * What the attendee is told for every `SubmitCode` the database can return (D167). `canSubmit`
  * draws the page and cannot return `missing` — it was handed an activity, so it always has one
@@ -207,6 +211,7 @@ const SUBMIT_RESULT_MESSAGES: Record<SubmitCode, string> = {
   nogroup: "You need to be in a group to submit this.",
   groupdone: "Your group has already sent everything this needs.",
   proxy: "You can only submit for members of your own group.",
+  duplicate: DUPLICATE,
 };
 
 /** Renamed from submitFormAction: there is no `forms` route left for it to be named after (D178). */
@@ -244,7 +249,7 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   // `canSubmit` decided what the page drew; it is never consulted here. Only `submit_answers`
   // decides what is allowed, and it is asked regardless of what the stale page believed.
   const today = nowInKL().date;
-  const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, member.id, form.answers, today, onBehalf ? attendee.id : null));
+  const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, member.id, form.answers, today, onBehalf ? attendee.id : null, form.hashes));
   if (result !== "ok") await discardUploads(form.uploaded);
   const message = result === "ok" && onBehalf ? `Submitted for ${member.name}. Thanks!` : SUBMIT_RESULT_MESSAGES[result];
   redirect(flashPath(path, message, result === "ok" ? "ok" : "error"));
@@ -280,7 +285,14 @@ export async function editMySubmissionAction(slug: string, token: string, activi
   const keys = new Set(activity.questions.map((q) => q.key));
   const retired = Object.fromEntries(Object.entries(current.answers).filter(([k]) => !keys.has(k)));
   const answers = { ...retired, ...form.answers };
-  const saved = await saveOrDiscard(form.uploaded, () => updateOwnSubmissionAnswers(current.id, activity.id, attendee.id, today, answers));
+  // D396: a swapped-in photo may not be one already in another of the entry owner's live entries.
+  // Read and checked here rather than in the write: an edit races nobody but its owner.
+  if (Object.keys(form.hashes).length > 0 && sharesFile(form.hashes, await entriesForAttendee(activity.id, current.attendee_id), current.id)) {
+    await discardUploads(form.uploaded);
+    redirect(flashPath(path, DUPLICATE, "error"));
+  }
+  const hashes = nextFileHashes(activity.questions, current.answers, current.file_hashes, answers, form.hashes);
+  const saved = await saveOrDiscard(form.uploaded, () => updateOwnSubmissionAnswers(current.id, activity.id, attendee.id, today, answers, hashes));
   if (!saved) {
     await discardUploads(form.uploaded);
     redirect(flashPath(path, gone, "error"));
@@ -288,4 +300,33 @@ export async function editMySubmissionAction(slug: string, token: string, activi
 
   await deleteReplacedFiles(activity, current.answers, answers, form.uploaded);
   redirect(flashPath(path, "Changes saved."));
+}
+
+/**
+ * D398: an attendee deletes one of their own entries, under exactly the rules Edit has
+ * (`canEditOwn`): theirs, live, sent today, while the form allows it. Gone for good - the row,
+ * then its files - so the day's ring and points drop at once, and the same photo may be sent
+ * again. `deleteOwnSubmission` re-checks the rules in the delete itself.
+ */
+export async function deleteMySubmissionAction(slug: string, token: string, activityId: string, submissionId: string) {
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const path = `/e/${slug}/a/${token}/activities/${activityId}`;
+  const gone = "That entry can no longer be deleted.";
+
+  if (!allow(`form:${token}`, 20, 60_000)) {
+    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+  }
+
+  const [activity, current] = await Promise.all([getActivity(activityId, event.id), getSubmission(submissionId)]);
+  const today = nowInKL().date;
+  if (!activity || activity.kind !== "submission" || !current || current.activity_id !== activity.id
+    || !canEditOwn(activity, current, attendee.id, attendee.category, today)) {
+    redirect(flashPath(path, gone, "error"));
+  }
+
+  const removed = await deleteOwnSubmission(current.id, activity.id, attendee.id, today);
+  if (!removed) redirect(flashPath(path, gone, "error"));
+
+  await deleteEntryFiles(activity, removed.answers);
+  redirect(flashPath(path, "Entry deleted."));
 }

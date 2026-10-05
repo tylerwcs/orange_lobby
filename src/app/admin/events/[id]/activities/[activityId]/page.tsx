@@ -46,9 +46,9 @@ import { LeaderboardPanel } from "@/components/admin/LeaderboardPanel";
 import { TeamGrid } from "@/components/admin/TeamGrid";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  saveActivityAction, toggleOpenAction, togglePinAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
+  saveActivityAction, toggleOpenAction, togglePinAction, toggleLeaderboardAction, deleteActivityAction, saveSubmissionActivityAction, deleteSubmissionActivityAction,
   addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction,
   placeAttendeesAction, approveRequestAction, declineRequestAction,
   uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction, disqualifyAction, undoDisqualifyAction,
@@ -433,7 +433,14 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
 
       {current === "leaderboard" && challenge && (
         <Card className="overflow-hidden">
-          <CardHeader><CardTitle>Leaderboard</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Leaderboard</CardTitle>
+            {/* D397: whether attendees get the Leaderboard tab. This one is the committee's, always. */}
+            <CardAction>
+              <OpenSwitch open={activity.show_leaderboard} action={toggleLeaderboardAction.bind(null, ev.id, activity.id)}
+                name="the leaderboard to attendees" verb="Show" showLabel states={["Shown to attendees", "Hidden from attendees"]} />
+            </CardAction>
+          </CardHeader>
           <CardContent>
             {gridTeam && gridWeekShown ? (
               <TeamGrid

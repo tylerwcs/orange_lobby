@@ -6,7 +6,7 @@ const form = (over: Partial<Activity> = {}) => ({ id: "f1", group_mode: "entries
 const sub = (id: string, attendee: string, group: string | null, over: Partial<ActivitySubmission> = {}): ActivitySubmission => ({
   id, event_id: "e", activity_id: "f1", attendee_id: attendee, group_id: group, answers: {},
   submitted_on: "2026-10-01", status: "submitted", per_day: false, created_at: "2026-10-01T01:00:00Z",
-  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null, submitted_by: null, ...over,
+  revoked_at: null, revoked_by: null, edited_at: null, edited_by: null, attendee_edited_at: null, submitted_by: null, file_hashes: {}, ...over,
 });
 const members = [
   { id: "a", name: "Aisyah", category: "KOM" },

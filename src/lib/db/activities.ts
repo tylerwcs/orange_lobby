@@ -36,6 +36,8 @@ export type NewActivity = {
   attendee_edit?: boolean;
   /** Submission kind only (D392). Left out, the column's empty list stands. */
   proxy_fields?: string[];
+  /** D397. Left out, the column's true stands; `toggleLeaderboardAction` alone flips it. */
+  show_leaderboard?: boolean;
 };
 
 export type NewSession = {
@@ -330,7 +332,7 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
 
 /** Every answer `submit_answers` can give. Mirrors BookResult; `today` replaces `full`. */
 /** D392 adds `proxy`: the sender may not submit for that member. */
-export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone" | "proxy";
+export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone" | "proxy" | "duplicate";
 
 // revoked rows never count and never reach an attendee (D339, D341).
 // Paged (D289): a daily challenge passes 1,000 rows within days, and newest-first would drop the
@@ -390,9 +392,11 @@ export async function getSubmission(id: string): Promise<ActivitySubmission | nu
 }
 
 /** D337. Only a live row can be edited; false when it was revoked or is gone. */
-export async function updateSubmissionAnswers(id: string, activityId: string, answers: Record<string, string>, userId: string): Promise<boolean> {
+export async function updateSubmissionAnswers(
+  id: string, activityId: string, answers: Record<string, string>, userId: string, fileHashes: Record<string, string>,
+): Promise<boolean> {
   const { data, error } = await serviceClient().from("activity_submissions")
-    .update({ answers, edited_at: new Date().toISOString(), edited_by: userId })
+    .update({ answers, file_hashes: fileHashes, edited_at: new Date().toISOString(), edited_by: userId })
     .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
@@ -403,13 +407,28 @@ export async function updateSubmissionAnswers(id: string, activityId: string, an
  * the write itself - their row, still live, sent today - so a revoke or midnight landing between
  * the check and the save wins. False when any of them no longer holds.
  */
-export async function updateOwnSubmissionAnswers(id: string, activityId: string, attendeeId: string, today: string, answers: Record<string, string>): Promise<boolean> {
+export async function updateOwnSubmissionAnswers(
+  id: string, activityId: string, attendeeId: string, today: string, answers: Record<string, string>, fileHashes: Record<string, string>,
+): Promise<boolean> {
   const { data, error } = await serviceClient().from("activity_submissions")
-    .update({ answers, attendee_edited_at: new Date().toISOString() })
+    .update({ answers, file_hashes: fileHashes, attendee_edited_at: new Date().toISOString() })
     .eq("id", id).eq("activity_id", activityId).or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`)
     .eq("status", "submitted").eq("submitted_on", today).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+/**
+ * D398: an attendee deletes their own entry - gone for good, row and (by the caller) files. The
+ * same rules as `updateOwnSubmissionAnswers`, re-checked in the delete itself. Returns the row it
+ * removed, so the caller deletes exactly that row's files; null when any rule no longer holds.
+ */
+export async function deleteOwnSubmission(id: string, activityId: string, attendeeId: string, today: string): Promise<ActivitySubmission | null> {
+  const { data, error } = await serviceClient().from("activity_submissions").delete()
+    .eq("id", id).eq("activity_id", activityId).or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`)
+    .eq("status", "submitted").eq("submitted_on", today).select("*");
+  if (error) throw error;
+  return (data?.[0] as ActivitySubmission | undefined) ?? null;
 }
 
 /** D392: the live entries this attendee sent today for other members of their group, newest first. */
@@ -441,9 +460,12 @@ export async function submitAnswers(
   activityId: string, attendeeId: string, answers: Record<string, string>, today: string,
   /** D392: the group member sending this for `attendeeId`; null when they send it themselves. */
   submittedBy: string | null = null,
+  /** D396: the fingerprints of this request's uploads; a match in the member's live entries is `duplicate`. */
+  fileHashes: Record<string, string> = {},
 ): Promise<SubmitCode> {
   const { data, error } = await serviceClient().rpc("submit_answers", {
     p_activity_id: activityId, p_attendee_id: attendeeId, p_answers: answers, p_today: today, p_submitted_by: submittedBy,
+    p_file_hashes: fileHashes,
   });
   if (error) throw error;
   return data as SubmitCode;
