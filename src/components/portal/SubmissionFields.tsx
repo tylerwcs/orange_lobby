@@ -66,12 +66,13 @@ function renderQuestion(q: RegistrationQuestion, current: string) {
         accept={UPLOAD_ACCEPT}
         required={q.required && !current}
         onChange={(e) => void prepareFile(e.currentTarget)}
-        /* `flex items-center` is the fix for the button sitting high in the box. `inputClass`
-           sets a 44px height with no vertical padding, and a file input lays its shadow button
-           out on a baseline-aligned line box — unlike a text input, which browsers centre
-           internally as a special case. Flex makes the centring explicit instead of hoping the
-           line box lands in the middle. */
-        className={`${inputClass} flex items-center file:mr-3 file:rounded-[8px] file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-white`}
+        /* Centred by arithmetic, not flex: Chrome ignores `display: flex` inside a file input and
+           lays its button on the text baseline, which left it ~5px high in the 44px box. With the
+           input's own text matching the button's (14px on a 20px line), the 32px button (20px +
+           6px padding each side) fills the line box exactly, and 5px padding plus the 1px border
+           each side makes 44px with it dead centre. `inputClass` is not reused because its
+           `text-base` would fight the `text-sm` here. */
+        className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 py-[5px] text-sm leading-5 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 file:mr-3 file:rounded-[8px] file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-sm file:leading-5 file:font-bold file:text-white"
       />
     );
   }
@@ -150,9 +151,7 @@ function SampleLink({ src, label }: { src: string; label: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="flex w-fit items-center gap-2 rounded-md text-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="size-9 shrink-0 rounded-md border border-border bg-muted object-cover" />
+      <button type="button" onClick={() => setOpen(true)} className="w-fit rounded-md text-left text-sm font-medium text-primary underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
         See a sample
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
