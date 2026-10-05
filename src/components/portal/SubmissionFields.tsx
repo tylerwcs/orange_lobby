@@ -6,6 +6,7 @@ import { isQuestionShown } from "@/lib/show-when";
 import { numberInputAttrs } from "@/lib/number-answer";
 import type { RegistrationQuestion } from "@/lib/types";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const inputClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
 
@@ -121,6 +122,7 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
                 {!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}
               </FieldLabel>
               {q.description && <FieldDescription>{q.description}</FieldDescription>}
+              {q.type === "file" && q.sample_url && <SampleLink src={q.sample_url} label={q.label} />}
               {storedFile && (
                 <p className="text-sm">
                   Current file:{" "}
@@ -136,5 +138,30 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
         })}
       </FieldGroup>
     </FieldSet>
+  );
+}
+
+/**
+ * A file question's sample picture (D395), opened in place so the person can look and come back
+ * to the form without losing what they typed. A button rather than a plain link for that reason:
+ * a new tab on a phone is easy to lose, and leaving the page loses an uncontrolled form.
+ */
+function SampleLink({ src, label }: { src: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="flex w-fit items-center gap-2 rounded-md text-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" className="size-9 shrink-0 rounded-md border border-border bg-muted object-cover" />
+        See a sample
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[min(92vw,900px)] p-2">
+          <DialogTitle className="px-2 pt-1 text-sm">Sample: {label}</DialogTitle>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt={`A sample of what to upload for ${label}`} className="max-h-[80vh] w-full rounded-[10px] object-contain" />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

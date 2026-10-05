@@ -21,6 +21,8 @@ const schemaFor = (allowed: readonly QuestionType[]) => z.object({
   min: z.number().optional(),
   max: z.number().optional(),
   decimals: z.number().int().min(0).max(4).optional(),
+  // D395: shown to attendees as a link and an <img>, so only ever a web address.
+  sample_url: z.string().regex(/^https?:\/\//, "sample must be a web link").optional(),
 }).refine((q) => q.type !== "select" || (q.options && q.options.length > 0), { message: "select questions need options" })
   .refine((q) => q.min === undefined || q.max === undefined || q.min <= q.max, { message: "the smallest number allowed is above the largest" });
 

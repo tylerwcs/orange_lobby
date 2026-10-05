@@ -54,14 +54,14 @@ describe("questionFormEntries", () => {
   });
 
   it("gives a new question the key its label makes, the same rule keyFor states", () => {
-    const fresh = { key: "", label: "Before photo", type: "file" as const, required: true, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "" };
+    const fresh = { key: "", label: "Before photo", type: "file" as const, required: true, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "", sample: "" };
     expect(read(questionFormEntries([fresh]))[0].key).toBe("before_photo");
     expect(keyFor("Before photo")).toBe("before_photo");
   });
 
   it("numbers questions in their on-screen order and drops unlabelled drafts", () => {
     const drafts = saved.map(draftFrom).reverse();
-    drafts.splice(1, 0, { key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "" });
+    drafts.splice(1, 0, { key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "", sample: "" });
     expect(read(questionFormEntries(drafts)).map((q) => q.key)).toEqual(["target_kg", "track", "goal"]);
   });
 });
@@ -86,5 +86,29 @@ describe("number limits in the editor (D370)", () => {
     const original = { key: "km", label: "Distance (km)", type: "number" as const, required: true, min: 1, max: 50, decimals: 2 };
     const back = questionsFromForm(fields(questionFormEntries([draftFrom(original)])), FORM_QUESTION_TYPES, 20);
     expect(back[0]).toMatchObject({ min: 1, max: 50, decimals: 2 });
+  });
+});
+
+describe("a file question's sample photo (D395)", () => {
+  const fields = (entries: [string, string][]) => { const m = new Map(entries); return (k: string) => m.get(k) ?? null; };
+  const SAMPLE = "https://example.supabase.co/storage/v1/object/public/event-assets/o/e/activity/sample.jpg";
+
+  it("round-trips through the card draft", () => {
+    const original: RegistrationQuestion = { key: "receipt", label: "Receipt", type: "file", required: true, sample_url: SAMPLE };
+    expect(read(questionFormEntries([draftFrom(original)]))).toEqual([original]);
+  });
+
+  it("is left off a file question without one", () => {
+    const q = questionsFromForm(fields([["q_1_label", "Receipt"], ["q_1_type", "file"], ["q_1_sample", ""]]), FORM_QUESTION_TYPES, 20);
+    expect(q[0]).not.toHaveProperty("sample_url");
+  });
+
+  it("is dropped from a question that is not a file, so changing the type leaves no stray picture", () => {
+    const q = questionsFromForm(fields([["q_1_label", "Notes"], ["q_1_type", "textarea"], ["q_1_sample", SAMPLE]]), FORM_QUESTION_TYPES, 20);
+    expect(q[0]).not.toHaveProperty("sample_url");
+  });
+
+  it("must be a web link", () => {
+    expect(() => questionsFromForm(fields([["q_1_label", "Receipt"], ["q_1_type", "file"], ["q_1_sample", "javascript:alert(1)"]]), FORM_QUESTION_TYPES, 20)).toThrow(/sample/);
   });
 });

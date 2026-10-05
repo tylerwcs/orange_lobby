@@ -28,6 +28,8 @@ export type RegistrationQuestion = {
   max?: number;
   /** Most digits after the point; 0 means a whole number. */
   decimals?: number;
+  /** D395, file questions only: a public picture of what a good upload looks like. */
+  sample_url?: string;
 };
 
 export type Event = {

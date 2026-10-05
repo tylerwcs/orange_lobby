@@ -72,7 +72,7 @@ export function SubmissionFields({ activity, categories, fields, uploadImage }: 
       <ScoringFields activity={activity} />
       <div className="flex flex-col gap-1.5">
         <h3 className="text-sm font-extrabold">Questions</h3>
-        <QuestionCards questions={activity?.questions ?? []} types={FORM_QUESTION_TYPES} max={MAX_SUBMISSION_QUESTIONS} />
+        <QuestionCards questions={activity?.questions ?? []} types={FORM_QUESTION_TYPES} max={MAX_SUBMISSION_QUESTIONS} uploadImage={uploadImage} />
       </div>
     </>
   );

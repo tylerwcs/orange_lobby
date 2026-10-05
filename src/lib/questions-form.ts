@@ -27,12 +27,15 @@ export function questionsFromForm(
     const limits = type === "number"
       ? Object.fromEntries((["min", "max", "decimals"] as const).map((k) => [k, limit(k)]).filter(([, v]) => v !== undefined))
       : {};
+    // D395: a sample belongs to a file question only, so switching the type away drops it.
+    const sample = type === "file" ? t(`q_${n}_sample`) : "";
     raw.push({
       key, label, type, required: get(`q_${n}_required`) === "on",
       ...(type === "select" ? { options } : {}),
       ...(t(`q_${n}_description`) ? { description: t(`q_${n}_description`) } : {}),
       ...(showKey && showValue ? { show_when: { key: keyFor(showKey), includes: showValue } } : {}),
       ...limits,
+      ...(sample ? { sample_url: sample } : {}),
     });
   }
   return parseQuestions(raw, allowed);
@@ -58,6 +61,8 @@ export type QuestionDraft = {
   min: string;
   max: string;
   decimals: string;
+  /** D395, file questions only: the sample picture's link, "" for none. */
+  sample: string;
 };
 
 export function draftFrom(q: RegistrationQuestion): QuestionDraft {
@@ -65,6 +70,7 @@ export function draftFrom(q: RegistrationQuestion): QuestionDraft {
     key: q.key, label: q.label, type: q.type, required: q.required, options: q.options ?? [],
     description: q.description ?? "", showKey: q.show_when?.key ?? "", showValue: q.show_when?.includes ?? "",
     min: q.min?.toString() ?? "", max: q.max?.toString() ?? "", decimals: q.decimals?.toString() ?? "",
+    sample: q.sample_url ?? "",
   };
 }
 
@@ -83,6 +89,7 @@ export function questionFormEntries(drafts: QuestionDraft[]): [string, string][]
     out.push([`q_${n}_options`, d.options.join(", ")], [`q_${n}_description`, d.description]);
     out.push([`q_${n}_show_key`, d.showKey], [`q_${n}_show_value`, d.showValue]);
     out.push([`q_${n}_min`, d.min], [`q_${n}_max`, d.max], [`q_${n}_decimals`, d.decimals]);
+    out.push([`q_${n}_sample`, d.sample]);
   });
   return out;
 }

@@ -1,17 +1,21 @@
 "use client";
 import { useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageUp, Plus, Trash2 } from "lucide-react";
 import { draftFrom, keyFor, questionFormEntries, type QuestionDraft } from "@/lib/questions-form";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import type { UploadImage } from "@/components/admin/RichTextEditor";
+import { acceptImage, IMAGE_ACCEPT } from "@/lib/storage";
+import { shrinkImage } from "@/lib/shrink-image";
 import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const TYPE_LABELS: Record<QuestionType, string> = { text: "Text", phone: "Phone", number: "Number", select: "Choice", textarea: "Long text", file: "File" };
 
 type Card = QuestionDraft & { id: number };
-const blank = (): QuestionDraft => ({ key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "" });
+const blank = (): QuestionDraft => ({ key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "", sample: "" });
 
 /**
  * The one question editor (D174, D243), for the registration form and for a submission
@@ -21,11 +25,15 @@ const blank = (): QuestionDraft => ({ key: "", label: "", type: "text", required
  * Every field the server reads is a hidden input built by `questionFormEntries` from this
  * state, so the posted contract is the tested one (D247) and the visible controls carry no
  * names at all.
+ *
+ * `uploadImage` turns on a file question's sample picture (D395); registration has no file
+ * questions, so only the submission editor passes it.
  */
-export function QuestionCards({ questions, types, max }: {
+export function QuestionCards({ questions, types, max, uploadImage }: {
   questions: RegistrationQuestion[];
   types: readonly QuestionType[];
   max: number;
+  uploadImage?: UploadImage;
 }) {
   const nextId = useRef(questions.length);
   const [cards, setCards] = useState<Card[]>(() => questions.map((q, i) => ({ ...draftFrom(q), id: i })));
@@ -56,7 +64,7 @@ export function QuestionCards({ questions, types, max }: {
           const expanded = open === c.id;
           const earlier = cards.slice(0, i).filter((e) => e.label.trim());
           const target = earlier.find((e) => keyFor(e.key || e.label) === c.showKey);
-          const summary = [TYPE_LABELS[c.type], c.required ? "required" : null, c.showKey ? "conditional" : null].filter(Boolean).join(" · ");
+          const summary = [TYPE_LABELS[c.type], c.required ? "required" : null, c.showKey ? "conditional" : null, c.type === "file" && c.sample ? "sample" : null].filter(Boolean).join(" · ");
           return (
             <li key={c.id} className={`rounded-lg border ${expanded ? "border-primary/50" : "border-border"}`}>
               <div className="flex items-center gap-1 px-2 py-1.5">
@@ -105,6 +113,9 @@ export function QuestionCards({ questions, types, max }: {
                       ))}
                     </div>
                   )}
+                  {c.type === "file" && uploadImage && (
+                    <SamplePicker url={c.sample} upload={uploadImage} onChange={(sample) => update(c.id, { sample })} />
+                  )}
                   <label className="grid gap-1.5 text-sm"><span className="font-bold">Help text (optional)</span>
                     <input value={c.description} onChange={(e) => update(c.id, { description: e.target.value })} className={input} /></label>
                   <div className="grid gap-1.5 text-sm">
@@ -150,6 +161,66 @@ export function QuestionCards({ questions, types, max }: {
       {cards.length < max
         ? <Button type="button" variant="outline" size="sm" className="w-fit" onClick={add}><Plus data-icon="inline-start" />Add question</Button>
         : <p className="text-xs text-muted-foreground">That’s the most questions this form can have ({max}).</p>}
+    </div>
+  );
+}
+
+/**
+ * A file question's sample picture (D395): what a good upload looks like, which attendees can
+ * open from the form. The picture goes up the moment it is picked, the way an image in the
+ * description editor does, and only its link rides the form, so Save keeps it or not along with
+ * everything else on the card.
+ */
+function SamplePicker({ url, upload, onChange }: { url: string; upload: UploadImage; onChange: (url: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose(picked: File | undefined) {
+    if (input.current) input.current.value = "";
+    setError(null);
+    if (!picked) return;
+    setBusy(true);
+    try {
+      // A phone photo is often over the 4 MB the upload takes; the same shrink the portal uses.
+      const file = await shrinkImage(picked);
+      acceptImage(file);
+      const fd = new FormData();
+      fd.set("image", file);
+      const res = await upload(fd).catch(() => ({ error: "Could not upload that image. Try again." }));
+      if ("error" in res) setError(res.error);
+      else onChange(res.url);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-1.5 text-sm">
+      <span className="font-bold">Sample photo (optional)</span>
+      <div className="flex flex-wrap items-center gap-2">
+        {url && (
+          <a href={url} target="_blank" rel="noreferrer" aria-label="Open the sample photo" className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt="" className="size-14 rounded-md border border-border bg-muted object-contain" />
+          </a>
+        )}
+        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => input.current?.click()}>
+          {busy ? <Spinner /> : <ImageUp aria-hidden />}
+          {url ? "Replace sample" : "Add sample"}
+        </Button>
+        {url && !busy && (
+          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={() => onChange("")}>
+            <Trash2 aria-hidden />Remove
+          </Button>
+        )}
+        <input ref={input} type="file" accept={IMAGE_ACCEPT} className="sr-only" tabIndex={-1} aria-label="Sample photo" onChange={(e) => void choose(e.target.files?.[0])} />
+      </div>
+      {error
+        ? <span className="text-xs text-destructive">{error}</span>
+        : <span className="text-xs text-muted-foreground">An example of what to upload. People can open it from the form before they pick their own file.</span>}
     </div>
   );
 }
