@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingIcs, icsText, foldLine, klToUtc } from "@/lib/ics";
+import { bookingIcs, icsText, foldLine, klToUtc, outlookComposeUrl } from "@/lib/ics";
 
 const input = {
   uid: "3f1c2a9e-0000-4000-8000-000000000001",
@@ -108,5 +108,38 @@ describe("bookingIcs", () => {
     expect(l).toContain("BEGIN:VALARM");
     expect(l).toContain("TRIGGER:-PT15M");
     expect(l).toContain("ACTION:DISPLAY");
+  });
+});
+
+describe("outlookComposeUrl", () => {
+  const params = (url: string) => new URL(url).searchParams;
+
+  it("opens Outlook on the web's new-event form for a work account", () => {
+    const url = new URL(outlookComposeUrl(input));
+    expect(url.origin + url.pathname).toBe("https://outlook.office.com/calendar/0/deeplink/compose");
+    expect(url.searchParams.get("path")).toBe("/calendar/action/compose");
+    expect(url.searchParams.get("rru")).toBe("addevent");
+  });
+
+  it("fills in the session's name, place, notes and UTC times", () => {
+    const p = params(outlookComposeUrl(input));
+    expect(p.get("subject")).toBe("Wellness screening");
+    expect(p.get("location")).toBe("Level 3, Room A");
+    expect(p.get("startdt")).toBe("2026-09-30T01:30:00Z");
+    expect(p.get("enddt")).toBe("2026-09-30T02:00:00Z");
+    expect(p.get("body")).toBe(`Ecopia Kick-Off Meeting 2026\n\n${input.url}`);
+  });
+
+  it("encodes spaces as %20, which Outlook never shows as a literal +", () => {
+    expect(outlookComposeUrl(input)).toContain("subject=Wellness%20screening");
+    expect(outlookComposeUrl(input)).not.toContain("+");
+  });
+
+  it("ends where it starts when the session has no end time", () => {
+    expect(params(outlookComposeUrl({ ...input, endsAt: null })).get("enddt")).toBe("2026-09-30T01:30:00Z");
+  });
+
+  it("omits the location when the session has none", () => {
+    expect(params(outlookComposeUrl({ ...input, location: null })).has("location")).toBe(false);
   });
 });

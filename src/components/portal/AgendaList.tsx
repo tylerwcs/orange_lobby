@@ -6,6 +6,7 @@ import { bookedSessionId, isBookedRow } from "@/lib/activities";
 import { CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AgendaImage } from "./AgendaImage";
+import { AddToCalendar } from "./AddToCalendar";
 import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
 import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
@@ -82,14 +83,12 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
               {isBookedRow(i) && <div className="mt-1.5"><Badge variant="success">Booked</Badge></div>}
             </div>
             {/* On the right, centred on the row, as a soft pill: it belongs to the whole session,
-                not to the Booked badge. A plain <a>, not <Link>: it is a file, not a page, and
-                must not be prefetched. No `download` either - iOS would save it rather than
-                offer to add it. */}
+                not to the Booked badge. */}
             {ics && (
-              <a href={ics} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 self-center rounded-full bg-accent px-3.5 text-[13px] font-bold text-primary outline-none transition-colors hover:bg-primary/15 focus-visible:ring-3 focus-visible:ring-ring/50">
+              <AddToCalendar href={ics} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 self-center rounded-full bg-accent px-3.5 text-[13px] font-bold text-primary outline-none transition-colors hover:bg-primary/15 focus-visible:ring-3 focus-visible:ring-ring/50">
                 <CalendarPlus className="size-[15px]" aria-hidden="true" />
                 Add to calendar
-              </a>
+              </AddToCalendar>
             )}
             {/* Trailing edge, after the text: the leading edge already belongs to the time
                 and the colour bar, and a picture must not push the hour off the row. */}

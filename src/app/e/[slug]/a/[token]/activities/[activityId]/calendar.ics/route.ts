@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { loadPortalAttendee, portalActivities, portalBookings, isUnpublished } from "@/lib/portal";
 import { listSessions } from "@/lib/db/activities";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
-import { bookingIcs } from "@/lib/ics";
+import { bookingIcs, outlookComposeUrl } from "@/lib/ics";
 
 /**
  * One booked seat as a calendar file: `?session=<id>`. The attendee's token is the only
@@ -11,10 +11,14 @@ import { bookingIcs } from "@/lib/ics";
  *
  * Served inline rather than as an attachment: iOS Safari then offers "Add to Calendar"
  * directly, and desktop browsers, which cannot render text/calendar, download it anyway.
+ *
+ * D393: `&app=outlook` sends the same seat to Outlook on the web instead, after the same
+ * checks, because iOS gives a .ics file to Apple Calendar only.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string; token: string; activityId: string }> }) {
   const { slug, token, activityId } = await params;
-  const sessionId = new URL(req.url).searchParams.get("session");
+  const query = new URL(req.url).searchParams;
+  const sessionId = query.get("session");
   if (!sessionId) notFound();
   const { event, attendee } = await loadPortalAttendee(slug, token);
   if (isUnpublished(event)) notFound();
@@ -28,8 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const booking = mine.find((b) => b.session_id === sessionId);
   if (!activity || !session || !booking) notFound();
 
-  const ics = bookingIcs({
-    uid: booking.id,
+  const entry = {
     title: activity.name,
     day: session.day,
     startsAt: session.starts_at,
@@ -37,8 +40,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     location: session.location,
     description: event.name,
     url: `${attendeeLink(appBaseUrl(), slug, token)}/activities/${activityId}`,
-    now: new Date(),
-  });
+  };
+  if (query.get("app") === "outlook") {
+    return new Response(null, {
+      status: 302,
+      headers: { Location: outlookComposeUrl(entry), "Cache-Control": "private, no-store" },
+    });
+  }
+
+  const ics = bookingIcs({ ...entry, uid: booking.id, now: new Date() });
   const filename = activity.name.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "session";
   return new Response(ics, {
     headers: {

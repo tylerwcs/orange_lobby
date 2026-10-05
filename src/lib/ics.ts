@@ -93,3 +93,33 @@ export function bookingIcs(b: BookingIcsInput): string {
   ];
   return lines.map(foldLine).join("\r\n") + "\r\n";
 }
+
+/** `YYYY-MM-DD` + `HH:MM` in Kuala Lumpur as an ISO 8601 UTC instant, which Outlook's link reads. */
+export function klToIso(day: string, hhmm: string): string {
+  return new Date(Date.parse(`${day}T${hhmm.slice(0, 5)}:00Z`) - KL_OFFSET_MS).toISOString().replace(/\.\d{3}/, "");
+}
+
+/**
+ * D393: the same seat as a link that opens a new event in Outlook on the web, filled in. On an
+ * iPhone, Safari hands a .ics file to Apple Calendar and nothing else, so an attendee who lives
+ * in Outlook had no way in. outlook.office.com is the work (Microsoft 365) sign-in; the event
+ * lands in that mailbox's calendar and so in the Outlook app too.
+ *
+ * No reminder: the link has no field for one, and Outlook adds the user's default anyway.
+ */
+export function outlookComposeUrl(b: Omit<BookingIcsInput, "uid" | "now">): string {
+  const start = klToIso(b.day, b.startsAt);
+  const params: Record<string, string> = {
+    path: "/calendar/action/compose",
+    rru: "addevent",
+    subject: b.title,
+    startdt: start,
+    // No end time: end where it starts, as the .ics does.
+    enddt: b.endsAt ? klToIso(b.day, b.endsAt) : start,
+    body: `${b.description}\n\n${b.url}`,
+    ...(b.location ? { location: b.location } : {}),
+  };
+  // %20, not URLSearchParams's `+`: Outlook can show a `+` literally in the title.
+  const query = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  return `https://outlook.office.com/calendar/0/deeplink/compose?${query}`;
+}

@@ -24,6 +24,7 @@ import { SubmissionFields } from "@/components/portal/SubmissionFields";
 import { SubmitFor } from "@/components/portal/SubmitFor";
 import { ActivitySessions } from "@/components/portal/ActivitySessions";
 import { ActivityBooking } from "@/components/portal/ActivityBooking";
+import { AddToCalendar } from "@/components/portal/AddToCalendar";
 import { ActivityActionDialog } from "@/components/portal/ActivityActionDialog";
 import { ActivityCover } from "@/components/portal/ActivityParts";
 import { RichSections } from "@/components/portal/RichSections";
@@ -165,15 +166,14 @@ function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, to
       {single ? (
         !done && (
           <div className="sticky bottom-4 z-10 mt-2">
-            {/* A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
-                No `download` attribute either - iOS would save it instead of offering the calendar. */}
-            <a
+            <AddToCalendar
               href={`${calendarPath}?session=${single.session.id}`}
+              align="center"
               className={`${buttonVariants({ size: "lg" })} h-12 w-full gap-2 rounded-full text-base font-bold shadow-lg`}
             >
               <CalendarPlus data-icon="inline-start" />
               Add to calendar
-            </a>
+            </AddToCalendar>
           </div>
         )
       ) : canAct && dialog(false)}

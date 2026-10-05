@@ -2,6 +2,7 @@ import type { ActivityControls } from "@/lib/activity-requests";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Icon } from "@/components/ui/icon";
+import { AddToCalendar } from "./AddToCalendar";
 import { sessionLabel } from "@/lib/activities";
 import { shortTime } from "@/lib/text";
 
@@ -84,12 +85,10 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
             {/* D336: a checked-in session is finished - no calendar link, no change, no cancel. */}
             <span className="flex items-center gap-4">
               {arrivedAt ? null : change !== undefined ? change : (
-                // A plain <a>, not <Link>: it is a file, not a page, and must not be prefetched.
-                // No `download` attribute either - iOS would save it instead of offering the calendar.
-                <a href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
+                <AddToCalendar href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
                   <Icon name="calendar" size={16} />
                   Add to calendar
-                </a>
+                </AddToCalendar>
               )}
               {!arrivedAt && canRequestCancel && (
                 <form action={requestCancel.bind(null, seat.session.id)}>
