@@ -185,3 +185,11 @@ export const GROUP_EXPORT_KEY = "__group";
 export function withGroupColumn(columns: ExportColumn[], hasGroups: boolean): ExportColumn[] {
   return hasGroups ? [{ key: GROUP_EXPORT_KEY, label: "Group" }, ...columns] : columns;
 }
+
+/**
+ * D400: `live_entry_counts_by_group`'s rows (one per group, counted in the database) as a group
+ * id to count map. A bigint count may arrive as a number or a string, so it is read either way.
+ */
+export function entryCountsFrom(rows: { group_id: string; entries: number | string }[] | null): Map<string, number> {
+  return new Map((rows ?? []).map((r) => [r.group_id, Number(r.entries)]));
+}

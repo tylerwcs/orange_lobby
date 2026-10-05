@@ -1,6 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import type { Attendee, Event, EventGroup } from "@/lib/types";
+import { entryCountsFrom } from "@/lib/groups";
 
 /**
  * A name the admin has to change (D345): blank, too long, or already held in this event,
@@ -100,15 +101,12 @@ export async function liveGroupEntryCount(eventId: string, groupId: string): Pro
  * F5: the same count as `liveGroupEntryCount`, for every group in one query rather than one per
  * row — what the Groups list wants, and `liveGroupEntryCount` stays for the single group a
  * delete confirmation asks about.
+ *
+ * D400: counted in the database (`live_entry_counts_by_group`, migration 0065), one row per
+ * group. Fetching one row per entry and counting here stopped at PostgREST's 1,000-row cap.
  */
 export async function liveEntryCountsByGroup(eventId: string): Promise<Map<string, number>> {
-  const { data, error } = await serviceClient().from("activity_submissions").select("group_id")
-    .eq("event_id", eventId).eq("status", "submitted").not("group_id", "is", null);
+  const { data, error } = await serviceClient().rpc("live_entry_counts_by_group", { p_event_id: eventId });
   if (error) throw error;
-  const counts = new Map<string, number>();
-  for (const row of data ?? []) {
-    const groupId = row.group_id as string | null;
-    if (groupId) counts.set(groupId, (counts.get(groupId) ?? 0) + 1);
-  }
-  return counts;
+  return entryCountsFrom(data as { group_id: string; entries: number | string }[] | null);
 }

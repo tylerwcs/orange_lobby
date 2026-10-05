@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, taggedFirst, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
+import { entryCountsFrom, groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, taggedFirst, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 import type { Activity, ActivitySubmission, EventGroup } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}) => ({ id: "f1", group_mode: "entries" as const, group_target: 2, categories: null, ...over });
@@ -179,5 +179,18 @@ describe("withGroupColumn (D361)", () => {
     const cols = [{ key: "company", label: "Company" }];
     expect(withGroupColumn(cols, true)).toEqual([{ key: GROUP_EXPORT_KEY, label: "Group" }, ...cols]);
     expect(withGroupColumn(cols, false)).toBe(cols);
+  });
+});
+
+describe("entryCountsFrom (D400)", () => {
+  it("reads the database's one row per group into a map, whatever the total", () => {
+    const m = entryCountsFrom([{ group_id: "g1", entries: 1450 }, { group_id: "g2", entries: "7" }]);
+    expect(m.get("g1")).toBe(1450);
+    expect(m.get("g2")).toBe(7);
+    expect(m.get("g3")).toBeUndefined();
+  });
+
+  it("is empty with no rows", () => {
+    expect(entryCountsFrom(null).size).toBe(0);
   });
 });

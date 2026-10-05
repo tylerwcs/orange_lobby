@@ -16,6 +16,11 @@ import { withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 // next week, short enough that the bucket stays private in spirit, not just in policy.
 const LINK_SECONDS = 7 * 24 * 60 * 60;
 
+// D400: by the end of a 9-week challenge this reads ~10,000 entries, signs a link for every
+// photo and builds the workbook - past the default serverless timeout, as the Attendees page's
+// masterlist import was.
+export const maxDuration = 120;
+
 // Same shape as activities.xlsx: the whole event's submission activities, not a selection, so
 // there is no `ids` param and no way for it to fail open.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
