@@ -6,6 +6,7 @@ import { dropBlankAnswers } from "@/lib/registration";
 import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
 import { deleteSubmissionFiles, sweepSubmissionPrefix } from "@/lib/db/media";
 import { submissionFilePaths } from "@/lib/storage";
+import { selectAll } from "@/lib/db/select-all";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -32,21 +33,26 @@ export async function getAttendee(id: string): Promise<Attendee | null> {
  * booth is an unauthenticated, post-event-third-party route, so its search must not be able
  * to use email or company as an inference channel (D98, D99), while the crew door
  * legitimately needs to find someone by the email they registered with.
+ *
+ * Paged (D401): a `limit` past 1,000 is still cut to 1,000 by PostgREST, so a bigger event lost
+ * everyone after the 1,000th name from the WhatsApp send, the exports and import's duplicate
+ * check, without an error. `id` after `name` keeps the order unique, so pages never overlap.
  */
 export async function listAttendees(eventId: string, q?: string, scope: "wide" | "name" = "wide"): Promise<Attendee[]> {
-  let query = serviceClient().from("attendees").select("*").eq("event_id", eventId).order("name");
-  if (q && isSearchable(q)) query = query.or(scope === "name" ? buildNameSearchFilter(q) : buildAttendeeSearchFilter(q));
-  const { data, error } = await query.limit(2000);
-  if (error) throw error;
-  return data as Attendee[];
+  const search = q && isSearchable(q) ? (scope === "name" ? buildNameSearchFilter(q) : buildAttendeeSearchFilter(q)) : null;
+  return selectAll<Attendee>((from, to) => {
+    let query = serviceClient().from("attendees").select("*").eq("event_id", eventId);
+    if (search) query = query.or(search);
+    return query.order("name").order("id").range(from, to);
+  });
 }
 
 /** Ids travel in the query string (`in.(...)`), so a chunk is sized to keep the URL short. */
 const ID_CHUNK = 100;
 
 /**
- * Some of one event's attendees, by id, in chunks: no row cap to hit (listAttendees stops at one
- * request's worth), and only the rows asked for. Ids from another event are simply not found.
+ * Some of one event's attendees, by id, in chunks: only the rows asked for, rather than the
+ * whole event from listAttendees. Ids from another event are simply not found.
  */
 export async function listAttendeesByIds(eventId: string, ids: string[]): Promise<Attendee[]> {
   const unique = [...new Set(ids)];
@@ -230,11 +236,12 @@ export async function purgeAttendeePersonalData(eventId: string, orgId: string):
  * it renders on every event whether or not it runs breakouts.
  */
 export async function listCategories(eventId: string): Promise<string[]> {
-  const { data, error } = await serviceClient().from("attendees").select("category").eq("event_id", eventId);
-  if (error) throw error;
+  // Paged (D401): one row per attendee, so a category only the 1,001st person holds still shows.
+  const rows = await selectAll<{ category: string | null }>((from, to) => serviceClient().from("attendees")
+    .select("category").eq("event_id", eventId).order("id").range(from, to));
   // Keyed lowercased, so "KOM" and "kom" are one toggle; the first spelling met is shown.
   const seen = new Map<string, string>();
-  for (const r of (data ?? []) as { category: string | null }[]) {
+  for (const r of rows) {
     for (const part of (r.category ?? "").split(/[,+/;]/).map((p) => p.trim()).filter(Boolean)) {
       if (!seen.has(part.toLowerCase())) seen.set(part.toLowerCase(), part);
     }

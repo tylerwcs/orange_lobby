@@ -46,11 +46,11 @@ export async function listCheckinsAt(checkpointIds: string[]): Promise<Checkin[]
     .select("*").in("checkpoint_id", checkpointIds).order("id").range(from, to));
 }
 
-/** Attendee ids already checked in at one checkpoint; used to label search hits. */
+/** Attendee ids already checked in at one checkpoint; used to label search hits. Paged (D401). */
 export async function listCheckedInAttendeeIds(checkpointId: string): Promise<Set<string>> {
-  const { data, error } = await serviceClient().from("checkins").select("attendee_id").eq("checkpoint_id", checkpointId);
-  if (error) throw error;
-  return new Set((data ?? []).map((r) => r.attendee_id as string));
+  const rows = await selectAll<{ attendee_id: string }>((from, to) => serviceClient().from("checkins")
+    .select("attendee_id").eq("checkpoint_id", checkpointId).order("id").range(from, to));
+  return new Set(rows.map((r) => r.attendee_id));
 }
 
 /** Removes one check-in (the scanner's Undo). Returns whether a row was deleted. */

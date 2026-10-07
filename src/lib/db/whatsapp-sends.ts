@@ -1,5 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { selectAll } from "@/lib/db/select-all";
 
 export type WhatsappSendStatus = "queued" | "accepted" | "sent" | "delivered" | "read" | "failed";
 
@@ -114,22 +115,26 @@ export async function applyStatusByWamid(
   else await q;
 }
 
+/** Paged (D401): one send per attendee per template passes 1,000 rows on a big event. */
 export async function listSends(eventId: string): Promise<WhatsappSend[]> {
-  const { data } = await serviceClient()
+  return selectAll<WhatsappSend>((from, to) => serviceClient()
     .from("whatsapp_sends")
     .select("*")
     .eq("event_id", eventId)
-    .order("created_at", { ascending: false });
-  return (data as WhatsappSend[]) ?? [];
+    .order("created_at", { ascending: false })
+    .order("id")
+    .range(from, to)).catch(() => []);
 }
 
-/** Attendees who already hold this template's message, so the dry run can say so up front. */
+/** Attendees who already hold this template's message, so the dry run can say so up front. Paged (D401). */
 export async function alreadySentTo(eventId: string, template: string): Promise<Set<string>> {
-  const { data } = await serviceClient()
+  const rows = await selectAll<{ attendee_id: string }>((from, to) => serviceClient()
     .from("whatsapp_sends")
     .select("attendee_id")
     .eq("event_id", eventId)
     .eq("template", template)
-    .neq("status", "failed");
-  return new Set(((data as { attendee_id: string }[]) ?? []).map((r) => r.attendee_id));
+    .neq("status", "failed")
+    .order("id")
+    .range(from, to)).catch(() => []);
+  return new Set(rows.map((r) => r.attendee_id));
 }

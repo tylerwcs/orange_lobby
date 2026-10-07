@@ -254,9 +254,10 @@ export async function bookerIdsOn(activityId: string, day: string): Promise<Set<
   if (error) throw error;
   const ids = (sessions ?? []).map((s) => s.id as string);
   if (ids.length === 0) return new Set();
-  const { data, error: e2 } = await db.from("activity_bookings").select("attendee_id").in("session_id", ids);
-  if (e2) throw e2;
-  return new Set((data ?? []).map((r) => r.attendee_id as string));
+  // Paged (D401): a whole-event dinner can hold more than 1,000 bookings.
+  const rows = await selectAll<{ attendee_id: string }>((from, to) => db.from("activity_bookings")
+    .select("attendee_id").in("session_id", ids).order("id").range(from, to));
+  return new Set(rows.map((r) => r.attendee_id));
 }
 
 /**

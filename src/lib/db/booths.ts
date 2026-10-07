@@ -1,6 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
+import { selectAll } from "@/lib/db/select-all";
 import type { Activity, Booth, BoothStamp } from "@/lib/types";
 
 export async function listBooths(eventId: string): Promise<Booth[]> {
@@ -135,10 +136,10 @@ export async function deleteStamp(boothId: string, attendeeId: string): Promise<
   return (data?.length ?? 0) > 0;
 }
 
+/** Paged (D401): one stamp per attendee per booth passes 1,000 rows on any event of size. */
 export async function listStampsForEvent(eventId: string): Promise<BoothStamp[]> {
-  const { data, error } = await serviceClient().from("booth_stamps").select("*").eq("event_id", eventId);
-  if (error) throw error;
-  return data as BoothStamp[];
+  return selectAll<BoothStamp>((from, to) => serviceClient().from("booth_stamps")
+    .select("*").eq("event_id", eventId).order("id").range(from, to));
 }
 
 export async function stampsForAttendee(attendeeId: string): Promise<BoothStamp[]> {

@@ -1,12 +1,12 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { selectAll } from "@/lib/db/select-all";
 import type { BreakoutAssignment } from "@/lib/types";
 
+/** Paged (D401): one row per attendee per breakout slot. */
 export async function listAssignments(eventId: string): Promise<BreakoutAssignment[]> {
-  const { data, error } = await serviceClient()
-    .from("breakout_assignments").select("*").eq("event_id", eventId);
-  if (error) throw error;
-  return (data ?? []) as BreakoutAssignment[];
+  return selectAll<BreakoutAssignment>((from, to) => serviceClient()
+    .from("breakout_assignments").select("*").eq("event_id", eventId).order("id").range(from, to));
 }
 
 /** The breakout items one attendee is in. The portal's hot path — one query, one column. */
