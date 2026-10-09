@@ -4,6 +4,12 @@
  */
 export * from "./client";
 
+// The two activity pages, for their route files to render (D419), and the server actions the
+// list page's add forms post to.
+export * from "./admin/ActivityDetailPage";
+export * from "./portal/ActivityPage";
+export * from "./admin/actions";
+
 // Shared by every kind: the admin list and its rows, the detail page's menu and tabs, the
 // Overview's activity summary; the portal's Activities tab, card parts, home row and dialog.
 export * from "./admin/ActivityRows";

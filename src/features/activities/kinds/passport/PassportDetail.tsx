@@ -14,7 +14,11 @@ import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
-import { ActivityMenu, removeWarning, BoothList, BoothQr, COVER_HINT } from "@/features/activities";
+import { ActivityMenu } from "../../admin/ActivityMenu";
+import { COVER_HINT } from "../../admin/ActivityRows";
+import { removeWarning } from "../../row";
+import { BoothList } from "./BoothList";
+import { BoothQr } from "./BoothQr";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +28,7 @@ import {
   toggleOpenAction, togglePinAction, savePassportActivityAction, deletePassportActivityAction,
   addBoothAction, renameBoothAction, reorderBoothsAction, deleteBoothAction,
   uploadActivityImageAction,
-} from "../actions";
+} from "../../admin/actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 

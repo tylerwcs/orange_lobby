@@ -12,7 +12,10 @@ import { isGroupForm } from "@/lib/submissions";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { pendingCountByActivity } from "@/lib/activity-requests";
 import { eligible } from "@/lib/activities";
-import { bookingRow, submissionRow, passportRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu } from "@/features/activities";
+import {
+  bookingRow, submissionRow, passportRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu,
+  addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, uploadActivityImageAction,
+} from "@/features/activities";
 import type { Activity, ActivitySubmission, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Field } from "@/components/admin/Field";
@@ -20,11 +23,6 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction,
-  deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction,
-  uploadActivityImageAction,
-} from "./actions";
 
 export const metadata = { title: "Activities" };
 

@@ -1,0 +1,216 @@
+import Link from "next/link";
+import { formKey } from "@/lib/form-key";
+import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
+import { ImageField } from "@/components/admin/ImageField";
+import { COVER_HINT } from "../../admin/ActivityRows";
+import { ActivityMenu } from "../../admin/ActivityMenu";
+import { removeWarning } from "../../row";
+import { activityTabs, resolveTab, activityHref, type ActivityTab } from "../../tabs";
+import { ActivityTabs } from "../../admin/ActivityTabs";
+import { SessionDays } from "./SessionDays";
+import { BookingsByDay } from "./BookingsByDay";
+import { UnbookedPanel } from "./UnbookedPanel";
+import { RequestQueue } from "./RequestQueue";
+import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { listSessions, listBookings, countBookingsBySession } from "@/lib/db/activities";
+import { listRequests } from "@/lib/db/activity-requests";
+import { listAttendees, listCategories } from "@/lib/db/attendees";
+import { listCheckpoints } from "@/lib/db/checkpoints";
+import { listCheckinsAt } from "@/lib/db/checkins";
+import { boardsByDay } from "@/lib/booking-door";
+import { CategoryCombo } from "@/components/admin/AgendaCombos";
+import { scannerNames } from "@/lib/db/users";
+import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
+import { groupSessionsByDay } from "@/lib/session-slots";
+import { nowInKL } from "@/lib/time";
+import { type Activity, type Checkin, type Checkpoint, type Event } from "@/lib/types";
+import { AdminHeader } from "@/components/admin/AdminHeader";
+import { SaveBar } from "@/components/admin/SaveBar";
+import { Field } from "@/components/admin/Field";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { saveActivityAction, toggleOpenAction, togglePinAction, deleteActivityAction, addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction, placeAttendeesAction, approveRequestAction, declineRequestAction, uploadActivityImageAction } from "../../admin/actions";
+
+const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+const check = "flex items-center gap-2 text-sm font-bold";
+
+export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activity; tab?: string }) {
+  const [allSessions, bookings, counts, attendees, allRequests, categories] = await Promise.all([
+    listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id), listCategories(ev.id),
+  ]);
+  const sessions = allSessions.filter((s) => s.activity_id === activity.id);
+  const seats = sessions.map((s) => seatsFor(s, counts[s.id] ?? 0));
+  const activityBookings = bookings.filter((b) => b.activity_id === activity.id);
+
+  // Arrival marks (D324) exist only where check-in runs; an event without it never reads doors.
+  // Only this activity's doors' check-ins are read, and none at all when it has no door.
+  const cps: Checkpoint[] = ev.check_in_enabled ? await listCheckpoints(ev.id) : [];
+  const doorIds = cps.filter((c) => c.activity_id === activity.id).map((c) => c.id);
+  const checkins: Checkin[] = doorIds.length > 0 ? await listCheckinsAt(doorIds) : [];
+  const hasDoor = doorIds.length > 0;
+
+  // `listRequests` already orders by `created_at`, so pending stays oldest-first without a
+  // re-sort. "Decided" is everything else — approved, declined or withdrawn — which is what
+  // sits behind the queue's "Show decided" disclosure (the desk is working the queue, not
+  // reading the log).
+  const activityRequests = allRequests.filter((r) => r.activity_id === activity.id);
+  const pendingRequests = activityRequests.filter((r) => r.status === "pending");
+  const decidedRequests = activityRequests.filter((r) => r.status !== "pending");
+  const sessionLabelById = new Map(allSessions.map((s) => [s.id, sessionLabel(s)]));
+  // Only the ids `decide_request` actually stamped — pending and withdrawn requests carry none.
+  const deciderEmails = await scannerNames(decidedRequests.map((r) => r.decided_by));
+
+  // Who still owes a choice: eligible, and holding nothing in THIS activity. Goes through the
+  // same `unbookedByActivity` the xlsx export uses (D130) rather than computing it again here —
+  // two implementations of "who has not booked" is how they end up disagreeing. `listAttendees`
+  // is already ordered by name, and `unbookedByActivity` keeps that order, which is what a list
+  // somebody reads down wants.
+  const byId = new Map(attendees.map((a) => [a.id, a]));
+  const [unbookedForActivity] = unbookedByActivity(
+    [activity], bookings, attendees.map((a) => a.id), (attendeeId) => byId.get(attendeeId)?.category ?? null,
+  );
+  const unbooked = unbookedForActivity?.attendeeIds ?? [];
+  const bookedCount = new Set(activityBookings.map((b) => b.attendee_id)).size;
+
+  const tabs = activityTabs("booking", { booked: bookedCount, notBooked: unbooked.length, pendingRequests: pendingRequests.length });
+  const current = resolveTab(tabs, tab);
+  const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
+  const nameOf = (attendeeId: string) => byId.get(attendeeId)?.name ?? "Unknown";
+  const boards = boardsByDay(activity.id, cps, checkins, sessions, activityBookings, new Map(attendees.map((a) => [a.id, a.name])), nowInKL());
+  // Who is in which session (D237), in the same day grouping the Setup tab shows.
+  const bookingDays = groupSessionsByDay(seats).map((g) => {
+    const board = boards.get(g.day);
+    return {
+      day: g.day,
+      walkIns: board?.walkIns.map((w) => w.name) ?? [],
+      sessions: g.items.map((i) => {
+        const slot = board?.slots.find((s) => s.id === i.session.id);
+        return {
+          id: i.session.id,
+          time: i.session.ends_at ? `${i.session.starts_at}–${i.session.ends_at}` : i.session.starts_at,
+          location: i.session.location,
+          booked: i.booked,
+          capacity: i.session.capacity,
+          came: slot ? slot.arrived : null,
+          people: slot
+            ? slot.people.map((p) => ({ name: p.name, mark: p.arrivedAt ? "arrived" as const : p.noShow ? "no-show" as const : null }))
+            : activityBookings.filter((b) => b.session_id === i.session.id).map((b) => ({ name: nameOf(b.attendee_id), mark: null })).sort((x, y) => x.name.localeCompare(y.name)),
+        };
+      }),
+    };
+  });
+
+  return (
+    <div className="flex flex-col gap-4" data-wide>
+      <AdminHeader
+        title={activity.name}
+        subtitle={`${bookedCount} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
+        actions={
+          <>
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
+            <ActivityMenu
+              name={activity.name}
+              pinned={activity.pinned}
+              togglePin={togglePinAction.bind(null, ev.id, activity.id, current)}
+              settingsHref={href("setup")}
+              exportHref={`/admin/events/${ev.id}/export/activities.xlsx`}
+              remove={deleteActivityAction.bind(null, ev.id, activity.id)}
+              removeMessage={removeWarning({ kind: "booking", sessions: sessions.length, bookings: activityBookings.length })}
+            />
+          </>
+        }
+      />
+      <ActivityTabs tabs={tabs} current={current} href={href} />
+
+      {current === "setup" && (
+        <>
+          {/* Deliberately no `is_open` field here (D127): that column is the header
+              button's alone. Adding it back would let saving this form silently close or
+              reopen booking whenever an organiser only meant to edit the name. */}
+          <Card className="overflow-hidden">
+            <CardHeader><CardTitle>Details and rules</CardTitle></CardHeader>
+            <CardContent>
+              <form key={formKey({ ...activity, is_open: undefined })} action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+                <Field label="Name" name="name" defaultValue={activity.name} />
+                <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+                <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="max_per_attendee" className="text-sm font-bold">Sessions per person</label>
+                  <input id="max_per_attendee" name="max_per_attendee" type="number" min={1} max={10}
+                    defaultValue={activity.max_per_attendee ?? undefined} inputMode="numeric" className={`${input} max-w-32 tabular-nums`} />
+                </div>
+                <CategoryCombo categories={categories} defaultValue={activity.categories ?? []} />
+                <label className={check}>
+                  <input type="checkbox" name="required" className="size-4" defaultChecked={activity.required} />
+                  Everyone must pick one
+                </label>
+                <SaveBar inCard />
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <CardHeader><CardTitle>Sessions</CardTitle></CardHeader>
+            <CardContent>
+              <SessionDays
+                items={seats}
+                addSessions={addSessionsAction.bind(null, ev.id, activity.id)}
+                saveSession={saveSessionAction.bind(null, ev.id, activity.id)}
+                deleteSession={deleteSessionAction.bind(null, ev.id, activity.id)}
+                deleteDay={deleteSessionDayAction.bind(null, ev.id, activity.id)}
+                defaultDay={ev.starts_on}
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {current === "bookings" && (
+        <>
+          <RequestQueue
+            pending={pendingRequests}
+            decided={decidedRequests}
+            sessionTitle={(sessionId) => sessionLabelById.get(sessionId) ?? "a deleted session"}
+            attendeeName={nameOf}
+            deciderEmails={deciderEmails}
+            approve={approveRequestAction.bind(null, ev.id, activity.id)}
+            decline={declineRequestAction.bind(null, ev.id, activity.id)}
+          />
+          <Card className="overflow-hidden">
+            <CardHeader><CardTitle>Who booked</CardTitle></CardHeader>
+            <CardContent>
+              {ev.check_in_enabled && !hasDoor && sessions.length > 0 && (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  To track who turns up, add a checkpoint for this activity in{" "}
+                  <Link href={`/admin/events/${ev.id}/settings`} className="font-semibold text-primary underline-offset-4 hover:underline">Settings › Checkpoints</Link>.
+                </p>
+              )}
+              <BookingsByDay days={bookingDays} />
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {current === "not-booked" && (
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle>Not booked yet · {unbooked.length}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <UnbookedPanel
+              people={unbooked.map((attendeeId) => {
+                const a = byId.get(attendeeId)!;
+                return { id: a.id, name: a.name, category: a.category };
+              })}
+              options={seats.filter((s) => !s.full).map((s) => ({
+                id: s.session.id,
+                label: sessionLabel(s.session),
+                left: s.left,
+              }))}
+              place={placeAttendeesAction.bind(null, ev.id, activity.id)}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
