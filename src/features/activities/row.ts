@@ -1,6 +1,6 @@
 import { dayRange } from "@/lib/activity-card";
 import { capSummary, isGroupForm } from "@/lib/submissions";
-import type { Activity } from "@/lib/types";
+import type { Activity, ActivityKind } from "@/lib/types";
 import { KIND_META } from "./kinds";
 
 /**
@@ -91,15 +91,29 @@ export function listSummary(rows: { open: boolean; attention: string | null }[])
  * What the delete confirmation warns will go with an activity, in its own kind's terms. One
  * wording for the list's menu and the activity's page, so the two never promise different things.
  */
-export function removeWarning(
-  input: { kind: "booking"; sessions: number; bookings: number } | { kind: "submission"; submissions: number } | { kind: "passport"; booths: number },
-): string {
-  // Cascades sessions and bookings (D135): the organiser is cancelling people's afternoons.
-  if (input.kind === "booking") return `Its ${plural(input.sessions, "session")} and ${plural(input.bookings, "booking")} go with it. This can't be undone.`;
-  if (input.kind === "submission") {
-    return `${input.submissions > 0 ? `It takes ${plural(input.submissions, "submission")} and any uploaded files with it. ` : ""}This can't be undone.`;
+type RemoveFacts = {
+  booking: { sessions: number; bookings: number };
+  submission: { submissions: number };
+  passport: { booths: number };
+};
+/** Indexed by ActivityKind, so a kind missing from RemoveFacts fails the build (D414). */
+export type RemoveInput = { [K in ActivityKind]: { kind: K } & RemoveFacts[K] }[ActivityKind];
+
+export function removeWarning(input: RemoveInput): string {
+  switch (input.kind) {
+    // Cascades sessions and bookings (D135): the organiser is cancelling people's afternoons.
+    case "booking":
+      return `Its ${plural(input.sessions, "session")} and ${plural(input.bookings, "booking")} go with it. This can't be undone.`;
+    case "submission":
+      return `${input.submissions > 0 ? `It takes ${plural(input.submissions, "submission")} and any uploaded files with it. ` : ""}This can't be undone.`;
+    // Refused by the database once anyone is stamped (D188), so it says what to do instead.
+    case "passport": {
+      const links = input.booths === 1 ? "its scanner link" : "their scanner links";
+      return `Its ${plural(input.booths, "booth")} and ${links} go with it. Once anyone has been stamped it can't be deleted, so close it instead.`;
+    }
+    default: {
+      const exhaustive: never = input;
+      throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);
+    }
   }
-  // Refused by the database once anyone is stamped (D188), so it says what to do instead.
-  const links = input.booths === 1 ? "its scanner link" : "their scanner links";
-  return `Its ${plural(input.booths, "booth")} and ${links} go with it. Once anyone has been stamped it can't be deleted, so close it instead.`;
 }

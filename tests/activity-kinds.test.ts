@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVITY_KINDS, KIND_META } from "@/features/activities";
+import { ACTIVITY_KINDS, KIND_META, activityTabs } from "@/features/activities";
 
 describe("KIND_META (D415)", () => {
   it("lists every kind once, in the order the menu and the portal use", () => {
@@ -10,5 +10,11 @@ describe("KIND_META (D415)", () => {
   it("keeps the words attendees and organisers already see", () => {
     expect(ACTIVITY_KINDS.map((k) => KIND_META[k].label)).toEqual(["Sessions", "Submission", "Passport"]);
     expect(KIND_META.passport.title).toBe("Add a booth passport");
+  });
+});
+
+describe("activityTabs per kind (D414)", () => {
+  it("gives a passport its Setup tab only, by its own entry rather than a fall-through", () => {
+    expect(activityTabs("passport", {}).map((t) => t.tab)).toEqual(["setup"]);
   });
 });

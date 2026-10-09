@@ -162,9 +162,9 @@ type RowFacts = {
 };
 
 /**
- * One row, every kind the same shape. What differs by kind is decided here and nowhere else:
- * which progress it counts (`bookingRow` and friends), which export and which delete its menu
- * binds, and what the delete confirmation warns will go with it.
+ * One row, every kind the same shape. What differs by kind is decided here and nowhere else, in
+ * one case per kind (D414): which progress it counts (`bookingRow` and friends), which export
+ * and which delete its menu binds, and what the delete confirmation warns will go with it.
  */
 function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
   const href = `/admin/events/${ev.id}/activities/${a.id}`;
@@ -172,44 +172,48 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
   // Setup is the default tab, so the page itself is where settings are (D236).
   const base = { name: a.name, pageHref: href, settingsHref: href, pinned: a.pinned, togglePin: togglePinAction.bind(null, ev.id, a.id, "list" as const) };
 
-  if (a.kind === "booking") {
-    const booked = facts.sessions.reduce((sum, s) => sum + s.booked, 0);
-    return {
-      activity: a, href,
-      view: bookingRow({
-        days: facts.sessions.map((s) => s.day), sessions: facts.sessions.length, booked,
-        seats: facts.sessions.reduce((sum, s) => sum + s.capacity, 0), pending: facts.pending,
-      }),
-      toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
-      menu: {
-        ...base, exportHref: `${exports}/activities.xlsx`,
-        remove: deleteActivityAction.bind(null, ev.id, a.id),
-        removeMessage: removeWarning({ kind: "booking", sessions: facts.sessions.length, bookings: booked }),
-      },
-    };
+  switch (a.kind) {
+    case "booking": {
+      const booked = facts.sessions.reduce((sum, s) => sum + s.booked, 0);
+      return {
+        activity: a, href,
+        view: bookingRow({
+          days: facts.sessions.map((s) => s.day), sessions: facts.sessions.length, booked,
+          seats: facts.sessions.reduce((sum, s) => sum + s.capacity, 0), pending: facts.pending,
+        }),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        menu: {
+          ...base, exportHref: `${exports}/activities.xlsx`,
+          remove: deleteActivityAction.bind(null, ev.id, a.id),
+          removeMessage: removeWarning({ kind: "booking", sessions: facts.sessions.length, bookings: booked }),
+        },
+      };
+    }
+    case "submission":
+      return {
+        activity: a, href,
+        view: submissionRow({ form: a, submitters: new Set(facts.submissions).size, eligible: facts.audience, groups: facts.groupDone ?? undefined }),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        menu: {
+          ...base, exportHref: `${exports}/submissions.xlsx`,
+          remove: deleteSubmissionActivityAction.bind(null, ev.id, a.id),
+          removeMessage: removeWarning({ kind: "submission", submissions: facts.submissions.length }),
+        },
+      };
+    case "passport":
+      return {
+        activity: a, href,
+        view: passportRow({ ...facts.passport, eligible: facts.audience, open: a.is_open }),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        menu: {
+          ...base, exportHref: `${exports}/passport.xlsx`,
+          remove: deletePassportActivityAction.bind(null, ev.id, a.id),
+          removeMessage: removeWarning({ kind: "passport", booths: facts.passport.booths }),
+        },
+      };
+    default: {
+      const exhaustive: never = a.kind;
+      throw new Error(`Unhandled activity kind: ${String(exhaustive)}`);
+    }
   }
-
-  if (a.kind === "submission") {
-    return {
-      activity: a, href,
-      view: submissionRow({ form: a, submitters: new Set(facts.submissions).size, eligible: facts.audience, groups: facts.groupDone ?? undefined }),
-      toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
-      menu: {
-        ...base, exportHref: `${exports}/submissions.xlsx`,
-        remove: deleteSubmissionActivityAction.bind(null, ev.id, a.id),
-        removeMessage: removeWarning({ kind: "submission", submissions: facts.submissions.length }),
-      },
-    };
-  }
-
-  return {
-    activity: a, href,
-    view: passportRow({ ...facts.passport, eligible: facts.audience, open: a.is_open }),
-    toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
-    menu: {
-      ...base, exportHref: `${exports}/passport.xlsx`,
-      remove: deletePassportActivityAction.bind(null, ev.id, a.id),
-      removeMessage: removeWarning({ kind: "passport", booths: facts.passport.booths }),
-    },
-  };
 }

@@ -77,9 +77,17 @@ export default async function ActivityDetail({ params, searchParams }: {
   // Each is a header, a tab strip and the current tab (D234): the page opens on Setup, which is
   // what the organiser comes back for, and what attendees have done is one tab away rather than
   // stacked above it.
-  if (activity.kind === "passport") return <PassportDetail ev={ev} activity={activity} qr={qr} />;
-  if (activity.kind === "submission") return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} tab={tab} week={week} teamId={team} />;
-  return <BookingDetail ev={ev} activity={activity} tab={tab} />;
+  //
+  // One case per kind (D414): a kind added to ActivityKind does not build until it has a screen.
+  switch (activity.kind) {
+    case "booking": return <BookingDetail ev={ev} activity={activity} tab={tab} />;
+    case "submission": return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} tab={tab} week={week} teamId={team} />;
+    case "passport": return <PassportDetail ev={ev} activity={activity} qr={qr} />;
+    default: {
+      const exhaustive: never = activity.kind;
+      throw new Error(`Unhandled activity kind: ${String(exhaustive)}`);
+    }
+  }
 }
 
 async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activity; tab?: string }) {

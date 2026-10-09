@@ -25,20 +25,24 @@ export type TabCounts = {
 export type TabItem = { tab: ActivityTab; label: string; count: number | null; dot: boolean };
 
 const item = (tab: ActivityTab, label: string, count: number | null = null, dot = false): TabItem => ({ tab, label, count, dot });
+const setup = () => item("setup", "Setup");
 
-export function activityTabs(kind: ActivityKind, c: TabCounts): TabItem[] {
-  const setup = item("setup", "Setup");
-  if (kind === "booking") {
-    // The dot, because pending requests left the landing view when Setup became it (D235).
-    return [setup, item("bookings", "Bookings", c.booked ?? 0, (c.pendingRequests ?? 0) > 0), item("not-booked", "Not booked", c.notBooked ?? 0)];
-  }
-  if (kind === "submission") {
-    const tabs = [setup, item("submissions", "Submissions", c.submissions ?? 0), item("not-submitted", c.grouped ? "Not done" : "Not submitted", c.notSubmitted ?? 0)];
+/** One entry per kind (D414): a kind added to ActivityKind does not build until it has its tabs. */
+const TABS: Record<ActivityKind, (c: TabCounts) => TabItem[]> = {
+  // The dot, because pending requests left the landing view when Setup became it (D235).
+  booking: (c) => [setup(), item("bookings", "Bookings", c.booked ?? 0, (c.pendingRequests ?? 0) > 0), item("not-booked", "Not booked", c.notBooked ?? 0)],
+  submission: (c) => {
+    const tabs = [setup(), item("submissions", "Submissions", c.submissions ?? 0), item("not-submitted", c.grouped ? "Not done" : "Not submitted", c.notSubmitted ?? 0)];
     if (c.grouped) return tabs;
     const withDaily = c.perDay ? [...tabs, item("participation", "Participation")] : tabs;
     return c.scored ? [...withDaily, item("leaderboard", "Leaderboard")] : withDaily;
-  }
-  return [setup];
+  },
+  // A passport's booths and links are all on Setup (D190).
+  passport: () => [setup()],
+};
+
+export function activityTabs(kind: ActivityKind, c: TabCounts): TabItem[] {
+  return TABS[kind](c);
 }
 
 /** A requested tab this page does not have (a stale link, a hand-edited URL) opens Setup. */
