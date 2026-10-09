@@ -243,6 +243,24 @@ lighter than the sketch above, and meets the same goal:
     blocks in `src/lib` (`readActivityPolicy`, `readPassportSettings`, `readScoring`,
     `readGroupRule`, `readSubmissionDetails`) stay.
   - No database change: every reader writes the same columns as before.
+- **D421 — The rules and the database layer moved into the feature (9 Oct 2026).** Activities is
+  now self-contained, like games.
+  - 18 rule modules moved from `src/lib` to `src/features/activities/lib/`: the booking,
+    submission, passport and Project Mileage logic, the portal entries, and the request notices.
+  - The 5 activity database modules moved from `src/lib/db` to `src/features/activities/db/`.
+    That includes `doors`, because a door belongs to a booking.
+  - Their tests moved to `tests/activities/`.
+  - Entries: `client.ts` exposes the 13 pure rule modules; `index.ts` adds the database modules
+    and the server-only parts (`portal-activity-entries`, `challenge-data`, the submission file
+    and upload helpers, `request-notify`).
+  - Code outside the feature that needs only the rules imports `client`: the portal shell
+    (`portal.ts`'s launcher and nav), the agenda, check-in (`db/checkins.ts`, `CheckpointList`),
+    groups and the exports. That way it never pulls in a screen or a database read, which
+    keeps import cycles out. Anything that needs the database uses `index`.
+  - `committee-run.ts` stays with the committee reminders and reads requests through the entry.
+  - Left in `src/lib`, as other features' code: the portal loader (`portal.ts`,
+    `portal-home.ts`), groups, check-in, exports and agenda. Under D407 they move when next
+    worked on, into their own feature folders.
 
 ### D405 — Performance rules for every feature
 
