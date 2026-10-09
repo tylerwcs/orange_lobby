@@ -4,6 +4,7 @@ import { Armchair, ArrowLeft, CalendarDays, CalendarPlus, CircleCheck, Clock, Ma
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, type ActivityEntry, type SubmissionEntry, type PassportEntry } from "@/lib/portal-activity-entries";
 import { dayRange } from "@/lib/activity-card";
+import { findEntry, type FoundEntry } from "@/features/activities";
 import { canEditOwn, isGroupForm, isProxy, submitLabel } from "@/lib/submissions";
 import type { SubmitState } from "@/lib/submissions";
 import { nowInKL } from "@/lib/time";
@@ -71,15 +72,36 @@ export default async function ActivityPage({ params, searchParams }: {
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const { bookings, submissions, passports, people } = await loadActivityEntries(event, attendee);
+  const entries = await loadActivityEntries(event, attendee);
   const basePath = `/e/${slug}/a/${token}`;
 
-  const booking = bookings.find((b) => b.state.activity.id === activityId && b.state.eligible);
-  const form = submissions.find((s) => s.form.id === activityId);
-  const stampCard = passports.find((p) => p.activity.id === activityId);
-  if (!booking && !form && !stampCard) notFound();
-  const activity = booking ? booking.state.activity : form ? form.form : stampCard!.activity;
-  const proxy = form ? await proxyFor(form.form, attendee) : null;
+  const found = findEntry(entries, activityId);
+  if (!found) notFound();
+  const { activity } = found;
+  const proxy = found.kind === "submission" ? await proxyFor(found.entry.form, attendee) : null;
+
+  // One case per kind (D416): a kind added to ActivityKind does not build until it has a body here.
+  function body(found: FoundEntry) {
+    switch (found.kind) {
+      case "booking":
+        return <BookingBody entry={found.entry} slug={slug} token={token} />;
+      case "submission": {
+        const form = found.entry;
+        return form.form.scoring
+          ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy}
+              day={typeof day === "string" ? day : null} writing={writing === "1"}
+              // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
+              tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined, form.form.show_leaderboard)} />
+          : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={entries.people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />;
+      }
+      case "passport":
+        return <PassportBody entry={found.entry} attendeeName={attendee.name} />;
+      default: {
+        const exhaustive: never = found;
+        throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col">
@@ -88,16 +110,7 @@ export default async function ActivityPage({ params, searchParams }: {
       </Link>
       <ActivityCover activity={activity} variant="hero" />
       <h1 className="py-4 text-xl font-extrabold leading-tight">{activity.name}</h1>
-      {booking
-        ? <BookingBody entry={booking} slug={slug} token={token} />
-        : form
-          ? form.form.scoring
-            ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy}
-                day={typeof day === "string" ? day : null} writing={writing === "1"}
-                // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
-                tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined, form.form.show_leaderboard)} />
-            : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />
-          : <PassportBody entry={stampCard!} attendeeName={attendee.name} />}
+      {body(found)}
     </div>
   );
 }

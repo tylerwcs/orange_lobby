@@ -13,12 +13,19 @@ import { canSubmit, isGroupForm, type SubmitState } from "@/lib/submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "@/lib/booths";
 import { nowInKL } from "@/lib/time";
-import type { Activity, ActivitySubmission, Attendee, Event } from "@/lib/types";
+import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
 export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string> };
 export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null };
 /** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
 export type PassportEntry = { activity: Activity; passport: Passport };
+
+/** Each kind's portal entry (D416). Its keys must be exactly ActivityKind: the check below fails the build otherwise. */
+export type EntryMap = { booking: ActivityEntry; submission: SubmissionEntry; passport: PassportEntry };
+export type ActivityEntries = { [K in keyof EntryMap]: EntryMap[K][] };
+type Covers = [ActivityKind] extends [keyof EntryMap] ? ([keyof EntryMap] extends [ActivityKind] ? true : never) : never;
+const covers: Covers = true;
+void covers;
 
 /**
  * Every activity one attendee can see, with what they hold in it and what they may do next -
@@ -28,10 +35,7 @@ export type PassportEntry = { activity: Activity; passport: Passport };
  * and one shape for both pages is worth more than the rows it saves; `portalActivities` and
  * `portalBookings` are memoised, so the layout's nav dot costs nothing extra.
  */
-export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category" | "group_id">): Promise<{
-  bookings: ActivityEntry[];
-  submissions: SubmissionEntry[];
-  passports: PassportEntry[];
+export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category" | "group_id">): Promise<ActivityEntries & {
   people: Record<string, { name: string; movedTo: string | null }>;
 }> {
   // Read first: whether any group reads are worth doing at all depends on it. Most attendees
@@ -101,5 +105,5 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
       passport: buildPassport(booths.filter((b) => b.activity_id === activity.id), stamps, activity.stamps_required),
     }));
 
-  return { bookings, submissions: forms, passports, people };
+  return { booking: bookings, submission: forms, passport: passports, people };
 }

@@ -21,7 +21,7 @@ export default async function MyGroupPage({ params }: { params: Promise<{ slug: 
   if (isUnpublished(event)) return null;
   // D367: hidden by the organiser closes the page too, not only its tile.
   if (!attendee.group_id || !event.group_tile) notFound();
-  const [group, members, { submissions, people }] = await Promise.all([
+  const [group, members, { submission: submissions, people }] = await Promise.all([
     getGroup(event.id, attendee.group_id),
     groupMembers(event.id, attendee.group_id),
     loadActivityEntries(event, attendee),

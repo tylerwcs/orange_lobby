@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { activityCards, type ActivityCardItem, type CardSection } from "@/features/activities";
 import type { CardView } from "@/lib/activity-card";
-import type { ActivityEntry, SubmissionEntry, PassportEntry } from "@/lib/portal-activity-entries";
+import type { ActivityEntries } from "@/lib/portal-activity-entries";
 import type { Activity } from "@/lib/types";
 import { ActivityCover, KindTag, MetaLine, StatusChip } from "./ActivityParts";
 
@@ -22,17 +22,12 @@ const SECTIONS: { key: CardSection; title: string }[] = [
  *
  * Every card goes to the activity's own page, whichever kind it is: that is where the poster is
  * read in full, the sections are, and the booking, the form, or the stamp grid is. The card says
- * only enough to decide whether to tap - `bookingCard`, `formCard` and `passportCard` decide what.
+ * only enough to decide whether to tap - `bookingCard`, `formCard` and `passportCard`, one per kind, decide what.
  *
  * A stacked list here; the home page is where they run as a swipeable row (D214).
  */
-export function ActivitiesTab({ bookings, submissions, passports, basePath }: {
-  bookings: ActivityEntry[];
-  submissions: SubmissionEntry[];
-  passports: PassportEntry[];
-  basePath: string;
-}) {
-  const cards = activityCards({ bookings, submissions, passports }, basePath);
+export function ActivitiesTab({ entries, basePath }: { entries: ActivityEntries; basePath: string }) {
+  const cards = activityCards(entries, basePath);
   if (cards.length === 0) {
     return <p className="text-sm text-muted-foreground">There is nothing here for this event yet.</p>;
   }

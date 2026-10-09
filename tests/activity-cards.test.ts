@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { activityState } from "@/lib/activities";
 import { activityControls } from "@/lib/activity-requests";
-import { activityCards } from "@/features/activities";
+import { activityCards, findEntry } from "@/features/activities";
 import type { Passport } from "@/lib/booths";
 import type { ActivityEntry, PassportEntry, SubmissionEntry } from "@/lib/portal-activity-entries";
 import type { SubmitReason } from "@/lib/submissions";
@@ -32,9 +32,9 @@ const passport = (id: string, complete: boolean): PassportEntry => ({
 describe("activityCards", () => {
   it("orders To choose, Booked, Open (bookings, forms, passports), Done", () => {
     const cards = activityCards({
-      bookings: [booking("open-booking"), booking("booked", {}, true), booking("must-pick", { required: true })],
-      submissions: [form("form")],
-      passports: [passport("done-passport", true), passport("collecting", false)],
+      booking: [booking("open-booking"), booking("booked", {}, true), booking("must-pick", { required: true })],
+      submission: [form("form")],
+      passport: [passport("done-passport", true), passport("collecting", false)],
     }, "/e/kom/a/tok");
     expect(cards.map((c) => [c.activity.id, c.section])).toEqual([
       ["must-pick", "choose"],
@@ -47,33 +47,33 @@ describe("activityCards", () => {
   });
 
   it("rings only the card that is owed, and links each card to its own page", () => {
-    const cards = activityCards({ bookings: [booking("a", { required: true }), booking("b")], submissions: [], passports: [] }, "/e/kom/a/tok");
+    const cards = activityCards({ booking: [booking("a", { required: true }), booking("b")], submission: [], passport: [] }, "/e/kom/a/tok");
     expect(cards.map((c) => c.emphasis)).toEqual([true, false]);
     expect(cards[1].href).toBe("/e/kom/a/tok/activities/b");
   });
 
   it("leaves out a booking the attendee's category cannot see, and an ineligible form", () => {
     const cards = activityCards({
-      bookings: [booking("vip-only", { categories: ["VIP"] }, false, "Guest")],
-      submissions: [form("closed", "closed"), form("hidden", "ineligible")],
-      passports: [],
+      booking: [booking("vip-only", { categories: ["VIP"] }, false, "Guest")],
+      submission: [form("closed", "closed"), form("hidden", "ineligible")],
+      passport: [],
     }, "/p");
     expect(cards.map((c) => c.activity.id)).toEqual(["closed"]);
   });
 
   it("sorts a checked-in booking after open forms and before Done passports", () => {
     const cards = activityCards({
-      bookings: [booking("checked-in", {}, true, null, true)],
-      submissions: [form("form")],
-      passports: [passport("done-passport", true)],
+      booking: [booking("checked-in", {}, true, null, true)],
+      submission: [form("form")],
+      passport: [passport("done-passport", true)],
     }, "/e/kom/a/tok");
     expect(cards.map((c) => c.activity.id)).toEqual(["form", "checked-in", "done-passport"]);
   });
   it("puts pinned activities first, under Pinned, in the organiser's order whatever their kind (D387)", () => {
     const cards = activityCards({
-      bookings: [booking("must-pick", { required: true }), booking("pinned-booking", { pinned: true, sort_order: 3 }, true)],
-      submissions: [{ ...form("pinned-form"), form: activity("pinned-form", { kind: "submission", pinned: true, sort_order: 1 }) }],
-      passports: [passport("collecting", false)],
+      booking: [booking("must-pick", { required: true }), booking("pinned-booking", { pinned: true, sort_order: 3 }, true)],
+      submission: [{ ...form("pinned-form"), form: activity("pinned-form", { kind: "submission", pinned: true, sort_order: 1 }) }],
+      passport: [passport("collecting", false)],
     }, "/p");
     expect(cards.map((c) => [c.activity.id, c.section])).toEqual([
       ["pinned-form", "pinned"],
@@ -84,7 +84,26 @@ describe("activityCards", () => {
   });
 
   it("keeps the ring on a pinned activity that is still owed", () => {
-    const [card] = activityCards({ bookings: [booking("a", { required: true, pinned: true })], submissions: [], passports: [] }, "/p");
+    const [card] = activityCards({ booking: [booking("a", { required: true, pinned: true })], submission: [], passport: [] }, "/p");
     expect([card.section, card.emphasis]).toEqual(["pinned", true]);
+  });
+});
+
+describe("findEntry (D416)", () => {
+  const entries = {
+    booking: [booking("b"), booking("vip", { categories: ["VIP"] }, false, "Guest")],
+    submission: [form("f")],
+    passport: [passport("p", false)],
+  };
+
+  it("finds each kind's entry with its kind and activity", () => {
+    expect(findEntry(entries, "b")).toMatchObject({ kind: "booking", activity: { id: "b" } });
+    expect(findEntry(entries, "f")).toMatchObject({ kind: "submission", activity: { id: "f" } });
+    expect(findEntry(entries, "p")).toMatchObject({ kind: "passport", activity: { id: "p" } });
+  });
+
+  it("does not find a booking the attendee's category cannot see, or an unknown id", () => {
+    expect(findEntry(entries, "vip")).toBeNull();
+    expect(findEntry(entries, "nope")).toBeNull();
   });
 });

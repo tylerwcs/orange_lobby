@@ -14,11 +14,11 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ slu
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const { bookings, submissions, passports } = await loadActivityEntries(event, attendee);
+  const entries = await loadActivityEntries(event, attendee);
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-extrabold">Activities</h1>
-      <ActivitiesTab bookings={bookings} submissions={submissions} passports={passports} basePath={`/e/${slug}/a/${token}`} />
+      <ActivitiesTab entries={entries} basePath={`/e/${slug}/a/${token}`} />
     </div>
   );
 }
