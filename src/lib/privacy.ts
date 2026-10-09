@@ -8,8 +8,9 @@ export const PRIVACY_UPDATED = "24 September 2026";
 /** Who an attendee writes to about their data: the notice's contact, and the portal's consent screen's. */
 export const PRIVACY_CONTACT = "huine.liew@ecopiaevents.com";
 
-/** Where the Privacy Notice lives. */
+/** Where the Privacy Notice lives, and its Bahasa Malaysia text (D411). */
 export const PRIVACY_PATH = "/privacy";
+export const PRIVACY_MS_PATH = "/privacy/ms";
 
 /**
  * The registration form's consent tick. Named so no organiser-made question key can plausibly

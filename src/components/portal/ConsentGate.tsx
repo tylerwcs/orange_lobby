@@ -3,7 +3,7 @@ import { PortalHeader } from "@/components/portal/PortalHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { brandStyle } from "@/lib/brand";
-import { PRIVACY_CONTACT, PRIVACY_PATH } from "@/lib/privacy";
+import { PRIVACY_CONTACT, PRIVACY_MS_PATH, PRIVACY_PATH } from "@/lib/privacy";
 import type { Event } from "@/lib/types";
 
 /**
@@ -41,7 +41,8 @@ export function ConsentGate({ event, agree }: {
             </ul>
             <p className="text-sm">
               The full details are in our{" "}
-              <a href={PRIVACY_PATH} target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Privacy Notice</a>.
+              <a href={PRIVACY_PATH} target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Privacy Notice</a>{" "}
+              (<a href={PRIVACY_MS_PATH} lang="ms" hrefLang="ms" target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Bahasa Malaysia</a>).
             </p>
             <form action={agree}>
               <SubmitButton className="h-12 w-full text-base font-bold">I agree, continue</SubmitButton>

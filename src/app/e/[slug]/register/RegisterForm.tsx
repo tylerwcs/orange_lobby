@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { CONSENT_FIELD, PRIVACY_PATH } from "@/lib/privacy";
+import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH } from "@/lib/privacy";
 import { Spinner } from "@/components/ui/spinner";
 
 /**
@@ -151,7 +151,8 @@ export function RegisterForm({ slug, questions, door = true }: {
           <FieldLabel htmlFor={`reg-${CONSENT_FIELD}`} className="font-normal leading-snug">
             <span>
               I agree to my personal data being used to run this event, as set out in the{" "}
-              <a href={PRIVACY_PATH} target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Privacy Notice</a>.
+              <a href={PRIVACY_PATH} target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Privacy Notice</a>{" "}
+              (<a href={PRIVACY_MS_PATH} lang="ms" hrefLang="ms" target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Bahasa Malaysia</a>).
             </span>
           </FieldLabel>
           <FieldError id={`reg-${CONSENT_FIELD}-error`}>{errors[CONSENT_FIELD]}</FieldError>
