@@ -6,3 +6,4 @@
 export * from "./tabs";
 export * from "./row";
 export * from "./cards";
+export * from "./kinds";

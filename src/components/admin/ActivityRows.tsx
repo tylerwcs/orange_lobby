@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { CalendarClock, CircleAlert, FileText, Pin, Stamp } from "lucide-react";
+import { CircleAlert, Pin } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import type { AttendeeField } from "@/lib/attendee-fields";
-import type { ActivityRowView } from "@/features/activities";
+import { KIND_META, type ActivityRowView } from "@/features/activities";
 import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { meterPercent } from "@/lib/meter";
@@ -90,7 +90,6 @@ export function SubmissionFields({ activity, categories, fields, uploadImage }: 
 }
 
 
-const KIND_ICONS: Record<Activity["kind"], typeof Stamp> = { booking: CalendarClock, submission: FileText, passport: Stamp };
 
 /** The activity's picture at thumbnail size, or its kind's icon on the brand tint when it has none. */
 export function ActivityThumb({ activity }: { activity: Pick<Activity, "kind" | "image_url"> }) {
@@ -98,7 +97,7 @@ export function ActivityThumb({ activity }: { activity: Pick<Activity, "kind" | 
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={activity.image_url} alt="" className="size-11 shrink-0 rounded-lg bg-muted object-cover" />;
   }
-  const Icon = KIND_ICONS[activity.kind];
+  const Icon = KIND_META[activity.kind].icon;
   return (
     <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
       <Icon className="size-5" />

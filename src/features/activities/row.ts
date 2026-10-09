@@ -1,6 +1,7 @@
 import { dayRange } from "@/lib/activity-card";
 import { capSummary, isGroupForm } from "@/lib/submissions";
 import type { Activity } from "@/lib/types";
+import { KIND_META } from "./kinds";
 
 /**
  * What one row of the admin Activities list says, whichever kind it is.
@@ -13,7 +14,8 @@ import type { Activity } from "@/lib/types";
 export type RowProgress = { done: number; total: number; label: string };
 
 export type ActivityRowView = {
-  kind: "Sessions" | "Submission" | "Passport";
+  /** The kind's name, from KIND_META (D415). */
+  kind: string;
   /** When, where, how often — the line under the name. Null when there is nothing to say yet. */
   detail: string | null;
   progress: RowProgress;
@@ -27,7 +29,7 @@ export function bookingRow(input: { days: string[]; sessions: number; booked: nu
   const { days, sessions, booked, seats, pending } = input;
   const range = dayRange(days);
   return {
-    kind: "Sessions",
+    kind: KIND_META.booking.label,
     detail: range ? `${range} · ${plural(sessions, "session")}` : null,
     progress: { done: booked, total: seats, label: seats === 0 ? "No seats yet" : `${booked} of ${seats} seats` },
     // No sessions outranks a waiting request: an activity nobody can book is the bigger problem.
@@ -55,10 +57,10 @@ export function submissionRow(input: {
     const progress = groups
       ? { done: groups.filter((g) => g.done).length, total: groups.length, label: `${groups.filter((g) => g.done).length} of ${groups.length} groups done` }
       : { done: 0, total: 0, label: `${submitters} submission${submitters === 1 ? "" : "s"}` };
-    return { kind: "Submission", detail, progress, attention: null };
+    return { kind: KIND_META.submission.label, detail, progress, attention: null };
   }
   return {
-    kind: "Submission",
+    kind: KIND_META.submission.label,
     detail,
     progress: { done: submitters, total: eligible, label: `${submitters} of ${eligible} submitted` },
     attention: null,
@@ -68,7 +70,7 @@ export function submissionRow(input: {
 export function passportRow(input: { booths: number; completed: number; eligible: number; open: boolean }): ActivityRowView {
   const { booths, completed, eligible, open } = input;
   return {
-    kind: "Passport",
+    kind: KIND_META.passport.label,
     detail: booths ? plural(booths, "booth") : null,
     progress: { done: completed, total: eligible, label: `${completed} of ${eligible} cards full` },
     // Only while open: attendees are shown a card that no booth can stamp (D184).
