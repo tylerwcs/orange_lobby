@@ -202,6 +202,23 @@ lighter than the sketch above, and meets the same goal:
   `ActivityKind`. Each kind builds its own cards. The tab's order is section first, then kind,
   which is the same order as before: every ordering test is unchanged, and production and local
   showed `ecpkom`'s cards identically.
+- **D418 — The activity screens moved into the feature (9 Oct 2026).** 41 activity-only components
+  left `src/components`:
+  - `admin/`: the list rows, menu, tabs, Overview summary and New activity menu
+  - `portal/`: the Activities tab, card parts, home row and action dialog
+  - `kinds/booking/`, `kinds/submission/`, `kinds/submission/scoring/` (Project Mileage, with
+    `tracker/`) and `kinds/passport/`: each kind's own screens
+  
+  Other changes:
+  - `kinds.ts` became `kinds/meta.ts`.
+  - The admin `SubmissionFields` (the setup form) is now `SubmissionSetupFields`, so it no
+    longer clashes with the portal's `SubmissionFields` in the entry.
+  - Shared UI that other features also use stays in `src/components`, including `Field`,
+    `SaveBar`, `ConfirmButton`, `DayNav`, `AddToCalendar`, `RichSections` and `SwipeRow`.
+  - Still in their route files: the detail pages' own bodies (`BookingDetail`/`SubmissionDetail`
+    in the admin page, `BookingBody`/`SubmissionBody`/`TrackerBody`/`PassportBody` in the portal
+    page, and `PassportDetail.tsx`). They hold the page's data loading as well as its markup, and
+    they move under D407 when next worked on.
 
 ### D405 — Performance rules for every feature
 
@@ -262,8 +279,7 @@ that work. There is no big-bang move.
    - **Fixed the same day:** the winners sheet (`winnerSheetRows`, `buildWinnersWorkbook`) moved
      from `src/lib/exports.ts` into `src/features/games/winners-export.ts`, exposed from `index.ts`.
      The core's `columnValues` is now exported for it. No file in `src/lib` imports a feature.
-     The activity screens still in `src/components` (admin and portal) do import
-     `@/features/activities`. They are feature screens waiting to move under D414/D407, not core.
+     Since D418, nothing in `src/components` imports a feature either.
 4. **From then on, every new feature starts in `src/features/`** (D402, D403, D405). Existing
    features move under D407.
 
