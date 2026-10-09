@@ -172,6 +172,31 @@ export interface ActivityKindDef<K extends ActivityKind> {
   registry fails to compile. A behaviour test checks that each kind's `adminTabs`, `adminRow`,
   `removeWarning` and `portalCard` return what the current code returns for the same inputs.
 
+**Built 9 Oct 2026** (plan: `docs/superpowers/plans/2026-10-09-activity-kinds.md`). It was built
+lighter than the sketch above, and meets the same goal:
+
+- **D414 — The first slice of `src/features/activities/`, using exhaustive dispatch rather than a
+  component registry.**
+  - `tabs.ts`, `row.ts` and `cards.ts` moved into the feature.
+  - Every branch on kind is now a `Record<ActivityKind, …>`, or a `switch` whose `default` assigns
+    to `never`. That covers the tabs, the delete warning, the list row, the admin detail page, the
+    card builders, `findEntry` and the portal detail page.
+  - The detail screens stay in their pages. Each kind's screen takes different props, from data
+    loaded differently, so pushing them through one uniform `AdminDetail`/`PortalBody` signature
+    would have meant rewriting three working pages. They move into `kinds/<kind>/` under D407 the
+    next time each is worked on, and so does a per-kind `readSettings`.
+  - Proof: adding a fake `"raffle"` kind failed the build in 9 files: `kinds.ts`, `tabs.ts`,
+    `row.ts`, `cards.ts`, `portal-activity-entries.ts`, both activities pages, the portal activity
+    page, and `activities/actions.ts`.
+- **D415 — `KIND_META` (`kinds.ts`) is the only source of a kind's label, icon and New activity
+  copy.** It replaces `KIND_LABELS`, `KIND_ICONS`, `NewActivityMenu`'s private kind list, and the
+  list row's literal labels.
+- **D416 — Portal entries are keyed by kind.** `loadActivityEntries` returns
+  `{ booking, submission, passport, people }`, with a compile-time check that the keys equal
+  `ActivityKind`. Each kind builds its own cards. The tab's order is section first, then kind,
+  which is the same order as before: every ordering test is unchanged, and production and local
+  showed `ecpkom`'s cards identically.
+
 ### D405 — Performance rules for every feature
 
 1. **Attendee-facing requests read by attendee, never by event.** That covers the portal, play,
@@ -215,7 +240,8 @@ that work. There is no big-bang move.
 ### D408 — Order of work
 
 1. **Now:** agree on this doc.
-2. **After the 1,000-pax event: activity kinds (D404).** This has the largest payoff and fixes the
+2. **Done 9 Oct 2026, brought forward while Project Mileage submissions were paused: activity
+   kinds (D404, built as D414–D416).** This has the largest payoff and fixes the
    silent fall-throughs. It is about 40 files, done kind by kind: `meta.ts` and the registry first,
    then booking, submission and passport, each in its own commit, with the full test suite and an
    admin plus portal browser check on a test event (never `ecphub`) after each.
