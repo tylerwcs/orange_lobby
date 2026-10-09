@@ -23,7 +23,7 @@ export default function NotisPrivasi() {
       <Section title="Siapa kami">
         <p>
           ECP Hub ialah platform acara yang dikendalikan oleh <strong>Qarmakrome Productions Sdn. Bhd.</strong>,
-          sebuah syarikat yang didaftarkan di Malaysia dan berdagang sebagai Ecopia Events. Kami ialah
+          sebuah syarikat yang didaftarkan di Malaysia dan sebahagian daripada Ecopia Group. Kami ialah
           pengawal data bagi data peribadi yang diterangkan di bawah, dan kami bertanggungjawab menjaganya.
         </p>
         <p>
@@ -143,7 +143,7 @@ export default function NotisPrivasi() {
 
       <Section title="Hubungi kami">
         <p>
-          Qarmakrome Productions Sdn. Bhd. (berdagang sebagai Ecopia Events)<br />
+          Qarmakrome Productions Sdn. Bhd. (sebahagian daripada Ecopia Group)<br />
           <a className="font-medium underline underline-offset-4" href={`mailto:${CONTACT}`}>{CONTACT}</a>
         </p>
       </Section>

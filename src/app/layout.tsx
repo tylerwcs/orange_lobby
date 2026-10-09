@@ -17,9 +17,9 @@ const manrope = Manrope({
 // A page with no title of its own - the attendee portal - shows the name alone.
 export const metadata: Metadata = {
   title: { template: `%s · ${APP_NAME}`, default: APP_NAME },
-  description: "Event portal by Ecopia Events",
+  description: "Event portal by Ecopia Group",
   applicationName: APP_NAME,
-  openGraph: { siteName: APP_NAME, title: APP_NAME, description: "Event portal by Ecopia Events" },
+  openGraph: { siteName: APP_NAME, title: APP_NAME, description: "Event portal by Ecopia Group" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
