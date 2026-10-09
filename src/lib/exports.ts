@@ -6,8 +6,6 @@ import { completionByAttendee } from "@/lib/booths";
 import { fieldValue } from "@/lib/attendee-values";
 import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 import type { ExportColumn } from "@/lib/export-columns";
-import type { Prize, WinnerRow } from "@/features/games";
-import { isoToLocalInput } from "@/lib/time";
 import { weekLabel } from "@/lib/challenge";
 import type { ChallengeScore } from "@/lib/challenge-score";
 
@@ -22,8 +20,8 @@ function setLink(cell: ExcelJS.Cell, text: string, url: string): void {
   cell.font = { color: { argb: "FF0563C1" }, underline: true };
 }
 
-/** The chosen columns' values for one person, blank where they have none. */
-const columnValues = (extra: Record<string, string> | null | undefined, columns: ExportColumn[]): string[] =>
+/** The chosen columns' values for one person, blank where they have none. Shared with the games winners sheet. */
+export const columnValues = (extra: Record<string, string> | null | undefined, columns: ExportColumn[]): string[] =>
   columns.map((c) => fieldValue({ extra: extra ?? {} }, c.key));
 
 export type LinkRow = { name: string; email: string | null; category: string | null; table_no: string | null; link: string; extra?: Record<string, string> | null };
@@ -375,42 +373,6 @@ export function buildPassportWorkbook(attendees: Attendee[], passports: Passport
     }
     ws.columns?.forEach((col) => { col.width = 20; });
   }
-  return wb;
-}
-
-/**
- * One row per winner, in the order drawn (D283). Voided winners stay, marked, so the sheet is
- * the whole story. The event's chosen export columns follow Email, as on every other export;
- * the route leaves `company` out of them, since Company is already a fixed column here.
- */
-export function winnerSheetRows(
-  prizes: Prize[], winners: WinnerRow[],
-  people: Map<string, Pick<Attendee, "name" | "email" | "category" | "extra">>,
-  columns: ExportColumn[] = [],
-): string[][] {
-  const rows: string[][] = [["Prize", "Card", "Name", "Company", "Category", "Email", ...columns.map((c) => c.label), "Drawn at", "Status"]];
-  for (const w of winners) {
-    const a = people.get(w.attendee_id);
-    rows.push([
-      w.prize_no === null ? "No card picked" : prizes[w.prize_no]?.name ?? `Prize ${w.prize_no + 1}`,
-      typeof w.card_no === "number" ? String(w.card_no) : "",
-      a?.name ?? "(removed attendee)",
-      a ? fieldValue(a, "company") : "",
-      a?.category ?? "",
-      a?.email ?? "",
-      ...columnValues(a?.extra, columns),
-      isoToLocalInput(w.drawn_at).replace("T", " "),
-      w.void ? "Not here — redrawn" : "Won",
-    ]);
-  }
-  return rows;
-}
-
-export function buildWinnersWorkbook(title: string, rows: string[][]): ExcelJS.Workbook {
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(sanitizeSheetNamePart(title).slice(0, 31) || "Winners");
-  for (const r of rows) ws.addRow(r);
-  ws.columns?.forEach((c) => { c.width = 24; });
   return wb;
 }
 

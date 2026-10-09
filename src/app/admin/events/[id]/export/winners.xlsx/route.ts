@@ -2,9 +2,8 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
-import { getGame, listWinners } from "@/features/games";
+import { buildWinnersWorkbook, getGame, listWinners, winnerSheetRows } from "@/features/games";
 import { listAttendeesByIds } from "@/lib/db/attendees";
-import { buildWinnersWorkbook, winnerSheetRows } from "@/lib/exports";
 
 // One draw per file (`?game=`), linked from that draw's editor rather than the Exports page.
 // It carries the event's chosen export columns like every other export; Company is already a

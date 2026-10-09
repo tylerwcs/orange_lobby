@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWinnersWorkbook, winnerSheetRows } from "@/lib/exports";
+import { buildWinnersWorkbook, winnerSheetRows } from "@/features/games/winners-export";
 import type { WinnerRow } from "@/features/games/draw";
 import type { Attendee } from "@/lib/types";
 

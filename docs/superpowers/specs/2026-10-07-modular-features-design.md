@@ -259,9 +259,11 @@ that work. There is no big-bang move.
    - The entries expose exactly what the app used: 9 rule modules, 11 screens, and 4 server
      modules (`db`, `live`, `display-state`, `phone-state`, in `index.ts` only).
    - Checked with a production build and in the browser on `ecpkom`.
-   - **Left over:** `src/lib/exports.ts` (core) imports games for the winners sheet, which is the
-     one place where the core depends on a feature (D402 says it should not). The winners sheet
-     moves into the feature when exports are next worked on.
+   - **Fixed the same day:** the winners sheet (`winnerSheetRows`, `buildWinnersWorkbook`) moved
+     from `src/lib/exports.ts` into `src/features/games/winners-export.ts`, exposed from `index.ts`.
+     The core's `columnValues` is now exported for it. No file in `src/lib` imports a feature.
+     The activity screens still in `src/components` (admin and portal) do import
+     `@/features/activities`. They are feature screens waiting to move under D414/D407, not core.
 4. **From then on, every new feature starts in `src/features/`** (D402, D403, D405). Existing
    features move under D407.
 
