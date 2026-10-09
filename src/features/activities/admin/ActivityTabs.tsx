@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ActivityTab, TabItem } from "@/features/activities";
+import type { ActivityTab, TabItem } from "../tabs";
 
 /**
  * Links, not a client Tabs widget: the tab lives in the URL, so reload, Back and a shared link

@@ -1,7 +1,7 @@
 import { loadPortalAttendee, portalHasInfo, isUnpublished } from "@/lib/portal";
 import { loadActivityNav, loadHomeData } from "@/lib/portal-home";
 import { loadActivityEntries } from "@/lib/portal-activity-entries";
-import { activityCards } from "@/features/activities";
+import { activityCards, HomeActivities } from "@/features/activities";
 import { launcherItems, sectionIcons } from "@/lib/launcher";
 import { getCheckin } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
@@ -14,7 +14,6 @@ import { BadgeCard } from "@/components/portal/BadgeCard";
 import { BreakoutCard } from "@/components/portal/BreakoutCard";
 import { AnnouncementBanner } from "@/components/portal/AnnouncementBanner";
 import { LauncherGrid } from "@/components/portal/LauncherGrid";
-import { HomeActivities } from "@/components/portal/HomeActivities";
 import { AddToHomeScreen, HomeScreenRow } from "@/components/portal/AddToHomeScreen";
 import { shortName } from "@/lib/web-app";
 import { AgendaList } from "@/components/portal/AgendaList";

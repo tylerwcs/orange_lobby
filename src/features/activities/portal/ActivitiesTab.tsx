@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { activityCards, type ActivityCardItem, type CardSection } from "@/features/activities";
+import { activityCards, type ActivityCardItem, type CardSection } from "../cards";
 import type { CardView } from "@/lib/activity-card";
 import type { ActivityEntries } from "@/lib/portal-activity-entries";
 import type { Activity } from "@/lib/types";

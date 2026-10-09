@@ -1,6 +1,6 @@
 import { CalendarDays, Clock, MapPin, Ticket } from "lucide-react";
 import type { CardTone, CardView } from "@/lib/activity-card";
-import { KIND_META } from "@/features/activities";
+import { KIND_META } from "../kinds/meta";
 import type { Activity } from "@/lib/types";
 
 /**

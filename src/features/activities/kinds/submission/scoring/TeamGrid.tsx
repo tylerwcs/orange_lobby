@@ -4,7 +4,7 @@ import type { ChallengeScore, Team } from "@/lib/challenge-score";
 import type { ChallengeWeek } from "@/lib/challenge";
 import type { Disqualification } from "@/lib/db/challenge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { DisqualifyForm } from "@/components/admin/DisqualifyForm";
+import { DisqualifyForm } from "./DisqualifyForm";
 
 /** D381: one team's members against the week's days, km in each cell, with Disqualify and Undo (D380). */
 export function TeamGrid({ team, week, score, names, dq, dailyMin, back, disqualify, undo }: {

@@ -4,7 +4,7 @@ import { adminFileHref } from "@/lib/file-links";
 import { retiredAnswerKeys } from "@/lib/exports";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { SubmissionFields } from "@/components/portal/SubmissionFields";
+import { SubmissionFields } from "./SubmissionFields";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";

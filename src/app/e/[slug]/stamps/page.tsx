@@ -4,7 +4,7 @@ import { listPassportBooths } from "@/lib/db/booths";
 import { buildPassport, firstPublicPassport } from "@/lib/booths";
 import { shownToAttendees } from "@/lib/portal-activities";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { PassportGrid } from "@/components/portal/PassportGrid";
+import { PassportGrid } from "@/features/activities";
 
 export const dynamic = "force-dynamic";
 

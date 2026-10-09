@@ -2,7 +2,7 @@ import type { ActivityControls } from "@/lib/activity-requests";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Icon } from "@/components/ui/icon";
-import { AddToCalendar } from "./AddToCalendar";
+import { AddToCalendar } from "@/components/portal/AddToCalendar";
 import { sessionLabel } from "@/lib/activities";
 import { shortTime } from "@/lib/text";
 

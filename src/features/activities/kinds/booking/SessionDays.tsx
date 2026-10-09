@@ -3,7 +3,7 @@ import { groupSessionsByDay } from "@/lib/session-slots";
 import { sessionLabel, type SessionSeats } from "@/lib/activities";
 import { meterPercent } from "@/lib/meter";
 import { shortDate } from "@/lib/text";
-import { AddSessionsDialog } from "@/components/admin/AddSessionsDialog";
+import { AddSessionsDialog } from "./AddSessionsDialog";
 import { RowActions } from "@/components/admin/RowActions";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";

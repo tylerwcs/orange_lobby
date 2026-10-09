@@ -1,7 +1,7 @@
 import { dayRange } from "@/lib/activity-card";
 import { capSummary, isGroupForm } from "@/lib/submissions";
 import type { Activity, ActivityKind } from "@/lib/types";
-import { KIND_META } from "./kinds";
+import { KIND_META } from "./kinds/meta";
 
 /**
  * What one row of the admin Activities list says, whichever kind it is.

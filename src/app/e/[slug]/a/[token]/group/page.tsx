@@ -6,7 +6,7 @@ import { loadActivityEntries } from "@/lib/portal-activity-entries";
 import { groupFieldValues, taggedFirst } from "@/lib/groups";
 import { Badge } from "@/components/ui/badge";
 import { eventFields } from "@/lib/attendee-fields";
-import { GroupStatus } from "@/components/portal/GroupStatus";
+import { GroupStatus } from "@/features/activities";
 
 export const dynamic = "force-dynamic";
 

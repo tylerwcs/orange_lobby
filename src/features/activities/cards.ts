@@ -3,7 +3,7 @@ import { bookingCard, formCard, passportCard, type CardView } from "@/lib/activi
 import { allCheckedIn } from "@/lib/booking-door";
 import type { ActivityEntries, EntryMap } from "@/lib/portal-activity-entries";
 import type { Activity, ActivityKind } from "@/lib/types";
-import { ACTIVITY_KINDS } from "./kinds";
+import { ACTIVITY_KINDS } from "./kinds/meta";
 
 /** The Activities tab's headings: the organiser's pins (D387), then where each card sits for the attendee. */
 export type CardSection = "pinned" | ActivitySection;

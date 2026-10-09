@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/features/activities";
+import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/features/activities/client";
 
 describe("bookingRow", () => {
   const base = { days: ["2026-09-28", "2026-10-02"], sessions: 32, booked: 3, seats: 96, pending: 0 };

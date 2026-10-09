@@ -2,7 +2,7 @@ import { CircleCheck, Circle } from "lucide-react";
 import type { Activity, ActivitySubmission } from "@/lib/types";
 import { groupSummary, type GroupProgress } from "@/lib/groups";
 import { shortDateTime } from "@/lib/text";
-import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
+import { SubmissionHistory, type EditEntry } from "./SubmissionHistory";
 
 /**
  * D353: what every member of a group sees on a group form, identically - where the group

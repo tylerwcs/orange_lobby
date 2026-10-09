@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ACTIVITY_KINDS, KIND_META } from "@/features/activities/client";
+import { ACTIVITY_KINDS, KIND_META } from "../kinds/meta";
 import type { ActivityKind } from "@/lib/types";
 
 /**

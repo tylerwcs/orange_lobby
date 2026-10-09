@@ -5,10 +5,8 @@ import { formKey } from "@/lib/form-key";
 import { PassportDetail } from "./PassportDetail";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
-import { COVER_HINT, SubmissionFields } from "@/components/admin/ActivityRows";
+import { COVER_HINT, SubmissionSetupFields, ActivityMenu, removeWarning, activityTabs, resolveTab, activityHref, type ActivityTab, ActivityTabs, SessionDays, BookingsByDay, UnbookedPanel, RequestQueue, SubmissionTable, MissingPanel, GroupsNotDonePanel, ParticipationPanel, LeaderboardPanel, TeamGrid } from "@/features/activities";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
-import { ActivityMenu } from "@/components/admin/ActivityMenu";
-import { removeWarning } from "@/features/activities";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getActivity, listSessions, listBookings, countBookingsBySession, submissionsForActivity } from "@/lib/db/activities";
@@ -21,7 +19,6 @@ import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity, sessionLabel } from "@/lib/activities";
 import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } from "@/lib/submissions";
-import { activityTabs, resolveTab, activityHref, type ActivityTab } from "@/features/activities";
 import { groupSessionsByDay } from "@/lib/session-slots";
 import { nowInKL, dayNav } from "@/lib/time";
 import { shortDate } from "@/lib/text";
@@ -32,18 +29,7 @@ import { listGroups } from "@/lib/db/groups";
 import { categoryMatches } from "@/lib/agenda";
 import type { Activity, Checkin, Checkpoint, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { ActivityTabs } from "@/components/admin/ActivityTabs";
-import { SessionDays } from "@/components/admin/SessionDays";
-import { BookingsByDay } from "@/components/admin/BookingsByDay";
-import { UnbookedPanel } from "@/components/admin/UnbookedPanel";
-import { RequestQueue } from "@/components/admin/RequestQueue";
-import { SubmissionTable } from "@/components/admin/SubmissionTable";
-import { MissingPanel } from "@/components/admin/MissingPanel";
 import { DayNav } from "@/components/admin/DayNav";
-import { GroupsNotDonePanel } from "@/components/admin/GroupsNotDonePanel";
-import { ParticipationPanel } from "@/components/admin/ParticipationPanel";
-import { LeaderboardPanel } from "@/components/admin/LeaderboardPanel";
-import { TeamGrid } from "@/components/admin/TeamGrid";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -376,7 +362,7 @@ async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId 
           <CardHeader><CardTitle>Details, rules and questions</CardTitle></CardHeader>
           <CardContent>
             <form key={formKey({ ...activity, is_open: undefined })} action={saveSubmissionActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
-              <SubmissionFields activity={activity} categories={categories} fields={eventFields(ev.registration_questions, ev.attendee_fields)} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+              <SubmissionSetupFields activity={activity} categories={categories} fields={eventFields(ev.registration_questions, ev.attendee_fields)} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
               <SaveBar inCard />
             </form>
           </CardContent>

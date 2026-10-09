@@ -2,7 +2,8 @@ import Link from "next/link";
 import { CircleAlert, Pin } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import type { AttendeeField } from "@/lib/attendee-fields";
-import { KIND_META, type ActivityRowView } from "@/features/activities";
+import { KIND_META } from "../kinds/meta";
+import { type ActivityRowView } from "../row";
 import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { meterPercent } from "@/lib/meter";
@@ -12,9 +13,9 @@ import { ImageField } from "@/components/admin/ImageField";
 import { RichTextEditor, SECTIONS_HINT, type UploadImage } from "@/components/admin/RichTextEditor";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
-import { ActivityMenu, type ActivityMenuProps } from "@/components/admin/ActivityMenu";
-import { WhoSubmitsFields } from "@/components/admin/WhoSubmitsFields";
-import { ScoringFields } from "@/components/admin/ScoringFields";
+import { ActivityMenu, type ActivityMenuProps } from "./ActivityMenu";
+import { WhoSubmitsFields } from "../kinds/submission/WhoSubmitsFields";
+import { ScoringFields } from "../kinds/submission/scoring/ScoringFields";
 
 /** The hint under every activity's image field, every kind. */
 export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 KB. The card crops it to a 2:1 strip and the page shows it whole, so at 2:1 nothing is cut off.";
@@ -25,7 +26,7 @@ export const COVER_HINT = "Best at 1600 × 800 px (2:1), JPEG or WebP under 500 
  * Exported so the "New activity" form and the Settings card on the submission's own page
  * render the identical fields rather than two copies that could drift.
  */
-export function SubmissionFields({ activity, categories, fields, uploadImage }: { activity?: Activity; categories: string[]; fields: AttendeeField[]; uploadImage?: UploadImage }) {
+export function SubmissionSetupFields({ activity, categories, fields, uploadImage }: { activity?: Activity; categories: string[]; fields: AttendeeField[]; uploadImage?: UploadImage }) {
   return (
     <>
       <Field label="Name" name="name" defaultValue={activity?.name} placeholder="Feedback" />

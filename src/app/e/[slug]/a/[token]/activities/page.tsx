@@ -1,6 +1,6 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries } from "@/lib/portal-activity-entries";
-import { ActivitiesTab } from "@/components/portal/ActivitiesTab";
+import { ActivitiesTab } from "@/features/activities";
 
 export const dynamic = "force-dynamic";
 

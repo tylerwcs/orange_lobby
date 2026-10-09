@@ -1,7 +1,7 @@
 import Link from "next/link";
-import type { ActivityCardItem } from "@/features/activities";
+import type { ActivityCardItem } from "../cards";
 import { ActivityCard, cardProps } from "./ActivitiesTab";
-import { SwipeRow } from "./SwipeRow";
+import { SwipeRow } from "@/components/portal/SwipeRow";
 
 /** More than this and the row stops being a glance; the Activities page has the rest. */
 const HOME_CARDS = 5;

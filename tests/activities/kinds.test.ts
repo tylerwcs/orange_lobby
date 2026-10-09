@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVITY_KINDS, KIND_META, activityTabs } from "@/features/activities";
+import { ACTIVITY_KINDS, KIND_META, activityTabs } from "@/features/activities/client";
 
 describe("KIND_META (D415)", () => {
   it("lists every kind once, in the order the menu and the portal use", () => {

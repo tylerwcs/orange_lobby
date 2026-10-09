@@ -8,7 +8,7 @@ import { ScanLine } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { OverviewStats } from "@/components/admin/OverviewStats";
-import { ActivityOverview } from "@/components/admin/ActivityOverview";
+import { ActivityOverview } from "@/features/activities";
 import { RunningCheckpoint } from "@/components/admin/RunningCheckpoint";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";

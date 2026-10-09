@@ -12,13 +12,11 @@ import { isGroupForm } from "@/lib/submissions";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { pendingCountByActivity } from "@/lib/activity-requests";
 import { eligible } from "@/lib/activities";
-import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/features/activities";
+import { bookingRow, submissionRow, passportRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu } from "@/features/activities";
 import type { Activity, ActivitySubmission, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { ActivityList, SubmissionFields, COVER_HINT, type ActivityListItem } from "@/components/admin/ActivityRows";
-import { NewActivityMenu } from "@/components/admin/NewActivityMenu";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { Card, CardContent } from "@/components/ui/card";
@@ -105,7 +103,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
               ),
               submission: (
                 <form action={addSubmissionActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
-  <SubmissionFields categories={categories} fields={eventFields(ev.registration_questions, ev.attendee_fields)} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+  <SubmissionSetupFields categories={categories} fields={eventFields(ev.registration_questions, ev.attendee_fields)} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
   <label className={check}>
     <input type="checkbox" name="submissions_open" className="size-4" />
     Open for submissions now
