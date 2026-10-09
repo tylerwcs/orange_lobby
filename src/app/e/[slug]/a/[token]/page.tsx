@@ -23,9 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GROUP_PIN, resolvePins } from "@/lib/pinned-fields";
 import { eventFields } from "@/lib/attendee-fields";
 import type { Attendee, Event } from "@/lib/types";
-import { countGames } from "@/lib/db/games";
-import { phoneState } from "@/lib/games/phone-state";
-import { GameBanner } from "@/components/games/GameBanner";
+import { countGames, phoneState, GameBanner } from "@/features/games";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 

@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import type { Event } from "@/lib/types";
 import { notFound } from "next/navigation";
-import { displayLinkState } from "@/lib/games/live";
-import { displayState } from "@/lib/games/display-state";
-import { DisplayClient } from "@/components/games/display/DisplayClient";
-import { DisplayTest } from "@/components/games/display/DisplayTest";
-import { LinkRefused } from "@/components/games/LinkRefused";
+import { displayLinkState, displayState, DisplayClient, DisplayTest, LinkRefused } from "@/features/games";
 import "./display.css";
 
 // Never cached: the stage is live, and an expired link must stop on the day it does.

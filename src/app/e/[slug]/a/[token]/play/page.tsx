@@ -1,6 +1,5 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
-import { phoneState } from "@/lib/games/phone-state";
-import { PlayClient } from "@/components/games/PlayClient";
+import { phoneState, PlayClient } from "@/features/games";
 import type { Attendee, Event } from "@/lib/types";
 
 export const dynamic = "force-dynamic";

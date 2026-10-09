@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { listGames } from "@/lib/db/games";
-import { GAME_KIND_LABELS, gameSummary, type GameKind } from "@/lib/games/config";
+import { listGames, GAME_KIND_LABELS, gameSummary, type GameKind, NewGameMenu } from "@/features/games";
 import { appBaseUrl, displayLink, hostLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
 import { shortDate } from "@/lib/text";
@@ -12,7 +11,6 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { RowActions } from "@/components/admin/RowActions";
 import { ShareLink } from "@/components/admin/ShareLink";
-import { NewGameMenu } from "@/components/admin/NewGameMenu";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createGameAction, deleteGameAction, rotateDisplayTokenAction, rotateHostTokenAction } from "./actions";

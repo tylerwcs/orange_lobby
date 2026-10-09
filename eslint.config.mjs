@@ -7,8 +7,10 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // A feature is used only through its entry: @/features/<name> on the server, or
   // @/features/<name>/client in the browser (D403). Inside a feature, files import each other
-  // relatively, which this pattern does not catch.
+  // relatively, which this pattern does not catch. App code only: a feature's own tests
+  // (tests/<feature>/) test its internals directly.
   {
+    files: ["src/**"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [{
         group: ["**/features/*/**", "!**/features/*/client"],

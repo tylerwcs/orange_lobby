@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
-import { getGame, listWinners } from "@/lib/db/games";
+import { getGame, listWinners } from "@/features/games";
 import { listAttendeesByIds } from "@/lib/db/attendees";
 import { buildWinnersWorkbook, winnerSheetRows } from "@/lib/exports";
 

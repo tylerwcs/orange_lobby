@@ -1,8 +1,4 @@
-import { forgetStage, liveStage, playContext } from "@/lib/games/live";
-import { submitAnswer } from "@/lib/db/games";
-import type { SurvivalGame } from "@/lib/games/config";
-import { currentQuestion, questionDeadline } from "@/lib/games/phase";
-import { json } from "@/lib/games/http";
+import { forgetStage, liveStage, playContext, submitAnswer, type SurvivalGame, currentQuestion, questionDeadline, json } from "@/features/games";
 import { allow } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";

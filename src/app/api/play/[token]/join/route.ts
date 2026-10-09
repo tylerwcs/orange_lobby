@@ -1,9 +1,5 @@
 import type { Attendee } from "@/lib/types";
-import { forgetStage, liveStage, playContext, runFor } from "@/lib/games/live";
-import { phoneState } from "@/lib/games/phone-state";
-import { joinRace, joinSurvival } from "@/lib/db/games";
-import { laneKeyFor } from "@/lib/games/race";
-import { json } from "@/lib/games/http";
+import { forgetStage, liveStage, playContext, runFor, phoneState, joinRace, joinSurvival, laneKeyFor, json } from "@/features/games";
 import { allow } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";

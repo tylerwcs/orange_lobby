@@ -33,7 +33,7 @@ const SEED = "load";
 const PAGE = 1000;
 // src/lib/tokens.ts: 12 characters from this 31-symbol alphabet, or the endpoints refuse it.
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
-// src/lib/games/phase.ts GRACE_MS, plus the taps memo and a margin for clock drift.
+// src/features/games/phase.ts GRACE_MS, plus the taps memo and a margin for clock drift.
 const SETTLE_MS = 1500 + 1500;
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -1,6 +1,4 @@
-import { displayLinkState } from "@/lib/games/live";
-import { displayState } from "@/lib/games/display-state";
-import { json } from "@/lib/games/http";
+import { displayLinkState, displayState, json } from "@/features/games";
 
 export const dynamic = "force-dynamic";
 

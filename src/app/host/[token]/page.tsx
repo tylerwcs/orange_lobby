@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import type { Event } from "@/lib/types";
 import { notFound } from "next/navigation";
-import { hostLinkState } from "@/lib/games/live";
-import { hostState } from "@/lib/games/display-state";
-import { HostConsole } from "@/components/games/HostConsole";
-import { LinkRefused } from "@/components/games/LinkRefused";
+import { hostLinkState, hostState, HostConsole, LinkRefused } from "@/features/games";
 
 // Never cached: the stage is live, and an expired link must stop on the day it does.
 export const dynamic = "force-dynamic";

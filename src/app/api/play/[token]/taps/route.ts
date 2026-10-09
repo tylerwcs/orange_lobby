@@ -1,7 +1,4 @@
-import { liveStage, playContext } from "@/lib/games/live";
-import { addTaps } from "@/lib/db/games";
-import { raceWindow } from "@/lib/games/phase";
-import { json } from "@/lib/games/http";
+import { liveStage, playContext, addTaps, raceWindow, json } from "@/features/games";
 import { allow } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";

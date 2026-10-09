@@ -1,6 +1,4 @@
-import { playContext } from "@/lib/games/live";
-import { phoneState } from "@/lib/games/phone-state";
-import { json } from "@/lib/games/http";
+import { playContext, phoneState, json } from "@/features/games";
 import { allow } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";

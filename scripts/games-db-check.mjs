@@ -1,6 +1,6 @@
 // Executable evidence that the live-games RPCs (supabase/migrations/0049_games.sql) enforce
 // their rules against a real database. vitest has no database (D141), so the pure mirrors in
-// src/lib/games/ are unit-tested there and this proves the SQL agrees.
+// src/features/games/ are unit-tested there and this proves the SQL agrees.
 //
 // WHAT THIS PROVES:
 //   1. game_stage_write refuses a stale expected version (two crew phones pressing Next).
