@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarClock, CircleAlert, FileText, Pin, Stamp } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import type { AttendeeField } from "@/lib/attendee-fields";
-import type { ActivityRowView } from "@/lib/activity-row";
+import type { ActivityRowView } from "@/features/activities";
 import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { meterPercent } from "@/lib/meter";

@@ -12,7 +12,7 @@ import { isGroupForm } from "@/lib/submissions";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { pendingCountByActivity } from "@/lib/activity-requests";
 import { eligible } from "@/lib/activities";
-import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/lib/activity-row";
+import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/features/activities";
 import type { Activity, ActivitySubmission, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Field } from "@/components/admin/Field";

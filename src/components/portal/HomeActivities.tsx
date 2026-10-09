@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ActivityCardItem } from "@/lib/activity-cards";
+import type { ActivityCardItem } from "@/features/activities";
 import { ActivityCard, cardProps } from "./ActivitiesTab";
 import { SwipeRow } from "./SwipeRow";
 

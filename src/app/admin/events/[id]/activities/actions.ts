@@ -29,7 +29,7 @@ import type { Activity, ActivitySubmission, ChallengeScoring, Event, GroupMode }
 import { readScoring } from "@/lib/challenge";
 import { disqualify, undoDisqualify } from "@/lib/db/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
-import { activityHref, type ActivityTab } from "@/lib/activity-tabs";
+import { activityHref, type ActivityTab } from "@/features/activities";
 import { shortDate } from "@/lib/text";
 
 async function event(eventId: string) {

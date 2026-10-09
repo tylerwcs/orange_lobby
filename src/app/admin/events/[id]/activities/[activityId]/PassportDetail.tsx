@@ -15,7 +15,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { ActivityMenu } from "@/components/admin/ActivityMenu";
-import { removeWarning } from "@/lib/activity-row";
+import { removeWarning } from "@/features/activities";
 import { BoothList } from "@/components/admin/BoothList";
 import { BoothQr } from "@/components/admin/BoothQr";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";

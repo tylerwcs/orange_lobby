@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityHref, activityTabs, resolveTab } from "@/lib/activity-tabs";
+import { activityHref, activityTabs, resolveTab } from "@/features/activities";
 
 describe("activityTabs", () => {
   it("gives a booking Setup, Bookings and Not booked, with a dot while requests wait", () => {
