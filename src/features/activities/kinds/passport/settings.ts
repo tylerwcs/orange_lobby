@@ -1,7 +1,7 @@
-import { readPassportSettings } from "@/lib/booths";
+import { readPassportSettings } from "../../lib/booths";
 import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
-import type { NewActivity } from "@/lib/db/activities";
+import type { NewActivity } from "../../db/activities";
 import { categoryValues, type FormReader } from "../form";
 
 export type PassportSettings = {

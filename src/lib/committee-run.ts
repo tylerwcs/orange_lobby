@@ -1,5 +1,5 @@
 import "server-only";
-import { listDueRequests, claimForReminder } from "@/lib/db/activity-requests";
+import { listDueRequests, claimForReminder } from "@/features/activities";
 import { getEvent } from "@/lib/db/events";
 import { sendTemplate } from "@/lib/whatsapp";
 import { dueCutoff, groupByEvent, pendingPhrase } from "@/lib/committee-reminders";

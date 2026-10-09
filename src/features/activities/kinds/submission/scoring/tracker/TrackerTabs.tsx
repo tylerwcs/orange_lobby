@@ -1,5 +1,5 @@
 import { PendingLink } from "@/components/PendingNav";
-import type { TrackerTab } from "@/lib/tracker";
+import type { TrackerTab } from "../../../../lib/tracker";
 
 const TABS: Record<TrackerTab, { label: string; query: string }> = {
   info: { label: "Info", query: "?tab=info" },

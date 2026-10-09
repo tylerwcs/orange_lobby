@@ -1,10 +1,6 @@
 import { loadPortalEvent } from "@/lib/portal";
-import { listActivities } from "@/lib/db/activities";
-import { listPassportBooths } from "@/lib/db/booths";
-import { buildPassport, firstPublicPassport } from "@/lib/booths";
-import { shownToAttendees } from "@/lib/portal-activities";
+import { listActivities, listPassportBooths, buildPassport, firstPublicPassport, shownToAttendees, PassportGrid } from "@/features/activities";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { PassportGrid } from "@/features/activities";
 
 export const dynamic = "force-dynamic";
 

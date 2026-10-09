@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { activityState } from "@/lib/activities";
-import { activityControls } from "@/lib/activity-requests";
+import { activityState } from "@/features/activities/lib/activities";
+import { activityControls } from "@/features/activities/lib/activity-requests";
 import { activityCards, findEntry } from "@/features/activities/client";
-import type { Passport } from "@/lib/booths";
-import type { ActivityEntry, PassportEntry, SubmissionEntry } from "@/lib/portal-activity-entries";
-import type { SubmitReason } from "@/lib/submissions";
+import type { Passport } from "@/features/activities/lib/booths";
+import type { ActivityEntry, PassportEntry, SubmissionEntry } from "@/features/activities/lib/portal-activity-entries";
+import type { SubmitReason } from "@/features/activities/lib/submissions";
 import type { Activity, ActivitySession } from "@/lib/types";
 
 const activity = (id: string, over: Partial<Activity> = {}): Activity => ({

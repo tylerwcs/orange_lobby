@@ -3,8 +3,7 @@ import { requireEvent } from "@/lib/db/events";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
-import { listActivities, listSessions, listBookings } from "@/lib/db/activities";
-import { sessionRosters, unbookedByActivity, sessionPlaceLabel } from "@/lib/activities";
+import { listActivities, listSessions, listBookings, sessionRosters, unbookedByActivity, sessionPlaceLabel } from "@/features/activities";
 import { buildActivityRostersWorkbook, type ActivitySessionRoster, type ActivityUnbookedRoster, type RosterPerson } from "@/lib/exports";
 
 // Same shape as rosters.xlsx: the whole door list, not a selection, so there is no `ids` param
@@ -17,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const attendeeIds = attendees.map((a) => a.id);
   const attendeeById = new Map(attendees.map((a) => [a.id, a]));
 
-  // Grouping and eligibility both live in @/lib/activities (sessionRosters, unbookedByActivity)
+  // Grouping and eligibility both live in the activities feature (sessionRosters, unbookedByActivity)
   // rather than inline here, so they carry their own unit tests the way `rosters()` in
   // lib/breakouts.ts does for the sibling breakout export — this route only reshapes their
   // output into the names buildActivityRostersWorkbook wants.

@@ -1,7 +1,7 @@
-import { bookingSection, passportSection, type ActivitySection } from "@/lib/portal-activities";
-import { bookingCard, formCard, passportCard, type CardView } from "@/lib/activity-card";
-import { allCheckedIn } from "@/lib/booking-door";
-import type { ActivityEntries, EntryMap } from "@/lib/portal-activity-entries";
+import { bookingSection, passportSection, type ActivitySection } from "./lib/portal-activities";
+import { bookingCard, formCard, passportCard, type CardView } from "./lib/activity-card";
+import { allCheckedIn } from "./lib/booking-door";
+import type { ActivityEntries, EntryMap } from "./lib/portal-activity-entries";
 import type { Activity, ActivityKind } from "@/lib/types";
 import { ACTIVITY_KINDS } from "./kinds/meta";
 

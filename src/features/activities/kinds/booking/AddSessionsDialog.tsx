@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { generateSlots } from "@/lib/session-slots";
+import { generateSlots } from "../../lib/session-slots";
 import { Modal } from "@/components/admin/Modal";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Button } from "@/components/ui/button";

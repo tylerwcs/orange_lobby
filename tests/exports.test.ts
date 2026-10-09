@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { buildLinksWorkbook, buildAttendanceWorkbook, attendanceExtraColumns, attendeeSheetRow, buildRosterWorkbook, rosterSheetName, buildPassportWorkbook, buildActivityRostersWorkbook, leaderboardRows } from "@/lib/exports";
 import { safeFileName } from "@/lib/filenames";
-import { scoreChallenge } from "@/lib/challenge-score";
-import { challengeWeeks } from "@/lib/challenge";
+import { scoreChallenge } from "@/features/activities/lib/challenge-score";
+import { challengeWeeks } from "@/features/activities/lib/challenge";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Booth, BoothStamp } from "@/lib/types";
 

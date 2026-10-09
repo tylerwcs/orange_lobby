@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { sessionLabel, type SeatsForViewer } from "@/lib/activities";
-import type { ActivityEntry } from "@/lib/portal-activity-entries";
-import type { ActivityControls } from "@/lib/activity-requests";
-import { sessionGrid, startDay } from "@/lib/session-grid";
+import { sessionLabel, type SeatsForViewer } from "../../lib/activities";
+import type { ActivityEntry } from "../../lib/portal-activity-entries";
+import type { ActivityControls } from "../../lib/activity-requests";
+import { sessionGrid, startDay } from "../../lib/session-grid";
 import { shortDate } from "@/lib/text";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 

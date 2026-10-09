@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activitySummaries } from "@/lib/activities";
+import { activitySummaries } from "@/features/activities/lib/activities";
 import type { Activity, ActivityBooking, ActivitySession } from "@/lib/types";
 
 const activity = (over: Partial<Activity> = {}): Activity => ({

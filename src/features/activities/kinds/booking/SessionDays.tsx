@@ -1,6 +1,6 @@
 "use client";
-import { groupSessionsByDay } from "@/lib/session-slots";
-import { sessionLabel, type SessionSeats } from "@/lib/activities";
+import { groupSessionsByDay } from "../../lib/session-slots";
+import { sessionLabel, type SessionSeats } from "../../lib/activities";
 import { meterPercent } from "@/lib/meter";
 import { shortDate } from "@/lib/text";
 import { AddSessionsDialog } from "./AddSessionsDialog";

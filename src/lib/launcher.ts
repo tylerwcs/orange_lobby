@@ -1,6 +1,6 @@
 import type { IconName } from "@/components/ui/icon";
 import type { Tile, TileRoute } from "@/lib/modules";
-import type { ActivityNav } from "@/lib/portal-activities";
+import type { ActivityNav } from "@/features/activities/client";
 
 /**
  * One round button on the portal home. `builtin` marks the sections the desktop header

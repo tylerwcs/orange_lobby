@@ -1,5 +1,5 @@
 import { categoryMatches } from "@/lib/agenda";
-import { liveSubmissions } from "@/lib/submissions";
+import { liveSubmissions } from "@/features/activities/client";
 import { fieldValue } from "@/lib/attendee-values";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Activity, ActivitySubmission, Attendee, EventGroup, GroupMode } from "@/lib/types";

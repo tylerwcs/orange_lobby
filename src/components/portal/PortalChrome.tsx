@@ -8,7 +8,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
 import { brandStyle } from "@/lib/brand";
 import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
-import type { ActivityNav } from "@/lib/portal-activities";
+import type { ActivityNav } from "@/features/activities/client";
 import { Mark, PortalHeader } from "./PortalHeader";
 
 type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };

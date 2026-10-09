@@ -1,5 +1,5 @@
 import { shortDate } from "@/lib/text";
-import type { ParticipationRow } from "@/lib/submissions";
+import type { ParticipationRow } from "../../lib/submissions";
 
 export type ParticipationPerson = ParticipationRow & { name: string; category: string | null };
 

@@ -1,20 +1,17 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { countAttendees, listAttendees } from "@/lib/db/attendees";
-import { listActivities, listSessions, listBookings, countBookingsBySession } from "@/lib/db/activities";
-import { loadDoors } from "@/lib/db/doors";
+import { listActivities, listSessions, listBookings, countBookingsBySession, loadDoors, ActivityOverview, activitySummaries } from "@/features/activities";
 import Link from "next/link";
 import { ScanLine } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { OverviewStats } from "@/components/admin/OverviewStats";
-import { ActivityOverview } from "@/features/activities";
 import { RunningCheckpoint } from "@/components/admin/RunningCheckpoint";
 import { RecentScans } from "@/components/admin/RecentScans";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { setActiveCheckpointAction } from "./actions";
 import { recentScans } from "@/lib/checkins-stats";
-import { activitySummaries } from "@/lib/activities";
 import { activeCheckpoint, checkpointOptions } from "@/lib/checkpoints";
 import { nowInKL } from "@/lib/time";
 

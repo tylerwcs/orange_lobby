@@ -8,7 +8,7 @@ import { DEFAULT_TEMPLATE } from "@/lib/whatsapp-run";
 import { listTemplates } from "@/lib/whatsapp";
 import { readTemplate, type Template } from "@/lib/whatsapp-templates";
 import { audienceOptions, inAudience } from "@/lib/whatsapp-targets";
-import { listActivities, listBookings } from "@/lib/db/activities";
+import { listActivities, listBookings } from "@/features/activities";
 import { nowInKL } from "@/lib/time";
 import { randomUUID } from "node:crypto";
 import { formatDateRange, shortDateTime } from "@/lib/text";

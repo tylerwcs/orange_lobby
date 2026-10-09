@@ -2,12 +2,10 @@ import ExcelJS from "exceljs";
 import type { Attendee, Checkin, Checkpoint, Booth, BoothStamp } from "@/lib/types";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { SlotRoster } from "@/lib/breakouts";
-import { completionByAttendee } from "@/lib/booths";
+import { completionByAttendee, weekLabel, type ChallengeScore } from "@/features/activities/client";
 import { fieldValue } from "@/lib/attendee-values";
 import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 import type { ExportColumn } from "@/lib/export-columns";
-import { weekLabel } from "@/lib/challenge";
-import type { ChallengeScore } from "@/lib/challenge-score";
 
 const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 

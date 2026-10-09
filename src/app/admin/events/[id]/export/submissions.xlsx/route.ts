@@ -3,13 +3,11 @@ import { requireEvent } from "@/lib/db/events";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
-import { listActivities, listSubmissions } from "@/lib/db/activities";
+import { listActivities, listSubmissions, loadChallenge, fileQuestionKeys, missingFrom, isGroupForm } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { signedSubmissionUrls } from "@/lib/db/media";
 import { buildFormsWorkbook, leaderboardRows, addLeaderboardSheet, type FormSheet } from "@/lib/exports";
-import { loadChallenge } from "@/lib/challenge-data";
 import { nowInKL } from "@/lib/time";
-import { fileQuestionKeys, missingFrom, isGroupForm } from "@/lib/submissions";
 import { withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 
 // Seven days: long enough that a spreadsheet downloaded today still opens its photographs

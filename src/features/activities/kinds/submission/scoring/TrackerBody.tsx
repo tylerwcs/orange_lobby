@@ -1,4 +1,4 @@
-import { type SubmissionEntry } from "@/lib/portal-activity-entries";
+import { type SubmissionEntry } from "../../../lib/portal-activity-entries";
 import { type EditEntry } from "../SubmissionHistory";
 import { ActivityActionDialog } from "../../../portal/ActivityActionDialog";
 import { WeekStrip } from "./tracker/WeekStrip";
@@ -8,13 +8,13 @@ import { MyTeam } from "./tracker/MyTeam";
 import { Leaderboard } from "./tracker/Leaderboard";
 import { TrackerTabs } from "./tracker/TrackerTabs";
 import { nowInKL } from "@/lib/time";
-import { buildTracker, trackerTabs, type TrackerTab } from "@/lib/tracker";
-import { standingLine } from "@/lib/leaderboard";
-import { entriesForAttendee } from "@/lib/db/activities";
+import { buildTracker, trackerTabs, type TrackerTab } from "../../../lib/tracker";
+import { standingLine } from "../../../lib/leaderboard";
+import { entriesForAttendee } from "../../../db/activities";
 import { RichSections } from "@/components/portal/RichSections";
 import { PendingScope, PendingSwap } from "@/components/PendingNav";
 import { Skeleton } from "@/components/ui/skeletons";
-import { loadChallenge } from "@/lib/challenge-data";
+import { loadChallenge } from "../../../lib/challenge-data";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
 

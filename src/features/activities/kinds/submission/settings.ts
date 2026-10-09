@@ -1,10 +1,10 @@
 import { questionsFromForm } from "@/lib/questions-form";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
-import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, readGroupRule } from "@/lib/submissions";
-import { readScoring } from "@/lib/challenge";
+import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, readGroupRule } from "../../lib/submissions";
+import { readScoring } from "../../lib/challenge";
 import { parseCategories } from "@/lib/agenda";
 import { cleanRichText } from "@/lib/rich-text";
-import type { NewActivity } from "@/lib/db/activities";
+import type { NewActivity } from "../../db/activities";
 import type { ChallengeScoring, GroupMode } from "@/lib/types";
 import { categoryValues, type FormReader } from "../form";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { requestNotice } from "@/lib/request-notice";
-import { sessionPlaceLabel } from "@/lib/activities";
+import { sessionPlaceLabel } from "@/features/activities/lib/activities";
 
 const base = {
   attendeeName: "Lim Hock Cheng",

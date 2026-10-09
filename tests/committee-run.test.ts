@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({
   claimed: [] as string[][],
 }));
 const sendTemplate = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/db/activity-requests", () => ({
+vi.mock("@/features/activities/db/activity-requests", () => ({
   listDueRequests: async () => state.due,
   claimForReminder: async (ids: string[]) => { state.claimed.push(ids); return ids; },
 }));

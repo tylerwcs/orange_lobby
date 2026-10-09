@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 import { loadPortalAttendee } from "@/lib/portal";
-import { getSubmission } from "@/lib/db/activities";
-import { canViewFile } from "@/lib/submissions";
-import { submissionFileResponse } from "@/lib/submission-file";
+import { getSubmission, canViewFile, submissionFileResponse } from "@/features/activities";
 
 /**
  * D399: one submitted file, for an attendee allowed to see its entry (`canViewFile`) - "View

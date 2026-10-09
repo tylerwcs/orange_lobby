@@ -2,7 +2,7 @@ import type { AgendaItem } from "@/lib/types";
 import { isNow, type DayTab } from "@/lib/agenda";
 import { agendaAccentClass } from "@/lib/agenda-colours";
 import { isBreakout } from "@/lib/breakouts";
-import { bookedSessionId, isBookedRow } from "@/lib/activities";
+import { bookedSessionId, isBookedRow } from "@/features/activities/client";
 import { CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AgendaImage } from "./AgendaImage";

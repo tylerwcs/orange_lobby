@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { weekLabel } from "@/lib/challenge";
-import type { ChallengeScore } from "@/lib/challenge-score";
+import { weekLabel } from "../../../lib/challenge";
+import type { ChallengeScore } from "../../../lib/challenge-score";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /**

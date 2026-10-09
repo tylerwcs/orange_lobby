@@ -1,5 +1,5 @@
-import type { Passport, PassportCell } from "@/lib/booths";
-import { progressLine } from "@/lib/booths";
+import type { Passport, PassportCell } from "../../lib/booths";
+import { progressLine } from "../../lib/booths";
 import { Icon } from "@/components/ui/icon";
 import { Progress } from "@/components/ui/progress";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";

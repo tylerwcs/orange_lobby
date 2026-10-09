@@ -1,7 +1,6 @@
 import { loadPortalAttendee, portalHasInfo, isUnpublished } from "@/lib/portal";
 import { loadActivityNav, loadHomeData } from "@/lib/portal-home";
-import { loadActivityEntries } from "@/lib/portal-activity-entries";
-import { activityCards, HomeActivities } from "@/features/activities";
+import { loadActivityEntries, activityCards, HomeActivities } from "@/features/activities";
 import { launcherItems, sectionIcons } from "@/lib/launcher";
 import { getCheckin } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";

@@ -1,5 +1,5 @@
-import { readActivityPolicy, type ActivityPolicy } from "@/lib/activities";
-import type { NewActivity } from "@/lib/db/activities";
+import { readActivityPolicy, type ActivityPolicy } from "../../lib/activities";
+import type { NewActivity } from "../../db/activities";
 import { categoryValues, type FormReader } from "../form";
 
 export type BookingSettings = ActivityPolicy;

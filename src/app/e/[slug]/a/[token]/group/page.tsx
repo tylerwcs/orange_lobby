@@ -2,11 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { getGroup, groupMembers } from "@/lib/db/groups";
-import { loadActivityEntries } from "@/lib/portal-activity-entries";
+import { loadActivityEntries, GroupStatus } from "@/features/activities";
 import { groupFieldValues, taggedFirst } from "@/lib/groups";
 import { Badge } from "@/components/ui/badge";
 import { eventFields } from "@/lib/attendee-fields";
-import { GroupStatus } from "@/features/activities";
 
 export const dynamic = "force-dynamic";
 

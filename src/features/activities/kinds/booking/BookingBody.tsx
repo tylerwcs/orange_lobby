@@ -1,11 +1,11 @@
 import { Armchair, CalendarDays, CalendarPlus, MapPin, Users } from "lucide-react";
-import { type ActivityEntry } from "@/lib/portal-activity-entries";
-import { dayRange } from "@/lib/activity-card";
+import { type ActivityEntry } from "../../lib/portal-activity-entries";
+import { dayRange } from "../../lib/activity-card";
 import { ActivitySessions } from "./ActivitySessions";
 import { ActivityBooking } from "./ActivityBooking";
 import { ActivityActionDialog } from "../../portal/ActivityActionDialog";
-import { sessionGrid } from "@/lib/session-grid";
-import { allCheckedIn } from "@/lib/booking-door";
+import { sessionGrid } from "../../lib/session-grid";
+import { allCheckedIn } from "../../lib/booking-door";
 import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction } from "../../portal/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { AddToCalendar } from "@/components/portal/AddToCalendar";

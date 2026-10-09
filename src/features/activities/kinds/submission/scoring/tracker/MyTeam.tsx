@@ -1,7 +1,7 @@
 import { ChevronDown } from "lucide-react";
-import { stepPoints, type ChallengeWeek } from "@/lib/challenge";
-import { teamDayRows, teamSummary } from "@/lib/tracker";
-import type { ChallengeScore, Team, TeamWeek } from "@/lib/challenge-score";
+import { stepPoints, type ChallengeWeek } from "../../../../lib/challenge";
+import { teamDayRows, teamSummary } from "../../../../lib/tracker";
+import type { ChallengeScore, Team, TeamWeek } from "../../../../lib/challenge-score";
 import type { ChallengeScoring } from "@/lib/types";
 
 /**

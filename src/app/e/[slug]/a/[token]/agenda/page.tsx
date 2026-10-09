@@ -1,10 +1,9 @@
 import { loadPortalAttendee, portalActivities, portalBookings, isUnpublished } from "@/lib/portal";
 import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
-import { listSessions } from "@/lib/db/activities";
+import { listSessions, personalAgenda } from "@/features/activities";
 import { isBreakout } from "@/lib/breakouts";
 import { dayTabs, pickDay } from "@/lib/agenda";
-import { personalAgenda } from "@/lib/activities";
 import { nowInKL } from "@/lib/time";
 import { AgendaList } from "@/components/portal/AgendaList";
 

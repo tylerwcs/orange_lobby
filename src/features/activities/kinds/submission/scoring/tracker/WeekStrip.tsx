@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Check, ChevronLeft, ChevronRight, Flame, X } from "lucide-react";
-import { weekLabel } from "@/lib/challenge";
+import { weekLabel } from "../../../../lib/challenge";
 import { shortDate } from "@/lib/text";
-import type { Tracker } from "@/lib/tracker";
+import type { Tracker } from "../../../../lib/tracker";
 
 /**
  * D374: the day picker and the week as chips - the team bonus at a glance, since one missed day

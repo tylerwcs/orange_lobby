@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { stepsText } from "@/lib/challenge";
+import { stepsText } from "../../../lib/challenge";
 import type { Activity } from "@/lib/types";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";

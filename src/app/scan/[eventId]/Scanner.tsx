@@ -5,7 +5,7 @@ import type { Html5Qrcode } from "html5-qrcode";
 import { Camera, CameraOff, ChevronLeft, CircleAlert, CircleCheck, CircleX, History, LogIn, ScanBarcode, Search, Undo2, X, type LucideIcon } from "lucide-react";
 import { checkInByTokenAction, checkInByIdAction, loadBoardAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
-import type { Board } from "@/lib/booking-door";
+import type { Board } from "@/features/activities/client";
 import { ExpectedList } from "./ExpectedList";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";

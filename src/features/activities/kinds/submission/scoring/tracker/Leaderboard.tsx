@@ -1,6 +1,6 @@
 import { Crown, Medal, Trophy } from "lucide-react";
-import type { Standing } from "@/lib/challenge-score";
-import { leaderboardView, pts, type StandingLine } from "@/lib/leaderboard";
+import type { Standing } from "../../../../lib/challenge-score";
+import { leaderboardView, pts, type StandingLine } from "../../../../lib/leaderboard";
 
 /**
  * D386: the Leaderboard tab's standings - a podium for the first three live teams, where the

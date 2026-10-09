@@ -16,11 +16,10 @@ export function isUnpublished(event: Pick<Event, "status">): boolean {
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
-import { listActivities, bookingsForAttendee } from "@/lib/db/activities";
+import { listActivities, bookingsForAttendee, shownToAttendees } from "@/features/activities";
 import { listInfoTabs } from "@/lib/db/info-tabs";
 import { isValidToken } from "@/lib/tokens";
 import { hasInfo } from "@/lib/info-tabs";
-import { shownToAttendees } from "@/lib/portal-activities";
 import type { Attendee, Event } from "@/lib/types";
 
 /**

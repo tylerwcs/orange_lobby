@@ -1,5 +1,5 @@
 import { Flame, Trophy } from "lucide-react";
-import type { Tracker } from "@/lib/tracker";
+import type { Tracker } from "../../../../lib/tracker";
 
 const R = 52, C = 2 * Math.PI * R;
 const pts = (n: number) => `${n} pt${n === 1 ? "" : "s"}`;

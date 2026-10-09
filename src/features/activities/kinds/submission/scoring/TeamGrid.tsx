@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { ChallengeScore, Team } from "@/lib/challenge-score";
-import type { ChallengeWeek } from "@/lib/challenge";
-import type { Disqualification } from "@/lib/db/challenge";
+import type { ChallengeScore, Team } from "../../../lib/challenge-score";
+import type { ChallengeWeek } from "../../../lib/challenge";
+import type { Disqualification } from "../../../db/challenge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { DisqualifyForm } from "./DisqualifyForm";
 

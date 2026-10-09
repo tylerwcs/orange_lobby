@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Board, BoardSlot } from "@/lib/booking-door";
+import type { Board, BoardSlot } from "@/features/activities/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { shortTime } from "@/lib/text";

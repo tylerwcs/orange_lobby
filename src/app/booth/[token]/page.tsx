@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
-import { getBoothByToken, countStampsForBooth } from "@/lib/db/booths";
+import { getBoothByToken, countStampsForBooth, getActivity, eligible } from "@/features/activities";
 import { getEvent } from "@/lib/db/events";
-import { getActivity } from "@/lib/db/activities";
 import { countAttendees, listAttendees } from "@/lib/db/attendees";
-import { eligible } from "@/lib/activities";
 import { isValidToken } from "@/lib/tokens";
 import { BoothScanner } from "./BoothScanner";
 

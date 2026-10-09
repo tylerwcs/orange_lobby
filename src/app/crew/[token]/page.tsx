@@ -2,7 +2,7 @@ import { PendingLink } from "@/components/PendingNav";
 import { notFound } from "next/navigation";
 import { getEventByCrewToken } from "@/lib/db/events";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
-import { loadBoard, loadDoors } from "@/lib/db/doors";
+import { loadBoard, loadDoors } from "@/features/activities";
 import { crewLinkLive } from "@/lib/crew";
 import { isValidToken } from "@/lib/tokens";
 import { nowInKL } from "@/lib/time";

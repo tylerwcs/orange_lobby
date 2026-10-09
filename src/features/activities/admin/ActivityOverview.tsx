@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { meterAriaMax, meterAriaValue, meterPercent } from "@/lib/meter";
-import type { ActivitySummary } from "@/lib/activities";
+import type { ActivitySummary } from "../lib/activities";
 
 /**
  * What the Overview shows an event with no door (D159).

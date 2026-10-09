@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { loadPortalAttendee, portalActivities, isUnpublished } from "@/lib/portal";
-import { firstPassport } from "@/lib/booths";
-import { eligible } from "@/lib/activities";
+import { firstPassport, eligible } from "@/features/activities/client";
 
 export const dynamic = "force-dynamic";
 

@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { getSubmission } from "@/lib/db/activities";
-import { submissionFileResponse } from "@/lib/submission-file";
+import { getSubmission, submissionFileResponse } from "@/features/activities";
 
 /**
  * D399: one submitted file, for an admin of its event - "View file" in the Submissions table and

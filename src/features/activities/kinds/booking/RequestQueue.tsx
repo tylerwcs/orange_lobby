@@ -1,6 +1,6 @@
 import type { ActivityChangeRequest } from "@/lib/types";
 import { elapsed, shortDateTime } from "@/lib/text";
-import { requestStatusLabel } from "@/lib/activity-requests";
+import { requestStatusLabel } from "../../lib/activity-requests";
 import { shortScanner } from "@/lib/db/users";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

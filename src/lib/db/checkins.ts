@@ -1,7 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
-import type { Arrival } from "@/lib/booking-door";
+import type { Arrival } from "@/features/activities/client";
 import type { Checkin, Event } from "@/lib/types";
 
 export async function recordCheckin(event: Pick<Event, "id" | "org_id">, checkpointId: string, attendeeId: string, userId: string | null): Promise<{ created: boolean; existing?: Checkin }> {

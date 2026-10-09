@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { formKey } from "@/lib/form-key";
-import { listPassportBooths, listStampsForEvent } from "@/lib/db/booths";
+import { listPassportBooths, listStampsForEvent } from "../../db/booths";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
-import { completionByAttendee } from "@/lib/booths";
-import { eligible } from "@/lib/activities";
+import { completionByAttendee } from "../../lib/booths";
+import { eligible } from "../../lib/activities";
 import { appBaseUrl, boothScannerLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import type { Activity, Event } from "@/lib/types";

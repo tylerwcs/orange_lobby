@@ -21,13 +21,12 @@ import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/
 import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncementOrder, updateAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
-import { settleRequestsAtDoor } from "@/lib/db/activity-requests";
+import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
 import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOrder } from "@/lib/db/info-tabs";
 import { parseAgendaColour } from "@/lib/agenda-colours";
 import { localInputToIso, nowInKL } from "@/lib/time";
-import { listActivities, listBookings, listSessions } from "@/lib/db/activities";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, moduleId, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";

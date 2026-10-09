@@ -1,5 +1,5 @@
 import { MapPin, Users } from "lucide-react";
-import { type PassportEntry } from "@/lib/portal-activity-entries";
+import { type PassportEntry } from "../../lib/portal-activity-entries";
 import { PassportGrid } from "./PassportGrid";
 import { RichSections } from "@/components/portal/RichSections";
 import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";

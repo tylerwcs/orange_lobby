@@ -1,9 +1,7 @@
 "use server";
 import { getEvent } from "@/lib/db/events";
-import { getActivity } from "@/lib/db/activities";
+import { getActivity, listPassportBooths, getBoothByToken, recordStamp, deleteStamp, stampsForAttendee, buildPassport, progressLine } from "@/features/activities";
 import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
-import { listPassportBooths, getBoothByToken, recordStamp, deleteStamp, stampsForAttendee } from "@/lib/db/booths";
-import { buildPassport, progressLine } from "@/lib/booths";
 import { extractToken } from "@/lib/scan";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";

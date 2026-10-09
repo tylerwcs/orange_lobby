@@ -3,7 +3,7 @@ import { PendingLink } from "@/components/PendingNav";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
-import { loadBoard, loadDoors } from "@/lib/db/doors";
+import { loadBoard, loadDoors } from "@/features/activities";
 import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Scanner } from "./Scanner";

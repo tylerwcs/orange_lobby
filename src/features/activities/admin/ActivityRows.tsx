@@ -4,7 +4,7 @@ import type { Activity } from "@/lib/types";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import { KIND_META } from "../kinds/meta";
 import { type ActivityRowView } from "../row";
-import { MAX_SUBMISSION_QUESTIONS } from "@/lib/submissions";
+import { MAX_SUBMISSION_QUESTIONS } from "../lib/submissions";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { meterPercent } from "@/lib/meter";
 import { Field } from "@/components/admin/Field";

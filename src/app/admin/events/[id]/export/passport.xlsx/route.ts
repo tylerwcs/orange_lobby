@@ -3,8 +3,7 @@ import { requireEvent } from "@/lib/db/events";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
-import { listActivities } from "@/lib/db/activities";
-import { listBooths, listStampsForEvent } from "@/lib/db/booths";
+import { listActivities, listBooths, listStampsForEvent } from "@/features/activities";
 import { buildPassportWorkbook } from "@/lib/exports";
 
 // No `ids` param, same as rosters.xlsx: the passport answers a whole-room question — who has

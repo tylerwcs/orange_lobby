@@ -1,0 +1,172 @@
+import { describe, it, expect } from "vitest";
+import { bookingCard, dayRange, formCard, passportCard, type BookingCardInput, type FormCardInput } from "@/features/activities/lib/activity-card";
+import type { SeatsForViewer } from "@/features/activities/lib/activities";
+
+const seat = (day: string, starts_at: string, left: number, mine = false, location: string | null = "Gardensby17"): SeatsForViewer => ({
+  session: { id: `${day}-${starts_at}`, event_id: "e", activity_id: "a", day, starts_at, ends_at: null, location, capacity: 5, sort_order: 0 } as SeatsForViewer["session"],
+  booked: 5 - left, left, full: left === 0, mine,
+});
+const booking = (over: Partial<BookingCardInput["state"]> = {}, pending = false, checkedIn = false): BookingCardInput => ({
+  state: { sessions: [seat("2026-09-28", "12:00", 3), seat("2026-10-02", "09:00", 2)], closed: false, mustPick: false, held: 0, ...over },
+  pending,
+  checkedIn,
+});
+
+describe("dayRange", () => {
+  it("names one day in full", () => {
+    expect(dayRange(["2026-09-28"])).toBe("Mon 28 Sep");
+  });
+  it("keeps one month once when the days share it", () => {
+    expect(dayRange(["2026-09-30", "2026-09-28"])).toBe("28 – 30 Sep");
+  });
+  it("names both months when the range crosses one", () => {
+    expect(dayRange(["2026-09-28", "2026-10-02", "2026-09-29"])).toBe("28 Sep – 2 Oct");
+  });
+  it("has nothing to say about no days", () => {
+    expect(dayRange([])).toBeNull();
+  });
+});
+
+describe("bookingCard", () => {
+  it("offers Book with the dates and seats left when nothing is held", () => {
+    expect(bookingCard(booking())).toEqual({
+      status: null,
+      meta: { icon: "calendar", text: "28 Sep – 2 Oct · 5 seats left" },
+      action: { label: "Book", primary: true },
+    });
+  });
+  it("asks for a choice on a required activity with nothing held", () => {
+    expect(bookingCard(booking({ mustPick: true }))).toEqual({
+      status: { label: "Pick one", tone: "primary" },
+      meta: { icon: "calendar", text: "28 Sep – 2 Oct · 5 seats left" },
+      action: { label: "Choose", primary: true },
+    });
+  });
+  it("shows the booked slot once something is held", () => {
+    const b = booking({ held: 1, sessions: [seat("2026-09-28", "12:30", 3, true), seat("2026-09-29", "09:00", 1)] });
+    expect(bookingCard(b)).toEqual({
+      status: { label: "Booked", tone: "success" },
+      meta: { icon: "calendar", text: "Mon 28 Sep · 12:30 · Gardensby17" },
+      action: { label: "View", primary: false },
+    });
+  });
+  it("says a change is waiting before anything else", () => {
+    const b = booking({ held: 1, sessions: [seat("2026-09-28", "12:30", 3, true)] }, true);
+    expect(bookingCard(b).status).toEqual({ label: "Waiting for the committee", tone: "warning" });
+  });
+  it("marks a closed activity and points at the desk", () => {
+    expect(bookingCard(booking({ closed: true }))).toEqual({
+      status: { label: "Closed", tone: "muted" },
+      meta: { icon: "calendar", text: "28 Sep – 2 Oct" },
+      action: { label: "View", primary: false },
+    });
+  });
+  it("marks an activity with no seats left as full", () => {
+    const b = booking({ sessions: [seat("2026-09-28", "12:00", 0)] });
+    expect(bookingCard(b).status).toEqual({ label: "Full", tone: "muted" });
+    expect(bookingCard(b).action).toEqual({ label: "View", primary: false });
+  });
+  it("still has a card for an activity with no sessions yet", () => {
+    expect(bookingCard(booking({ sessions: [] }))).toEqual({
+      status: null,
+      meta: { icon: "clock", text: "Sessions coming soon" },
+      action: { label: "View", primary: false },
+    });
+  });
+});
+
+describe("bookingCard — checked in (D334)", () => {
+  const held = { held: 1, sessions: [seat("2026-09-28", "12:30", 3, true), seat("2026-09-29", "09:00", 1)] };
+  it("says Checked in, keeping the booked slot as the meta line", () => {
+    const v = bookingCard(booking(held, false, true));
+    expect(v.status).toEqual({ label: "Checked in", tone: "success" });
+    expect(v.meta).toEqual(bookingCard(booking(held)).meta);
+  });
+  it("wins over a waiting request", () => {
+    expect(bookingCard(booking(held, true, true)).status).toEqual({ label: "Checked in", tone: "success" });
+  });
+  it("is Booked when not checked in", () => {
+    expect(bookingCard(booking(held)).status).toEqual({ label: "Booked", tone: "success" });
+  });
+});
+
+describe("formCard", () => {
+  const form = (over: Partial<FormCardInput["form"]> = {}): FormCardInput["form"] =>
+    ({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: "Level 3 gym", action_label: null, ...over });
+  const open = { can: true, reason: "ok" as const, used: 0 };
+
+  it("says when a challenge that has not started yet starts, rather than Closed (D390)", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "closed", used: 0, startsOn: "2026-10-05" } }).status)
+      .toEqual({ label: "Starts 5 Oct", tone: "muted" });
+  });
+
+  it("invites a first answer with the dates and place, under the organiser's button wording", () => {
+    expect(formCard({ form: form({ action_label: "Join now" }), state: open })).toEqual({
+      status: { label: "Open", tone: "primary" },
+      meta: { icon: "calendar", text: "28 Sep – 2 Oct · Level 3 gym" },
+      action: { label: "Join now", primary: true },
+    });
+  });
+  it("says Submit when the organiser chose no wording", () => {
+    expect(formCard({ form: form(), state: open }).action).toEqual({ label: "Submit", primary: true });
+  });
+  it("shows the place alone when there are no dates, and nothing when there is neither", () => {
+    expect(formCard({ form: form({ starts_on: null, ends_on: null }), state: open }).meta).toEqual({ icon: "pin", text: "Level 3 gym" });
+    expect(formCard({ form: form({ starts_on: null, ends_on: null, venue: null }), state: open }).meta).toBeNull();
+  });
+  it("names a single day in full", () => {
+    expect(formCard({ form: form({ ends_on: null, venue: null }), state: open }).meta).toEqual({ icon: "calendar", text: "Mon 28 Sep" });
+  });
+  it("marks a finished submission as done", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "limit", used: 1 } })).toMatchObject({
+      status: { label: "Submission done", tone: "success" },
+      action: { label: "View", primary: false },
+    });
+  });
+  it("marks a daily one as done for today", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "today", used: 3 } }).status).toEqual({ label: "Done for today", tone: "success" });
+  });
+  it("marks a closed one", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "closed", used: 0 } }).status).toEqual({ label: "Closed", tone: "muted" });
+  });
+  it("marks a finished group as done, in the same tone as a finished individual cap (F1)", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "groupdone", used: 0 } }).status).toEqual({ label: "Group done", tone: "success" });
+  });
+  it("tells an ungrouped attendee they need a group, rather than calling the form closed (F1)", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "nogroup", used: 0 } }).status).toEqual({ label: "Needs a group", tone: "muted" });
+  });
+});
+
+describe("passportCard", () => {
+  const cells = (n: number) => Array.from({ length: n }, () => ({})) as never[];
+  const card = (over: { n?: number; collected?: number; target?: number; complete?: boolean; open?: boolean } = {}) =>
+    passportCard({
+      passport: { cells: cells(over.n ?? 3), collected: over.collected ?? 0, target: over.target ?? 3, complete: over.complete ?? false },
+      open: over.open ?? true,
+    });
+
+  it("says booths are coming when there are none", () => {
+    expect(card({ n: 0, target: 0 })).toEqual({ status: null, meta: { icon: "pin", text: "Booths coming soon" }, action: { label: "View", primary: false } });
+  });
+
+  it("shows progress and invites a first visit while collecting", () => {
+    expect(card({ collected: 1 })).toEqual({
+      status: { label: "1 of 3 stamps", tone: "primary" },
+      meta: { icon: "pin", text: "3 booths to visit" },
+      action: { label: "Open card", primary: true },
+    });
+  });
+
+  it("is complete once the target is met, whatever the open flag says", () => {
+    expect(card({ collected: 3, complete: true, open: false }).status).toEqual({ label: "Complete", tone: "success" });
+  });
+
+  it("says it opens soon while closed", () => {
+    expect(card({ open: false }).status).toEqual({ label: "Opens soon", tone: "muted" });
+    expect(card({ open: false }).action).toEqual({ label: "View", primary: false });
+  });
+
+  it("names one booth in the singular", () => {
+    expect(card({ n: 1, target: 1 }).meta).toEqual({ icon: "pin", text: "1 booth to visit" });
+  });
+});

@@ -1,21 +1,11 @@
 import { eventFields } from "@/lib/attendee-fields";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { listActivities, listSessions, countBookingsBySession, listSubmissions } from "@/lib/db/activities";
-import { listBooths, listStampsForEvent } from "@/lib/db/booths";
-import { passportRollup } from "@/lib/booths";
-import { listRequests } from "@/lib/db/activity-requests";
+import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, uploadActivityImageAction } from "@/features/activities";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
 import { groupProgress } from "@/lib/groups";
-import { isGroupForm } from "@/lib/submissions";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
-import { pendingCountByActivity } from "@/lib/activity-requests";
-import { eligible } from "@/lib/activities";
-import {
-  bookingRow, submissionRow, passportRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu,
-  addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, uploadActivityImageAction,
-} from "@/features/activities";
 import type { Activity, ActivitySubmission, Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Field } from "@/components/admin/Field";

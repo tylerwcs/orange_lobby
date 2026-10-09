@@ -1,7 +1,7 @@
 "use client";
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import type { Checkpoint } from "@/lib/types";
-import type { DoorTally } from "@/lib/booking-door";
+import type { DoorTally } from "@/features/activities/client";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
 import { RowActions, RowMoveContext } from "@/components/admin/RowActions";

@@ -1,6 +1,6 @@
 import { Footprints } from "lucide-react";
 import { signedSubmissionUrl } from "@/lib/db/media";
-import { metricKm } from "@/lib/tracker";
+import { metricKm } from "../../../../lib/tracker";
 import { shortTime } from "@/lib/text";
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { EntryPhotos } from "./EntryPhotos";

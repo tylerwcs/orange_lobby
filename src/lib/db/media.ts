@@ -168,7 +168,7 @@ export async function signedSubmissionUrls(paths: string[], seconds = 60): Promi
  * `error` instead of throwing one would defeat that ordering exactly as thoroughly as a remove()
  * that threw — the database would still end up saying "purged" over files still sitting in the
  * bucket, now with no submission row left to point at them. The other callers are the upload
- * cleanup in src/lib/submission-uploads.ts, shared by the portal's submit and the admin's edit:
+ * cleanup in src/features/activities/lib/submission-uploads.ts, shared by the portal's submit and the admin's edit:
  * `discardUploads` (this request's orphaned uploads) and `deleteReplacedFiles` (the files an
  * edit replaced). Both wrap the call in a try/catch that swallows on purpose, so surfacing the
  * error here changes nothing for them.
@@ -219,7 +219,7 @@ async function listAllObjectPaths(bucket: string, prefix: string): Promise<strin
  *
  * Why this has to exist: answers are immutable (D166), but a question's KEY is not — the
  * admin editor lets an organiser rename a `file` question's key, or clear the key box so it
- * re-derives from the label. `fileQuestionKeys`/`filePathsForEvent` (src/lib/db/activities.ts) read
+ * re-derives from the label. `fileQuestionKeys`/`filePathsForEvent` (src/features/activities/db/activities.ts) read
  * the form's CURRENT questions, so a rename stops them from recognising an OLD answer as a
  * file path at all — the object such an answer names would then never be handed to
  * deleteSubmissionFiles, and would sit in the bucket forever with nothing in the database

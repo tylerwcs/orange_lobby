@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { getActivity } from "@/lib/db/activities";
+import { getActivity } from "../db/activities";
 import { BookingDetail } from "../kinds/booking/BookingDetail";
 import { SubmissionDetail } from "../kinds/submission/SubmissionDetail";
 import { PassportDetail } from "../kinds/passport/PassportDetail";

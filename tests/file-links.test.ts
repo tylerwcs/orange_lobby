@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { adminFileHref, portalFileHref } from "@/lib/file-links";
 import { isOwnSubmissionPath } from "@/lib/storage";
-import { canViewFile } from "@/lib/submissions";
+import { canViewFile } from "@/features/activities/lib/submissions";
 
 const form = { orgId: "org1", eventId: "ev1", formId: "act1" };
 

@@ -5,17 +5,17 @@ import { loadPortalAttendee } from "@/lib/portal";
 import {
   bookSession, getActivity, listSessions, bookingsForAttendee,
   submitAnswers, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type BookResult, type SubmitCode,
-} from "@/lib/db/activities";
+} from "../db/activities";
 import { nextFileHashes, sharesFile } from "@/lib/file-hashes";
-import { canEditOwn } from "@/lib/submissions";
+import { canEditOwn } from "../lib/submissions";
 import { getAttendee } from "@/lib/db/attendees";
-import { createRequest, withdrawRequest, requestsForAttendee } from "@/lib/db/activity-requests";
+import { createRequest, withdrawRequest, requestsForAttendee } from "../db/activity-requests";
 import { bookingArrivalsFor } from "@/lib/db/checkins";
-import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles, deleteEntryFiles } from "@/lib/submission-uploads";
+import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles, deleteEntryFiles } from "../lib/submission-uploads";
 import { nowInKL } from "@/lib/time";
 import { flashPath } from "@/lib/flash";
-import { sessionLabel } from "@/lib/activities";
-import { sessionArrivals } from "@/lib/booking-door";
+import { sessionLabel } from "../lib/activities";
+import { sessionArrivals } from "../lib/booking-door";
 import { allow } from "@/lib/ratelimit";
 import { hasHealthConsent, recordHealthConsent } from "@/lib/db/health-consents";
 import { HEALTH_CONSENT_REFUSED, healthConsentTicked } from "@/lib/privacy";
@@ -255,7 +255,7 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   }
 
   // Uploads, validation and cleaning up after a refusal are the one protocol the admin's edit
-  // shares (src/lib/submission-uploads.ts): a `file` answer stores the object path the upload
+  // shares (src/features/activities/lib/submission-uploads.ts): a `file` answer stores the object path the upload
   // returns (D168), and anything this request uploaded that does not end up in a stored
   // submission is discarded by path — never by activity or by attendee, which could reach a
   // previous submission.

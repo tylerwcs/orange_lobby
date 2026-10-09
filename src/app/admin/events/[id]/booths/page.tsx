@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { listActivities } from "@/lib/db/activities";
-import { getBoothInEvent } from "@/lib/db/booths";
+import { listActivities, getBoothInEvent } from "@/features/activities";
 
 /**
  * Booths live under their passport now (D190). Kept as a redirect so a bookmark or a runbook

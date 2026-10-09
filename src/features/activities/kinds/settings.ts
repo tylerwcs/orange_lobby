@@ -1,4 +1,4 @@
-import type { NewActivity } from "@/lib/db/activities";
+import type { NewActivity } from "../db/activities";
 import type { ActivityKind } from "@/lib/types";
 import { formReader, type FormReader } from "./form";
 import { newBooking, readBookingSettings, type BookingSettings } from "./booking/settings";

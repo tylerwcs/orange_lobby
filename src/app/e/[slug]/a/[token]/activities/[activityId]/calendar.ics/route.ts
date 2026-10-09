@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { loadPortalAttendee, portalActivities, portalBookings, isUnpublished } from "@/lib/portal";
-import { listSessions } from "@/lib/db/activities";
+import { listSessions } from "@/features/activities";
 import { appBaseUrl, attendeeLink } from "@/lib/links";
 import { bookingIcs, googleCalendarUrl, outlookComposeUrl } from "@/lib/ics";
 

@@ -8,21 +8,21 @@ import {
   createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
   syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission,
   type BookResult, type DecisionResult,
-} from "@/lib/db/activities";
-import { getRequest, decideRequest } from "@/lib/db/activity-requests";
-import { notifyRequestDecision, decisionFlash } from "@/lib/request-notify";
-import { describePlacement, sessionLabel } from "@/lib/activities";
+} from "../db/activities";
+import { getRequest, decideRequest } from "../db/activity-requests";
+import { notifyRequestDecision, decisionFlash } from "../lib/request-notify";
+import { describePlacement, sessionLabel } from "../lib/activities";
 import { listAttendees, getAttendee } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
 import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
-import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
+import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "../lib/submission-uploads";
 import { nextFileHashes } from "@/lib/file-hashes";
-import { perDayCollision, groupRuleChangeBlocked, liveSubmissions } from "@/lib/submissions";
-import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
+import { perDayCollision, groupRuleChangeBlocked, liveSubmissions } from "../lib/submissions";
+import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "../db/booths";
 import type { Activity, ActivitySubmission, Event } from "@/lib/types";
-import { disqualify, undoDisqualify } from "@/lib/db/challenge";
-import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
+import { disqualify, undoDisqualify } from "../db/challenge";
+import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots";
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
 import { shortDate } from "@/lib/text";
@@ -326,7 +326,7 @@ export async function deleteSubmissionActivityAction(eventId: string, activityId
 
 /**
  * Corrects one submission's answers (D337) through the same read/upload/validate protocol as the
- * portal's submit (`readAnswers`, src/lib/submission-uploads.ts). A file question left empty
+ * portal's submit (`readAnswers`, src/features/activities/lib/submission-uploads.ts). A file question left empty
  * keeps its file; the old file is deleted only once the row names its replacement, and only when
  * that replacement is a fresh upload from this request sitting in this activity's own folder - a
  * question a `show_when` change hid, whose answer went to "" with nothing uploaded, keeps its

@@ -1,5 +1,5 @@
-import { dayRange } from "@/lib/activity-card";
-import { capSummary, isGroupForm } from "@/lib/submissions";
+import { dayRange } from "./lib/activity-card";
+import { capSummary, isGroupForm } from "./lib/submissions";
 import type { Activity, ActivityKind } from "@/lib/types";
 import { KIND_META } from "./kinds/meta";
 
