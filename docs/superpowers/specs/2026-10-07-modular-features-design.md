@@ -215,10 +215,20 @@ lighter than the sketch above, and meets the same goal:
     longer clashes with the portal's `SubmissionFields` in the entry.
   - Shared UI that other features also use stays in `src/components`, including `Field`,
     `SaveBar`, `ConfirmButton`, `DayNav`, `AddToCalendar`, `RichSections` and `SwipeRow`.
-  - Still in their route files: the detail pages' own bodies (`BookingDetail`/`SubmissionDetail`
-    in the admin page, `BookingBody`/`SubmissionBody`/`TrackerBody`/`PassportBody` in the portal
-    page, and `PassportDetail.tsx`). They hold the page's data loading as well as its markup, and
-    they move under D407 when next worked on.
+- **D419 — The detail pages and their actions moved into the feature (9 Oct 2026).**
+  - Both activity detail routes are now thin shells: each `page.tsx` imports a page component
+    from `@/features/activities` and renders it. The portal one keeps its `dynamic` setting.
+  - Admin: `admin/ActivityDetailPage.tsx` holds the kind switch. Each kind's screen is in its
+    folder: `kinds/booking/BookingDetail.tsx`, `kinds/submission/SubmissionDetail.tsx`,
+    `kinds/passport/PassportDetail.tsx`.
+  - Portal: `portal/ActivityPage.tsx` does the find-and-switch. The bodies are
+    `kinds/booking/BookingBody.tsx`, `kinds/submission/SubmissionBody.tsx` (with its edit, proxy
+    and health-consent helpers), `kinds/submission/scoring/TrackerBody.tsx` and
+    `kinds/passport/PassportBody.tsx`. `portal/detail-parts.tsx` holds what they share.
+  - The two activity actions files moved to `admin/actions.ts` and `portal/actions.ts`, so no
+    feature file imports from a route.
+  - Still open: per-kind `readSettings` (D404). The form readers are still separate functions in
+    the actions and `src/lib`; that's for when the forms are next worked on.
 
 ### D405 — Performance rules for every feature
 
