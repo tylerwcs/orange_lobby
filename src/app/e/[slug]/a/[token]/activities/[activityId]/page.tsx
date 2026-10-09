@@ -23,6 +23,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { SubmissionHistory, type EditEntry } from "@/components/portal/SubmissionHistory";
 import { GroupStatus } from "@/components/portal/GroupStatus";
 import { SubmissionFields } from "@/components/portal/SubmissionFields";
+import { HealthConsentField } from "@/components/portal/HealthConsentField";
+import { hasHealthConsent } from "@/lib/db/health-consents";
 import { SubmitFor } from "@/components/portal/SubmitFor";
 import { ActivitySessions } from "@/components/portal/ActivitySessions";
 import { ActivityBooking } from "@/components/portal/ActivityBooking";
@@ -199,6 +201,7 @@ function editorFor(f: Activity, slug: string, token: string, attendee: Pick<Atte
         remove={deleteMySubmissionAction.bind(null, slug, token, f.id, s.id)}
         editForm={
           <form action={editMySubmissionAction.bind(null, slug, token, f.id, s.id)} className="flex flex-col gap-6">
+            {s.attendee_id === attendee.id && <HealthConsentAsk f={f} slug={slug} token={token} id={`health-consent-${s.id}`} />}
             <SubmissionFields questions={f.questions} defaults={s.answers} fileLinks={fileLinks} />
             <SubmitButton className="h-12 w-full text-base font-bold">Save changes</SubmitButton>
           </form>
@@ -240,10 +243,21 @@ function SubmitForm({ f, slug, token, state, proxy }: { f: Activity; slug: strin
   return (
     <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
       {proxy && proxy.members.length > 0 && <SubmitFor members={proxy.members} self={state.can} />}
+      <HealthConsentAsk f={f} slug={slug} token={token} id="health-consent" />
       {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
       <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
     </form>
   );
+}
+
+/**
+ * D412: a health-data activity's consent tick, for as long as this attendee has not given it.
+ * Reads for itself (memoised per request) so neither form has to be handed the answer.
+ */
+async function HealthConsentAsk({ f, slug, token, id }: { f: Activity; slug: string; token: string; id: string }) {
+  if (!f.health_data) return null;
+  const { attendee } = await loadPortalAttendee(slug, token);
+  return (await hasHealthConsent(attendee.id, f.id)) ? null : <HealthConsentField id={id} />;
 }
 
 /** D399: "View file" on the portal goes through the attendee's own file route, signed at the click. */

@@ -22,3 +22,16 @@ export const CONSENT_FIELD = "privacy_consent";
 export function consentError(input: Record<string, string>): string | null {
   return input[CONSENT_FIELD] === "yes" ? null : "Tick the box to agree to the Privacy Notice before registering.";
 }
+
+/**
+ * D412: the separate, explicit consent a health-data activity asks for before an attendee's
+ * first entry. A colon, like the submit form's `:for`, so no question key can be it.
+ */
+export const HEALTH_CONSENT_FIELD = ":health_consent";
+
+export const HEALTH_CONSENT_REFUSED = "Tick the box to agree to your health information being collected before you submit.";
+
+/** Whether a posted form carries the health-data tick. Only the checkbox sends "yes". */
+export function healthConsentTicked(fd: Pick<FormData, "get">): boolean {
+  return fd.get(HEALTH_CONSENT_FIELD) === "yes";
+}

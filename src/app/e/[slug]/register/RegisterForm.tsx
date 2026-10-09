@@ -148,11 +148,15 @@ export function RegisterForm({ slug, questions, door = true }: {
           checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
           className="mt-0.5 size-5 shrink-0 accent-primary" {...invalid(CONSENT_FIELD)} />
         <FieldContent>
-          <FieldLabel htmlFor={`reg-${CONSENT_FIELD}`} className="font-normal leading-snug">
+          <FieldLabel htmlFor={`reg-${CONSENT_FIELD}`} className="flex-col items-start gap-1 font-normal leading-snug">
             <span>
               I agree to my personal data being used to run this event, as set out in the{" "}
               <a href={PRIVACY_PATH} target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Privacy Notice</a>{" "}
               (<a href={PRIVACY_MS_PATH} lang="ms" hrefLang="ms" target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Bahasa Malaysia</a>).
+            </span>
+            {/* D413: the same consent in Bahasa Malaysia, as the Act wants at the point it is given. */}
+            <span lang="ms" className="text-muted-foreground">
+              Saya bersetuju data peribadi saya digunakan untuk mengendalikan acara ini, seperti yang dinyatakan dalam Notis Privasi.
             </span>
           </FieldLabel>
           <FieldError id={`reg-${CONSENT_FIELD}-error`}>{errors[CONSENT_FIELD]}</FieldError>

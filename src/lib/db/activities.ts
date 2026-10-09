@@ -36,6 +36,8 @@ export type NewActivity = {
   attendee_edit?: boolean;
   /** Submission kind only (D392). Left out, the column's empty list stands. */
   proxy_fields?: string[];
+  /** Submission kind only (D412). Left out, the column's false stands. */
+  health_data?: boolean;
   /** D397. Left out, the column's true stands; `toggleLeaderboardAction` alone flips it. */
   show_leaderboard?: boolean;
 };

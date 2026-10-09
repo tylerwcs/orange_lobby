@@ -17,6 +17,8 @@ import { flashPath } from "@/lib/flash";
 import { sessionLabel } from "@/lib/activities";
 import { sessionArrivals } from "@/lib/booking-door";
 import { allow } from "@/lib/ratelimit";
+import { hasHealthConsent, recordHealthConsent } from "@/lib/db/health-consents";
+import { HEALTH_CONSENT_REFUSED, healthConsentTicked } from "@/lib/privacy";
 
 /**
  * What the attendee is told when the database refuses (D134, D140).
@@ -238,6 +240,20 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   if (!member || member.event_id !== event.id) redirect(flashPath(path, SUBMIT_RESULT_MESSAGES.proxy, "error"));
   const onBehalf = member.id !== attendee.id;
 
+  // D412: health data needs the explicit consent of the person it is about, had before any of
+  // it is uploaded. Their own tick is recorded here, once; for a group member it must already
+  // be on file, since a captain cannot consent for someone else.
+  if (activity.health_data) {
+    if (onBehalf) {
+      if (!(await hasHealthConsent(member.id, activity.id))) {
+        redirect(flashPath(path, `${member.name} needs to agree to the health-information consent on their own page before anyone can submit this for them.`, "error"));
+      }
+    } else if (!(await hasHealthConsent(attendee.id, activity.id))) {
+      if (!healthConsentTicked(fd)) redirect(flashPath(path, HEALTH_CONSENT_REFUSED, "error"));
+      await recordHealthConsent(attendee, activity.id);
+    }
+  }
+
   // Uploads, validation and cleaning up after a refusal are the one protocol the admin's edit
   // shares (src/lib/submission-uploads.ts): a `file` answer stores the object path the upload
   // returns (D168), and anything this request uploaded that does not end up in a stored
@@ -277,6 +293,16 @@ export async function editMySubmissionAction(slug: string, token: string, activi
   if (!activity || activity.kind !== "submission" || !current || current.activity_id !== activity.id
     || !canEditOwn(activity, current, attendee.id, attendee.category, today)) {
     redirect(flashPath(path, gone, "error"));
+  }
+
+  // D412: an activity marked as health data after this entry was sent still asks before an edit
+  // - of the entry's owner, who for an entry added for them (D392) is not the one editing.
+  if (activity.health_data && !(await hasHealthConsent(current.attendee_id, activity.id))) {
+    if (current.attendee_id !== attendee.id) {
+      redirect(flashPath(path, "This member needs to agree to the health-information consent on their own page before their entry can be changed.", "error"));
+    }
+    if (!healthConsentTicked(fd)) redirect(flashPath(path, HEALTH_CONSENT_REFUSED, "error"));
+    await recordHealthConsent(attendee, activity.id);
   }
 
   const form = await readAnswers(activity, fd, current.answers);

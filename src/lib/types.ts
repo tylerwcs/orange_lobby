@@ -282,6 +282,8 @@ export type Activity = {
   attendee_edit: boolean;
   /** D397: a scored challenge's Leaderboard tab is shown to attendees. The admin tab is always there. */
   show_leaderboard: boolean;
+  /** Submission kind only (D412). It asks for health information, so each attendee gives explicit consent once before their first entry. */
+  health_data: boolean;
   /** D392: attendee fields whose Yes lets a member submit for anyone in their group (a Captain column). Empty is nobody. */
   proxy_fields: string[];
   /** The total one attendee may ever take. Null is no cap (D178); otherwise 1..366. */

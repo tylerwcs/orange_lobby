@@ -52,6 +52,17 @@ export function SubmissionFields({ activity, categories, fields, uploadImage }: 
         <input type="checkbox" name="attendee_edit" defaultChecked={activity?.attendee_edit ?? false} className="size-4" />
         Let people edit or delete what they sent, on the day they sent it
       </label>
+      {/* D412: PDPA's sensitive personal data. Ticked, attendees agree to a separate consent
+          once before their first entry, and nobody can submit health data for them. */}
+      <div className="flex flex-col gap-1">
+        <label className="flex items-center gap-2 text-sm font-bold">
+          <input type="checkbox" name="health_data" defaultChecked={activity?.health_data ?? false} className="size-4" />
+          This asks for health information
+        </label>
+        <p className="pl-6 text-xs text-muted-foreground">
+          Such as InBody results, weight or a medical condition. Each person agrees to a separate health-data consent before their first entry, and nobody can submit it for them.
+        </p>
+      </div>
       {/* D392 */}
       {fields.length > 0 && (
         <fieldset className="flex flex-col gap-1.5">

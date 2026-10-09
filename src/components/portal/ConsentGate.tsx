@@ -44,8 +44,30 @@ export function ConsentGate({ event, agree }: {
               <a href={PRIVACY_PATH} target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Privacy Notice</a>{" "}
               (<a href={PRIVACY_MS_PATH} lang="ms" hrefLang="ms" target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Bahasa Malaysia</a>).
             </p>
+            {/* D413: the same summary in Bahasa Malaysia, folded so the English reader is not made
+                to scroll past it. <details> opens without JavaScript, like the form below. */}
+            <details lang="ms" className="group rounded-lg border border-border px-4 py-3 text-sm">
+              <summary className="cursor-pointer font-bold text-primary marker:text-primary">Baca dalam Bahasa Malaysia</summary>
+              <div className="mt-3 flex flex-col gap-3">
+                <p className="font-bold">Sebelum anda teruskan</p>
+                <p className="text-muted-foreground">Ini ialah halaman peribadi anda untuk {event.name}.</p>
+                <ul className="flex list-disc flex-col gap-2 pl-5 leading-relaxed">
+                  <li>Kami menyimpan nama, butiran hubungan dan jawapan yang diberikan oleh anda atau penganjur anda, untuk mengendalikan acara ini: lencana, tempat duduk, agenda dan aktiviti anda.</li>
+                  <li>Penganjur acara anda juga melihatnya. Kami tidak menjualnya atau menggunakannya untuk pengiklanan.</li>
+                  <li>Ia dipadamkan dalam tempoh dua belas bulan selepas acara.</li>
+                  <li>Sesiapa yang mempunyai pautan halaman ini boleh membukanya, jadi sila jangan kongsikannya.</li>
+                </ul>
+                <p>
+                  Butiran penuh terdapat dalam{" "}
+                  <a href={PRIVACY_MS_PATH} hrefLang="ms" target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Notis Privasi</a> kami.
+                  Tidak bersetuju? E-mel{" "}
+                  <a href={`mailto:${PRIVACY_CONTACT}`} className="font-medium underline underline-offset-4">{PRIVACY_CONTACT}</a>{" "}
+                  dan kami akan membuang butiran anda.
+                </p>
+              </div>
+            </details>
             <form action={agree}>
-              <SubmitButton className="h-12 w-full text-base font-bold">I agree, continue</SubmitButton>
+              <SubmitButton className="h-12 w-full text-base font-bold">I agree · <span lang="ms">Saya setuju</span></SubmitButton>
             </form>
             <p className="text-xs text-muted-foreground">
               Don&apos;t agree? Email{" "}
