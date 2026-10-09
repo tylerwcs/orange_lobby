@@ -1,7 +1,7 @@
 import { categoryMatches, parseCategories, visibleTo, type AgendaViewer } from "@/lib/agenda";
 import type { Activity, ActivityBooking, ActivitySession, AgendaItem } from "@/lib/types";
 import { byAgendaOrder, isSession, timeSlot } from "@/lib/agenda-order";
-import type { BookResult, NewActivity } from "@/lib/db/activities";
+import type { BookResult } from "@/lib/db/activities";
 import type { FlashTone } from "@/lib/flash";
 import { shortDate } from "@/lib/text";
 import { cleanRichText } from "@/lib/rich-text";
@@ -319,7 +319,7 @@ export type ActivityPolicy = {
  * deliberate "no" — the moment an organiser edits an activity's name and hits Save, booking
  * would silently close for everyone, undoing whatever the toggle button last set. Keeping this
  * reader's return type without a `is_open` field at all makes that mistake impossible to
- * reintroduce by accident; `readNewActivity` below is the one place that ever adds it back, for
+ * reintroduce by accident; `newBooking` (the activities feature, D420) is the one place that ever adds it back, for
  * the one form that is allowed to set an initial value.
  */
 export function readActivityPolicy(fields: ActivityFormFields): ActivityPolicy {
@@ -337,21 +337,6 @@ export function readActivityPolicy(fields: ActivityFormFields): ActivityPolicy {
     max_per_attendee: max,
     categories: parseCategories(fields.categories),
   };
-}
-
-/**
- * The full create payload: the shared policy plus `is_open`, which only the create form
- * may set — it is choosing an initial value for a column nothing has toggled yet, not
- * overwriting one the desk may have changed since the page loaded. `saveActivityAction` must
- * call `readActivityPolicy` directly instead, never this.
- *
- * `kind` is hard-coded to `"booking"` here: this is the add-activity form, and a submission
- * activity is created through its own reader (`readSubmissionPolicy` in the admin actions),
- * never this one. `questions` and `per_day` are the other kind's fields (D178) — empty and
- * false are facts about a booking activity, not placeholders waiting to be filled in.
- */
-export function readNewActivity(fields: ActivityFormFields & { is_open: boolean }): NewActivity {
-  return { ...readActivityPolicy(fields), kind: "booking", is_open: fields.is_open, questions: [], per_day: false };
 }
 
 /**

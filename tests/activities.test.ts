@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   seatsFor, eligible, activityState, sessionLabel, unbookedIds, sessionRosters, unbookedByActivity,
   bookedAgendaRows, mergeAgenda, personalAgenda, isBookedRow, bookedSessionId, BOOKING_ROW_PREFIX,
-  readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields,
+  readActivityPolicy, describePlacement, type ActivityFormFields,
 } from "@/lib/activities";
 import { visibleTo } from "@/lib/agenda";
 import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
@@ -310,19 +310,6 @@ describe("readActivityPolicy", () => {
     expect(Object.keys(policy).sort()).toEqual(
       ["categories", "description", "max_per_attendee", "name", "required"].sort(),
     );
-  });
-});
-
-describe("readNewActivity", () => {
-  it("carries is_open through as given — only the create form may set an initial value", () => {
-    const fields = { name: "Workshops", description: "", required: false, max_per_attendee: "1", categories: "" };
-    expect(readNewActivity({ ...fields, is_open: true }).is_open).toBe(true);
-    expect(readNewActivity({ ...fields, is_open: false }).is_open).toBe(false);
-  });
-
-  it("still validates the shared policy fields", () => {
-    const fields = { name: "", description: "", required: false, max_per_attendee: "1", categories: "" };
-    expect(() => readNewActivity({ ...fields, is_open: true })).toThrow("An activity needs a name");
   });
 });
 

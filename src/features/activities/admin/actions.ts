@@ -7,29 +7,24 @@ import {
   createActivity, updateActivity, deleteActivity, deletePassportIfUnstamped, getActivity,
   createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
   syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission,
-  type NewActivity, type BookResult, type DecisionResult,
+  type BookResult, type DecisionResult,
 } from "@/lib/db/activities";
 import { getRequest, decideRequest } from "@/lib/db/activity-requests";
 import { notifyRequestDecision, decisionFlash } from "@/lib/request-notify";
-import { readActivityPolicy, readNewActivity, describePlacement, type ActivityFormFields, sessionLabel } from "@/lib/activities";
+import { describePlacement, sessionLabel } from "@/lib/activities";
 import { listAttendees, getAttendee } from "@/lib/db/attendees";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
 import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "@/lib/submission-uploads";
-import { questionsFromForm } from "@/lib/questions-form";
 import { nextFileHashes } from "@/lib/file-hashes";
-import { FORM_QUESTION_TYPES } from "@/lib/registration";
-import { MAX_SUBMISSION_QUESTIONS, readSubmissionDetails, perDayCollision, readGroupRule, groupRuleChangeBlocked, liveSubmissions } from "@/lib/submissions";
-import { parseCategories } from "@/lib/agenda";
-import { cleanRichText } from "@/lib/rich-text";
+import { perDayCollision, groupRuleChangeBlocked, liveSubmissions } from "@/lib/submissions";
 import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "@/lib/db/booths";
-import { readPassportSettings } from "@/lib/booths";
-import type { Activity, ActivitySubmission, ChallengeScoring, Event, GroupMode } from "@/lib/types";
-import { readScoring } from "@/lib/challenge";
+import type { Activity, ActivitySubmission, Event } from "@/lib/types";
 import { disqualify, undoDisqualify } from "@/lib/db/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "@/lib/session-slots";
-import { activityHref, type ActivityTab } from "@/features/activities";
+import { activityHref, type ActivityTab } from "../tabs";
+import { readSettings, newActivityFrom } from "../kinds/settings";
 import { shortDate } from "@/lib/text";
 
 async function event(eventId: string) {
@@ -42,26 +37,6 @@ const detailPath = (eventId: string, activityId: string) => `${listPath(eventId)
 
 const text = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const checked = (fd: FormData, key: string) => fd.get(key) !== null;
-
-/** The fields the add form and the settings form share. `readActivityPolicy` in @/lib/activities validates them. */
-function policyFields(fd: FormData): ActivityFormFields {
-  return {
-    name: text(fd, "name"),
-    description: text(fd, "description"),
-    required: checked(fd, "required"),
-    max_per_attendee: text(fd, "max_per_attendee"),
-    categories: categoryValues(fd),
-  };
-}
-
-/**
- * The ticked categories from the "Who can see it" picker (CategoryCombo), which posts one
- * `categories` value each. Joined with commas for `parseCategories`, which the policy readers
- * already use; no category name contains one (categoryParts splits on it).
- */
-function categoryValues(fd: FormData): string {
-  return fd.getAll("categories").map(String).join(",");
-}
 
 /**
  * The booking activity a posted id names, or a flash back to the list. Scopes
@@ -99,7 +74,9 @@ export async function uploadActivityImageAction(eventId: string, formData: FormD
 
 export async function addActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
-  const input = readNewActivity({ ...policyFields(fd), is_open: checked(fd, "is_open") });
+  const read = readSettings("booking", fd);
+  if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
+  const input = newActivityFrom("booking", read.settings, checked(fd, "is_open"));
   // After the fields are read, so a form refused for its text never leaves a picture behind.
   let image: ImageChange = { url: null, stale: null };
   try {
@@ -119,7 +96,9 @@ export async function addActivityAction(eventId: string, fd: FormData) {
 export async function saveActivityAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
   const back = `${listPath(eventId)}/${activityId}`;
-  const policy = readActivityPolicy(policyFields(fd));
+  const read = readSettings("booking", fd);
+  if (!read.ok) redirect(flashPath(back, read.error, "error"));
+  const policy = read.settings;
   const current = await bookingOf(ev, activityId);
   let image: ImageChange = { url: current.image_url, stale: null };
   try {
@@ -227,53 +206,6 @@ function isPerDayCollision(e: unknown): boolean {
 }
 
 /**
- * The fields the add-submission form and its edit form share — everything but `is_open` (owned
- * by `toggleOpenAction` alone, the same reason `readActivityPolicy` leaves it out) and
- * `required`: a submission activity carries that column (D178 shares it with booking), but
- * neither form has ever offered a control for it, so it is never read here and stays `false`
- * from creation onward. Throws on anything invalid; both actions below catch that and turn it
- * into a flash rather than a 500.
- */
-function readSubmissionPolicy(fd: FormData): Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label" | "attendee_edit" | "proxy_fields" | "health_data">
-  & { group_mode: GroupMode; group_target: number | null; scoring: ChallengeScoring | null } {
-  const name = text(fd, "name");
-  if (!name) throw new Error("A submission needs a name");
-  const details = readSubmissionDetails((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; });
-  const maxRaw = text(fd, "max_per_attendee");
-  let max_per_attendee: number | null = null;
-  if (maxRaw) {
-    max_per_attendee = Number.parseInt(maxRaw, 10);
-    if (!Number.isFinite(max_per_attendee) || max_per_attendee < 1 || max_per_attendee > 366) {
-      throw new Error("Submissions per attendee must be a whole number between 1 and 366, or left blank for no limit.");
-    }
-  }
-  const questions = questionsFromForm(
-    (k) => { const v = fd.get(k); return typeof v === "string" ? v : null; },
-    FORM_QUESTION_TYPES,
-    MAX_SUBMISSION_QUESTIONS,
-  );
-  const group = readGroupRule((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; });
-  // D372: read against the questions in this same post, so the score question can't be one being removed.
-  const scoring = readScoring((k) => { const v = fd.get(k); return typeof v === "string" ? v : null; }, questions);
-  return {
-    name,
-    description: cleanRichText(text(fd, "description")),
-    categories: parseCategories(categoryValues(fd)),
-    // D351: a group form carries no per-person rules - the group's own rule replaces them.
-    max_per_attendee: group.group_mode === "off" ? max_per_attendee : null,
-    per_day: group.group_mode === "off" ? checked(fd, "per_day") : false,
-    attendee_edit: checked(fd, "attendee_edit"),
-    health_data: checked(fd, "health_data"),
-    // D392: field keys, as ticked. A key no attendee holds a Yes in simply makes nobody a proxy.
-    proxy_fields: [...new Set(fd.getAll("proxy_fields").map((v) => String(v).trim()).filter(Boolean))].slice(0, 10),
-    questions,
-    ...details,
-    ...group,
-    scoring,
-  };
-}
-
-/**
  * The submission activity a posted id names, or a flash back to the list. Same guard as
  * `bookingOf` above and `passportOf` below, for the same reason: a booking's or a passport's id
  * posted here must not reach `syncSubmissionPerDay`/`sweepSubmissionPrefix`, neither of which
@@ -287,12 +219,9 @@ async function submissionOf(ev: Event, activityId: string): Promise<Activity> {
 
 export async function addSubmissionActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
-  let policy;
-  try {
-    policy = readSubmissionPolicy(fd);
-  } catch (e) {
-    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
-  }
+  const read = readSettings("submission", fd);
+  if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
+  const policy = read.settings;
   // Uploaded only once everything typed has been accepted, so a refused form never leaves a
   // picture behind in the bucket.
   let image: ImageChange = { url: null, stale: null };
@@ -301,13 +230,13 @@ export async function addSubmissionActivityAction(eventId: string, fd: FormData)
   } catch (e) {
     redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
   }
-  await createActivity(ev, { ...policy, kind: "submission", required: false, is_open: checked(fd, "submissions_open"), image_url: image.url });
+  await createActivity(ev, { ...newActivityFrom("submission", policy, checked(fd, "submissions_open")), image_url: image.url });
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Submission added."));
 }
 
 /**
- * Never touches `is_open`: see `readSubmissionPolicy`'s note.
+ * Never touches `is_open`: see `readSubmissionSettings`'s note.
  *
  * `syncSubmissionPerDay` rewrites every one of this activity's submissions' `per_day` BEFORE
  * `updateActivity` writes the activity row itself, so it can throw on the partial unique index
@@ -318,12 +247,9 @@ export async function saveSubmissionActivityAction(eventId: string, activityId: 
   const ev = await event(eventId);
   // Its settings live on its own page now, like every other kind's, so every outcome lands there.
   const back = detailPath(eventId, activityId);
-  let policy;
-  try {
-    policy = readSubmissionPolicy(fd);
-  } catch (e) {
-    redirect(flashPath(back, (e as Error).message, "error"));
-  }
+  const read = readSettings("submission", fd);
+  if (!read.ok) redirect(flashPath(back, read.error, "error"));
+  const policy = read.settings;
   const current = await submissionOf(ev, activityId);
   // D356: who submits is fixed while the form holds live entries - a group form's entries
   // mean nothing under another rule. Refused before any upload, so nothing is left behind.
@@ -721,22 +647,6 @@ export async function declineRequestAction(eventId: string, activityId: string, 
   redirect(flashPath(path, decisionFlash("Request declined.", notice)));
 }
 
-/**
- * The fields the add-passport form and its settings form share. No `required` and no cap
- * (D183): a passport is never owed and every booth stamps once. `is_open` is the add form's
- * alone; after that it belongs to `toggleOpenAction`, for the reason `readActivityPolicy` gives.
- */
-function readPassportPolicy(fd: FormData, boothCount: number | null) {
-  const name = text(fd, "name");
-  if (!name) throw new Error("A passport needs a name");
-  return {
-    name,
-    description: cleanRichText(text(fd, "description")),
-    categories: parseCategories(categoryValues(fd)),
-    ...readPassportSettings({ stamps_required: text(fd, "stamps_required"), reward_message: text(fd, "reward_message") }, boothCount),
-  };
-}
-
 /** The passport a posted id names, or a flash back to the list. Scopes every booth action (D180). */
 async function passportOf(ev: Event, activityId: string): Promise<Activity> {
   const passport = await getActivity(activityId, ev.id);
@@ -746,39 +656,30 @@ async function passportOf(ev: Event, activityId: string): Promise<Activity> {
 
 export async function addPassportActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
-  let policy;
-  try {
-    policy = readPassportPolicy(fd, null);
-  } catch (e) {
-    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
-  }
+  const read = readSettings("passport", fd);
+  if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
+  const policy = read.settings;
   let image: ImageChange = { url: null, stale: null };
   try {
     image = await nextImage(fd, "image", null, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
   } catch (e) {
     redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
   }
-  const id = await createActivity(ev, {
-    ...policy, kind: "passport", required: false, is_open: checked(fd, "is_open"),
-    max_per_attendee: null, questions: [], per_day: false, image_url: image.url,
-  });
+  const id = await createActivity(ev, { ...newActivityFrom("passport", policy, checked(fd, "is_open")), image_url: image.url });
   revalidatePath(listPath(eventId));
   // Straight to its page: a passport with no booths is the one thing an organiser cannot use.
   redirect(flashPath(detailPath(eventId, id), "Passport added. Add its booths next."));
 }
 
-/** Never touches `is_open`: see `readPassportPolicy`. */
+/** Never touches `is_open`: see `readPassportSettingsForm`. */
 export async function savePassportActivityAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
   const back = detailPath(eventId, activityId);
   const current = await passportOf(ev, activityId);
   const booths = await listPassportBooths(activityId);
-  let policy;
-  try {
-    policy = readPassportPolicy(fd, booths.length);
-  } catch (e) {
-    redirect(flashPath(back, (e as Error).message, "error"));
-  }
+  const read = readSettings("passport", fd, { boothCount: booths.length });
+  if (!read.ok) redirect(flashPath(back, read.error, "error"));
+  const policy = read.settings;
   let image: ImageChange = { url: current.image_url, stale: null };
   try {
     image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
