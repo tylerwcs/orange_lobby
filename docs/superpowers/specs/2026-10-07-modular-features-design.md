@@ -227,8 +227,22 @@ lighter than the sketch above, and meets the same goal:
     `kinds/passport/PassportBody.tsx`. `portal/detail-parts.tsx` holds what they share.
   - The two activity actions files moved to `admin/actions.ts` and `portal/actions.ts`, so no
     feature file imports from a route.
-  - Still open: per-kind `readSettings` (D404). The form readers are still separate functions in
-    the actions and `src/lib`; that's for when the forms are next worked on.
+- **D420 — One settings reader per kind (9 Oct 2026). This completes D404.**
+  - Each kind's Setup and add form has its own reader in `kinds/<kind>/settings.ts`.
+  - All three sit behind `readSettings(kind, form)` in `kinds/settings.ts`, which returns the
+    settings or the sentence that refuses them.
+  - `newActivityFrom(kind, settings, isOpen)` adds what only creation sets.
+  - `KIND_SETTINGS` is indexed by `ActivityKind`, so a kind without a reader fails the build.
+  - The six add/save actions stay separate, because each kind's save does different work after
+    reading: submission syncs once-a-day and checks the group rule, passport bounds its target
+    by its booths. But they all read and refuse the same way.
+  - One visible change: a booking refused for its fields (no name, or sessions per person
+    outside 1–10) now shows the reason as a message. Before, it showed an error page;
+    submission and passport already showed messages.
+  - `readNewActivity` is gone; `newActivityFrom("booking", …)` replaces it. The shared building
+    blocks in `src/lib` (`readActivityPolicy`, `readPassportSettings`, `readScoring`,
+    `readGroupRule`, `readSubmissionDetails`) stay.
+  - No database change: every reader writes the same columns as before.
 
 ### D405 — Performance rules for every feature
 
