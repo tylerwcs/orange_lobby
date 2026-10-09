@@ -115,6 +115,12 @@ into client components and break the build. `client.ts` exports only what is saf
 The rule costs nothing to add today, because `src/features/` doesn't exist yet. It starts
 protecting the first folder as soon as that folder is created.
 
+**Changed 9 Oct 2026 (D417): the rule applies to `src/` only.** A feature's own tests live in
+`tests/<feature>/` and import its internals directly (for example
+`@/features/games/memo`). They test the feature's internal parts, which is their job. Widening
+the entries just so tests could reach those parts would have made the feature's public surface
+larger for no caller's benefit.
+
 ### D404 — Activity kinds: one definition per kind
 
 Each kind becomes one module that implements a shared interface. A registry typed as
@@ -245,9 +251,17 @@ that work. There is no big-bang move.
    silent fall-throughs. It is about 40 files, done kind by kind: `meta.ts` and the registry first,
    then booking, submission and passport, each in its own commit, with the full test suite and an
    admin plus portal browser check on a test event (never `ecphub`) after each.
-3. **Then: move games into `src/features/games/` as the pilot** for the folder layout and the lint
-   rule. It is already self-contained, so the move is mostly mechanical: the files move, and
-   `src/lib/db/games.ts` becomes `db.ts`.
+3. **Done 9 Oct 2026 (D417): games moved into `src/features/games/`** as the pilot for the folder
+   layout and the lint rule.
+   - What moved: `src/lib/games/*` is now the feature's root, `src/lib/db/games.ts` is `db.ts`,
+     `src/components/games/` is `components/`, the five games-only admin editors are `admin/`, and
+     the tests are in `tests/games/`.
+   - The entries expose exactly what the app used: 9 rule modules, 11 screens, and 4 server
+     modules (`db`, `live`, `display-state`, `phone-state`, in `index.ts` only).
+   - Checked with a production build and in the browser on `ecpkom`.
+   - **Left over:** `src/lib/exports.ts` (core) imports games for the winners sheet, which is the
+     one place where the core depends on a feature (D402 says it should not). The winners sheet
+     moves into the feature when exports are next worked on.
 4. **From then on, every new feature starts in `src/features/`** (D402, D403, D405). Existing
    features move under D407.
 
