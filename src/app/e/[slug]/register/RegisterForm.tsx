@@ -6,8 +6,9 @@ import type { RegistrationQuestion } from "@/lib/types";
 import { isQuestionShown } from "@/lib/show-when";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { CONSENT_FIELD, PRIVACY_PATH } from "@/lib/privacy";
 import { Spinner } from "@/components/ui/spinner";
 
 /**
@@ -47,6 +48,7 @@ export function RegisterForm({ slug, questions, door = true }: {
   // in had already parted company, and Base UI says so out loud.
   const [answers, setAnswers] = useState<Record<string, string>>(() => ({ ...(state.values ?? {}) }));
   const set = (k: string, val: string) => setAnswers((a) => ({ ...a, [k]: val }));
+  const [agreed, setAgreed] = useState(false);
   const value = (k: string) => answers[k] ?? "";
   const errors = state.errors ?? {};
   const fieldErrors = Object.keys(errors).filter((k) => k !== "form");
@@ -61,6 +63,9 @@ export function RegisterForm({ slug, questions, door = true }: {
       const el = document.getElementById(`reg-${k}`);
       if ((el instanceof HTMLSelectElement || el instanceof HTMLInputElement) && el.value !== val) el.value = val ?? "";
     }
+    // The consent tick is reset the same way, and must not make the invitee agree twice.
+    const box = document.getElementById(`reg-${CONSENT_FIELD}`);
+    if (box instanceof HTMLInputElement) box.checked = agreed;
 
     // A rejected form is read from wherever the submit button was — the bottom, on a phone,
     // with the answer that needs fixing somewhere above the fold. Take the invitee to it
@@ -135,6 +140,23 @@ export function RegisterForm({ slug, questions, door = true }: {
           </FieldGroup>
         </FieldSet>
       )}
+
+      {/* D410: PDPA consent, had before anything is stored. A native checkbox, like the select
+          above, so it works before JavaScript arrives and posts "yes" only when ticked. */}
+      <Field orientation="horizontal" data-invalid={!!errors[CONSENT_FIELD]}>
+        <input id={`reg-${CONSENT_FIELD}`} name={CONSENT_FIELD} type="checkbox" value="yes" required
+          checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
+          className="mt-0.5 size-5 shrink-0 accent-primary" {...invalid(CONSENT_FIELD)} />
+        <FieldContent>
+          <FieldLabel htmlFor={`reg-${CONSENT_FIELD}`} className="font-normal leading-snug">
+            <span>
+              I agree to my personal data being used to run this event, as set out in the{" "}
+              <a href={PRIVACY_PATH} target="_blank" rel="noopener" className="font-bold text-primary underline underline-offset-4">Privacy Notice</a>.
+            </span>
+          </FieldLabel>
+          <FieldError id={`reg-${CONSENT_FIELD}-error`}>{errors[CONSENT_FIELD]}</FieldError>
+        </FieldContent>
+      </Field>
 
       <Field>
         <Button type="submit" disabled={pending} className="h-12 w-full text-base font-bold">

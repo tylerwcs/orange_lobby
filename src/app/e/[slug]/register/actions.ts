@@ -2,8 +2,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
-import { upsertByEmail } from "@/lib/db/attendees";
+import { recordConsent, upsertByEmail } from "@/lib/db/attendees";
 import { validateRegistration } from "@/lib/registration";
+import { CONSENT_FIELD, consentError } from "@/lib/privacy";
 import { allow } from "@/lib/ratelimit";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
@@ -20,8 +21,12 @@ export async function registerAction(slug: string, _prev: RegisterState, formDat
   const values: Record<string, string> = {};
   formData.forEach((v, k) => { if (typeof v === "string") values[k] = v; });
   const result = validateRegistration(values, event.registration_questions);
-  if (!result.ok) return { errors: result.errors, values };
+  // Checked alongside the answers, not before them, so one submit reports everything to fix
+  // (D410). The browser's `required` asks first; this is what a direct POST meets.
+  const consent = consentError(values);
+  if (!result.ok || consent) return { errors: { ...(result.ok ? {} : result.errors), ...(consent ? { [CONSENT_FIELD]: consent } : {}) }, values };
 
   const { attendee } = await upsertByEmail(event, result.data, "registration");
+  await recordConsent(attendee.id);
   redirect(`/e/${slug}/register/done?t=${attendee.token}`);
 }

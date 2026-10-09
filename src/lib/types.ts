@@ -118,6 +118,10 @@ export type Attendee = {
   extra: Record<string, string>;
   source: AttendeeSource;
   status: string;
+  /** D410: when they agreed to the Privacy Notice. Null: not yet, so the portal asks first. */
+  consented_at: string | null;
+  /** D410: the notice's PRIVACY_UPDATED date they agreed to. */
+  consent_notice: string | null;
 };
 
 /** A day of the programme, made before anything is put on it (D193). */

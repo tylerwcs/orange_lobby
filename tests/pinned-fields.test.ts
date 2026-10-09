@@ -7,7 +7,7 @@ import type { Attendee } from "@/lib/types";
 
 const attendee = (over: Partial<Attendee> = {}): Attendee => ({
   id: "a1", org_id: "o", event_id: "e", token: "t", name: "Tan Ah Kow",
-  email: "t@x.test", category: "VIP", group_id: null,
+  email: "t@x.test", category: "VIP", group_id: null, consented_at: null, consent_notice: null,
   extra: { room_no: "1204", room_partner: "Ahmad Bin Hassan", dietary: "", shirt_size: "XL" },
   source: "import", status: "active", ...over,
 });

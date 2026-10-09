@@ -7,6 +7,7 @@ import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "
 import { deleteSubmissionFiles, sweepSubmissionPrefix } from "@/lib/db/media";
 import { submissionFilePaths } from "@/lib/storage";
 import { selectAll } from "@/lib/db/select-all";
+import { PRIVACY_UPDATED } from "@/lib/privacy";
 import type { Attendee, AttendeeSource, Event } from "@/lib/types";
 
 export type AttendeeInput = {
@@ -118,6 +119,18 @@ export async function upsertByEmail(event: Pick<Event, "id" | "org_id">, input: 
     return { attendee: { ...existing, ...input, email: input.email.toLowerCase(), extra } as Attendee, created: false };
   }
   return { attendee: await createAttendee(event, input, source), created: true };
+}
+
+/**
+ * Records that this attendee agreed to the Privacy Notice now, to the version on the page
+ * (D410). `consented_at is null` keeps the first agreement: a second registration, or a
+ * second tab's tap, does not move it.
+ */
+export async function recordConsent(id: string): Promise<void> {
+  const { error } = await serviceClient().from("attendees")
+    .update({ consented_at: new Date().toISOString(), consent_notice: PRIVACY_UPDATED })
+    .eq("id", id).is("consented_at", null);
+  if (error) throw error;
 }
 
 /**

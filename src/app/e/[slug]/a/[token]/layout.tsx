@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { loadPortalAttendee, portalHasInfo } from "@/lib/portal";
 import { loadActivityNav } from "@/lib/portal-home";
 import { PortalChrome } from "@/components/portal/PortalChrome";
+import { ConsentGate } from "@/components/portal/ConsentGate";
+import { consentAction } from "./consent-actions";
 import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
 
@@ -33,6 +35,11 @@ export default async function PersonalLayout({ children, params }: {
 }) {
   const { slug, token } = await params;
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // PDPA consent first (D410), for every page under the link, before anything personal is
+  // shown. A draft event shows only "coming soon", so it has nothing to ask consent for yet.
+  if (!attendee.consented_at && event.status !== "draft") {
+    return <ConsentGate event={event} agree={consentAction.bind(null, slug, token)} />;
+  }
   const [activities, hasInfo] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category)]);
   const chromeEvent = {
     name: event.name,

@@ -9,7 +9,7 @@ const scan = (id: string, at: string, attendee = "a1", checkpoint = "cp1", by: s
 
 const attendee = (id: string, name: string, over: Partial<Attendee> = {}): Attendee => ({
   id, org_id: "o1", event_id: "e1", token: `t-${id}`, name, email: null,
-  category: null, group_id: null, extra: {},
+  category: null, group_id: null, extra: {}, consented_at: null, consent_notice: null,
   source: "import", status: "active", ...over,
 });
 

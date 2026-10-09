@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PRIVACY_CONTACT, PRIVACY_UPDATED } from "@/lib/privacy";
 
 export const metadata = {
   title: "Privacy Policy",
@@ -14,8 +15,8 @@ export const metadata = {
  * the same reason the login page is: there is nothing to wait for, so a skeleton would only
  * flash.
  */
-const UPDATED = "24 September 2026";
-const CONTACT = "huine.liew@ecopiaevents.com";
+const UPDATED = PRIVACY_UPDATED;
+const CONTACT = PRIVACY_CONTACT;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
