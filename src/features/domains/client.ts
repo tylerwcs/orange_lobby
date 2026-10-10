@@ -3,3 +3,4 @@
  * and path rules, and the proxy's lookup. `index.ts` re-exports this and adds the admin side.
  */
 export * from "./hosts";
+export * from "./routing";
