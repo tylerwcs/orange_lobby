@@ -35,7 +35,7 @@ describe("routeEventPath (D425)", () => {
   });
 
   it("sends every staff and admin path to the main address", () => {
-    for (const p of ["/admin", "/admin/events/x/export/links.xlsx", "/login", "/scan/x", "/crew/x", "/host/x", "/display/x", "/booth/x", "/api/cron/committee-reminders", "/api/whatsapp/webhook", "/api/display/x/state", "/anything"]) {
+    for (const p of ["/admin", "/admin/events/x/export/links.xlsx", "/login", "/scan/x", "/crew/x", "/host/x", "/display/x", "/booth/x", "/setup/x", "/api/cron/committee-reminders", "/api/whatsapp/webhook", "/api/display/x/state", "/anything"]) {
       expect(r(p), p).toEqual({ kind: "main" });
     }
   });

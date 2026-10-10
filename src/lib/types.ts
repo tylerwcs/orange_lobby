@@ -83,6 +83,8 @@ export type Event = {
   badge_checkin: boolean;
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
   crew_token: string | null;
+  /** D441: the organiser setup link. Null when the link is off. */
+  setup_token: string | null;
   /** The host console link's authority (D252). Null until an admin creates one on the Games page. */
   host_token: string | null;
   /** The LED display link's authority (D252). Show-only; separate from the host link. */

@@ -1,6 +1,6 @@
 # Organiser setup page — design
 
-**Status: approved in chat on 10 Oct 2026. Not built yet. Needs the feature catalogue
+**Status: approved in chat on 10 Oct 2026. Built in two phases: Phase 1 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md) is the link, the checklist, Basics with its preview, and the admin review and Apply for Basics; Phase 2 adds the Agenda and Info steps and their Apply functions. Until Phase 2, Agenda and Info show on the checklist as guide cards. Not built yet. Needs the feature catalogue
 (`2026-10-10-feature-catalogue-design.md`) built first.**
 
 Event organisers get one private link per event. It is the one place where they:
@@ -62,8 +62,7 @@ admin. An admin reviews each section and applies it.
 ### D441 — One setup link per event, `/setup/<token>`
 
 - A `setup_token` column on `events`, unique and nullable. A null token means the link is off.
-- It is minted the first time an admin opens the event's Setup area. It can be rotated or
-  turned off from there, the same way as the crew link.
+- It is created by a **Create setup link** button in the Setup area, not by opening the page: a page view never writes. It can be replaced or turned off there, with the same buttons and confirmations as the crew link.
 - `setupLink(event)` in `src/lib/links.ts` always builds on the main address.
 - The token is the identity. Every server action re-loads the event by token, the same as
   `loadPortalAttendee` does.
@@ -111,7 +110,7 @@ admin. An admin reviews each section and applies it.
 
 ### D444 — The checklist comes from the catalogue
 
-- Each catalogue feature's `setup` field lists its items. An item is either:
+- Each catalogue feature has an optional `setup` field listing its items (`SetupItem` in `catalogue.ts`). An item is either:
   - a **step** (fillable: `basics`, `agenda`, `info`), or
   - a **guide card** (title, what to send, help text)
 - The setup home lists the base items, the event's add-on items and one
@@ -193,8 +192,7 @@ admin. An admin reviews each section and applies it.
 ### D448 — A Setup area in admin, with a badge
 
 - **Setup** goes in the event sidebar. It holds:
-  - the link card: Copy link, Open as organiser; and in the ⋯ menu, Rotate link and Turn off
-    link
+  - the link card: the link with Copy, Open as organiser, and the Replace link and Turn off link buttons, each with a confirmation (the crew link's pattern)
   - a table of sections with columns Section · Status · Submitted · Applied · ⋯
 - **The badge** counts sections in Submitted. It shows on the sidebar item and on the event's
   row in the events list.

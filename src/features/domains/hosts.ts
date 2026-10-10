@@ -24,7 +24,7 @@ export function isMainHost(host: string, cfg: DomainConfig): boolean {
     || host.endsWith(".vercel.app") || host === "localhost" || host === "127.0.0.1";
 }
 
-export const RESERVED_LABELS = ["www", "app", "admin", "api", "mail", "crew", "host", "display", "booth", "scan", "login", "help", "status"] as const;
+export const RESERVED_LABELS = ["www", "app", "admin", "api", "mail", "crew", "host", "display", "booth", "scan", "setup", "login", "help", "status"] as const;
 
 export type HostResult = { ok: true; host: string } | { ok: false; error: string };
 

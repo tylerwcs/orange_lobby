@@ -41,6 +41,7 @@ describe("subdomainHost (D424)", () => {
     expect(subdomainHost("kom_2026", "ecphub.app")).toMatchObject({ ok: false });
     expect(subdomainHost("a".repeat(41), "ecphub.app")).toMatchObject({ ok: false });
     expect(subdomainHost("admin", "ecphub.app")).toEqual({ ok: false, error: "“admin” is reserved. Pick another name." });
+    expect(subdomainHost("setup", "ecphub.app")).toEqual({ ok: false, error: "“setup” is reserved. Pick another name." });
   });
 });
 
