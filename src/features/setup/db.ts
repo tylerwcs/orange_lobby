@@ -188,30 +188,71 @@ export async function markSetupItemHandled(eventId: string, itemKey: string, see
   return (data?.length ?? 0) > 0;
 }
 
+const NETWORK_FAILURE = /fetch failed|ECONNRESET|socket/i;
+
+/** Whether an error is the network dropping a request (a stale pooled socket, a reset), not the storage API refusing it. */
+function looksLikeNetworkFailure(e: unknown, depth = 0): boolean {
+  if (!e || typeof e !== "object" || depth > 3) return false;
+  const err = e as { name?: unknown; message?: unknown; cause?: unknown; originalError?: unknown };
+  if (err.name === "StorageUnknownError") return true;
+  if (typeof err.message === "string" && NETWORK_FAILURE.test(err.message)) return true;
+  return looksLikeNetworkFailure(err.cause, depth + 1) || looksLikeNetworkFailure(err.originalError, depth + 1);
+}
+
+/**
+ * Runs a storage call, and once more if the network dropped it (D459). storage-js hands back
+ * failures as `{ error }` rather than throwing, so both are checked. Any other error is the
+ * caller's to handle: a thrown one is rethrown, a returned one is returned.
+ */
+export async function retryOnce<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    const result = await fn();
+    const error = result && typeof result === "object" ? (result as { error?: unknown }).error : null;
+    return looksLikeNetworkFailure(error) ? await fn() : result;
+  } catch (e) {
+    if (!looksLikeNetworkFailure(e)) throw e;
+    return fn();
+  }
+}
+
 /** A signed upload for one new file (D459): the path is minted here, so the browser can write only this one object. */
 export async function startSetupUpload(orgId: string, eventId: string, ext: string): Promise<{ path: string; token: string }> {
   const path = setupFilePath(orgId, eventId, crypto.randomUUID(), ext);
-  const { data, error } = await serviceClient().storage.from(SETUP_BUCKET).createSignedUploadUrl(path);
+  const { data, error } = await retryOnce(() => serviceClient().storage.from(SETUP_BUCKET).createSignedUploadUrl(path));
   if (error || !data) throw new Error("Could not start the upload. Try again.");
   return { path, token: data.token };
 }
 
+/** True for storage's answer to a path with no object. */
+const isMissingObject = (e: { message?: string; status?: number; statusCode?: string }) =>
+  e.status === 404 || e.statusCode === "404" || /not.?found/i.test(e.message ?? "");
+
 /**
- * Records a file once it is in the bucket (D459), and marks its item changed. Null when the path
- * isn't one minted for this event, nothing is there (the upload never finished), or it is
- * already recorded. "full" when the item already holds its maximum: the cap is enforced here, not
- * only when the upload starts, so the object just uploaded is removed again.
+ * Records a file once it is in the bucket (D459), and marks its item changed. Safe to repeat: a
+ * path already recorded for this event and item returns that row, so finishing again after a
+ * dropped response is harmless. Null when the path isn't one minted for this event, nothing is
+ * there (the upload never finished), or it is recorded under another item. "full" when the item
+ * already holds its maximum: the cap is enforced here, not only when the upload starts, so the
+ * object just uploaded is removed again.
  */
 export async function recordSetupFile(ev: Pick<Event, "id" | "org_id">, itemKey: string, path: string, name: string, contentType: string): Promise<SetupFileRow | "full" | null> {
   if (!isSetupFilePath(path, ev.org_id, ev.id)) return null;
-  const cut = path.lastIndexOf("/");
-  const { data: listed, error: listError } = await serviceClient().storage.from(SETUP_BUCKET).list(path.slice(0, cut), { search: path.slice(cut + 1) });
-  if (listError) throw listError;
-  const object = listed?.find((o) => o.name === path.slice(cut + 1));
+  // The row for this path if it is already recorded: ours (same event and item) is returned, anyone else's is not.
+  const recorded = async (): Promise<{ found: boolean; row: SetupFileRow | null }> => {
+    const { data, error } = await files().select("*").eq("path", path).limit(1);
+    if (error) throw error;
+    const row = (data as SetupFileRow[] | null)?.[0];
+    if (!row) return { found: false, row: null };
+    return { found: true, row: row.event_id === ev.id && row.item_key === itemKey ? row : null };
+  };
+  const prior = await recorded();
+  if (prior.found) return prior.row;
+  const { data: object, error: objectError } = await retryOnce(() => serviceClient().storage.from(SETUP_BUCKET).info(path));
+  if (objectError) {
+    if (isMissingObject(objectError as { message?: string; status?: number; statusCode?: string })) return null;
+    throw objectError;
+  }
   if (!object) return null;
-  const { data: already, error: alreadyError } = await files().select("id").eq("path", path).limit(1);
-  if (alreadyError) throw alreadyError;
-  if (already?.length) return null;
   const { count, error: countError } = await files().select("id", { count: "exact", head: true }).eq("event_id", ev.id).eq("item_key", itemKey);
   if (countError) throw countError;
   if ((count ?? 0) >= MAX_FILES_PER_ITEM) {
@@ -219,11 +260,10 @@ export async function recordSetupFile(ev: Pick<Event, "id" | "org_id">, itemKey:
     if (removeError) throw removeError;
     return "full";
   }
-  const size = Number((object.metadata as { size?: number } | null)?.size ?? 0);
   const { data, error } = await files()
-    .insert({ event_id: ev.id, item_key: itemKey, path, name, size_bytes: Math.max(size, 1), content_type: contentType })
+    .insert({ event_id: ev.id, item_key: itemKey, path, name, size_bytes: Math.max(Number(object.size ?? 0), 1), content_type: contentType })
     .select("*").single();
-  if (error?.code === "23505") return null;
+  if (error?.code === "23505") return (await recorded()).row;
   if (error) throw error;
   await touchSetupItem(ev.id, itemKey);
   return data as SetupFileRow;
@@ -243,7 +283,7 @@ export async function removeSetupFile(eventId: string, id: string): Promise<Setu
 
 /** A one-minute download link carrying the file's own name (D459). */
 export async function setupFileUrl(f: Pick<SetupFileRow, "path" | "name">): Promise<string | null> {
-  const { data } = await serviceClient().storage.from(SETUP_BUCKET).createSignedUrl(f.path, 60, { download: f.name });
+  const { data } = await retryOnce(() => serviceClient().storage.from(SETUP_BUCKET).createSignedUrl(f.path, 60, { download: f.name }));
   return data?.signedUrl ?? null;
 }
 

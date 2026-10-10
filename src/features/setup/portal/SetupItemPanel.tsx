@@ -96,7 +96,8 @@ export function SetupItemPanel({ token, itemKey, initialFiles, initialNotes, not
         if (!start.ok) { problems.push(`${file.name}: ${start.message}`); continue; }
         const { error } = await browserStorage().storage.from(SETUP_BUCKET).uploadToSignedUrl(start.path, start.uploadToken, withContentType(file, start.contentType), { contentType: start.contentType });
         if (error) { problems.push(`${file.name}: ${UPLOAD_FAILED}`); continue; }
-        const done = await finishSetupUploadAction(token, itemKey, start.path, file.name);
+        // Recording is safe to repeat, so a dropped connection gets one more try before the file is reported lost.
+        const done = await finishSetupUploadAction(token, itemKey, start.path, file.name).catch(() => finishSetupUploadAction(token, itemKey, start.path, file.name));
         if (!done.ok) { problems.push(`${file.name}: ${done.message}`); continue; }
         setFiles((p) => [...p, done.file]);
       } catch {
