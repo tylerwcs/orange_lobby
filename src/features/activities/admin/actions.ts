@@ -33,13 +33,13 @@ async function event(eventId: string) {
   return requireEvent(eventId, orgId);
 }
 
+const listPath = (eventId: string) => `/admin/events/${eventId}/activities`;
+const detailPath = (eventId: string, activityId: string) => `${listPath(eventId)}/${activityId}`;
+
 /** Refuses a write for a kind whose add-on is off (D438). Its rows stay; only writes stop. */
 async function allowKind(ev: Event, kind: ActivityKind) {
   await requireFeature(ev.id, featureForActivityKind(kind), listPath(ev.id));
 }
-
-const listPath = (eventId: string) => `/admin/events/${eventId}/activities`;
-const detailPath = (eventId: string, activityId: string) => `${listPath(eventId)}/${activityId}`;
 
 const text = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const checked = (fd: FormData, key: string) => fd.get(key) !== null;
@@ -158,6 +158,7 @@ export async function toggleLeaderboardAction(eventId: string, activityId: strin
   const ev = await event(eventId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  await allowKind(ev, activity.kind);
   await updateActivity(activityId, ev.id, { show_leaderboard: !activity.show_leaderboard });
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(activityHref(eventId, activityId, "leaderboard"),
@@ -479,6 +480,7 @@ export async function addSessionsAction(eventId: string, activityId: string, fd:
 
 export async function saveSessionAction(eventId: string, activityId: string, sessionId: string, fd: FormData) {
   const ev = await event(eventId);
+  await bookingOf(ev, activityId);
   await updateSession(sessionId, ev.id, readSession(fd));
   revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
   redirect(flashPath(activityHref(eventId, activityId), "Session saved."));
@@ -491,6 +493,7 @@ export async function saveSessionAction(eventId: string, activityId: string, ses
  */
 export async function deleteSessionAction(eventId: string, activityId: string, sessionId: string) {
   const ev = await event(eventId);
+  await bookingOf(ev, activityId);
   await deleteSession(sessionId, ev.id);
   const path = `/admin/events/${eventId}/activities/${activityId}`;
   revalidatePath(path);
@@ -517,6 +520,7 @@ export async function deleteSessionDayAction(eventId: string, activityId: string
  */
 export async function placeAttendeesAction(eventId: string, activityId: string, fd: FormData) {
   const ev = await event(eventId);
+  await bookingOf(ev, activityId);
   const path = activityHref(eventId, activityId, "not-booked");
   // The session comes from the form's own select, not from a bound argument: a form action
   // receives FormData and nothing else.
@@ -609,6 +613,7 @@ const REQUEST_GONE = "That request is no longer waiting.";
  */
 export async function approveRequestAction(eventId: string, activityId: string, requestId: string) {
   const ev = await event(eventId);
+  await bookingOf(ev, activityId);
   const { userId } = await requireAdmin();
   const path = activityHref(eventId, activityId, "bookings");
   const request = await getRequest(requestId, ev.id);
@@ -636,6 +641,7 @@ export async function approveRequestAction(eventId: string, activityId: string, 
 
 export async function declineRequestAction(eventId: string, activityId: string, requestId: string) {
   const ev = await event(eventId);
+  await bookingOf(ev, activityId);
   const { userId } = await requireAdmin();
   const path = activityHref(eventId, activityId, "bookings");
   // Same event- and activity-scoping note as approveRequestAction: this exists so a posted id
@@ -730,6 +736,7 @@ export async function addBoothAction(eventId: string, activityId: string, fd: Fo
 /** Always allowed, stamped or not: stamps point at the row, not its name (D94). */
 export async function renameBoothAction(eventId: string, activityId: string, boothId: string, fd: FormData) {
   const ev = await event(eventId);
+  await passportOf(ev, activityId);
   const name = text(fd, "name");
   if (!name) throw new Error("A booth needs a name");
   await updateBooth(boothId, ev.id, activityId, { name, location: text(fd, "location") || null });
@@ -738,6 +745,7 @@ export async function renameBoothAction(eventId: string, activityId: string, boo
 
 export async function reorderBoothsAction(eventId: string, activityId: string, ids: string[]) {
   const ev = await event(eventId);
+  await passportOf(ev, activityId);
   await setBoothOrder(ev.id, activityId, ids);
   revalidatePath(detailPath(eventId, activityId));
 }
@@ -745,6 +753,7 @@ export async function reorderBoothsAction(eventId: string, activityId: string, i
 /** Checked again in the database (D94): a second tab opened before the first stamp still has a live button. */
 export async function deleteBoothAction(eventId: string, activityId: string, boothId: string) {
   const ev = await event(eventId);
+  await passportOf(ev, activityId);
   const removed = await deleteBoothIfUnstamped(boothId, ev.id, activityId);
   const path = detailPath(eventId, activityId);
   revalidatePath(path);
