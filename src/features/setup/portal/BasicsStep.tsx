@@ -1,0 +1,203 @@
+"use client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { basicsComplete, basicsErrors, BASICS_LABELS, type BasicsAnswers, type BasicsField } from "../sections/basics";
+import { sameAnswers, STATUS_LABELS, type SectionStatus } from "../status";
+import { HomePreview, type PreviewSlot } from "../preview/HomePreview";
+import { SetupImageField } from "./SetupImageField";
+import { saveSectionAction, submitSectionAction } from "./actions";
+
+const SLOT_OF: Partial<Record<BasicsField, PreviewSlot>> = {
+  name: "header", starts_on: "header", ends_on: "header", venue_name: "header",
+  primary_color: "colour", logo_url: "logo", banner_url: "banner",
+};
+const FIELD_OF: Record<PreviewSlot, BasicsField> = { header: "name", logo: "logo_url", banner: "banner_url", colour: "primary_color" };
+const AUTOSAVE_MS = 1000;
+
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+/**
+ * Event basics (D446): short groups with a line of help each, saved about a second after the
+ * last change, next to the portal home it shapes (D445). Saves run one at a time, each carrying
+ * the rev the last one returned, so a second person's save is refused instead of overwritten.
+ */
+export function BasicsStep({ token, initial, initialRev, initialStatus, initialUnsubmitted }: {
+  token: string;
+  initial: BasicsAnswers;
+  initialRev: number;
+  initialStatus: SectionStatus;
+  initialUnsubmitted: boolean;
+}) {
+  const [a, setA] = useState(initial);
+  const [focused, setFocused] = useState<PreviewSlot | null>(null);
+  const [save, setSave] = useState<SaveState>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState(initialStatus);
+  const [unsubmitted, setUnsubmitted] = useState(initialUnsubmitted);
+  const [submitting, setSubmitting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const rev = useRef(initialRev);
+  const latest = useRef(initial);
+  // What the server holds. Comparing against it (not "is this the first render") means opening
+  // the page never saves, even when React runs effects twice in development.
+  const saved = useRef(initial);
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const blocked = useRef(false);
+
+  const errors = basicsErrors(a);
+  const complete = basicsComplete(a);
+  const nothingNew = (status === "submitted" || status === "applied") && !unsubmitted;
+
+  const runSave = useCallback(() => {
+    chain.current = chain.current.then(async () => {
+      if (blocked.current || sameAnswers(latest.current, saved.current)) return;
+      const sending = latest.current;
+      setSave("saving");
+      const r = await saveSectionAction(token, "basics", rev.current, sending);
+      if (r.ok) {
+        rev.current = r.rev;
+        saved.current = sending;
+        setSave("saved");
+        setMessage(null);
+        if (status === "submitted" || status === "applied") setUnsubmitted(true);
+      } else {
+        setSave("error");
+        setMessage(r.message);
+        if (r.stale) blocked.current = true;
+      }
+    });
+    return chain.current;
+  }, [token, status]);
+
+  useEffect(() => {
+    latest.current = a;
+    if (sameAnswers(a, saved.current)) return;
+    const t = setTimeout(() => { void runSave(); }, AUTOSAVE_MS);
+    return () => clearTimeout(t);
+  }, [a, runSave]);
+
+  const set = (f: BasicsField) => (v: string) => setA((p) => ({ ...p, [f]: v }));
+  const focus = (f: BasicsField) => () => setFocused(SLOT_OF[f] ?? null);
+  const jump = (slot: PreviewSlot) => {
+    setFocused(slot);
+    document.querySelector<HTMLElement>(`[data-setup-field="${FIELD_OF[slot]}"]`)?.focus();
+  };
+
+  const submit = async () => {
+    setSubmitting(true);
+    latest.current = a;
+    await runSave();
+    await chain.current;
+    if (blocked.current) { setSubmitting(false); return; }
+    const r = await submitSectionAction(token, "basics", rev.current);
+    setSubmitting(false);
+    if (r.ok) { rev.current = r.rev; setStatus("submitted"); setUnsubmitted(false); setMessage("Submitted. We'll review it and let you know if anything needs changing."); }
+    else setMessage(r.message);
+  };
+
+  const text = (f: BasicsField, type = "text", placeholder = "") => (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-sm font-bold">{BASICS_LABELS[f]}</span>
+      <Input type={type} value={a[f]} placeholder={placeholder} data-setup-field={f} onFocus={focus(f)} onChange={(e) => set(f)(e.target.value)}
+        aria-invalid={errors[f] ? true : undefined} className={type === "date" ? "w-44" : ""} />
+      {errors[f] && <span className="text-xs font-semibold text-destructive">{errors[f]}</span>}
+    </label>
+  );
+  const area = (f: BasicsField, placeholder: string, rows = 3) => (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-sm font-bold">{BASICS_LABELS[f]}</span>
+      <Textarea value={a[f]} rows={rows} placeholder={placeholder} data-setup-field={f} onFocus={focus(f)} onChange={(e) => set(f)(e.target.value)}
+        aria-invalid={errors[f] ? true : undefined} />
+      {errors[f] && <span className="text-xs font-semibold text-destructive">{errors[f]}</span>}
+    </label>
+  );
+  const group = (title: string, help: string, children: React.ReactNode) => (
+    <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+      <div>
+        <h2 className="font-extrabold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{help}</p>
+      </div>
+      {children}
+    </section>
+  );
+
+  const preview = <HomePreview basics={a} focused={focused} onSlot={jump} />;
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href={`/setup/${token}`} className="text-sm font-bold text-primary">‹ Checklist</Link>
+          <h1 className="text-2xl font-extrabold">Event basics</h1>
+          <Badge variant={status === "applied" ? "success" : status === "submitted" ? "warning" : "secondary"}>{STATUS_LABELS[status]}</Badge>
+          <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">
+            {save === "saving" ? "Saving…" : save === "saved" ? "Saved" : ""}
+          </span>
+        </div>
+        {status === "applied" && !unsubmitted && <p className="text-sm text-muted-foreground">Live in your portal. You can still change anything here and submit again.</p>}
+        {unsubmitted && status !== "draft" && <p className="text-sm font-semibold text-amber-700">You have changes you haven&apos;t submitted.</p>}
+
+        {group("Your event", "Shown at the top of the portal and in WhatsApp messages. All times are Malaysia time.", (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">{text("name", "text", "Ecopia Kick-Off Meeting 2027")}</div>
+            {text("starts_on", "date")}
+            {text("ends_on", "date")}
+            <div className="sm:col-span-2">{text("venue_name", "text", "Sunway Pyramid Convention Centre")}</div>
+          </div>
+        ))}
+
+        {group("How it looks", "Send each image at about twice its on-screen size so it stays sharp on phones.", (
+          <div className="flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-bold">{BASICS_LABELS.primary_color}</span>
+              <span className="flex items-center gap-2">
+                <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(a.primary_color) ? a.primary_color : "#F97316"} onFocus={focus("primary_color")}
+                  onChange={(e) => set("primary_color")(e.target.value)} className="h-9 w-14 cursor-pointer rounded-md border border-input" aria-label="Pick a colour" />
+                <Input value={a.primary_color} data-setup-field="primary_color" onFocus={focus("primary_color")} onChange={(e) => set("primary_color")(e.target.value)} className="w-28 font-mono" />
+              </span>
+              {errors.primary_color && <span className="text-xs font-semibold text-destructive">{errors.primary_color}</span>}
+            </label>
+            <SetupImageField token={token} kind="logo" label={BASICS_LABELS.logo_url} value={a.logo_url} onChange={set("logo_url")} onFocus={focus("logo_url")} />
+            <SetupImageField token={token} kind="banner" label={BASICS_LABELS.banner_url} value={a.banner_url} onChange={set("banner_url")} onFocus={focus("banner_url")} />
+          </div>
+        ))}
+
+        {group("People", "Categories decide who sees what. The committee numbers get WhatsApp alerts when attendees ask to change a booking.", (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">{area("categories", "One per line, e.g.\nStaff\nVendor\nVIP")}</div>
+            <div className="sm:col-span-2">{area("committee_numbers", "One per line, e.g.\n012-345 6789")}</div>
+          </div>
+        ))}
+
+        {group("Anything else", "Anything we should know that isn't asked above.", area("notes", "", 4))}
+
+        <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-border bg-background/95 py-3 backdrop-blur">
+          <Button type="button" onClick={submit} disabled={!complete || nothingNew || submitting || save === "saving"}>
+            {submitting ? "Submitting…" : status === "draft" || status === "not_started" ? "Submit section" : "Submit changes"}
+          </Button>
+          <Button type="button" variant="outline" className="lg:hidden" onClick={() => setShowPreview(true)}>Preview</Button>
+          {message && <span role="status" className={`text-sm ${save === "error" ? "font-semibold text-destructive" : "text-muted-foreground"}`}>{message}</span>}
+          {!complete && !message && <span className="text-sm text-muted-foreground">Fill in the required fields to submit.</span>}
+        </div>
+      </div>
+
+      <aside className="hidden lg:block">
+        <div className="sticky top-6 flex flex-col gap-2">
+          <p className="text-center text-xs font-bold uppercase tracking-wide text-muted-foreground">Your portal, as attendees see it</p>
+          {preview}
+        </div>
+      </aside>
+
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/95 p-4 lg:hidden" role="dialog" aria-label="Preview">
+          {preview}
+          <Button type="button" variant="outline" onClick={() => setShowPreview(false)}>Close preview</Button>
+        </div>
+      )}
+    </div>
+  );
+}
