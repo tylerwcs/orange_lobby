@@ -136,11 +136,12 @@ function SessionRow({ s, error, expanded, onExpand, onEdit, onRemove, onFocus }:
   return (
     // stopPropagation: the day's card also listens for focus, and the innermost spot wins.
     <li className="flex flex-col gap-3 rounded-lg border border-border p-3" onFocus={(e) => { e.stopPropagation(); onFocus(); }}>
+      {/* On a phone the title takes its own line under the times, with More and Remove beside the times; from sm up all five share one line. */}
       <div className="flex flex-wrap items-start gap-2">
         <Input type="time" aria-label="Starts" className="w-28" {...bind("starts_at")} />
         <Input type="time" aria-label="Ends (optional)" className="w-28" {...bind("ends_at")} />
-        <Input aria-label="Title" placeholder="Session title" className="min-w-0 flex-1" data-setup-field={`session:${s.id}`} {...bind("title")} />
-        <Button type="button" variant="ghost" size="sm" aria-expanded={expanded} onClick={onExpand}>{expanded ? "Less" : "More"}</Button>
+        <Input aria-label="Title" placeholder="Session title" className="order-last min-w-0 basis-full sm:order-none sm:basis-0 sm:flex-1" data-setup-field={`session:${s.id}`} {...bind("title")} />
+        <Button type="button" variant="ghost" size="sm" className="ml-auto sm:ml-0" aria-expanded={expanded} onClick={onExpand}>{expanded ? "Less" : "More"}</Button>
         <Button type="button" variant="ghost" size="icon" aria-label="Remove session" onClick={onRemove}><Trash2 /></Button>
       </div>
       {(["starts_at", "ends_at"] as const).map((f) => error(f) && <span key={f} className="text-xs font-semibold text-destructive">{error(f)}</span>)}
