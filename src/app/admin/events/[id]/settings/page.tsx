@@ -7,7 +7,7 @@ import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { loadDoors, listActivities } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
-import { eventAddress } from "@/features/domains";
+import { AddressTab, eventAddress } from "@/features/domains";
 import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
@@ -87,7 +87,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
-  const openTab = rememberedTab(jar, tabScope, ["details", "registration", "checkpoints", "alerts", "danger"]) ?? "details";
+  const openTab = rememberedTab(jar, tabScope, ["details", "registration", "checkpoints", "address", "alerts", "danger"]) ?? "details";
   const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
@@ -107,6 +107,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
+          <TabsTrigger value="address">Address</TabsTrigger>
           <TabsTrigger value="alerts">Committee alerts</TabsTrigger>
           <TabsTrigger value="danger">Danger zone</TabsTrigger>
         </TabsList>
@@ -376,6 +377,10 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
       {/* Always there now, since Delete is for any event that is not live; Purge still needs
           the event archived first. */}
+      <TabsContent value="address" className="flex flex-col gap-4">
+        <AddressTab eventId={ev.id} />
+      </TabsContent>
+
       <TabsContent value="alerts" className="flex flex-col gap-4">
         <Card>
           <CardHeader>
