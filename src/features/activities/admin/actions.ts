@@ -20,7 +20,8 @@ import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from 
 import { nextFileHashes } from "@/lib/file-hashes";
 import { perDayCollision, groupRuleChangeBlocked, liveSubmissions } from "../lib/submissions";
 import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "../db/booths";
-import type { Activity, ActivitySubmission, Event } from "@/lib/types";
+import type { Activity, ActivityKind, ActivitySubmission, Event } from "@/lib/types";
+import { featureForActivityKind, requireFeature } from "@/features/catalogue";
 import { disqualify, undoDisqualify } from "../db/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots";
 import { activityHref, type ActivityTab } from "../tabs";
@@ -30,6 +31,11 @@ import { shortDate } from "@/lib/text";
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
   return requireEvent(eventId, orgId);
+}
+
+/** Refuses a write for a kind whose add-on is off (D438). Its rows stay; only writes stop. */
+async function allowKind(ev: Event, kind: ActivityKind) {
+  await requireFeature(ev.id, featureForActivityKind(kind), listPath(ev.id));
 }
 
 const listPath = (eventId: string) => `/admin/events/${eventId}/activities`;
@@ -49,6 +55,7 @@ const checked = (fd: FormData, key: string) => fd.get(key) !== null;
 async function bookingOf(ev: Event, activityId: string): Promise<Activity> {
   const activity = await getActivity(activityId, ev.id);
   if (!activity || activity.kind !== "booking") redirect(flashPath(listPath(ev.id), "That activity no longer exists.", "error"));
+  await allowKind(ev, activity.kind);
   return activity;
 }
 
@@ -74,6 +81,7 @@ export async function uploadActivityImageAction(eventId: string, formData: FormD
 
 export async function addActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
+  await allowKind(ev, "booking");
   const read = readSettings("booking", fd);
   if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
   const input = newActivityFrom("booking", read.settings, checked(fd, "is_open"));
@@ -214,11 +222,13 @@ function isPerDayCollision(e: unknown): boolean {
 async function submissionOf(ev: Event, activityId: string): Promise<Activity> {
   const activity = await getActivity(activityId, ev.id);
   if (!activity || activity.kind !== "submission") redirect(flashPath(listPath(ev.id), "That submission no longer exists.", "error"));
+  await allowKind(ev, activity.kind);
   return activity;
 }
 
 export async function addSubmissionActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
+  await allowKind(ev, "submission");
   const read = readSettings("submission", fd);
   if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
   const policy = read.settings;
@@ -651,11 +661,13 @@ export async function declineRequestAction(eventId: string, activityId: string, 
 async function passportOf(ev: Event, activityId: string): Promise<Activity> {
   const passport = await getActivity(activityId, ev.id);
   if (!passport || passport.kind !== "passport") redirect(flashPath(listPath(ev.id), "That passport no longer exists.", "error"));
+  await allowKind(ev, passport.kind);
   return passport;
 }
 
 export async function addPassportActivityAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
+  await allowKind(ev, "passport");
   const read = readSettings("passport", fd);
   if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
   const policy = read.settings;

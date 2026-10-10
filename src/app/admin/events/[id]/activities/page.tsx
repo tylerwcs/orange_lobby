@@ -2,6 +2,7 @@ import { eventFields } from "@/lib/attendee-fields";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, uploadActivityImageAction } from "@/features/activities";
+import { activityKindsFor, eventFeatures, NotInEvent } from "@/features/catalogue";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
 import { groupProgress } from "@/lib/groups";
@@ -23,10 +24,16 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const [activities, sessions, bookings, requests, submissions, booths, stamps, attendees, groups] = await Promise.all([
+  const kinds = activityKindsFor(await eventFeatures(ev.id));
+  if (kinds.length === 0) {
+    return <NotInEvent eventId={ev.id} title="Activities" keys={["booking", "engagement"]} back={`/admin/events/${ev.id}/activities`} />;
+  }
+  const [allActivities, sessions, bookings, requests, submissions, booths, stamps, attendees, groups] = await Promise.all([
     listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id), listSubmissions(ev.id),
     listBooths(ev.id), listStampsForEvent(ev.id), listAttendees(ev.id), listGroups(ev.id),
   ]);
+  // An activity of a kind this event no longer has is kept, not deleted (D439), but not listed.
+  const activities = allActivities.filter((a) => kinds.includes(a.kind));
   const categories = await listCategories(ev.id);
 
   // Everything below is rolled up from what the page already loaded, rather than queried per
@@ -66,6 +73,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
         subtitle={listSummary(activities.map((a, i) => ({ open: a.is_open, attention: items[i].view.attention })))}
         actions={
           <NewActivityMenu
+            kinds={kinds}
             forms={{
               booking: (
                 <form action={addActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">

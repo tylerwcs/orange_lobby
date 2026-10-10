@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
+import { eventFeatures, featureForActivityKind, has, NotInEvent } from "@/features/catalogue";
 import { getActivity } from "../db/activities";
 import { BookingDetail } from "../kinds/booking/BookingDetail";
 import { SubmissionDetail } from "../kinds/submission/SubmissionDetail";
@@ -16,6 +17,10 @@ export async function ActivityDetailPage({ params, searchParams }: {
   const ev = await requireEvent(id, orgId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) notFound();
+  const need = featureForActivityKind(activity.kind);
+  if (!has(await eventFeatures(ev.id), need)) {
+    return <NotInEvent eventId={ev.id} title={activity.name} keys={[need]} back={`/admin/events/${ev.id}/activities/${activity.id}`} />;
+  }
 
   // Three entirely different screens share this route because they share everything ABOVE this
   // point — the event guard, the not-found check — and nothing below it (D178). A booking
