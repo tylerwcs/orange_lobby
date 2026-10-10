@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { domainConfig, hostOf, isMainHost, lookupHost, routeEventPath } from "@/features/domains/client";
+import { domainConfig, hostOf, isMainHost, lookupHost, redirectTarget, routeEventPath } from "@/features/domains/client";
 import { appBaseUrl } from "@/lib/links";
 
 const ADMIN_PATHS = ["/admin", "/scan", "/login"];
@@ -28,8 +28,8 @@ async function eventHost(req: NextRequest, host: string) {
   if (!ev) return new NextResponse("Not found", { status: 404 });
   const { pathname, search } = req.nextUrl;
   if (!ev.isPrimary && ev.primaryDomain) {
-    const to = new URL(`${pathname}${search}`, `${req.nextUrl.protocol}//${ev.primaryDomain}${req.nextUrl.port ? `:${req.nextUrl.port}` : ""}`);
-    return NextResponse.redirect(to, 308);
+    const base = `${req.nextUrl.protocol}//${ev.primaryDomain}${req.nextUrl.port ? `:${req.nextUrl.port}` : ""}`;
+    return NextResponse.redirect(redirectTarget(base, pathname, search), 308);
   }
   const route = routeEventPath(pathname, ev.slug);
   switch (route.kind) {
@@ -40,7 +40,7 @@ async function eventHost(req: NextRequest, host: string) {
     }
     case "pass": return NextResponse.next();
     case "notFound": return new NextResponse("Not found", { status: 404 });
-    case "main": return NextResponse.redirect(new URL(`${pathname}${search}`, appBaseUrl()), 308);
+    case "main": return NextResponse.redirect(redirectTarget(appBaseUrl(), pathname, search), 308);
     default: {
       const exhaustive: never = route;
       throw new Error(`Unhandled route: ${JSON.stringify(exhaustive)}`);

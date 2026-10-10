@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeEventPath } from "@/features/domains/routing";
+import { redirectTarget, routeEventPath } from "@/features/domains/routing";
 
 const r = (p: string) => routeEventPath(p, "sk2summit");
 
@@ -38,5 +38,19 @@ describe("routeEventPath (D425)", () => {
     for (const p of ["/admin", "/admin/events/x/export/links.xlsx", "/login", "/scan/x", "/crew/x", "/host/x", "/display/x", "/booth/x", "/api/cron/committee-reminders", "/api/whatsapp/webhook", "/api/display/x/state", "/anything"]) {
       expect(r(p), p).toEqual({ kind: "main" });
     }
+  });
+});
+
+describe("redirectTarget (proxy 308s never leave the base origin)", () => {
+  it("keeps the base's origin whatever the path looks like", () => {
+    for (const p of ["//evil.com/x", "/\evil.com/x", "///evil.com", "/\/evil.com"]) {
+      const to = redirectTarget("https://ecphub.app", p, "");
+      expect(to.origin, p).toBe("https://ecphub.app");
+    }
+    expect(redirectTarget("https://sk2.com:3000", "//evil.com/x", "?a=1").origin).toBe("https://sk2.com:3000");
+  });
+  it("round-trips a normal path and query", () => {
+    expect(redirectTarget("https://ecphub.app", "/agenda", "?x=1").href).toBe("https://ecphub.app/agenda?x=1");
+    expect(redirectTarget("https://ecphub.app", "/", "").href).toBe("https://ecphub.app/");
   });
 });

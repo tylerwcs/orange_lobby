@@ -21,3 +21,15 @@ export function routeEventPath(pathname: string, slug: string): Route {
   if (STATIC_DIRS.has(first) || ROOT_FILE.test(pathname)) return { kind: "pass" };
   return { kind: "main" };
 }
+
+/**
+ * The target of a proxy 308: `base`'s origin with the request's path and query. Built by setting
+ * `pathname`/`search` on the base URL, never by resolving the path against it - a path starting
+ * `//` (or `/\`) would otherwise be read as a protocol-relative URL and send the visitor off-site.
+ */
+export function redirectTarget(base: string, pathname: string, search: string): URL {
+  const to = new URL(base);
+  to.pathname = pathname;
+  to.search = search;
+  return to;
+}
