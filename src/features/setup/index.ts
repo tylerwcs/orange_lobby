@@ -3,3 +3,4 @@ export * from "./client";
 export * from "./db";
 export { SetupHomePage } from "./portal/SetupHomePage";
 export { SetupStepPage } from "./portal/SetupStepPage";
+export { SetupAdminPage } from "./admin/SetupAdminPage";

@@ -2,7 +2,7 @@ import type { IconName } from "@/components/ui/icon";
 import type { NavKey } from "@/features/catalogue/client";
 
 /** `newTab`: the Scanner is a tool of its own, worked on a phone or at a desk alongside the admin. */
-export type Item = { href: string; label: string; icon: IconName; newTab?: boolean; key?: NavKey };
+export type Item = { href: string; label: string; icon: IconName; newTab?: boolean; key?: NavKey; badge?: number };
 export type Group = { title: string; items: Item[] };
 
 /**
@@ -17,10 +17,12 @@ export type Group = { title: string; items: Item[] };
  * stands on its own without check-in: the roster is still the roster, which is why only
  * this one item is conditional.
  *
+ * Setup leads Event: it is where the organiser's submissions wait, and its badge counts them (D448).
+ *
  * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities and Games each
  * carry the key `hiddenNav` names.
  */
-export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = []): Group[] {
+export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { setup?: number } = {}): Group[] {
   if (!ev) return [{ title: "Events", items: [{ href: "/admin/events", label: "All events", icon: "layers" }] }];
   const b = `/admin/events/${ev.id}`;
   const groups: Group[] = [
@@ -39,6 +41,7 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
       { href: `${b}/activities`, label: "Activities", icon: "flag", key: "activities" },
     ] },
     { title: "Event", items: [
+      { href: `${b}/setup`, label: "Setup", icon: "check", ...(badges.setup ? { badge: badges.setup } : {}) },
       { href: `${b}/whatsapp`, label: "WhatsApp", icon: "chat", key: "whatsapp" },
       { href: `${b}/settings`, label: "Settings", icon: "settings" },
       { href: `${b}/exports`, label: "Exports", icon: "file" },

@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { eventFeatures, hiddenNav } from "@/features/catalogue";
+import { waitingCounts } from "@/features/setup";
 import { AppSidebar } from "@/components/admin/AppSidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 
@@ -9,9 +10,10 @@ export default async function EventLayout({ children, params }: { children: Reac
   const { orgId, email } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const features = await eventFeatures(ev.id);
+  const waiting = (await waitingCounts([ev.id]))[ev.id] ?? 0;
   return (
     <>
-      <AppSidebar email={email} event={{ id: ev.id, name: ev.name, status: ev.status, check_in_enabled: ev.check_in_enabled }} hidden={hiddenNav(features)} />
+      <AppSidebar email={email} event={{ id: ev.id, name: ev.name, status: ev.status, check_in_enabled: ev.check_in_enabled }} hidden={hiddenNav(features)} badges={{ setup: waiting }} />
       <SidebarInset id="main" className="min-w-0 p-4 pt-6 lg:p-6 lg:pt-8 2xl:p-8">
         {/* Capped at max-w-6xl and centred beside the sidebar. At the full width of a wide monitor
             every card stretched to ~800px and the fields inside spread apart with it; nothing on

@@ -24,9 +24,9 @@ const STATUS_VARIANT: Record<string, "success" | "secondary" | "default"> = {
   archived: "default",
 };
 
-export function AppSidebar({ email, event, hidden = [] }: { email: string; event?: Event | null; hidden?: NavKey[] }) {
+export function AppSidebar({ email, event, hidden = [], badges }: { email: string; event?: Event | null; hidden?: NavKey[]; badges?: { setup?: number } }) {
   const pathname = usePathname();
-  const groups = groupsFor(event, hidden);
+  const groups = groupsFor(event, hidden, badges);
   // Overview's href is a prefix of every other item in its section, so it only lights up on an
   // exact match; the rest also match their own sub-routes.
   const root = event ? `/admin/events/${event.id}` : "/admin/events";
@@ -77,6 +77,7 @@ export function AppSidebar({ email, event, hidden = [] }: { email: string; event
                     >
                       <Icon name={i.icon} size={18} />
                       <span>{i.label}</span>
+                      {i.badge ? <Badge variant="warning" className="ml-auto">{i.badge}<span className="sr-only"> waiting</span></Badge> : null}
                       {i.newTab && (
                         <>
                           <ArrowUpRight aria-hidden className="ml-auto size-3.5 text-muted-foreground" />

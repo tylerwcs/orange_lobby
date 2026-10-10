@@ -28,7 +28,7 @@ describe("groupsFor", () => {
     expect(labels).toEqual([
       ["Onsite", ["Overview", "Attendees", "Groups", "Games", "Scanner"]],
       ["Portal", ["Agenda", "Info page", "Announcements", "Modules", "Activities"]],
-      ["Event", ["WhatsApp", "Settings", "Exports"]],
+      ["Event", ["Setup", "WhatsApp", "Settings", "Exports"]],
     ]);
   });
 
@@ -55,5 +55,15 @@ describe("groupsFor", () => {
   it("hides Activities on request, keeping the rest of Portal in order", () => {
     const portal = groupsFor({ id: "e1", check_in_enabled: true }, ["activities"]).find((g) => g.title === "Portal");
     expect(portal?.items.map((i) => i.label)).toEqual(["Agenda", "Info page", "Announcements", "Modules"]);
+  });
+
+  it("puts Setup first under Event, with the waiting count as its badge (D448)", () => {
+    const event = groupsFor({ id: "e1", check_in_enabled: true }, [], { setup: 2 }).find((g) => g.title === "Event");
+    expect(event?.items[0]).toMatchObject({ href: "/admin/events/e1/setup", label: "Setup", badge: 2 });
+  });
+
+  it("shows no badge when nothing is waiting", () => {
+    const event = groupsFor({ id: "e1", check_in_enabled: true }).find((g) => g.title === "Event");
+    expect(event?.items[0].badge).toBeUndefined();
   });
 });

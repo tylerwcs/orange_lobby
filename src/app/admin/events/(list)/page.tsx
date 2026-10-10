@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { listEvents } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
+import { waitingCounts } from "@/features/setup";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
@@ -18,6 +19,7 @@ export default async function AdminHome() {
   const { orgId } = await requireAdmin();
   const events = await listEvents(orgId);
   const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
+  const waiting = await waitingCounts(events.map((e) => e.id));
   return (
     <>
         <AdminHeader
@@ -44,7 +46,10 @@ export default async function AdminHome() {
                   <div className="font-extrabold">{e.name}</div>
                   <div className="text-xs text-muted-foreground">{formatDateRange(e.starts_on, e.ends_on)}</div>
                   <div className="mt-2 flex items-center justify-between">
-                    <Badge variant={e.status === "live" ? "success" : e.status === "archived" ? "outline" : "secondary"}>{e.status}</Badge>
+                    <span className="flex items-center gap-1.5">
+                      <Badge variant={e.status === "live" ? "success" : e.status === "archived" ? "outline" : "secondary"}>{e.status}</Badge>
+                      {waiting[e.id] ? <Badge variant="warning">{waiting[e.id]} to review</Badge> : null}
+                    </span>
                     <span className="text-xs text-muted-foreground">{counts[i]} attendees</span>
                   </div>
                 </CardContent>

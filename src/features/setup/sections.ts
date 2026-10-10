@@ -8,3 +8,8 @@ export const BUILT_STEPS: readonly SetupSection[] = ["basics"];
 export function isBuiltStep(s: string): s is SetupSection {
   return (BUILT_STEPS as readonly string[]).includes(s);
 }
+
+/** The organiser's link, always on the main address like the crew link (D441). */
+export function setupLink(base: string, token: string): string {
+  return `${base.replace(/\/+$/, "")}/setup/${token}`;
+}
