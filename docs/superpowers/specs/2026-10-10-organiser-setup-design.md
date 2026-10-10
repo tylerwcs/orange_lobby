@@ -1,6 +1,6 @@
 # Organiser setup page — design
 
-**Status: approved in chat on 10 Oct 2026. Built in two phases: Phase 1 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md) is the link, the checklist, Basics with its preview, and the admin review and Apply for Basics; Phase 2 adds the Agenda and Info steps and their Apply functions. Until Phase 2, Agenda and Info show on the checklist as guide cards. Phase 1 built 10 Oct 2026 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md); Phase 2 not built.**
+**Status: approved in chat on 10 Oct 2026. Phase 1 built 10 Oct 2026 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md): the link, the checklist, Basics with its preview, and the admin review and Apply for Basics. Phase 2 (the Agenda and Info steps and their Apply functions) not built; until then Agenda and Info show on the checklist as guide cards.**
 
 Event organisers get one private link per event. It is the one place where they:
 

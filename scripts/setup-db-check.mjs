@@ -7,12 +7,14 @@
 //   2. event_setup_sections refuses an unknown section and a second row for the same section.
 //   3. The rev guard (D446): an update carrying the current rev lands and bumps it; one carrying
 //      a stale rev changes nothing.
-//   4. The seed (D450): a row inserted with a seed stores it, and an update that only sets
-//      answers and rev leaves the seed unchanged.
+//   4. The seed (D450): a row inserted with a seed stores it, and an update that doesn't set
+//      seed leaves it unchanged (no trigger or default rewrites it). The app's insert-only seed
+//      write (saveAnswers in the setup feature's db.ts) is covered by code review, not by this
+//      script.
 //   5. Deleting the event removes its section rows (cascade).
 //
 // HOW TO RUN: npm run check:setup (node --env-file=.env.local scripts/setup-db-check.mjs).
-// SAFE TO RE-RUN: it creates two draft events with random slugs and deletes them in `finally`.
+// SAFE TO RE-RUN: it creates two draft events (status set explicitly) with random slugs and deletes them in `finally`.
 // It never writes to any other event.
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
@@ -34,16 +36,19 @@ const must = ({ data, error }) => { if (error) throw error; return data; };
 
 const org = must(await db.from("organisations").select("id").limit(1).single());
 const token = `zz${runId.slice(0, 10)}`;
-const a = must(await db.from("events").insert({ org_id: org.id, name: `Setup check ${runId}`, slug: `setup-check-${runId}`, setup_token: token }).select("id").single());
-const b = must(await db.from("events").insert({ org_id: org.id, name: `Setup check b ${runId}`, slug: `setup-check-b-${runId}` }).select("id").single());
+let a;
+let b;
 
 try {
+  a = must(await db.from("events").insert({ org_id: org.id, name: `Setup check ${runId}`, slug: `setup-check-${runId}`, status: "draft", setup_token: token }).select("id").single());
+  b = must(await db.from("events").insert({ org_id: org.id, name: `Setup check b ${runId}`, slug: `setup-check-b-${runId}`, status: "draft" }).select("id").single());
+
   // 1. Unique token.
   const dup = await db.from("events").update({ setup_token: token }).eq("id", b.id);
-  check("a setup token can't be given to a second event", Boolean(dup.error), dup.error?.code);
+  check("a setup token can't be given to a second event", dup.error?.code === "23505", dup.error?.code);
 
   // 2. Section rows. The first row also carries a seed (checked in 4).
-  const seed = { name: "x", venue: "seed venue" };
+  const seed = { venue: "seed venue" };
   must(await db.from("event_setup_sections").insert({ event_id: a.id, section: "basics", answers: { name: "x" }, seed, rev: 1 }));
   const bad = await db.from("event_setup_sections").insert({ event_id: a.id, section: "raffle", answers: {} });
   check("an unknown section is refused", bad.error?.code === "23514", bad.error?.code);
@@ -57,14 +62,30 @@ try {
   const after = must(await db.from("event_setup_sections").select("answers, rev, seed").eq("event_id", a.id).eq("section", "basics").single());
   check("a save with a stale rev changes nothing", stale.length === 0 && after.answers.name === "y" && after.rev === 2);
 
-  // 4. Seed: stored on insert, untouched by an update that sets only answers and rev.
-  check("a row inserted with a seed stores it", JSON.stringify(after.seed) === JSON.stringify(seed));
-  check("an update that only sets answers and rev leaves the seed unchanged", after.answers.name === "y" && JSON.stringify(after.seed) === JSON.stringify(seed));
+  // 4. Seed: stored on insert, untouched by an update that doesn't set it.
+  check("a row inserted with a seed stores it", after.seed?.venue === "seed venue" && Object.keys(after.seed).length === 1);
+  check("an update that doesn't set seed leaves it unchanged (no trigger or default rewrites it)", after.answers.name === "y" && after.seed?.venue === "seed venue" && Object.keys(after.seed).length === 1);
+} catch (e) {
+  // A setup problem (not a failed check): count it, keep the cause, and still clean up below.
+  console.error("Check aborted:", e);
+  failures += 1;
 } finally {
-  // 5. Cascade.
-  must(await db.from("events").delete().in("id", [a.id, b.id]));
-  const left = must(await db.from("event_setup_sections").select("event_id").eq("event_id", a.id));
-  check("deleting the event removes its section rows", left.length === 0);
+  // 5. Cascade. Delete whichever events exist; a failed delete is a failure, not a masked error.
+  const ids = [a?.id, b?.id].filter(Boolean);
+  let deleted = ids.length === 0;
+  if (ids.length > 0) {
+    const del = await db.from("events").delete().in("id", ids);
+    if (del.error) {
+      console.error("Cleanup failed - delete these events by hand:", ids, del.error);
+      failures += 1;
+    } else {
+      deleted = true;
+    }
+  }
+  if (a?.id && deleted) {
+    const left = await db.from("event_setup_sections").select("event_id").eq("event_id", a.id);
+    check("deleting the event removes its section rows", !left.error && left.data.length === 0, left.error?.code);
+  }
 }
 
 console.log(failures ? `\n${failures} check(s) failed.` : "\nAll checks passed.");
