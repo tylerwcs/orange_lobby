@@ -1,5 +1,6 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
-import { appBaseUrl, attendeeLink } from "@/lib/links";
+import { eventAddress } from "@/features/domains";
+import { attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +32,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const qr = await qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token));
+  const qr = await qrDataUrl(attendeeLink(await eventAddress(event), attendee.token));
 
   // Everything the event asked this person, in the order it asked, with blanks dropped -
   // an attendee should not read a list of questions they left empty. `fieldValue`, not

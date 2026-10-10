@@ -8,8 +8,17 @@ export function appBaseUrl(): string {
   if (process.env.NODE_ENV === "production") throw new Error("NEXT_PUBLIC_APP_URL is not set");
   return "http://localhost:3000";
 }
-export function genericLink(base: string, slug: string) {
-  return `${trimSlash(base)}/e/${slug}`;
+/** Where an event lives for attendees (D426): its slug, and its primary address if it has one. */
+export type EventAddress = { slug: string; domain: string | null };
+
+/** A host as a base URL, with the app's own protocol and port - https in production, http://…:3000 locally. */
+export function hostUrl(host: string): string {
+  const app = new URL(appBaseUrl());
+  return `${app.protocol}//${host}${app.port ? `:${app.port}` : ""}`;
+}
+
+export function genericLink(addr: EventAddress) {
+  return addr.domain ? hostUrl(addr.domain) : `${appBaseUrl()}/e/${addr.slug}`;
 }
 /**
  * The personal portal as a path, for a redirect that is already on the right host. The
@@ -20,11 +29,12 @@ export function genericLink(base: string, slug: string) {
 export function attendeePath(slug: string, token: string) {
   return `/e/${slug}/a/${token}`;
 }
-export function attendeeLink(base: string, slug: string, token: string) {
-  return `${trimSlash(base)}${attendeePath(slug, token)}`;
+export function attendeeLink(addr: EventAddress, token: string) {
+  return addr.domain ? `${hostUrl(addr.domain)}/a/${token}` : `${appBaseUrl()}${attendeePath(addr.slug, token)}`;
 }
-export function registrationLink(base: string, slug: string) {
-  return `${genericLink(base, slug)}/register`;
+
+export function registrationLink(addr: EventAddress) {
+  return addr.domain ? `${hostUrl(addr.domain)}/register` : `${appBaseUrl()}/e/${addr.slug}/register`;
 }
 /**
  * The booth's scanner. Not under /e/<slug>: it is staff-facing, it is not part of the

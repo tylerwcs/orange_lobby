@@ -4,7 +4,8 @@ import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { attendeeCheckins } from "@/lib/checkins-stats";
 import { checkpointsByDay } from "@/lib/checkpoints";
-import { appBaseUrl, attendeeLink } from "@/lib/links";
+import { eventAddress } from "@/features/domains";
+import { attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { isoToLocalInput } from "@/lib/time";
 import { shortDate } from "@/lib/text";
@@ -42,7 +43,7 @@ export async function loadAttendeeDetail(eventId: string, attendeeId: string, or
     ? await Promise.all([listCheckpoints(ev.id), listCheckinsForEvent(ev.id)])
     : [[], []];
   const scans = attendeeCheckins(a.id, checkins);
-  const link = attendeeLink(appBaseUrl(), ev.slug, a.token);
+  const link = attendeeLink(await eventAddress(ev), a.token);
   // Only this attendee's own scanners, so the lookup is one or two calls rather than one
   // per crew account on the event.
   const crew = await scannerNames(Object.values(scans).map((s) => s.by));

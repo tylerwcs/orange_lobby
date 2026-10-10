@@ -4,7 +4,8 @@ import { countAttendees } from "@/lib/db/attendees";
 import { listAgenda } from "@/lib/db/agenda";
 import { listBooths, listActivities } from "@/features/activities";
 import { breakoutSlots } from "@/lib/breakouts";
-import { appBaseUrl } from "@/lib/links";
+import { eventAddress } from "@/features/domains";
+import { genericLink } from "@/lib/links";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { eventFields, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { FieldPicker } from "@/components/admin/FieldPicker";
@@ -23,7 +24,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   const [total, items, booths, activities, forms] = await Promise.all([
     countAttendees(ev.id), listAgenda(ev.id), listBooths(ev.id), listActivities(ev.id, "booking"), listActivities(ev.id, "submission"),
   ]);
-  const base = appBaseUrl();
+  const base = genericLink(await eventAddress(ev));
   const b = `/admin/events/${ev.id}/export`;
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   // Only keys that still have a field behind them: a deleted column is already skipped by every

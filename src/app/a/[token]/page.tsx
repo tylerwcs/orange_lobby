@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getEventByAttendeeToken } from "@/lib/db/events";
-import { attendeePath } from "@/lib/links";
+import { primaryDomainFor } from "@/features/domains";
+import { attendeeLink, attendeePath } from "@/lib/links";
 import { isValidToken } from "@/lib/tokens";
 
 /**
@@ -22,5 +23,9 @@ export default async function AttendeeShortLink({ params }: { params: Promise<{ 
   const ev = await getEventByAttendeeToken(token);
   if (!ev) notFound();
   // Outside any try/catch: redirect() works by throwing.
-  redirect(attendeePath(ev.slug, token));
+  // D427: the frozen WhatsApp buttons point here on the main host; an event with its own
+  // address takes the attendee there, one hop later. On an event's address the proxy rewrites
+  // /a/<token> straight to the portal, so this page only ever runs on a main host.
+  const domain = await primaryDomainFor(ev.id);
+  redirect(domain ? attendeeLink({ slug: ev.slug, domain }, token) : attendeePath(ev.slug, token));
 }

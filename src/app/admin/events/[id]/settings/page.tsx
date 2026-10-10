@@ -7,6 +7,7 @@ import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { loadDoors, listActivities } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
+import { eventAddress } from "@/features/domains";
 import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
@@ -80,8 +81,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const ev = await requireEvent(id, orgId);
   const qs = ev.registration_questions;
   const base = appBaseUrl();
-  const [{ cps, tallies, registered: total }, jar, bookingActivities, groups] = await Promise.all([
-    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id),
+  const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr] = await Promise.all([
+    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id), eventAddress(ev),
   ]);
   const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
   // Reopen on the tab that was open: every action on this page redirects back to it.
@@ -307,8 +308,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               <CardDescription>The two addresses you hand out. Personal per-attendee links are in Exports.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <ShareLink label="Portal" url={genericLink(base, ev.slug)} />
-              <ShareLink label="Registration" url={registrationLink(base, ev.slug)} />
+              <ShareLink label="Portal" url={genericLink(addr)} />
+              <ShareLink label="Registration" url={registrationLink(addr)} />
             </CardContent>
           </Card>
 

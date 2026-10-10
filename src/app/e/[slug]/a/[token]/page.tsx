@@ -22,7 +22,8 @@ import { GROUP_PIN, resolvePins } from "@/lib/pinned-fields";
 import { eventFields } from "@/lib/attendee-fields";
 import type { Attendee, Event } from "@/lib/types";
 import { countGames, phoneState, GameBanner } from "@/features/games";
-import { appBaseUrl, attendeeLink } from "@/lib/links";
+import { eventAddress } from "@/features/domains";
+import { attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 
 export const dynamic = "force-dynamic";
@@ -84,7 +85,7 @@ export default async function PersonalHome({ params, searchParams }: {
     loadHomeData(event, attendee, basePath, requestedDay),
     checkinPill(event, attendee.id),
     pinnedGroupName(event, attendee),
-    qrDataUrl(attendeeLink(appBaseUrl(), slug, attendee.token)),
+    eventAddress(event).then((addr) => qrDataUrl(attendeeLink(addr, attendee.token))),
     portalHasInfo(event.id, attendee.category),
     // The same answer the layout already read (its queries are memoised): whether there is an
     // Activities button, and whether it carries the dot.

@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { loadPortalAttendee, portalActivities, portalBookings, isUnpublished } from "@/lib/portal";
 import { listSessions } from "@/features/activities";
-import { appBaseUrl, attendeeLink } from "@/lib/links";
+import { eventAddress } from "@/features/domains";
+import { attendeeLink } from "@/lib/links";
 import { bookingIcs, googleCalendarUrl, outlookComposeUrl } from "@/lib/ics";
 
 /**
@@ -40,7 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     endsAt: session.ends_at,
     location: session.location,
     description: event.name,
-    url: `${attendeeLink(appBaseUrl(), slug, token)}/activities/${activityId}`,
+    url: `${attendeeLink(await eventAddress(event), token)}/activities/${activityId}`,
   };
   const app = query.get("app");
   if (app === "outlook" || app === "google") {
