@@ -29,6 +29,8 @@ export async function lookupHost(host: string, now = Date.now()): Promise<HostEv
     // An address whose event has no primary (only mid-change) serves the event itself.
     if (slug) value = { slug, isPrimary: data.is_primary || primaryDomain === null, primaryDomain };
   }
+  // Unknown hosts are cached too (the wildcard lets anyone invent one), so cap the map.
+  if (memo.size >= 1000) memo.clear();
   memo.set(host, { at: now, value });
   return value;
 }

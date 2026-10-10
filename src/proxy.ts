@@ -29,7 +29,8 @@ async function eventHost(req: NextRequest, host: string) {
   const { pathname, search } = req.nextUrl;
   if (!ev.isPrimary && ev.primaryDomain) {
     const base = `${req.nextUrl.protocol}//${ev.primaryDomain}${req.nextUrl.port ? `:${req.nextUrl.port}` : ""}`;
-    return NextResponse.redirect(redirectTarget(base, pathname, search), 308);
+    // 307, not 308: which address is primary can change, and browsers cache a 308 for good.
+    return NextResponse.redirect(redirectTarget(base, pathname, search), 307);
   }
   const route = routeEventPath(pathname, ev.slug);
   switch (route.kind) {

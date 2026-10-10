@@ -24,14 +24,14 @@ export async function eventAddress(ev: { id: string; slug: string }): Promise<Ev
 }
 
 /** The first address an event gets is its primary; later ones forward to it until made primary. */
-export async function addEventDomain(ev: { id: string; org_id: string }, host: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function addEventDomain(ev: { id: string; org_id: string }, host: string, opts: { mayBePrimary?: boolean } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
   const db = serviceClient();
   const { data: existing, error: readError } = await db.from("event_domains").select("domain, event_id").eq("domain", host).maybeSingle();
   if (readError) throw readError;
-  if (existing) return { ok: false, error: existing.event_id === ev.id ? "This event already has that address." : "Another event already uses that address." };
+  if (existing) return { ok: false, error: existing.event_id === ev.id ? `This event already has ${host}.` : `${host} is already used by another event.` };
   const hasPrimary = (await listEventDomains(ev.id)).some((d) => d.is_primary);
-  const { error } = await db.from("event_domains").insert({ domain: host, event_id: ev.id, org_id: ev.org_id, is_primary: !hasPrimary });
-  if (error?.code === "23505") return { ok: false, error: "Another event already uses that address." };
+  const { error } = await db.from("event_domains").insert({ domain: host, event_id: ev.id, org_id: ev.org_id, is_primary: (opts.mayBePrimary ?? true) && !hasPrimary });
+  if (error?.code === "23505") return { ok: false, error: `${host} is already used by another event.` };
   if (error) throw error;
   return { ok: true };
 }

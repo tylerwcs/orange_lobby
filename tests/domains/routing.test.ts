@@ -43,7 +43,7 @@ describe("routeEventPath (D425)", () => {
 
 describe("redirectTarget (proxy 308s never leave the base origin)", () => {
   it("keeps the base's origin whatever the path looks like", () => {
-    for (const p of ["//evil.com/x", "/\evil.com/x", "///evil.com", "/\/evil.com"]) {
+    for (const p of ["//evil.com/x", "/\\evil.com/x", "///evil.com", "/\\/evil.com"]) {
       const to = redirectTarget("https://ecphub.app", p, "");
       expect(to.origin, p).toBe("https://ecphub.app");
     }
