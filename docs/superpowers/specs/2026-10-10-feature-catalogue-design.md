@@ -62,7 +62,7 @@ be changed by an admin. The admin hides areas the event doesn't have. Hiding nev
 | --- | --- | --- | --- |
 | `whatsapp` | WhatsApp messaging | Sending portal links and announcements by WhatsApp | WhatsApp in the sidebar |
 | `booking` | Session booking | Time slots with capacity | The `booking` activity kind |
-| `engagement` | Engagement activities | Stamp passport, submissions, scored challenges | The `passport` and `submission` activity kinds, and Submissions in the sidebar |
+| `engagement` | Engagement activities | Stamp passport, submissions, scored challenges | The `passport` and `submission` activity kinds |
 | `live_games` | Live games | Tap race, Last one standing | The `tap_race` and `survival` game kinds |
 | `lucky_draw` | Lucky draw | Slot machine, wheel, mosaic, card round | The `draw` game kind |
 | `custom_domain` | Custom domain | The event's own address | The Address tab in settings |
@@ -78,7 +78,7 @@ be changed by an admin. The admin hides areas the event doesn't have. Hiding nev
   - `tier`: `"base"` or `"addon"`
   - `unlocks`: the admin areas it opens, as typed keys (sidebar items, activity kinds, game
     kinds, settings tabs)
-  - `setup`: the setup steps and guide cards it adds. The setup design defines their shape.
+  - `setup` is added by the setup-page project, which defines its shape. This project leaves it out.
 - `AddonKey` is the union of add-on keys. A `Record<AddonKey, …>` anywhere fails the build when
   a key is added and not handled.
 - **Why code, not a table:** each feature maps to code that either exists or doesn't. A new
@@ -109,7 +109,7 @@ The migration inserts a row for every add-on except `custom`, for every existing
 
 ### D437 — One reader: `eventFeatures(eventId)`
 
-- Returns `{ has(key), addons, custom }`. Memoised per request with `cache()`, like
+- Returns `{ addons, custom }`. The check is the pure `has(features, key)` in `features.ts`, so it can be tested without a database. Memoised per request with `cache()`, like
   `requireEvent`.
 - The admin layout loads it once and passes it to the sidebar.
 - Pages and server actions call `has()` themselves.
@@ -123,10 +123,10 @@ The migration inserts a row for every add-on except `custom`, for every existing
   Turn on button. It does not render a 404. The same applies to an existing activity or game
   whose kind is no longer allowed.
 - Server actions refuse writes for a feature the event doesn't have, with the same sentence.
-  The check is `requireFeature(event, key)`, which sits beside `requireEvent` in
-  `src/lib/db/events.ts`, so every action asks the same way.
+  The check is `requireFeature(eventId, key, back)` in `src/features/catalogue/db.ts`. Actions that return an error object instead of redirecting use `has()`.
 - **Reads are never blocked.** Exports, the attendee portal and the LED display keep working on
   data from a feature that was turned off.
+- Writes are refused at each kind's own guard (`bookingOf`, `submissionOf`, `passportOf`, the add actions, and every game action that loads a game). List-level toggles (open/close, pin) aren't gated, because a hidden kind's rows aren't listed. Automatic WhatsApp notices (booking changes, committee alerts) still send; only the manual WhatsApp page and its send are gated.
 
 ### D439 — Turning a feature off never deletes anything
 
@@ -142,9 +142,7 @@ The migration inserts a row for every add-on except `custom`, for every existing
   - then the custom modules as a table-style list with a ⋯ menu (Edit, Remove), and an Add
     custom module button
 - Base features are listed once, read-only, under "Included with every event".
-- **Custom domain off while the event has a live domain:** the switch asks for confirmation
-  first. Attendee links stay on the domain, because D439 deletes nothing. This keeps a
-  mis-click from looking like the domain broke.
+- **Turning any add-on off asks for confirmation.** For Custom domain, the confirmation also says that attendee links keep using the event's own address until it is removed in Settings → Address.
 
 ## Testing
 
