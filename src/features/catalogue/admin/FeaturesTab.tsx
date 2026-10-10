@@ -15,7 +15,7 @@ import { setAddonAction, addCustomModuleAction, updateCustomModuleAction, remove
 const OFF_NOTE = "Nothing is deleted. Turn it back on and everything returns.";
 const offMessage = (key: StoredAddon) =>
   key === "custom_domain"
-    ? `Turn off ${FEATURES[key].name}? The Address tab is hidden, but attendee links keep using the event's own address until you remove it there. ${OFF_NOTE}`
+    ? `Turn off ${FEATURES[key].name}? The Address tab is hidden, but attendee links keep using the event's own address. To remove that address, turn ${FEATURES[key].name} back on and remove it in Settings → Address. ${OFF_NOTE}`
     : `Turn off ${FEATURES[key].name}? It disappears from the admin. ${OFF_NOTE}`;
 
 function ModuleForm({ action, name = "", description = "" }: { action: (fd: FormData) => Promise<void>; name?: string; description?: string }) {

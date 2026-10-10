@@ -18,6 +18,13 @@ import { createGameAction, deleteGameAction, rotateDisplayTokenAction, rotateHos
 
 export const metadata = { title: "Games" };
 
+// How each kind reads in the empty-state sentence. Typed so a new kind fails the build.
+const EMPTY_STATE_PHRASE: Record<GameKind, string> = {
+  tap_race: "a tap race",
+  survival: "last one standing",
+  draw: "a lucky draw",
+};
+
 export default async function Games({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { orgId } = await requireAdmin();
@@ -51,7 +58,7 @@ export default async function Games({ params }: { params: Promise<{ id: string }
       <Card className="overflow-hidden py-0">
         <CardContent className="px-0">
           {games.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">No games yet. Use New game to add {new Intl.ListFormat("en", { type: "disjunction" }).format(kinds.map((k) => GAME_KIND_LABELS[k].toLowerCase()))}.</p>
+            <p className="p-6 text-sm text-muted-foreground">No games yet. Use New game to add {new Intl.ListFormat("en", { type: "disjunction" }).format(kinds.map((k) => EMPTY_STATE_PHRASE[k]))}.</p>
           ) : (
             <ul className="divide-y divide-border">
               {games.map((g) => {

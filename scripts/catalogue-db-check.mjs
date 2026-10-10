@@ -12,7 +12,7 @@
 //
 // HOW TO RUN: npm run check:catalogue (node --env-file=.env.local scripts/catalogue-db-check.mjs).
 // SAFE TO RE-RUN: it creates its own draft event with a random slug and deletes it in `finally`.
-// It never touches the event with slug `ecphub`, except to read its add-on count.
+// It never writes to the event with slug `ecphub`; it only reads every event created before the migration (ecphub included).
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 

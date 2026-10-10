@@ -90,7 +90,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
   const tabs = (["features", "details", "registration", "checkpoints", "address", "alerts", "danger"] as const).filter((t) => !(hiddenTabs as readonly string[]).includes(t));
-  const openTab = rememberedTab(jar, tabScope, tabs) ?? "features";
+  const openTab = rememberedTab(jar, tabScope, tabs) ?? "details";
   const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);

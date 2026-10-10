@@ -133,7 +133,7 @@ The migration inserts a row for every add-on except `custom`, for every existing
 - Turning an add-on off deletes its `event_features` row and nothing else.
 - Activities, games, submissions, domains and templates all stay. Turning the add-on back on
   shows them again.
-- The Features tab says this beside each toggle.
+- The note is in the Add-ons card description and in each turn-off confirmation.
 
 ### D440 — A Features tab in settings
 
@@ -142,7 +142,7 @@ The migration inserts a row for every add-on except `custom`, for every existing
   - then the custom modules as a table-style list with a ⋯ menu (Edit, Remove), and an Add
     custom module button
 - Base features are listed once, read-only, under "Included with every event".
-- **Turning any add-on off asks for confirmation.** For Custom domain, the confirmation also says that attendee links keep using the event's own address until it is removed in Settings → Address.
+- **Turning any add-on off asks for confirmation.** For Custom domain, the confirmation also says that the Address tab is hidden, that attendee links keep using the event's own address, and that to remove that address you turn Custom domain back on and remove it in Settings → Address.
 
 ## Testing
 
@@ -152,7 +152,7 @@ The migration inserts a row for every add-on except `custom`, for every existing
   - the allowed-kind helpers return the right subsets
   - `has()` treats base features as always on, and `custom` as on exactly when there is a
     custom module
-- **`scripts/check-catalogue.mjs`, a database check:**
+- **`scripts/catalogue-db-check.mjs`, a database check (run with `npm run check:catalogue`):**
   - the migration backfill gives an existing event every add-on except `custom`
   - turning off and on again keeps an activity and its submissions
   - a write action is refused for a missing feature
