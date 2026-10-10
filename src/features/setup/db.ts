@@ -7,7 +7,7 @@ import type { SetupSection } from "./sections";
 import { sectionStatus } from "./status";
 
 export type SetupRow = {
-  event_id: string; section: SetupSection; answers: unknown; submitted: unknown; applied: unknown;
+  event_id: string; section: SetupSection; answers: unknown; submitted: unknown; applied: unknown; seed: unknown;
   applied_map: Record<string, string>; rev: number; submitted_at: string | null; applied_at: string | null; updated_at: string;
 };
 
@@ -45,11 +45,12 @@ export async function getSetupRow(eventId: string, section: SetupSection): Promi
 
 /**
  * Saves the working copy if nobody else saved since `expectedRev` (D446). The first save inserts
- * the row; a second first-save racing it hits the primary key and is refused as stale.
+ * the row, with `seed`: the live event as the organiser's form first showed it, the baseline for
+ * the first Apply (D450). A second first-save racing it hits the primary key and is refused as stale.
  */
-export async function saveAnswers(eventId: string, section: SetupSection, expectedRev: number, answers: unknown): Promise<number | null> {
+export async function saveAnswers(eventId: string, section: SetupSection, expectedRev: number, answers: unknown, seed?: unknown): Promise<number | null> {
   if (expectedRev === 0) {
-    const { error } = await table().insert({ event_id: eventId, section, answers, rev: 1 });
+    const { error } = await table().insert({ event_id: eventId, section, answers, seed, rev: 1 });
     if (error) {
       if (error.code === "23505") return null;
       throw error;

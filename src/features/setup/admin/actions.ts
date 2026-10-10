@@ -9,7 +9,7 @@ import { isEventMediaFor } from "@/lib/storage";
 import { clearSetupToken, getSetupRow, markApplied, rotateSetupToken } from "../db";
 import { isBuiltStep } from "../sections";
 import { sectionStatus } from "../status";
-import { BASICS_IMAGE_FIELDS, BASICS_LABELS, basicsErrors, basicsFromEvent, basicsMissing, basicsPatch, sanitizeBasics } from "../sections/basics";
+import { BASICS_IMAGE_FIELDS, BASICS_LABELS, basicsBaseline, basicsErrors, basicsMissing, basicsPatch, sanitizeBasics } from "../sections/basics";
 
 const setupPath = (eventId: string) => `/admin/events/${eventId}/setup`;
 
@@ -55,22 +55,28 @@ export async function applySectionAction(eventId: string, section: string) {
   const submitted = sanitizeBasics(row.submitted);
   const problems = [...basicsMissing(submitted).map((f) => `${BASICS_LABELS[f]} is empty`), ...Object.entries(basicsErrors(submitted)).map(([f, m]) => `${BASICS_LABELS[f as keyof typeof BASICS_LABELS]}: ${m}`)];
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const baseline = basicsBaseline(row, ev);
+  const patch = basicsPatch(submitted, baseline);
+  const kindOf = (f: (typeof BASICS_IMAGE_FIELDS)[number]) => (f === "logo_url" ? "logo" : "banner");
+  // Only an image about to be written has to be this event's own upload: an untouched legacy one is never written.
   for (const f of BASICS_IMAGE_FIELDS) {
-    if (submitted[f] && !isEventMediaFor(submitted[f], supabaseUrl, ev.org_id, ev.id, [f === "logo_url" ? "logo" : "banner"])) problems.push(`${BASICS_LABELS[f]} was not uploaded through this link`);
+    const url = patch[f];
+    if (url && !isEventMediaFor(url, supabaseUrl, ev.org_id, ev.id, [kindOf(f)])) problems.push(`${BASICS_LABELS[f]} was not uploaded through this link`);
   }
   if (problems.length) redirect(flashPath(back, `Not applied. ${problems.join(". ")}.`, "error"));
 
-  const patch = basicsPatch(submitted, row.applied ? sanitizeBasics(row.applied) : basicsFromEvent(ev));
   if (Object.keys(patch).length) await updateEvent(ev.id, patch);
-  // Replaced images go after the row points at the new ones, as Settings does.
+  // A replaced image goes after the row points at the new one, as Settings does - but only the one
+  // the organiser started from and replaced, never an image the admin put there since.
   for (const f of BASICS_IMAGE_FIELDS) {
-    if (f in patch && ev[f] && ev[f] !== patch[f]) await deleteEventImage(ev[f]);
-  }
-  if (!(await markApplied(ev.id, section, row.rev, row.submitted))) {
-    redirect(flashPath(back, "Applied, but the organiser submitted again meanwhile. Review the new version.", "error"));
+    const old = ev[f];
+    if (f in patch && old && old !== patch[f] && old === baseline[f] && isEventMediaFor(old, supabaseUrl, ev.org_id, ev.id, [kindOf(f)])) await deleteEventImage(old);
   }
   revalidatePath(`/admin/events/${ev.id}`, "layout");
   revalidatePath(`/e/${ev.slug}`, "layout");
+  if (!(await markApplied(ev.id, section, row.rev, row.submitted))) {
+    redirect(flashPath(back, "Applied, but the organiser changed this section meanwhile. Review the latest version.", "error"));
+  }
   const n = Object.keys(patch).length;
   redirect(flashPath(setupPath(ev.id), n ? `Event basics applied: ${n} change${n === 1 ? "" : "s"} written.` : "Event basics applied. Nothing on the event needed changing."));
 }

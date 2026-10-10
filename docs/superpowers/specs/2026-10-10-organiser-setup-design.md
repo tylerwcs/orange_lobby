@@ -197,9 +197,9 @@ admin. An admin reviews each section and applies it.
 - **The badge** counts sections in Submitted. It shows on the sidebar item and on the event's
   row in the events list.
 
-### D449 — Review shows what will change against the live event
+### D449 — Review shows what Apply will write
 
-- Opening a section shows `changes(submitted, live)`:
+- Opening a section shows `changes(submitted, live, baseline)`, which lists only what Apply would write (a field the organiser changed from the baseline that also differs from the live event), plus the info-only fields they filled:
   - fields as before and after
   - images side by side, with the proportion warning if any
   - for the agenda and info, a summary ("3 sessions added, 1 changed, 1 removed") with the rows
@@ -215,7 +215,10 @@ admin. An admin reviews each section and applies it.
   - A setup-created session the admin deleted stays deleted, unless the organiser changes that
     session again.
 - Items are matched through `applied_map`. Items the admin created in admin are never touched.
-- The first Apply has an empty `applied` snapshot, so it writes everything submitted.
+- The first Apply has an empty `applied` snapshot. Its baseline is the organiser's starting point:
+  the live event as their form first showed it, stored as `seed` when their row is created. So it
+  writes only what they changed from that, and an admin's later edits (including a newer image)
+  survive even the first Apply. A row saved before seeds existed falls back to the live event.
 - **Basics** writes:
   - `name`, `venue_name`, `starts_on`, `ends_on`
   - `primary_color`, `logo`, `banner`

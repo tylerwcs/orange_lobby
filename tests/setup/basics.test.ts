@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  basicsChanges, basicsComplete, basicsErrors, basicsFromEvent, basicsMissing, basicsPatch, blankBasics, sanitizeBasics,
+  basicsBaseline, basicsChanges, basicsComplete, basicsErrors, basicsFromEvent, basicsMissing, basicsPatch, blankBasics, sanitizeBasics,
   type BasicsAnswers,
 } from "@/features/setup/sections/basics";
 
@@ -63,16 +63,46 @@ describe("errors, missing, complete", () => {
   });
 });
 
+describe("basicsBaseline (D450)", () => {
+  const applied = full({ name: "Applied name" });
+  const seed = full({ name: "Seed name" });
+  it("prefers the last applied snapshot", () => {
+    expect(basicsBaseline({ applied, seed }, event).name).toBe("Applied name");
+  });
+  it("then the organiser's starting point", () => {
+    expect(basicsBaseline({ applied: null, seed }, event).name).toBe("Seed name");
+  });
+  it("then the live event, for a row saved before seeds or no row at all", () => {
+    expect(basicsBaseline({ applied: null, seed: null }, event).name).toBe("Old name");
+    expect(basicsBaseline(null, event).name).toBe("Old name");
+  });
+});
+
 describe("basicsChanges (D449)", () => {
   it("lists only fields that differ from the live event, trimmed", () => {
     const live = basicsFromEvent(event);
-    const changes = basicsChanges({ ...live, name: "New name ", venue_name: "Old venue" }, live);
+    const changes = basicsChanges({ ...live, name: "New name ", venue_name: "Old venue" }, live, live);
     expect(changes.map((c) => c.field)).toEqual(["name"]);
     expect(changes[0]).toMatchObject({ label: "Event name", before: "Old name", after: "New name", image: false, infoOnly: false });
   });
+  it("does not list a field the organiser left alone, even if the live event has moved on", () => {
+    const seed = basicsFromEvent(event);
+    const live = { ...seed, venue_name: "Admin's new venue" };
+    expect(basicsChanges(seed, live, seed)).toEqual([]);
+  });
+  it("does not list a change the live event already has", () => {
+    const seed = basicsFromEvent(event);
+    const live = { ...seed, name: "Same" };
+    expect(basicsChanges({ ...seed, name: "Same" }, live, seed)).toEqual([]);
+  });
+  it("treats committee numbers by the numbers they mean, not their formatting", () => {
+    const live = basicsFromEvent(event);
+    expect(basicsChanges({ ...live, committee_numbers: "012-345 6789" }, live, live)).toEqual([]);
+    expect(basicsChanges({ ...live, committee_numbers: "0123456789\n0198765432" }, live, live).map((c) => c.field)).toEqual(["committee_numbers"]);
+  });
   it("marks images, and lists categories and notes as info only when filled", () => {
     const live = basicsFromEvent(event);
-    const changes = basicsChanges({ ...live, banner_url: "https://b", categories: "Staff\nVIP", notes: "" }, live);
+    const changes = basicsChanges({ ...live, banner_url: "https://b", categories: "Staff\nVIP", notes: "" }, live, live);
     expect(changes.find((c) => c.field === "banner_url")?.image).toBe(true);
     expect(changes.find((c) => c.field === "categories")?.infoOnly).toBe(true);
     expect(changes.some((c) => c.field === "notes")).toBe(false);
@@ -107,6 +137,10 @@ describe("basicsPatch (D450)", () => {
   it("turns committee lines into the stored +60-less list", () => {
     expect(basicsPatch(full({ committee_numbers: "012-345 6789\n+60 19 876 5432\n012-345 6789" }), blankBasics()).committee_alert_numbers)
       .toEqual(["60123456789", "60198765432"]);
+  });
+  it("a formatting-only committee difference is not a change", () => {
+    const base = full({ committee_numbers: "+60123456789" });
+    expect(basicsPatch(full({ committee_numbers: "012-345 6789" }), base)).toEqual({});
   });
   it("never writes categories or notes", () => {
     expect(basicsPatch(full({ categories: "Staff", notes: "Hi" }), full())).toEqual({});

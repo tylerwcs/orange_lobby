@@ -7,7 +7,7 @@ import { isEventMediaFor } from "@/lib/storage";
 import { deleteEventImage, uploadEventImage } from "@/lib/db/media";
 import { getEventBySetupToken, getSetupRow, saveAnswers, submitAnswers } from "../db";
 import { isBuiltStep } from "../sections";
-import { BASICS_IMAGE_FIELDS, basicsComplete, basicsMissing, BASICS_LABELS, sanitizeBasics, type BasicsAnswers } from "../sections/basics";
+import { BASICS_IMAGE_FIELDS, basicsComplete, basicsFromEvent, basicsMissing, BASICS_LABELS, sanitizeBasics, type BasicsAnswers } from "../sections/basics";
 import { droppedImages } from "../images";
 
 export type SetupResult = { ok: true; rev: number } | { ok: false; message: string; stale?: boolean };
@@ -48,7 +48,7 @@ export async function saveSectionAction(token: string, section: string, expected
   if (!Number.isInteger(expectedRev) || expectedRev < 0) return STALE;
   const answers = ownImages(ev, sanitizeBasics(raw));
   const prev = await getSetupRow(ev.id, section);
-  const rev = await saveAnswers(ev.id, section, expectedRev, answers);
+  const rev = await saveAnswers(ev.id, section, expectedRev, answers, expectedRev === 0 ? basicsFromEvent(ev) : undefined);
   if (rev === null) return STALE;
   // D447: a replaced draft image goes once the new answers are saved; never one that was
   // submitted, applied, or is live on the event.

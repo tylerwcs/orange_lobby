@@ -87,12 +87,40 @@ export function basicsComplete(a: BasicsAnswers): boolean {
 
 export type BasicsChange = { field: BasicsField; label: string; before: string; after: string; image: boolean; infoOnly: boolean };
 
-/** What Apply would change on the live event, plus the info-only fields the organiser filled (D449). */
-export function basicsChanges(submitted: BasicsAnswers, live: BasicsAnswers): BasicsChange[] {
+/**
+ * Committee lines as the list Apply would store: each read as a Malaysian mobile, deduped, in order.
+ * Comparing these rather than the raw text keeps a formatting-only difference from counting as a change.
+ */
+function committeeList(s: string): string[] {
+  return [...new Set(lines(s).map((l) => toE164My(l)).filter((n): n is string => !!n))];
+}
+
+/** Whether two answers for a field differ, trimmed; committee numbers by the numbers they mean. */
+function differs(f: BasicsField, a: BasicsAnswers, b: BasicsAnswers): boolean {
+  if (f === "committee_numbers") return committeeList(a[f]).join("\n") !== committeeList(b[f]).join("\n");
+  return a[f].trim() !== b[f].trim();
+}
+
+/**
+ * The organiser's starting point for Apply (D450): the last applied snapshot, else the live event
+ * as their form first showed it (`seed`), else the live event now (a row saved before seeds existed).
+ */
+export function basicsBaseline(row: { applied: unknown; seed: unknown } | null, ev: BasicsSource): BasicsAnswers {
+  if (row?.applied) return sanitizeBasics(row.applied);
+  if (row?.seed) return sanitizeBasics(row.seed);
+  return basicsFromEvent(ev);
+}
+
+/**
+ * What Apply would write, plus the info-only fields the organiser filled (D449): a field is listed
+ * only when the organiser changed it from `baseline` AND it differs from the live event, so the
+ * review lists exactly what Apply writes.
+ */
+export function basicsChanges(submitted: BasicsAnswers, live: BasicsAnswers, baseline: BasicsAnswers): BasicsChange[] {
   return BASICS_FIELDS.flatMap((f) => {
     const after = submitted[f].trim();
     const infoOnly = INFO_ONLY.includes(f);
-    if (infoOnly ? !after : after === live[f].trim()) return [];
+    if (infoOnly ? !after : !differs(f, submitted, baseline) || !differs(f, submitted, live)) return [];
     return [{ field: f, label: BASICS_LABELS[f], before: infoOnly ? "" : live[f].trim(), after, image: (BASICS_IMAGE_FIELDS as readonly string[]).includes(f), infoOnly }];
   });
 }
@@ -105,13 +133,12 @@ export type EventPatch = Partial<{
 
 /**
  * Only what the organiser changed since the baseline (D450). The baseline is the last applied
- * snapshot, or the live event before the first Apply (the form starts prefilled from it). So on
- * the first Apply the patch equals the review's changes and a field left as it was is never
- * written; later Applies write only what the organiser changed since the last Apply, so a field
- * the admin edited in admin keeps the admin's value until the organiser changes that field again.
+ * snapshot, or before the first Apply the organiser's starting point (basicsBaseline). So a field
+ * the organiser left as it was is never written, and a field the admin edited in admin keeps the
+ * admin's value until the organiser changes that field again - on the first Apply too.
  */
 export function basicsPatch(submitted: BasicsAnswers, baseline: BasicsAnswers): EventPatch {
-  const changed = (f: BasicsField) => submitted[f].trim() !== baseline[f].trim();
+  const changed = (f: BasicsField) => differs(f, submitted, baseline);
   const val = (f: BasicsField) => submitted[f].trim() || null;
   const p: EventPatch = {};
   if (changed("name") && val("name")) p.name = val("name")!;
@@ -122,7 +149,7 @@ export function basicsPatch(submitted: BasicsAnswers, baseline: BasicsAnswers): 
   if (changed("logo_url")) p.logo_url = val("logo_url");
   if (changed("banner_url")) p.banner_url = val("banner_url");
   if (changed("committee_numbers")) {
-    p.committee_alert_numbers = [...new Set(lines(submitted.committee_numbers).map((l) => toE164My(l)).filter((n): n is string => !!n))];
+    p.committee_alert_numbers = committeeList(submitted.committee_numbers);
   }
   return p;
 }

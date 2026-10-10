@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getSetupRow } from "../db";
 import { isBuiltStep } from "../sections";
 import { hasUnsubmittedChanges, sectionStatus, STATUS_LABELS } from "../status";
-import { basicsChanges, basicsErrors, basicsFromEvent, basicsMissing, sanitizeBasics } from "../sections/basics";
+import { basicsBaseline, basicsChanges, basicsErrors, basicsFromEvent, basicsMissing, sanitizeBasics } from "../sections/basics";
 import { HomePreview } from "../preview/HomePreview";
 import { applySectionAction } from "./actions";
 
@@ -35,7 +35,7 @@ export async function SetupReviewPage({ params }: { params: Promise<{ id: string
   }
 
   const submitted = sanitizeBasics(row.submitted);
-  const changes = basicsChanges(submitted, basicsFromEvent(ev));
+  const changes = basicsChanges(submitted, basicsFromEvent(ev), basicsBaseline(row, ev));
   const problems = basicsMissing(submitted).length + Object.keys(basicsErrors(submitted)).length;
   const canApply = status === "submitted" && problems === 0;
 
@@ -66,7 +66,7 @@ export async function SetupReviewPage({ params }: { params: Promise<{ id: string
         <Card className="overflow-hidden pb-0">
           <CardHeader>
             <CardTitle>What would change</CardTitle>
-            <CardDescription>Compared with the live event. Apply writes only fields the organiser changed since the last Apply, so your own edits in Settings stay unless they changed that field again.</CardDescription>
+            <CardDescription>Lists only what the organiser changed and what differs from the live event. Apply writes just these fields, so your own edits in Settings stay unless the organiser changed that field again.</CardDescription>
           </CardHeader>
           <CardContent className="px-0">
             {changes.length === 0 ? (
