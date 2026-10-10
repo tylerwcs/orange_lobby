@@ -9,6 +9,10 @@ describe("hostOf", () => {
     expect(hostOf("sk2summit.localhost:3000")).toBe("sk2summit.localhost");
     expect(hostOf(null)).toBe("");
   });
+  it("drops one trailing FQDN dot", () => {
+    expect(hostOf("ecphub.app.")).toBe("ecphub.app");
+    expect(hostOf("SK2.ecphub.app.:443")).toBe("sk2.ecphub.app");
+  });
 });
 
 describe("isMainHost (D422)", () => {

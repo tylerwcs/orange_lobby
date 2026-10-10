@@ -4,3 +4,4 @@
  */
 export * from "./hosts";
 export * from "./routing";
+export * from "./lookup";

@@ -8,9 +8,9 @@ export function domainConfig(): DomainConfig {
   return { root, appHost: new URL(appBaseUrl()).hostname.toLowerCase() };
 }
 
-/** The Host header as a bare hostname: lowercase, no port. */
+/** The Host header as a bare hostname: lowercase, no port, no trailing FQDN dot. */
 export function hostOf(hostHeader: string | null): string {
-  return (hostHeader ?? "").trim().toLowerCase().replace(/:\d+$/, "");
+  return (hostHeader ?? "").trim().toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
 }
 
 /**
