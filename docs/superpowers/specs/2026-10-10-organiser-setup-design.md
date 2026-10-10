@@ -1,6 +1,8 @@
 # Organiser setup page — design
 
-**Status: approved in chat on 10 Oct 2026. Phase 1 built 10 Oct 2026 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md): the link, the checklist, Basics with its preview, and the admin review and Apply for Basics. Phase 2 (the Agenda and Info steps and their Apply functions) not built; until then Agenda and Info show on the checklist as guide cards.**
+**Status: approved in chat on 10 Oct 2026. Phase 1 built 10 Oct 2026 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md): the link, the checklist, Basics with its preview, and the admin review and Apply for Basics. Phase 2 revised on 11 Oct 2026 (see "Phase 2 revision", D453–D461) and not built yet (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-2.md). Phase 2 adds a simple Agenda step, and file uploads plus a note on every checklist item. Info, breakout rooms and announcements become cards.**
+
+**What the setup page is for (user, 11 Oct 2026):** it is not for organisers to set up the portal exactly. It eases onboarding and is the one place where the event's information and files are collected. Organisers send what they already have, such as their Excel sheets, and the admin does the rest. Where this document asks for detailed forms that mirror admin, the Phase 2 revision overrides it.
 
 Event organisers get one private link per event. It is the one place where they:
 
@@ -50,7 +52,7 @@ admin. An admin reviews each section and applies it.
 
 **Not in v1:**
 
-- **Fillable steps beyond Basics, Agenda and Info.** Every other feature is a guide card.
+- **Fillable steps beyond Basics and Agenda.** Every other feature is a card that takes files and a note (D458, D461). Info was a step here until the Phase 2 revision.
 - **Uploading the attendee list.**
 - **Sending a section back with a note.** Send-backs go by email or WhatsApp.
 - **Notifying admins outside the app.**
@@ -246,6 +248,116 @@ admin. An admin reviews each section and applies it.
 
 Turning a card into a step is a new section file (D443) plus a catalogue edit (D444). The setup
 home's layout doesn't change.
+
+## Phase 2 revision (11 Oct 2026)
+
+The user reviewed the first Phase 2 plan and narrowed what organisers fill in. Organisers send what they already have, and the admin builds the rest. The decisions below override the earlier ones where they differ:
+
+- **D444's card list:** Info, Breakout rooms and Announcements are now cards (D461).
+- **D445's Info preview:** gone. Info is a card.
+- **D446's Agenda and Info asks:** replaced by D453 and D461.
+- **D450's Info writes and D451's info function:** gone. Info has no Apply.
+
+### D453 — The Agenda step asks only for days and sessions
+
+- **Days:** date, and an optional name.
+- **Sessions:**
+  - start time and title, required
+  - end time, location and description, optional
+- **Admin-only:** breakout rounds, who a session is for, session photos, image rows and colours. The form never shows them, and Apply never writes them.
+- **Upload instead:** the step also takes a file, for an agenda the organiser already has in Excel, Word or PDF (D458). Sending a file counts as sending the agenda. The admin builds it from the file.
+
+### D454 — Setup items are tied to real rows through `applied_map`
+
+- **Ids:** setup ids are opaque strings. `applied_map` maps each one to its real row.
+- **Prefilled rows:** rows prefilled from the live agenda keep their real ids. Their map entries are written when the section row is first created.
+- **The first save** seeds `seed` and the map from the live agenda. Both are limited to the ids the organiser's form actually showed (`seedIds`). A day or session an admin added after the page opened is never read as removed.
+
+### D455 — Apply runs one plan through one database function
+
+- **Where the plan is built:** in TypeScript. It is pure and tested.
+- **What it holds:**
+  - every day and session to insert, update and delete
+  - the order writes
+  - the new map
+  - the list of changes for review
+  - any problems that stop Apply
+- **Review and Apply build the same plan,** so the review shows exactly what Apply writes (D449).
+- **`setup_apply_agenda`** runs the plan in one transaction:
+  - It writes `applied_map` with the rows.
+  - It writes the `applied` snapshot guarded on `submitted_at`, and returns whether that snapshot was marked.
+  - It updates only the fields the plan names, so an admin's edit to any other field survives.
+  - It runs as the service role only.
+
+### D456 — New and moved sessions go in by time
+
+- **Placed by start time:** new sessions, retimed sessions and sessions moved to another day go among that day's rows, as admin's Add session does (`placeKey`).
+- **Everything else** keeps its hand order.
+- **The organiser's preview** shows each day in time order.
+
+### D457 — Which dates a day is checked against
+
+- **While the organiser fills in the form:** their own Basics dates, when both are valid dates. Otherwise, the live event's dates.
+- **At Apply:** the live event's dates. When the dates moved, the admin applies Event basics first, and the problem text says so.
+
+### D458 — Every checklist item takes files and a note
+
+- **What every item has:**
+  - every card, including custom modules: an upload area (several files) and a notes box
+  - the Agenda step: an upload area
+  
+  This replaces "Send these to your project contact".
+- **What organisers can do:** see, open and remove the files they sent. Notes save as they type. The last save wins, with no rev guard: a note is a message, not structured data.
+- **Status:**
+
+  | Admin sees | Organiser sees | When |
+  | --- | --- | --- |
+  | Nothing sent | Not sent | No files and no note |
+  | New | Sent | Something changed since the admin last marked it handled |
+  | Handled | Received | The admin marked it handled, and nothing changed since |
+
+  Any new file, removed file or note edit makes the item New again.
+- **Admin:** the Setup page lists every checklist item in one table:
+  - the item's files, as download links that expire after a minute
+  - the item's note
+  - a **Mark handled** button
+  - for a step, a link to its review
+  
+  The badge counts sections waiting for Apply plus items marked New.
+- **Organiser home:** progress reads "N of M items sent". An item counts once its step is submitted, or once it has a file or a note.
+
+### D459 — Where the files live, and how they go
+
+- **Storage:** a private bucket, `setup-files`, at most 25 MB per file. Attendee lists hold personal data, so the bucket is private.
+- **File types:**
+  - Excel (.xlsx, .xls) and CSV
+  - Word (.docx, .doc) and PDF
+  - PowerPoint (.pptx, .ppt) and plain text
+  - PNG, JPEG and WebP images
+
+  The content type is set from the file's extension, because browsers report CSV inconsistently. No SVG.
+- **How a file goes up:**
+  1. The server checks the link, the item, the type and the size, and mints the path.
+  2. The browser uploads straight to that path with a signed URL. Vercel caps a request body at 4.5 MB, so the file can't go through the server.
+  3. The server checks the object is there and records it in `event_setup_files`.
+- **Limit:** at most 20 files per item.
+- **Downloads:** signed links that expire after 60 seconds, carrying the original file name.
+- **Deleting the event** sweeps the bucket, as `deleteEventFiles` does for the other buckets.
+- **Purge personal data** removes every setup file and clears every note, before it anonymises the attendees.
+
+### D460 — The step machinery is shared
+
+- **`useSectionAutosave`** holds Basics' save chain: debounce, rev, retry, the flush on leave, and submit on the same chain.
+- **`StepFrame`** holds a step's layout: title row, Submit bar, preview.
+- **`PhoneFrame`** is the phone the previews draw in.
+- **New steps** are fields plus a preview.
+
+### D461 — Info, Breakout rooms and Announcements are cards
+
+- **Sections:** `SETUP_SECTIONS` is `basics` and `agenda`. The database still accepts `info` (0071), and nothing writes it.
+- **Info card:** the info pages they want (any document is fine) and the floor plan.
+- **Breakout rooms card:** the rooms in each round and who goes where. Any accepted file type, usually the spreadsheet they already keep.
+- **Announcements card:** what they want posted, when, and which should stay pinned.
 
 ## Testing
 
