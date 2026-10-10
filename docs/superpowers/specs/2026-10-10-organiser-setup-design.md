@@ -5,7 +5,7 @@
 
 Event organisers get one private link per event. It is the one place where they:
 
-- see everything we need from them, and by when
+- see everything we need from them
 - enter it, step by step, with a live preview of their portal showing where each thing will go
 - come back later to update it
 
@@ -27,8 +27,7 @@ admin. An admin reviews each section and applies it.
   decides whether the portal shows "Coming soon" (`isUnpublished`, `src/lib/portal.ts:13`).
   There is no staging for content.
 - **What setup v1 writes to:**
-  - `events`: name, venue, dates, colour, logo, banner, committee numbers. The `contact_name` and
-    `contact_phone` columns also exist but have no admin field.
+  - `events`: name, venue, dates, colour, logo, banner, committee numbers
   - agenda: `agenda_days` and `agenda_items`
   - info: `info_tabs`
   - the floor plan: the `floor_plan` home tile's `url`, with `events.floor_plan_url` as the
@@ -45,7 +44,7 @@ admin. An admin reviews each section and applies it.
 
 **Goals:**
 
-- Guided and centralised: one link shows every item the event needs, in deadline order.
+- Guided and centralised: one link shows every item the event needs, with the fillable steps first.
 - The portal preview is the main guide. It shows where each input lands, and at what size.
 - Organisers can update their answers at any time.
 - Admin applies sections with one click, and the admin's own edits survive later applies.
@@ -115,24 +114,15 @@ admin. An admin reviews each section and applies it.
 - Each catalogue feature's `setup` field lists its items. An item is either:
   - a **step** (fillable: `basics`, `agenda`, `info`), or
   - a **guide card** (title, what to send, help text)
-- Each item also carries `dueWeeksBefore`.
-- The setup home lists base items, the event's add-on items and one card per custom module,
-  sorted by due date.
-- Due dates count back from `starts_on`, e.g. "Due 19 Aug". Overdue items are amber. With no
-  start date, no dates are shown.
-- **Deadlines from the 9 Oct guide:**
-
-  | Weeks before | Items |
-  | --- | --- |
-  | 6 | Basics |
-  | 4 | Agenda, Info, WhatsApp wording, activities |
-  | 3 | Attendee list |
-  | 2 | Games, prizes, LED assets, check-in points |
-
+- The setup home lists the base items, the event's add-on items and one
+  card per custom module, in this order:
+  1. the fillable steps, in catalogue order (basics, agenda, info)
+  2. the guide cards, in catalogue order (base features, then add-ons)
+  3. one card per custom module
 - **Guide cards in v1:**
-  - Attendee list (base, 3 weeks)
-  - Registration questions (base, 4 weeks), shown when attendees sign up themselves
-  - Check-in points (base, 2 weeks)
+  - Attendee list (base)
+  - Registration questions (base), shown when attendees sign up themselves
+  - Check-in points (base)
   - WhatsApp messaging
   - Session booking
   - Engagement activities
@@ -177,7 +167,6 @@ admin. An admin reviews each section and applies it.
   - event name, start and end dates, venue
   - brand colour, logo, banner
   - attendee categories (kept as notes for admin)
-  - project contact name and mobile
   - committee WhatsApp numbers
   - free-text notes
 - **Agenda** asks for:
@@ -232,7 +221,6 @@ admin. An admin reviews each section and applies it.
 - **Basics** writes:
   - `name`, `venue_name`, `starts_on`, `ends_on`
   - `primary_color`, `logo`, `banner`
-  - `contact_name`, `contact_phone`
   - `committee_alert_numbers`
   
   Categories and notes stay in the review only.
@@ -260,8 +248,8 @@ home's layout doesn't change.
   - the derived status for every snapshot combination
   - the change-only apply plan, including "the admin's edit survives" and "a deleted session
     stays deleted"
-  - due dates from `starts_on`
-  - the checklist built from a feature set with custom modules
+  - the checklist built from a feature set with custom modules: steps first, then cards, then
+    custom modules
 - **`scripts/check-setup.mjs`, a database check:**
   - the first Apply writes everything
   - a re-apply after an admin edit keeps the edit

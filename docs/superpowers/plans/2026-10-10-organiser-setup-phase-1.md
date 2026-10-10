@@ -2,12 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Each event gets one private setup link. Organisers open it and see their whole checklist with deadlines. They fill in Event basics with a live phone preview of their portal, and submit. An admin reviews the changes and applies them with one click. A later Apply never overwrites the admin's own edits.
+**Goal:** Each event gets one private setup link. Organisers open it and see their whole checklist. They fill in Event basics with a live phone preview of their portal, and submit. An admin reviews the changes and applies them with one click. A later Apply never overwrites the admin's own edits.
 
 **Architecture:**
 
 - New feature folder `src/features/setup/`:
-  - pure rules: section list, status, checklist and due dates, the Basics section, image helpers
+  - pure rules: section list, status, checklist, the Basics section, image helpers
   - `db.ts` for the table and the token
   - `portal/` for the organiser screens and their token-gated actions
   - `preview/` for the phone preview
@@ -60,7 +60,7 @@
 | `src/features/catalogue/catalogue.ts`, `tests/catalogue/catalogue.test.ts` | modify | `SetupItem` and each feature's `setup` |
 | `src/features/setup/sections.ts` | create | `SETUP_SECTIONS`, `BUILT_STEPS` |
 | `src/features/setup/status.ts` | create | `stableJson`, `sameAnswers`, `sectionStatus`, `hasUnsubmittedChanges` |
-| `src/features/setup/checklist.ts` | create | `dueDate`, `buildChecklist` |
+| `src/features/setup/checklist.ts` | create | `buildChecklist` |
 | `src/features/setup/sections/basics.ts` | create | The Basics section's rules |
 | `src/features/setup/images.ts` | create | `IMAGE_TARGETS`, `proportionWarning`, `droppedImages` |
 | `src/features/setup/client.ts` | create | Client-safe entry |
@@ -187,7 +187,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 2: The checklist, its deadlines and section status (pure)
+### Task 2: The checklist and section status (pure)
 
 **Files:**
 - Modify: `src/features/catalogue/catalogue.ts`
@@ -200,7 +200,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Produces, from `@/features/catalogue/client`:
-  - `type SetupItem = { key: string; kind: "step" | "card"; title: string; dueWeeksBefore: number; send: readonly string[]; onlyWithRegistration?: boolean }`
+  - `type SetupItem = { key: string; kind: "step" | "card"; title: string; send: readonly string[]; onlyWithRegistration?: boolean }`
   - `Feature.setup?: readonly SetupItem[]`
 - Produces, from `src/features/setup/sections.ts`:
   - `SETUP_SECTIONS = ["basics", "agenda", "info"] as const`
@@ -216,9 +216,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `hasUnsubmittedChanges(row: StatusRow | null): boolean`
   - `STATUS_LABELS: Record<SectionStatus, string>`
 - Produces, from `checklist.ts`:
-  - `dueDate(startsOn: string | null, weeksBefore: number): string | null`
-  - `type ChecklistEntry = { key: string; kind: "step" | "card"; title: string; send: readonly string[]; due: string | null }`
-  - `buildChecklist(input: { features: FeatureSet; custom: readonly { id: string; name: string; description: string | null }[]; startsOn: string | null; selfRegistration: boolean; builtSteps: readonly string[] }): ChecklistEntry[]`
+  - `type ChecklistEntry = { key: string; kind: "step" | "card"; title: string; send: readonly string[] }`
+  - `buildChecklist(input: { features: FeatureSet; custom: readonly { id: string; name: string; description: string | null }[]; selfRegistration: boolean; builtSteps: readonly string[] }): ChecklistEntry[]`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -268,30 +267,16 @@ describe("sectionStatus (D442)", () => {
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { buildChecklist, dueDate } from "@/features/setup/checklist";
+import { buildChecklist } from "@/features/setup/checklist";
 import { featureSet } from "@/features/catalogue/features";
-import { STORED_ADDONS } from "@/features/catalogue/catalogue";
 
-const base = { custom: [], startsOn: "2026-11-20", selfRegistration: false, builtSteps: ["basics"] as const };
-
-describe("dueDate (D444)", () => {
-  it("counts whole weeks back from the first day", () => {
-    expect(dueDate("2026-11-20", 6)).toBe("2026-10-09");
-    expect(dueDate("2026-11-20", 2)).toBe("2026-11-06");
-  });
-  it("crosses a month and a year boundary", () => {
-    expect(dueDate("2027-01-05", 1)).toBe("2026-12-29");
-  });
-  it("has no date when the event has none", () => {
-    expect(dueDate(null, 4)).toBeNull();
-  });
-});
+const base = { custom: [], selfRegistration: false, builtSteps: ["basics"] as const };
 
 describe("buildChecklist (D444)", () => {
-  it("lists only base items for an event with no add-ons, earliest due first", () => {
+  it("lists only base items for an event with no add-ons, steps first", () => {
     const list = buildChecklist({ ...base, features: featureSet([], 0) });
     expect(list.map((e) => e.key)).toEqual(["basics", "agenda", "info", "attendee-list", "check-in"]);
-    expect(list[0]).toMatchObject({ kind: "step", title: "Event basics", due: "2026-10-09" });
+    expect(list[0]).toMatchObject({ kind: "step", title: "Event basics" });
   });
   it("shows a step not built yet as a card", () => {
     const list = buildChecklist({ ...base, features: featureSet([], 0) });
@@ -315,9 +300,6 @@ describe("buildChecklist (D444)", () => {
   it("gives a custom module with no description a default line", () => {
     const list = buildChecklist({ ...base, features: featureSet([], 1), custom: [{ id: "m1", name: "Mosaic", description: null }] });
     expect(list.find((e) => e.key === "custom:m1")?.send).toEqual(["We'll be in touch about what we need for this."]);
-  });
-  it("has no due dates without a start date", () => {
-    expect(buildChecklist({ ...base, startsOn: null, features: featureSet(STORED_ADDONS, 0) }).every((e) => e.due === null)).toBe(true);
   });
 });
 ```
@@ -347,14 +329,12 @@ In `src/features/catalogue/catalogue.ts`:
 ```ts
 /**
  * One line of the organiser's setup checklist (D444). A `step` is a section the organiser fills
- * in (its key is the section: basics, agenda, info); a `card` says what to send and by when.
+ * in (its key is the section: basics, agenda, info); a `card` says what to send.
  */
 export type SetupItem = {
   key: string;
   kind: "step" | "card";
   title: string;
-  /** Weeks before the event's first day it is due. */
-  dueWeeksBefore: number;
   /** What to send, a line each; for a step, what it covers. */
   send: readonly string[];
   /** Only for events where attendees sign up themselves. */
@@ -379,43 +359,43 @@ const addon = (name: string, summary: string, unlocks: Unlocks = {}, setup?: rea
 
 ```ts
   portal: base("Attendee portal and personal links", "Each attendee's own link to the portal.", [
-    { key: "basics", kind: "step", title: "Event basics", dueWeeksBefore: 6, send: ["Name, dates and venue", "Brand colour, logo and banner", "Contacts and committee numbers"] },
+    { key: "basics", kind: "step", title: "Event basics", send: ["Name, dates and venue", "Brand colour, logo and banner", "Committee numbers"] },
   ]),
   attendees: base("Attendee list", "Import and manage who is coming.", [
-    { key: "attendee-list", kind: "card", title: "Attendee list", dueWeeksBefore: 3, send: ["One Excel file (.xlsx), one person per row, headings in row 1", "Name (required), Mobile, Email and Category; Table No, team and breakout columns if you use them", "Malaysian mobile numbers. We flag any that can't receive WhatsApp"] },
+    { key: "attendee-list", kind: "card", title: "Attendee list", send: ["One Excel file (.xlsx), one person per row, headings in row 1", "Name (required), Mobile, Email and Category; Table No, team and breakout columns if you use them", "Malaysian mobile numbers. We flag any that can't receive WhatsApp"] },
   ]),
   agenda: base("Agenda", "Days and sessions.", [
-    { key: "agenda", kind: "step", title: "Agenda", dueWeeksBefore: 4, send: ["Each day's date and an optional name", "Sessions: start time and title; end time, location, description and a photo if you have them", "Breakout rounds and their room codes"] },
+    { key: "agenda", kind: "step", title: "Agenda", send: ["Each day's date and an optional name", "Sessions: start time and title; end time, location, description and a photo if you have them", "Breakout rounds and their room codes"] },
   ]),
   info: base("Event info and floor plan", "Info tabs and the venue plan.", [
-    { key: "info", kind: "step", title: "Event info and floor plan", dueWeeksBefore: 4, send: ["The info tabs you want, e.g. Getting there, Dress code, FAQ, with their text and images", "The floor plan, at least 2000 px wide"] },
+    { key: "info", kind: "step", title: "Event info and floor plan", send: ["The info tabs you want, e.g. Getting there, Dress code, FAQ, with their text and images", "The floor plan, at least 2000 px wide"] },
   ]),
   registration: base("Self-registration", "A sign-up form with your own questions.", [
-    { key: "registration", kind: "card", title: "Registration questions", dueWeeksBefore: 4, onlyWithRegistration: true, send: ["Opening and closing dates, and a short welcome paragraph", "Up to 10 questions beyond name, email, mobile and department"] },
+    { key: "registration", kind: "card", title: "Registration questions", onlyWithRegistration: true, send: ["Opening and closing dates, and a short welcome paragraph", "Up to 10 questions beyond name, email, mobile and department"] },
   ]),
   check_in: base("Check-in", "Crew scanning, checkpoints and badges.", [
-    { key: "check-in", kind: "card", title: "Check-in points", dueWeeksBefore: 2, send: ["Each checkpoint you need, e.g. Day 1 registration or Gala dinner, and the day it applies to"] },
+    { key: "check-in", kind: "card", title: "Check-in points", send: ["Each checkpoint you need, e.g. Day 1 registration or Gala dinner, and the day it applies to"] },
   ]),
   whatsapp: addon("WhatsApp messaging", "Send portal links and announcements by WhatsApp.", { nav: ["whatsapp"] }, [
-    { key: "whatsapp", kind: "card", title: "WhatsApp messages", dueWeeksBefore: 4, send: ["The wording of each message, written as a notice or confirmation, not an advert", "When each goes out, and to whom", "Meta approves every message first, so send these early"] },
+    { key: "whatsapp", kind: "card", title: "WhatsApp messages", send: ["The wording of each message, written as a notice or confirmation, not an advert", "When each goes out, and to whom", "Meta approves every message first, so send these early"] },
   ]),
   booking: addon("Session booking", "Time slots attendees book, with capacity.", { activityKinds: ["booking"] }, [
-    { key: "booking", kind: "card", title: "Session booking", dueWeeksBefore: 4, send: ["Days, opening hours, slot length and breaks", "Places per slot, the location, and how many bookings each person may make"] },
+    { key: "booking", kind: "card", title: "Session booking", send: ["Days, opening hours, slot length and breaks", "Places per slot, the location, and how many bookings each person may make"] },
   ]),
   engagement: addon("Engagement activities", "Stamp passport, submissions and scored challenges.", { activityKinds: ["submission", "passport"] }, [
-    { key: "activities", kind: "card", title: "Activities", dueWeeksBefore: 4, send: ["A name, a short description and a 1600 × 800 cover image for each", "Passport: booth names and locations, stamps needed and the reward message", "Submissions: the questions, open and close dates, entries per person and team rules"] },
+    { key: "activities", kind: "card", title: "Activities", send: ["A name, a short description and a 1600 × 800 cover image for each", "Passport: booth names and locations, stamps needed and the reward message", "Submissions: the questions, open and close dates, entries per person and team rules"] },
   ]),
   live_games: addon("Live games", "Tap race and Last one standing on the LED.", { gameKinds: ["tap_race", "survival"] }, [
-    { key: "live-games", kind: "card", title: "Live games", dueWeeksBefore: 2, send: ["Tap race length, 10 to 60 seconds", "Quiz: up to 50 questions, 2 to 4 options each, with the right answer", "An LED background if you want your own, 1920 × 1080"] },
+    { key: "live-games", kind: "card", title: "Live games", send: ["Tap race length, 10 to 60 seconds", "Quiz: up to 50 questions, 2 to 4 options each, with the right answer", "An LED background if you want your own, 1920 × 1080"] },
   ]),
   lucky_draw: addon("Lucky draw", "Slot machine, wheel, mosaic and card round.", { gameKinds: ["draw"] }, [
-    { key: "lucky-draw", kind: "card", title: "Lucky draw", dueWeeksBefore: 2, send: ["Prizes: name, quantity and a photo, about 1040 × 560 (transparent PNG is best)", "Who can win: a check-in point, and any categories to leave out", "The draw style: slot machine, wheel, mosaic or card round (card back 1000 × 1400)"] },
+    { key: "lucky-draw", kind: "card", title: "Lucky draw", send: ["Prizes: name, quantity and a photo, about 1040 × 560 (transparent PNG is best)", "Who can win: a check-in point, and any categories to leave out", "The draw style: slot machine, wheel, mosaic or card round (card back 1000 × 1400)"] },
   ]),
   custom_domain: addon("Custom domain", "The event on its own address.", { settingsTabs: ["address"] }, [
-    { key: "custom-domain", kind: "card", title: "Custom domain", dueWeeksBefore: 4, send: ["The address you want, e.g. event.yourcompany.com", "Who manages your DNS, so we can send them the records to add"] },
+    { key: "custom-domain", kind: "card", title: "Custom domain", send: ["The address you want, e.g. event.yourcompany.com", "Who manages your DNS, so we can send them the records to add"] },
   ]),
   slido: addon("Slido embedding", "Slido inside the portal. Until the embed is built, use a link tile.", {}, [
-    { key: "slido", kind: "card", title: "Slido", dueWeeksBefore: 2, send: ["Your Slido event link"] },
+    { key: "slido", kind: "card", title: "Slido", send: ["Your Slido event link"] },
   ]),
 ```
 
@@ -484,32 +464,23 @@ export function hasUnsubmittedChanges(row: StatusRow | null): boolean {
 import { ADDON_KEYS, BASE_KEYS, FEATURES, type SetupItem } from "@/features/catalogue/catalogue";
 import { has, type FeatureSet } from "@/features/catalogue/features";
 
-const DAY_MS = 86_400_000;
-const CUSTOM_DUE_WEEKS = 4;
 const CUSTOM_DEFAULT_LINE = "We'll be in touch about what we need for this.";
 
-/** The date `weeksBefore` whole weeks before `startsOn` (YYYY-MM-DD), or null with no start date. */
-export function dueDate(startsOn: string | null, weeksBefore: number): string | null {
-  if (!startsOn || !/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) return null;
-  const t = Date.parse(`${startsOn}T00:00:00Z`) - weeksBefore * 7 * DAY_MS;
-  return new Date(t).toISOString().slice(0, 10);
-}
-
-export type ChecklistEntry = { key: string; kind: "step" | "card"; title: string; send: readonly string[]; due: string | null };
+export type ChecklistEntry = { key: string; kind: "step" | "card"; title: string; send: readonly string[] };
 
 /**
- * Everything this event needs from its organiser, earliest due first (D444): each base feature's
- * items, each add-on's, and a card per custom module. A step not built yet is shown as a card,
- * so the checklist is complete from the first release (D452).
+ * Everything this event needs from its organiser (D444). Steps come first, in
+ * catalogue order (basics, agenda, info). Then the guide cards in catalogue order, base features
+ * before add-ons, then one card per custom module. A step not built yet is shown as a card but
+ * still sorts with the steps, so the checklist is complete from the first release (D452).
  */
 export function buildChecklist(input: {
   features: FeatureSet;
   custom: readonly { id: string; name: string; description: string | null }[];
-  startsOn: string | null;
   selfRegistration: boolean;
   builtSteps: readonly string[];
 }): ChecklistEntry[] {
-  const { features, custom, startsOn, selfRegistration, builtSteps } = input;
+  const { features, custom, selfRegistration, builtSteps } = input;
   const items: (SetupItem & { order: number })[] = [];
   for (const key of [...BASE_KEYS, ...ADDON_KEYS]) {
     if (!has(features, key)) continue;
@@ -520,18 +491,17 @@ export function buildChecklist(input: {
   }
   for (const m of custom) {
     items.push({
-      key: `custom:${m.id}`, kind: "card", title: `Custom: ${m.name}`, dueWeeksBefore: CUSTOM_DUE_WEEKS,
+      key: `custom:${m.id}`, kind: "card", title: `Custom: ${m.name}`,
       send: [m.description?.trim() || CUSTOM_DEFAULT_LINE], order: items.length,
     });
   }
   return items
-    .sort((a, b) => b.dueWeeksBefore - a.dueWeeksBefore || a.order - b.order)
+    .sort((a, b) => Number(a.kind !== "step") - Number(b.kind !== "step") || a.order - b.order)
     .map((i) => ({
       key: i.key,
       kind: i.kind === "step" && builtSteps.includes(i.key) ? "step" : "card",
       title: i.title,
       send: i.send,
-      due: dueDate(startsOn, i.dueWeeksBefore),
     }));
 }
 ```
@@ -542,7 +512,7 @@ Run: `npx vitest run tests/setup tests/catalogue`
 Expected: PASS.
 
 The order test expects `["basics", "agenda", "info", "attendee-list", "check-in"]` for an event with no add-ons:
-- `basics` is 6 weeks; `agenda` and `info` are 4, in catalogue order; `attendee-list` is 3; `check-in` is 2.
+- Steps come first in catalogue order (`basics`, `agenda`, `info`), then the cards in catalogue order (`attendee-list`, `check-in`).
 - If it fails, fix the code, not the test.
 
 - [ ] **Step 8: Typecheck, lint, full test run**
@@ -555,7 +525,7 @@ Expected: no errors, all tests pass.
 ```bash
 git pull --rebase --autostash
 git add src/features/catalogue/catalogue.ts tests/catalogue/catalogue.test.ts src/features/setup/sections.ts src/features/setup/status.ts src/features/setup/checklist.ts tests/setup
-git commit -m "feat(setup): the checklist from the catalogue, due dates and derived status (D442, D444)
+git commit -m "feat(setup): the checklist from the catalogue and derived status (D442, D444)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -580,7 +550,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     - `BASICS_REQUIRED: readonly BasicsField[]`
     - `BASICS_IMAGE_FIELDS = ["logo_url", "banner_url"] as const`
     - `DEFAULT_COLOUR = "#F97316"`
-    - `type BasicsSource = Pick<Event, "name" | "starts_on" | "ends_on" | "venue_name" | "primary_color" | "logo_url" | "banner_url" | "contact_name" | "contact_phone" | "committee_alert_numbers">`
+    - `type BasicsSource = Pick<Event, "name" | "starts_on" | "ends_on" | "venue_name" | "primary_color" | "logo_url" | "banner_url" | "committee_alert_numbers">`
     - `type EventPatch`
     - `type BasicsChange = { field: BasicsField; label: string; before: string; after: string; image: boolean; infoOnly: boolean }`
   - **Functions:**
@@ -612,14 +582,14 @@ import {
 const full = (over: Partial<BasicsAnswers> = {}): BasicsAnswers => ({
   ...blankBasics(),
   name: "KOM 2027", starts_on: "2027-01-10", ends_on: "2027-01-11", venue_name: "Sunway Pyramid",
-  primary_color: "#0EA5E9", contact_name: "Aisyah", contact_phone: "012-345 6789",
+  primary_color: "#0EA5E9",
   ...over,
 });
 
 const event = {
   name: "Old name", starts_on: "2026-12-01", ends_on: "2026-12-02", venue_name: "Old venue", primary_color: "#F97316",
   logo_url: "https://x.supabase.co/storage/v1/object/public/event-media/o/e/logo-1.png", banner_url: null,
-  contact_name: null, contact_phone: null, committee_alert_numbers: ["60123456789"],
+  committee_alert_numbers: ["60123456789"],
 };
 
 describe("blank, fromEvent, sanitize", () => {
@@ -648,7 +618,7 @@ describe("errors, missing, complete", () => {
     expect(basicsComplete(full())).toBe(true);
   });
   it("lists the required fields still empty", () => {
-    expect(basicsMissing(blankBasics())).toEqual(["name", "starts_on", "ends_on", "venue_name", "contact_name", "contact_phone"]);
+    expect(basicsMissing(blankBasics())).toEqual(["name", "starts_on", "ends_on", "venue_name"]);
     expect(basicsComplete(blankBasics())).toBe(false);
   });
   it("refuses a last day before the first", () => {
@@ -659,9 +629,6 @@ describe("errors, missing, complete", () => {
   });
   it("refuses a colour that isn't #RRGGBB", () => {
     expect(basicsErrors(full({ primary_color: "orange" })).primary_color).toBe("Use a colour like #F97316.");
-  });
-  it("refuses a contact number that isn't a Malaysian mobile", () => {
-    expect(basicsErrors(full({ contact_phone: "+44 7700 900123" })).contact_phone).toBe("Use a Malaysian mobile number, e.g. 012-345 6789.");
   });
   it("names committee numbers it can't read", () => {
     expect(basicsErrors(full({ committee_numbers: "012-345 6789\nabc" })).committee_numbers).toBe("These can't be read as Malaysian mobile numbers: abc");
@@ -692,7 +659,7 @@ describe("basicsPatch (D450)", () => {
     const patch = basicsPatch(full(), null);
     expect(patch).toEqual({
       name: "KOM 2027", starts_on: "2027-01-10", ends_on: "2027-01-11", venue_name: "Sunway Pyramid",
-      primary_color: "#0EA5E9", contact_name: "Aisyah", contact_phone: "60123456789",
+      primary_color: "#0EA5E9",
     });
     expect("logo_url" in patch).toBe(false);
   });
@@ -766,24 +733,24 @@ import { toE164My } from "@/lib/phone";
 
 export const BASICS_FIELDS = [
   "name", "starts_on", "ends_on", "venue_name", "primary_color", "logo_url", "banner_url",
-  "categories", "contact_name", "contact_phone", "committee_numbers", "notes",
+  "categories", "committee_numbers", "notes",
 ] as const;
 export type BasicsField = (typeof BASICS_FIELDS)[number];
 export type BasicsAnswers = Record<BasicsField, string>;
 
 export const DEFAULT_COLOUR = "#F97316";
 export const BASICS_IMAGE_FIELDS = ["logo_url", "banner_url"] as const;
-export const BASICS_REQUIRED: readonly BasicsField[] = ["name", "starts_on", "ends_on", "venue_name", "contact_name", "contact_phone"];
+export const BASICS_REQUIRED: readonly BasicsField[] = ["name", "starts_on", "ends_on", "venue_name"];
 
 const LIMITS: Record<BasicsField, number> = {
   name: 120, starts_on: 10, ends_on: 10, venue_name: 160, primary_color: 7, logo_url: 600, banner_url: 600,
-  categories: 1000, contact_name: 120, contact_phone: 40, committee_numbers: 600, notes: 2000,
+  categories: 1000, committee_numbers: 600, notes: 2000,
 };
 
 export const BASICS_LABELS: Record<BasicsField, string> = {
   name: "Event name", starts_on: "First day", ends_on: "Last day", venue_name: "Venue",
   primary_color: "Brand colour", logo_url: "Logo", banner_url: "Home banner",
-  categories: "Attendee categories", contact_name: "Project contact", contact_phone: "Contact mobile",
+  categories: "Attendee categories",
   committee_numbers: "Committee WhatsApp numbers", notes: "Notes",
 };
 
@@ -791,7 +758,7 @@ export const BASICS_LABELS: Record<BasicsField, string> = {
 const INFO_ONLY: readonly BasicsField[] = ["categories", "notes"];
 
 export type BasicsSource = Pick<Event,
-  "name" | "starts_on" | "ends_on" | "venue_name" | "primary_color" | "logo_url" | "banner_url" | "contact_name" | "contact_phone" | "committee_alert_numbers">;
+  "name" | "starts_on" | "ends_on" | "venue_name" | "primary_color" | "logo_url" | "banner_url" | "committee_alert_numbers">;
 
 export function blankBasics(): BasicsAnswers {
   const a = Object.fromEntries(BASICS_FIELDS.map((f) => [f, ""])) as BasicsAnswers;
@@ -805,7 +772,6 @@ export function basicsFromEvent(ev: BasicsSource): BasicsAnswers {
     ...blankBasics(),
     name: ev.name ?? "", starts_on: ev.starts_on ?? "", ends_on: ev.ends_on ?? "", venue_name: ev.venue_name ?? "",
     primary_color: ev.primary_color || DEFAULT_COLOUR, logo_url: ev.logo_url ?? "", banner_url: ev.banner_url ?? "",
-    contact_name: ev.contact_name ?? "", contact_phone: ev.contact_phone ?? "",
     committee_numbers: (ev.committee_alert_numbers ?? []).map((n) => `+${n}`).join("\n"),
   };
 }
@@ -836,7 +802,6 @@ export function basicsErrors(a: BasicsAnswers): Partial<Record<BasicsField, stri
   if (t("ends_on") && !isDate(t("ends_on"))) e.ends_on = "Pick a date.";
   if (!e.starts_on && !e.ends_on && t("starts_on") && t("ends_on") && t("ends_on") < t("starts_on")) e.ends_on = "The last day can't be before the first.";
   if (!/^#[0-9a-fA-F]{6}$/.test(t("primary_color"))) e.primary_color = "Use a colour like #F97316.";
-  if (t("contact_phone") && !toE164My(t("contact_phone"))) e.contact_phone = "Use a Malaysian mobile number, e.g. 012-345 6789.";
   const bad = lines(a.committee_numbers).filter((l) => !toE164My(l));
   if (bad.length) e.committee_numbers = `These can't be read as Malaysian mobile numbers: ${bad.join(", ")}`;
   return e;
@@ -864,7 +829,7 @@ export function basicsChanges(submitted: BasicsAnswers, live: BasicsAnswers): Ba
 
 export type EventPatch = Partial<{
   name: string; starts_on: string | null; ends_on: string | null; venue_name: string | null; primary_color: string;
-  logo_url: string | null; banner_url: string | null; contact_name: string | null; contact_phone: string | null;
+  logo_url: string | null; banner_url: string | null;
   committee_alert_numbers: string[];
 }>;
 
@@ -886,8 +851,6 @@ export function basicsPatch(submitted: BasicsAnswers, applied: BasicsAnswers | n
   if (changed("primary_color") && val("primary_color")) p.primary_color = val("primary_color")!;
   if (changed("logo_url")) p.logo_url = val("logo_url");
   if (changed("banner_url")) p.banner_url = val("banner_url");
-  if (changed("contact_name")) p.contact_name = val("contact_name");
-  if (changed("contact_phone")) p.contact_phone = val("contact_phone") ? toE164My(val("contact_phone")) ?? val("contact_phone") : null;
   if (changed("committee_numbers")) {
     p.committee_alert_numbers = [...new Set(lines(submitted.committee_numbers).map((l) => toE164My(l)).filter((n): n is string => !!n))];
   }
@@ -1283,7 +1246,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - from Task 2: `buildChecklist`, `sectionStatus`, `hasUnsubmittedChanges`, `isBuiltStep`, `BUILT_STEPS`, `STATUS_LABELS`
   - from `@/features/catalogue`: `eventFeatures`
   - from Task 5: `HomePreview`
-  - also `isEventMediaFor`, `acceptImage` and `IMAGE_ACCEPT` (`@/lib/storage`); `uploadEventImage` and `deleteEventImage` (`@/lib/db/media`); `shouldShrink` and `shrinkImage` (`@/lib/shrink-image`); `isValidToken`; `allow`; `brandStyle`; `nowInKL` (`@/lib/time`); `formatDateRange` and `shortDate` (`@/lib/text`)
+  - also `isEventMediaFor`, `acceptImage` and `IMAGE_ACCEPT` (`@/lib/storage`); `uploadEventImage` and `deleteEventImage` (`@/lib/db/media`); `shouldShrink` and `shrinkImage` (`@/lib/shrink-image`); `isValidToken`; `allow`; `brandStyle`; `formatDateRange` (`@/lib/text`)
 - Produces:
   - `type SetupResult = { ok: true; rev: number } | { ok: false; message: string; stale?: boolean }`
   - `saveSectionAction(token: string, section: string, expectedRev: number, raw: unknown): Promise<SetupResult>`
@@ -1646,8 +1609,6 @@ export function BasicsStep({ token, initial, initialRev, initialStatus, initialU
         {group("People", "Categories decide who sees what. The committee numbers get WhatsApp alerts when attendees ask to change a booking.", (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">{area("categories", "One per line, e.g.\nStaff\nVendor\nVIP")}</div>
-            {text("contact_name", "text", "Who signs off content")}
-            {text("contact_phone", "tel", "012-345 6789")}
             <div className="sm:col-span-2">{area("committee_numbers", "One per line, e.g.\n012-345 6789")}</div>
           </div>
         ))}
@@ -1719,8 +1680,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isValidToken } from "@/lib/tokens";
 import { brandStyle } from "@/lib/brand";
-import { nowInKL } from "@/lib/time";
-import { formatDateRange, shortDate } from "@/lib/text";
+import { formatDateRange } from "@/lib/text";
 import { Badge } from "@/components/ui/badge";
 import { Mark } from "@/components/portal/PortalHeader";
 import { eventFeatures } from "@/features/catalogue";
@@ -1736,7 +1696,7 @@ const STATUS_VARIANT: Record<SectionStatus, "secondary" | "warning" | "success">
 };
 
 /**
- * The organiser's one place (D444): everything the event needs, earliest due first. Steps open
+ * The organiser's one place (D444): everything the event needs. Steps open
  * a form; cards say what to send. A small preview shows the portal as submitted so far.
  */
 export async function SetupHomePage({ params }: { params: Promise<{ token: string }> }) {
@@ -1746,18 +1706,14 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
   if (!ev) notFound();
   const [rows, features] = await Promise.all([listSetupRows(ev.id), eventFeatures(ev.id)]);
   const list = buildChecklist({
-    features, custom: features.custom, startsOn: ev.starts_on,
+    features, custom: features.custom,
     selfRegistration: ev.registration_open || ev.registration_questions.length > 0, builtSteps: BUILT_STEPS,
   });
-  const today = nowInKL().date;
   const rowOf = (key: string) => rows.find((r) => r.section === key) ?? null;
   const steps = list.filter((e) => e.kind === "step");
   const done = steps.filter((e) => ["submitted", "applied"].includes(sectionStatus(rowOf(e.key)))).length;
   const basicsRow = rowOf("basics");
   const shown = basicsRow ? sanitizeBasics(basicsRow.submitted ?? basicsRow.answers) : basicsFromEvent(ev);
-  const due = (d: string | null) => d && (
-    <span className={`text-xs ${d < today ? "font-bold text-amber-700" : "text-muted-foreground"}`}>{d < today ? "Overdue · " : "Due "}{shortDate(d)}</span>
-  );
 
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-8 p-4 md:p-8 lg:grid-cols-[minmax(0,1fr)_260px]" style={brandStyle(ev.primary_color) as React.CSSProperties}>
@@ -1769,7 +1725,7 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
             <p className="text-sm text-muted-foreground">Event setup · {[formatDateRange(ev.starts_on, ev.ends_on), ev.venue_name].filter(Boolean).join(" · ")}</p>
           </div>
         </header>
-        <p className="text-sm">Everything we need from you for this event, in the order it&apos;s due. Fill in each section here, or send the items listed to your project contact. Nothing goes to attendees until we&apos;ve reviewed it.</p>
+        <p className="text-sm">Everything we need from you for this event. Fill in each section here, or send the items listed to your project contact. Nothing goes to attendees until we&apos;ve reviewed it.</p>
         <p className="text-sm font-bold">{done} of {steps.length} section{steps.length === 1 ? "" : "s"} submitted</p>
 
         <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
@@ -1783,7 +1739,6 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
                       <span className="font-bold">{e.title}</span>
                       <span className="text-xs text-muted-foreground">{e.send.join(" · ")}</span>
                     </span>
-                    {due(e.due)}
                     <Badge variant={STATUS_VARIANT[s]}>{STATUS_LABELS[s]}</Badge>
                   </Link>
                 </li>
@@ -1794,7 +1749,6 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
                 <details className="group p-4">
                   <summary className="flex cursor-pointer list-none items-center gap-3">
                     <span className="min-w-0 flex-1 font-bold">{e.title}</span>
-                    {due(e.due)}
                     <span className="text-xs font-bold text-primary group-open:hidden">What to send</span>
                   </summary>
                   <ul className="mt-3 list-disc pl-5 text-sm">
@@ -1818,8 +1772,7 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
 }
 ```
 
-`Mark` takes a header-event projection. Passing `ev` to a server-rendered `Mark` is fine: `Mark` is not a client component, so nothing is serialised. `HomePreview` is a client component, and it gets only `shown`, which is a `BasicsAnswers` with no tokens. Check that `nowInKL` exists in `src/lib/time.ts` with a `.date` property (YYYY-MM-DD); the settings page uses it.
-
+`Mark` takes a header-event projection. Passing `ev` to a server-rendered `Mark` is fine: `Mark` is not a client component, so nothing is serialised. `HomePreview` is a client component, and it gets only `shown`, which is a `BasicsAnswers` with no tokens.
 - [ ] **Step 5: Add exports and the routes**
 
 Append to `src/features/setup/index.ts`:
@@ -2068,7 +2021,7 @@ export async function SetupAdminPage({ params }: { params: Promise<{ id: string 
       <Card>
         <CardHeader>
           <CardTitle>Organiser link</CardTitle>
-          <CardDescription>One private link for the organiser&apos;s team: their checklist, deadlines and the sections they fill in. No login. Nothing they submit changes the event until you apply it.</CardDescription>
+          <CardDescription>One private link for the organiser&apos;s team: their checklist and the sections they fill in. No login. Nothing they submit changes the event until you apply it.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {url ? (
@@ -2475,7 +2428,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 6: Browser walk-through (controller, signed in, on `ecpkom` only)**
 
 1. Admin: open Setup and press **Create setup link**, then **Open as organiser**.
-2. Organiser: check the checklist shows the right items and dates for `ecpkom`'s add-ons.
+2. Organiser: check the checklist shows the right items for `ecpkom`'s add-ons, steps first.
 3. Open Event basics. Change the venue, upload a banner and a logo, and type a wrong-shaped banner to see the warning. Check the preview slots highlight, then submit.
 4. Admin: check the sidebar badge shows 1 and the review lists the changes. Press Apply.
 5. Check the portal home shows the new venue and banner.
