@@ -32,7 +32,7 @@ describe("the catalogue (D433)", () => {
     const items = (Object.values(FEATURES) as { setup?: readonly { key: string; kind: string }[] }[]).flatMap((f) => f.setup ?? []);
     const keys = items.map((i) => i.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(items.filter((i) => i.kind === "step").map((i) => i.key).sort()).toEqual(["agenda", "basics", "info"]);
+    expect(items.filter((i) => i.kind === "step").map((i) => i.key).sort()).toEqual(["agenda", "basics"]);
   });
 });
 

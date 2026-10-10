@@ -6,7 +6,7 @@ export type ChecklistEntry = { key: string; kind: "step" | "card"; title: string
 
 /**
  * Everything this event needs from its organiser (D444). Steps come first, in
- * catalogue order (basics, agenda, info). Then the guide cards in catalogue order, base features
+ * catalogue order (basics, agenda). Then the guide cards in catalogue order, base features
  * before add-ons, then one card per custom module. A step not built yet is shown as a card but
  * still sorts with the steps, so the checklist is complete from the first release (D452).
  */

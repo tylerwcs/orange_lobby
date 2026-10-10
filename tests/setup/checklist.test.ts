@@ -7,7 +7,7 @@ const base = { custom: [], selfRegistration: false, builtSteps: ["basics"] as co
 describe("buildChecklist (D444)", () => {
   it("lists only base items for an event with no add-ons, steps first", () => {
     const list = buildChecklist({ ...base, features: featureSet([], 0) });
-    expect(list.map((e) => e.key)).toEqual(["basics", "agenda", "info", "attendee-list", "check-in"]);
+    expect(list.map((e) => e.key)).toEqual(["basics", "agenda", "attendee-list", "info", "announcements", "check-in", "breakouts"]);
     expect(list[0]).toMatchObject({ kind: "step", title: "Event basics" });
   });
   it("shows a step not built yet as a card", () => {
@@ -35,6 +35,10 @@ describe("buildChecklist (D444)", () => {
   });
   it("orders steps, then base cards, then add-on cards, then custom modules", () => {
     const keys = buildChecklist({ ...base, features: featureSet(["whatsapp"], 1), custom: [{ id: "m1", name: "Mosaic", description: null }] }).map((e) => e.key);
-    expect(keys).toEqual(["basics", "agenda", "info", "attendee-list", "check-in", "whatsapp", "custom:m1"]);
+    expect(keys).toEqual(["basics", "agenda", "attendee-list", "info", "announcements", "check-in", "breakouts", "whatsapp", "custom:m1"]);
+  });
+  it("makes Info, Announcements and Breakout rooms cards (D461)", () => {
+    const list = buildChecklist({ ...base, features: featureSet([], 0) });
+    for (const key of ["info", "announcements", "breakouts"]) expect(list.find((e) => e.key === key)?.kind).toBe("card");
   });
 });

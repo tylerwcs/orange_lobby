@@ -27,7 +27,8 @@ export type Unlocks = {
 
 /**
  * One line of the organiser's setup checklist (D444). A `step` is a section the organiser fills
- * in (its key is the section: basics, agenda, info); a `card` says what to send.
+ * in (its key is the section: basics, agenda); a `card` takes files and a note (D458). `send` says
+ * what we need, a line each.
  */
 export type SetupItem = {
   key: string;
@@ -53,12 +54,14 @@ export const FEATURES: Record<FeatureKey, Feature> = {
     { key: "attendee-list", kind: "card", title: "Attendee list", send: ["One Excel file (.xlsx), one person per row, headings in row 1", "Name (required), Mobile, Email and Category; Table No, team and breakout columns if you use them", "Malaysian mobile numbers. We flag any that can't receive WhatsApp"] },
   ]),
   agenda: base("Agenda", "Days and sessions.", [
-    { key: "agenda", kind: "step", title: "Agenda", send: ["Each day's date and an optional name", "Sessions: start time and title; end time, location, description and a photo if you have them", "Breakout rounds and their room codes"] },
+    { key: "agenda", kind: "step", title: "Agenda", send: ["Each day's date and an optional name", "Sessions: start time and title; end time, location and description if you have them", "Or upload the agenda you already have, in Excel, Word or PDF"] },
   ]),
   info: base("Event info and floor plan", "Info tabs and the venue plan.", [
-    { key: "info", kind: "step", title: "Event info and floor plan", send: ["The info tabs you want, e.g. Getting there, Dress code, FAQ, with their text and images", "The floor plan, at least 2000 px wide"] },
+    { key: "info", kind: "card", title: "Event info and floor plan", send: ["The info pages you want, e.g. Getting there, Dress code, FAQ. Any document is fine", "The floor plan, at least 2000 px wide"] },
   ]),
-  announcements: base("Announcements", "News for attendees, pinned or not."),
+  announcements: base("Announcements", "News for attendees, pinned or not.", [
+    { key: "announcements", kind: "card", title: "Announcements", send: ["What you want posted, and when", "Which ones should stay pinned at the top"] },
+  ]),
   exports: base("Exports", "Spreadsheets, links and QR codes."),
   registration: base("Self-registration", "A sign-up form with your own questions.", [
     { key: "registration", kind: "card", title: "Registration questions", onlyWithRegistration: true, send: ["Opening and closing dates, and a short welcome paragraph", "Up to 10 questions beyond name, email, mobile and department"] },
@@ -67,7 +70,9 @@ export const FEATURES: Record<FeatureKey, Feature> = {
     { key: "check-in", kind: "card", title: "Check-in points", send: ["Each checkpoint you need, e.g. Day 1 registration or Gala dinner, and the day it applies to"] },
   ]),
   groups: base("Groups", "Teams built from a column."),
-  breakouts: base("Breakout rooms", "Rounds and room assignment."),
+  breakouts: base("Breakout rooms", "Rounds and room assignment.", [
+    { key: "breakouts", kind: "card", title: "Breakout rooms", send: ["The rooms in each round, and who goes where", "The spreadsheet you already keep is fine"] },
+  ]),
   whatsapp: addon("WhatsApp messaging", "Send portal links and announcements by WhatsApp.", { nav: ["whatsapp"] }, [
     { key: "whatsapp", kind: "card", title: "WhatsApp messages", send: ["The wording of each message, written as a notice or confirmation, not an advert", "When each goes out, and to whom", "Meta approves every message first, so send these early"] },
   ]),
