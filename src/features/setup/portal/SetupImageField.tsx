@@ -6,6 +6,10 @@ import { shouldShrink, shrinkImage } from "@/lib/shrink-image";
 import { IMAGE_TARGETS, proportionWarning } from "../images";
 import { uploadSetupImageAction } from "./actions";
 
+const IMAGE_TYPES = new Set(IMAGE_ACCEPT.split(","));
+const WRONG_TYPE = "Images must be PNG, JPEG, WebP or SVG.";
+const UPLOAD_FAILED = "Couldn't upload that image — check your connection and try again.";
+
 /**
  * An image the organiser uploads straight away (D447): the URL lands in the answers, which
  * autosave. Shows what attendees will get, and warns - never blocks - when the shape is off.
@@ -33,22 +37,29 @@ export function SetupImageField({ token, kind, label, value, onChange, onFocus }
     img.src = value;
   }, [value, target]);
 
+  // Type first, then shrink (banners only), then the size limit on the file actually sent.
   const pick = (file: File | undefined) => {
     if (!file) return;
     setError(null);
-    try {
-      acceptImage(file);
-    } catch (e) {
-      setError((e as Error).message);
-      return;
-    }
+    if (!IMAGE_TYPES.has(file.type.toLowerCase())) { setError(WRONG_TYPE); return; }
     start(async () => {
-      const ready = file.type !== "image/svg+xml" && shouldShrink(file) ? await shrinkImage(file) : file;
+      // A logo is never shrunk: shrinking re-encodes as JPEG, which loses a PNG's transparency.
+      const ready = kind === "banner" && shouldShrink(file) ? await shrinkImage(file) : file;
+      try {
+        acceptImage(ready);
+      } catch (e) {
+        setError((e as Error).message);
+        return;
+      }
       const fd = new FormData();
       fd.set("image", ready);
-      const r = await uploadSetupImageAction(token, kind, fd);
-      if (r.ok) onChange(r.url);
-      else setError(r.message);
+      try {
+        const r = await uploadSetupImageAction(token, kind, fd);
+        if (r.ok) onChange(r.url);
+        else setError(r.message);
+      } catch {
+        setError(UPLOAD_FAILED);
+      }
     });
   };
 

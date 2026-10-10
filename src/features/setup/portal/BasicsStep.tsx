@@ -17,6 +17,8 @@ const SLOT_OF: Partial<Record<BasicsField, PreviewSlot>> = {
 };
 const FIELD_OF: Record<PreviewSlot, BasicsField> = { header: "name", logo: "logo_url", banner: "banner_url", colour: "primary_color" };
 const AUTOSAVE_MS = 1000;
+const SAVE_FAILED = "Couldn't save — check your connection and keep typing; we'll try again.";
+const SUBMIT_FAILED = "Couldn't submit — check your connection and try again.";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -35,7 +37,7 @@ export function BasicsStep({ token, initial, initialRev, initialStatus, initialU
   const [a, setA] = useState(initial);
   const [focused, setFocused] = useState<PreviewSlot | null>(null);
   const [save, setSave] = useState<SaveState>("idle");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; tone: "error" | "info" } | null>(null);
   const [status, setStatus] = useState(initialStatus);
   const [unsubmitted, setUnsubmitted] = useState(initialUnsubmitted);
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +47,10 @@ export function BasicsStep({ token, initial, initialRev, initialStatus, initialU
   // What the server holds. Comparing against it (not "is this the first render") means opening
   // the page never saves, even when React runs effects twice in development.
   const saved = useRef(initial);
+  // Read inside the chain, which can run after a render that changed the status.
+  const statusRef = useRef(initialStatus);
+  // Every save and submit runs on this chain, one at a time. Each step catches its own errors,
+  // so the chain always stays fulfilled and the next step always runs.
   const chain = useRef<Promise<void>>(Promise.resolve());
   const blocked = useRef(false);
 
@@ -52,26 +58,41 @@ export function BasicsStep({ token, initial, initialRev, initialStatus, initialU
   const complete = basicsComplete(a);
   const nothingNew = (status === "submitted" || status === "applied") && !unsubmitted;
 
-  const runSave = useCallback(() => {
-    chain.current = chain.current.then(async () => {
-      if (blocked.current || sameAnswers(latest.current, saved.current)) return;
-      const sending = latest.current;
-      setSave("saving");
+  /**
+   * One save, when there's something to send. Only ever called from a chain step. `force` sends
+   * even unchanged answers while no row exists yet (rev 0), so submitting the untouched prefill
+   * has a row to submit. True when the server now holds the latest answers.
+   */
+  const saveStep = useCallback(async (force: boolean): Promise<boolean> => {
+    if (blocked.current) return false;
+    if (!(force && rev.current === 0) && sameAnswers(latest.current, saved.current)) return true;
+    const sending = latest.current;
+    setSave("saving");
+    try {
       const r = await saveSectionAction(token, "basics", rev.current, sending);
       if (r.ok) {
         rev.current = r.rev;
         saved.current = sending;
         setSave("saved");
         setMessage(null);
-        if (status === "submitted" || status === "applied") setUnsubmitted(true);
-      } else {
-        setSave("error");
-        setMessage(r.message);
-        if (r.stale) blocked.current = true;
+        if (statusRef.current === "submitted" || statusRef.current === "applied") setUnsubmitted(true);
+        return true;
       }
-    });
+      setSave("error");
+      setMessage({ text: r.message, tone: "error" });
+      if (r.stale) blocked.current = true;
+      return false;
+    } catch {
+      setSave("error");
+      setMessage({ text: SAVE_FAILED, tone: "error" });
+      return false;
+    }
+  }, [token]);
+
+  const runSave = useCallback(() => {
+    chain.current = chain.current.then(async () => { await saveStep(false); });
     return chain.current;
-  }, [token, status]);
+  }, [saveStep]);
 
   useEffect(() => {
     latest.current = a;
@@ -87,16 +108,30 @@ export function BasicsStep({ token, initial, initialRev, initialStatus, initialU
     document.querySelector<HTMLElement>(`[data-setup-field="${FIELD_OF[slot]}"]`)?.focus();
   };
 
-  const submit = async () => {
+  // On the same chain as the saves, so a debounced save can't go out with the rev submit uses.
+  const submit = () => {
     setSubmitting(true);
     latest.current = a;
-    await runSave();
-    await chain.current;
-    if (blocked.current) { setSubmitting(false); return; }
-    const r = await submitSectionAction(token, "basics", rev.current);
-    setSubmitting(false);
-    if (r.ok) { rev.current = r.rev; setStatus("submitted"); setUnsubmitted(false); setMessage("Submitted. We'll review it and let you know if anything needs changing."); }
-    else setMessage(r.message);
+    chain.current = chain.current.then(async () => {
+      try {
+        if (!(await saveStep(true))) return;
+        const r = await submitSectionAction(token, "basics", rev.current);
+        if (r.ok) {
+          rev.current = r.rev;
+          statusRef.current = "submitted";
+          setStatus("submitted");
+          setUnsubmitted(false);
+          setMessage({ text: "Submitted. We'll review it and let you know if anything needs changing.", tone: "info" });
+        } else {
+          if (r.stale) blocked.current = true;
+          setMessage({ text: r.message, tone: "error" });
+        }
+      } catch {
+        setMessage({ text: SUBMIT_FAILED, tone: "error" });
+      } finally {
+        setSubmitting(false);
+      }
+    });
   };
 
   const text = (f: BasicsField, type = "text", placeholder = "") => (
@@ -180,7 +215,7 @@ export function BasicsStep({ token, initial, initialRev, initialStatus, initialU
             {submitting ? "Submitting…" : status === "draft" || status === "not_started" ? "Submit section" : "Submit changes"}
           </Button>
           <Button type="button" variant="outline" className="lg:hidden" onClick={() => setShowPreview(true)}>Preview</Button>
-          {message && <span role="status" className={`text-sm ${save === "error" ? "font-semibold text-destructive" : "text-muted-foreground"}`}>{message}</span>}
+          {message && <span role="status" className={`text-sm ${message.tone === "error" ? "font-semibold text-destructive" : "text-muted-foreground"}`}>{message.text}</span>}
           {!complete && !message && <span className="text-sm text-muted-foreground">Fill in the required fields to submit.</span>}
         </div>
       </div>

@@ -58,7 +58,11 @@ export async function saveSectionAction(token: string, section: string, expected
     ...BASICS_IMAGE_FIELDS.map((f) => (prev?.applied ? sanitizeBasics(prev.applied)[f] : null)),
     ev.logo_url, ev.banner_url,
   ];
-  for (const url of droppedImages(before, answers, BASICS_IMAGE_FIELDS, keep)) await deleteEventImage(url);
+  // Only this event's own uploads are ever deleted: a kept live image may live anywhere (ownImages).
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  for (const url of droppedImages(before, answers, BASICS_IMAGE_FIELDS, keep)) {
+    if (isEventMediaFor(url, supabaseUrl, ev.org_id, ev.id, ["logo", "banner"])) await deleteEventImage(url);
+  }
   return { ok: true, rev };
 }
 
