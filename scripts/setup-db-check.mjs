@@ -17,6 +17,8 @@
 //   7. The setup-files bucket is private and capped at 25 MB.
 //   8. setup_apply_agenda writes a plan's days and sessions with the map and the applied snapshot.
 //      A stale reviewed version writes but isn't marked. A plan with a failing row writes nothing.
+//   8b. Days can be shifted a date later or swapped in one plan (0074); a removed day goes after its
+//      sessions move off it, and one that still has sessions refuses the whole plan.
 //   9. The public key can't run the function.
 //
 // HOW TO RUN: npm run check:setup (node --env-file=.env.local scripts/setup-db-check.mjs).
@@ -122,6 +124,35 @@ try {
   const failed = await db.rpc("setup_apply_agenda", { p_event: a.id, p_plan: broken, p_map: {}, p_reviewed_at: T, p_submitted: { v: 3 } });
   const stillOne = must(await db.from("agenda_items").select("id").eq("event_id", a.id));
   check("a plan with a failing row writes nothing", !!failed.error && stillOne.length === 1, failed.error?.message);
+
+  // 8b. Re-dating days (0074): a shift and a swap would meet the unique (event_id, date) half way
+  // if dates moved one row at a time. Run on event b, which has no agenda yet.
+  const d1 = randomUUID();
+  const d2 = randomUUID();
+  const s1 = randomUUID();
+  must(await db.from("agenda_days").insert([
+    { id: d1, org_id: org.id, event_id: b.id, date: "2027-01-10", name: "D1" },
+    { id: d2, org_id: org.id, event_id: b.id, date: "2027-01-11", name: "D2" },
+  ]));
+  must(await db.from("agenda_items").insert({ id: s1, org_id: org.id, event_id: b.id, day_id: d1, kind: "session", starts_at: "09:00", title: "On D1", sort_order: 10 }));
+  const redate = (days) => db.rpc("setup_apply_agenda", { p_event: b.id, p_plan: { days: { ...none, update: days }, items: none, order: [] }, p_map: {}, p_reviewed_at: T, p_submitted: {} });
+  const shifted = await redate([{ id: d1, date: "2027-01-11" }, { id: d2, date: "2027-01-12" }]);
+  const afterShift = must(await db.from("agenda_days").select("id, date").eq("event_id", b.id));
+  const onD1 = must(await db.from("agenda_items").select("day, day_id").eq("id", s1).single());
+  check("a plan can shift two days one date later", !shifted.error && afterShift.find((d) => d.id === d1)?.date === "2027-01-11" && afterShift.find((d) => d.id === d2)?.date === "2027-01-12", shifted.error?.message);
+  check("a session moves with its re-dated day", onD1.day === "2027-01-11" && onD1.day_id === d1);
+  const swapped = await redate([{ id: d1, date: "2027-01-12" }, { id: d2, date: "2027-01-11" }]);
+  const afterSwap = must(await db.from("agenda_days").select("id, date").eq("event_id", b.id));
+  check("a plan can swap two days' dates", !swapped.error && afterSwap.find((d) => d.id === d1)?.date === "2027-01-12" && afterSwap.find((d) => d.id === d2)?.date === "2027-01-11", swapped.error?.message);
+  // A removed day whose session the plan moves elsewhere: the session survives, the day goes.
+  const moveAndDrop = await db.rpc("setup_apply_agenda", { p_event: b.id, p_plan: { days: { ...none, delete: [d1] }, items: { ...none, update: [{ id: s1, day_id: d2 }] }, order: [] }, p_map: {}, p_reviewed_at: T, p_submitted: {} });
+  const keptDays = must(await db.from("agenda_days").select("id").eq("event_id", b.id));
+  const kept = must(await db.from("agenda_items").select("day_id").eq("id", s1).maybeSingle());
+  check("a removed day goes after its session moves off it", !moveAndDrop.error && keptDays.length === 1 && kept?.day_id === d2, moveAndDrop.error?.message);
+  // A removed day that still has a session on it is refused whole, not left half done.
+  const refusedDrop = await db.rpc("setup_apply_agenda", { p_event: b.id, p_plan: { days: { ...none, delete: [d2] }, items: none, order: [] }, p_map: {}, p_reviewed_at: T, p_submitted: {} });
+  const stillThere = must(await db.from("agenda_days").select("id, date").eq("id", d2).single());
+  check("a day with a session left on it isn't removed, and nothing changes", !!refusedDrop.error && stillThere.date === "2027-01-11", refusedDrop.error?.message);
 
   // 9. Service role only.
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

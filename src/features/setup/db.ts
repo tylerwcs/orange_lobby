@@ -134,7 +134,7 @@ export type SetupFileRow = { id: string; event_id: string; item_key: string; pat
 
 const items = () => serviceClient().from("event_setup_items");
 const files = () => serviceClient().from("event_setup_files");
-const UUID = /^[0-9a-f-]{36}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Everything this event needs from its organiser (D444): its features' items and its custom modules. */
 export async function eventChecklist(ev: Event): Promise<ChecklistEntry[]> {
@@ -198,7 +198,8 @@ export async function startSetupUpload(orgId: string, eventId: string, ext: stri
 export async function recordSetupFile(ev: Pick<Event, "id" | "org_id">, itemKey: string, path: string, name: string, contentType: string): Promise<SetupFileRow | null> {
   if (!isSetupFilePath(path, ev.org_id, ev.id)) return null;
   const cut = path.lastIndexOf("/");
-  const { data: listed } = await serviceClient().storage.from(SETUP_BUCKET).list(path.slice(0, cut), { search: path.slice(cut + 1) });
+  const { data: listed, error: listError } = await serviceClient().storage.from(SETUP_BUCKET).list(path.slice(0, cut), { search: path.slice(cut + 1) });
+  if (listError) throw listError;
   const object = listed?.find((o) => o.name === path.slice(cut + 1));
   if (!object) return null;
   const size = Number((object.metadata as { size?: number } | null)?.size ?? 0);
@@ -211,7 +212,7 @@ export async function recordSetupFile(ev: Pick<Event, "id" | "org_id">, itemKey:
   return data as SetupFileRow;
 }
 
-/** Removes one file: the object first, then the row, so no row ever names a missing object. */
+/** Removes one file: the object first, then the row, so no personal-data object ever outlives its row (a failed removal leaves the row, and the file stays findable and retryable). */
 export async function removeSetupFile(eventId: string, id: string): Promise<SetupFileRow | null> {
   const f = await getSetupFile(eventId, id);
   if (!f) return null;
