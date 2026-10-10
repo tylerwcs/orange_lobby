@@ -60,7 +60,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
         const sessionId = bookedSessionId(i);
         const ics = sessionId && calendarHref ? calendarHref(sessionId) : null;
         return (
-          <div key={i.id} id={live ? "now" : undefined} className={`relative flex gap-3 overflow-hidden rounded-[14px] p-3.5 scroll-mt-4 bg-card ${live ? "border-2 border-primary" : "border border-border"}`}>
+          <div key={i.id} data-item-id={i.id} id={live ? "now" : undefined} className={`relative flex gap-3 overflow-hidden rounded-[14px] p-3.5 scroll-mt-4 bg-card ${live ? "border-2 border-primary" : "border border-border"}`}>
             {/* A saturated bar down the leading edge, not a tint behind the text: every
                 chart ink is already proven 3:1 against a white card, and a pastel fill was
                 tried and taken back out at about 1.2:1. Hidden from screen readers — the
@@ -112,7 +112,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
 function ImageRow({ item }: { item: AgendaItem }) {
   if (!item.image_url) return null;
   return (
-    <figure className="flex flex-col gap-2">
+    <figure data-item-id={item.id} className="flex flex-col gap-2">
       <AgendaImage src={item.image_url} title={item.title || "Agenda image"} variant="full" />
       {item.title && <figcaption className="px-1 text-sm text-muted-foreground">{item.title}</figcaption>}
     </figure>
