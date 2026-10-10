@@ -2,7 +2,7 @@
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { LauncherGrid } from "@/components/portal/LauncherGrid";
 import { launcherItems, sectionIcons } from "@/lib/launcher";
-import { brandStyle } from "@/lib/brand";
+import { PhoneFrame } from "./PhoneFrame";
 import type { BasicsAnswers } from "../sections/basics";
 
 export type PreviewBasics = Pick<BasicsAnswers, "name" | "starts_on" | "ends_on" | "venue_name" | "primary_color" | "logo_url" | "banner_url">;
@@ -54,8 +54,7 @@ export function HomePreview({ basics, focused = null, onSlot, compact = false }:
   );
 
   return (
-    <div className={`mx-auto rounded-[2.25rem] bg-zinc-900 p-2.5 shadow-xl ${compact ? "w-[240px]" : "w-[300px]"}`} aria-label="Preview of your portal home" role="img">
-      <div className={`overflow-y-auto rounded-[1.75rem] bg-background ${compact ? "h-[460px]" : "h-[600px]"}`} style={brandStyle(basics.primary_color) as React.CSSProperties}>
+    <PhoneFrame primaryColor={basics.primary_color} label="Preview of your portal home" compact={compact}>
         {slot("header", (
           <div className="relative">
             <PortalHeader event={event} />
@@ -82,7 +81,6 @@ export function HomePreview({ basics, focused = null, onSlot, compact = false }:
             <div className="h-14 rounded-xl border border-border bg-card" />
           </div>
         </div>
-      </div>
-    </div>
+    </PhoneFrame>
   );
 }
