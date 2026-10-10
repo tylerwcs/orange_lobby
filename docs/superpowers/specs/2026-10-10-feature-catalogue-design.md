@@ -1,6 +1,6 @@
 # Feature catalogue — design
 
-**Status: approved in chat on 10 Oct 2026. Not built yet.**
+**Status: approved in chat on 10 Oct 2026. Built 10 Oct 2026; plan docs/superpowers/plans/2026-10-10-feature-catalogue.md.**
 
 ECP Hub is being launched as a product. Not every event uses every feature, so each event now
 records which features it has. One catalogue in code lists what ECP Hub sells. Each event stores
