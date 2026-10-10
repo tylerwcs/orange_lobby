@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SETUP_BUCKET } from "@/lib/storage";
 import { browserStorage } from "@/lib/supabase/browser";
-import { acceptSetupFile, formatBytes, MAX_FILES_PER_ITEM, NOTE_MAX, SETUP_FILE_ACCEPT, type HubFile } from "../hub";
+import { acceptSetupFile, formatBytes, MAX_FILES_PER_ITEM, NOTE_MAX, SETUP_FILE_ACCEPT, withContentType, type HubFile } from "../hub";
 import { finishSetupUploadAction, removeSetupFileAction, saveSetupNoteAction, setupFileLinkAction, startSetupUploadAction } from "./hub-actions";
 
 const NOTE_SAVE_MS = 1000;
@@ -94,7 +94,7 @@ export function SetupItemPanel({ token, itemKey, initialFiles, initialNotes, not
       try {
         const start = await startSetupUploadAction(token, itemKey, { name: file.name, size: file.size });
         if (!start.ok) { problems.push(`${file.name}: ${start.message}`); continue; }
-        const { error } = await browserStorage().storage.from(SETUP_BUCKET).uploadToSignedUrl(start.path, start.uploadToken, file, { contentType: start.contentType });
+        const { error } = await browserStorage().storage.from(SETUP_BUCKET).uploadToSignedUrl(start.path, start.uploadToken, withContentType(file, start.contentType), { contentType: start.contentType });
         if (error) { problems.push(`${file.name}: ${UPLOAD_FAILED}`); continue; }
         const done = await finishSetupUploadAction(token, itemKey, start.path, file.name);
         if (!done.ok) { problems.push(`${file.name}: ${done.message}`); continue; }

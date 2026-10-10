@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  acceptSetupFile, cleanFileName, contentTypeFor, formatBytes, isSetupFilePath, itemStatus, nameForPath, setupFilePath, toHubFile,
+  acceptSetupFile, cleanFileName, contentTypeFor, formatBytes, isSetupFilePath, itemStatus, nameForPath, setupFilePath, toHubFile, withContentType,
 } from "@/features/setup/hub";
 
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -119,5 +119,16 @@ describe("toHubFile and formatBytes", () => {
     expect(formatBytes(500)).toBe("500 B");
     expect(formatBytes(2048)).toBe("2 KB");
     expect(formatBytes(5.5 * 1024 * 1024)).toBe("5.5 MB");
+  });
+});
+
+describe("withContentType (D459)", () => {
+  it("types an untyped or oddly typed file as the server chose, keeping its name and bytes", async () => {
+    for (const odd of ["", "application/vnd.ms-excel", "text/plain"]) {
+      const out = withContentType(new File(["a,b;1,2"], "rooms.csv", { type: odd }), "text/csv");
+      expect(out.type).toBe("text/csv");
+      expect(out.name).toBe("rooms.csv");
+      expect(await out.text()).toBe("a,b;1,2");
+    }
   });
 });

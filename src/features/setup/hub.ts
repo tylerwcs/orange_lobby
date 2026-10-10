@@ -49,6 +49,15 @@ export function contentTypeFor(path: string): string | null {
 }
 
 /**
+ * The file to upload, typed as the server chose. storage-js sends a Blob as multipart under the
+ * Blob's own type and ignores its `contentType` option, so a file the browser typed oddly or not
+ * at all (a .csv often) would be refused by the bucket's allowed types.
+ */
+export function withContentType(file: File, contentType: string): File {
+  return new File([file], file.name, { type: contentType });
+}
+
+/**
  * The name shown, and given to downloads: no folders, no control characters or quotes, at most 200
  * code points - the end kept, so the extension survives. Cut by code point, so an emoji is never split.
  */
