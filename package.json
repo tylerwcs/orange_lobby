@@ -13,6 +13,7 @@
     "check:submit": "node --env-file=.env.local scripts/submit-concurrency.mjs",
     "check:games": "node --env-file=.env.local scripts/games-db-check.mjs",
     "check:catalogue": "node --env-file=.env.local scripts/catalogue-db-check.mjs",
+    "check:setup": "node --env-file=.env.local scripts/setup-db-check.mjs",
     "load:games": "node --env-file=.env.local scripts/games-load.mjs"
   },
   "dependencies": {
