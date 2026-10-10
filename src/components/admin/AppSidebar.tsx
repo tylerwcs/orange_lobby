@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { signOut } from "@/app/login/actions";
 import { groupsFor, type Item } from "./nav";
+import type { NavKey } from "@/features/catalogue/client";
 import { APP_NAME, APP_MARK } from "@/lib/app-name";
 
 type Event = { id: string; name: string; status: string; check_in_enabled: boolean };
@@ -23,9 +24,9 @@ const STATUS_VARIANT: Record<string, "success" | "secondary" | "default"> = {
   archived: "default",
 };
 
-export function AppSidebar({ email, event }: { email: string; event?: Event | null }) {
+export function AppSidebar({ email, event, hidden = [] }: { email: string; event?: Event | null; hidden?: NavKey[] }) {
   const pathname = usePathname();
-  const groups = groupsFor(event);
+  const groups = groupsFor(event, hidden);
   // Overview's href is a prefix of every other item in its section, so it only lights up on an
   // exact match; the rest also match their own sub-routes.
   const root = event ? `/admin/events/${event.id}` : "/admin/events";

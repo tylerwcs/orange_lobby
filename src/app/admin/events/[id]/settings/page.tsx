@@ -8,7 +8,7 @@ import { shortDate } from "@/lib/text";
 import { loadDoors, listActivities } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
-import { FeaturesTab } from "@/features/catalogue";
+import { eventFeatures, FeaturesTab, hiddenSettingsTabs } from "@/features/catalogue";
 import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
@@ -80,6 +80,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
+  const hiddenTabs = hiddenSettingsTabs(await eventFeatures(ev.id));
   const qs = ev.registration_questions;
   const base = appBaseUrl();
   const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr] = await Promise.all([
@@ -88,7 +89,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
-  const openTab = rememberedTab(jar, tabScope, ["features", "details", "registration", "checkpoints", "address", "alerts", "danger"]) ?? "features";
+  const tabs = (["features", "details", "registration", "checkpoints", "address", "alerts", "danger"] as const).filter((t) => !(hiddenTabs as readonly string[]).includes(t));
+  const openTab = rememberedTab(jar, tabScope, tabs) ?? "features";
   const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
   const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
@@ -109,7 +111,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
-          <TabsTrigger value="address">Address</TabsTrigger>
+          {!hiddenTabs.includes("address") && <TabsTrigger value="address">Address</TabsTrigger>}
           <TabsTrigger value="alerts">Committee alerts</TabsTrigger>
           <TabsTrigger value="danger">Danger zone</TabsTrigger>
         </TabsList>
@@ -383,9 +385,11 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         <FeaturesTab eventId={ev.id} />
       </TabsContent>
 
-      <TabsContent value="address" className="flex flex-col gap-4">
-        <AddressTab eventId={ev.id} />
-      </TabsContent>
+      {!hiddenTabs.includes("address") && (
+        <TabsContent value="address" className="flex flex-col gap-4">
+          <AddressTab eventId={ev.id} />
+        </TabsContent>
+      )}
 
       <TabsContent value="alerts" className="flex flex-col gap-4">
         <Card>

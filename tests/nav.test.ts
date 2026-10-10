@@ -43,4 +43,17 @@ describe("groupsFor", () => {
     expect(all).not.toContain("/admin/events/e1/booths");
     expect(all).toContain("/admin/events/e1/activities");
   });
+
+  it("leaves out the items it is told to hide, and nothing else (D438)", () => {
+    const shown = groupsFor({ id: "e1", check_in_enabled: true }, ["whatsapp", "games"]).flatMap((g) => g.items.map((i) => i.label));
+    expect(shown).not.toContain("WhatsApp");
+    expect(shown).not.toContain("Games");
+    expect(shown).toContain("Activities");
+    expect(shown).toContain("Settings");
+  });
+
+  it("hides Activities on request, keeping the rest of Portal in order", () => {
+    const portal = groupsFor({ id: "e1", check_in_enabled: true }, ["activities"]).find((g) => g.title === "Portal");
+    expect(portal?.items.map((i) => i.label)).toEqual(["Agenda", "Info page", "Announcements", "Modules"]);
+  });
 });

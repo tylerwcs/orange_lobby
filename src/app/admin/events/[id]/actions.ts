@@ -21,6 +21,7 @@ import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/
 import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncementOrder, updateAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
+import { requireFeature } from "@/features/catalogue";
 import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
@@ -1380,6 +1381,7 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
   const ev = await requireEvent(eventId, orgId);
   const here = `/admin/events/${eventId}/whatsapp`;
   const fail = (message: string): never => redirect(flashPath(here, message, "error"));
+  await requireFeature(ev.id, "whatsapp", here);
 
   const list = await listTemplates();
   if (!list.ok) fail(`Could not read the templates from WhatsApp: ${list.error}`);

@@ -17,6 +17,7 @@ import { WhatsappComposer } from "@/components/admin/WhatsappComposer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { eventFeatures, has, NotInEvent } from "@/features/catalogue";
 import { sendWhatsappAction } from "../actions";
 
 export const metadata = { title: "WhatsApp" };
@@ -30,6 +31,9 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
+  if (!has(await eventFeatures(ev.id), "whatsapp")) {
+    return <NotInEvent eventId={ev.id} title="WhatsApp" keys={["whatsapp"]} back={`/admin/events/${ev.id}/whatsapp`} />;
+  }
   const attendees = await listAttendees(ev.id);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   const { recipients, unusable } = splitAudience(attendees, fields);

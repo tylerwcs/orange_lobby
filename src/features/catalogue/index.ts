@@ -3,3 +3,4 @@ export * from "./client";
 export * from "./db";
 export { FeaturesTab } from "./admin/FeaturesTab";
 export { setAddonAction } from "./admin/actions";
+export { NotInEvent } from "./admin/NotInEvent";

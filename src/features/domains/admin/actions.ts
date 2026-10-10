@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
+import { requireFeature } from "@/features/catalogue";
 import { flashPath } from "@/lib/flash";
 import { domainConfig, isSubdomainOf, ownDomainHost, subdomainHost } from "../hosts";
 import { vercelDomainStatus } from "../vercel";
@@ -14,7 +15,9 @@ const SETTLE = " It can take a minute to take effect.";
 
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
-  return requireEvent(eventId, orgId);
+  const ev = await requireEvent(eventId, orgId);
+  await requireFeature(ev.id, "custom_domain", back(eventId));
+  return ev;
 }
 
 async function add(eventId: string, read: { ok: true; host: string } | { ok: false; error: string }, own = false) {
