@@ -28,7 +28,9 @@ export function AgendaPreview({ agenda, primaryColor, focused = null, onSlot, co
   const dayId = focused?.startsWith("day:") ? focused.slice("day:".length) : items.find((i) => i.id === session)?.day_id ?? null;
   const day = days.find((d) => d.id === dayId) ?? days[0] ?? null;
 
-  // Captured before any link or button inside sees the click: the preview never navigates.
+  // Captured before any link, button or swipe area inside sees the event: the preview never navigates,
+  // by click or by swipe. Touches are only stopped, never prevented, so the preview still scrolls.
+  const stopTouch = (e: React.TouchEvent) => e.stopPropagation();
   const onClickCapture = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -43,7 +45,7 @@ export function AgendaPreview({ agenda, primaryColor, focused = null, onSlot, co
   };
 
   // Setup ids hold no quotes or backslashes (the ID rule in sections/agenda.ts), so they are safe in a quoted selector.
-  const outline = session
+  const outline = session && items.some((i) => i.id === session)
     ? `[data-preview="${scope}"] [data-item-id="${session}"]{outline:2px solid var(--primary);outline-offset:-2px}` +
       `[data-preview="${scope}"] [data-item-id="${session}"]::after{content:"Editing";position:absolute;top:4px;right:4px;` +
       "padding:1px 6px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:10px;font-weight:700}"
@@ -52,7 +54,8 @@ export function AgendaPreview({ agenda, primaryColor, focused = null, onSlot, co
   return (
     <PhoneFrame primaryColor={primaryColor} label="Preview of your agenda" compact={compact}>
       {outline && <style>{outline}</style>}
-      <div data-preview={scope} className={`p-4 ${onSlot ? "cursor-pointer" : ""}`} onClickCapture={onClickCapture}>
+      <div data-preview={scope} className={`p-4 ${onSlot ? "cursor-pointer" : ""}`} onClickCapture={onClickCapture}
+        onTouchStartCapture={stopTouch} onTouchMoveCapture={stopTouch} onTouchEndCapture={stopTouch} onTouchCancelCapture={stopTouch}>
         <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
         {day ? (
           <AgendaList items={items} day={day.date} days={days.map((d) => ({ date: d.date, name: d.name }))} basePath="" now={NEVER} />
