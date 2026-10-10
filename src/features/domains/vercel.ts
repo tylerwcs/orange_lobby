@@ -13,7 +13,7 @@ export async function vercelDomainStatus(host: string): Promise<DomainStatus> {
   const qs = team ? `?teamId=${encodeURIComponent(team)}` : "";
   try {
     const res = await fetch(`https://api.vercel.com/v9/projects/${encodeURIComponent(project)}/domains/${encodeURIComponent(host)}${qs}`, {
-      headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(3000),
     });
     if (res.status === 404) return "not-added";
     if (!res.ok) return "unknown";
