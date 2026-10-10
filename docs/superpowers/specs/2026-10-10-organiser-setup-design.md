@@ -1,6 +1,6 @@
 # Organiser setup page — design
 
-**Status: approved in chat on 10 Oct 2026. Phase 1 built 10 Oct 2026 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md): the link, the checklist, Basics with its preview, and the admin review and Apply for Basics. Phase 2 revised on 11 Oct 2026 (see "Phase 2 revision", D453–D461) and not built yet (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-2.md). Phase 2 adds a simple Agenda step, and file uploads plus a note on every checklist item. Info, breakout rooms and announcements become cards.**
+**Status: approved in chat on 10 Oct 2026. Phase 1 built 10 Oct 2026 (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-1.md): the link, the checklist, Basics with its preview, and the admin review and Apply for Basics. Phase 2 revised and built on 11 Oct 2026 (see "Phase 2 revision", D453–D461) (plan docs/superpowers/plans/2026-10-10-organiser-setup-phase-2.md). Phase 2 adds a simple Agenda step, and file uploads plus a note on every checklist item. Info, breakout rooms and announcements become cards.**
 
 **What the setup page is for (user, 11 Oct 2026):** it is not for organisers to set up the portal exactly. It eases onboarding and is the one place where the event's information and files are collected. Organisers send what they already have, such as their Excel sheets, and the admin does the rest. Where this document asks for detailed forms that mirror admin, the Phase 2 revision overrides it.
 
@@ -251,6 +251,8 @@ home's layout doesn't change.
 
 ## Phase 2 revision (11 Oct 2026)
 
+Built 11 Oct 2026. 0074 replaced setup_apply_agenda so a day shift or swap applies cleanly (two-pass re-date) and a removed day that still has rows refuses the whole Apply.
+
 The user reviewed the first Phase 2 plan and narrowed what organisers fill in. Organisers send what they already have, and the admin builds the rest. The decisions below override the earlier ones where they differ:
 
 - **D444's card list:** Info, Breakout rooms and Announcements are now cards (D461).
@@ -368,11 +370,25 @@ The user reviewed the first Phase 2 plan and narrowed what organisers fill in. O
     stays deleted"
   - the checklist built from a feature set with custom modules: steps first, then cards, then
     custom modules
-- **`scripts/setup-db-check.mjs` (`npm run check:setup`), a database check:**
+  - Phase 2: `tests/setup/agenda.test.ts`, `agenda-apply.test.ts`, `changes.test.ts`,
+    `hub.test.ts` (including `nameForPath`) and `sections.test.ts`
+- **`scripts/setup-db-check.mjs` (`npm run check:setup`), a database check (24 checks):**
   - the table's constraints and the `setup_token` uniqueness
   - the rev guard: a save with the current rev lands, a stale one changes nothing
   - the `seed` column
   - the cascade when an event is deleted
+  - Phase 2, migrations 0073 (the hub's tables, the `setup-files` bucket and
+    `setup_apply_agenda`) and 0074 (the two-pass re-date):
+    - the hub's tables: one row per item, and no two files share a path
+    - the `setup-files` bucket is private and capped at 25 MB
+    - `setup_apply_agenda`: the plan writes its days and sessions together, the map and the
+      `applied` snapshot are recorded, and a stale reviewed version writes its rows but isn't
+      marked applied
+    - a plan with a failing row writes nothing
+    - a day shift and a swap of two days' dates apply, with a moved session following its day
+    - a removed day that still has sessions refuses the whole Apply
+    - the public key can't run the apply function
+    - deleting the event removes its items and files
 - **Apply-level rules are covered by unit tests** (`tests/setup/`): the change-only patch, the
   review/patch agreement, and which images a save or an Apply may delete.
 - **A browser walk-through as organiser, then as admin, on a test event (never `ecphub`):**
