@@ -104,13 +104,13 @@ export type EventPatch = Partial<{
 }>;
 
 /**
- * Only what the organiser changed since the last Apply (D450). The baseline is the last applied
- * snapshot, or blank answers before the first Apply - so a blank optional field never wipes a
- * live value, and a field the admin edited in admin keeps the admin's value until the organiser
- * changes that field again.
+ * Only what the organiser changed since the baseline (D450). The baseline is the last applied
+ * snapshot, or the live event before the first Apply (the form starts prefilled from it). So on
+ * the first Apply the patch equals the review's changes and a field left as it was is never
+ * written; later Applies write only what the organiser changed since the last Apply, so a field
+ * the admin edited in admin keeps the admin's value until the organiser changes that field again.
  */
-export function basicsPatch(submitted: BasicsAnswers, applied: BasicsAnswers | null): EventPatch {
-  const baseline = applied ?? blankBasics();
+export function basicsPatch(submitted: BasicsAnswers, baseline: BasicsAnswers): EventPatch {
   const changed = (f: BasicsField) => submitted[f].trim() !== baseline[f].trim();
   const val = (f: BasicsField) => submitted[f].trim() || null;
   const p: EventPatch = {};

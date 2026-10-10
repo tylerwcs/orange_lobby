@@ -80,13 +80,19 @@ describe("basicsChanges (D449)", () => {
 });
 
 describe("basicsPatch (D450)", () => {
-  it("first apply writes every filled field and leaves blank optional fields alone", () => {
-    const patch = basicsPatch(full(), null);
-    expect(patch).toEqual({
+  const live = basicsFromEvent(event);
+  it("first apply writes what differs from the live event", () => {
+    expect(basicsPatch(full(), live)).toEqual({
       name: "KOM 2027", starts_on: "2027-01-10", ends_on: "2027-01-11", venue_name: "Sunway Pyramid",
-      primary_color: "#0EA5E9",
+      primary_color: "#0EA5E9", logo_url: null, committee_alert_numbers: [],
     });
-    expect("logo_url" in patch).toBe(false);
+  });
+  it("first apply clears a prefilled field the organiser emptied", () => {
+    const base = { ...live, banner_url: "https://b" };
+    expect(basicsPatch({ ...base, banner_url: "" }, base)).toEqual({ banner_url: null });
+  });
+  it("first apply writes nothing when the organiser changed nothing", () => {
+    expect(basicsPatch(live, live)).toEqual({});
   });
   it("a later apply writes only what the organiser changed since the last apply", () => {
     const applied = full();
@@ -99,11 +105,10 @@ describe("basicsPatch (D450)", () => {
     expect(basicsPatch(full({ banner_url: "" }), full({ banner_url: "https://b" }))).toEqual({ banner_url: null });
   });
   it("turns committee lines into the stored +60-less list", () => {
-    expect(basicsPatch(full({ committee_numbers: "012-345 6789\n+60 19 876 5432\n012-345 6789" }), null).committee_alert_numbers)
+    expect(basicsPatch(full({ committee_numbers: "012-345 6789\n+60 19 876 5432\n012-345 6789" }), blankBasics()).committee_alert_numbers)
       .toEqual(["60123456789", "60198765432"]);
   });
   it("never writes categories or notes", () => {
-    const patch = basicsPatch(full({ categories: "Staff", notes: "Hi" }), null);
-    expect("categories" in patch || "notes" in patch).toBe(false);
+    expect(basicsPatch(full({ categories: "Staff", notes: "Hi" }), full())).toEqual({});
   });
 });
