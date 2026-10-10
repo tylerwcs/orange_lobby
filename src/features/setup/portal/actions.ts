@@ -1,36 +1,20 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import type { Event } from "@/lib/types";
-import { isValidToken } from "@/lib/tokens";
-import { allow } from "@/lib/ratelimit";
 import { deleteEventImage, uploadEventImage } from "@/lib/db/media";
-import { getEventBySetupToken, getSetupRow, saveAnswers, submitAnswers } from "../db";
+import { getSetupRow, saveAnswers, submitAnswers } from "../db";
+import { loadByToken } from "./load";
 import { isBuiltStep } from "../sections";
 import { BASICS_IMAGE_FIELDS, basicsComplete, basicsFromEvent, basicsMissing, BASICS_LABELS, sanitizeBasics } from "../sections/basics";
 import { imagesToDeleteOnSave, ownImageAnswers } from "../images";
 
 export type SetupResult = { ok: true; rev: number } | { ok: false; message: string; stale?: boolean };
 
-const GONE = "This setup link no longer works. Ask your project contact for a new one.";
-const BUSY = "Too many saves at once — wait a moment and try again.";
 const STALE: SetupResult = { ok: false, message: "Someone else updated this section — reload to see their changes.", stale: true };
 const fail = (message: string): { ok: false; message: string } => ({ ok: false, message });
 const supabaseUrl = () => process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-/**
- * The token is the only authority (D441): a server action is a public POST, so every call
- * re-checks the link and takes the event from it, never from the caller. A rate-limited call
- * says so, rather than claiming the link is dead.
- */
-async function load(token: string): Promise<{ ok: true; ev: Event } | { ok: false; message: string }> {
-  if (typeof token !== "string" || !isValidToken(token)) return fail(GONE);
-  if (!allow(`setup:${token}`, 240, 60_000)) return fail(BUSY);
-  const ev = await getEventBySetupToken(token);
-  return ev ? { ok: true, ev } : fail(GONE);
-}
-
 export async function saveSectionAction(token: string, section: string, expectedRev: number, raw: unknown): Promise<SetupResult> {
-  const loaded = await load(token);
+  const loaded = await loadByToken(token);
   if (!loaded.ok) return fail(loaded.message);
   const { ev } = loaded;
   if (!isBuiltStep(section) || section !== "basics") return fail("That section can't be filled in here yet.");
@@ -51,7 +35,7 @@ export async function saveSectionAction(token: string, section: string, expected
 }
 
 export async function submitSectionAction(token: string, section: string, expectedRev: number): Promise<SetupResult> {
-  const loaded = await load(token);
+  const loaded = await loadByToken(token);
   if (!loaded.ok) return fail(loaded.message);
   const { ev } = loaded;
   if (!isBuiltStep(section) || section !== "basics") return fail("That section can't be submitted here yet.");
@@ -71,7 +55,7 @@ export async function submitSectionAction(token: string, section: string, expect
 
 /** One image per call: Vercel refuses request bodies over 4.5 MB (storage.ts). */
 export async function uploadSetupImageAction(token: string, kind: string, fd: FormData): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
-  const loaded = await load(token);
+  const loaded = await loadByToken(token);
   if (!loaded.ok) return fail(loaded.message);
   const { ev } = loaded;
   if (kind !== "logo" && kind !== "banner") return fail("That image can't be uploaded here.");

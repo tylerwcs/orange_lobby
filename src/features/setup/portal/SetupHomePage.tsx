@@ -5,35 +5,33 @@ import { brandStyle } from "@/lib/brand";
 import { formatDateRange } from "@/lib/text";
 import { Badge } from "@/components/ui/badge";
 import { Mark } from "@/components/portal/PortalHeader";
-import { eventFeatures } from "@/features/catalogue";
-import { getEventBySetupToken, listSetupRows } from "../db";
-import { BUILT_STEPS } from "../sections";
-import { buildChecklist } from "../checklist";
+import { eventChecklist, getEventBySetupToken, listSetupFiles, listSetupItems, listSetupRows } from "../db";
 import { hasUnsubmittedChanges, sectionStatus, STATUS_LABELS, type SectionStatus } from "../status";
+import { ITEM_STATUS_ORGANISER, itemStatus, toHubFile, type ItemStatus } from "../hub";
 import { basicsFromEvent, sanitizeBasics } from "../sections/basics";
 import { HomePreview } from "../preview/HomePreview";
+import { SetupItemPanel } from "./SetupItemPanel";
 
 const STATUS_VARIANT: Record<SectionStatus, "secondary" | "warning" | "success"> = {
   not_started: "secondary", draft: "secondary", submitted: "warning", applied: "success",
 };
+const ITEM_VARIANT: Record<ItemStatus, "secondary" | "outline" | "success"> = { empty: "secondary", new: "outline", handled: "success" };
 
 /**
- * The organiser's one place (D444): everything the event needs. Steps open
- * a form; cards say what to send. A small preview shows the portal as submitted so far.
+ * The organiser's one place (D444, D458): everything the event needs. Steps open a form; every
+ * other item takes files and a note right here. A small preview shows the portal as submitted so far.
  */
 export async function SetupHomePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   if (!isValidToken(token)) notFound();
   const ev = await getEventBySetupToken(token);
   if (!ev) notFound();
-  const [rows, features] = await Promise.all([listSetupRows(ev.id), eventFeatures(ev.id)]);
-  const list = buildChecklist({
-    features, custom: features.custom,
-    selfRegistration: ev.registration_open || ev.registration_questions.length > 0, builtSteps: BUILT_STEPS,
-  });
+  const [rows, list, items, files] = await Promise.all([listSetupRows(ev.id), eventChecklist(ev), listSetupItems(ev.id), listSetupFiles(ev.id)]);
   const rowOf = (key: string) => rows.find((r) => r.section === key) ?? null;
-  const steps = list.filter((e) => e.kind === "step");
-  const done = steps.filter((e) => ["submitted", "applied"].includes(sectionStatus(rowOf(e.key)))).length;
+  const itemOf = (key: string) => items.find((i) => i.item_key === key) ?? null;
+  const filesOf = (key: string) => files.filter((f) => f.item_key === key);
+  const hub = (key: string) => itemStatus(itemOf(key), filesOf(key).length);
+  const sent = list.filter((e) => hub(e.key) !== "empty" || (e.kind === "step" && ["submitted", "applied"].includes(sectionStatus(rowOf(e.key))))).length;
   const basicsRow = rowOf("basics");
   const shown = basicsRow ? sanitizeBasics(basicsRow.submitted ?? basicsRow.answers) : basicsFromEvent(ev);
 
@@ -47,8 +45,8 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
             <p className="text-sm text-muted-foreground">Event setup · {[formatDateRange(ev.starts_on, ev.ends_on), ev.venue_name].filter(Boolean).join(" · ")}</p>
           </div>
         </header>
-        <p className="text-sm">Everything we need from you for this event. Fill in each section here, or send the items listed to your project contact. Nothing goes to attendees until we&apos;ve reviewed it.</p>
-        <p className="text-sm font-bold">{done} of {steps.length} section{steps.length === 1 ? "" : "s"} submitted</p>
+        <p className="text-sm">Everything we need from you for this event, in one place. Fill in the first steps here, and send the rest as files or a note on each item. Nothing goes to attendees until we&apos;ve reviewed it.</p>
+        <p className="text-sm font-bold">{sent} of {list.length} item{list.length === 1 ? "" : "s"} sent</p>
 
         <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
           {list.map((e) => {
@@ -62,23 +60,27 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
                       <span className="font-bold">{e.title}</span>
                       <span className="text-xs text-muted-foreground">{e.send.join(" · ")}</span>
                     </span>
+                    {filesOf(e.key).length > 0 && <span className="text-xs font-semibold text-muted-foreground">Files sent</span>}
                     {s === "applied" && hasUnsubmittedChanges(row) && <span className="text-xs font-semibold text-amber-700">Changes not submitted</span>}
                     <Badge variant={STATUS_VARIANT[s]}>{STATUS_LABELS[s]}</Badge>
                   </Link>
                 </li>
               );
             }
+            const status = hub(e.key);
             return (
               <li key={e.key}>
                 <details className="group p-4">
                   <summary className="flex cursor-pointer list-none items-center gap-3">
                     <span className="min-w-0 flex-1 font-bold">{e.title}</span>
-                    <span className="text-xs font-bold text-primary group-open:hidden">What to send</span>
+                    <Badge variant={ITEM_VARIANT[status]}>{ITEM_STATUS_ORGANISER[status]}</Badge>
                   </summary>
-                  <ul className="mt-3 list-disc pl-5 text-sm">
-                    {e.send.map((line) => <li key={line}>{line}</li>)}
-                  </ul>
-                  <p className="mt-2 text-xs text-muted-foreground">Send these to your project contact.</p>
+                  <div className="mt-3 flex flex-col gap-3">
+                    <ul className="list-disc pl-5 text-sm">
+                      {e.send.map((line) => <li key={line}>{line}</li>)}
+                    </ul>
+                    <SetupItemPanel token={token} itemKey={e.key} initialFiles={filesOf(e.key).map(toHubFile)} initialNotes={itemOf(e.key)?.notes ?? ""} />
+                  </div>
                 </details>
               </li>
             );
