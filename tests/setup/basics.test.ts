@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  basicsBaseline, basicsChanges, basicsComplete, basicsErrors, basicsFromEvent, basicsMissing, basicsPatch, blankBasics, sanitizeBasics,
+  basicsBaseline, basicsChanges, basicsComplete, basicsErrors, basicsFromEvent, basicsMissing, basicsPatch, basicsProblems, blankBasics, sanitizeBasics,
   type BasicsAnswers,
 } from "@/features/setup/sections/basics";
 
@@ -166,5 +166,12 @@ describe("basicsPatch (D450)", () => {
     expect(patch).toEqual({ name: "KOM 2027" });
     const listed = basicsChanges(submitted, liveNow, baseline).filter((c) => !c.infoOnly);
     expect(Object.keys(patch)).toHaveLength(listed.length);
+  });
+});
+
+describe("basicsProblems", () => {
+  it("names each empty required field and each wrong value", () => {
+    expect(basicsProblems(full())).toEqual([]);
+    expect(basicsProblems(full({ name: "", primary_color: "red" }))).toEqual(["Event name is empty", "Brand colour: Use a colour like #F97316."]);
   });
 });

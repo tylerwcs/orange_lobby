@@ -166,3 +166,11 @@ export function basicsPatch(submitted: BasicsAnswers, baseline: BasicsAnswers, l
   }
   return p;
 }
+
+/** Why this Basics version can't be applied, one line per field. The review lists them; Apply refuses on them. */
+export function basicsProblems(a: BasicsAnswers): string[] {
+  return [
+    ...basicsMissing(a).map((f) => `${BASICS_LABELS[f]} is empty`),
+    ...Object.entries(basicsErrors(a)).map(([f, m]) => `${BASICS_LABELS[f as BasicsField]}: ${m}`),
+  ];
+}
