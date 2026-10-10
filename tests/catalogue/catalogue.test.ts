@@ -28,6 +28,12 @@ describe("the catalogue (D433)", () => {
     for (const kind of ACTIVITY_KINDS) expect(ADDON_KEYS.filter((a) => FEATURES[a].unlocks.activityKinds?.includes(kind))).toHaveLength(1);
     for (const kind of GAME_KINDS) expect(ADDON_KEYS.filter((a) => FEATURES[a].unlocks.gameKinds?.includes(kind))).toHaveLength(1);
   });
+  it("gives every setup item a unique key, and only sections as steps (D444)", () => {
+    const items = (Object.values(FEATURES) as { setup?: readonly { key: string; kind: string }[] }[]).flatMap((f) => f.setup ?? []);
+    const keys = items.map((i) => i.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(items.filter((i) => i.kind === "step").map((i) => i.key).sort()).toEqual(["agenda", "basics", "info"]);
+  });
 });
 
 describe("featureSet and has (D437)", () => {
