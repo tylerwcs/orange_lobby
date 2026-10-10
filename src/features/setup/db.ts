@@ -260,12 +260,14 @@ export async function recordSetupFile(ev: Pick<Event, "id" | "org_id">, itemKey:
     if (removeError) throw removeError;
     return "full";
   }
+  // The item's row first: a failure between the two writes can leave an item row with no file, but
+  // never a file whose item has no row, which the admin could not mark handled.
+  await touchSetupItem(ev.id, itemKey);
   const { data, error } = await files()
     .insert({ event_id: ev.id, item_key: itemKey, path, name, size_bytes: Math.max(Number(object.size ?? 0), 1), content_type: contentType })
     .select("*").single();
   if (error?.code === "23505") return (await recorded()).row;
   if (error) throw error;
-  await touchSetupItem(ev.id, itemKey);
   return data as SetupFileRow;
 }
 

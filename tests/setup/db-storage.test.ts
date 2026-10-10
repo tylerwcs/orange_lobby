@@ -175,4 +175,15 @@ describe("recordSetupFile (D459)", () => {
     expect(await record()).toBeNull();
     expect(await recordSetupFile(ev, "rooms", "not/a/minted/path.csv", "x.csv", "text/csv")).toBeNull();
   });
+
+  it("writes the item's row before the file's row, so a file never lacks one (D458)", async () => {
+    await record();
+    expect(h.log).toEqual(["event_setup_items.upsert", "event_setup_files.insert"]);
+  });
+
+  it("leaves no file row behind when marking the item fails", async () => {
+    h.failTouch = true;
+    await expect(record()).rejects.toThrow("items down");
+    expect(h.store.event_setup_files).toHaveLength(0);
+  });
 });
