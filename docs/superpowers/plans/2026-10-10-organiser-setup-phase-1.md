@@ -29,7 +29,7 @@
   - `submitted` differs from `applied`: "Submitted"
   - otherwise: "Applied"
   - Separately, "unsubmitted changes" means `submitted` is not null and `answers` differs from `submitted`.
-- **Apply writes only fields that changed since the last Apply.** The baseline is `applied`, or the blank answers when nothing has been applied yet. So a blank optional field never wipes a live value on the first Apply.
+- **Apply writes only fields that changed since the last Apply.** The baseline is `applied`, or the live event's values (`basicsFromEvent(ev)`) when nothing has been applied yet - the form starts prefilled from the live event, so on the first Apply the patch is exactly the review's changes, and a field the organiser left as it was is never written.
 - **The token is the identity.** Every organiser action:
   - re-checks `isValidToken`
   - checks the rate limit `allow(\`setup:${token}\`, 240, 60_000)`
@@ -2132,7 +2132,7 @@ import { isEventMediaFor } from "@/lib/storage";
 import { getSetupRow, markApplied } from "../db";
 import { isBuiltStep } from "../sections";
 import { sectionStatus } from "../status";
-import { BASICS_IMAGE_FIELDS, BASICS_LABELS, basicsErrors, basicsMissing, basicsPatch, sanitizeBasics } from "../sections/basics";
+import { BASICS_IMAGE_FIELDS, BASICS_LABELS, basicsErrors, basicsFromEvent, basicsMissing, basicsPatch, sanitizeBasics } from "../sections/basics";
 ```
 
 `requireEvent` is already imported from `@/lib/db/events`. Merge `updateEvent` into that same import, and `getSetupRow`/`markApplied` into the existing `../db` import.
@@ -2158,7 +2158,7 @@ export async function applySectionAction(eventId: string, section: string) {
   }
   if (problems.length) redirect(flashPath(back, `Not applied. ${problems.join(". ")}.`, "error"));
 
-  const patch = basicsPatch(submitted, row.applied ? sanitizeBasics(row.applied) : null);
+  const patch = basicsPatch(submitted, row.applied ? sanitizeBasics(row.applied) : basicsFromEvent(ev));
   if (Object.keys(patch).length) await updateEvent(ev.id, patch);
   // Replaced images go after the row points at the new ones, as Settings does.
   for (const f of BASICS_IMAGE_FIELDS) {
