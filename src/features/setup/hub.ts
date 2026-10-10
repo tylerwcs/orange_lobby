@@ -38,7 +38,7 @@ export function acceptSetupFile(f: { name: string; size: number }): { ok: true; 
   const ext = extOf(f.name);
   const contentType = typeOf(ext);
   if (!contentType) return { ok: false, message: "Send Excel, CSV, Word, PDF, PowerPoint, text or image files (PNG, JPEG, WebP)." };
-  if (!f.size) return { ok: false, message: "That file is empty." };
+  if (!(Number.isFinite(f.size) && f.size > 0)) return { ok: false, message: "That file is empty." };
   if (f.size > SETUP_FILE_MAX_BYTES) return { ok: false, message: "Files must be 25 MB or smaller." };
   return { ok: true, ext: ext === "jpeg" ? "jpg" : ext, contentType };
 }
@@ -48,11 +48,14 @@ export function contentTypeFor(path: string): string | null {
   return typeOf(extOf(path));
 }
 
-/** The name shown, and given to downloads: no folders, no control characters or quotes, at most 200 characters - the end kept, so the extension survives. */
+/**
+ * The name shown, and given to downloads: no folders, no control characters or quotes, at most 200
+ * code points - the end kept, so the extension survives. Cut by code point, so an emoji is never split.
+ */
 export function cleanFileName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
   const clean = base.replace(/[\u0000-\u001f\u007f"]/g, "").trim();
-  return clean ? clean.slice(-200) : "file";
+  return clean ? Array.from(clean).slice(-200).join("") : "file";
 }
 
 /** Where one setup file lives: under its event's folder, named by a fresh id (D459). */
@@ -60,10 +63,12 @@ export function setupFilePath(orgId: string, eventId: string, id: string, ext: s
   return `${orgId}/${eventId}/${id}.${ext}`;
 }
 
-/** Whether `path` is one `setupFilePath` could have minted for this event. Anything else is never recorded. */
+/** Whether `path` is one `setupFilePath` could have minted for this event: a lowercase uuid and a stored extension. Anything else is never recorded. */
 export function isSetupFilePath(path: string, orgId: string, eventId: string): boolean {
   const prefix = `${orgId}/${eventId}/`;
-  return path.startsWith(prefix) && /^[0-9a-f-]{36}\.[a-z0-9]{2,4}$/.test(path.slice(prefix.length));
+  if (!path.startsWith(prefix)) return false;
+  const rest = path.slice(prefix.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/.test(rest) && contentTypeFor(rest) !== null;
 }
 
 export type ItemStatus = "empty" | "new" | "handled";

@@ -17,6 +17,10 @@ describe("acceptSetupFile (D459)", () => {
     expect(acceptSetupFile({ name: "a.pdf", size: 0 })).toEqual({ ok: false, message: "That file is empty." });
     expect(acceptSetupFile({ name: "a.pdf", size: 25 * 1024 * 1024 + 1 })).toEqual({ ok: false, message: "Files must be 25 MB or smaller." });
   });
+  it("treats a negative or non-numeric size as empty", () => {
+    expect(acceptSetupFile({ name: "a.pdf", size: -1 })).toEqual({ ok: false, message: "That file is empty." });
+    expect(acceptSetupFile({ name: "a.pdf", size: Number.NaN })).toEqual({ ok: false, message: "That file is empty." });
+  });
   it("reads the type back from a stored path", () => {
     expect(contentTypeFor("o/e/abc.xlsx")).toBe(XLSX);
     expect(contentTypeFor("o/e/abc.exe")).toBeNull();
@@ -38,6 +42,15 @@ describe("cleanFileName", () => {
     expect(cleanFileName(long)).toHaveLength(200);
     expect(cleanFileName(long).endsWith(".pdf")).toBe(true);
   });
+  it("never cuts an emoji in half, so the name still URI-encodes", () => {
+    // 150 emoji (300 UTF-16 units) + 51 letters + ".pdf": a 200-unit cut would start on an emoji's low surrogate.
+    const name = `${"😀".repeat(150)}${"a".repeat(51)}.pdf`;
+    const clean = cleanFileName(name);
+    expect(clean).toBe(Array.from(name).slice(-200).join(""));
+    expect(Array.from(clean)).toHaveLength(200);
+    expect(clean.endsWith(".pdf")).toBe(true);
+    expect(() => encodeURIComponent(clean)).not.toThrow();
+  });
 });
 
 describe("setup file paths", () => {
@@ -50,6 +63,18 @@ describe("setup file paths", () => {
     expect(isSetupFilePath(`o/x/${id}.pdf`, "o", "e")).toBe(false);
     expect(isSetupFilePath("o/e/../secret.pdf", "o", "e")).toBe(false);
     expect(isSetupFilePath(`o/e/sub/${id}.pdf`, "o", "e")).toBe(false);
+  });
+  it("accepts only the extensions we store", () => {
+    expect(isSetupFilePath(`o/e/${id}.xlsx`, "o", "e")).toBe(true);
+    expect(isSetupFilePath(`o/e/${id}.html`, "o", "e")).toBe(false);
+    expect(isSetupFilePath(`o/e/${id}.exe`, "o", "e")).toBe(false);
+    expect(isSetupFilePath(`o/e/${id}.svg`, "o", "e")).toBe(false);
+  });
+  it("needs a lowercase uuid of exactly 36 characters, with no trailing newline", () => {
+    expect(isSetupFilePath(`o/e/${id.toUpperCase()}.pdf`, "o", "e")).toBe(false);
+    expect(isSetupFilePath(`o/e/${id.slice(0, 35)}.pdf`, "o", "e")).toBe(false);
+    expect(isSetupFilePath(`o/e/${"-".repeat(36)}.pdf`, "o", "e")).toBe(false);
+    expect(isSetupFilePath(`o/e/${id}.pdf\n`, "o", "e")).toBe(false);
   });
 });
 
