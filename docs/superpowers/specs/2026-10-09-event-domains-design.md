@@ -1,6 +1,6 @@
 # Event domains — design
 
-**Status: proposed 9 Oct 2026, not yet approved.** No code, database or Vercel change until it is.
+**Status: approved 10 Oct 2026.** Phase 1 plan: docs/superpowers/plans/2026-10-10-event-domains-phase-1.md.
 
 ECP Hub moves to its own domain, `ecphub.app`, bought on Vercel. Each event can then have an
 address of its own, either a subdomain (`sk2summit.ecphub.app`) or a domain bought for that
