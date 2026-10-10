@@ -3,6 +3,7 @@ import { agendaFromLive, blankAgenda, type AgendaAnswers, type AgendaMap } from 
 import { agendaBaseline, planAgenda, type AgendaLive } from "@/features/setup/sections/agenda-apply";
 import { changeSummary, RESTORED } from "@/features/setup/sections/changes";
 import type { AgendaDay, AgendaItem } from "@/lib/types";
+import { shortDate } from "@/lib/text";
 import { counter, day, item, session } from "./fixtures";
 
 const live = (days: AgendaDay[], items: AgendaItem[]): AgendaLive => ({ days, items });
@@ -146,5 +147,68 @@ describe("planAgenda (D450, D455, D456)", () => {
     const p = plan({ days: [{ id: "D1", date: "2027-01-11", name: "" }], sessions: [] }, B, { D1: "D1" }, L3);
     expect(p.problems).toHaveLength(1);
     expect(p.problems[0]).toMatch(/^Two days would fall on /);
+  });
+
+  it("moves a session onto a day added in the same plan", () => {
+    const { answers: B, map } = seeded(L);
+    const S: AgendaAnswers = {
+      days: [...B.days, { id: "dnew", date: "2027-01-11", name: "Gala" }],
+      sessions: [{ ...B.sessions[0], day: "dnew" }],
+    };
+    const p = plan(S, B, map, L);
+    expect(p.days.insert).toEqual([{ id: "n1", date: "2027-01-11", name: "Gala" }]);
+    expect(p.items.update).toEqual([{ id: "I1", day_id: "n1" }]);
+    expect(p.days.delete).toEqual([]);
+    expect(p.map).toMatchObject({ dnew: "n1", I1: "I1" });
+    expect(p.problems).toEqual([]);
+  });
+
+  it("places a new session among breakout rounds: rooms keep one order number, only later rows are renumbered", () => {
+    const L7 = live([day("D1", "2027-01-10")], [
+      item({ id: "I1", day_id: "D1", starts_at: "09:00", title: "Keynote", sort_order: 10 }),
+      item({ id: "R1", day_id: "D1", starts_at: "14:00", title: "Breakout 1", slot: "Breakout 1", code: "3A", sort_order: 20 }),
+      item({ id: "R2", day_id: "D1", starts_at: "14:00", title: "Breakout 1", slot: "Breakout 1", code: "3B", sort_order: 20 }),
+      item({ id: "I3", day_id: "D1", starts_at: "16:00", title: "Closing", sort_order: 30 }),
+    ]);
+    const { answers: B, map } = seeded(L7);
+    const S = { ...B, sessions: [...B.sessions, session("new", "D1", { starts_at: "10:00", title: "Coffee" })] };
+    const p = plan(S, B, map, L7);
+    expect(p.items.insert).toMatchObject([{ title: "Coffee", day_id: "D1", sort_order: 20 }]);
+    // The keynote keeps 10; both rooms move together to 30; the closing follows at 40.
+    expect(p.order).toEqual([{ id: "R1", sort_order: 30 }, { id: "R2", sort_order: 30 }, { id: "I3", sort_order: 40 }]);
+  });
+
+  it("writes a day's new date and new name together, each with its review line", () => {
+    const L8 = live([day("D1", "2027-01-10", "Day 1")], []);
+    const { answers: B, map } = seeded(L8);
+    const p = plan({ days: [{ id: "D1", date: "2027-01-11", name: "Opening" }], sessions: [] }, B, map, L8);
+    expect(p.days.update).toEqual([{ id: "D1", date: "2027-01-11", name: "Opening" }]);
+    expect(p.changes).toEqual([{
+      what: "day", how: "changed", label: "Opening",
+      lines: [`Date: ${shortDate("2027-01-10")} → ${shortDate("2027-01-11")}`, "Name: Day 1 → Opening"],
+    }]);
+  });
+
+  it("inserts a day the admin deleted again when the organiser renames it, with the restored note", () => {
+    const { answers: B, map } = seeded(live([day("D1", "2027-01-10", "Day 1")], []));
+    const gone = live([], []);
+    const p = plan({ days: [{ id: "D1", date: "2027-01-10", name: "Opening" }], sessions: [] }, B, map, gone);
+    expect(p.days.insert).toEqual([{ id: "n1", date: "2027-01-10", name: "Opening" }]);
+    expect(p.days.update).toEqual([]);
+    expect(p.changes).toEqual([{ what: "day", how: "added", label: "Opening", lines: [RESTORED] }]);
+    expect(p.map.D1).toBe("n1");
+  });
+
+  it("adopts the live day when the organiser removes a day and adds another on the same date", () => {
+    const { answers: B, map } = seeded(L);
+    const S: AgendaAnswers = {
+      days: [{ id: "d9", date: "2027-01-10", name: "" }],
+      sessions: [session("s9", "d9", { title: "Welcome" })],
+    };
+    const p = plan(S, { days: B.days, sessions: [] }, map, L);
+    expect(p.days).toEqual(NOTHING);
+    expect(p.items.insert).toMatchObject([{ title: "Welcome", day_id: "D1" }]);
+    expect(p.map.d9).toBe("D1");
+    expect(p.problems).toEqual([]);
   });
 });
