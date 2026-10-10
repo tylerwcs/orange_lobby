@@ -7,6 +7,7 @@ import { createGame, deleteGame, getGame, listGames, resetDraw, updateGame, GAME
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { acceptImage, acceptVideo, isEventMediaFor, isGameVideoFor, mediaPathInEvent, type ImageKind } from "@/lib/storage";
 import { createMediaUpload, deleteEventImage, nextImage } from "@/lib/db/media";
+import { eventFeatures, featureForGameKind, has, notPartOf, requireFeature } from "@/features/catalogue";
 import { flashPath } from "@/lib/flash";
 
 const gamesPath = (eventId: string) => `/admin/events/${eventId}/games`;
@@ -15,6 +16,7 @@ export async function createGameAction(eventId: string, kind: string, form: Form
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   if (!isGameKind(kind)) redirect(flashPath(gamesPath(ev.id), "That kind of game does not exist.", "error"));
+  await requireFeature(ev.id, featureForGameKind(kind), gamesPath(ev.id));
   const title = (String(form.get("title") ?? "").trim() || GAME_KIND_LABELS[kind]).slice(0, 80);
   const game = await createGame(ev, kind, title);
   revalidatePath(gamesPath(ev.id));
@@ -52,6 +54,7 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
   const ev = await requireEvent(eventId, orgId);
   const game = await getGame(gameId, ev.id);
   if (!game) redirect(flashPath(gamesPath(ev.id), "That game no longer exists.", "error"));
+  await requireFeature(ev.id, featureForGameKind(game.kind), gamesPath(ev.id));
   const path = `${gamesPath(ev.id)}/${game.id}`;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const parsed = configFromForm(game.kind, form);
@@ -136,7 +139,9 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
 export async function backgroundVideoUploadAction(eventId: string, gameId: string, type: string, size: number): Promise<{ ok: true; path: string; token: string; url: string } | { ok: false; error: string }> {
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
-  if (!(await getGame(gameId, ev.id))) return { ok: false, error: "That game no longer exists." };
+  const game = await getGame(gameId, ev.id);
+  if (!game) return { ok: false, error: "That game no longer exists." };
+  if (!has(await eventFeatures(ev.id), featureForGameKind(game.kind))) return { ok: false, error: notPartOf(featureForGameKind(game.kind)) };
   let ext: string;
   try {
     ext = acceptVideo({ type: String(type), size: Number(size) });
@@ -169,6 +174,7 @@ export async function gameImageUploadAction(
   const ev = await requireEvent(eventId, orgId);
   const game = await getGame(gameId, ev.id);
   if (!game) return { ok: false, error: "That game no longer exists." };
+  if (!has(await eventFeatures(ev.id), featureForGameKind(game.kind))) return { ok: false, error: notPartOf(featureForGameKind(game.kind)) };
   if (game.kind !== "draw") return { ok: false, error: "Pictures are only for lucky draws." };
   let ext: string;
   try {
@@ -193,6 +199,7 @@ export async function resetDrawAction(eventId: string, gameId: string) {
   const ev = await requireEvent(eventId, orgId);
   const game = await getGame(gameId, ev.id);
   if (!game || game.kind !== "draw") redirect(flashPath(gamesPath(ev.id), "That draw no longer exists.", "error"));
+  await requireFeature(ev.id, featureForGameKind(game.kind), gamesPath(ev.id));
   await resetDraw(game.id);
   const path = `${gamesPath(ev.id)}/${game.id}`;
   revalidatePath(path);

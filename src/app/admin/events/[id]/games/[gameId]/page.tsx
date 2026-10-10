@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
 import { getGame, listWinners, GAME_KIND_LABELS, prizeProgress, QuestionsEditor, PrizesEditor, DrawFormatFields, BackgroundPicker } from "@/features/games";
+import { eventFeatures, featureForGameKind, has, NotInEvent } from "@/features/catalogue";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listAttendeesByIds, listCategories } from "@/lib/db/attendees";
 import { fieldValue } from "@/lib/attendee-values";
@@ -24,6 +25,10 @@ export default async function GameEditor({ params }: { params: Promise<{ id: str
   const ev = await requireEvent(id, orgId);
   const game = await getGame(gameId, ev.id);
   if (!game) notFound();
+  const need = featureForGameKind(game.kind);
+  if (!has(await eventFeatures(ev.id), need)) {
+    return <NotInEvent eventId={ev.id} title={game.title} keys={[need]} back={`/admin/events/${ev.id}/games/${game.id}`} />;
+  }
   const back = `/admin/events/${ev.id}/games`;
 
   const [checkpoints, categories, winners] = game.kind === "draw"

@@ -13,6 +13,7 @@ import { RowActions } from "@/components/admin/RowActions";
 import { ShareLink } from "@/components/admin/ShareLink";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { eventFeatures, gameKindsFor, NotInEvent } from "@/features/catalogue";
 import { createGameAction, deleteGameAction, rotateDisplayTokenAction, rotateHostTokenAction } from "./actions";
 
 export const metadata = { title: "Games" };
@@ -21,7 +22,12 @@ export default async function Games({ params }: { params: Promise<{ id: string }
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const games = await listGames(ev.id);
+  const kinds = gameKindsFor(await eventFeatures(ev.id));
+  if (kinds.length === 0) {
+    return <NotInEvent eventId={ev.id} title="Games" keys={["live_games", "lucky_draw"]} back={`/admin/events/${ev.id}/games`} />;
+  }
+  // A game of a kind this event no longer has is kept (D439), but not listed.
+  const games = (await listGames(ev.id)).filter((g) => kinds.includes(g.kind));
   const base = appBaseUrl();
   // The host and display links expire the way the crew link does.
   const lastDay = crewLinkLastDay(ev);
@@ -39,13 +45,13 @@ export default async function Games({ params }: { params: Promise<{ id: string }
       <AdminHeader
         title="Games"
         subtitle={games.length ? `${games.length} game${games.length === 1 ? "" : "s"} ready for the stage` : "Games the room plays from their phones, shown on the LED."}
-        actions={<NewGameMenu forms={{ tap_race: form("tap_race"), survival: form("survival"), draw: form("draw") }} />}
+        actions={<NewGameMenu kinds={kinds} forms={{ tap_race: form("tap_race"), survival: form("survival"), draw: form("draw") }} />}
       />
 
       <Card className="overflow-hidden py-0">
         <CardContent className="px-0">
           {games.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">No games yet. Use New game to add a tap race, last one standing or a lucky draw.</p>
+            <p className="p-6 text-sm text-muted-foreground">No games yet. Use New game to add {new Intl.ListFormat("en", { type: "disjunction" }).format(kinds.map((k) => GAME_KIND_LABELS[k].toLowerCase()))}.</p>
           ) : (
             <ul className="divide-y divide-border">
               {games.map((g) => {

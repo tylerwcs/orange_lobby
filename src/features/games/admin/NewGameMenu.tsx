@@ -20,7 +20,7 @@ const KINDS: { kind: GameKind; icon: typeof Plus; label: string; what: string; h
  * server page and handed in, so they post straight to server actions; the create action
  * redirects to the game's editor and the URL change closes the dialog.
  */
-export function NewGameMenu({ forms }: { forms: Record<GameKind, React.ReactNode> }) {
+export function NewGameMenu({ forms, kinds }: { forms: Record<GameKind, React.ReactNode>; kinds: readonly GameKind[] }) {
   const [which, setWhich] = useState<GameKind | null>(null);
 
   const url = `${usePathname()}?${useSearchParams().toString()}`;
@@ -40,7 +40,7 @@ export function NewGameMenu({ forms }: { forms: Record<GameKind, React.ReactNode
           <Plus />New game<ChevronDown data-icon="inline-end" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
-          {KINDS.map(({ kind, icon: Icon, label, what }) => (
+          {KINDS.filter((k) => kinds.includes(k.kind)).map(({ kind, icon: Icon, label, what }) => (
             <DropdownMenuItem key={kind} onClick={() => setWhich(kind)} className="items-start gap-3 py-2">
               <Icon className="mt-0.5" />
               <span className="flex flex-col">
