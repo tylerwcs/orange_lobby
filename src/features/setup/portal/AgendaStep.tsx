@@ -9,7 +9,7 @@ import { eventDays, nowInKL } from "@/lib/time";
 import { formatDateRange } from "@/lib/text";
 import { problemSentence } from "../sections";
 import {
-  agendaErrors, agendaProblems, blankSession, dayName, errorKey, seedIdsOf,
+  agendaErrors, agendaProblems, blankSession, dayName, errorKey,
   type AgendaAnswers, type DateRange, type SessionField, type SetupDay, type SetupSession,
 } from "../sections/agenda";
 import type { HubFile } from "../hub";
@@ -38,9 +38,7 @@ export function AgendaStep({ token, initial, initialRev, initialStatus, initialU
   files: HubFile[];
   notes: string;
 }) {
-  // The ids this form starts from: the first save seeds the starting point from just these (D454).
-  const [seedIds] = useState(() => seedIdsOf(initial));
-  const step = useSectionAutosave({ token, section: "agenda", initial, initialRev, initialStatus, initialUnsubmitted, seedIds });
+  const step = useSectionAutosave({ token, section: "agenda", initial, initialRev, initialStatus, initialUnsubmitted, seed: initial });
   const { answers: a, setAnswers: set } = step;
   const [focused, setFocused] = useState<AgendaSlot | null>(null);
   const [open, setOpen] = useState<string | null>(null);

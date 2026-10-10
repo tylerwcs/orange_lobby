@@ -117,9 +117,29 @@ export function restrictSeed(seed: { answers: AgendaAnswers; map: AgendaMap }, i
   return { answers: { days, sessions }, map: Object.fromEntries(Object.entries(seed.map).filter(([k]) => kept.has(k))) };
 }
 
-/** Every id the answers hold: what the form started from, sent with the first save. */
+/** Every id the answers hold. */
 export function seedIdsOf(a: AgendaAnswers): string[] {
   return [...a.days.map((d) => d.id), ...a.sessions.map((s) => s.id)];
+}
+
+/**
+ * The first save's starting point (D450, D454): what the organiser's form showed when the page
+ * opened (`formSeed`, already sanitized), kept to the days and sessions still live, so a forged id
+ * or one the admin has since deleted never enters it. The values are the form's, even if the
+ * admin has edited the live agenda since: Apply must see the admin's later edit as a change the
+ * organiser didn't make, not revert it. The map stays server-derived, from the live rows.
+ */
+export function seedFromForm(formSeed: AgendaAnswers, fromLive: { answers: AgendaAnswers; map: AgendaMap }): { answers: AgendaAnswers; map: AgendaMap } {
+  const live = restrictSeed(fromLive, seedIdsOf(formSeed));
+  const days = new Set(live.answers.days.map((d) => d.id));
+  const sessions = new Set(live.answers.sessions.map((s) => s.id));
+  return {
+    answers: {
+      days: formSeed.days.filter((d) => days.has(d.id)),
+      sessions: formSeed.sessions.filter((s) => sessions.has(s.id) && days.has(s.day)),
+    },
+    map: live.map,
+  };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  agendaErrors, agendaFromLive, agendaMissing, agendaProblems, agendaRange, errorKey, previewAgenda, restrictSeed, sanitizeAgenda, seedIdsOf,
+  agendaErrors, agendaFromLive, agendaMissing, agendaProblems, agendaRange, errorKey, previewAgenda, restrictSeed, sanitizeAgenda, seedFromForm, seedIdsOf,
   type AgendaAnswers,
 } from "@/features/setup/sections/agenda";
 import { day, item, session } from "./fixtures";
@@ -63,6 +63,50 @@ describe("agendaFromLive (D453, D454)", () => {
   });
   it("seedIdsOf lists every day and session id", () => {
     expect(seedIdsOf(a)).toEqual(["D1", "I1", "I2"]);
+  });
+});
+
+describe("seedFromForm (D450, D454)", () => {
+  const live = agendaFromLive(
+    [day("D1", "2027-01-10", "Day 1"), day("D2", "2027-01-11")],
+    [item({ id: "I1", day_id: "D1", title: "Keynote (admin's new title)" }), item({ id: "I2", day_id: "D2", title: "Talk" })],
+  );
+  const form: AgendaAnswers = {
+    days: [{ id: "D1", date: "2027-01-10", name: "Day 1" }, { id: "D2", date: "2027-01-11", name: "" }],
+    sessions: [session("I1", "D1", { title: "Keynote" }), session("I2", "D2", { title: "Talk" })],
+  };
+
+  it("keeps the form's values even if live has changed since the page opened", () => {
+    const r = seedFromForm(form, live);
+    expect(r.answers).toEqual(form);
+    expect(r.answers.sessions[0].title).toBe("Keynote");
+    expect(r.map).toEqual({ D1: "D1", D2: "D2", I1: "I1", I2: "I2" });
+  });
+  it("drops an id that is no longer live", () => {
+    const gone = agendaFromLive([day("D1", "2027-01-10", "Day 1")], [item({ id: "I1", day_id: "D1" })]);
+    const r = seedFromForm(form, gone);
+    expect(r.answers.days.map((d) => d.id)).toEqual(["D1"]);
+    expect(r.answers.sessions.map((s) => s.id)).toEqual(["I1"]);
+    expect(r.map).toEqual({ D1: "D1", I1: "I1" });
+  });
+  it("drops a forged id that was never live", () => {
+    const forged: AgendaAnswers = {
+      days: [...form.days, { id: "FAKE-DAY", date: "2027-01-12", name: "" }],
+      sessions: [...form.sessions, session("FAKE-1", "D1"), session("FAKE-2", "FAKE-DAY")],
+    };
+    const r = seedFromForm(forged, live);
+    expect(r.answers).toEqual(form);
+    expect(Object.keys(r.map).sort()).toEqual(["D1", "D2", "I1", "I2"]);
+  });
+  it("drops a session whose day was dropped", () => {
+    const gone = agendaFromLive([day("D1", "2027-01-10", "Day 1")], [item({ id: "I1", day_id: "D1" })]);
+    // Live still holds I2, but under D1 now; the form showed it under D2, which is gone.
+    const moved = agendaFromLive(gone.answers.days.map((d) => day(d.id, d.date, d.name)), [item({ id: "I1", day_id: "D1" }), item({ id: "I2", day_id: "D1" })]);
+    const r = seedFromForm(form, moved);
+    expect(r.answers.days.map((d) => d.id)).toEqual(["D1"]);
+    expect(r.answers.sessions.map((s) => s.id)).toEqual(["I1"]);
+    // The map stays the live one, restricted to the ids the form showed.
+    expect(r.map).toEqual(restrictSeed(moved, seedIdsOf(form)).map);
   });
 });
 

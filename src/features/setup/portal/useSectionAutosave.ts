@@ -29,7 +29,7 @@ export type StepControls = {
  * of overwritten. Nothing is lost quietly: leaving the page sends a pending save (and the browser
  * asks first while one is unsent or in flight), and a failed save is retried once a few seconds later.
  */
-export function useSectionAutosave<T>({ token, section, initial, initialRev, initialStatus, initialUnsubmitted, seedIds }: {
+export function useSectionAutosave<T>({ token, section, initial, initialRev, initialStatus, initialUnsubmitted, seed }: {
   token: string;
   section: SetupSection;
   initial: T;
@@ -37,10 +37,10 @@ export function useSectionAutosave<T>({ token, section, initial, initialRev, ini
   initialStatus: SectionStatus;
   initialUnsubmitted: boolean;
   /**
-   * The ids the form started from (Agenda). The first save sends them, and the server seeds the
-   * organiser's starting point and the map from just these (D454).
+   * What the form showed when the page opened (D450, D454). The first save (rev 0) uses it as the
+   * baseline for the first Apply, so it is the page-load answers, never the current ones.
    */
-  seedIds?: readonly string[];
+  seed?: unknown;
 }): StepControls & { answers: T; setAnswers: Dispatch<SetStateAction<T>> } {
   const [a, setA] = useState(initial);
   const [save, setSave] = useState<SaveState>("idle");
@@ -49,7 +49,7 @@ export function useSectionAutosave<T>({ token, section, initial, initialRev, ini
   const [unsubmitted, setUnsubmitted] = useState(initialUnsubmitted);
   const [submitting, setSubmitting] = useState(false);
   const rev = useRef(initialRev);
-  const seeds = useRef(seedIds);
+  const seedRef = useRef(seed);
   const latest = useRef(initial);
   // What the server holds. Comparing against it (not "is this the first render") means opening
   // the page never saves, even when React runs effects twice in development.
@@ -80,7 +80,7 @@ export function useSectionAutosave<T>({ token, section, initial, initialRev, ini
     setSave("saving");
     inFlight.current = true;
     try {
-      const r = await saveSectionAction(token, section, rev.current, sending, seeds.current);
+      const r = await saveSectionAction(token, section, rev.current, sending, rev.current === 0 ? seedRef.current : undefined);
       if (r.ok) {
         rev.current = r.rev;
         saved.current = sending;

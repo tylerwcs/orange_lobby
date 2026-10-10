@@ -5,7 +5,7 @@ import { deleteEventImage, uploadEventImage } from "@/lib/db/media";
 import { getSetupRow, liveAgenda, saveAnswers, submitAnswers, type SetupRow } from "../db";
 import { isBuiltStep, problemSentence, type SetupSection } from "../sections";
 import { BASICS_IMAGE_FIELDS, basicsComplete, basicsFromEvent, basicsMissing, BASICS_LABELS, sanitizeBasics } from "../sections/basics";
-import { agendaFromLive, agendaProblems, agendaRange, restrictSeed, sanitizeAgenda } from "../sections/agenda";
+import { agendaFromLive, agendaProblems, agendaRange, sanitizeAgenda, seedFromForm } from "../sections/agenda";
 import { imagesToDeleteOnSave, ownImageAnswers } from "../images";
 import { loadByToken } from "./load";
 
@@ -15,25 +15,29 @@ const RELOAD = "Reload the page and try again.";
 const STALE: SetupResult = { ok: false, message: "Someone else updated this section — reload to see their changes.", stale: true };
 const fail = (message: string): { ok: false; message: string } => ({ ok: false, message });
 const supabaseUrl = () => process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const isIdList = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 1000 && v.every((x) => typeof x === "string");
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
-export async function saveSectionAction(token: string, section: string, expectedRev: number, raw: unknown, seedIds?: unknown): Promise<SetupResult> {
+/**
+ * `seed` is what the organiser's form showed when the page opened. Only the first save (rev 0)
+ * uses it: it becomes the baseline the first Apply compares against (D450, D454).
+ */
+export async function saveSectionAction(token: string, section: string, expectedRev: number, raw: unknown, seed?: unknown): Promise<SetupResult> {
   const loaded = await loadByToken(token);
   if (!loaded.ok) return fail(loaded.message);
   if (!isBuiltStep(section)) return fail("That section can't be filled in here yet.");
   if (!Number.isInteger(expectedRev) || expectedRev < 0) return STALE;
   const s: SetupSection = section;
   switch (s) {
-    case "basics": return saveBasics(loaded.ev, expectedRev, raw);
-    case "agenda": return saveAgenda(loaded.ev, expectedRev, raw, seedIds);
+    case "basics": return saveBasics(loaded.ev, expectedRev, raw, seed);
+    case "agenda": return saveAgenda(loaded.ev, expectedRev, raw, seed);
     default: { const never: never = s; return never; }
   }
 }
 
-async function saveBasics(ev: Event, expectedRev: number, raw: unknown): Promise<SetupResult> {
+async function saveBasics(ev: Event, expectedRev: number, raw: unknown, seed: unknown): Promise<SetupResult> {
   const answers = ownImageAnswers(sanitizeBasics(raw), ev, supabaseUrl());
   const prev = await getSetupRow(ev.id, "basics");
-  const rev = await saveAnswers(ev.id, "basics", expectedRev, answers, expectedRev === 0 ? basicsFromEvent(ev) : undefined);
+  const rev = await saveAnswers(ev.id, "basics", expectedRev, answers, expectedRev === 0 ? (isObject(seed) ? sanitizeBasics(seed) : basicsFromEvent(ev)) : undefined);
   if (rev === null) return STALE;
   // D447: a replaced draft image goes once the new answers are saved; never one that was
   // submitted, applied, or is live on the event, and only this event's own uploads.
@@ -46,15 +50,15 @@ async function saveBasics(ev: Event, expectedRev: number, raw: unknown): Promise
   return { ok: true, rev };
 }
 
-/** The first save (rev 0) seeds the starting point and the map from the live agenda, limited to the ids the form showed (D454). */
-async function saveAgenda(ev: Event, expectedRev: number, raw: unknown, seedIds: unknown): Promise<SetupResult> {
-  let seed: ReturnType<typeof restrictSeed> | null = null;
+/** The first save (rev 0) seeds the starting point from what the form showed, and the map from the live agenda (D450, D454). */
+async function saveAgenda(ev: Event, expectedRev: number, raw: unknown, seed: unknown): Promise<SetupResult> {
+  let seeded: ReturnType<typeof seedFromForm> | null = null;
   if (expectedRev === 0) {
-    if (!isIdList(seedIds)) return fail(RELOAD);
+    if (!isObject(seed)) return fail(RELOAD);
     const live = await liveAgenda(ev.id);
-    seed = restrictSeed(agendaFromLive(live.days, live.items), seedIds);
+    seeded = seedFromForm(sanitizeAgenda(seed), agendaFromLive(live.days, live.items));
   }
-  const rev = await saveAnswers(ev.id, "agenda", expectedRev, sanitizeAgenda(raw), seed?.answers, seed?.map);
+  const rev = await saveAnswers(ev.id, "agenda", expectedRev, sanitizeAgenda(raw), seeded?.answers, seeded?.map);
   return rev === null ? STALE : { ok: true, rev };
 }
 

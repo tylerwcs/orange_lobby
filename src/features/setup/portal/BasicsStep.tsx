@@ -26,7 +26,7 @@ export function BasicsStep({ token, initial, initialRev, initialStatus, initialU
   initialStatus: SectionStatus;
   initialUnsubmitted: boolean;
 }) {
-  const step = useSectionAutosave({ token, section: "basics", initial, initialRev, initialStatus, initialUnsubmitted });
+  const step = useSectionAutosave({ token, section: "basics", initial, initialRev, initialStatus, initialUnsubmitted, seed: initial });
   const { answers: a, setAnswers: setA } = step;
   const [focused, setFocused] = useState<PreviewSlot | null>(null);
   const errors = basicsErrors(a);
