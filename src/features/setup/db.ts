@@ -177,9 +177,15 @@ export async function saveSetupNote(eventId: string, itemKey: string, notes: str
   if (error) throw error;
 }
 
-export async function markSetupItemHandled(eventId: string, itemKey: string): Promise<void> {
-  const { error } = await items().update({ handled_at: now() }).eq("event_id", eventId).eq("item_key", itemKey);
+/**
+ * Marks the item handled (D458), but only as the admin saw it: `seenUpdatedAt` is the item's
+ * `updated_at` when their page was built. If the organiser has changed it since, nothing matches
+ * and this returns false, so a new arrival is never hidden.
+ */
+export async function markSetupItemHandled(eventId: string, itemKey: string, seenUpdatedAt: string): Promise<boolean> {
+  const { data, error } = await items().update({ handled_at: now() }).eq("event_id", eventId).eq("item_key", itemKey).lte("updated_at", seenUpdatedAt).select("item_key");
   if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 /** A signed upload for one new file (D459): the path is minted here, so the browser can write only this one object. */

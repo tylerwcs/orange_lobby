@@ -125,15 +125,18 @@ async function applyAgenda(ev: Event, row: SetupRow, reviewedAt: string): Promis
 /**
  * The admin has dealt with an item's files and note (D458). Any later change makes it New again.
  * An item no longer on the checklist (its feature was turned off after files were sent) can still
- * be marked handled while it has a row, because the Setup badge counts it.
+ * be marked handled while it has a row, because the Setup badge counts it. It covers only what the
+ * admin saw: `seenUpdatedAt` is bound by the page, and a later change by the organiser refuses it.
  */
-export async function markItemHandledAction(eventId: string, itemKey: string) {
+export async function markItemHandledAction(eventId: string, itemKey: string, seenUpdatedAt: string) {
   const ev = await event(eventId);
   const [list, items] = await Promise.all([eventChecklist(ev), listSetupItems(ev.id)]);
   if (!list.some((e) => e.key === itemKey) && !items.some((i) => i.item_key === itemKey)) {
     redirect(flashPath(setupPath(ev.id), "That item isn't on this event's checklist.", "error"));
   }
-  await markSetupItemHandled(ev.id, itemKey);
+  const stale = flashPath(setupPath(ev.id), "Something new arrived since you opened this page. Look again, then mark it handled.", "error");
+  if (typeof seenUpdatedAt !== "string" || !seenUpdatedAt) redirect(stale);
+  if (!(await markSetupItemHandled(ev.id, itemKey, seenUpdatedAt))) redirect(stale);
   revalidatePath(`/admin/events/${ev.id}`, "layout");
   redirect(flashPath(setupPath(ev.id), "Marked handled."));
 }

@@ -56,7 +56,7 @@ function ItemRow({ eventId, entry, item, files, row }: { eventId: string; entry:
           {item?.notes.trim() && <p className="whitespace-pre-line rounded-lg bg-muted/50 p-3 text-sm">{item.notes}</p>}
           {hub === "empty" && entry.kind === "card" && <p className="text-sm text-muted-foreground">Nothing sent yet.</p>}
           {hub === "new" && (
-            <form action={markItemHandledAction.bind(null, eventId, entry.key)} className="self-start">
+            <form action={markItemHandledAction.bind(null, eventId, entry.key, item?.updated_at ?? "")} className="self-start">
               <SubmitButton>Mark handled</SubmitButton>
             </form>
           )}

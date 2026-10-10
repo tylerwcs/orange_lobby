@@ -101,7 +101,7 @@ export async function SetupReviewPage({ params }: { params: Promise<{ id: string
             <CardDescription>Ask the organiser to fix these, or fix the event in admin first.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="list-disc pl-5 text-sm">{review.problems.map((p) => <li key={p}>{p}</li>)}</ul>
+            <ul className="list-disc pl-5 text-sm">{review.problems.map((p, i) => <li key={i}>{p}</li>)}</ul>
           </CardContent>
         </Card>
       )}
