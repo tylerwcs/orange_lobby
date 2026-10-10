@@ -237,6 +237,36 @@ This is a new feature, so it starts in `src/features/domains/` (D402):
   - that `/admin` redirects away and that another event's slug returns 404
 - **Never on `ecphub`.**
 
+**Built 10 Oct 2026** (plan `docs/superpowers/plans/2026-10-10-event-domains-phase-1.md`, commits
+`8af71be`..`85a90fc`).
+
+- **Checked locally** on `ecpkom.localhost`:
+  - the Address tab
+  - every routing rule
+  - the WhatsApp short link forwarding
+  - the links export
+  - forwarding from a second address, make-primary, and removal promoting the other address
+- **Checked in production** on `ecpkom.ecphub.app`, a test address since removed:
+  - all routing rules
+  - the real `ecphub.vercel.app/a/<token>` forwarding to it
+  - the portal in the browser
+  - every main host answering exactly as before the deploy
+
+**Changes made after review:**
+
+- The alias redirect is a **307**, not the 308 written in D425. The primary can change, and
+  browsers cache a 308 indefinitely.
+- An own domain that Vercel reports as not live is never made primary, whether it is being added
+  or picked with Make primary.
+- The proxy's host memo is capped at 1,000 entries.
+- In development, `*.localhost` is allowed as a dev origin (`next.config.ts`).
+
+**Known gaps:**
+
+- Removing the primary can still promote a not-live own domain (D432 doesn't check Vercel).
+- The proxy now runs on every main-host request: no change to any response, but one extra
+  invocation per request. Measure, and if needed add a host-scoped matcher.
+
 ## Order of work
 
 1. **You:** buy `ecphub.app` on Vercel and add `ecphub.app`, `www.ecphub.app` and
