@@ -29,13 +29,18 @@ export type StepControls = {
  * of overwritten. Nothing is lost quietly: leaving the page sends a pending save (and the browser
  * asks first while one is unsent or in flight), and a failed save is retried once a few seconds later.
  */
-export function useSectionAutosave<T>({ token, section, initial, initialRev, initialStatus, initialUnsubmitted }: {
+export function useSectionAutosave<T>({ token, section, initial, initialRev, initialStatus, initialUnsubmitted, seedIds }: {
   token: string;
   section: SetupSection;
   initial: T;
   initialRev: number;
   initialStatus: SectionStatus;
   initialUnsubmitted: boolean;
+  /**
+   * The ids the form started from (Agenda). The first save sends them, and the server seeds the
+   * organiser's starting point and the map from just these (D454).
+   */
+  seedIds?: readonly string[];
 }): StepControls & { answers: T; setAnswers: Dispatch<SetStateAction<T>> } {
   const [a, setA] = useState(initial);
   const [save, setSave] = useState<SaveState>("idle");
@@ -44,6 +49,7 @@ export function useSectionAutosave<T>({ token, section, initial, initialRev, ini
   const [unsubmitted, setUnsubmitted] = useState(initialUnsubmitted);
   const [submitting, setSubmitting] = useState(false);
   const rev = useRef(initialRev);
+  const seeds = useRef(seedIds);
   const latest = useRef(initial);
   // What the server holds. Comparing against it (not "is this the first render") means opening
   // the page never saves, even when React runs effects twice in development.
@@ -74,7 +80,7 @@ export function useSectionAutosave<T>({ token, section, initial, initialRev, ini
     setSave("saving");
     inFlight.current = true;
     try {
-      const r = await saveSectionAction(token, section, rev.current, sending);
+      const r = await saveSectionAction(token, section, rev.current, sending, seeds.current);
       if (r.ok) {
         rev.current = r.rev;
         saved.current = sending;

@@ -5,8 +5,8 @@
 export const SETUP_SECTIONS = ["basics", "agenda"] as const;
 export type SetupSection = (typeof SETUP_SECTIONS)[number];
 
-/** The steps this release can fill in. The rest show on the checklist as guide cards until built (D452). */
-export const BUILT_STEPS: readonly SetupSection[] = ["basics"];
+/** The steps organisers can fill in: both since Phase 2. A future section is a card until built (D452). */
+export const BUILT_STEPS: readonly SetupSection[] = SETUP_SECTIONS;
 
 /** Each section's name, as both the organiser and the admin see it. */
 export const SECTION_TITLES: Record<SetupSection, string> = { basics: "Event basics", agenda: "Agenda" };
