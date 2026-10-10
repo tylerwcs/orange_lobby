@@ -2,6 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import {
   MEDIA_BUCKET,
+  SETUP_BUCKET,
   SUBMISSION_BUCKET,
   acceptImage,
   acceptUpload,
@@ -246,9 +247,8 @@ export async function sweepSubmissionPrefix(prefix: string): Promise<void> {
 }
 
 /**
- * Every file an event ever stored, in both buckets: its images (logo, banner, tile icons,
- * editor pictures) and its attendees' uploads. Both are filed under `<org>/<event>/`
- * (mediaObjectPath, submissionObjectPath), so a sweep of that prefix finds all of them.
+ * Every file an event ever stored, in all three buckets: its images, its attendees' uploads, and what its organiser sent through the setup link.
+ * All are filed under `<org>/<event>/` (mediaObjectPath, submissionObjectPath, setupFilePath), so a sweep of that prefix finds all of them.
  *
  * Throws on a failed removal, and runs BEFORE the event row is deleted: once the row is gone
  * nothing names these files, so a delete that carried on past a failure here would leave them
@@ -256,11 +256,20 @@ export async function sweepSubmissionPrefix(prefix: string): Promise<void> {
  */
 export async function deleteEventFiles(orgId: string, eventId: string): Promise<void> {
   const prefix = `${orgId}/${eventId}`;
-  for (const bucket of [MEDIA_BUCKET, SUBMISSION_BUCKET]) {
+  for (const bucket of [MEDIA_BUCKET, SUBMISSION_BUCKET, SETUP_BUCKET]) {
     const paths = await listAllObjectPaths(bucket, prefix);
     for (let i = 0; i < paths.length; i += LIST_PAGE) {
       const { error } = await serviceClient().storage.from(bucket).remove(paths.slice(i, i + LIST_PAGE));
       if (error) throw error;
     }
+  }
+}
+
+/** Every file an event's organiser sent through the setup link (D459), for the personal-data purge. */
+export async function sweepSetupFiles(orgId: string, eventId: string): Promise<void> {
+  const paths = await listAllObjectPaths(SETUP_BUCKET, `${orgId}/${eventId}`);
+  for (let i = 0; i < paths.length; i += LIST_PAGE) {
+    const { error } = await serviceClient().storage.from(SETUP_BUCKET).remove(paths.slice(i, i + LIST_PAGE));
+    if (error) throw error;
   }
 }

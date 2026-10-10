@@ -171,6 +171,12 @@ export function isGameVideoFor(url: string, supabaseUrl: string, orgId: string, 
 export const SUBMISSION_BUCKET = "form-uploads";
 
 /**
+ * What organisers send through the setup link (D459): attendee lists, agendas, plans. Private,
+ * like SUBMISSION_BUCKET: an attendee list is personal data. Read through one-minute signed links.
+ */
+export const SETUP_BUCKET = "setup-files";
+
+/**
  * Per file. Held under Vercel's 4.5 MB cap on a function's request body, which the file rides
  * in: anything bigger is refused with a 413 before our code runs, and the attendee sees the error
  * page instead of this sentence. `next.config`'s bodySizeLimit cannot raise that cap. Photos are

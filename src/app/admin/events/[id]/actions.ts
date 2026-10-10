@@ -22,6 +22,7 @@ import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncem
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
 import { requireFeature } from "@/features/catalogue";
+import { purgeSetupFiles } from "@/features/setup";
 import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
@@ -860,6 +861,7 @@ export async function deleteCheckpointAction(eventId: string, cpId: string) {
 export async function purgeEventAction(eventId: string) {
   const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
   if (ev.status !== "archived") redirect(flashPath(`/admin/events/${eventId}/settings`, "Archive the event first.", "error"));
+  await purgeSetupFiles(orgId, eventId);
   await purgeAttendeePersonalData(eventId, orgId);
   revalidatePath(`/admin/events/${eventId}`); redirect(flashPath(`/admin/events/${eventId}/settings`, "Personal data purged."));
 }
