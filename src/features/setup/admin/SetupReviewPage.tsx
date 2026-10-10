@@ -46,7 +46,8 @@ export async function SetupReviewPage({ params }: { params: Promise<{ id: string
         subtitle={`Submitted ${row.submitted_at ? shortDateTime(row.submitted_at) : ""}${row.applied_at ? ` · last applied ${shortDateTime(row.applied_at)}` : ""}`}
         actions={
           canApply ? (
-            <form action={applySectionAction.bind(null, ev.id, section)}>
+            // Bound to the version on screen: Apply refuses if the organiser has submitted since.
+            <form action={applySectionAction.bind(null, ev.id, section, row.submitted_at ?? "")}>
               <SubmitButton>Apply to event</SubmitButton>
             </form>
           ) : (
@@ -70,7 +71,7 @@ export async function SetupReviewPage({ params }: { params: Promise<{ id: string
           </CardHeader>
           <CardContent className="px-0">
             {changes.length === 0 ? (
-              <p className="border-t border-border px-4 py-4 text-sm text-muted-foreground">Matches the live event.</p>
+              <p className="border-t border-border px-4 py-4 text-sm text-muted-foreground">{row.applied ? "Nothing new since the last Apply." : "Matches the live event."}</p>
             ) : (
               <ul className="divide-y divide-border border-t border-border">
                 {changes.map((c) => (

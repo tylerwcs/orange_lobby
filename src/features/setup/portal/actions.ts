@@ -3,72 +3,57 @@ import { revalidatePath } from "next/cache";
 import type { Event } from "@/lib/types";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
-import { isEventMediaFor } from "@/lib/storage";
 import { deleteEventImage, uploadEventImage } from "@/lib/db/media";
 import { getEventBySetupToken, getSetupRow, saveAnswers, submitAnswers } from "../db";
 import { isBuiltStep } from "../sections";
-import { BASICS_IMAGE_FIELDS, basicsComplete, basicsFromEvent, basicsMissing, BASICS_LABELS, sanitizeBasics, type BasicsAnswers } from "../sections/basics";
-import { droppedImages } from "../images";
+import { BASICS_IMAGE_FIELDS, basicsComplete, basicsFromEvent, basicsMissing, BASICS_LABELS, sanitizeBasics } from "../sections/basics";
+import { imagesToDeleteOnSave, ownImageAnswers } from "../images";
 
 export type SetupResult = { ok: true; rev: number } | { ok: false; message: string; stale?: boolean };
 
 const GONE = "This setup link no longer works. Ask your project contact for a new one.";
+const BUSY = "Too many saves at once — wait a moment and try again.";
 const STALE: SetupResult = { ok: false, message: "Someone else updated this section — reload to see their changes.", stale: true };
 const fail = (message: string): { ok: false; message: string } => ({ ok: false, message });
-const KIND_OF: Record<(typeof BASICS_IMAGE_FIELDS)[number], "logo" | "banner"> = { logo_url: "logo", banner_url: "banner" };
+const supabaseUrl = () => process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
 /**
  * The token is the only authority (D441): a server action is a public POST, so every call
- * re-checks the link and takes the event from it, never from the caller.
+ * re-checks the link and takes the event from it, never from the caller. A rate-limited call
+ * says so, rather than claiming the link is dead.
  */
-async function load(token: string): Promise<Event | null> {
-  if (typeof token !== "string" || !isValidToken(token)) return null;
-  if (!allow(`setup:${token}`, 240, 60_000)) return null;
-  return getEventBySetupToken(token);
-}
-
-/**
- * An image URL counts only if it is this event's own upload of the right kind, or the image the
- * event shows now (the form starts from it, and it may predate the bucket's naming); anything
- * else is dropped.
- */
-function ownImages(ev: Event, a: BasicsAnswers): BasicsAnswers {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const out = { ...a };
-  for (const f of BASICS_IMAGE_FIELDS) {
-    if (out[f] && out[f] !== ev[f] && !isEventMediaFor(out[f], supabaseUrl, ev.org_id, ev.id, [KIND_OF[f]])) out[f] = "";
-  }
-  return out;
+async function load(token: string): Promise<{ ok: true; ev: Event } | { ok: false; message: string }> {
+  if (typeof token !== "string" || !isValidToken(token)) return fail(GONE);
+  if (!allow(`setup:${token}`, 240, 60_000)) return fail(BUSY);
+  const ev = await getEventBySetupToken(token);
+  return ev ? { ok: true, ev } : fail(GONE);
 }
 
 export async function saveSectionAction(token: string, section: string, expectedRev: number, raw: unknown): Promise<SetupResult> {
-  const ev = await load(token);
-  if (!ev) return fail(GONE);
+  const loaded = await load(token);
+  if (!loaded.ok) return fail(loaded.message);
+  const { ev } = loaded;
   if (!isBuiltStep(section) || section !== "basics") return fail("That section can't be filled in here yet.");
   if (!Number.isInteger(expectedRev) || expectedRev < 0) return STALE;
-  const answers = ownImages(ev, sanitizeBasics(raw));
+  const answers = ownImageAnswers(sanitizeBasics(raw), ev, supabaseUrl());
   const prev = await getSetupRow(ev.id, section);
   const rev = await saveAnswers(ev.id, section, expectedRev, answers, expectedRev === 0 ? basicsFromEvent(ev) : undefined);
   if (rev === null) return STALE;
   // D447: a replaced draft image goes once the new answers are saved; never one that was
-  // submitted, applied, or is live on the event.
+  // submitted, applied, or is live on the event, and only this event's own uploads.
   const before = prev ? sanitizeBasics(prev.answers) : null;
   const keep = [
     ...BASICS_IMAGE_FIELDS.map((f) => (prev?.submitted ? sanitizeBasics(prev.submitted)[f] : null)),
     ...BASICS_IMAGE_FIELDS.map((f) => (prev?.applied ? sanitizeBasics(prev.applied)[f] : null)),
-    ev.logo_url, ev.banner_url,
   ];
-  // Only this event's own uploads are ever deleted: a kept live image may live anywhere (ownImages).
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  for (const url of droppedImages(before, answers, BASICS_IMAGE_FIELDS, keep)) {
-    if (isEventMediaFor(url, supabaseUrl, ev.org_id, ev.id, ["logo", "banner"])) await deleteEventImage(url);
-  }
+  for (const url of imagesToDeleteOnSave(before, answers, keep, ev, supabaseUrl())) await deleteEventImage(url);
   return { ok: true, rev };
 }
 
 export async function submitSectionAction(token: string, section: string, expectedRev: number): Promise<SetupResult> {
-  const ev = await load(token);
-  if (!ev) return fail(GONE);
+  const loaded = await load(token);
+  if (!loaded.ok) return fail(loaded.message);
+  const { ev } = loaded;
   if (!isBuiltStep(section) || section !== "basics") return fail("That section can't be submitted here yet.");
   const row = await getSetupRow(ev.id, section);
   if (!row || row.rev !== expectedRev) return STALE;
@@ -86,8 +71,9 @@ export async function submitSectionAction(token: string, section: string, expect
 
 /** One image per call: Vercel refuses request bodies over 4.5 MB (storage.ts). */
 export async function uploadSetupImageAction(token: string, kind: string, fd: FormData): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
-  const ev = await load(token);
-  if (!ev) return fail(GONE);
+  const loaded = await load(token);
+  if (!loaded.ok) return fail(loaded.message);
+  const { ev } = loaded;
   if (kind !== "logo" && kind !== "banner") return fail("That image can't be uploaded here.");
   const file = fd.get("image");
   if (!(file instanceof File) || file.size === 0) return fail("Choose an image first.");

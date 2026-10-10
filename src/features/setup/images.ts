@@ -1,3 +1,8 @@
+import { isEventMediaFor } from "@/lib/storage";
+import { BASICS_IMAGE_FIELDS, type BasicsAnswers } from "./sections/basics";
+
+type BasicsImageField = (typeof BASICS_IMAGE_FIELDS)[number];
+
 export type ImageTarget = { ratio: number; minWidth: number; best: string; note: string; label: string };
 
 /** The image guide's sizes for the images Basics takes (D447). */
@@ -33,4 +38,58 @@ export function droppedImages(
   const kept = new Set(keep.filter((k): k is string => !!k));
   const now = new Set(fields.map((f) => after[f]).filter(Boolean));
   return fields.map((f) => before[f]).filter((u): u is string => !!u && !now.has(u) && !kept.has(u));
+}
+
+/** The event an image rule checks against: its folder in the bucket and the images it shows now. */
+export type ImageEvent = { org_id: string; id: string; logo_url: string | null; banner_url: string | null };
+
+const KIND_OF: Record<BasicsImageField, "logo" | "banner"> = { logo_url: "logo", banner_url: "banner" };
+
+/**
+ * An image answer counts only if it is this event's own upload of the right kind, or the image
+ * the event shows now (the form starts from it, and it may predate the bucket's naming); any
+ * other URL is blanked, so a save can never adopt another event's file (D447).
+ */
+export function ownImageAnswers(answers: BasicsAnswers, ev: ImageEvent, supabaseUrl: string): BasicsAnswers {
+  const out = { ...answers };
+  for (const f of BASICS_IMAGE_FIELDS) {
+    if (out[f] && out[f] !== ev[f] && !isEventMediaFor(out[f], supabaseUrl, ev.org_id, ev.id, [KIND_OF[f]])) out[f] = "";
+  }
+  return out;
+}
+
+/**
+ * The draft images a save makes unused (D447): used by `prev`, not by `next`, not in `keep` (the
+ * submitted and applied snapshots) and not live on the event - and only this event's own uploads,
+ * since a kept live image may live anywhere.
+ */
+export function imagesToDeleteOnSave(
+  prev: BasicsAnswers | null,
+  next: BasicsAnswers,
+  keep: readonly (string | null | undefined)[],
+  ev: ImageEvent,
+  supabaseUrl: string,
+): string[] {
+  return droppedImages(prev, next, BASICS_IMAGE_FIELDS, [...keep, ev.logo_url, ev.banner_url])
+    .filter((url) => isEventMediaFor(url, supabaseUrl, ev.org_id, ev.id, ["logo", "banner"]));
+}
+
+/**
+ * The live images an Apply replaces and may delete once the event points at the new ones: only
+ * the image the organiser started from (`baseline`) and changed in this patch, never one the
+ * admin put there since, never one the organiser's working draft still uses, and only this
+ * event's own upload of that kind.
+ */
+export function imagesToDeleteOnApply(
+  ev: ImageEvent,
+  patch: Partial<Record<BasicsImageField, string | null>>,
+  baseline: BasicsAnswers,
+  workingAnswers: BasicsAnswers,
+  supabaseUrl: string,
+): string[] {
+  return BASICS_IMAGE_FIELDS.flatMap((f) => {
+    const old = ev[f];
+    if (!(f in patch) || !old || old === patch[f] || old !== baseline[f] || old === workingAnswers[f]) return [];
+    return isEventMediaFor(old, supabaseUrl, ev.org_id, ev.id, [KIND_OF[f]]) ? [old] : [];
+  });
 }

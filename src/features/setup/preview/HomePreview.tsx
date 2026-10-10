@@ -34,16 +34,19 @@ export function HomePreview({ basics, focused = null, onSlot, compact = false }:
     ends_on: basics.ends_on || null,
     venue_name: basics.venue_name.trim() || null,
   };
+  // The header slot fills the screen edge to edge, where the scroll area would clip a ring drawn
+  // outside it, so its outline is drawn inside (over the header) and its label sits on the right,
+  // clear of the logo. Every label sits inside its slot for the same reason.
   const slot = (name: PreviewSlot, children: React.ReactNode, className = "") => (
     <div
       data-setup-slot={name}
       // stopPropagation: the logo slot sits inside the header slot; a click names the innermost.
       onClick={onSlot ? (e) => { e.stopPropagation(); onSlot(name); } : undefined}
-      className={`relative rounded-xl transition-shadow ${onSlot ? "cursor-pointer" : ""} ${focused === name ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""} ${className}`}
+      className={`relative rounded-xl transition-shadow ${onSlot ? "cursor-pointer" : ""} ${focused !== name ? "" : name === "header" ? "outline-2 -outline-offset-2 outline-primary" : "ring-2 ring-primary ring-offset-2 ring-offset-background"} ${className}`}
     >
       {children}
       {focused === name && (
-        <span className="pointer-events-none absolute -top-2.5 left-2 z-10 rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+        <span className={`pointer-events-none absolute top-1 z-10 rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground ${name === "header" ? "right-1" : "left-1"}`}>
           {SLOT_LABELS[name]}
         </span>
       )}

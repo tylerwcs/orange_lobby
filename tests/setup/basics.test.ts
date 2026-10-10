@@ -34,6 +34,18 @@ describe("blank, fromEvent, sanitize", () => {
   it("reads anything that isn't an object as blank", () => {
     expect(sanitizeBasics("nope")).toEqual(blankBasics());
   });
+  it("writes a full colour as uppercase #RRGGBB, and leaves a half-typed one alone", () => {
+    expect(sanitizeBasics({ primary_color: "#f97316" }).primary_color).toBe("#F97316");
+    expect(sanitizeBasics({ primary_color: "#0ea5e9" }).primary_color).toBe("#0EA5E9");
+    expect(sanitizeBasics({ primary_color: "#f9" }).primary_color).toBe("#f9");
+    expect(basicsFromEvent({ ...event, primary_color: "#0ea5e9" }).primary_color).toBe("#0EA5E9");
+  });
+  it("does not count a colour's letter case as a change", () => {
+    const live = basicsFromEvent({ ...event, primary_color: "#f97316" });
+    const submitted = sanitizeBasics({ ...live, primary_color: "#F97316" });
+    expect(basicsChanges(submitted, live, live)).toEqual([]);
+    expect(basicsPatch(sanitizeBasics({ ...live, primary_color: "#f97316" }), basicsFromEvent(event))).toEqual({});
+  });
 });
 
 describe("errors, missing, complete", () => {
@@ -144,5 +156,15 @@ describe("basicsPatch (D450)", () => {
   });
   it("never writes categories or notes", () => {
     expect(basicsPatch(full({ categories: "Staff", notes: "Hi" }), full())).toEqual({});
+  });
+  it("given the live event, leaves out what it already holds, so the patch matches the review", () => {
+    // The organiser changed name and venue since the baseline; the admin had already set the same venue.
+    const baseline = basicsFromEvent(event);
+    const liveNow = { ...baseline, venue_name: "MITEC" };
+    const submitted = { ...baseline, name: "KOM 2027", venue_name: "MITEC", categories: "Staff" };
+    const patch = basicsPatch(submitted, baseline, liveNow);
+    expect(patch).toEqual({ name: "KOM 2027" });
+    const listed = basicsChanges(submitted, liveNow, baseline).filter((c) => !c.infoOnly);
+    expect(Object.keys(patch)).toHaveLength(listed.length);
   });
 });

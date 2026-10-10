@@ -9,7 +9,7 @@ import { eventFeatures } from "@/features/catalogue";
 import { getEventBySetupToken, listSetupRows } from "../db";
 import { BUILT_STEPS } from "../sections";
 import { buildChecklist } from "../checklist";
-import { sectionStatus, STATUS_LABELS, type SectionStatus } from "../status";
+import { hasUnsubmittedChanges, sectionStatus, STATUS_LABELS, type SectionStatus } from "../status";
 import { basicsFromEvent, sanitizeBasics } from "../sections/basics";
 import { HomePreview } from "../preview/HomePreview";
 
@@ -53,7 +53,8 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
         <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
           {list.map((e) => {
             if (e.kind === "step") {
-              const s = sectionStatus(rowOf(e.key));
+              const row = rowOf(e.key);
+              const s = sectionStatus(row);
               return (
                 <li key={e.key}>
                   <Link href={`/setup/${token}/${e.key}`} className="flex items-center gap-3 p-4 hover:bg-muted/50">
@@ -61,6 +62,7 @@ export async function SetupHomePage({ params }: { params: Promise<{ token: strin
                       <span className="font-bold">{e.title}</span>
                       <span className="text-xs text-muted-foreground">{e.send.join(" · ")}</span>
                     </span>
+                    {s === "applied" && hasUnsubmittedChanges(row) && <span className="text-xs font-semibold text-amber-700">Changes not submitted</span>}
                     <Badge variant={STATUS_VARIANT[s]}>{STATUS_LABELS[s]}</Badge>
                   </Link>
                 </li>

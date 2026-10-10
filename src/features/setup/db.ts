@@ -78,14 +78,16 @@ export async function submitAnswers(eventId: string, section: SetupSection, expe
 }
 
 /**
- * Records what was applied (D451). Guarded by rev, so a submit that lands while the admin is
- * applying is not marked applied without being reviewed. Does not bump rev: applying changes
- * nothing the organiser is editing.
+ * Records what was applied (D451): `submitted`, the version the admin reviewed, identified by its
+ * `submitted_at`. Guarded on that timestamp, not rev: autosaves bump rev and must not stop an
+ * Apply, but a submit that lands while the admin is applying replaces `submitted_at`, so a
+ * version nobody reviewed is never marked applied. Does not bump rev: applying changes nothing
+ * the organiser is editing.
  */
-export async function markApplied(eventId: string, section: SetupSection, expectedRev: number, submitted: unknown): Promise<boolean> {
+export async function markApplied(eventId: string, section: SetupSection, reviewedAt: string, submitted: unknown): Promise<boolean> {
   const { data, error } = await table()
     .update({ applied: submitted, applied_at: now() })
-    .eq("event_id", eventId).eq("section", section).eq("rev", expectedRev)
+    .eq("event_id", eventId).eq("section", section).eq("submitted_at", reviewedAt)
     .select("rev");
   if (error) throw error;
   return (data?.length ?? 0) > 0;

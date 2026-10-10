@@ -36,12 +36,21 @@ export function blankBasics(): BasicsAnswers {
   return a;
 }
 
+/**
+ * A full colour as "#RRGGBB", so "#f97316" and "#F97316" are the same answer (the colour picker
+ * sends lowercase). Anything else, such as a half-typed value, is left as it is.
+ */
+export function normaliseColour(s: string): string {
+  const t = s.trim();
+  return /^#[0-9a-fA-F]{6}$/.test(t) ? t.toUpperCase() : s;
+}
+
 /** The live event as answers: what an organiser opening Basics for the first time starts from. */
 export function basicsFromEvent(ev: BasicsSource): BasicsAnswers {
   return {
     ...blankBasics(),
     name: ev.name ?? "", starts_on: ev.starts_on ?? "", ends_on: ev.ends_on ?? "", venue_name: ev.venue_name ?? "",
-    primary_color: ev.primary_color || DEFAULT_COLOUR, logo_url: ev.logo_url ?? "", banner_url: ev.banner_url ?? "",
+    primary_color: normaliseColour(ev.primary_color || DEFAULT_COLOUR), logo_url: ev.logo_url ?? "", banner_url: ev.banner_url ?? "",
     committee_numbers: (ev.committee_alert_numbers ?? []).map((n) => `+${n}`).join("\n"),
   };
 }
@@ -59,6 +68,7 @@ export function sanitizeBasics(raw: unknown): BasicsAnswers {
     if (v === null || v === undefined) continue;
     if (typeof v === "string" || typeof v === "number") out[f] = String(v).slice(0, LIMITS[f]);
   }
+  out.primary_color = normaliseColour(out.primary_color);
   return out;
 }
 
@@ -136,9 +146,12 @@ export type EventPatch = Partial<{
  * snapshot, or before the first Apply the organiser's starting point (basicsBaseline). So a field
  * the organiser left as it was is never written, and a field the admin edited in admin keeps the
  * admin's value until the organiser changes that field again - on the first Apply too.
+ *
+ * Given `live` (the event now, as answers), a field that already holds the organiser's value is
+ * left out too, so the patch has exactly the fields basicsChanges lists and no write is a no-op.
  */
-export function basicsPatch(submitted: BasicsAnswers, baseline: BasicsAnswers): EventPatch {
-  const changed = (f: BasicsField) => differs(f, submitted, baseline);
+export function basicsPatch(submitted: BasicsAnswers, baseline: BasicsAnswers, live?: BasicsAnswers): EventPatch {
+  const changed = (f: BasicsField) => differs(f, submitted, baseline) && (!live || differs(f, submitted, live));
   const val = (f: BasicsField) => submitted[f].trim() || null;
   const p: EventPatch = {};
   if (changed("name") && val("name")) p.name = val("name")!;

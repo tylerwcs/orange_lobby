@@ -62,7 +62,8 @@ admin. An admin reviews each section and applies it.
 
 - A `setup_token` column on `events`, unique and nullable. A null token means the link is off.
 - It is created by a **Create setup link** button in the Setup area, not by opening the page: a page view never writes. It can be replaced or turned off there, with the same buttons and confirmations as the crew link.
-- `setupLink(event)` in `src/lib/links.ts` always builds on the main address.
+- `setupLink(base, token)` in `src/features/setup/sections.ts` builds the link; callers pass the main
+  address (`appBaseUrl()`), like the crew link.
 - The token is the identity. Every server action re-loads the event by token, the same as
   `loadPortalAttendee` does.
 - A wrong token or a link that is off gives a 404.
@@ -203,7 +204,9 @@ admin. An admin reviews each section and applies it.
   - images side by side, with the proportion warning if any
   - for the agenda and info, a summary ("3 sessions added, 1 changed, 1 removed") with the rows
 - The same phone preview appears next to the changes.
-- Apply sits in the header and is enabled only when the section is Submitted.
+- Apply sits in the header and is enabled only when the section is Submitted. It is bound to the
+  version on screen (its `submitted_at`): if the organiser has submitted since, Apply refuses with
+  "The organiser sent a newer version — review it first."
 - Admins don't edit the organiser's answers here. They apply first, then edit in admin as usual.
 
 ### D450 — Apply writes only what the organiser changed since the last Apply
@@ -234,7 +237,10 @@ admin. An admin reviews each section and applies it.
 - The agenda and info applies are each one Postgres function. Days, sessions, breakout rounds,
   tabs and the `applied_map` update all commit together.
 - Basics is a single row update.
-- On success, `applied` is set to `submitted` and `applied_at` is recorded.
+- Apply applies the reviewed version, identified by `submitted_at`. On success, `applied` is set
+  to that `submitted` and `applied_at` is recorded, guarded on `submitted_at` (not `rev`: autosaves
+  bump `rev` and must not stop an Apply). If a submit lands mid-Apply the guard fails, the reviewed
+  version stays written, and the admin is told to review the latest version.
 
 ### D452 — Out-of-scope features stay guide cards until they are built as steps
 
@@ -250,11 +256,13 @@ home's layout doesn't change.
     stays deleted"
   - the checklist built from a feature set with custom modules: steps first, then cards, then
     custom modules
-- **`scripts/check-setup.mjs`, a database check:**
-  - the first Apply writes everything
-  - a re-apply after an admin edit keeps the edit
-  - a failing Apply writes nothing
-  - a rotated token stops the old link working
+- **`scripts/setup-db-check.mjs` (`npm run check:setup`), a database check:**
+  - the table's constraints and the `setup_token` uniqueness
+  - the rev guard: a save with the current rev lands, a stale one changes nothing
+  - the `seed` column
+  - the cascade when an event is deleted
+- **Apply-level rules are covered by unit tests** (`tests/setup/`): the change-only patch, the
+  review/patch agreement, and which images a save or an Apply may delete.
 - **A browser walk-through as organiser, then as admin, on a test event (never `ecphub`):**
   - fill and submit all three steps
   - check the preview slots, the focus highlight and the crop
