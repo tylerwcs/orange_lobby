@@ -58,6 +58,22 @@ export function cleanFileName(name: string): string {
   return clean ? Array.from(clean).slice(-200).join("") : "file";
 }
 
+/**
+ * The name shown and given to downloads, forced to end in the stored path's own extension: a
+ * `.pdf` object can never be offered as `Attendees.exe`. jpeg and jpg count as the same.
+ */
+export function nameForPath(name: string, path: string): string {
+  const clean = cleanFileName(name);
+  const want = extOf(path);
+  if (!want) return clean;
+  const norm = (e: string) => (e === "jpeg" ? "jpg" : e);
+  const have = extOf(clean);
+  if (have && norm(have) === norm(want)) return clean;
+  const base = have ? clean.slice(0, clean.length - have.length - 1) : clean;
+  const room = 200 - want.length - 1;
+  return `${Array.from(base || "file").slice(0, room).join("")}.${want}`;
+}
+
 /** Where one setup file lives: under its event's folder, named by a fresh id (D459). */
 export function setupFilePath(orgId: string, eventId: string, id: string, ext: string): string {
   return `${orgId}/${eventId}/${id}.${ext}`;

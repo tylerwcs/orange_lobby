@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  acceptSetupFile, cleanFileName, contentTypeFor, formatBytes, isSetupFilePath, itemStatus, setupFilePath, toHubFile,
+  acceptSetupFile, cleanFileName, contentTypeFor, formatBytes, isSetupFilePath, itemStatus, nameForPath, setupFilePath, toHubFile,
 } from "@/features/setup/hub";
 
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -50,6 +50,25 @@ describe("cleanFileName", () => {
     expect(Array.from(clean)).toHaveLength(200);
     expect(clean.endsWith(".pdf")).toBe(true);
     expect(() => encodeURIComponent(clean)).not.toThrow();
+  });
+});
+
+describe("nameForPath", () => {
+  const pdf = "o/e/0b8e1c1e-6f2a-4a53-9a43-5f1d2f7a3c11.pdf";
+  it("forces the stored extension, so a pdf is never offered as an exe", () => {
+    expect(nameForPath("Attendees.exe", pdf)).toBe("Attendees.pdf");
+    expect(nameForPath("plan", pdf)).toBe("plan.pdf");
+    expect(nameForPath(".exe", pdf)).toBe("file.pdf");
+    expect(nameForPath("v1.2 plan", pdf)).toBe("v1.2 plan.pdf");
+  });
+  it("leaves a matching name alone, reading jpeg as jpg and ignoring case", () => {
+    expect(nameForPath("Photo.JPEG", "o/e/0b8e1c1e-6f2a-4a53-9a43-5f1d2f7a3c11.jpg")).toBe("Photo.JPEG");
+    expect(nameForPath("a.xlsx", "o/e/0b8e1c1e-6f2a-4a53-9a43-5f1d2f7a3c11.xlsx")).toBe("a.xlsx");
+    expect(nameForPath("A.PDF", pdf)).toBe("A.PDF");
+  });
+  it("keeps the whole name within 200 characters", () => {
+    expect(Array.from(nameForPath(`${"x".repeat(300)}.exe`, pdf)).length).toBeLessThanOrEqual(200);
+    expect(nameForPath(`${"x".repeat(300)}.exe`, pdf).endsWith(".pdf")).toBe(true);
   });
 });
 

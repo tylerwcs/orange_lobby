@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import type { Event } from "@/lib/types";
 import { eventChecklist, getSetupFile, listSetupFiles, recordSetupFile, removeSetupFile, saveSetupNote, setupFileUrl, startSetupUpload } from "../db";
-import { acceptSetupFile, cleanFileName, contentTypeFor, MAX_FILES_PER_ITEM, NOTE_MAX, toHubFile, type HubFile } from "../hub";
+import { acceptSetupFile, contentTypeFor, MAX_FILES_PER_ITEM, nameForPath, NOTE_MAX, toHubFile, type HubFile } from "../hub";
 import { loadByToken } from "./load";
 
 type Fail = { ok: false; message: string };
@@ -43,14 +43,17 @@ export async function finishSetupUploadAction(token: string, itemKey: string, pa
   const item = await itemOf(token, itemKey);
   if (!item.ok) return item;
   const contentType = typeof path === "string" ? contentTypeFor(path) : null;
+  let row;
   try {
-    const row = contentType ? await recordSetupFile(item.ev, item.key, path, cleanFileName(String(name ?? "")), contentType) : null;
-    if (!row) return fail("We couldn't find that upload. Try again.");
-    changed(item.ev);
-    return { ok: true, file: toHubFile(row) };
+    // The name always ends in the stored file's own extension, so a download can't pose as another type.
+    row = contentType ? await recordSetupFile(item.ev, item.key, path, nameForPath(String(name ?? ""), path), contentType) : null;
   } catch {
     return fail("We couldn't record that upload. Try again.");
   }
+  if (row === "full") return fail(`Up to ${MAX_FILES_PER_ITEM} files per item. Remove one first.`);
+  if (!row) return fail("We couldn't find that upload. Try again.");
+  changed(item.ev);
+  return { ok: true, file: toHubFile(row) };
 }
 
 export async function removeSetupFileAction(token: string, fileId: string): Promise<{ ok: true } | Fail> {

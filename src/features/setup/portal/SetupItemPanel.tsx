@@ -31,9 +31,11 @@ export function SetupItemPanel({ token, itemKey, initialFiles, initialNotes, not
   const [files, setFiles] = useState(initialFiles);
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [notes, setNotes] = useState(initialNotes);
   const [noteState, setNoteState] = useState<"idle" | "saving" | "saved">("idle");
   const savedNote = useRef(initialNotes);
+  const latestNote = useRef(initialNotes);
 
   useEffect(() => {
     if (notes === savedNote.current) return;
@@ -41,17 +43,32 @@ export function SetupItemPanel({ token, itemKey, initialFiles, initialNotes, not
       setNoteState("saving");
       try {
         const r = await saveSetupNoteAction(token, itemKey, notes);
-        if (!r.ok) throw new Error(r.message);
+        if (!r.ok) {
+          setNoteState("idle");
+          setNoteError(r.message);
+          return;
+        }
         savedNote.current = notes;
         setNoteState("saved");
+        setNoteError(null);
         router.refresh();
       } catch {
         setNoteState("idle");
-        setErrors([NOTE_FAILED]);
+        setNoteError(NOTE_FAILED);
       }
     }, NOTE_SAVE_MS);
     return () => clearTimeout(t);
   }, [notes, token, itemKey, router]);
+
+  // Leaving for another page in the app doesn't fire beforeunload, and the timer above is cancelled
+  // on unmount, so a note typed in the last second is sent here (fire and forget).
+  useEffect(() => {
+    const note = latestNote;
+    const saved = savedNote;
+    return () => {
+      if (note.current !== saved.current) void saveSetupNoteAction(token, itemKey, note.current).catch(() => {});
+    };
+  }, [token, itemKey]);
 
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
@@ -132,9 +149,9 @@ export function SetupItemPanel({ token, itemKey, initialFiles, initialNotes, not
           Note
           <span className="ml-auto text-xs font-normal text-muted-foreground" aria-live="polite">{noteState === "saving" ? "Saving…" : noteState === "saved" ? "Saved" : ""}</span>
         </span>
-        <Textarea rows={3} maxLength={NOTE_MAX} value={notes} placeholder={notesPlaceholder} onChange={(e) => setNotes(e.target.value)} />
+        <Textarea rows={3} maxLength={NOTE_MAX} value={notes} placeholder={notesPlaceholder} onChange={(e) => { latestNote.current = e.target.value; setNotes(e.target.value); }} />
       </label>
-      {errors.map((m) => <p key={m} role="alert" className="text-xs font-semibold text-destructive">{m}</p>)}
+      {[...errors, ...(noteError ? [noteError] : [])].map((m, i) => <p key={i} role="alert" className="text-xs font-semibold text-destructive">{m}</p>)}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { eventFeatures } from "@/features/catalogue";
 import { BUILT_STEPS } from "./sections";
 import { buildChecklist, type ChecklistEntry } from "./checklist";
-import { isSetupFilePath, itemStatus, setupFilePath } from "./hub";
+import { isSetupFilePath, itemStatus, MAX_FILES_PER_ITEM, setupFilePath } from "./hub";
 import type { AgendaLive, AgendaPlan } from "./sections/agenda-apply";
 
 export type SetupRow = {
@@ -193,15 +193,26 @@ export async function startSetupUpload(orgId: string, eventId: string, ext: stri
 /**
  * Records a file once it is in the bucket (D459), and marks its item changed. Null when the path
  * isn't one minted for this event, nothing is there (the upload never finished), or it is
- * already recorded.
+ * already recorded. "full" when the item already holds its maximum: the cap is enforced here, not
+ * only when the upload starts, so the object just uploaded is removed again.
  */
-export async function recordSetupFile(ev: Pick<Event, "id" | "org_id">, itemKey: string, path: string, name: string, contentType: string): Promise<SetupFileRow | null> {
+export async function recordSetupFile(ev: Pick<Event, "id" | "org_id">, itemKey: string, path: string, name: string, contentType: string): Promise<SetupFileRow | "full" | null> {
   if (!isSetupFilePath(path, ev.org_id, ev.id)) return null;
   const cut = path.lastIndexOf("/");
   const { data: listed, error: listError } = await serviceClient().storage.from(SETUP_BUCKET).list(path.slice(0, cut), { search: path.slice(cut + 1) });
   if (listError) throw listError;
   const object = listed?.find((o) => o.name === path.slice(cut + 1));
   if (!object) return null;
+  const { data: already, error: alreadyError } = await files().select("id").eq("path", path).limit(1);
+  if (alreadyError) throw alreadyError;
+  if (already?.length) return null;
+  const { count, error: countError } = await files().select("id", { count: "exact", head: true }).eq("event_id", ev.id).eq("item_key", itemKey);
+  if (countError) throw countError;
+  if ((count ?? 0) >= MAX_FILES_PER_ITEM) {
+    const { error: removeError } = await serviceClient().storage.from(SETUP_BUCKET).remove([path]);
+    if (removeError) throw removeError;
+    return "full";
+  }
   const size = Number((object.metadata as { size?: number } | null)?.size ?? 0);
   const { data, error } = await files()
     .insert({ event_id: ev.id, item_key: itemKey, path, name, size_bytes: Math.max(size, 1), content_type: contentType })
