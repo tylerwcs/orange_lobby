@@ -652,3 +652,11 @@ on stage (read from the database, after the grace) equal the taps the server acc
 per run). `cleanup` deletes the load attendees; their
 check-ins and game rows go with them. If Vercel answers with its own 403/429 pages, the test is
 tripping platform protection from one IP — run from two machines, or ask before adding a bypass.
+
+## Polaroid wall on the day (D471–D485)
+
+- **LED:** open the wall link from the activity's Setup → Links on the LED PC, click "Click to start display". It fills the screen at any size (about 7 columns on the 5504×2322 KOM LED).
+- **Walk-in QR:** turn on "Walk-in link" in Setup → Wall and moderation; the QR appears on the wall within 2 s. Walk-ins are rate-limited (1 per 30 s, 10 an hour per phone, 30 an hour per IP).
+- **Moderation:** posts go live at once (D473). Keep the Polaroids tab open on a crew laptop; it refreshes every 5 s. "Remove from wall" takes it off within 2 s and deletes the photo.
+- **Pause:** the activity's Open switch. Closed, nobody can post (the wall keeps showing what is there). If the walk-in link is abused, close the activity or rotate the walk-in link.
+- **Load test:** `npm run load:polaroid -- seed <activity-id> <jpeg-folder> 150 60`, then `cleanup <activity-id>`. Never on ecphub.
