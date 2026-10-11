@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildTracker, dailyKm, teamDayRows, teamSummary, trackerTab, trackerTabs } from "@/features/activities/lib/tracker";
-import type { ActivitySubmission, ChallengeScoring } from "@/lib/types";
+import { buildTracker, dailyKm, entryChoices, teamDayRows, teamSummary, trackerTab, trackerTabs } from "@/features/activities/lib/tracker";
+import type { ActivitySubmission, ChallengeScoring, RegistrationQuestion } from "@/lib/types";
 
 const S: ChallengeScoring = {
   metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-12-04",
@@ -168,5 +168,24 @@ describe("teamSummary (D387)", () => {
   it("names the unit (D463)", () => {
     expect(teamSummary({ day: "2026-10-13", today: "2026-10-13", startsOn: "2026-10-12", logged: 3, members: 10, weekKm: 140, weekHasToday: true, unit: "min" }))
       .toBe("3 of 10 logged today · 140 min this week");
+  });
+});
+
+describe("entryChoices (D469)", () => {
+  const qs: RegistrationQuestion[] = [
+    { key: "device", label: "How", type: "select", required: true, options: ["Smartwatch / wearable", "Phone only"] },
+    { key: "watch_activity", label: "Activity", type: "select", required: true, options: ["Gym"], show_when: { key: "device", includes: "Smartwatch" } },
+    { key: "minutes", label: "Minutes", type: "number", required: true },
+    { key: "phone_activity", label: "Activity", type: "select", required: true, options: ["Outdoor"], show_when: { key: "device", includes: "Phone" } },
+  ];
+
+  it("joins every choice answered, in question order, skipping hidden ones", () => {
+    expect(entryChoices({ answers: { device: "Phone only", watch_activity: "", minutes: "30", phone_activity: "Outdoor" } }, qs))
+      .toBe("Phone only · Outdoor");
+  });
+
+  it("reads one choice as before, and nothing when none is answered", () => {
+    expect(entryChoices({ answers: { device: "Smartwatch / wearable" } }, qs.slice(0, 1))).toBe("Smartwatch / wearable");
+    expect(entryChoices({ answers: { minutes: "30" } }, qs)).toBe("");
   });
 });

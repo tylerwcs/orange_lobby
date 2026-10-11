@@ -1,6 +1,6 @@
 import { addDays, challengeWeeks, inChallenge, nextStep, round2, stepPoints, weekFor, type ChallengeWeek } from "./challenge";
 import { shortDate } from "@/lib/text";
-import type { ActivitySubmission, ChallengeScoring } from "@/lib/types";
+import type { ActivitySubmission, ChallengeScoring, RegistrationQuestion } from "@/lib/types";
 
 /**
  * Everything the attendee's tracker page draws (D374), from their own entries alone. Pure;
@@ -38,6 +38,15 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export function metricKm(s: Pick<ActivitySubmission, "answers">, key: string): number {
   const n = Number(s.answers[key]);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * D469: the entry's choices in a line, in question order - "Phone only · Outdoor Running …".
+ * A show_when-hidden choice stores "" (see validateAnswers), so a branching form reads only the
+ * branch that was taken; a form with one choice question reads as it did before.
+ */
+export function entryChoices(s: Pick<ActivitySubmission, "answers">, questions: RegistrationQuestion[]): string {
+  return questions.filter((q) => q.type === "select" && s.answers[q.key]).map((q) => s.answers[q.key]).join(" · ");
 }
 
 /** Live entries only (D339): a revoked workout never counts toward a day. */

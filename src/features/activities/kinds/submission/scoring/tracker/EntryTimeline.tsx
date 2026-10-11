@@ -1,6 +1,6 @@
 import { Footprints } from "lucide-react";
 import { signedSubmissionUrl } from "@/lib/db/media";
-import { metricKm } from "../../../../lib/tracker";
+import { entryChoices, metricKm } from "../../../../lib/tracker";
 import { shortTime } from "@/lib/text";
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { EntryPhotos } from "./EntryPhotos";
@@ -13,8 +13,8 @@ import type { EditEntry } from "../../SubmissionHistory";
 const PHOTO_SECONDS = 60 * 60;
 
 /**
- * D374: the selected day's workouts, oldest first. Each line shows its time, km, the first
- * choice answered (how it was recorded) and the first photo as a thumbnail. A revoked entry
+ * D374: the selected day's workouts, oldest first. Each line shows its time, km, the choices
+ * answered (D469: every one, so a form that branches on the device shows the activity too) and the first photo as a thumbnail. A revoked entry
  * stays, faded and not counted (D339), so the attendee can see why their total dropped.
  */
 export async function EntryTimeline({ entries, questions, metricKey, unit = "km", empty, addedBy, edit }: {
@@ -30,7 +30,6 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
 }) {
   if (entries.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>;
   const files = questions.filter((q) => q.type === "file");
-  const choice = questions.find((q) => q.type === "select");
   return (
     <ol className="flex flex-col">
       {await Promise.all(entries.map(async (s, i) => {
@@ -45,6 +44,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
         const added = s.submitted_by ? addedBy?.(s) : null;
         const at = shortTime(s.created_at);
         const km = `${metricKm(s, metricKey)} ${unit}`;
+        const choices = entryChoices(s, questions);
         return (
           <li key={s.id} className={`relative flex items-center gap-3 py-3 ${revoked ? "opacity-50" : ""}`}>
             {i < entries.length - 1 && <span aria-hidden className="absolute -bottom-3 left-[21px] top-14 border-l-2 border-dashed border-border" />}
@@ -53,7 +53,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
             </span>
             <div className="min-w-0 flex-1">
               <div className={`font-extrabold tabular-nums ${revoked ? "line-through" : ""}`}>{km}</div>
-              {choice && s.answers[choice.key] && <div className="truncate text-sm text-muted-foreground">{s.answers[choice.key]}</div>}
+              {choices && <div className="line-clamp-2 text-sm text-muted-foreground">{choices}</div>}
               <div className="text-xs text-muted-foreground">
                 {at}{revoked ? " · Removed by the organiser" : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}{added ? ` · ${added}` : ""}
               </div>
