@@ -4,3 +4,4 @@ export * from "./db/polaroids";
 export * from "./post";
 export * from "./context";
 export * from "./wall-state";
+export * from "./actions";

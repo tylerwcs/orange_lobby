@@ -1,0 +1,19 @@
+/* D483: the film tone every card is drawn with, never baked into the photo. */
+.film { filter: contrast(1.04) saturate(1.06) sepia(0.08) brightness(1.02); }
+
+/* D482: a fresh print comes out pale and develops over 1.5 s, ending on the film tone. */
+.develop { animation: develop 1.6s ease-out both; }
+@keyframes develop {
+  from { filter: sepia(0.35) saturate(0.15) brightness(1.55) contrast(0.6) blur(1.5px); }
+  to { filter: contrast(1.04) saturate(1.06) sepia(0.08) brightness(1.02); }
+}
+
+.sticker { filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.35)); }
+
+.lensPulse { animation: lensPulse 0.9s ease-in-out infinite; }
+@keyframes lensPulse { 50% { opacity: 0.35; } }
+
+.flash { animation: flash 0.6s ease-out; }
+@keyframes flash {
+  0% { background: #fffbe0; box-shadow: 0 0 60px 30px rgb(255 251 224 / 0.9); }
+}
