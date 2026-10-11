@@ -107,17 +107,23 @@ export async function insertPolaroid(row: NewPolaroid): Promise<string | null> {
 }
 
 /**
- * D473: final. The status flips first, so the wall drops it on its next poll even if the file
- * delete fails and has to be retried; then the photo itself goes. False if it was already gone.
+ * D473: final, and idempotent. The status flips first, so the wall drops it on its next poll even
+ * if the file delete fails; the photo delete then runs on every call, removed row or not, so a
+ * retry after a failed delete re-attempts it (removing a missing object is not an error).
+ * True if this call took a live polaroid down, false if it was already removed or does not exist.
  */
 export async function removePolaroid(id: string, activityId: string, by: string): Promise<boolean> {
-  const { data, error } = await polaroids().update({ status: "removed", removed_by: by, removed_at: new Date().toISOString() })
-    .eq("id", id).eq("activity_id", activityId).eq("status", "live").select("photo_path");
-  if (error) throw error;
-  const row = (data ?? [])[0] as { photo_path: string } | undefined;
+  const row = await getPolaroid(id, activityId);
   if (!row) return false;
+  let flipped = false;
+  if (row.status === "live") {
+    const { data, error } = await polaroids().update({ status: "removed", removed_by: by, removed_at: new Date().toISOString() })
+      .eq("id", id).eq("activity_id", activityId).eq("status", "live").select("id");
+    if (error) throw error;
+    flipped = (data ?? []).length > 0;
+  }
   await deletePhotos([row.photo_path]);
-  return true;
+  return flipped;
 }
 
 /** D478: a signed upload URL's token for one fresh path; the browser uploads straight to the bucket. */
