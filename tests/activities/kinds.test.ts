@@ -20,7 +20,9 @@ describe("activityTabs per kind (D414)", () => {
 });
 
 describe("the polaroid kind (D471)", () => {
-  it("has a Setup tab, by its own entry", () => {
-    expect(activityTabs("polaroid", {}).map((t) => t.tab)).toEqual(["setup"]);
+  it("has Setup, Polaroids (counted) and Stickers", () => {
+    const tabs = activityTabs("polaroid", { polaroids: 4 });
+    expect(tabs.map((t) => t.tab)).toEqual(["setup", "polaroids", "stickers"]);
+    expect(tabs[1].count).toBe(4);
   });
 });

@@ -5,7 +5,7 @@ import type { ActivityKind } from "@/lib/types";
  * to them uses (D239). Setup is the default, so its URL carries no `tab` at all: a bare link
  * to an activity is a link to its setup, which is what the organiser comes back for.
  */
-export type ActivityTab = "setup" | "bookings" | "not-booked" | "submissions" | "not-submitted" | "participation" | "leaderboard";
+export type ActivityTab = "setup" | "bookings" | "not-booked" | "submissions" | "not-submitted" | "participation" | "leaderboard" | "polaroids" | "stickers";
 
 export type TabCounts = {
   booked?: number;
@@ -20,6 +20,8 @@ export type TabCounts = {
   grouped?: boolean;
   /** D381: a scored challenge has a Leaderboard tab. */
   scored?: boolean;
+  /** D485: a polaroid wall's live count, for its Polaroids tab. */
+  polaroids?: number;
 };
 
 export type TabItem = { tab: ActivityTab; label: string; count: number | null; dot: boolean };
@@ -39,8 +41,8 @@ const TABS: Record<ActivityKind, (c: TabCounts) => TabItem[]> = {
   },
   // A passport's booths and links are all on Setup (D190).
   passport: () => [setup()],
-  // Setup only until the moderation feed and stickers land (Task 11).
-  polaroid: () => [setup()],
+  // D485: the moderation feed and the sticker pack; Setup holds details, links and the wall.
+  polaroid: (c) => [setup(), item("polaroids", "Polaroids", c.polaroids ?? 0), item("stickers", "Stickers")],
 };
 
 export function activityTabs(kind: ActivityKind, c: TabCounts): TabItem[] {
