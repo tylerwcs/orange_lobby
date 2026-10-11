@@ -33,7 +33,7 @@ export type WallBackground = z.infer<typeof background>;
  * falls back on its own, so one damaged value never blanks the rest of the wall's settings.
  */
 export function readPolaroidSettings(raw: unknown): PolaroidSettings {
-  return schema.parse(raw && typeof raw === "object" ? raw : {});
+  return schema.parse(raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {});
 }
 
 /** The admin's blocked-words box: one per line or comma, lowercased, deduped, at most 200. */

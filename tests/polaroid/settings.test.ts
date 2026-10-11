@@ -8,6 +8,12 @@ describe("readPolaroidSettings (D475)", () => {
       columns: "auto", speed: "medium", background: null,
     });
   });
+  it("never throws on a non-object column, and fills the defaults", () => {
+    const defaults = readPolaroidSettings(null);
+    expect(readPolaroidSettings([])).toEqual(defaults);
+    expect(readPolaroidSettings("x")).toEqual(defaults);
+    expect(readPolaroidSettings(5)).toEqual(defaults);
+  });
   it("keeps good fields and defaults only the damaged one", () => {
     const s = readPolaroidSettings({ prompt: "Say hi!", public: true, columns: 99, speed: "warp" });
     expect(s.prompt).toBe("Say hi!");
