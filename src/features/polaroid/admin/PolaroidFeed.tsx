@@ -45,12 +45,12 @@ export async function PolaroidFeed({ ev, activity, show }: { ev: Event; activity
             const by = r.removed_by === "self" ? "the poster" : r.removed_by ? removers[r.removed_by.slice(6)] ?? "an admin" : null;
             return (
               <div key={r.id} className="flex flex-col items-center gap-2 pt-3">
-                <PolaroidCard width={180} stickerSrc={src}
+                <PolaroidCard width={180} stickerSrc={src} className={r.status === "removed" ? "opacity-50 grayscale" : ""}
                   card={{ src: r.status === "live" ? photoUrl(r.photo_path) : null, w: r.photo_w, h: r.photo_h, message: r.message, stickers: r.stickers, tilt: r.tilt }} />
                 <div className="w-full text-center text-xs">
                   <div className="font-bold">{who}</div>
                   <div className="text-muted-foreground">{shortDateTime(r.created_at)}</div>
-                  {r.status === "removed" && <div className="text-muted-foreground">Removed by {by}</div>}
+                  {r.status === "removed" && <div className="text-muted-foreground">Removed by {by}{r.removed_at ? ` · ${shortDateTime(r.removed_at)}` : ""}</div>}
                 </div>
                 {r.status === "live" && (
                   <form action={removePolaroidAction.bind(null, ev.id, activity.id, r.id)}>

@@ -35,7 +35,7 @@ export function WallBackgroundField({ eventId, activityId, current }: { eventId:
       <input type="hidden" name="background_type" value={bg ? bg.type : "none"} />
       <input type="hidden" name="background_url" value={bg?.url ?? ""} />
       <p className="text-sm text-muted-foreground">
-        {bg ? `Your ${bg.type}. ` : "The event colour. "}An image or an MP4/WebM up to 30 MB; it fills the LED, so 5504 × 2322 or 2560 × 1080 fits KOM&apos;s screen.
+        {bg ? `Your ${bg.type}. ` : "The event colour. "}An image up to 4 MB, or an MP4/WebM video up to 30 MB; it fills the LED, so 5504 × 2322 or 2560 × 1080 fits KOM&apos;s screen.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <label className="inline-flex h-8 cursor-pointer items-center rounded-md border px-3 text-sm font-medium">
