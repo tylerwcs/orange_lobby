@@ -111,6 +111,34 @@ describe("standings and Void (D380)", () => {
   });
 });
 
+describe("Ultra-Effort ranking (D468)", () => {
+  const SM: ChallengeScoring = { ...S, void: "week" };
+  const vr = (s: ReturnType<typeof score>) => Object.fromEntries(s.standings.map((x) => [x.id, x.volumeRank]));
+
+  it("ranks teams by season total, a tie sharing a rank", () => {
+    const s = score([t("a1", "A", "2026-10-05", 900), t("b1", "B", "2026-10-05", 1200), t("c1", "C", "2026-10-05", 1200)]);
+    expect(vr(s)).toMatchObject({ A: 3, B: 1, C: 1 });
+  });
+
+  it("leaves a team with no total unranked", () => {
+    const s = score([t("a1", "A", "2026-10-05", 900)]);
+    expect(vr(s)).toEqual({ A: 1, B: null, C: null, D: null });
+  });
+
+  it("leaves a season-void team unranked and the teams behind it move up", () => {
+    const s = score([t("a1", "A", "2026-10-05", 2000), t("b1", "B", "2026-10-05", 1200), t("c1", "C", "2026-10-05", 900)], "2026-10-12", new Map([["a2", null]]));
+    expect(vr(s)).toMatchObject({ A: null, B: 1, C: 2 });
+  });
+
+  it("ranks on the season total without the voided week (D467)", () => {
+    const W1 = WEEKS[0].days[0], W2 = WEEKS[1].days[0];
+    const totals = [t("a1", "A", W1, 500), t("a1", "A", W2, 100), t("b1", "B", W1, 400), t("b1", "B", W2, 100)];
+    // A is void in week 1, so its season total is 100 against B's 500.
+    const s = score(totals, "2026-10-19", new Map([["a2", W1]]), TEAMS, SM);
+    expect(vr(s)).toMatchObject({ A: 2, B: 1 });
+  });
+});
+
 describe("a week void (D467)", () => {
   const SW: ChallengeScoring = { ...S, void: "week" };
   const [W1, W2] = [WEEKS[0].days, WEEKS[1].days]; // 5–11 Oct, 12–18 Oct

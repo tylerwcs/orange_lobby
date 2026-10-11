@@ -4,7 +4,7 @@ import type { Standing } from "@/features/activities/lib/challenge-score";
 
 /** Standings as scoreChallenge returns them: live teams by total desc with competition ranks, void last. */
 const row = (id: string, total: number, rank: number | null, over: Partial<Standing> = {}): Standing => ({
-  id, name: `Group ${id}`, km: 0, tier1: total, bonus: 0, podium: 0, total, void: rank === null, rank, ...over,
+  id, name: `Group ${id}`, km: 0, tier1: total, bonus: 0, podium: 0, total, void: rank === null, rank, volumeRank: null, ...over,
 });
 const table: Standing[] = [
   row("04", 260, 1), row("07", 248, 2), row("02", 198, 3), row("09", 185, 4), row("01", 176, 5), row("05", 90, 6),

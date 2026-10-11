@@ -18,7 +18,10 @@ export type Team = { id: string; name: string; memberIds: string[] };
 /** `void` is D467's week void: every tier is 0 that week and the team is off its podium. */
 export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; onTrack: number; members: number; void: boolean };
 export type WeekResult = { week: ChallengeWeek; ended: boolean; teams: Record<string, TeamWeek> };
-export type Standing = { id: string; name: string; km: number; tier1: number; bonus: number; podium: number; total: number; void: boolean; rank: number | null };
+export type Standing = { id: string; name: string; km: number; tier1: number; bonus: number; podium: number; total: number; void: boolean; rank: number | null;
+  /** D468: Ultra-Effort rank by season `km` (any unit); null for a season-void team or one with none. */
+  volumeRank: number | null;
+};
 export type ChallengeScore = {
   weeks: WeekResult[];
   standings: Standing[];
@@ -102,8 +105,12 @@ export function scoreChallenge(input: {
     // A voided week's points are already 0; its km is left out too (D467, feeding D468's total).
     const sum = (k: "km" | "tier1" | "bonus" | "podium") => weekResults.reduce((n, w) => n + (w.teams[team.id].void ? 0 : w.teams[team.id][k]), 0);
     const [tier1, bonus, podium] = [sum("tier1"), sum("bonus"), sum("podium")];
-    return { id: team.id, name: team.name, km: round2(sum("km")), tier1, bonus, podium, total: tier1 + bonus + podium, void: isVoid.has(team.id), rank: null as number | null };
+    return { id: team.id, name: team.name, km: round2(sum("km")), tier1, bonus, podium, total: tier1 + bonus + podium, void: isVoid.has(team.id), rank: null as number | null, volumeRank: null as number | null };
   });
+  // D468: the Ultra-Effort award is the most season total. Void and zero teams are out of it, so
+  // the teams behind them move up. It is the committee's ranking; attendees see points only (D379).
+  const eligible = rows.filter((r) => !r.void && r.km > 0);
+  for (const r of eligible) r.volumeRank = rankOf(eligible, (x) => x.km, r);
   const live = rows.filter((r) => !r.void).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   for (const r of live) r.rank = rankOf(live, (x) => x.total, r);
   const voided = rows.filter((r) => r.void).sort((a, b) => a.name.localeCompare(b.name));

@@ -264,10 +264,25 @@ describe("leaderboardRows (D381)", () => {
 
   it("lists every week's tiers per team, then the totals", () => {
     expect(leaderboardRows(score)).toEqual([
-      ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Total"],
-      ["Week 2 · 5–11 Oct", "Group 01", 2, 1, 0, 20, 21],
-      ["All weeks", "Group 01", 2, 1, 0, 20, 21],
+      ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Total", "Ultra-Effort rank"],
+      ["Week 2 · 5–11 Oct", "Group 01", 2, 1, 0, 20, 21, ""],
+      ["All weeks", "Group 01", 2, 1, 0, 20, 21, 1],
     ]);
+  });
+
+  it("ends an all-weeks row with its Ultra-Effort rank, blank when it has none (D468)", () => {
+    const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-10-11", daily_steps: [{ at: 1, pts: 1 }], podium: [] };
+    const score = scoreChallenge({
+      totals: [{ attendeeId: "a1", groupId: "A", day: "2026-10-05", km: 2 }, { attendeeId: "b1", groupId: "B", day: "2026-10-05", km: 5 }],
+      teams: [
+        { id: "A", name: "Alpha", memberIds: ["a1"] }, { id: "B", name: "Bravo", memberIds: ["b1"] },
+        { id: "C", name: "Charlie", memberIds: ["c1"] }, { id: "D", name: "Delta", memberIds: ["d1"] },
+      ],
+      disqualified: new Map([["d1", null]]), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-12",
+    });
+    const rows = leaderboardRows(score);
+    expect(rows.filter((r) => String(r[0]).startsWith("Week 2")).every((r) => r[7] === "")).toBe(true);
+    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[7]])).toEqual([["Alpha", 2], ["Bravo", 1], ["Charlie", ""], ["Delta", ""]]);
   });
 
   it("heads the total column with the unit (D463)", () => {

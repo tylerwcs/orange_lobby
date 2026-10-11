@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 /**
  * D381: the committee's full view - km and every tier, for all weeks or one. Teams link to their
- * member × day grid. "Week" here is the EDM's numbering (D378).
+ * member × day grid. "Week" here is the EDM's numbering (D378). The all-weeks view also shows each
+ * team's Ultra-Effort rank (D468) beside its total; a picked week does not.
  */
 export function LeaderboardPanel({ score, unit, week, today, href }: {
   score: ChallengeScore;
@@ -49,7 +50,7 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">#</TableHead><TableHead>Team</TableHead>
-            <TableHead className="text-right">{unit}</TableHead><TableHead className="text-right">Daily</TableHead>
+            <TableHead className="text-right" title={picked ? undefined : "Season total, with its Ultra-Effort rank"}>{unit}{!picked && " · Ultra-Effort"}</TableHead><TableHead className="text-right">Daily</TableHead>
             <TableHead className="text-right">Bonus</TableHead><TableHead className="text-right">Podium</TableHead>
             <TableHead className="text-right">Total</TableHead>
           </TableRow>
@@ -59,7 +60,10 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
             <TableRow key={r.id}>
               <TableCell className="tabular-nums text-muted-foreground">{r.rank ?? "–"}</TableCell>
               <TableCell><Link href={href({ ...(week ? { week: String(week) } : {}), team: r.id })} className="font-bold text-primary underline-offset-2 hover:underline">{r.name}</Link></TableCell>
-              <TableCell className="text-right tabular-nums">{r.km}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {r.km}
+                {!picked && r.volumeRank !== null && <span className="ml-1.5 text-xs font-bold text-muted-foreground" title="Ultra-Effort rank">#{r.volumeRank}</span>}
+              </TableCell>
               <TableCell className="text-right tabular-nums">{r.tier1}</TableCell>
               <TableCell className="text-right tabular-nums">{r.bonus}</TableCell>
               <TableCell className="text-right tabular-nums">{r.podium}</TableCell>
