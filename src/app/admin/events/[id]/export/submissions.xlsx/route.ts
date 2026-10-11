@@ -3,7 +3,7 @@ import { requireEvent } from "@/lib/db/events";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
-import { listActivities, listSubmissions, loadChallenge, fileQuestionKeys, missingFrom, isGroupForm } from "@/features/activities";
+import { listActivities, listSubmissions, loadChallenge, unitOf, fileQuestionKeys, missingFrom, isGroupForm } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { signedSubmissionUrls } from "@/lib/db/media";
 import { buildFormsWorkbook, leaderboardRows, addLeaderboardSheet, type FormSheet } from "@/lib/exports";
@@ -94,7 +94,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // D381: a scored challenge also gets its leaderboard, scored by the same read the tab uses.
   for (const f of forms.filter((x) => x.scoring)) {
     const { score } = await loadChallenge(ev, f, nowInKL().date);
-    addLeaderboardSheet(wb, `${f.name} leaderboard`, leaderboardRows(score));
+    addLeaderboardSheet(wb, `${f.name} leaderboard`, leaderboardRows(score, unitOf(f.scoring!)));
   }
   const buf = await wb.xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {

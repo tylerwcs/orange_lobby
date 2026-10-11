@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
  * D381: the committee's full view - km and every tier, for all weeks or one. Teams link to their
  * member × day grid. "Week" here is the EDM's numbering (D378).
  */
-export function LeaderboardPanel({ score, week, today, href }: {
+export function LeaderboardPanel({ score, unit, week, today, href }: {
   score: ChallengeScore;
+  /** The challenge's unit (D463), heading the total column. */
+  unit: string;
   /** Null is every week so far. */
   week: number | null;
   /** `nowInKL().date` from the page - weeks not yet begun get no chip. */
@@ -47,7 +49,7 @@ export function LeaderboardPanel({ score, week, today, href }: {
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">#</TableHead><TableHead>Team</TableHead>
-            <TableHead className="text-right">km</TableHead><TableHead className="text-right">Daily</TableHead>
+            <TableHead className="text-right">{unit}</TableHead><TableHead className="text-right">Daily</TableHead>
             <TableHead className="text-right">Bonus</TableHead><TableHead className="text-right">Podium</TableHead>
             <TableHead className="text-right">Total</TableHead>
           </TableRow>

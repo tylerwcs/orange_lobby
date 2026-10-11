@@ -19,7 +19,7 @@ import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } 
 import { nowInKL, dayNav } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { loadChallenge } from "../../lib/challenge-data";
-import { gridWeek } from "../../lib/challenge";
+import { gridWeek, unitOf } from "../../lib/challenge";
 import { groupsNotDone } from "@/lib/groups";
 import { listGroups } from "@/lib/db/groups";
 import { categoryMatches } from "@/lib/agenda";
@@ -218,7 +218,7 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
                 undo={(aid) => undoDisqualifyAction.bind(null, ev.id, activity.id, aid)}
               />
             ) : (
-              <LeaderboardPanel score={challenge.score} week={weekNum} today={today}
+              <LeaderboardPanel score={challenge.score} unit={unitOf(activity.scoring!)} week={weekNum} today={today}
                 href={(extra) => activityHref(ev.id, activity.id, "leaderboard", extra)} />
             )}
           </CardContent>

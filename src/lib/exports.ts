@@ -378,9 +378,10 @@ export function buildPassportWorkbook(attendees: Attendee[], passports: Passport
  * D381: one row per team per week that has begun, then each team's totals. A week lists its
  * teams in that week's order (week total, then name, Void last) like the committee tab's week
  * view; "Void" stands in for the Total of a voided team (D380) in the weeks and the totals alike.
+ * The total column is headed with the challenge's unit (D463).
  */
-export function leaderboardRows(score: ChallengeScore): (string | number)[][] {
-  const header = ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Total"];
+export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | number)[][] {
+  const header = ["Week", "Team", unit, "Daily points", "Team bonus", "Podium", "Total"];
   const weekly = score.weeks
     .filter((w) => Object.values(w.teams).some((t) => t.km > 0) || w.ended)
     .flatMap((w) => score.standings

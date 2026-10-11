@@ -255,18 +255,23 @@ describe("activity roster workbook", () => {
 });
 
 describe("leaderboardRows (D381)", () => {
+  const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-10-11", daily_steps: [{ at: 1, pts: 1 }], podium: [20] };
+  const score = scoreChallenge({
+    totals: [{ attendeeId: "a1", groupId: "A", day: "2026-10-05", km: 2 }],
+    teams: [{ id: "A", name: "Group 01", memberIds: ["a1"] }],
+    disqualified: new Set(), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-12",
+  });
+
   it("lists every week's tiers per team, then the totals", () => {
-    const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-10-11", daily_steps: [{ at: 1, pts: 1 }], podium: [20] };
-    const score = scoreChallenge({
-      totals: [{ attendeeId: "a1", groupId: "A", day: "2026-10-05", km: 2 }],
-      teams: [{ id: "A", name: "Group 01", memberIds: ["a1"] }],
-      disqualified: new Set(), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-12",
-    });
     expect(leaderboardRows(score)).toEqual([
       ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Total"],
       ["Week 2 · 5–11 Oct", "Group 01", 2, 1, 0, 20, 21],
       ["All weeks", "Group 01", 2, 1, 0, 20, 21],
     ]);
+  });
+
+  it("heads the total column with the unit (D463)", () => {
+    expect(leaderboardRows(score, "min")[0][2]).toBe("min");
   });
 
   it("orders each week by that week's total, voided teams last and shown as Void", () => {

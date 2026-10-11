@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { stepPoints, type ChallengeWeek } from "../../../../lib/challenge";
+import { stepPoints, unitOf, type ChallengeWeek } from "../../../../lib/challenge";
 import { teamDayRows, teamSummary } from "../../../../lib/tracker";
 import type { ChallengeScore, Team, TeamWeek } from "../../../../lib/challenge-score";
 import type { ChallengeScoring } from "@/lib/types";
@@ -25,6 +25,7 @@ export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfI
   day: string; today: string; selfId: string; names: Map<string, string>;
 }) {
   const steps = scoring.daily_steps ?? [];
+  const unit = unitOf(scoring);
   const rows = teamDayRows({ memberIds: team.memberIds, names, kmOf: (id) => score.personKm(id, day), dailyMin: scoring.daily_min, day, today });
   const bonus = scoring.team_bonus ?? 0;
   const first = weekInfo.days[0];
@@ -34,7 +35,7 @@ export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfI
   const past = last < today;
   const summary = teamSummary({
     day, today, startsOn: scoring.starts_on, logged: rows.filter((r) => r.state === "logged").length,
-    members: rows.length, weekKm: week.km, weekHasToday: first <= today && today <= last,
+    members: rows.length, weekKm: week.km, weekHasToday: first <= today && today <= last, unit,
   });
   return (
     <details className="group overflow-hidden rounded-xl border border-border bg-card">
@@ -63,7 +64,7 @@ export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfI
               {r.state === "future"
                 ? <span className="text-muted-foreground"><span aria-hidden>–</span><span className="sr-only">Not yet</span></span>
                 : r.state === "logged"
-                  ? <span className="tabular-nums text-muted-foreground">{r.km} km{steps.length ? ` · ${stepPoints(r.km, steps)} pts` : ""}</span>
+                  ? <span className="tabular-nums text-muted-foreground">{r.km} {unit}{steps.length ? ` · ${stepPoints(r.km, steps)} pts` : ""}</span>
                   : <span className="font-bold text-warning">Not logged</span>}
             </li>
           ))}

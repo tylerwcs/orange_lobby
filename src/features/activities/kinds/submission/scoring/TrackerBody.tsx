@@ -15,6 +15,7 @@ import { RichSections } from "@/components/portal/RichSections";
 import { PendingScope, PendingSwap } from "@/components/PendingNav";
 import { Skeleton } from "@/components/ui/skeletons";
 import { loadChallenge } from "../../../lib/challenge-data";
+import { unitOf } from "../../../lib/challenge";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
 
@@ -65,6 +66,7 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
   eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry; proxy: Proxy | null;
 }) {
   const scoring = f.scoring!;
+  const unit = unitOf(scoring);
   const today = nowInKL().date;
   const [all, challenge] = await Promise.all([
     entriesForAttendee(f.id, attendeeId),
@@ -82,12 +84,12 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
           <>
             {/* No `tab` param on a day's link: a day belongs to My stats, the tab without one. */}
             <WeekStrip t={t} href={(d) => (d === today ? path : `${path}?day=${d}`)} />
-            <DayRing t={t} />
+            <DayRing t={t} unit={unit} />
             <div className="flex items-baseline justify-between">
               <h2 className="text-lg font-extrabold">{t.isToday ? "Today's entries" : "Entries"}</h2>
               <span className="text-xs text-muted-foreground">{workouts} workout{workouts === 1 ? "" : "s"}</span>
             </div>
-            <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key}
+            <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key} unit={unit}
               empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} addedBy={addedBy} />
             {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
             {challenge && myTeam && shownWeek?.teams[myTeam.id] && (

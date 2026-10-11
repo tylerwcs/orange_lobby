@@ -133,12 +133,12 @@ export function teamDayRows(input: {
  * still to come has nothing to count yet, and before the challenge starts it says when it does.
  */
 export function teamSummary(input: {
-  day: string; today: string; startsOn: string; logged: number; members: number; weekKm: number; weekHasToday: boolean;
+  day: string; today: string; startsOn: string; logged: number; members: number; weekKm: number; weekHasToday: boolean; unit: string;
 }): string {
   const { day, today } = input;
   if (day > today) return today < input.startsOn ? `Starts ${shortDate(input.startsOn)}` : `${shortDate(day)} is still to come`;
   const when = day === today ? "today" : `on ${shortDate(day)}`;
-  return `${input.logged} of ${input.members} logged ${when} · ${input.weekKm} km ${input.weekHasToday ? "this" : "that"} week`;
+  return `${input.logged} of ${input.members} logged ${when} · ${input.weekKm} ${input.unit} ${input.weekHasToday ? "this" : "that"} week`;
 }
 
 export type TrackerTab = "info" | "stats" | "leaderboard";

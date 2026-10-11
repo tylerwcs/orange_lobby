@@ -146,7 +146,7 @@ describe("trackerTabs (D397)", () => {
 });
 
 describe("teamSummary (D387)", () => {
-  const base = { startsOn: "2026-10-05", today: "2026-10-08", logged: 8, members: 10, weekKm: 61.4 };
+  const base = { startsOn: "2026-10-05", today: "2026-10-08", logged: 8, members: 10, weekKm: 61.4, unit: "km" };
 
   it("speaks of today and this week on today", () => {
     expect(teamSummary({ ...base, day: "2026-10-08", weekHasToday: true })).toBe("8 of 10 logged today · 61.4 km this week");
@@ -163,5 +163,10 @@ describe("teamSummary (D387)", () => {
 
   it("says when the challenge starts before it has", () => {
     expect(teamSummary({ ...base, today: "2026-10-03", day: "2026-10-05", weekHasToday: false })).toBe("Starts Mon 5 Oct");
+  });
+
+  it("names the unit (D463)", () => {
+    expect(teamSummary({ day: "2026-10-13", today: "2026-10-13", startsOn: "2026-10-12", logged: 3, members: 10, weekKm: 140, weekHasToday: true, unit: "min" }))
+      .toBe("3 of 10 logged today · 140 min this week");
   });
 });
