@@ -7,7 +7,12 @@ import {
 import type { WallSpeed } from "../../lib/settings";
 import type { WallCard, WallState } from "../../lib/wire";
 
-export type WallSlot = { key: string; card: WallCard; top: number; fading: boolean };
+/**
+ * `from`, sent once: draw the slot at `from` first, then glide to `top`. It is set where re-padding
+ * or a relayout moved a slot by more than a gap closing: the slot starts where the same card stood
+ * (so it glides only by the gap), or at `top` itself, which is a jump with no streak across the screen.
+ */
+export type WallSlot = { key: string; card: WallCard; top: number; fading: boolean; from?: number };
 export type WallSnapshot = {
   colW: number;
   cardW: number;
@@ -17,7 +22,9 @@ export type WallSnapshot = {
 
 /** One card's place in a column. A padded column holds a card several times, each with its own React key. */
 type Entry = { id: string; key: string };
-type Col = { entries: Entry[]; layout: ColumnLayout; offset: number; base: number; speed: number };
+type Col = { entries: Entry[]; layout: ColumnLayout; offset: number; base: number; speed: number; from: Map<string, number> };
+/** A drawn slot's card and top, by its React key. */
+type Drawn = Map<string, { id: string; top: number }>;
 
 const FADE_MS = 700;
 const SNAPSHOT_MS = 250;
@@ -81,15 +88,44 @@ export function createWallEngine() {
     col.offset = offset;
   };
 
-  /** A column whose pass fell short of the minimum gets copies appended. Rare, and may move cards. */
-  const topUp = (col: Col) => {
+  /** What `emit` draws for a column: each slot's key, card and top. */
+  const drawn = (col: Col): Drawn => new Map(visibleSlots(col.layout, col.offset, size.h, size.h).flatMap((s) => {
+    const e = col.entries[s.index];
+    return e ? [[`${e.key}:${s.repeat}`, { id: e.id, top: s.y - col.base }] as const] : [];
+  }));
+
+  /**
+   * A column whose pass fell short of the minimum gets copies appended (true if it did). That
+   * moves the slots after the anchor's pass by whole passes, while new copies take their places.
+   */
+  const topUp = (col: Col): boolean => {
     const g = geometry();
-    if (col.entries.length === 0 || col.layout.cycle >= g.minCycle) return;
+    if (col.entries.length === 0 || col.layout.cycle >= g.minCycle) return false;
     const prev = col.layout;
     const padded = padToFill(col.entries.map((e) => e.id), heightOf, g.gap, g.minCycle);
     col.entries = [...col.entries, ...padded.slice(col.entries.length).map(mint)];
     relayoutColumn(col);
     settle(col, prev, (i) => i);
+    return true;
+  };
+
+  /**
+   * After a re-pad: each slot that moved or is new starts where the same card stood before the
+   * takedown (`before`), so it glides only as far as the gap closes; with no such card, it jumps.
+   * `between` is the column after the takedown and before the re-pad.
+   */
+  const glideAfterTopUp = (col: Col, before: Drawn, between: Drawn) => {
+    for (const [key, now] of drawn(col)) {
+      const was = between.get(key);
+      if (was && Math.abs(was.top - now.top) < 0.5) continue;
+      let from = now.top;
+      for (const [k, b] of between) {
+        if (b.id !== now.id || Math.abs(b.top - now.top) >= 0.5) continue;
+        from = before.get(k)?.top ?? now.top;
+        break;
+      }
+      col.from.set(key, from);
+    }
   };
 
   /** Everything laid out afresh: the first load, a tiny wall, a column left empty or new geometry (Review Focus 3). */
@@ -98,6 +134,7 @@ export function createWallEngine() {
     const waiting = waitingIds();
     const items = [...cards.values()].filter((c) => !waiting.has(c.id)).map((c) => ({ id: c.id, height: heightOf(c.id) }));
     const sameGeometry = geometryKey === g.key;
+    const before = new Map(cols.flatMap((c) => [...drawn(c)]));
     cols = assignColumns(items, g.n, g.gap).map((ids, i) => {
       // On the same geometry a column that keeps a card keeps its keys too, so React does not remount it.
       const spare = new Map<string, string[]>();
@@ -108,15 +145,23 @@ export function createWallEngine() {
       });
       return {
         entries, layout: layoutColumn(entries.map((e) => heightOf(e.id)), g.gap),
-        offset: cols[i]?.offset ?? 0, base: cols[i]?.base ?? 0, speed: columnSpeed(speed, i, size.h),
+        offset: cols[i]?.offset ?? 0, base: cols[i]?.base ?? 0, speed: columnSpeed(speed, i, size.h), from: new Map<string, number>(),
       };
     });
+    // A kept slot that moved jumps to its new place rather than streaking there.
+    for (const col of cols) {
+      for (const [key, now] of drawn(col)) {
+        const was = before.get(key);
+        if (was && Math.abs(was.top - now.top) >= 0.5) col.from.set(key, now.top);
+      }
+    }
     geometryKey = g.key;
   }
 
   function insert(card: WallCard, column?: number) {
     if (cards.size <= geometry().n) { relayoutAll(); return; }
-    const c = column ?? shortestColumn(cols.map((x) => x.layout.cycle));
+    // A spotlight's column can be gone after a resize to fewer columns: then the shortest one.
+    const c = column !== undefined && cols[column] ? column : shortestColumn(cols.map((x) => x.layout.cycle));
     const col = cols[c];
     if (!col) return;
     const { index, offset } = insertionFor(col.layout, col.offset, size.h, col.speed >= 0 ? 1 : -1, heightOf(card.id), geometry().gap);
@@ -124,7 +169,7 @@ export function createWallEngine() {
     relayoutColumn(col);
     col.base += offset - col.offset;
     col.offset = offset;
-    // Only a column that was empty can be short after an insert.
+    // Only a column that was empty can be short after an insert, and it had nothing drawn.
     topUp(col);
   }
 
@@ -132,6 +177,7 @@ export function createWallEngine() {
   function remove(id: string) {
     for (const col of cols) {
       if (!col.entries.some((e) => e.id === id)) continue;
+      const before = drawn(col);
       const prev = col.layout;
       const newIndex: (number | null)[] = [];
       let removed = 0;
@@ -142,7 +188,8 @@ export function createWallEngine() {
       col.entries = col.entries.filter((e) => e.id !== id);
       relayoutColumn(col);
       settle(col, prev, (i) => newIndex[i] ?? null);
-      topUp(col);
+      const between = drawn(col);
+      if (topUp(col)) glideAfterTopUp(col, before, between);
     }
     // A column with nothing left would stand bare on the LED: lay the wall out again instead.
     if (cols.some((c) => c.entries.length === 0) && onWall().size > 0) relayoutAll();
@@ -153,14 +200,19 @@ export function createWallEngine() {
     snapshot = {
       colW: g.colW,
       cardW: g.cardW,
-      columns: cols.map((col, i) => ({
-        x: i * g.colW,
-        slots: visibleSlots(col.layout, col.offset, size.h, size.h).flatMap((s) => {
+      columns: cols.map((col, i) => {
+        const slots = visibleSlots(col.layout, col.offset, size.h, size.h).flatMap((s): WallSlot[] => {
           const entry = col.entries[s.index];
           const card = entry && known.get(entry.id);
-          return card ? [{ key: `${entry.key}:${s.repeat}`, card, top: s.y - col.base, fading: fading.has(entry.id) }] : [];
-        }),
-      })),
+          if (!card) return [];
+          const key = `${entry.key}:${s.repeat}`;
+          const from = col.from.get(key);
+          return [{ key, card, top: s.y - col.base, fading: fading.has(entry.id), ...(from === undefined ? {} : { from }) }];
+        });
+        // Sent once: the next snapshot draws these slots as usual.
+        col.from.clear();
+        return { x: i * g.colW, slots };
+      }),
       spotlight: current ? { card: current.card, column: current.column } : null,
     };
     listeners.forEach((l) => l());

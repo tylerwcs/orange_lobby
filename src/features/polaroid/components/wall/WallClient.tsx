@@ -18,6 +18,19 @@ const onResize = (cb: () => void) => {
 };
 const viewportKey = () => `${window.innerWidth}x${window.innerHeight}`;
 
+/**
+ * A slot the engine moved by more than a gap closing (`WallSlot.from`): placed at `from` with no
+ * transition, then let glide to `top`. With `from === top` it simply jumps, never streaking across.
+ */
+function glide(el: HTMLDivElement | null, from: number, top: number) {
+  if (!el) return;
+  el.style.transition = "none";
+  el.style.top = `${from}px`;
+  void el.offsetHeight;
+  el.style.transition = "";
+  el.style.top = `${top}px`;
+}
+
 /** The LED polaroid wall (D484): alternating looping columns, spotlights, the walk-in QR. */
 export function WallClient({ token, initial }: { token: string; initial: WallState }) {
   const { state } = usePoll<WallState>(`/api/wall/${token}/state`, initial, every, true);
@@ -54,7 +67,8 @@ export function WallClient({ token, initial }: { token: string; initial: WallSta
         <div key={i} className="absolute top-0 h-full" style={{ left: col.x, width: snap.colW }}>
           <div ref={(el) => engine.setTrack(i, el)} className="absolute inset-x-0 top-0 will-change-transform">
             {col.slots.map((s) => (
-              <div key={s.key} className="absolute transition-[top,opacity] duration-700 ease-out"
+              <div key={s.key} ref={s.from === undefined ? undefined : (el) => glide(el, s.from!, s.top)}
+                className="absolute transition-[top,opacity] duration-700 ease-out"
                 style={{ top: s.top, left: (snap.colW - snap.cardW) / 2, opacity: s.fading ? 0 : 1 }}>
                 <PolaroidCard card={s.card} width={snap.cardW} stickerSrc={state.stickerSrc} />
               </div>

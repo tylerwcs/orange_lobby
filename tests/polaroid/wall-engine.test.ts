@@ -59,7 +59,9 @@ function setup(list: WallCard[], view = LED) {
     const snap = engine.getSnapshot();
     return snap.columns.map((col, i) => {
       const shift = Number(/translate3d\(0, (-?[\d.e+-]+)px/.exec(tracks[i]?.style.transform ?? "")?.[1] ?? 0);
-      return col.slots.map((s) => ({ key: s.key, id: s.card.id, y: s.top + shift, h: snap.cardW * cardRatio(s.card.w, s.card.h) }));
+      return col.slots.map((s) => ({
+        key: s.key, id: s.card.id, y: s.top + shift, from: s.from === undefined ? undefined : s.from + shift, h: snap.cardW * cardRatio(s.card.w, s.card.h),
+      }));
     });
   };
   const onScreen = (view = LED) => screen().map((col) => col.filter((s) => s.y + s.h > 0 && s.y < view.h));
@@ -117,6 +119,42 @@ describe("the wall engine (D484)", () => {
     for (const col of after) expect(col.length).toBeGreaterThan(0);
   });
 
+  it("closes a takedown's gap in a padded column by gliding, never by streaking whole passes", () => {
+    const { engine, run, wait, onScreen, screen } = setup(cards(9));
+    run(200);
+    const snap = engine.getSnapshot();
+    const before = onScreen();
+    // Everything drawn, the buffer above and below the screen too: a card can glide in from there.
+    const drawn = screen();
+    // A column of two cards, padded; taking one down leaves it short, so it is padded again.
+    const from = before.findIndex((col) => new Set(col.map((s) => s.id)).size === 2);
+    expect(from).toBeGreaterThanOrEqual(0);
+    const target = before[from].find((s) => s.id !== before[from][0].id)!.id;
+    const removedH = before[from].find((s) => s.id === target)!.h + snap.colW * 0.08;
+    engine.update(state(cards(9).filter((c) => c.id !== target)), LED);
+    run(1, 0);
+    wait(800);
+    run(1, 0);
+    const after = onScreen()[from];
+    expect(after.some((s) => s.id === target)).toBe(false);
+    expect(after.some((s) => s.from !== undefined)).toBe(true);
+
+    const anchor = before[from].find((s) => s.id !== target)!;
+    const all = drawn[from];
+    const prior = new Map(all.map((s) => [s.key, s]));
+    for (const s of after) {
+      const kept = prior.get(s.key);
+      // Where the card is seen to start: `from` when sent, else where its element already was.
+      expect(s.from !== undefined || kept !== undefined).toBe(true);
+      const start = s.from ?? kept!.y;
+      if (s.from !== undefined && s.from === s.y) continue; // a jump in place: nothing seen to move
+      // It starts where this same card stood, and glides up by exactly the gaps closed above it.
+      expect(all.some((b) => b.id === s.id && Math.abs(b.y - start) < 0.5)).toBe(true);
+      const closed = all.filter((b) => b.id === target && b.y > anchor.y && b.y < start).length;
+      expect(start - s.y).toBeCloseTo(closed * removedH, 3);
+    }
+  });
+
   it("never leaves a column empty when its only card is taken down", () => {
     const { engine, run, wait, onScreen } = setup(cards(8));
     const lonely = onScreen().find((col) => new Set(col.map((s) => s.id)).size === 1)![0].id;
@@ -127,6 +165,24 @@ describe("the wall engine (D484)", () => {
     expect(after).toHaveLength(7);
     for (const col of after) expect(col.length).toBeGreaterThan(0);
     expect(after.flat().some((s) => s.id === lonely)).toBe(false);
+  });
+
+  it("still places a spotlit card when its column is gone after a resize", async () => {
+    vi.stubGlobal("Image", class { src = ""; decode() { return Promise.resolve(); } });
+    const { engine, run, screen, attach } = setup(cards(12));
+    const fresh = { ...card(12), created_at: new Date(Date.now()).toISOString() };
+    engine.update(state([...cards(12), fresh]), LED);
+    run(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    const spot = engine.getSnapshot().spotlight;
+    expect(spot?.card.id).toBe("c12");
+    expect(spot!.column).toBeGreaterThanOrEqual(3);
+    engine.update({ ...state([...cards(12), fresh]), columns: 3 }, LED);
+    attach();
+    run(1, 7000);
+    expect(engine.getSnapshot().spotlight).toBeNull();
+    expect(screen().flat().some((s) => s.id === "c12")).toBe(true);
   });
 
   it("re-lays the wall out for a 16:9 TV with no card lost", () => {
