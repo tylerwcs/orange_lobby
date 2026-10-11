@@ -187,4 +187,37 @@ describe("a week void (D467)", () => {
     expect(s.weeks.every((w) => !w.teams.A.void)).toBe(true);
     expect(s.weeks[1].teams.A.km).toBe(30);
   });
+
+  it("keeps the disqualified person's earlier days for Tier 2: the bonus is earned in the week before", () => {
+    const both = [...everyDay("a1", "A", 1, W1), ...everyDay("a2", "A", 1, W1), ...everyDay("a1", "A", 1, W2)];
+    const s = score(both, "2026-10-19", dq(W2[0]), TEAMS, SW);
+    expect(s.weeks[0].teams.A).toMatchObject({ bonus: 20, members: 2, onTrack: 2, void: false });
+    expect(s.weeks[1].teams.A).toMatchObject({ tier1: 0, bonus: 0, void: true });
+  });
+
+  it("voids each week of two disqualified members with different week_of, and no other", () => {
+    const W3 = WEEKS[2].days;
+    const two = new Map<string, string | null>([["a1", W1[0]], ["a2", W2[0]]]);
+    const s = score([...everyDay("a1", "A", 1, W3), ...everyDay("a2", "A", 1, W3)], "2026-10-26", two, TEAMS, SW);
+    expect(s.weeks.map((w) => w.teams.A.void)).toEqual([true, true, false, ...WEEKS.slice(3).map(() => false)]);
+    expect(s.weeks.every((w) => !w.teams.B.void)).toBe(true);
+  });
+
+  it("answers whether a person counts on a day: until their week_of, then not", () => {
+    const s = score(race, "2026-10-19", dq(W2[0]), TEAMS, SW);
+    expect(s.counts("a2", W1[6])).toBe(true);
+    expect(s.counts("a2", W2[0])).toBe(false);
+    expect(s.counts("a2", W2[3])).toBe(false);
+    expect(s.counts("a1", W2[3])).toBe(true);
+  });
+
+  it("counts a person with no week_of out from the start", () => {
+    expect(score(race, "2026-10-19", dq(null), TEAMS, SW).counts("a2", W1[0])).toBe(false);
+  });
+
+  it("counts everyone under a season void or no void", () => {
+    const season = score(race, "2026-10-19", dq(W1[0]));
+    expect(season.counts("a2", W2[0])).toBe(true);
+    expect(season.counts("a1", W2[0])).toBe(true);
+  });
 });

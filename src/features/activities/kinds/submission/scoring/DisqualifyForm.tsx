@@ -36,7 +36,7 @@ export function DisqualifyForm({ action, teamId, week, name, teamName, weekVoid 
       >
         <ConfirmButton
           message={weekVoid
-            ? `Disqualify ${name}? ${teamName} scores 0 for Week ${week}.`
+            ? `Disqualify ${name}? ${teamName} scores 0 for Week ${week}, and ${name} counts nothing from then on.`
             : `Disqualify ${name}? ${teamName} will show Void on every leaderboard.`}
           confirmLabel="Disqualify"
           triggerVariant="destructive"

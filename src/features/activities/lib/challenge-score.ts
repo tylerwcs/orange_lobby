@@ -26,6 +26,8 @@ export type ChallengeScore = {
   weeks: WeekResult[];
   standings: Standing[];
   personKm: (attendeeId: string, day: string) => number;
+  /** D467: false from a week-void disqualification's week on, when the person counts for nothing and is off their team's board. */
+  counts: (attendeeId: string, day: string) => boolean;
 };
 
 /** Standard competition ranking: 1 + how many are strictly ahead, so a tie for 1st is 1, 1, 3. */
@@ -115,5 +117,5 @@ export function scoreChallenge(input: {
   for (const r of live) r.rank = rankOf(live, (x) => x.total, r);
   const voided = rows.filter((r) => r.void).sort((a, b) => a.name.localeCompare(b.name));
 
-  return { weeks: weekResults, standings: [...live, ...voided], personKm };
+  return { weeks: weekResults, standings: [...live, ...voided], personKm, counts };
 }

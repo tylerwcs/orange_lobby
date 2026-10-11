@@ -20,7 +20,8 @@ import type { ChallengeScoring } from "@/lib/types";
  * A day still to come shows "–" for everyone rather than "Not logged" (D383): nobody can have
  * logged it yet, and before the challenge starts the shown day is its first.
  *
- * D467: a week voided by a disqualification says so in place of its Tier 2 line.
+ * D467: a week voided by a disqualification says so in place of its Tier 2 line, and the
+ * disqualified member is no longer listed or counted from that week on.
  */
 export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfId, names }: {
   team: Team; week: TeamWeek; weekInfo: ChallengeWeek; score: ChallengeScore; scoring: ChallengeScoring;
@@ -28,7 +29,8 @@ export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfI
 }) {
   const steps = scoring.daily_steps ?? [];
   const unit = unitOf(scoring);
-  const rows = teamDayRows({ memberIds: team.memberIds, names, kmOf: (id) => score.personKm(id, day), dailyMin: scoring.daily_min, day, today });
+  // D467: a member disqualified under a week void is off My team from their week on, so the line agrees with Tier 2.
+  const rows = teamDayRows({ memberIds: team.memberIds.filter((id) => score.counts(id, day)), names, kmOf: (id) => score.personKm(id, day), dailyMin: scoring.daily_min, day, today });
   const bonus = scoring.team_bonus ?? 0;
   const first = weekInfo.days[0];
   const last = weekInfo.days[weekInfo.days.length - 1];

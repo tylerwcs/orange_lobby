@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { ChallengeScore, Team } from "../../../lib/challenge-score";
-import { mondayOf, type ChallengeWeek } from "../../../lib/challenge";
+import { mondayOf, weekLabel, type ChallengeWeek } from "../../../lib/challenge";
 import type { Disqualification } from "../../../db/challenge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { DisqualifyForm } from "./DisqualifyForm";
@@ -25,7 +25,7 @@ export function TeamGrid({ team, week, score, names, dq, dailyMin, weekVoid, bac
   return (
     <div className="flex flex-col gap-3">
       <Link href={back} className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />All teams</Link>
-      <h3 className="text-base font-extrabold">{team.name}</h3>
+      <h3 className="text-base font-extrabold">{team.name} · {weekLabel(week)}</h3>
       {isVoid && <p className="text-sm font-bold text-destructive">Void: a member is disqualified.</p>}
       {weekVoided && <p className="text-sm font-bold text-destructive">Week {week.number} is void: a member is disqualified.</p>}
       <div className="overflow-x-auto">
@@ -45,7 +45,8 @@ export function TeamGrid({ team, week, score, names, dq, dailyMin, weekVoid, bac
                   <td className="py-2 pr-3 font-bold">{name}{d && <span className="block text-xs font-normal text-destructive">Disqualified{from ? ` from Week ${from}` : ""}: {d.reason}</span>}</td>
                   {week.days.map((day) => {
                     const km = score.personKm(id, day);
-                    return <td key={day} className={`px-1.5 py-2 text-right tabular-nums ${km >= dailyMin ? "" : "text-muted-foreground/60"}`}>{km || "–"}</td>;
+                    // D467: a disqualified member's days from their week on count for nothing, so they are dimmed.
+                    return <td key={day} className={`px-1.5 py-2 text-right tabular-nums ${km >= dailyMin && score.counts(id, day) ? "" : "text-muted-foreground/60"}`}>{km || "–"}</td>;
                   })}
                   <td className="py-2 pl-3">
                     {d ? (
