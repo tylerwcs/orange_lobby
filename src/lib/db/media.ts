@@ -2,6 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import {
   MEDIA_BUCKET,
+  POLAROID_BUCKET,
   SETUP_BUCKET,
   SUBMISSION_BUCKET,
   acceptImage,
@@ -247,7 +248,7 @@ export async function sweepSubmissionPrefix(prefix: string): Promise<void> {
 }
 
 /**
- * Every file an event ever stored, in all three buckets: its images, its attendees' uploads, and what its organiser sent through the setup link.
+ * Every file an event ever stored, in all four buckets: its images, its attendees' uploads, what its organiser sent through the setup link, and its polaroid photos.
  * All are filed under `<org>/<event>/` (mediaObjectPath, submissionObjectPath, setupFilePath), so a sweep of that prefix finds all of them.
  *
  * Throws on a failed removal, and runs BEFORE the event row is deleted: once the row is gone
@@ -256,7 +257,7 @@ export async function sweepSubmissionPrefix(prefix: string): Promise<void> {
  */
 export async function deleteEventFiles(orgId: string, eventId: string): Promise<void> {
   const prefix = `${orgId}/${eventId}`;
-  for (const bucket of [MEDIA_BUCKET, SUBMISSION_BUCKET, SETUP_BUCKET]) {
+  for (const bucket of [MEDIA_BUCKET, SUBMISSION_BUCKET, SETUP_BUCKET, POLAROID_BUCKET]) {
     const paths = await listAllObjectPaths(bucket, prefix);
     for (let i = 0; i < paths.length; i += LIST_PAGE) {
       const { error } = await serviceClient().storage.from(bucket).remove(paths.slice(i, i + LIST_PAGE));
@@ -270,6 +271,15 @@ export async function sweepSetupFiles(orgId: string, eventId: string): Promise<v
   const paths = await listAllObjectPaths(SETUP_BUCKET, `${orgId}/${eventId}`);
   for (let i = 0; i < paths.length; i += LIST_PAGE) {
     const { error } = await serviceClient().storage.from(SETUP_BUCKET).remove(paths.slice(i, i + LIST_PAGE));
+    if (error) throw error;
+  }
+}
+
+/** Every polaroid photo under a prefix (D485): one activity's folder when it is deleted, the event's on purge. */
+export async function sweepPolaroidPrefix(prefix: string): Promise<void> {
+  const paths = await listAllObjectPaths(POLAROID_BUCKET, prefix);
+  for (let i = 0; i < paths.length; i += LIST_PAGE) {
+    const { error } = await serviceClient().storage.from(POLAROID_BUCKET).remove(paths.slice(i, i + LIST_PAGE));
     if (error) throw error;
   }
 }

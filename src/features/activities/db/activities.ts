@@ -40,6 +40,10 @@ export type NewActivity = {
   health_data?: boolean;
   /** D397. Left out, the column's true stands; `toggleLeaderboardAction` alone flips it. */
   show_leaderboard?: boolean;
+  /** Polaroid kind only (D474, D475). Left out, the columns' nulls stand. */
+  wall_token?: string | null;
+  public_token?: string | null;
+  polaroid?: Record<string, unknown> | null;
 };
 
 export type NewSession = {

@@ -322,6 +322,12 @@ export type Activity = {
   stamps_required: number | null;
   /** Passport kind only. Shown once the card is full - the prize, in the organiser's words (D96). */
   reward_message: string | null;
+  /** Polaroid kind only (D474): the LED wall's link. Rotating it shuts a leaked link. Optional so fixtures need not name it. */
+  wall_token?: string | null;
+  /** Polaroid kind only (D474): the walk-in composer's link, live only while its settings say `public`. */
+  public_token?: string | null;
+  /** Polaroid kind only (D475): its settings, always read through `readPolaroidSettings`, which fills every default. */
+  polaroid?: Record<string, unknown> | null;
   sort_order: number;
 };
 

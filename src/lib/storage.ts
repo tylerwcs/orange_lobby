@@ -16,7 +16,8 @@ export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 /** What an uploaded image is for. Also the first half of its object name. */
 export type ImageKind =
   | "logo" | "banner" | "floor-plan" | "agenda" | "info" | "activity" | "tile-icon"
-  | "game-background" | "game-video" | "game-prize" | "game-card-back";
+  | "game-background" | "game-video" | "game-prize" | "game-card-back"
+  | "polaroid-sticker" | "polaroid-background";
 
 /**
  * The extension each accepted type is stored under. Browsers send `image/jpg` as well as
@@ -277,3 +278,26 @@ export function submissionFilePaths(answers: Record<string, unknown>[], prefix: 
  * map acceptUpload reads, so the picker can never offer a type the upload would reject.
  */
 export const UPLOAD_ACCEPT = Object.keys(UPLOAD_EXTENSIONS).join(",");
+
+/** Polaroid photos (D474). Public read so the LED needs no signed links; the paths are unguessable. */
+export const POLAROID_BUCKET = "polaroids";
+
+/** D477: the phone re-encodes far under this; the bucket's own 4 MB cap stands behind it. */
+export const MAX_POLAROID_BYTES = 4 * 1024 * 1024;
+
+/** One polaroid activity's folder, with its trailing slash: `<org>/<event>/<activity>/`. */
+export function polaroidFolder(input: { orgId: string; eventId: string; activityId: string }): string {
+  return `${input.orgId}/${input.eventId}/${input.activityId}/`;
+}
+
+/** Where one photo lives. `id` is a uuid the caller supplies, as for every other path builder here. */
+export function polaroidPhotoPath(input: { orgId: string; eventId: string; activityId: string }, id: string): string {
+  return `${polaroidFolder(input)}${id}.jpg`;
+}
+
+const UUID_JPG = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+
+/** Whether a posted path is one `startPolaroid` could have minted for this activity: a uuid file directly in its folder. */
+export function isOwnPolaroidPath(folder: string, path: string): boolean {
+  return path.startsWith(folder) && UUID_JPG.test(path.slice(folder.length));
+}

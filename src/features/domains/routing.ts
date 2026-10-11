@@ -2,7 +2,7 @@
 export type Route = { kind: "rewrite"; path: string } | { kind: "pass" } | { kind: "notFound" } | { kind: "main" };
 
 /** The event's public pages, which answer at /<section> on its address. */
-const SECTIONS = new Set(["register", "agenda", "info", "plan", "stamps", "announcements"]);
+const SECTIONS = new Set(["register", "agenda", "info", "plan", "stamps", "announcements", "polaroid"]);
 /** public/ folders and root files the attendee pages load. */
 const STATIC_DIRS = new Set(["app-icons", "brand", "portal-icons"]);
 const ROOT_FILE = /^\/[^/]+\.(?:svg|png|ico|txt|webmanifest)$/;

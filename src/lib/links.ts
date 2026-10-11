@@ -58,3 +58,13 @@ export function hostLink(base: string, token: string) {
 export function displayLink(base: string, token: string) {
   return `${trimSlash(base)}/display/${token}`;
 }
+
+/** The polaroid wall's walk-in composer (D481), on the event's own address when it has one. */
+export function polaroidWalkinLink(addr: EventAddress, token: string) {
+  return addr.domain ? `${hostUrl(addr.domain)}/polaroid/${token}` : `${appBaseUrl()}/e/${addr.slug}/polaroid/${token}`;
+}
+
+/** The LED's polaroid wall (D484). Staff-facing like the display link, so always on the app's own address. */
+export function polaroidWallLink(base: string, token: string) {
+  return `${trimSlash(base)}/wall/${token}`;
+}

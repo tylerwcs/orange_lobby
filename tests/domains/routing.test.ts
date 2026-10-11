@@ -11,6 +11,10 @@ describe("routeEventPath (D425)", () => {
     for (const s of ["agenda", "info", "plan", "stamps", "announcements"]) expect(r(`/${s}`)).toEqual({ kind: "rewrite", path: `/e/sk2summit/${s}` });
   });
 
+  it("rewrites the polaroid walk-in link on an event's own address (D481)", () => {
+    expect(routeEventPath("/polaroid/abc", "kom")).toEqual({ kind: "rewrite", path: "/e/kom/polaroid/abc" });
+  });
+
   it("opens an attendee's portal from the short link, and below it", () => {
     expect(r("/a/abcdefghjkmn")).toEqual({ kind: "rewrite", path: "/e/sk2summit/a/abcdefghjkmn" });
     expect(r("/a/abcdefghjkmn/activities")).toEqual({ kind: "rewrite", path: "/e/sk2summit/a/abcdefghjkmn/activities" });

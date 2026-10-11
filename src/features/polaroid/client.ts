@@ -1,0 +1,16 @@
+/**
+ * The polaroid wall's client-safe entry (D402, D403): the pure rules and, from Task 9 on, the
+ * screens. Code outside this folder imports the feature only from here or from `index.ts`.
+ */
+export * from "./lib/settings";
+export * from "./lib/stickers";
+export * from "./lib/message";
+export * from "./lib/card";
+export * from "./lib/placement";
+export * from "./lib/gesture";
+export * from "./lib/ratelimit";
+export * from "./lib/wall-layout";
+export * from "./lib/spotlight";
+export * from "./lib/post-rules";
+export * from "./lib/post-types";
+export * from "./lib/wire";
