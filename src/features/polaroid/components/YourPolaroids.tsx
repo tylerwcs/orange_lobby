@@ -18,7 +18,7 @@ export function YourPolaroids({ items, stickerSrc, remove }: {
       <div className="flex gap-4 overflow-x-auto pb-2">
         {items.map((p) => (
           <div key={p.id} className="flex shrink-0 flex-col items-center gap-2 pt-3">
-            <PolaroidCard card={p} width={140} stickerSrc={stickerSrc} />
+            <PolaroidCard card={p} width={140} stickerSrc={stickerSrc} loading="lazy" />
             <DangerButton message="This takes it off the wall and deletes the photo."
               action={async () => {
                 const r = await remove(p.id);

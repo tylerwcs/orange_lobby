@@ -281,8 +281,11 @@ export function createWallEngine() {
       const col = cols[i];
       if (el && col) el.style.transform = transformOf(col);
     },
-    /** A new poll answer or a new screen size. */
-    update(state: WallState, viewport: { w: number; h: number }) {
+    /**
+     * A new poll answer or a new screen size. `offset` is the server clock minus this one's (usePoll):
+     * a card's age is judged on server time, so a LED PC with a wrong clock still spotlights new posts.
+     */
+    update(state: WallState, viewport: { w: number; h: number }, offset = 0) {
       cards = new Map(state.cards.map((c) => [c.id, c]));
       for (const c of state.cards) known.set(c.id, c);
       columnsSetting = state.columns;
@@ -295,7 +298,7 @@ export function createWallEngine() {
       const placed = onWall();
       const waiting = waitingIds();
       const added = state.cards.filter((c) => !placed.has(c.id) && !waiting.has(c.id));
-      const fresh = new Set(arrivals(seen, added, Date.now()).map((c) => c.id));
+      const fresh = new Set(arrivals(seen, added, Date.now() + offset).map((c) => c.id));
       const split = splitQueue([...queue, ...added.filter((c) => fresh.has(c.id))]);
       queue = split.spotlight;
       const direct = [...added.filter((c) => !fresh.has(c.id)), ...split.direct];

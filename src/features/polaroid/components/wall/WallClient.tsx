@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Camera } from "lucide-react";
+import { LinkRefused } from "@/features/games/client";
 import { usePoll } from "@/lib/use-poll";
 import { useWakeLock } from "@/lib/use-wake-lock";
 import { handFont } from "../../font";
@@ -12,6 +13,11 @@ import { PolaroidCard } from "../PolaroidCard";
 import { createWallEngine } from "./engine";
 
 const every = () => 2000;
+/** What a refused poll says: the link was rotated (404) or the event is over (403). */
+const REFUSALS = {
+  missing: { title: "This wall link no longer works", body: "Open the new link from the activity's Links card." },
+  expired: { title: "This wall link has expired", body: "The event is over. Ask the organiser for a new link if you still need it." },
+};
 const onResize = (cb: () => void) => {
   window.addEventListener("resize", cb);
   return () => window.removeEventListener("resize", cb);
@@ -33,21 +39,29 @@ function glide(el: HTMLDivElement | null, from: number, top: number) {
 
 /** The LED polaroid wall (D484): alternating looping columns, spotlights, the walk-in QR. */
 export function WallClient({ token, initial }: { token: string; initial: WallState }) {
-  const { state } = usePoll<WallState>(`/api/wall/${token}/state`, initial, every, true);
+  const [refused, setRefused] = useState<keyof typeof REFUSALS | null>(null);
+  const onRefused = useCallback((status: number) => setRefused(status === 404 ? "missing" : "expired"), []);
+  const { state, offset } = usePoll<WallState>(`/api/wall/${token}/state`, initial, every, true, onRefused);
   const [engine] = useState(createWallEngine);
   const sizeKey = useSyncExternalStore(onResize, viewportKey, () => "1920x1080");
   const snap = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot);
   const [started, setStarted] = useState(false);
-  useWakeLock(started);
+  useWakeLock(started && !refused);
 
+  // Read through a ref: a fresh offset on every poll must not re-run the engine's update.
+  const offsetRef = useRef(offset);
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
   useEffect(() => {
     const [w, h] = sizeKey.split("x").map(Number);
-    engine.update(state, { w, h });
+    engine.update(state, { w, h }, offsetRef.current);
   }, [engine, state, sizeKey]);
   useEffect(() => {
+    if (refused) return;
     engine.start();
     return () => engine.stop();
-  }, [engine]);
+  }, [engine, refused]);
 
   const [vw, vh] = sizeKey.split("x").map(Number);
   const spot = snap.spotlight;
@@ -58,6 +72,8 @@ export function WallClient({ token, initial }: { token: string; initial: WallSta
     setStarted(true);
     void document.documentElement.requestFullscreen?.().catch(() => {});
   };
+
+  if (refused) return <LinkRefused {...REFUSALS[refused]} />;
 
   return (
     <div className={`${handFont.variable} fixed inset-0 overflow-hidden bg-[#0d0d10] text-white ${started ? "cursor-none" : ""}`}>

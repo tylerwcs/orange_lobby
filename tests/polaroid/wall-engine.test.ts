@@ -185,6 +185,23 @@ describe("the wall engine (D484)", () => {
     expect(screen().flat().some((s) => s.id === "c12")).toBe(true);
   });
 
+  it("judges a new card's age on server time, so a LED PC with a fast clock still spotlights it", async () => {
+    vi.stubGlobal("Image", class { src = ""; decode() { return Promise.resolve(); } });
+    const FIVE_MIN = 5 * 60_000;
+    for (const [offset, spotlit] of [[-FIVE_MIN, true], [0, false]] as const) {
+      const { engine, run } = setup(cards(12));
+      // The browser clock is five minutes ahead of the server, which stamped the card just now.
+      const fresh = { ...card(12), created_at: new Date(Date.now()).toISOString() };
+      vi.setSystemTime(Date.now() + FIVE_MIN);
+      engine.update(state([...cards(12), fresh]), LED, offset);
+      run(1);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(engine.getSnapshot().spotlight?.card.id).toBe(spotlit ? "c12" : undefined);
+      vi.setSystemTime(new Date("2026-10-11T10:00:00Z"));
+    }
+  });
+
   it("re-lays the wall out for a 16:9 TV with no card lost", () => {
     const { engine, run, screen, attach } = setup(cards(20));
     run(50);

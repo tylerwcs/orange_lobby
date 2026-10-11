@@ -35,6 +35,7 @@ describe("routeEventPath (D425)", () => {
     expect(r("/portal-icons/agenda.svg")).toEqual({ kind: "pass" });
     expect(r("/brand/logo.png")).toEqual({ kind: "pass" });
     expect(r("/app-icons/192.png")).toEqual({ kind: "pass" });
+    expect(r("/polaroid-stickers/heart.svg")).toEqual({ kind: "pass" });
     expect(r("/globe.svg")).toEqual({ kind: "pass" });
   });
 

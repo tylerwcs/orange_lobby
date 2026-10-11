@@ -1,3 +1,5 @@
+import { crewLinkLive } from "@/lib/crew";
+import type { Event } from "@/lib/types";
 import { readPolaroidSettings } from "./settings";
 
 export const PAUSED = "Posting is paused right now.";
@@ -22,6 +24,18 @@ export function refusalFor(event: { status: string }, activity: { is_open: boole
   if (!activity.is_open) return PAUSED;
   if (walkIn && !readPolaroidSettings(activity.polaroid).public) return LINK_OFF;
   return null;
+}
+
+/**
+ * Why the public walk-in link refuses (D481): the event is over, going by the crew link's own
+ * last day (so a link left on a poster stops with the event), else `refusalFor`'s reasons.
+ * `today` is the date in Kuala Lumpur. The portal keeps `refusalFor` alone.
+ */
+export function walkinRefusal(
+  event: Pick<Event, "starts_on" | "ends_on" | "status">, activity: { is_open: boolean; polaroid?: unknown }, today: string,
+): string | null {
+  if (!crewLinkLive(event, today)) return OVER;
+  return refusalFor(event, activity, true);
 }
 
 /** The photo's reported size, as whole pixels from 1 to 4000, or null. It only sizes the card. */

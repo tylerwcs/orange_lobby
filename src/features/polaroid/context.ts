@@ -8,7 +8,7 @@ import { nowInKL } from "@/lib/time";
 import { createMemo } from "@/lib/memo";
 import type { Activity, Event } from "@/lib/types";
 import { activityByToken, getPolaroidActivity } from "./db/polaroids";
-import { LINK_OFF, OVER, PAUSED, refusalFor } from "./lib/post-rules";
+import { LINK_OFF, OVER, PAUSED, walkinRefusal } from "./lib/post-rules";
 import type { PostContext } from "./post";
 
 /** A portal attendee posting from their own link (D481). Drafts are allowed, as for bookings. */
@@ -33,9 +33,17 @@ async function lookupWalkin(slug: string, publicToken: string): Promise<{ event:
   return { event, activity };
 }
 
-export async function walkinContext(slug: string, publicToken: string): Promise<PostContext | null> {
+/** The full event comes with it: `walkinClosed` needs its dates. */
+export type WalkinContext = PostContext & { event: Event };
+
+export async function walkinContext(slug: string, publicToken: string): Promise<WalkinContext | null> {
   const found = await lookupWalkin(slug, publicToken);
   return found ? { ...found, attendeeId: null } : null;
+}
+
+/** Why this walk-in context may not post now (the event is over, paused, link off), or null. */
+export function walkinClosed(ctx: WalkinContext): string | null {
+  return walkinRefusal(ctx.event, ctx.activity, nowInKL().date);
 }
 
 export type WalkinPage =
@@ -53,7 +61,7 @@ const CLOSED_BODY: Record<string, string> = {
 export async function walkinPage(slug: string, publicToken: string): Promise<WalkinPage> {
   const found = await lookupWalkin(slug, publicToken);
   if (!found) return { kind: "missing" };
-  const no = refusalFor(found.event, found.activity, true);
+  const no = walkinRefusal(found.event, found.activity, nowInKL().date);
   if (no) return { kind: "closed", eventName: found.event.name, title: no, body: CLOSED_BODY[no] ?? "" };
   return { kind: "open", eventName: found.event.name, activity: found.activity };
 }

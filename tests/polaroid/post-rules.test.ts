@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { refusalFor, photoSize, PAUSED, OVER, LINK_OFF, waitMessage } from "@/features/polaroid/lib/post-rules";
+import { refusalFor, walkinRefusal, photoSize, PAUSED, OVER, LINK_OFF, waitMessage } from "@/features/polaroid/lib/post-rules";
 
 const open = { is_open: true, polaroid: { public: true } };
 
@@ -13,6 +13,22 @@ describe("refusalFor (D478, D481)", () => {
     expect(refusalFor({ status: "published" }, { ...open, is_open: false }, false)).toBe(PAUSED);
     expect(refusalFor({ status: "published" }, { is_open: true, polaroid: { public: false } }, true)).toBe(LINK_OFF);
     expect(refusalFor({ status: "published" }, { is_open: true, polaroid: null }, false)).toBeNull();
+  });
+});
+
+describe("walkinRefusal (D481)", () => {
+  const ev = { status: "live" as const, starts_on: "2026-10-12", ends_on: "2026-10-13" };
+  it("takes walk-in posts through the event and its grace day", () => {
+    expect(walkinRefusal(ev, open, "2026-10-12")).toBeNull();
+    expect(walkinRefusal(ev, open, "2026-10-14")).toBeNull();
+  });
+  it("is over once the crew link's last day has passed, however open the activity is", () => {
+    expect(walkinRefusal(ev, open, "2026-10-15")).toBe(OVER);
+  });
+  it("keeps refusalFor's reasons while the event is live, and never expires an undated event", () => {
+    expect(walkinRefusal(ev, { is_open: false, polaroid: { public: true } }, "2026-10-12")).toBe(PAUSED);
+    expect(walkinRefusal(ev, { is_open: true, polaroid: { public: false } }, "2026-10-12")).toBe(LINK_OFF);
+    expect(walkinRefusal({ status: "live", starts_on: null, ends_on: null }, open, "2030-01-01")).toBeNull();
   });
 });
 

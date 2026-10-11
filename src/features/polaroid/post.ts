@@ -33,39 +33,53 @@ export async function startPolaroid(ctx: PostContext): Promise<StartResult> {
   return { ok: true, path, token: await createPhotoUpload(path) };
 }
 
+/** Best effort: a failed delete must not hide the refusal the poster is owed. */
+async function discard(path: string): Promise<void> {
+  try {
+    await deletePhotos([path]);
+  } catch {
+    // The photo stays until the event is purged or deleted (D485).
+  }
+}
+
 /**
- * D478 step 3: everything again, because the browser can send anything. Then the row. A photo
- * uploaded but never posted stays in the bucket until the event is purged or deleted (D485).
+ * D478 step 3: everything again, because the browser can send anything. Then the row. A photo whose
+ * post is refused is deleted here, so it is never left publicly reachable; one uploaded and then
+ * abandoned stays in the bucket until the event is purged or deleted (D485).
  */
 export async function postPolaroid(ctx: PostContext, input: PostInput): Promise<PostResult> {
   const no = refusalFor(ctx.event, ctx.activity, ctx.attendeeId === null);
   if (no) return { ok: false, error: no };
   if (typeof input?.path !== "string" || !isOwnPolaroidPath(polaroidFolder(where(ctx)), input.path)) return { ok: false, error: NOT_UPLOADED };
+  const path = input.path;
+  // From here the photo is this poster's own upload: every refusal below removes it.
+  const refuse = async <R extends PostResult>(result: R): Promise<R> => {
+    await discard(path);
+    return result;
+  };
   const size = photoSize(input.width, input.height);
-  if (!size) return { ok: false, error: BAD_PHOTO };
+  if (!size) return refuse({ ok: false, error: BAD_PHOTO });
 
   const settings = readPolaroidSettings(ctx.activity.polaroid);
   const message = checkMessage(typeof input.message === "string" ? input.message : "", settings.blocked_words);
-  if (!message.ok) return message;
+  if (!message.ok) return refuse(message);
   const placed = cleanPlacements(input.stickers, new Set(stickerTray(settings).map((s) => s.id)), cardRatio(size.w, size.h));
-  if (!placed.ok) return placed;
+  if (!placed.ok) return refuse(placed);
 
   const keys = await posterKeys();
   const wait = await waitFor(ctx, keys);
-  if (wait > 0) return { ok: false, error: waitMessage(wait), wait };
+  if (wait > 0) return refuse({ ok: false, error: waitMessage(wait), wait });
 
-  const bytes = await uploadedSize(input.path);
+  const bytes = await uploadedSize(path);
   if (bytes === null) return { ok: false, error: NOT_UPLOADED };
-  if (bytes > MAX_POLAROID_BYTES) {
-    await deletePhotos([input.path]);
-    return { ok: false, error: TOO_BIG };
-  }
+  if (bytes > MAX_POLAROID_BYTES) return refuse({ ok: false, error: TOO_BIG });
 
   const id = await insertPolaroid({
     event_id: ctx.event.id, activity_id: ctx.activity.id, attendee_id: ctx.attendeeId,
-    photo_path: input.path, photo_w: size.w, photo_h: size.h,
+    photo_path: path, photo_w: size.w, photo_h: size.h,
     message: message.message, stickers: placed.stickers, tilt: randomTilt(),
     client_key: keys.clientKey, ip_hash: keys.ipHash,
   });
+  // A duplicate means this photo is already a live row: its file is that row's, so it stays.
   return id ? { ok: true, id } : { ok: false, error: "That polaroid is already on the wall." };
 }

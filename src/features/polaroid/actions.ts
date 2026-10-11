@@ -1,6 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { portalContext, walkinContext } from "./context";
+import { portalContext, walkinClosed, walkinContext } from "./context";
 import { getPolaroid, removePolaroid } from "./db/polaroids";
 import { postPolaroid, startPolaroid } from "./post";
 import { GONE } from "./lib/post-rules";
@@ -35,10 +35,14 @@ export async function removeOwnPolaroidAction(slug: string, token: string, activ
 
 export async function startWalkinPolaroidAction(slug: string, publicToken: string): Promise<StartResult> {
   const ctx = await walkinContext(slug, publicToken);
-  return ctx ? startPolaroid(ctx) : { ok: false, error: GONE };
+  if (!ctx) return { ok: false, error: GONE };
+  const closed = walkinClosed(ctx);
+  return closed ? { ok: false, error: closed } : startPolaroid(ctx);
 }
 
 export async function postWalkinPolaroidAction(slug: string, publicToken: string, input: PostInput): Promise<PostResult> {
   const ctx = await walkinContext(slug, publicToken);
-  return ctx ? postPolaroid(ctx, input) : { ok: false, error: GONE };
+  if (!ctx) return { ok: false, error: GONE };
+  const closed = walkinClosed(ctx);
+  return closed ? { ok: false, error: closed } : postPolaroid(ctx, input);
 }

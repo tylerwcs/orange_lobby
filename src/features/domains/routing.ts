@@ -4,7 +4,7 @@ export type Route = { kind: "rewrite"; path: string } | { kind: "pass" } | { kin
 /** The event's public pages, which answer at /<section> on its address. */
 const SECTIONS = new Set(["register", "agenda", "info", "plan", "stamps", "announcements", "polaroid"]);
 /** public/ folders and root files the attendee pages load. */
-const STATIC_DIRS = new Set(["app-icons", "brand", "portal-icons"]);
+const STATIC_DIRS = new Set(["app-icons", "brand", "polaroid-stickers", "portal-icons"]);
 const ROOT_FILE = /^\/[^/]+\.(?:svg|png|ico|txt|webmanifest)$/;
 
 export function routeEventPath(pathname: string, slug: string): Route {

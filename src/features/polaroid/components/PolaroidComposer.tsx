@@ -58,12 +58,22 @@ export function PolaroidComposer({ prompt, stickers, start, post }: {
   const [now, setNow] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const timers = useRef<number[]>([]);
+  /** The "You can post again in N s." message on screen, so only that one is cleared when the wait ends. */
+  const waitError = useRef<string | null>(null);
 
   useEffect(() => () => { timers.current.forEach((t) => clearTimeout(t)); }, []);
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
   useEffect(() => {
     if (retryAt === null) return;
-    const id = window.setInterval(() => setNow(Date.now()), 250);
+    const id = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      // The wait is over: drop the countdown's message, and with `retryAt` the interval stops.
+      if (t >= retryAt) {
+        setRetryAt(null);
+        setError((e) => (e !== null && e === waitError.current ? null : e));
+      }
+    }, 250);
     return () => clearInterval(id);
   }, [retryAt]);
 
@@ -96,6 +106,7 @@ export function PolaroidComposer({ prompt, stickers, start, post }: {
   const refused = (r: Refusal) => {
     setError(r.error);
     if (r.wait) {
+      waitError.current = r.error;
       setRetryAt(Date.now() + r.wait * 1000);
       setNow(Date.now());
     }

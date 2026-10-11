@@ -31,7 +31,8 @@ export function MessageField({ width, ratio, value, onChange, disabled }: {
         <textarea value={value} disabled={disabled} rows={1} aria-label="Message" placeholder={PLACEHOLDER}
           onChange={(e) => {
             const v = e.target.value.replace(/\n/g, " ");
-            if (messageLength(v) <= MAX_MESSAGE) onChange(v);
+            // A long paste keeps its first 80 characters rather than being dropped.
+            onChange(messageLength(v) <= MAX_MESSAGE ? v : [...v].slice(0, MAX_MESSAGE).join(""));
           }}
           className={`${shared} m-0 resize-none overflow-hidden border-0 bg-transparent p-0 text-[#2b2b2b] outline-none placeholder:text-black/25`}
           style={text} />

@@ -15,8 +15,14 @@ type Polled = { now: number; key?: string; unchanged?: true };
  * too, and only if nothing was applied since it was sent (a pollNow's answer, or a join's), so
  * an old response landing late cannot roll the view back. `intervalFor` must be a module-level
  * (stable) function, or every render restarts the polling.
+ *
+ * `onRefused` is for a link that is gone: a 403 or 404 answer calls it with the status and stops
+ * the polling (a rotated or expired link does not come back). Without it a refusal is just a
+ * failure, backed off and retried, as before.
  */
-export function usePoll<T extends Polled>(url: string, initial: T, intervalFor: (s: T) => number, versioned: boolean) {
+export function usePoll<T extends Polled>(
+  url: string, initial: T, intervalFor: (s: T) => number, versioned: boolean, onRefused?: (status: number) => void,
+) {
   const [state, setState] = useState<T>(initial);
   const [offset, setOffset] = useState(0);
   const latest = useRef(initial);
@@ -25,6 +31,10 @@ export function usePoll<T extends Polled>(url: string, initial: T, intervalFor: 
   const applied = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<() => void>(() => {});
+  const refusedRef = useRef(onRefused);
+  useEffect(() => {
+    refusedRef.current = onRefused;
+  }, [onRefused]);
 
   const apply = useCallback((next: T) => {
     if (next.unchanged) return;
@@ -43,7 +53,14 @@ export function usePoll<T extends Polled>(url: string, initial: T, intervalFor: 
       try {
         const key = versioned ? latest.current.key : undefined;
         const res = await fetch(key ? `${url}?v=${encodeURIComponent(key)}` : url, { cache: "no-store" });
-        if (!res.ok) throw new Error(String(res.status));
+        if (!res.ok) {
+          if ((res.status === 403 || res.status === 404) && refusedRef.current) {
+            if (!stopped) refusedRef.current(res.status);
+            stopped = true;
+            return;
+          }
+          throw new Error(String(res.status));
+        }
         const body = (await res.json()) as T;
         if (stopped) return;
         failures.current = 0;

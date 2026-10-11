@@ -109,8 +109,9 @@ export async function insertPolaroid(row: NewPolaroid): Promise<string | null> {
 /**
  * D473: final, and idempotent. The status flips first, so the wall drops it on its next poll even
  * if the file delete fails; the photo delete then runs on every call, removed row or not, so a
- * retry after a failed delete re-attempts it (removing a missing object is not an error).
- * True if this call took a live polaroid down, false if it was already removed or does not exist.
+ * retry after a failed delete re-attempts it (removing a missing object is not an error). The delete
+ * is also tried twice in a call; if both fail this throws, so the admin sees an error and the
+ * feed's "Delete photo again" button re-runs it. True if this call took a live polaroid down, false if it was already removed or does not exist.
  */
 export async function removePolaroid(id: string, activityId: string, by: string): Promise<boolean> {
   const row = await getPolaroid(id, activityId);
@@ -122,7 +123,11 @@ export async function removePolaroid(id: string, activityId: string, by: string)
     if (error) throw error;
     flipped = (data ?? []).length > 0;
   }
-  await deletePhotos([row.photo_path]);
+  try {
+    await deletePhotos([row.photo_path]);
+  } catch {
+    await deletePhotos([row.photo_path]);
+  }
   return flipped;
 }
 

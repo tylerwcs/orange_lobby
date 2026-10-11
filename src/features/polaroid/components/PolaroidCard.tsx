@@ -9,12 +9,14 @@ import styles from "../polaroid.module.css";
  * this, so what someone composes is exactly what the wall shows. Every length is a fraction of
  * `width` (D483); stickers whose id is not in `stickerSrc` are skipped (D476).
  */
-export function PolaroidCard({ card, width, stickerSrc, developing = false, hideMessage = false, className = "", style, children }: {
+export function PolaroidCard({ card, width, stickerSrc, developing = false, hideMessage = false, loading = "eager", className = "", style, children }: {
   card: CardData;
   width: number;
   stickerSrc: Record<string, string>;
   developing?: boolean;
   hideMessage?: boolean;
+  /** `lazy` for long lists (the moderation feed, "Your polaroids"); the LED and composer draw at once. */
+  loading?: "lazy" | "eager";
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
@@ -36,7 +38,7 @@ export function PolaroidCard({ card, width, stickerSrc, developing = false, hide
       <div className="absolute overflow-hidden bg-[#ece6da]" style={{ left: border, top: border, width: PHOTO_INNER * w, height: photoH }}>
         {card.src ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={card.src} alt="" draggable={false} decoding="async" className={`size-full object-contain ${developing ? styles.develop : styles.film}`} />
+          <img src={card.src} alt="" draggable={false} decoding="async" loading={loading} className={`size-full object-contain ${developing ? styles.develop : styles.film}`} />
         ) : (
           <div className="flex size-full items-center justify-center text-black/40" style={{ fontSize: base * 0.6 }}>Removed</div>
         )}

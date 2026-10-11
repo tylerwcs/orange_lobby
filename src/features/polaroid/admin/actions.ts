@@ -87,7 +87,7 @@ export async function removePolaroidAction(eventId: string, activityId: string, 
   const { userId, activity } = await wallOf(eventId, activityId);
   const removed = await removePolaroid(polaroidId, activity.id, `admin:${userId}`);
   revalidatePath(back);
-  redirect(flashPath(back, removed ? "Removed from the wall." : "That polaroid was already removed."));
+  redirect(flashPath(back, removed ? "Removed from the wall." : "That polaroid was already removed. Its photo file has been deleted."));
 }
 
 async function rotate(eventId: string, activityId: string, column: "wall_token" | "public_token", message: string) {
