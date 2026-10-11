@@ -149,8 +149,11 @@ We leave out:
   - The same matcher runs on the client for instant feedback, but the server is authoritative.
 - **D480 — Rate limits.**
   - Everyone: one post per 30 s per `client_key`, and per attendee for portal posts.
-  - Walk-ins also: at most 10 posts per hour per `client_key`, and 30 per hour per `ip_hash`, so
-    a shared venue Wi-Fi isn't choked by one device's limit.
+  - Walk-ins also: at most 10 posts per hour per `client_key`.
+  - No per-IP cap (changed 12 Oct 2026). The first design capped walk-ins at 30 an hour per
+    `ip_hash`, but a venue's Wi-Fi or a mobile carrier puts a whole room behind one address, so it
+    would throttle everyone. `ip_hash` is still stored, unused. Abuse is handled by closing the
+    activity, rotating the walk-in link and takedowns.
   - When limited, the server answers with the seconds to wait, and the button shows "You can post
     again in 18 s".
 - **D481 — Two entry points, one composer.**
@@ -281,7 +284,7 @@ We leave out:
 - **Unit tests (vitest, `tests/polaroid/`), on the pure rules in `src/features/polaroid/lib/`:**
   - Message check: length, English and Malay words, admin words, leetspeak, empty allowed.
   - Sticker check: count ≤ 8, clamping, unknown and hidden ids rejected.
-  - Rate limits: 30 s spacing, the walk-in hourly caps per client and per IP.
+  - Rate limits: 30 s spacing, the walk-in hourly cap per client, no per-IP cap.
   - The photo box clamp at 9:16 and 16:9.
   - Wall layout:
     - auto column count (7 at 5504×2322, 5 at 1920×1080)

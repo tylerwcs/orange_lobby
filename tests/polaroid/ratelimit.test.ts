@@ -24,13 +24,12 @@ describe("waitSeconds (D480)", () => {
     const ten = Array.from({ length: 10 }, (_, i) => post(HOUR_MS - 60_000 - i * 60_000));
     expect(waitSeconds(ten, walkIn, NOW)).toBe(60);
   });
-  it("caps one IP's walk-ins at 30 an hour across devices", () => {
-    const thirty = Array.from({ length: 30 }, (_, i) => post(HOUR_MS - 120_000 - i * 1000, { client_key: `dev-${i}` }));
-    expect(waitSeconds(thirty, { attendeeId: null, clientKey: "dev-new", ipHash: "ip-1" }, NOW)).toBe(120);
+  it("does not cap a shared IP: a whole room on one venue Wi-Fi can keep posting", () => {
+    const busyRoom = Array.from({ length: 200 }, (_, i) => post(HOUR_MS - 120_000 - i * 1000, { client_key: `dev-${i}` }));
+    expect(waitSeconds(busyRoom, { attendeeId: null, clientKey: "dev-new", ipHash: "ip-1" }, NOW)).toBe(0);
   });
-  it("does not hold portal attendees to the hourly caps, or count their posts against the IP", () => {
-    const many = Array.from({ length: 40 }, (_, i) => post(60_000 + i * 60_000, { attendee_id: `att-${i + 2}`, client_key: `dev-${i}` }));
+  it("does not hold portal attendees to the hourly cap", () => {
+    const many = Array.from({ length: 40 }, (_, i) => post(60_000 + i * 60_000, { attendee_id: "att-1", client_key: "dev-z" }));
     expect(waitSeconds(many, portal, NOW)).toBe(0);
-    expect(waitSeconds(many, { attendeeId: null, clientKey: "dev-new", ipHash: "ip-1" }, NOW)).toBe(0);
   });
 });

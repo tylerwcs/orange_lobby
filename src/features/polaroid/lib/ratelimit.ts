@@ -1,7 +1,10 @@
-/** D480: one post per 30 s per device (and per attendee); walk-ins also 10 an hour per device, 30 per IP. */
+/**
+ * D480: one post per 30 s per device (and per attendee); walk-ins also 10 an hour per device.
+ * No per-IP cap (user, 12 Oct 2026): a venue's Wi-Fi or a mobile carrier puts a whole room
+ * behind one address. Pausing the wall, rotating the walk-in link and takedowns handle abuse.
+ */
 export const SPACING_MS = 30_000;
 export const WALKIN_PER_HOUR = 10;
-export const WALKIN_IP_PER_HOUR = 30;
 export const HOUR_MS = 3_600_000;
 
 /** One of the activity's posts from the last hour, removed ones included: a takedown is not a refund. */
@@ -24,7 +27,6 @@ export function waitSeconds(recent: readonly RecentPost[], who: Poster, now: num
   let until = mine.length ? Math.max(...mine.map(at)) + SPACING_MS : 0;
   if (who.attendeeId === null) {
     until = Math.max(until, capFreesAt(inHour.filter((p) => p.client_key === who.clientKey).map(at), WALKIN_PER_HOUR));
-    until = Math.max(until, capFreesAt(inHour.filter((p) => p.attendee_id === null && p.ip_hash === who.ipHash).map(at), WALKIN_IP_PER_HOUR));
   }
   return Math.max(0, Math.ceil((until - now) / 1000));
 }
