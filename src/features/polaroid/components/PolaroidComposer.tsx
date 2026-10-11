@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
@@ -7,7 +7,7 @@ import { browserStorage } from "@/lib/supabase/browser";
 import { POLAROID_BUCKET } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { handFont } from "../font";
-import { cardRatio, stageCardWidth } from "../lib/card";
+import { cardRatio } from "../lib/card";
 import { checkMessage, MAX_MESSAGE, messageLength } from "../lib/message";
 import { MAX_STICKERS, newPlacement, type StickerPlacement } from "../lib/placement";
 import type { StickerDef } from "../lib/stickers";
@@ -18,61 +18,25 @@ import { PolaroidCard } from "./PolaroidCard";
 import { StickerLayer } from "./StickerLayer";
 import { StickerTray } from "./StickerTray";
 import { preparePhoto } from "./prepare-photo";
-import { enterFullscreen, exitFullscreen, lockBodyScroll } from "./stage";
+import {
+  CAMERA_H, CAMERA_W, DEFAULT_STAGE, EDGE, BAR_H, PRINT_SLACK, PROMPT_H, stageLayout, type StageBox,
+} from "../lib/stage-layout";
+import { exitFullscreen, lockBodyScroll } from "./stage";
 import { STAGE_BG, StageGlow } from "./StageBackdrop";
 
 type Stage = "camera" | "ejecting" | "editing" | "posting" | "posted";
 type Photo = { file: File; url: string; width: number; height: number };
-type Box = { w: number; h: number };
 
 const EJECT_MS = 1300;
-/** Camera's own fixed design (unscaled), and its film slot within it. */
-const CAMERA_W = 300;
-const CAMERA_H = 340;
-const SLOT_IN_CAMERA = 300;
-const MAX_CAMERA_SCALE = 1.2;
-/** The stage's vertical rhythm, in px inside the safe area. */
-const EDGE = 16;
-const EVENT_LINE = 24;
-const PROMPT_H = 72;
-/** Under the camera: room for a refusal before a photo is taken. */
-const FOOT = 56;
-/** The controls bar pinned to the bottom, and room for an error just above it. */
-const BAR_H = 148;
-const ALERT_H = 48;
-/** The print's wrapper reaches past the card itself. */
-const PRINT_SLACK = 24;
-/** The print starts below the close button, where there is one. */
-const UNDER_CLOSE = 56;
-
-/**
- * Where everything sits on a stage `box` wide and tall (D482): the prompt at the top, the camera
- * scaled with the phone and centred in the space below it, and the print being edited as large as
- * fits above the controls bar (and below the close button). The print ejects from the scaled
- * camera's film slot.
- */
-function stageLayout(box: Box, eventLine: boolean, closable: boolean, ratio: number) {
-  const promptTop = EDGE + (eventLine ? EVENT_LINE : 0);
-  const below = promptTop + PROMPT_H + 8;
-  const room = box.h - below - FOOT;
-  const k = Math.max(0.5, Math.min(MAX_CAMERA_SCALE, (box.w - 32) / CAMERA_W, room / CAMERA_H));
-  const cameraTop = below + Math.max(0, (room - CAMERA_H * k) / 2);
-  const top = closable ? UNDER_CLOSE : EDGE;
-  const width = stageCardWidth(box.w, box.h, ratio, top + PRINT_SLACK + ALERT_H + BAR_H);
-  const cardH = width * ratio;
-  const printTop = Math.max(top, (box.h - BAR_H - ALERT_H - cardH - PRINT_SLACK) / 2);
-  return {
-    promptTop, k, cameraTop, cameraLeft: (box.w - CAMERA_W * k) / 2, slotY: cameraTop + SLOT_IN_CAMERA * k,
-    width, cardH, printTop,
-  };
-}
 
 /**
  * The instant-camera composer (D482), for portal attendees and walk-ins alike: a full-screen stage
  * where you snap or choose a photo, the print ejects and develops, you write on it, decorate it and
  * post it. `start` and `post` are server actions bound to who is posting; everything they refuse
  * is shown as it is said. While it is open the page behind does not scroll. `onClose` adds a close
- * button: the portal opens the stage over its page, while the walk-in page is the stage.
+ * button, focused on open, and Escape closes too: the portal opens the stage over its page, while
+ * the walk-in page is the stage. Until it has measured itself the stage is laid out for a typical
+ * phone, so the server's HTML already shows the camera on a slow connection.
  */
 export function PolaroidComposer({ prompt, stickers, start, post, brand, eventName, onClose }: {
   prompt: string;
@@ -95,9 +59,10 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   const [error, setError] = useState<string | null>(null);
   const [retryAt, setRetryAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
-  const [box, setBox] = useState<Box | null>(null);
+  const [box, setBox] = useState<StageBox>(DEFAULT_STAGE);
   const input = useRef<HTMLInputElement>(null);
   const stageBox = useRef<HTMLDivElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const timers = useRef<number[]>([]);
   /** The "You can post again in N s." message on screen, so only that one is cleared when the wait ends. */
   const waitError = useRef<string | null>(null);
@@ -106,6 +71,19 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   // The page behind stays put while the stage is open, and full screen ends with it.
   useEffect(() => lockBodyScroll(), []);
   useEffect(() => () => exitFullscreen(), []);
+  // A closable stage is a dialog: its close button takes focus, and Escape closes it, unless the
+  // sticker tray (which Escape closes first) is open or a post is on its way.
+  const closable = !!onClose;
+  useEffect(() => { if (closable) closeButton.current?.focus(); }, [closable]);
+  const onEscape = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key !== "Escape" || e.defaultPrevented || !onClose || trayOpen || stage === "posting") return;
+    onClose();
+  });
+  useEffect(() => {
+    if (!closable) return;
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [closable]);
   // Everything is placed from the stage's own size, inside the safe area.
   useEffect(() => {
     const el = stageBox.current;
@@ -134,16 +112,10 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   const srcs = Object.fromEntries(stickers.map((s) => [s.id, s.src]));
   const ratio = photo ? cardRatio(photo.width, photo.height) : 1.2;
   const editing = stage === "editing" || stage === "posting";
-  const at = box ? stageLayout(box, !!eventName, !!onClose, ratio) : null;
+  const at = stageLayout(box, !!eventName, closable, ratio);
 
   const reset = () => {
     setPhoto(null); setMessage(""); setPlaced([]); setSelected(null); setError(null); setTrayOpen(false); setStage("camera");
-  };
-
-  /** The picker first: it needs the tap, and asking for full screen can use the tap up. */
-  const shoot = () => {
-    input.current?.click();
-    enterFullscreen();
   };
 
   const pick = async (file: File | undefined) => {
@@ -212,55 +184,49 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
       <div className="absolute inset-0"
         style={{ padding: "env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)" }}>
         <div ref={stageBox} className="relative size-full">
-          {at
-            ? <StageGlow brand={brand} y={at.cameraTop + (CAMERA_H * at.k) / 2} size={CAMERA_W * at.k * 2.2} />
-            : <StageGlow brand={brand} />}
-          {at && (
-            <>
-              {eventName && (
-                <p className="absolute inset-x-12 truncate text-center text-xs font-bold uppercase tracking-widest text-white/50 transition-opacity duration-500"
-                  style={{ top: EDGE, opacity: editing ? 0 : 1 }}>
-                  {eventName}
-                </p>
-              )}
-              <p className={`absolute ${onClose ? "inset-x-12" : "inset-x-4"} flex -rotate-2 items-center justify-center text-center text-4xl transition-opacity duration-500`}
-                style={{ top: at.promptTop, height: PROMPT_H, fontFamily: "var(--font-hand)", fontWeight: 700, opacity: editing ? 0 : 1 }}>
-                {stage === "posted" ? "It's on the wall!" : prompt}
-              </p>
+          <StageGlow brand={brand} y={at.cameraTop + (CAMERA_H * at.k) / 2} size={CAMERA_W * at.k * 2.2} />
+          {eventName && (
+            <p className="absolute inset-x-12 truncate text-center text-xs font-bold uppercase tracking-widest text-white/50 transition-opacity duration-500"
+              style={{ top: EDGE, opacity: editing ? 0 : 1 }}>
+              {eventName}
+            </p>
+          )}
+          <p className={`absolute ${onClose ? "inset-x-12" : "inset-x-4"} flex -rotate-2 items-center justify-center text-center text-4xl transition-opacity duration-500`}
+            style={{ top: at.promptTop, height: PROMPT_H, fontFamily: "var(--font-hand)", fontWeight: 700, opacity: editing ? 0 : 1 }}>
+            {stage === "posted" ? "It's on the wall!" : prompt}
+          </p>
 
-              <motion.div className="absolute" style={{ left: at.cameraLeft, top: at.cameraTop, width: CAMERA_W * at.k, height: CAMERA_H * at.k }}
-                animate={stage === "camera" || stage === "posted" ? { opacity: 1, scale: 1, filter: "blur(0px)" } : { opacity: 0.3, scale: 0.92, filter: "blur(4px)" }}
-                transition={{ duration: 0.8 }}>
-                {/* Camera keeps its fixed 300 px design, scaled with the phone. */}
-                <div style={{ width: CAMERA_W, transform: `scale(${at.k})`, transformOrigin: "top left" }}>
-                  <Camera onShoot={shoot} disabled={stage !== "camera"} flash={stage === "ejecting"} />
+          <motion.div className="absolute" style={{ left: at.cameraLeft, top: at.cameraTop, width: CAMERA_W * at.k, height: CAMERA_H * at.k }}
+            animate={stage === "camera" || stage === "posted" ? { opacity: 1, scale: 1, filter: "blur(0px)" } : { opacity: 0.3, scale: 0.92, filter: "blur(4px)" }}
+            transition={{ duration: 0.8 }}>
+            {/* Camera keeps its fixed 300 px design, scaled with the phone. */}
+            <div style={{ width: CAMERA_W, transform: `scale(${at.k})`, transformOrigin: "top left" }}>
+              <Camera onShoot={() => input.current?.click()} disabled={stage !== "camera"} flash={stage === "ejecting"} />
+            </div>
+          </motion.div>
+
+          <AnimatePresence>
+            {card && stage !== "posted" && (
+              <motion.div key="print" className="absolute z-20" style={{ left: `calc(50% - ${at.width / 2}px)`, width: at.width }}
+                initial={{ top: at.slotY }} animate={{ top: stage === "ejecting" ? at.slotY : at.printTop }}
+                exit={{ top: -at.cardH - 80, rotate: 8, opacity: 0, transition: { duration: 0.7, ease: "easeIn" } }}
+                transition={{ duration: 0.7, ease: "easeOut" }}>
+                {/* While ejecting, everything above the slot is clipped, so the print slides out of it. */}
+                <div className={stage === "ejecting" ? "overflow-hidden" : ""} style={{ height: at.cardH + PRINT_SLACK }}>
+                  <motion.div initial={{ y: -at.cardH }} animate={{ y: 0 }} transition={{ duration: EJECT_MS / 1000, ease: [0.22, 1, 0.36, 1] }}>
+                    <PolaroidCard card={card} width={at.width} stickerSrc={srcs} developing hideMessage={editing}>
+                      {editing && (
+                        <>
+                          <MessageField width={at.width} ratio={ratio} value={message} onChange={setMessage} disabled={stage === "posting"} />
+                          <StickerLayer placed={placed} onChange={setPlaced} selected={selected} onSelect={setSelected} width={at.width} ratio={ratio} srcs={srcs} />
+                        </>
+                      )}
+                    </PolaroidCard>
+                  </motion.div>
                 </div>
               </motion.div>
-
-              <AnimatePresence>
-                {card && stage !== "posted" && (
-                  <motion.div key="print" className="absolute z-20" style={{ left: `calc(50% - ${at.width / 2}px)`, width: at.width }}
-                    initial={{ top: at.slotY }} animate={{ top: stage === "ejecting" ? at.slotY : at.printTop }}
-                    exit={{ top: -at.cardH - 80, rotate: 8, opacity: 0, transition: { duration: 0.7, ease: "easeIn" } }}
-                    transition={{ duration: 0.7, ease: "easeOut" }}>
-                    {/* While ejecting, everything above the slot is clipped, so the print slides out of it. */}
-                    <div className={stage === "ejecting" ? "overflow-hidden" : ""} style={{ height: at.cardH + PRINT_SLACK }}>
-                      <motion.div initial={{ y: -at.cardH }} animate={{ y: 0 }} transition={{ duration: EJECT_MS / 1000, ease: [0.22, 1, 0.36, 1] }}>
-                        <PolaroidCard card={card} width={at.width} stickerSrc={srcs} developing hideMessage={editing}>
-                          {editing && (
-                            <>
-                              <MessageField width={at.width} ratio={ratio} value={message} onChange={setMessage} disabled={stage === "posting"} />
-                              <StickerLayer placed={placed} onChange={setPlaced} selected={selected} onSelect={setSelected} width={at.width} ratio={ratio} srcs={srcs} />
-                            </>
-                          )}
-                        </PolaroidCard>
-                      </motion.div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </>
-          )}
+            )}
+          </AnimatePresence>
 
           {editing && (
             <>
@@ -289,8 +255,8 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
           )}
 
           {onClose && (
-            <button type="button" aria-label="Close camera" onClick={onClose} disabled={stage === "posting"}
-              className="absolute left-1 top-1 z-50 flex size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:opacity-40">
+            <button ref={closeButton} type="button" aria-label="Close camera" onClick={onClose} disabled={stage === "posting"}
+              className="absolute left-1 top-1 z-50 flex size-11 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/80 disabled:opacity-40">
               <X aria-hidden className="size-5" />
             </button>
           )}

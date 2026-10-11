@@ -22,9 +22,9 @@ export function lockBodyScroll(): () => void {
 }
 
 /**
- * Asks for true full screen, from a tap. Android Chrome hides its address bar; iOS Safari has no
- * element full screen, so nothing happens there. A refusal is ignored: the stage already fills
- * the viewport.
+ * Asks for true full screen, from a tap of its own: a tap that also opens the file picker is used
+ * up by it. Android Chrome hides its address bar; iOS Safari has no element full screen, so
+ * nothing happens there. A refusal is ignored: the stage already fills the viewport.
  */
 export function enterFullscreen(): void {
   if (!document.fullscreenEnabled || document.fullscreenElement) return;
