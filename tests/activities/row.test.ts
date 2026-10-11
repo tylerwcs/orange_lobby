@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingRow, submissionRow, passportRow, listSummary, removeWarning } from "@/features/activities/client";
+import { bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning } from "@/features/activities/client";
 
 describe("bookingRow", () => {
   const base = { days: ["2026-09-28", "2026-10-02"], sessions: 32, booked: 3, seats: 96, pending: 0 };
@@ -114,5 +114,18 @@ describe("removeWarning", () => {
   it("tells the organiser to close a stamped passport instead (D188)", () => {
     expect(removeWarning({ kind: "passport", booths: 1 })).toBe("Its 1 booth and its scanner link go with it. Once anyone has been stamped it can't be deleted, so close it instead.");
     expect(removeWarning({ kind: "passport", booths: 3 })).toBe("Its 3 booths and their scanner links go with it. Once anyone has been stamped it can't be deleted, so close it instead.");
+  });
+});
+
+describe("polaroidRow (D485)", () => {
+  it("counts what is on the wall and says when the walk-in link is on", () => {
+    expect(polaroidRow({ live: 3, walkIn: true })).toEqual({
+      kind: "Polaroid wall", detail: "Walk-in link on", progress: { done: 3, total: 3, label: "3 polaroids on the wall" }, attention: null,
+    });
+    expect(polaroidRow({ live: 1, walkIn: false }).progress.label).toBe("1 polaroid on the wall");
+  });
+  it("warns that the photos go with it", () => {
+    expect(removeWarning({ kind: "polaroid", polaroids: 2 })).toBe("Its 2 polaroids and their photos go with it. This can't be undone.");
+    expect(removeWarning({ kind: "polaroid", polaroids: 0 })).toBe("This can't be undone.");
   });
 });

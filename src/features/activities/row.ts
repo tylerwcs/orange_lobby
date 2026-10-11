@@ -78,6 +78,17 @@ export function passportRow(input: { booths: number; completed: number; eligible
   };
 }
 
+export function polaroidRow(input: { live: number; walkIn: boolean }): ActivityRowView {
+  const { live, walkIn } = input;
+  return {
+    kind: KIND_META.polaroid.label,
+    detail: walkIn ? "Walk-in link on" : null,
+    // Nothing to be "done" against: a wall is never owed (D471), so the count is the progress.
+    progress: { done: live, total: live, label: `${plural(live, "polaroid")} on the wall` },
+    attention: null,
+  };
+}
+
 /** The header line: "3 activities · 2 open · 1 needs you", dropping whatever is zero. */
 export function listSummary(rows: { open: boolean; attention: string | null }[]): string {
   if (rows.length === 0) return "No activities yet";
@@ -95,6 +106,7 @@ type RemoveFacts = {
   booking: { sessions: number; bookings: number };
   submission: { submissions: number };
   passport: { booths: number };
+  polaroid: { polaroids: number };
 };
 /** Indexed by ActivityKind, so a kind missing from RemoveFacts fails the build (D414). */
 export type RemoveInput = { [K in ActivityKind]: { kind: K } & RemoveFacts[K] }[ActivityKind];
@@ -111,6 +123,9 @@ export function removeWarning(input: RemoveInput): string {
       const links = input.booths === 1 ? "its scanner link" : "their scanner links";
       return `Its ${plural(input.booths, "booth")} and ${links} go with it. Once anyone has been stamped it can't be deleted, so close it instead.`;
     }
+    // Cascades its posts; the photos are swept from the bucket by the delete action (D485).
+    case "polaroid":
+      return `${input.polaroids > 0 ? `Its ${plural(input.polaroids, "polaroid")} and their photos go with it. ` : ""}This can't be undone.`;
     default: {
       const exhaustive: never = input;
       throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingCard, dayRange, formCard, passportCard, type BookingCardInput, type FormCardInput } from "@/features/activities/lib/activity-card";
+import { bookingCard, dayRange, formCard, passportCard, polaroidCard, type BookingCardInput, type FormCardInput } from "@/features/activities/lib/activity-card";
 import type { SeatsForViewer } from "@/features/activities/lib/activities";
 
 const seat = (day: string, starts_at: string, left: number, mine = false, location: string | null = "Gardensby17"): SeatsForViewer => ({
@@ -168,5 +168,12 @@ describe("passportCard", () => {
 
   it("names one booth in the singular", () => {
     expect(card({ n: 1, target: 1 }).meta).toEqual({ icon: "pin", text: "1 booth to visit" });
+  });
+});
+
+describe("polaroidCard (D481)", () => {
+  it("opens the camera, and says how many of theirs are up", () => {
+    expect(polaroidCard({ posted: 0 })).toEqual({ status: null, meta: null, action: { label: "Open camera", primary: true } });
+    expect(polaroidCard({ posted: 2 }).status).toEqual({ label: "2 on the wall", tone: "success" });
   });
 });

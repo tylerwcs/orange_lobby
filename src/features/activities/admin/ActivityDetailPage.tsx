@@ -6,13 +6,14 @@ import { getActivity } from "../db/activities";
 import { BookingDetail } from "../kinds/booking/BookingDetail";
 import { SubmissionDetail } from "../kinds/submission/SubmissionDetail";
 import { PassportDetail } from "../kinds/passport/PassportDetail";
+import { PolaroidDetail } from "../kinds/polaroid/PolaroidDetail";
 
 export async function ActivityDetailPage({ params, searchParams }: {
   params: Promise<{ id: string; activityId: string }>;
-  searchParams: Promise<{ day?: string; qr?: string; tab?: string; week?: string; team?: string }>;
+  searchParams: Promise<{ day?: string; qr?: string; tab?: string; week?: string; team?: string; show?: string }>;
 }) {
   const { id, activityId } = await params;
-  const { day: requestedDay, qr, tab, week, team } = await searchParams;
+  const { day: requestedDay, qr, tab, week, team, show } = await searchParams;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const activity = await getActivity(activityId, ev.id);
@@ -37,6 +38,7 @@ export async function ActivityDetailPage({ params, searchParams }: {
     case "booking": return <BookingDetail ev={ev} activity={activity} tab={tab} />;
     case "submission": return <SubmissionDetail ev={ev} activity={activity} requestedDay={requestedDay} tab={tab} week={week} teamId={team} />;
     case "passport": return <PassportDetail ev={ev} activity={activity} qr={qr} />;
+    case "polaroid": return <PolaroidDetail ev={ev} activity={activity} tab={tab} show={show} />;
     default: {
       const exhaustive: never = activity.kind;
       throw new Error(`Unhandled activity kind: ${String(exhaustive)}`);

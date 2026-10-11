@@ -28,6 +28,8 @@ import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
 import { shortDate } from "@/lib/text";
+import { generateToken } from "@/lib/tokens";
+import { readPolaroidSettings, sweepActivityPhotos } from "@/features/polaroid";
 
 async function event(eventId: string) {
   const { orgId } = await requireAdmin();
@@ -146,6 +148,7 @@ export async function toggleOpenAction(eventId: string, activityId: string, from
     booking: ["Booking open.", "Booking closed."],
     submission: ["Submissions open.", "Submissions closed."],
     passport: ["Stamping open.", "Stamping closed."],
+    polaroid: ["Posting open.", "Posting closed."],
   };
   redirect(flashPath(path, LABELS[activity.kind][opened ? 0 : 1]));
 }
@@ -730,6 +733,67 @@ export async function deletePassportActivityAction(eventId: string, activityId: 
   await deleteEventImage(doomed.image_url);
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Passport deleted."));
+}
+
+/** The polaroid wall a posted id names, or a flash back to the list (as `passportOf`). */
+async function polaroidOf(ev: Event, activityId: string): Promise<Activity> {
+  const wall = await getActivity(activityId, ev.id);
+  if (!wall || wall.kind !== "polaroid") redirect(flashPath(listPath(ev.id), "That polaroid wall no longer exists.", "error"));
+  await allowKind(ev, wall.kind);
+  return wall;
+}
+
+/** D474: both links are minted here, so a wall always has its LED link from the start. */
+export async function addPolaroidActivityAction(eventId: string, fd: FormData) {
+  const ev = await event(eventId);
+  await allowKind(ev, "polaroid");
+  const read = readSettings("polaroid", fd);
+  if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
+  let image: ImageChange = { url: null, stale: null };
+  try {
+    image = await nextImage(fd, "image", null, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  const id = await createActivity(ev, {
+    ...newActivityFrom("polaroid", read.settings, checked(fd, "is_open")),
+    image_url: image.url, wall_token: generateToken(), public_token: generateToken(),
+  });
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(detailPath(eventId, id), "Polaroid wall added. Open its wall link on the LED."));
+}
+
+/** Never touches `is_open`; merges the prompt into the wall's other settings rather than replacing them. */
+export async function savePolaroidActivityAction(eventId: string, activityId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const back = detailPath(eventId, activityId);
+  const current = await polaroidOf(ev, activityId);
+  const read = readSettings("polaroid", fd);
+  if (!read.ok) redirect(flashPath(back, read.error, "error"));
+  const { prompt, ...details } = read.settings;
+  let image: ImageChange = { url: current.image_url, stale: null };
+  try {
+    image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  await updateActivity(activityId, ev.id, { ...details, image_url: image.url, polaroid: { ...readPolaroidSettings(current.polaroid), prompt } });
+  await deleteEventImage(image.stale);
+  revalidatePath(listPath(eventId));
+  revalidatePath(back);
+  redirect(flashPath(back, "Polaroid wall saved."));
+}
+
+/** D485: the photos first, then the row (its polaroids cascade), then its images. */
+export async function deletePolaroidActivityAction(eventId: string, activityId: string) {
+  const ev = await event(eventId);
+  const doomed = await polaroidOf(ev, activityId);
+  await sweepActivityPhotos(ev.org_id, ev.id, activityId);
+  await deleteActivity(activityId, ev.id);
+  const settings = readPolaroidSettings(doomed.polaroid);
+  for (const url of [doomed.image_url, settings.background?.url ?? null, ...settings.stickers.map((s) => s.url)]) await deleteEventImage(url);
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(listPath(eventId), "Polaroid wall deleted."));
 }
 
 export async function addBoothAction(eventId: string, activityId: string, fd: FormData) {

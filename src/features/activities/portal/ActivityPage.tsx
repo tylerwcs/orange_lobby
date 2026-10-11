@@ -10,9 +10,10 @@ import { BookingBody } from "../kinds/booking/BookingBody";
 import { editorFor, proxyFor, SubmissionBody } from "../kinds/submission/SubmissionBody";
 import { TrackerBody } from "../kinds/submission/scoring/TrackerBody";
 import { PassportBody } from "../kinds/passport/PassportBody";
+import { PolaroidBody } from "../kinds/polaroid/PolaroidBody";
 
 /**
- * One activity's own page, the same shape for all three kinds (D178): the picture whole, the
+ * One activity's own page, the same shape for every kind (D178): the picture whole, the
  * name, when and where, the organiser's About and sections, where the attendee stands - then
  * one button at the foot of the page that opens what they do here in a dialog: the session
  * grid, or the submission's questions. A passport has no dialog and no button - the attendee
@@ -58,6 +59,8 @@ export async function ActivityPage({ params, searchParams }: {
       }
       case "passport":
         return <PassportBody entry={found.entry} attendeeName={attendee.name} />;
+      case "polaroid":
+        return <PolaroidBody entry={found.entry} slug={slug} token={token} />;
       default: {
         const exhaustive: never = found;
         throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);

@@ -19,3 +19,4 @@ export * from "./lib/wire";
 export { handFont } from "./font";
 export { PolaroidCard } from "./components/PolaroidCard";
 export { PolaroidComposer } from "./components/PolaroidComposer";
+export { YourPolaroids } from "./components/YourPolaroids";

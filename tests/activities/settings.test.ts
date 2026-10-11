@@ -84,3 +84,14 @@ describe("readSettings (D420)", () => {
     });
   });
 });
+
+describe("polaroid settings (D471, D475)", () => {
+  it("reads a name and a prompt, defaulting the prompt", () => {
+    const r = readSettings("polaroid", form({ name: "Wall" }));
+    expect(r).toEqual({ ok: true, settings: { name: "Wall", description: null, categories: null, prompt: "Share the moment!" } });
+  });
+  it("refuses a missing name and a long prompt", () => {
+    expect(readSettings("polaroid", form({ name: "" })).ok).toBe(false);
+    expect(readSettings("polaroid", form({ name: "Wall", prompt: "x".repeat(61) })).ok).toBe(false);
+  });
+});

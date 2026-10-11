@@ -1,5 +1,5 @@
 import { bookingSection, passportSection, type ActivitySection } from "./lib/portal-activities";
-import { bookingCard, formCard, passportCard, type CardView } from "./lib/activity-card";
+import { bookingCard, formCard, passportCard, polaroidCard, type CardView } from "./lib/activity-card";
 import { allCheckedIn } from "./lib/booking-door";
 import type { ActivityEntries, EntryMap } from "./lib/portal-activity-entries";
 import type { Activity, ActivityKind } from "@/lib/types";
@@ -51,6 +51,9 @@ export function activityCards(entries: ActivityEntries, basePath: string): Activ
     passport: (list) => list.map(({ activity, passport }) => ({
       activity, view: passportCard({ passport, open: activity.is_open }), href: href(activity), emphasis: false, section: passportSection(passport),
     })),
+    polaroid: (list) => list.map(({ activity, mine }) => ({
+      activity, view: polaroidCard({ posted: mine.length }), href: href(activity), emphasis: false, section: "open" as const,
+    })),
   };
   const cardsOf = <K extends ActivityKind>(kind: K) => cardsFor[kind](entries[kind]);
 
@@ -79,6 +82,10 @@ export function findEntry(entries: ActivityEntries, activityId: string): FoundEn
       return e ? { entry: e, activity: e.form } : null;
     },
     passport: (list) => {
+      const e = list.find((p) => p.activity.id === activityId);
+      return e ? { entry: e, activity: e.activity } : null;
+    },
+    polaroid: (list) => {
       const e = list.find((p) => p.activity.id === activityId);
       return e ? { entry: e, activity: e.activity } : null;
     },

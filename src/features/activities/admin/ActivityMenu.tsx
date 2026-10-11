@@ -18,7 +18,8 @@ export type ActivityMenuProps = {
   /** The activity's own page. Left out on that page itself, where "Open page" would go nowhere. */
   pageHref?: string;
   settingsHref: string;
-  exportHref: string;
+  /** Left out for a kind with nothing to export (a polaroid wall). */
+  exportHref?: string;
   /** D387: whether it leads the attendee's activities now, and the action that flips it. */
   pinned: boolean;
   togglePin: () => Promise<void>;
@@ -63,9 +64,11 @@ export function ActivityMenu({ name, pageHref, settingsHref, exportHref, pinned,
               {pinned ? <><PinOff />Unpin</> : <><Pin />Pin to top</>}
             </DropdownMenuItem>
             {/* The response is an attachment, so assigning it downloads without leaving the page. */}
-            <DropdownMenuItem onClick={() => window.location.assign(exportHref)}>
-              <Download />Export
-            </DropdownMenuItem>
+            {exportHref && (
+              <DropdownMenuItem onClick={() => window.location.assign(exportHref)}>
+                <Download />Export
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>

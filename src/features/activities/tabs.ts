@@ -39,6 +39,8 @@ const TABS: Record<ActivityKind, (c: TabCounts) => TabItem[]> = {
   },
   // A passport's booths and links are all on Setup (D190).
   passport: () => [setup()],
+  // Setup only until the moderation feed and stickers land (Task 11).
+  polaroid: () => [setup()],
 };
 
 export function activityTabs(kind: ActivityKind, c: TabCounts): TabItem[] {

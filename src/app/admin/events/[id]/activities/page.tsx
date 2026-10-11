@@ -1,7 +1,8 @@
 import { eventFields } from "@/lib/attendee-fields";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent } from "@/lib/db/events";
-import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, uploadActivityImageAction } from "@/features/activities";
+import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, addPolaroidActivityAction, deletePolaroidActivityAction, uploadActivityImageAction } from "@/features/activities";
+import { countLiveByActivity, readPolaroidSettings } from "@/features/polaroid";
 import { activityKindsFor, eventFeatures, NotInEvent } from "@/features/catalogue";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
@@ -28,9 +29,9 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   if (kinds.length === 0) {
     return <NotInEvent eventId={ev.id} title="Activities" keys={["booking", "engagement"]} back={`/admin/events/${ev.id}/activities`} />;
   }
-  const [allActivities, sessions, bookings, requests, submissions, booths, stamps, attendees, groups] = await Promise.all([
+  const [allActivities, sessions, bookings, requests, submissions, booths, stamps, attendees, groups, liveByWall] = await Promise.all([
     listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id), listSubmissions(ev.id),
-    listBooths(ev.id), listStampsForEvent(ev.id), listAttendees(ev.id), listGroups(ev.id),
+    listBooths(ev.id), listStampsForEvent(ev.id), listAttendees(ev.id), listGroups(ev.id), countLiveByActivity(ev.id),
   ]);
   // An activity of a kind this event no longer has is kept, not deleted (D439), but not listed.
   const activities = allActivities.filter((a) => kinds.includes(a.kind));
@@ -63,6 +64,8 @@ export default async function Activities({ params }: { params: Promise<{ id: str
       passport: passportCounts[a.id] ?? { booths: 0, completed: 0 },
       audience: audience(a),
       groupDone: groupDoneFor(a, formSubs),
+      polaroids: liveByWall[a.id] ?? 0,
+      walkIn: a.kind === "polaroid" && readPolaroidSettings(a.polaroid).public,
     });
   });
 
@@ -130,6 +133,21 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   <SubmitButton>Add passport</SubmitButton>
               </form>
               ),
+              polaroid: (
+                <form action={addPolaroidActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
+  <Field label="Name" name="name" defaultValue="Polaroid wall" />
+  <Field label="Prompt above the camera" name="prompt" placeholder="Share the moment!" />
+  <RichTextEditor name="description" label="Description (optional)" description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+  <ImageField label="Image (optional)" name="image" description={COVER_HINT} />
+  <CategoryCombo categories={categories} />
+  {/* Checked by default: a wall nobody opened is a camera that refuses every photo. */}
+  <label className={check}>
+    <input type="checkbox" name="is_open" className="size-4" defaultChecked />
+    Open for posting now
+  </label>
+  <SubmitButton>Add polaroid wall</SubmitButton>
+                </form>
+              ),
             }}
           />
         }
@@ -153,6 +171,9 @@ type RowFacts = {
   audience: number;
   /** F4: a group form's per-group progress, or null for an individual form. */
   groupDone: { done: boolean }[] | null;
+  /** Live polaroids on a wall, and whether its walk-in link is on. */
+  polaroids: number;
+  walkIn: boolean;
 };
 
 /**
@@ -203,6 +224,17 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
           ...base, exportHref: `${exports}/passport.xlsx`,
           remove: deletePassportActivityAction.bind(null, ev.id, a.id),
           removeMessage: removeWarning({ kind: "passport", booths: facts.passport.booths }),
+        },
+      };
+    case "polaroid":
+      return {
+        activity: a, href,
+        view: polaroidRow({ live: facts.polaroids, walkIn: facts.walkIn }),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        menu: {
+          ...base,
+          remove: deletePolaroidActivityAction.bind(null, ev.id, a.id),
+          removeMessage: removeWarning({ kind: "polaroid", polaroids: facts.polaroids }),
         },
       };
     default: {

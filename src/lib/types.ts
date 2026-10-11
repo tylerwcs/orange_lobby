@@ -233,8 +233,8 @@ export type BoothStamp = {
   stamped_at: string;
 };
 
-/** What an attendee does with an activity: take a seat, send answers, or collect stamps (D178, D179). */
-export type ActivityKind = "booking" | "submission" | "passport";
+/** What an attendee does with an activity: take a seat, send answers, collect stamps, or post a polaroid (D178, D179, D471). */
+export type ActivityKind = "booking" | "submission" | "passport" | "polaroid";
 
 /** Who submits a submission form (D350). `off` is one attendee at a time, as before groups. */
 /** D350, D369: `members` is each member submitting their own entries, stamped with their team. */

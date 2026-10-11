@@ -12,6 +12,7 @@ import { sessionArrivals } from "./booking-door";
 import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
+import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
@@ -19,9 +20,11 @@ export type ActivityEntry = { state: ActivityState; controls: ActivityControls; 
 export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null };
 /** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
 export type PassportEntry = { activity: Activity; passport: Passport };
+/** A polaroid wall this attendee may post to, and their own live polaroids on it (D482). */
+export type PolaroidEntry = { activity: Activity; mine: PolaroidRow[] };
 
 /** Each kind's portal entry (D416). Its keys must be exactly ActivityKind: the check below fails the build otherwise. */
-export type EntryMap = { booking: ActivityEntry; submission: SubmissionEntry; passport: PassportEntry };
+export type EntryMap = { booking: ActivityEntry; submission: SubmissionEntry; passport: PassportEntry; polaroid: PolaroidEntry };
 export type ActivityEntries = { [K in keyof EntryMap]: EntryMap[K][] };
 type Covers = [ActivityKind] extends [keyof EntryMap] ? ([keyof EntryMap] extends [ActivityKind] ? true : never) : never;
 const covers: Covers = true;
@@ -105,5 +108,10 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
       passport: buildPassport(booths.filter((b) => b.activity_id === activity.id), stamps, activity.stamps_required),
     }));
 
-  return { booking: bookings, submission: forms, passport: passports, people };
+  // Read only when the event runs a wall this attendee can see: most portal loads never do.
+  const walls = activities.filter((a) => a.kind === "polaroid" && eligible(a, attendee.category));
+  const myPolaroids = walls.length ? await polaroidsForAttendee(attendee.id) : [];
+  const polaroids = walls.map((activity) => ({ activity, mine: myPolaroids.filter((p) => p.activity_id === activity.id) }));
+
+  return { booking: bookings, submission: forms, passport: passports, polaroid: polaroids, people };
 }

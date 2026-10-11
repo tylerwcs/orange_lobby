@@ -3,7 +3,7 @@ import { activityState } from "@/features/activities/lib/activities";
 import { activityControls } from "@/features/activities/lib/activity-requests";
 import { activityCards, findEntry } from "@/features/activities/client";
 import type { Passport } from "@/features/activities/lib/booths";
-import type { ActivityEntry, PassportEntry, SubmissionEntry } from "@/features/activities/lib/portal-activity-entries";
+import type { ActivityEntry, PassportEntry, PolaroidEntry, SubmissionEntry } from "@/features/activities/lib/portal-activity-entries";
 import type { SubmitReason } from "@/features/activities/lib/submissions";
 import type { Activity, ActivitySession } from "@/lib/types";
 
@@ -29,12 +29,23 @@ const passport = (id: string, complete: boolean): PassportEntry => ({
   passport: { cells: [], collected: complete ? 1 : 0, target: 1, remaining: complete ? 0 : 1, complete, completedAt: null } satisfies Passport,
 });
 
+const wall = (id: string, posted = 0): PolaroidEntry => ({
+  activity: activity(id, { kind: "polaroid" }),
+  mine: Array.from({ length: posted }, (_, i) => ({ id: `${id}-${i}`, activity_id: id }) as PolaroidEntry["mine"][number]),
+});
+
 describe("activityCards", () => {
+  it("lists a polaroid wall under Open, after passports, with its camera (D481)", () => {
+    const cards = activityCards({ booking: [], submission: [], passport: [passport("p", false)], polaroid: [wall("w", 2)] }, "/p");
+    expect(cards.map((c) => [c.activity.id, c.section, c.view.action.label])).toEqual([["p", "open", "View"], ["w", "open", "Open camera"]]);
+    expect(cards[1].view.status).toEqual({ label: "2 on the wall", tone: "success" });
+  });
+
   it("orders To choose, Booked, Open (bookings, forms, passports), Done", () => {
     const cards = activityCards({
       booking: [booking("open-booking"), booking("booked", {}, true), booking("must-pick", { required: true })],
       submission: [form("form")],
-      passport: [passport("done-passport", true), passport("collecting", false)],
+      passport: [passport("done-passport", true), passport("collecting", false)], polaroid: [],
     }, "/e/kom/a/tok");
     expect(cards.map((c) => [c.activity.id, c.section])).toEqual([
       ["must-pick", "choose"],
@@ -47,7 +58,7 @@ describe("activityCards", () => {
   });
 
   it("rings only the card that is owed, and links each card to its own page", () => {
-    const cards = activityCards({ booking: [booking("a", { required: true }), booking("b")], submission: [], passport: [] }, "/e/kom/a/tok");
+    const cards = activityCards({ booking: [booking("a", { required: true }), booking("b")], submission: [], passport: [], polaroid: [] }, "/e/kom/a/tok");
     expect(cards.map((c) => c.emphasis)).toEqual([true, false]);
     expect(cards[1].href).toBe("/e/kom/a/tok/activities/b");
   });
@@ -56,7 +67,7 @@ describe("activityCards", () => {
     const cards = activityCards({
       booking: [booking("vip-only", { categories: ["VIP"] }, false, "Guest")],
       submission: [form("closed", "closed"), form("hidden", "ineligible")],
-      passport: [],
+      passport: [], polaroid: [],
     }, "/p");
     expect(cards.map((c) => c.activity.id)).toEqual(["closed"]);
   });
@@ -65,7 +76,7 @@ describe("activityCards", () => {
     const cards = activityCards({
       booking: [booking("checked-in", {}, true, null, true)],
       submission: [form("form")],
-      passport: [passport("done-passport", true)],
+      passport: [passport("done-passport", true)], polaroid: [],
     }, "/e/kom/a/tok");
     expect(cards.map((c) => c.activity.id)).toEqual(["form", "checked-in", "done-passport"]);
   });
@@ -73,7 +84,7 @@ describe("activityCards", () => {
     const cards = activityCards({
       booking: [booking("must-pick", { required: true }), booking("pinned-booking", { pinned: true, sort_order: 3 }, true)],
       submission: [{ ...form("pinned-form"), form: activity("pinned-form", { kind: "submission", pinned: true, sort_order: 1 }) }],
-      passport: [passport("collecting", false)],
+      passport: [passport("collecting", false)], polaroid: [],
     }, "/p");
     expect(cards.map((c) => [c.activity.id, c.section])).toEqual([
       ["pinned-form", "pinned"],
@@ -84,7 +95,7 @@ describe("activityCards", () => {
   });
 
   it("keeps the ring on a pinned activity that is still owed", () => {
-    const [card] = activityCards({ booking: [booking("a", { required: true, pinned: true })], submission: [], passport: [] }, "/p");
+    const [card] = activityCards({ booking: [booking("a", { required: true, pinned: true })], submission: [], passport: [], polaroid: [] }, "/p");
     expect([card.section, card.emphasis]).toEqual(["pinned", true]);
   });
 });
@@ -93,13 +104,14 @@ describe("findEntry (D416)", () => {
   const entries = {
     booking: [booking("b"), booking("vip", { categories: ["VIP"] }, false, "Guest")],
     submission: [form("f")],
-    passport: [passport("p", false)],
+    passport: [passport("p", false)], polaroid: [wall("w")],
   };
 
   it("finds each kind's entry with its kind and activity", () => {
     expect(findEntry(entries, "b")).toMatchObject({ kind: "booking", activity: { id: "b" } });
     expect(findEntry(entries, "f")).toMatchObject({ kind: "submission", activity: { id: "f" } });
     expect(findEntry(entries, "p")).toMatchObject({ kind: "passport", activity: { id: "p" } });
+    expect(findEntry(entries, "w")).toMatchObject({ kind: "polaroid", activity: { id: "w" } });
   });
 
   it("does not find a booking the attendee's category cannot see, or an unknown id", () => {

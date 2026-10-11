@@ -13,6 +13,8 @@ vi.mock("@/features/activities/db/activity-requests", () => ({
 }));
 vi.mock("@/lib/db/events", () => ({ getEvent: async (id: string) => state.events[id] ?? null }));
 vi.mock("@/lib/whatsapp", () => ({ sendTemplate }));
+// The activities entry now reaches the polaroid feature, whose screens load next/font (not run under vitest).
+vi.mock("@/features/polaroid", () => ({}));
 
 const { runCommitteeReminders } = await import("@/lib/committee-run");
 
