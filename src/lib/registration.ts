@@ -75,7 +75,7 @@ export function validateAnswers(
   const get = (k: string) => (input[k] ?? "").trim();
   for (const q of questions) {
     const v = get(q.key);
-    if (!isQuestionShown(q, input)) { answers[q.key] = ""; continue; }
+    if (!isQuestionShown(q, input, questions)) { answers[q.key] = ""; continue; }
     if (q.required && !v) errors[q.key] = `${q.label} is required`;
     else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = "Choose one of the listed options";
     else if (q.type === "number" && v && hasNumberLimits(q)) {

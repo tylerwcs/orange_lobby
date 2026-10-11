@@ -112,7 +112,7 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
   return (
     <FieldSet onChange={onChange}>
       <FieldGroup>
-        {questions.filter((q) => isQuestionShown(q, answers)).map((q) => {
+        {questions.filter((q) => isQuestionShown(q, answers, questions)).map((q) => {
           const current = defaults && Object.hasOwn(defaults, q.key) ? defaults[q.key] : "";
           const storedFile = q.type === "file" && current !== "";
           const link = fileLinks && Object.hasOwn(fileLinks, q.key) ? fileLinks[q.key] : undefined;

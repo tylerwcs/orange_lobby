@@ -110,6 +110,28 @@ describe("isQuestionShown", () => {
     expect(isQuestionShown(category, { ready: "Yes" })).toBe(true);
     expect(isQuestionShown(category, { ready: " yes " })).toBe(true);
   });
+
+  // D470: a branch's own follow-ups close with it, even though the hidden answer is remembered.
+  const qs = [
+    { key: "device", label: "Device", type: "select" as const, required: true, options: ["Watch", "Phone"] },
+    { key: "phone", label: "Activity", type: "select" as const, required: true, options: ["Treadmill"], show_when: { key: "device", includes: "Phone" } },
+    { key: "machine", label: "Photo", type: "file" as const, required: true, show_when: { key: "phone", includes: "Treadmill" } },
+  ];
+  it("hides a question whose parent is itself hidden, given the questions", () => {
+    const switched = { device: "Watch", phone: "Treadmill" };
+    expect(isQuestionShown(qs[2], switched, qs)).toBe(false);
+    expect(isQuestionShown(qs[2], { device: "Phone", phone: "Treadmill" }, qs)).toBe(true);
+  });
+  it("does not loop on a show_when cycle", () => {
+    const a = { key: "a", label: "A", type: "text" as const, required: false, show_when: { key: "b", includes: "x" } };
+    const b = { key: "b", label: "B", type: "text" as const, required: false, show_when: { key: "a", includes: "x" } };
+    expect(isQuestionShown(a, { a: "x", b: "x" }, [a, b])).toBe(false);
+  });
+  it("lets a required follow-up of a closed branch pass validation", () => {
+    const r = validateAnswers({ device: "Watch", phone: "Treadmill" }, qs);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.answers).toEqual({ device: "Watch", phone: "", machine: "" });
+  });
 });
 
 describe("dropBlankAnswers", () => {

@@ -118,7 +118,7 @@ export function RegisterForm({ slug, questions, door = true }: {
           <FieldGroup>
             {questions.map((q) => {
               const id = `reg-${q.key}`;
-              if (!isQuestionShown(q, answers)) return <input key={q.key} type="hidden" name={q.key} value="" />;
+              if (!isQuestionShown(q, answers, questions)) return <input key={q.key} type="hidden" name={q.key} value="" />;
               return (
                 <Field key={q.key} data-invalid={!!errors[q.key]}>
                   <FieldLabel htmlFor={id}>{q.label}{!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>

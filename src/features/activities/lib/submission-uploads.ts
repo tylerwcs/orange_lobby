@@ -68,7 +68,7 @@ export async function readAnswers(activity: FormActivity, fd: FormData, stored: 
   const uploads = await Promise.allSettled(fileQuestions.map(async (q) => {
     const file = fd.get(q.key);
     const kept = { key: q.key, path: Object.hasOwn(stored, q.key) ? stored[q.key] : "", fresh: false, hash: "" };
-    if (!(file instanceof File) || file.size === 0 || !isQuestionShown(q, typed)) return kept;
+    if (!(file instanceof File) || file.size === 0 || !isQuestionShown(q, typed, activity.questions)) return kept;
     const [path, hash] = await Promise.all([
       uploadSubmissionFile({ orgId: activity.org_id, eventId: activity.event_id, formId: activity.id, file }),
       sha256Hex(file),
