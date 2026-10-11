@@ -32,13 +32,20 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** D463: the unit shown on the tracker; km when the organiser left it blank. */
+export function unitOf(s: Pick<ChallengeScoring, "unit">): string {
+  return s.unit || "km";
+}
+
 /**
  * D378: Mon–Sun weeks, cut to the challenge's dates (Mileage's last week is Mon–Fri), numbered
  * from the week the EVENT starts in, so the EDM's "Week 2 to Week 10" falls out of the dates
- * rather than being typed in.
+ * rather than being typed in. D464: a challenge with week_origin "challenge" numbers from its
+ * own start instead.
  */
-export function challengeWeeks(s: Pick<ChallengeScoring, "starts_on" | "ends_on">, eventStartsOn: string | null): ChallengeWeek[] {
-  const origin = mondayOf(eventStartsOn && eventStartsOn <= s.starts_on ? eventStartsOn : s.starts_on);
+export function challengeWeeks(s: Pick<ChallengeScoring, "starts_on" | "ends_on" | "week_origin">, eventStartsOn: string | null): ChallengeWeek[] {
+  const fromEvent = s.week_origin !== "challenge" && eventStartsOn && eventStartsOn <= s.starts_on;
+  const origin = mondayOf(fromEvent ? eventStartsOn : s.starts_on);
   const weeks: ChallengeWeek[] = [];
   for (let mon = mondayOf(s.starts_on); mon <= s.ends_on && weeks.length < MAX_WEEKS; mon = addDays(mon, 7)) {
     const days = Array.from({ length: 7 }, (_, k) => addDays(mon, k)).filter((d) => inChallenge(s, d));
@@ -125,10 +132,15 @@ export function readScoring(get: (key: string) => string | null, questions: Regi
   if (team_bonus !== null && (!Number.isInteger(team_bonus) || team_bonus < 0)) throw new Error("The team bonus must be a whole number.");
   const podium = val("scoring_podium").split(",").map((p) => p.trim()).filter(Boolean).map(Number);
   if (podium.some((p) => !Number.isInteger(p) || p < 0)) throw new Error("Write the podium points as whole numbers, like 20, 12, 6.");
+  const unit = val("scoring_unit");
+  if (unit.length > 8) throw new Error("Keep the unit short, like km or min.");
+  const week_origin = val("scoring_week_origin") === "challenge" ? "challenge" as const : null;
   return {
     metric_key, daily_min, starts_on, ends_on,
     ...(daily_steps.length ? { daily_steps } : {}),
     ...(team_bonus ? { team_bonus } : {}),
     ...(podium.length ? { podium } : {}),
+    ...(unit ? { unit } : {}),
+    ...(week_origin ? { week_origin } : {}),
   };
 }

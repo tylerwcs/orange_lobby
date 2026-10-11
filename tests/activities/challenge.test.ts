@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays, mondayOf, inChallenge, challengeWeeks, weekFor, gridWeek, weekLabel,
-  stepPoints, nextStep, parseSteps, stepsText, readScoring,
+  stepPoints, nextStep, parseSteps, stepsText, readScoring, unitOf,
 } from "@/features/activities/lib/challenge";
 import type { ChallengeScoring, RegistrationQuestion } from "@/lib/types";
 
@@ -132,5 +132,38 @@ describe("readScoring (D372)", () => {
 
   it("refuses a daily minimum that is not above zero", () => {
     expect(() => readScoring(form({ scoring_daily_min: "0" }), questions)).toThrow(/daily minimum/);
+  });
+
+  it("reads the unit and week origin, leaving blanks out (D463, D464)", () => {
+    expect(readScoring(form({ scoring_unit: " min ", scoring_week_origin: "challenge" }), questions))
+      .toEqual({ ...MILEAGE, unit: "min", week_origin: "challenge" });
+    expect(readScoring(form({ scoring_unit: "", scoring_week_origin: "event" }), questions)).toEqual(MILEAGE);
+  });
+
+  it("refuses a long unit", () => {
+    expect(() => readScoring(form({ scoring_unit: "kilometres!!!" }), questions)).toThrow(/unit/);
+  });
+});
+
+describe("week_origin and unit (D463, D464)", () => {
+  const ACTIVE: ChallengeScoring = { metric_key: "minutes", daily_min: 20, starts_on: "2026-10-12", ends_on: "2026-12-04", week_origin: "challenge", unit: "min" };
+
+  it("numbers Project Active Week 1 to Week 8 from the challenge start", () => {
+    const weeks = challengeWeeks(ACTIVE, "2026-09-28");
+    expect(weeks.map((w) => w.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(weeks[7].days).toEqual(["2026-11-30", "2026-12-01", "2026-12-02", "2026-12-03", "2026-12-04"]);
+  });
+
+  it("keeps a mid-week start as Week 1", () => {
+    expect(challengeWeeks({ ...ACTIVE, starts_on: "2026-10-14" }, "2026-09-28")[0].number).toBe(1);
+  });
+
+  it("defaults to the event origin", () => {
+    expect(challengeWeeks({ ...ACTIVE, week_origin: undefined }, "2026-09-28")[0].number).toBe(3);
+  });
+
+  it("falls back to km", () => {
+    expect(unitOf({})).toBe("km");
+    expect(unitOf({ unit: "min" })).toBe("min");
   });
 });

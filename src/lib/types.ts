@@ -256,6 +256,10 @@ export type ChallengeScoring = {
   daily_steps?: DailyStep[];
   team_bonus?: number;
   podium?: number[];
+  /** D463: the metric's short label ("min"); km when missing, so Mileage reads as before. */
+  unit?: string;
+  /** D464: Week 1 is the event's first week (D378, the default) or the challenge's. */
+  week_origin?: "event" | "challenge";
 };
 
 /** A named set of one event's attendees (D345). An attendee is in at most one (D344). */

@@ -37,6 +37,16 @@ export function ScoringFields({ activity }: { activity?: Activity }) {
             <label className="grid gap-1.5 text-sm"><span className="font-bold">Daily minimum</span>
               <input name="scoring_daily_min" inputMode="decimal" defaultValue={s?.daily_min ?? 1} className={`${input} tabular-nums`} required /></label>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1.5 text-sm"><span className="font-bold">Unit (optional)</span>
+              <input name="scoring_unit" maxLength={8} defaultValue={s?.unit ?? ""} placeholder="km" className={input} />
+              <span className="text-xs text-muted-foreground">How the score reads on the tracker, like km or min.</span></label>
+            <label className="grid gap-1.5 text-sm"><span className="font-bold">Number weeks from</span>
+              <select name="scoring_week_origin" defaultValue={s?.week_origin ?? "event"} className={input}>
+                <option value="event">The event&apos;s first week</option>
+                <option value="challenge">The challenge&apos;s first week</option>
+              </select></label>
+          </div>
           <label className="grid gap-1.5 text-sm"><span className="font-bold">Daily points steps (optional)</span>
             <input name="scoring_steps" defaultValue={stepsText(s?.daily_steps)} placeholder="1=1, 3=2, 5=4, 8=6, 10=8" className={input} />
             <span className="text-xs text-muted-foreground">Total=points for a person&apos;s day, smallest first.</span></label>
