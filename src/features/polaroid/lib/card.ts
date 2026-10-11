@@ -29,3 +29,17 @@ export function messageScale(length: number): number {
 export function randomTilt(rand: () => number = Math.random): number {
   return Math.round((rand() * 6 - 3) * 100) / 100;
 }
+
+/** The print on the full-screen composer stays between these widths (D482). */
+export const STAGE_CARD_MIN = 200;
+export const STAGE_CARD_MAX = 520;
+
+/**
+ * How wide the print being edited is drawn on the full-screen composer (D482): as large as fits
+ * a 16 px margin each side and the height left once `reserved` (the controls bar, the margins)
+ * is taken, for a card of height ÷ width `ratio`; never under 200 or over 520 px.
+ */
+export function stageCardWidth(viewW: number, viewH: number, ratio: number, reserved: number): number {
+  const fit = Math.min(viewW - 32, (viewH - reserved) / ratio);
+  return Math.floor(Math.min(STAGE_CARD_MAX, Math.max(STAGE_CARD_MIN, fit)));
+}

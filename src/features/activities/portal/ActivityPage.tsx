@@ -25,13 +25,15 @@ import { PolaroidBody } from "../kinds/polaroid/PolaroidBody";
  *
  * A scored challenge (D374) swaps the submission body for its tracker, in three tabs (D385):
  * `?tab=info`, My stats (no param; `?day=` shows another day of it) and `?tab=leaderboard`.
+ *
+ * A polaroid wall's card links here with `?camera=1`, which opens its camera on arrival (D482).
  */
 export async function ActivityPage({ params, searchParams }: {
   params: Promise<{ slug: string; token: string; activityId: string }>;
-  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[] }>;
+  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[]; camera?: string | string[] }>;
 }) {
   const { slug, token, activityId } = await params;
-  const { new: writing, day, tab } = await searchParams;
+  const { new: writing, day, tab, camera } = await searchParams;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
@@ -60,7 +62,7 @@ export async function ActivityPage({ params, searchParams }: {
       case "passport":
         return <PassportBody entry={found.entry} attendeeName={attendee.name} />;
       case "polaroid":
-        return <PolaroidBody entry={found.entry} slug={slug} token={token} />;
+        return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} openOnArrival={camera === "1"} />;
       default: {
         const exhaustive: never = found;
         throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);

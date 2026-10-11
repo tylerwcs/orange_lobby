@@ -1,44 +1,49 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import type { Activity } from "@/lib/types";
 import {
-  walkinPage, readPolaroidSettings, stickerTray, PolaroidComposer, startWalkinPolaroidAction, postWalkinPolaroidAction,
+  walkinPage, readPolaroidSettings, stickerTray, PolaroidComposer, StageGlow, STAGE_BG, startWalkinPolaroidAction, postWalkinPolaroidAction,
 } from "@/features/polaroid";
 
 // Never cached: whether the link is on, and whether posting is paused, can change at any moment.
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Polaroid wall", robots: { index: false, follow: false } };
+// The camera fills the screen edge to edge and pads itself by the safe areas (D482).
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: STAGE_BG };
 
-/** The wall's QR lands here (D481): no login, posts are anonymous. */
+/** The wall's QR lands here (D481): no login, posts are anonymous. The page is the camera (D482). */
 export default async function WalkinPolaroidPage({ params }: { params: Promise<{ slug: string; publicToken: string }> }) {
   const { slug, publicToken } = await params;
   const page = await walkinPage(slug, publicToken);
   if (page.kind === "missing") notFound();
   return (
-    <main className="min-h-dvh bg-zinc-950 px-4 py-6 text-white">
-      <div className="mx-auto flex max-w-md flex-col gap-4">
-        <p className="text-center text-xs font-bold uppercase tracking-widest text-white/50">{page.eventName}</p>
-        {page.kind === "closed"
-          ? <Closed title={page.title} body={page.body} />
-          : <Composer activity={page.activity} slug={slug} publicToken={publicToken} />}
-      </div>
+    <main className="min-h-dvh text-white" style={{ background: STAGE_BG }}>
+      {page.kind === "closed"
+        ? <Closed eventName={page.eventName} brand={page.brand} title={page.title} body={page.body} />
+        : <Composer eventName={page.eventName} brand={page.brand} activity={page.activity} slug={slug} publicToken={publicToken} />}
     </main>
   );
 }
 
-function Closed({ title, body }: { title: string; body: string }) {
+/** "Posting is paused" and the like, on the same dark stage as the camera. */
+function Closed({ eventName, brand, title, body }: { eventName: string; brand: string; title: string; body: string }) {
   return (
-    <div className="rounded-3xl bg-white/5 p-8 text-center">
-      <h1 className="text-xl font-extrabold">{title}</h1>
-      <p className="mt-2 text-white/70">{body}</p>
+    <div className="fixed inset-0 h-dvh overflow-hidden" style={{ background: STAGE_BG }}>
+      <StageGlow brand={brand} />
+      <div className="relative flex size-full flex-col items-center justify-center gap-3 text-center"
+        style={{ padding: "env(safe-area-inset-top) max(1.5rem, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(1.5rem, env(safe-area-inset-left))" }}>
+        <p className="text-xs font-bold uppercase tracking-widest text-white/50">{eventName}</p>
+        <h1 className="text-2xl font-extrabold">{title}</h1>
+        <p className="max-w-sm text-white/70">{body}</p>
+      </div>
     </div>
   );
 }
 
-function Composer({ activity, slug, publicToken }: { activity: Activity; slug: string; publicToken: string }) {
+function Composer({ eventName, brand, activity, slug, publicToken }: { eventName: string; brand: string; activity: Activity; slug: string; publicToken: string }) {
   const settings = readPolaroidSettings(activity.polaroid);
   return (
-    <PolaroidComposer prompt={settings.prompt} stickers={stickerTray(settings)}
+    <PolaroidComposer prompt={settings.prompt} stickers={stickerTray(settings)} eventName={eventName} brand={brand}
       start={startWalkinPolaroidAction.bind(null, slug, publicToken)}
       post={postWalkinPolaroidAction.bind(null, slug, publicToken)} />
   );

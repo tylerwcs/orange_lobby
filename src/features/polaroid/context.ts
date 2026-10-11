@@ -48,8 +48,8 @@ export function walkinClosed(ctx: WalkinContext): string | null {
 
 export type WalkinPage =
   | { kind: "missing" }
-  | { kind: "closed"; eventName: string; title: string; body: string }
-  | { kind: "open"; eventName: string; activity: Activity };
+  | { kind: "closed"; eventName: string; brand: string; title: string; body: string }
+  | { kind: "open"; eventName: string; brand: string; activity: Activity };
 
 const CLOSED_BODY: Record<string, string> = {
   [PAUSED]: "The wall is still on screen. Check back soon.",
@@ -62,8 +62,9 @@ export async function walkinPage(slug: string, publicToken: string): Promise<Wal
   const found = await lookupWalkin(slug, publicToken);
   if (!found) return { kind: "missing" };
   const no = walkinRefusal(found.event, found.activity, nowInKL().date);
-  if (no) return { kind: "closed", eventName: found.event.name, title: no, body: CLOSED_BODY[no] ?? "" };
-  return { kind: "open", eventName: found.event.name, activity: found.activity };
+  const { name: eventName, primary_color: brand } = found.event;
+  if (no) return { kind: "closed", eventName, brand, title: no, body: CLOSED_BODY[no] ?? "" };
+  return { kind: "open", eventName, brand, activity: found.activity };
 }
 
 export type WallLink = { event: Event; activity: Activity } | { refused: "missing" | "draft" | "expired" };

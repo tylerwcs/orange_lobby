@@ -11,7 +11,8 @@ export function StickerTray({ open, onOpenChange, stickers, onPick }: {
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[70dvh] overflow-y-auto">
+      {/* Above the full-screen composer (z-[100]), which it opens from. */}
+      <SheetContent side="bottom" className="z-[110] max-h-[70dvh] overflow-y-auto">
         <SheetHeader><SheetTitle>Stickers</SheetTitle></SheetHeader>
         <div className="grid grid-cols-4 gap-3 px-4 pb-6 sm:grid-cols-6">
           {stickers.map((s) => (
