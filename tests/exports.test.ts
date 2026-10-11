@@ -259,7 +259,7 @@ describe("leaderboardRows (D381)", () => {
   const score = scoreChallenge({
     totals: [{ attendeeId: "a1", groupId: "A", day: "2026-10-05", km: 2 }],
     teams: [{ id: "A", name: "Group 01", memberIds: ["a1"] }],
-    disqualified: new Set(), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-12",
+    disqualified: new Map(), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-12",
   });
 
   it("lists every week's tiers per team, then the totals", () => {
@@ -292,7 +292,7 @@ describe("leaderboardRows (D381)", () => {
         { id: "B", name: "Bravo", memberIds: ["b1"] },
         { id: "C", name: "Charlie", memberIds: ["c1"] },
       ],
-      disqualified: new Set(["c1"]), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-20",
+      disqualified: new Map([["c1", null]]), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-20",
     });
     // Overall: Bravo (4) ahead of Alpha (3), Charlie voided. Week 2 flips Alpha ahead of Bravo.
     expect(score.standings.map((s) => s.name)).toEqual(["Bravo", "Alpha", "Charlie"]);
@@ -302,5 +302,22 @@ describe("leaderboardRows (D381)", () => {
     const week3 = rows.filter((r) => String(r[0]).startsWith("Week 3")).map((r) => [r[1], r[6]]);
     expect(week3).toEqual([["Bravo", 4], ["Alpha", 0], ["Charlie", "Void"]]);
     expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[6]])).toEqual([["Bravo", 4], ["Alpha", 3], ["Charlie", "Void"]]);
+  });
+
+  it("shows Void on a voided week only, the team ranked live on its other weeks (D467)", () => {
+    const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-05", ends_on: "2026-10-18", daily_steps: [{ at: 1, pts: 1 }], podium: [], void: "week" as const };
+    const score = scoreChallenge({
+      totals: [
+        { attendeeId: "a1", groupId: "A", day: "2026-10-05", km: 5 },
+        { attendeeId: "a1", groupId: "A", day: "2026-10-12", km: 5 },
+        { attendeeId: "b1", groupId: "B", day: "2026-10-05", km: 5 },
+      ],
+      teams: [{ id: "A", name: "Alpha", memberIds: ["a1", "a2"] }, { id: "B", name: "Bravo", memberIds: ["b1"] }],
+      disqualified: new Map([["a2", "2026-10-05"]]), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-20",
+    });
+    const rows = leaderboardRows(score);
+    expect(rows.filter((r) => String(r[0]).startsWith("Week 2")).map((r) => [r[1], r[6]])).toEqual([["Bravo", 1], ["Alpha", "Void"]]);
+    expect(rows.filter((r) => String(r[0]).startsWith("Week 3")).map((r) => [r[1], r[6]])).toEqual([["Alpha", 1], ["Bravo", 0]]);
+    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[2], r[6]])).toEqual([["Alpha", 5, 1], ["Bravo", 5, 1]]);
   });
 });

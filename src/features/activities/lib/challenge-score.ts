@@ -1,4 +1,4 @@
-import { round2, stepPoints, type ChallengeWeek } from "./challenge";
+import { mondayOf, round2, stepPoints, type ChallengeWeek } from "./challenge";
 import type { ChallengeScoring } from "@/lib/types";
 
 /**
@@ -9,11 +9,14 @@ import type { ChallengeScoring } from "@/lib/types";
  * Whose km is it: Tier 1 and Tier 3 go to the team STAMPED on the entry (D369 - moving teams
  * does not carry km along). Tier 2 asks about the team's CURRENT members, wherever their km
  * was stamped, because "every member logged every day" is about the people on the team now.
+ *
+ * D467: under `scoring.void: "week"` a disqualification voids one team-week instead of the season.
  */
 
 export type DailyTotal = { attendeeId: string; groupId: string | null; day: string; km: number };
 export type Team = { id: string; name: string; memberIds: string[] };
-export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; onTrack: number; members: number };
+/** `void` is D467's week void: every tier is 0 that week and the team is off its podium. */
+export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; onTrack: number; members: number; void: boolean };
 export type WeekResult = { week: ChallengeWeek; ended: boolean; teams: Record<string, TeamWeek> };
 export type Standing = { id: string; name: string; km: number; tier1: number; bonus: number; podium: number; total: number; void: boolean; rank: number | null };
 export type ChallengeScore = {
@@ -30,7 +33,8 @@ function rankOf<T>(items: T[], value: (x: T) => number, item: T): number {
 export function scoreChallenge(input: {
   totals: DailyTotal[];
   teams: Team[];
-  disqualified: Set<string>;
+  /** Each disqualified attendee, to the Monday of the week it voids (D467); null for the whole season. */
+  disqualified: Map<string, string | null>;
   scoring: ChallengeScoring;
   weeks: ChallengeWeek[];
   today: string;
@@ -45,33 +49,47 @@ export function scoreChallenge(input: {
   }
   const personKm = (attendeeId: string, day: string) => byPersonDay.get(`${attendeeId}|${day}`) ?? 0;
   const logged = (attendeeId: string, day: string) => personKm(attendeeId, day) >= scoring.daily_min;
-  const isVoid = new Set(teams.filter((t) => t.memberIds.some((id) => disqualified.has(id))).map((t) => t.id));
+  const weekVoid = scoring.void === "week";
+  // D380: the season void - any disqualified member voids the team for good.
+  const isVoid = new Set(weekVoid ? [] : teams.filter((t) => t.memberIds.some((id) => disqualified.has(id))).map((t) => t.id));
+  // D467: from the void week on, a disqualified person counts nothing and is not on the team for
+  // Tier 2. A week_of that is missing counts them out from the start; one matching no challenge
+  // week still counts them out from that day, but voids no week.
+  const outFrom = (id: string) => (weekVoid && disqualified.has(id) ? disqualified.get(id) ?? "0000-01-01" : null);
+  const counts = (id: string, day: string | undefined) => {
+    const f = outFrom(id);
+    return f === null || (day !== undefined && day < f);
+  };
 
   const weekResults = weeks.map((week): WeekResult => {
     const ended = week.days[week.days.length - 1] < today;
     const inWeek = new Set(week.days);
     const elapsed = week.days.filter((d) => d < today);
+    const monday = week.days.length ? mondayOf(week.days[0]) : null;
     const result: Record<string, TeamWeek> = {};
     for (const team of teams) {
       let km = 0, tier1 = 0;
       for (const t of totals) {
-        if (t.groupId !== team.id || !inWeek.has(t.day)) continue;
+        if (t.groupId !== team.id || !inWeek.has(t.day) || !counts(t.attendeeId, t.day)) continue;
         km += t.km;
         tier1 += stepPoints(t.km, steps);
       }
-      const allLogged = team.memberIds.length > 0 && team.memberIds.every((id) => week.days.every((d) => logged(id, d)));
+      const voided = weekVoid && monday !== null && team.memberIds.some((id) => disqualified.has(id) && disqualified.get(id) === monday);
+      const members = team.memberIds.filter((id) => counts(id, week.days[0]));
+      const allLogged = members.length > 0 && members.every((id) => week.days.every((d) => logged(id, d)));
       result[team.id] = {
         km: round2(km),
-        tier1,
-        bonus: ended && allLogged ? scoring.team_bonus ?? 0 : 0,
+        tier1: voided ? 0 : tier1,
+        bonus: !voided && ended && allLogged ? scoring.team_bonus ?? 0 : 0,
         podium: 0,
-        onTrack: team.memberIds.filter((id) => elapsed.every((d) => logged(id, d))).length,
-        members: team.memberIds.length,
+        onTrack: members.filter((id) => elapsed.every((d) => logged(id, d))).length,
+        members: members.length,
+        void: voided,
       };
     }
     if (ended && scoring.podium?.length) {
-      // D380: a Void team is out of the race, so the teams behind it move up.
-      const racing = teams.filter((t) => !isVoid.has(t.id) && result[t.id].km > 0);
+      // D380/D467: a Void team (or team-week) is out of the race, so the teams behind it move up.
+      const racing = teams.filter((t) => !isVoid.has(t.id) && !result[t.id].void && result[t.id].km > 0);
       for (const t of racing) {
         const rank = rankOf(racing, (x) => result[x.id].km, t);
         result[t.id].podium = scoring.podium[rank - 1] ?? 0;
@@ -81,7 +99,8 @@ export function scoreChallenge(input: {
   });
 
   const rows = teams.map((team) => {
-    const sum = (k: "km" | "tier1" | "bonus" | "podium") => weekResults.reduce((n, w) => n + w.teams[team.id][k], 0);
+    // A voided week's points are already 0; its km is left out too (D467, feeding D468's total).
+    const sum = (k: "km" | "tier1" | "bonus" | "podium") => weekResults.reduce((n, w) => n + (w.teams[team.id].void ? 0 : w.teams[team.id][k]), 0);
     const [tier1, bonus, podium] = [sum("tier1"), sum("bonus"), sum("podium")];
     return { id: team.id, name: team.name, km: round2(sum("km")), tier1, bonus, podium, total: tier1 + bonus + podium, void: isVoid.has(team.id), rank: null as number | null };
   });

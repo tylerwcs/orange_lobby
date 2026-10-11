@@ -135,6 +135,8 @@ export function readScoring(get: (key: string) => string | null, questions: Regi
   const unit = val("scoring_unit");
   if (unit.length > 8) throw new Error("Keep the unit short, like km or min.");
   const week_origin = val("scoring_week_origin") === "challenge" ? "challenge" as const : null;
+  // D467: the season void is the default, so only a week void is stored.
+  const voids = val("scoring_void") === "week" ? "week" as const : null;
   return {
     metric_key, daily_min, starts_on, ends_on,
     ...(daily_steps.length ? { daily_steps } : {}),
@@ -142,5 +144,6 @@ export function readScoring(get: (key: string) => string | null, questions: Regi
     ...(podium.length ? { podium } : {}),
     ...(unit ? { unit } : {}),
     ...(week_origin ? { week_origin } : {}),
+    ...(voids ? { void: voids } : {}),
   };
 }

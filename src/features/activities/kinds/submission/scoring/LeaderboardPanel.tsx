@@ -20,12 +20,12 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
   const picked = week === null ? null : score.weeks.find((w) => w.week.number === week) ?? null;
   // A picked week is ranked on its own numbers, not on the all-weeks standings it would otherwise
   // inherit its order and "#" from: by that week's total, then name, standard competition ranking,
-  // Void teams last and unranked.
+  // Void teams last and unranked. A team-week voided on its own (D467) is Void in that week only.
   const rows = picked
     ? (() => {
         const weekly = score.standings.map((s) => {
           const w = picked.teams[s.id];
-          return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, total: w.tier1 + w.bonus + w.podium } : s;
+          return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, total: w.tier1 + w.bonus + w.podium, void: s.void || w.void } : s;
         });
         const live = weekly.filter((r) => !r.void);
         return [...weekly]

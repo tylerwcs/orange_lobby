@@ -4,7 +4,8 @@ import { selectAll } from "@/lib/db/select-all";
 import type { DailyTotal } from "../lib/challenge-score";
 import type { Event } from "@/lib/types";
 
-export type Disqualification = { attendee_id: string; reason: string; created_at: string; created_by: string | null };
+/** `week_of` is the Monday of the week it voids (D467); null voids the whole season (D380). */
+export type Disqualification = { attendee_id: string; reason: string; week_of: string | null; created_at: string; created_by: string | null };
 
 /**
  * D375: live km per person, team and day, summed by `challenge_daily_totals` (0058). Paged: the
@@ -23,15 +24,15 @@ export async function dailyTotals(activityId: string): Promise<DailyTotal[]> {
 
 export async function listDisqualifications(activityId: string): Promise<Disqualification[]> {
   const { data, error } = await serviceClient().from("challenge_disqualifications")
-    .select("attendee_id, reason, created_at, created_by").eq("activity_id", activityId);
+    .select("attendee_id, reason, week_of, created_at, created_by").eq("activity_id", activityId);
   if (error) throw error;
   return (data ?? []) as Disqualification[];
 }
 
-/** D380. Upsert: disqualifying twice just updates the reason. */
-export async function disqualify(ev: Pick<Event, "id">, activityId: string, attendeeId: string, reason: string, userId: string): Promise<void> {
+/** D380/D467. Upsert: disqualifying twice just updates the reason and the week. */
+export async function disqualify(ev: Pick<Event, "id">, activityId: string, attendeeId: string, reason: string, weekOf: string | null, userId: string): Promise<void> {
   const { error } = await serviceClient().from("challenge_disqualifications")
-    .upsert({ event_id: ev.id, activity_id: activityId, attendee_id: attendeeId, reason, created_by: userId }, { onConflict: "activity_id,attendee_id" });
+    .upsert({ event_id: ev.id, activity_id: activityId, attendee_id: attendeeId, reason, week_of: weekOf, created_by: userId }, { onConflict: "activity_id,attendee_id" });
   if (error) throw error;
 }
 

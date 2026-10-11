@@ -19,8 +19,8 @@ const TEAMS: Team[] = [
   { id: "C", name: "Group 03", memberIds: ["c1"] },
   { id: "D", name: "Group 04", memberIds: ["d1"] },
 ];
-const score = (totals: DailyTotal[], today = "2026-10-12", disqualified = new Set<string>(), teams = TEAMS) =>
-  scoreChallenge({ totals, teams, disqualified, scoring: S, weeks: WEEKS, today });
+const score = (totals: DailyTotal[], today = "2026-10-12", disqualified = new Map<string, string | null>(), teams = TEAMS, scoring = S) =>
+  scoreChallenge({ totals, teams, disqualified, scoring, weeks: WEEKS, today });
 
 describe("Tier 1 — daily points (D377)", () => {
   it("scores each person-day on the steps and sums them per team", () => {
@@ -62,7 +62,7 @@ describe("Tier 2 — team bonus (D377)", () => {
   it("judges current members, wherever their km was stamped", () => {
     const moved: Team[] = [{ id: "A", name: "Group 01", memberIds: ["a1", "x"] }, ...TEAMS.slice(1)];
     const totals = [...everyDay("a1", "A"), ...everyDay("x", "B").slice(0, 3), ...everyDay("x", "A").slice(3)];
-    expect(score(totals, "2026-10-12", new Set(), moved).weeks[0].teams.A.bonus).toBe(20);
+    expect(score(totals, "2026-10-12", new Map(), moved).weeks[0].teams.A.bonus).toBe(20);
   });
 });
 
@@ -93,14 +93,70 @@ describe("standings and Void (D380)", () => {
 
   it("voids a team with a disqualified member, puts it last and takes it off the podium", () => {
     const totals = [t("a1", "A", "2026-10-05", 30), t("b1", "B", "2026-10-05", 20), t("c1", "C", "2026-10-05", 10), t("d1", "D", "2026-10-05", 5)];
-    const s = score(totals, "2026-10-12", new Set(["a2"]));
+    const s = score(totals, "2026-10-12", new Map([["a2", null]]));
     const last = s.standings[s.standings.length - 1];
     expect(last).toMatchObject({ id: "A", void: true, rank: null });
     const w = s.weeks[0].teams;
     expect([w.B.podium, w.C.podium, w.D.podium]).toEqual([20, 12, 6]);
   });
 
+  it("ignores a stored week under the default season void", () => {
+    const s = score([t("a1", "A", "2026-10-05", 30)], "2026-10-12", new Map([["a2", "2026-10-05"]]));
+    expect(s.standings.find((x) => x.id === "A")).toMatchObject({ void: true, rank: null });
+    expect(s.weeks[0].teams.A.void).toBe(false);
+  });
+
   it("knows a person's km on a day, across teams", () => {
     expect(score([t("a1", "A", "2026-10-05", 2), t("a1", "B", "2026-10-05", 1.5)]).personKm("a1", "2026-10-05")).toBe(3.5);
+  });
+});
+
+describe("a week void (D467)", () => {
+  const SW: ChallengeScoring = { ...S, void: "week" };
+  const [W1, W2] = [WEEKS[0].days, WEEKS[1].days]; // 5–11 Oct, 12–18 Oct
+  const dq = (weekOf: string | null) => new Map([["a2", weekOf]]);
+  const race = [
+    t("a1", "A", W1[0], 30), t("b1", "B", W1[0], 20), t("c1", "C", W1[0], 10), t("d1", "D", W1[0], 5),
+    t("a1", "A", W2[0], 30), t("a2", "A", W2[0], 50), t("b1", "B", W2[0], 20), t("c1", "C", W2[0], 10),
+  ];
+
+  it("zeroes the team for that week only, and the teams behind move up its podium", () => {
+    const s = score(race, "2026-10-19", dq(W1[0]), TEAMS, SW);
+    expect(s.weeks[0].teams.A).toMatchObject({ tier1: 0, bonus: 0, podium: 0, void: true });
+    expect([s.weeks[0].teams.B.podium, s.weeks[0].teams.C.podium, s.weeks[0].teams.D.podium]).toEqual([20, 12, 6]);
+    // Week 2 counts, but the disqualified person's 50 does not: 30 is 8 daily points and 1st.
+    expect(s.weeks[1].teams.A).toMatchObject({ km: 30, tier1: 8, podium: 20, void: false });
+    const a = s.standings.find((x) => x.id === "A")!;
+    expect(a).toMatchObject({ void: false, total: 8 + 20, km: 30 });
+    expect(a.rank).not.toBeNull();
+  });
+
+  it("voids the week even before it ends", () => {
+    expect(score(race, "2026-10-06", dq(W1[0]), TEAMS, SW).weeks[0].teams.A).toMatchObject({ tier1: 0, void: true });
+  });
+
+  it("leaves the weeks before the void week alone", () => {
+    const s = score(race, "2026-10-19", dq(W2[0]), TEAMS, SW);
+    expect(s.weeks[0].teams.A).toMatchObject({ km: 30, tier1: 8, podium: 20, void: false });
+    expect(s.weeks[1].teams.A).toMatchObject({ tier1: 0, bonus: 0, podium: 0, void: true });
+    expect(s.weeks[1].teams.B.podium).toBe(20);
+  });
+
+  it("drops the disqualified person from Tier 2, so the rest can still earn the bonus", () => {
+    const s = score(everyDay("a1", "A", 1, W2), "2026-10-19", dq(W1[0]), TEAMS, SW);
+    expect(s.weeks[1].teams.A).toMatchObject({ bonus: 20, members: 1, onTrack: 1 });
+  });
+
+  it("voids no week for a week_of outside the challenge, but the person still counts nothing from it", () => {
+    const s = score(race, "2026-10-19", dq("2026-09-28"), TEAMS, SW);
+    expect(s.weeks.every((w) => !w.teams.A.void)).toBe(true);
+    expect(s.weeks[1].teams.A.km).toBe(30);
+    expect(s.standings.find((x) => x.id === "A")!.void).toBe(false);
+  });
+
+  it("voids no week for a missing week_of, and counts the person nothing", () => {
+    const s = score(race, "2026-10-19", dq(null), TEAMS, SW);
+    expect(s.weeks.every((w) => !w.teams.A.void)).toBe(true);
+    expect(s.weeks[1].teams.A.km).toBe(30);
   });
 });

@@ -260,6 +260,8 @@ export type ChallengeScoring = {
   unit?: string;
   /** D464: Week 1 is the event's first week (D378, the default) or the challenge's. */
   week_origin?: "event" | "challenge";
+  /** D467: a disqualification voids the team's whole season (D380, the default) or one week. */
+  void?: "season" | "week";
 };
 
 /** A named set of one event's attendees (D345). An attendee is in at most one (D344). */

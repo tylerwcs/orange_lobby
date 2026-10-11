@@ -19,6 +19,8 @@ import type { ChallengeScoring } from "@/lib/types";
  *
  * A day still to come shows "–" for everyone rather than "Not logged" (D383): nobody can have
  * logged it yet, and before the challenge starts the shown day is its first.
+ *
+ * D467: a week voided by a disqualification says so in place of its Tier 2 line.
  */
 export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfId, names }: {
   team: Team; week: TeamWeek; weekInfo: ChallengeWeek; score: ChallengeScore; scoring: ChallengeScoring;
@@ -47,12 +49,15 @@ export function MyTeam({ team, week, weekInfo, score, scoring, day, today, selfI
         <ChevronDown aria-hidden className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
       <div className="flex flex-col gap-2 border-t border-border p-3">
-        {bonus > 0 && current && (
+        {week.void && (
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm font-bold">This week is void: a member was disqualified.</p>
+        )}
+        {!week.void && bonus > 0 && current && (
           <p className="rounded-lg bg-muted px-3 py-2 text-sm">
             <span className="font-bold">{week.onTrack} of {week.members}</span> logged every day so far this week. Everyone logging every day earns +{bonus}.
           </p>
         )}
-        {bonus > 0 && past && (
+        {!week.void && bonus > 0 && past && (
           <p className="rounded-lg bg-muted px-3 py-2 text-sm">
             {week.bonus > 0 ? `Everyone logged every day: +${week.bonus}.` : "Not everyone logged every day this week."}
           </p>

@@ -378,7 +378,8 @@ export function buildPassportWorkbook(attendees: Attendee[], passports: Passport
  * D381: one row per team per week that has begun, then each team's totals. A week lists its
  * teams in that week's order (week total, then name, Void last) like the committee tab's week
  * view; "Void" stands in for the Total of a voided team (D380) in the weeks and the totals alike.
- * The total column is headed with the challenge's unit (D463).
+ * The total column is headed with the challenge's unit (D463). A week voided on its own (D467) reads
+ * "Void" in that week only, last in it, while the team's other weeks and totals stay live.
  */
 export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | number)[][] {
   const header = ["Week", "Team", unit, "Daily points", "Team bonus", "Podium", "Total"];
@@ -387,10 +388,10 @@ export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | n
     .flatMap((w) => score.standings
       .map((s) => {
         const t = w.teams[s.id];
-        return { s, t, total: t.tier1 + t.bonus + t.podium };
+        return { s, t, total: t.tier1 + t.bonus + t.podium, isVoid: s.void || t.void };
       })
-      .sort((a, b) => Number(a.s.void) - Number(b.s.void) || (a.s.void ? 0 : b.total - a.total) || a.s.name.localeCompare(b.s.name))
-      .map(({ s, t, total }) => [weekLabel(w.week), s.name, t.km, t.tier1, t.bonus, t.podium, s.void ? "Void" : total]));
+      .sort((a, b) => Number(a.isVoid) - Number(b.isVoid) || (a.isVoid ? 0 : b.total - a.total) || a.s.name.localeCompare(b.s.name))
+      .map(({ s, t, total, isVoid }) => [weekLabel(w.week), s.name, t.km, t.tier1, t.bonus, t.podium, isVoid ? "Void" : total]));
   const totals = score.standings.map((s) => ["All weeks", s.name, s.km, s.tier1, s.bonus, s.podium, s.void ? "Void" : s.total]);
   return [header, ...weekly, ...totals];
 }

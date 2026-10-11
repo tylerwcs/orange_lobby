@@ -23,6 +23,7 @@ import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPa
 import type { Activity, ActivityKind, ActivitySubmission, Event } from "@/lib/types";
 import { featureForActivityKind, requireFeature } from "@/features/catalogue";
 import { disqualify, undoDisqualify } from "../db/challenge";
+import { challengeWeeks, mondayOf } from "../lib/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots";
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
@@ -425,6 +426,7 @@ function leaderboardBack(eventId: string, activityId: string, fd: FormData): str
 /**
  * D380: disqualify a person from a scored challenge. Their team shows Void everywhere and drops
  * out of the podium; their entries stay for the record. Undo is the delete below.
+ * D467: under a week void, only the grid's week is voided, so its Monday is stored with the row.
  */
 export async function disqualifyAction(eventId: string, activityId: string, attendeeId: string, fd: FormData) {
   const { orgId, userId } = await requireAdmin();
@@ -436,9 +438,15 @@ export async function disqualifyAction(eventId: string, activityId: string, atte
   if (!reason) redirect(flashPath(back, "Add a reason for the record.", "error"));
   const attendee = await getAttendee(attendeeId);
   if (!attendee || attendee.event_id !== ev.id) redirect(flashPath(back, "That person is no longer in this event.", "error"));
-  await disqualify(ev, activity.id, attendeeId, reason.slice(0, 500), userId);
+  const week = activity.scoring.void === "week"
+    ? challengeWeeks(activity.scoring, ev.starts_on).find((w) => String(w.number) === text(fd, "week") && w.days.length > 0)
+    : undefined;
+  if (activity.scoring.void === "week" && !week) redirect(flashPath(back, "Open the week to void, then disqualify.", "error"));
+  await disqualify(ev, activity.id, attendeeId, reason.slice(0, 500), week ? mondayOf(week.days[0]) : null, userId);
   revalidatePath(detailPath(eventId, activityId));
-  redirect(flashPath(back, `${attendee.name} disqualified. Their team now shows Void.`));
+  redirect(flashPath(back, week
+    ? `${attendee.name} disqualified. Their team scores 0 for Week ${week.number}.`
+    : `${attendee.name} disqualified. Their team now shows Void.`));
 }
 
 export async function undoDisqualifyAction(eventId: string, activityId: string, attendeeId: string, fd: FormData) {

@@ -140,6 +140,12 @@ describe("readScoring (D372)", () => {
     expect(readScoring(form({ scoring_unit: "", scoring_week_origin: "event" }), questions)).toEqual(MILEAGE);
   });
 
+  it("reads a week void, leaving the season default out (D467)", () => {
+    expect(readScoring(form({ scoring_void: "week" }), questions)).toEqual({ ...MILEAGE, void: "week" });
+    expect(readScoring(form({ scoring_void: "season" }), questions)).toEqual(MILEAGE);
+    expect(readScoring(form({ scoring_void: "" }), questions)).toEqual(MILEAGE);
+  });
+
   it("refuses a long unit", () => {
     expect(() => readScoring(form({ scoring_unit: "kilometres!!!" }), questions)).toThrow(/unit/);
   });

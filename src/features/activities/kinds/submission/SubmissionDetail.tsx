@@ -212,7 +212,7 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
               <TeamGrid
                 team={gridTeam} week={gridWeekShown}
                 score={challenge.score} names={challenge.names} dq={challenge.disqualifications}
-                dailyMin={activity.scoring!.daily_min}
+                dailyMin={activity.scoring!.daily_min} weekVoid={activity.scoring!.void === "week"}
                 back={activityHref(ev.id, activity.id, "leaderboard", week ? { week } : {})}
                 disqualify={(aid) => disqualifyAction.bind(null, ev.id, activity.id, aid)}
                 undo={(aid) => undoDisqualifyAction.bind(null, ev.id, activity.id, aid)}

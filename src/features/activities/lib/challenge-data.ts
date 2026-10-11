@@ -27,6 +27,7 @@ export async function loadChallenge(event: Pick<Event, "id" | "starts_on">, acti
     memberIds: attendees.filter((a) => a.group_id === g.id).map((a) => a.id),
   }));
   const weeks = challengeWeeks(scoring, event.starts_on);
-  const score = scoreChallenge({ totals, teams, disqualified: new Set(disqualifications.map((d) => d.attendee_id)), scoring, weeks, today });
+  const disqualified = new Map(disqualifications.map((d) => [d.attendee_id, d.week_of]));
+  const score = scoreChallenge({ totals, teams, disqualified, scoring, weeks, today });
   return { score, teams, weeks, names: new Map(attendees.map((a) => [a.id, a.name])), disqualifications };
 }
