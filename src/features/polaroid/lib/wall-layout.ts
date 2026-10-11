@@ -45,6 +45,22 @@ export function layoutColumn(heights: readonly number[], gap: number): ColumnLay
   return { tops, heights: [...heights], cycle: y };
 }
 
+/** The cycle a column needs so no card is ever on screen twice and a new card can always enter unseen (D484). */
+export function minCycleFor(view: number, tallest: number, gap: number): number {
+  return view + 2 * (tallest + gap);
+}
+
+/**
+ * A column's ids repeated until one pass is at least `minCycle` tall (D484). Without it a short
+ * column shows a card twice at once, and no insertion can keep the screen still. Empty stays empty.
+ */
+export function padToFill(ids: readonly string[], heightOf: (id: string) => number, gap: number, minCycle: number): string[] {
+  if (ids.length === 0) return [];
+  const one = ids.reduce((sum, id) => sum + heightOf(id) + gap, 0);
+  if (one <= 0) return [...ids];
+  return Array.from({ length: Math.max(1, Math.ceil(minCycle / one)) }, () => [...ids]).flat();
+}
+
 /** A card on the endless repeat: which card, which pass, and its top in column coordinates. */
 export type Slot = { index: number; repeat: number; y: number };
 
@@ -79,6 +95,8 @@ export function keepAnchor(prev: ColumnLayout, next: ColumnLayout, offset: numbe
 /**
  * D484: where a new card joins a moving column so it arrives from off-screen. Scrolling up, cards
  * enter from below, so it goes in after the last card on screen; scrolling down, before the first.
+ * It keeps the screen still only when `layout.cycle >= minCycleFor(view, tallest, gap)`, so callers
+ * pad with `padToFill` first.
  */
 export function insertionFor(layout: ColumnLayout, offset: number, view: number, direction: 1 | -1, newHeight: number, gap: number): { index: number; offset: number } {
   const n = layout.tops.length;
