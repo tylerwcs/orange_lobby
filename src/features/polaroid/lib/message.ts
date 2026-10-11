@@ -19,7 +19,7 @@ const SUFFIXES = ["", "la", "lah", "nya", "kau", "ke"];
 
 const english = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
 
-const LEET: Record<string, string> = { "4": "a", "@": "a", "3": "e", "1": "i", "!": "i", "0": "o", "5": "s", "$": "s", "7": "t" };
+const LEET: Record<string, string> = { "4": "a", "@": "a", "3": "e", "1": "i", "0": "o", "5": "s", "$": "s", "7": "t" };
 
 /** Characters as people count them: an emoji is one, not two UTF-16 units. */
 export function messageLength(text: string): number {
@@ -34,7 +34,9 @@ export function normaliseForMatch(text: string): string {
   return text
     .normalize("NFKD").replace(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/[4@3105$7!]/g, (c) => LEET[c] ?? c)
+    // "!" reads as "i" only between letters or digits, so a trailing "!" becomes a space.
+    .replace(/(?<=[a-z0-9@$])!(?=[a-z0-9@$])/g, "i")
+    .replace(/[4@3105$7]/g, (c) => LEET[c] ?? c)
     .replace(/[^a-z]+/g, " ")
     .replace(/([a-z])\1+/g, "$1")
     .trim();

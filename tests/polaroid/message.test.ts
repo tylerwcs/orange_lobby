@@ -17,6 +17,11 @@ describe("checkMessage (D479)", () => {
     expect(checkMessage("b4bilah")).toEqual({ ok: false, error: FRIENDLY_REJECTION });
     expect(checkMessage("haram jadah betul")).toEqual({ ok: false, error: FRIENDLY_REJECTION });
   });
+  it("does not let a trailing exclamation mark hide a blocked word", () => {
+    expect(checkMessage("Bodoh!")).toEqual({ ok: false, error: FRIENDLY_REJECTION });
+    expect(checkMessage("Celaka!!")).toEqual({ ok: false, error: FRIENDLY_REJECTION });
+    expect(checkMessage("Beat Rival Co!", ["rival co"])).toEqual({ ok: false, error: FRIENDLY_REJECTION });
+  });
   it("rejects the admin's own words", () => {
     expect(checkMessage("Go Rival Co", ["rival co"])).toEqual({ ok: false, error: FRIENDLY_REJECTION });
     expect(checkMessage("Go team", ["rival co"]).ok).toBe(true);
@@ -33,6 +38,7 @@ describe("normaliseForMatch", () => {
     // "!" reads as "i", joins the run of i's, and the run squeezes to one.
     expect(normaliseForMatch("BÁBIIII!!")).toBe("babi");
     expect(normaliseForMatch("k1m4k")).toBe("kimak");
+    expect(normaliseForMatch("sial!")).toBe("sial");
   });
   it("matches whole words only", () => {
     expect(hasBlockedWord("special", ["sial"])).toBe(false);
