@@ -136,7 +136,8 @@ export function PolaroidComposer({ prompt, stickers, start, post }: {
     <section
       className={`${handFont.variable} relative overflow-hidden rounded-3xl bg-zinc-950 px-4 text-white`}
       style={{ minHeight: editing ? controlsTop + 190 : CAMERA_TOP + 440 }}
-      onPointerDown={(e) => { if (!(e.target as HTMLElement).closest("[data-sticker]")) setSelected(null); }}>
+      // Only a first touch deselects: a second finger landing off the sticker is part of a pinch.
+      onPointerDown={(e) => { if (e.isPrimary && !(e.target as HTMLElement).closest("[data-sticker]")) setSelected(null); }}>
       <p className="absolute inset-x-4 top-8 flex h-[72px] -rotate-2 items-center justify-center text-center text-4xl transition-opacity duration-500"
         style={{ fontFamily: "var(--font-hand)", fontWeight: 700, opacity: editing ? 0 : 1 }}>
         {stage === "posted" ? "It's on the wall!" : prompt}

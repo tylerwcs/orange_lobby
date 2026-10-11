@@ -80,6 +80,15 @@ export function StickerLayer({ placed, onChange, selected, onSelect, width, rati
   const begin = (e: React.PointerEvent, index: number, mode: Gesture["mode"]) => {
     e.stopPropagation();
     e.preventDefault();
+    // A second finger landing on the sticker already being dragged joins it as a pinch. React's
+    // stopPropagation above also hides this event from the window "down" listener, so it is done here.
+    const g = gesture.current;
+    if (g && g.mode === "move" && mode === "move" && g.index === index && live.current.size === 1 && !live.current.has(e.pointerId)) {
+      live.current.set(e.pointerId, { x: e.clientX - g.origin.left, y: e.clientY - g.origin.top });
+      g.base = latest.current[index];
+      g.start = new Map(live.current);
+      return;
+    }
     onSelect(index);
     const origin = layer.current!.getBoundingClientRect();
     live.current = new Map([[e.pointerId, { x: e.clientX - origin.left, y: e.clientY - origin.top }]]);
