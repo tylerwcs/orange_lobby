@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { attendeeManifest } from "@/lib/web-app";
 
-const event = { name: "Ecopia Kick-Off Meeting 2026", primary_color: "#f97316" };
+const event = { name: "Ecopia Kick-Off Meeting 2026", primary_color: "#f97316", slug: "ecpkom", logo_url: null as string | null };
 
 describe("attendeeManifest", () => {
   it("opens the home screen app on this attendee's own page, and keeps them inside it", () => {
@@ -24,5 +24,15 @@ describe("attendeeManifest", () => {
     expect(attendeeManifest({ ...event, name: "ECP Hub" }, "/x").short_name).toBe("ECP Hub");
     // A slash is a place to break too, or "KOM/YEP/Wellness" is one word too long to keep any of.
     expect(attendeeManifest({ ...event, name: "ECP KOM/YEP/Wellness" }, "/x").short_name).toBe("ECP KOM/YEP");
+  });
+
+  it("uses the event's logo for its icons when it has one of ours (D487)", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://x.supabase.co");
+    const logo_url = "https://x.supabase.co/storage/v1/object/public/event-media/o/e/logo-1.png";
+    const srcs = attendeeManifest({ ...event, logo_url }, "/x").icons?.map((i) => i.src);
+    expect(srcs?.map((s) => s.split("?")[0])).toEqual(["/e/ecpkom/app-icon/192", "/e/ecpkom/app-icon/512", "/e/ecpkom/app-icon/maskable"]);
+    // A logo pasted from elsewhere is not drawn; ECP Hub's icons stand.
+    expect(attendeeManifest({ ...event, logo_url: "https://elsewhere.com/l.png" }, "/x").icons?.[0].src).toBe("/app-icons/icon-192.png");
+    vi.unstubAllEnvs();
   });
 });

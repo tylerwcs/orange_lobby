@@ -22,6 +22,9 @@ import { isValidToken } from "@/lib/tokens";
 import { hasInfo } from "@/lib/info-tabs";
 import type { Attendee, Event } from "@/lib/types";
 
+/** The same memo without the 404, for the event layout's metadata (D487), which shares its read with the page. */
+export const findPortalEvent = cache((slug: string) => getEventBySlug(slug));
+
 /**
  * Wrapped in `cache()` because the personal layout and the page it wraps both load the same
  * attendee on the same request: the layout needs the event for the header and nav, the page
@@ -32,7 +35,7 @@ import type { Attendee, Event } from "@/lib/types";
  * caller costs nothing.
  */
 export const loadPortalEvent = cache(async (slug: string): Promise<Event> => {
-  const ev = await getEventBySlug(slug);
+  const ev = await findPortalEvent(slug);
   if (!ev) notFound();
   return ev;
 });

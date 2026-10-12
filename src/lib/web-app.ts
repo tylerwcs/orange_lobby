@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import type { Event } from "@/lib/types";
+import { eventIconUrl } from "@/lib/event-icon";
 
 /** Room under a home-screen icon: about 12 characters before the phone cuts it off. */
 const SHORT_NAME = 15;
@@ -30,9 +31,11 @@ export function shortName(name: string): string {
  * the installed app to this attendee, so two people on a shared tablet get two apps.
  */
 export function attendeeManifest(
-  event: Pick<Event, "name" | "primary_color">,
+  event: Pick<Event, "name" | "primary_color" | "slug" | "logo_url">,
   basePath: string,
 ): MetadataRoute.Manifest {
+  // D487: the event's logo when it has one of ours, else the Ecopia Group icons.
+  const icon = (variant: "192" | "512" | "maskable", fallback: string) => eventIconUrl(event, variant) ?? fallback;
   return {
     id: basePath,
     name: event.name,
@@ -43,9 +46,9 @@ export function attendeeManifest(
     background_color: "#f5f5f3",
     theme_color: event.primary_color,
     icons: [
-      { src: "/app-icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/app-icons/icon-512.png", sizes: "512x512", type: "image/png" },
-      { src: "/app-icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: icon("192", "/app-icons/icon-192.png"), sizes: "192x192", type: "image/png" },
+      { src: icon("512", "/app-icons/icon-512.png"), sizes: "512x512", type: "image/png" },
+      { src: icon("maskable", "/app-icons/icon-512.png"), sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
