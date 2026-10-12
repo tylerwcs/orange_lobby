@@ -106,11 +106,14 @@ export default async function PersonalHome({ params, searchParams }: {
       <AddToHomeScreen appName={shortName(event.name)} />
 
       {/*
-        Three columns from xl: who you are and where you are, the whole day, what changed.
+        Three columns from xl: who you are and what changed, the whole day, what to do.
         Two at md, one on a phone. On a phone this page is the whole navigation (D209): badge,
         the latest announcement, the launcher, breakouts, then the activity cards (D215). The
         phone-only pieces live in the first column, hidden from md, where the header carries
-        the sections and the other columns carry the agenda and announcements (D210).
+        the sections and the other columns carry the agenda, the activities and the tiles (D210).
+        Desktop's announcements sit under the badge and its activity cards fill the third column
+        under the tiles (D490), so the first screen shows what is owed without a trip to the
+        Activities page.
       */}
       <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
@@ -121,6 +124,14 @@ export default async function PersonalHome({ params, searchParams }: {
             {/* No announcements yet: the banner's place holds the home-screen guide instead (D232). */}
             {banner ? <AnnouncementBanner a={banner} items={announcements} /> : <HomeScreenRow variant="banner" />}
           </div>
+          <Card className="hidden md:flex">
+            <CardHeader>
+              <CardTitle className={caption}>Announcements</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AnnouncementList items={announcements.slice(0, 4)} />
+            </CardContent>
+          </Card>
           <LauncherGrid items={launcher} layout="row" className="md:hidden" />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} />
           <div className="md:hidden"><HomeActivities cards={cards} basePath={basePath} /></div>
@@ -151,17 +162,12 @@ export default async function PersonalHome({ params, searchParams }: {
         </div>
 
         <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className={caption}>Announcements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AnnouncementList items={announcements.slice(0, 4)} />
-            </CardContent>
-          </Card>
           {/* The header covers Agenda (via Home's Today column, D223) and Info (D216) - only
-              those two are dropped here. My group has no header link (F3), so it stays. */}
+              those two are dropped here. My group has no header link (F3), so it stays.
+              The tiles go first: a row or two of circles, where four activity cards run a
+              screen tall and would push them out of sight (D490). */}
           <LauncherGrid items={launcher.filter((i) => i.id !== "builtin:agenda" && i.id !== "builtin:info")} />
+          <HomeActivities cards={cards} basePath={basePath} desktop />
         </div>
 
       </div>

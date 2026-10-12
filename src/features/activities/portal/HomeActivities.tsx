@@ -11,21 +11,35 @@ const HOME_CARDS = 5;
  * order, one at a time with dots underneath - the same row as the breakout tickets (D220).
  * The card that is owed a pick comes first and wears the ring, so it is on the first screen
  * rather than behind a dot.
+ *
+ * The desktop home has them too (D490), as a grid with no swipe: two across where its third
+ * column spans the page at md, one under another in that column's 300px at xl. The page
+ * renders that copy as well as the phone's, so each takes its own heading id.
  */
-export function HomeActivities({ cards, basePath }: { cards: ActivityCardItem[]; basePath: string }) {
+export function HomeActivities({ cards, basePath, desktop = false }: {
+  cards: ActivityCardItem[];
+  basePath: string;
+  /** The desktop home's copy: a grid rather than the swipe row. */
+  desktop?: boolean;
+}) {
   if (cards.length === 0) return null;
-  const shown = cards.slice(0, HOME_CARDS);
+  const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} className="w-full" />);
+  const headingId = desktop ? "home-activities-desktop" : "home-activities";
   return (
-    <section aria-labelledby="home-activities" className="flex flex-col gap-3">
+    <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between px-0.5">
-        <h2 id="home-activities" className="text-base font-extrabold">Activities</h2>
+        <h2 id={headingId} className="text-base font-extrabold">Activities</h2>
         <Link href={`${basePath}/activities`} className="-my-2 inline-flex min-h-11 items-center text-sm font-bold text-primary">
           See all{cards.length > HOME_CARDS ? ` ${cards.length}` : ""} ›
         </Link>
       </div>
-      <SwipeRow label="Your activities">
-        {shown.map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} className="w-full" />)}
-      </SwipeRow>
+      {desktop ? (
+        <ul aria-label="Your activities" className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+          {shown.map((card) => <li key={card.key} className="flex">{card}</li>)}
+        </ul>
+      ) : (
+        <SwipeRow label="Your activities">{shown}</SwipeRow>
+      )}
     </section>
   );
 }
