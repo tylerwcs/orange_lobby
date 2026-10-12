@@ -55,7 +55,8 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   /** A round button for the top-right corner, styled with `STAGE_ROUND_BUTTON` like the close button
    *  (the portal's "Your polaroids"); `posting` is true while a post is on its way. */
   corner?: (posting: boolean) => React.ReactNode;
-  /** Something the corner opened is open, and Escape closes that first. */
+  /** Something the corner opened is open: Escape closes that first, and the stage ignores taps
+   *  (its overlay sits under the stage, so a tap above the drawer would reach the × or the camera). */
   blockEscape?: boolean;
 }) {
   const router = useRouter();
@@ -185,7 +186,7 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
 
   return (
     <section
-      role={onClose ? "dialog" : undefined} aria-modal={onClose ? true : undefined} aria-label={onClose ? "Camera" : undefined}
+      inert={blockEscape} role={onClose ? "dialog" : undefined} aria-modal={onClose ? true : undefined} aria-label={onClose ? "Camera" : undefined}
       className={`${handFont.variable} fixed inset-0 z-[100] h-dvh overflow-hidden overscroll-none text-white`}
       style={{ background: STAGE_BG }}
       // Only a first touch deselects: a second finger landing off the sticker is part of a pinch.

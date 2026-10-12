@@ -49,7 +49,7 @@ export function PortalCamera({ homePath, about, items, stickerSrc, remove, ...co
   const stage = (
     <PolaroidComposer {...composer} onClose={() => router.push(homePath)} blockEscape={drawerOpen}
       corner={(posting) => (
-        <button type="button" aria-label="Your polaroids" onClick={() => setDrawerOpen(true)} disabled={posting}
+        <button type="button" aria-label={items.length > 0 ? `Your polaroids (${items.length})` : "Your polaroids"} onClick={() => setDrawerOpen(true)} disabled={posting}
           className={`relative ${STAGE_ROUND_BUTTON}`}>
           <Images aria-hidden className="size-5" />
           {items.length > 0 && (
