@@ -38,7 +38,8 @@ describe("activityCards", () => {
   it("lists a polaroid wall under Open, after passports, with its camera (D481)", () => {
     const cards = activityCards({ booking: [], submission: [], passport: [passport("p", false)], polaroid: [wall("w", 2)] }, "/p");
     expect(cards.map((c) => [c.activity.id, c.section, c.view.action.label])).toEqual([["p", "open", "View"], ["w", "open", "Join Now"]]);
-    expect(cards[1].view.status).toEqual({ label: "2 on the wall", tone: "success" });
+    // No "2 on the wall" badge: the card is the camera's way in, nothing more.
+    expect(cards[1].view.status).toBeNull();
     // Its page is the camera (D482).
     expect(cards[1].href).toBe("/p/activities/w");
   });

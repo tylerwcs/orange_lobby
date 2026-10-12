@@ -172,8 +172,7 @@ describe("passportCard", () => {
 });
 
 describe("polaroidCard (D481)", () => {
-  it("opens the camera, and says how many of theirs are up", () => {
-    expect(polaroidCard({ posted: 0 })).toEqual({ status: null, meta: null, action: { label: "Join Now", primary: true } });
-    expect(polaroidCard({ posted: 2 }).status).toEqual({ label: "2 on the wall", tone: "success" });
+  it("opens the camera, with no count of theirs on the wall", () => {
+    expect(polaroidCard()).toEqual({ status: null, meta: null, action: { label: "Join Now", primary: true } });
   });
 });

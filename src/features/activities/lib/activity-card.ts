@@ -117,7 +117,10 @@ export function passportCard({ passport, open }: PassportCardInput): CardView {
   };
 }
 
-/** A polaroid wall's card (D481): the camera is the action; how many of theirs are up is its status. */
-export function polaroidCard({ posted }: { posted: number }): CardView {
-  return { status: posted > 0 ? { label: `${posted} on the wall`, tone: "success" } : null, meta: null, action: { label: "Join Now", primary: true } };
+/**
+ * A polaroid wall's card (D481): the camera is the action, and nothing else. It used to carry
+ * "N on the wall" as its status; the attendee's own posts are in the camera page's drawer.
+ */
+export function polaroidCard(): CardView {
+  return { status: null, meta: null, action: { label: "Join Now", primary: true } };
 }
