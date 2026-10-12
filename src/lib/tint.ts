@@ -14,7 +14,7 @@
 const ART_COLOUR = "#f97316";
 
 /** The pictures this applies to, by file name under /portal-icons. An upload is never touched. */
-export const TINTABLE_ICONS = ["agenda", "info", "group", "floor-plan"] as const;
+export const TINTABLE_ICONS = ["agenda", "info", "group", "floor-plan", "post-event"] as const;
 export type TintableIcon = (typeof TINTABLE_ICONS)[number];
 
 const DEFAULT_PATH = /^\/portal-icons\/([a-z-]+)\.webp$/;

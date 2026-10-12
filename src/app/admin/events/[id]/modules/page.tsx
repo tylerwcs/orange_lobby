@@ -35,7 +35,13 @@ const ICON_LABELS: Record<ModuleIcon, string> = {
  * one. A tile saved before that keeps its stored subtitle through a hidden input, so saving
  * here does not quietly erase it.
  */
-function TileForm({ eventId, module: m, categories }: { eventId: string; module?: EventModule; categories: string[] }) {
+function TileForm({ eventId, module: m, categories, preset }: {
+  eventId: string;
+  module?: EventModule;
+  categories: string[];
+  /** A new tile's starting label and icon, from the New tile menu's presets (D489). */
+  preset?: { label: string; icon: ModuleIcon };
+}) {
   const isPlan = m?.key === "floor_plan";
   const tile = m?.key === "tile" ? m : undefined;
   const iconImage = m && "icon_image" in m ? m.icon_image : undefined;
@@ -49,7 +55,7 @@ function TileForm({ eventId, module: m, categories }: { eventId: string; module?
       <input type="hidden" name="preset" value={isPlan ? "floor_plan" : "tile"} />
       {subtitle && <input type="hidden" name="subtitle" value={subtitle} />}
 
-      <Field label="Label" name="label" defaultValue={m && "label" in m ? m.label ?? "" : ""} placeholder={isPlan ? "Floor plan" : "Q&A"} description="Shown under the round button." />
+      <Field label="Label" name="label" defaultValue={m && "label" in m ? m.label ?? "" : preset?.label ?? ""} placeholder={isPlan ? "Floor plan" : "Q&A"} description="Shown under the round button." />
 
       {isPlan ? (
         <>
@@ -76,12 +82,12 @@ function TileForm({ eventId, module: m, categories }: { eventId: string; module?
                   title={ICON_LABELS[ic]}
                   className="flex aspect-square cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted has-checked:border-primary has-checked:bg-accent has-checked:text-primary has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
                 >
-                  <input type="radio" name="icon" value={ic} defaultChecked={(tile?.icon ?? "link") === ic} className="sr-only" aria-label={ICON_LABELS[ic]} />
+                  <input type="radio" name="icon" value={ic} defaultChecked={(tile?.icon ?? preset?.icon ?? "link") === ic} className="sr-only" aria-label={ICON_LABELS[ic]} />
                   <Icon name={ic} size={20} />
                 </label>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">Used when there is no icon image.</p>
+            <p className="text-xs text-muted-foreground">Used when there is no icon image. Download shows the post-event materials picture, in the event&rsquo;s colour.</p>
           </fieldset>
           {iconImageField}
         </>
@@ -127,6 +133,7 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
             disabled={full}
             forms={{
               tile: <TileForm eventId={ev.id} categories={categories} />,
+              post_event: <TileForm eventId={ev.id} categories={categories} preset={{ label: "Post Event Materials", icon: "download" }} />,
               ...(hasPlan ? {} : { floor_plan: <TileForm eventId={ev.id} module={{ key: "floor_plan", enabled: true }} categories={categories} /> }),
             }}
           />

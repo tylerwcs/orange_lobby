@@ -24,6 +24,7 @@ describe("tintedIcon", () => {
   it("tints the portal's own pictures only", () => {
     expect(tintedIcon("/portal-icons/agenda.webp", "#005CB9")).toBe("/portal-icons/tint/agenda/005cb9");
     expect(tintedIcon("/portal-icons/floor-plan.webp", "#005cb9")).toBe("/portal-icons/tint/floor-plan/005cb9");
+    expect(tintedIcon("/portal-icons/post-event.webp", "#005cb9")).toBe("/portal-icons/tint/post-event/005cb9");
     expect(tintedIcon("https://x.supabase.co/logo.png", "#005cb9")).toBe("https://x.supabase.co/logo.png");
     expect(tintedIcon(null, "#005cb9")).toBeNull();
   });

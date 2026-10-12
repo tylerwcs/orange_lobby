@@ -201,6 +201,14 @@ export type Tile = { id: string; label: string; subtitle: string; href: string; 
 const safeImage = (url: string | undefined): string | null => (url && SAFE_URL.test(url) ? url : null);
 
 /**
+ * D489: the portal's own picture for a tile with no upload, by its preset icon. Download is the
+ * post-event materials folder, drawn like the launcher's other pictures and tinted with them
+ * (D488). An icon without a picture here stays the plain icon in the accent circle.
+ */
+export const ICON_ART: Partial<Record<ModuleIcon, string>> = { download: "/portal-icons/post-event.webp" };
+const tileImage = (m: { icon_image?: string; icon: ModuleIcon }) => safeImage(m.icon_image) ?? ICON_ART[m.icon] ?? null;
+
+/**
  * `personal`, `attendee`, `next` and `latestAnnouncement` used to be inputs here: they
  * filled the subtitles of the agenda, seat and announcement tiles. Those tiles are gone,
  * and with them the only reason this function needed to know anything about who is looking
@@ -228,11 +236,11 @@ export function resolveTiles(input: {
         // Re-checked here as well as in parseModules: a row written before this rule, or
         // edited around it, must never render as a javascript:/data: tile.
         if (!SAFE_URL.test(m.target.url)) continue;
-        out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.target.url, icon: m.icon, image: safeImage(m.icon_image), route: null, external: true });
+        out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.target.url, icon: m.icon, image: tileImage(m), route: null, external: true });
         continue;
       }
       if (!personal && PERSONAL_ONLY_ROUTES.has(m.target.route)) continue;
-      out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: `${basePath}/${m.target.route}`, icon: m.icon, image: safeImage(m.icon_image), route: m.target.route, external: false });
+      out.push({ id: `tile:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: `${basePath}/${m.target.route}`, icon: m.icon, image: tileImage(m), route: m.target.route, external: false });
       continue;
     }
     if (m.key === "link") {

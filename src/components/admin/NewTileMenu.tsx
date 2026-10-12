@@ -1,17 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronDown, Link2, Map, Plus } from "lucide-react";
+import { ChevronDown, FolderDown, Link2, Map, Plus } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-type Kind = "tile" | "floor_plan";
+type Kind = "tile" | "post_event" | "floor_plan";
 
 const KINDS: { kind: Kind; icon: typeof Plus; label: string; what: string; title: string; hint: string }[] = [
   { kind: "tile", icon: Link2, label: "Link or page", what: "Opens a website, or a page inside the portal", title: "Add a tile", hint: "A tile can open a link, or a page inside the portal." },
+  { kind: "post_event", icon: FolderDown, label: "Post-event materials", what: "Links to the recap, slides or photos after the event", title: "Add post-event materials", hint: "A link tile with the post-event picture, in the event's colour. Paste where the materials are." },
   { kind: "floor_plan", icon: Map, label: "Floor plan", what: "Shows the venue layout inside the portal", title: "Add the floor plan", hint: "A preset tile that opens the venue layout inside the portal." },
 ];
 

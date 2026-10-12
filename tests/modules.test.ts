@@ -98,6 +98,14 @@ describe("tile modules", () => {
     const tiles = resolveTiles({ event: { ...base, modules: [tile({ kind: "url", url: "javascript:alert(1)" })] }, basePath: "/e/kom" });
     expect(tiles).toEqual([]);
   });
+
+  it("draws the post-event picture for a Download tile with no upload, and the upload when there is one (D489)", () => {
+    const download = (icon_image?: string) => ({ key: "tile" as const, id: "t1", enabled: true, label: "Recap", icon: "download" as const, ...(icon_image ? { icon_image } : {}), target: { kind: "url" as const, url: "https://x.co" } });
+    expect(resolveTiles({ event: { ...base, modules: [download()] }, basePath: "/e/kom" })[0].image).toBe("/portal-icons/post-event.webp");
+    expect(resolveTiles({ event: { ...base, modules: [download("https://cdn.x/mine.png")] }, basePath: "/e/kom" })[0].image).toBe("https://cdn.x/mine.png");
+    // Any other icon with no upload is still the plain icon.
+    expect(resolveTiles({ event: { ...base, modules: [tile({ kind: "url", url: "https://x.co" })] }, basePath: "/e/kom" })[0].image).toBeNull();
+  });
 });
 
 describe("the passport tile", () => {
