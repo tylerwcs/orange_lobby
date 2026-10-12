@@ -37,12 +37,13 @@ function autoCompleteFor(q: RegistrationQuestion): string | undefined {
 
 export function RegisterForm({ slug, questions, door = true }: {
   slug: string;
+  /** The whole form in order, name and email included (`Event.registration_form`). */
   questions: RegistrationQuestion[];
   /** Whether the event checks people in; without a door there is no QR on the next screen (D228). */
   door?: boolean;
 }) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug), {});
-  // Every field is controlled, the four fixed ones included. They used to be uncontrolled
+  // Every field is controlled, name and email included. They used to be uncontrolled
   // with a defaultValue echoed back from the server, which React ignores on re-render: after
   // a rejected submit the value the invitee could see and the value the component believed
   // in had already parted company, and Base UI says so out loud.
@@ -94,52 +95,41 @@ export function RegisterForm({ slug, questions, door = true }: {
         </Alert>
       )}
 
+      {/* One list in the organiser's order. Name and email are in it like any question, but
+          they are the attendee's own columns: their inputs are fixed here, only their place,
+          wording and help text come from the event. */}
       <FieldSet>
         <FieldLegend>About you</FieldLegend>
         <FieldGroup>
-          <Field data-invalid={!!errors.name}>
-            <FieldLabel htmlFor="reg-name">Full name</FieldLabel>
-            <Input id="reg-name" name="name" required autoComplete="name" enterKeyHint="next" value={value("name")} onChange={(e) => set("name", e.target.value)} className="h-11" {...invalid("name")} />
-            <FieldError id="reg-name-error">{errors.name}</FieldError>
-          </Field>
-          <Field data-invalid={!!errors.email}>
-            <FieldLabel htmlFor="reg-email">Email</FieldLabel>
-            <Input id="reg-email" name="email" type="email" required autoComplete="email" inputMode="email" enterKeyHint="next" value={value("email")} onChange={(e) => set("email", e.target.value)} className="h-11" {...invalid("email", "reg-email-help")} />
-            {/* The badge link is emailed to nobody — it appears on the next screen — but the
-                address is how a duplicate registration finds the record it already has. */}
-            <FieldDescription id="reg-email-help">We use this to recognise you if you register twice.</FieldDescription>
-            <FieldError id="reg-email-error">{errors.email}</FieldError>
-          </Field>
+          {questions.map((q) => {
+            const id = `reg-${q.key}`;
+            if (!isQuestionShown(q, answers, questions)) return <input key={q.key} type="hidden" name={q.key} value="" />;
+            const help = q.description ? `${id}-help` : undefined;
+            const identity = q.key === "name" || q.key === "email";
+            return (
+              <Field key={q.key} data-invalid={!!errors[q.key]}>
+                <FieldLabel htmlFor={id}>{q.label}{!identity && !q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
+                {q.description && <FieldDescription id={help}>{q.description}</FieldDescription>}
+                {q.key === "name" ? (
+                  <Input id={id} name="name" required autoComplete="name" enterKeyHint="next" value={value("name")} onChange={(e) => set("name", e.target.value)} className="h-11" {...invalid("name", help)} />
+                ) : q.key === "email" ? (
+                  <Input id={id} name="email" type="email" required autoComplete="email" inputMode="email" enterKeyHint="next" value={value("email")} onChange={(e) => set("email", e.target.value)} className="h-11" {...invalid("email", help)} />
+                ) : q.type === "select" ? (
+                  <select id={id} name={q.key} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                    className={selectClass} {...invalid(q.key, help)}>
+                    <option value="">Select…</option>
+                    {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                    className="h-11" {...invalid(q.key, help)} />
+                )}
+                <FieldError id={`${id}-error`}>{errors[q.key]}</FieldError>
+              </Field>
+            );
+          })}
         </FieldGroup>
       </FieldSet>
-
-      {questions.length > 0 && (
-        <FieldSet>
-          <FieldGroup>
-            {questions.map((q) => {
-              const id = `reg-${q.key}`;
-              if (!isQuestionShown(q, answers, questions)) return <input key={q.key} type="hidden" name={q.key} value="" />;
-              return (
-                <Field key={q.key} data-invalid={!!errors[q.key]}>
-                  <FieldLabel htmlFor={id}>{q.label}{!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
-                  {q.description && <FieldDescription id={`${id}-help`}>{q.description}</FieldDescription>}
-                  {q.type === "select" ? (
-                    <select id={id} name={q.key} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
-                      className={selectClass} {...invalid(q.key, q.description ? `${id}-help` : undefined)}>
-                      <option value="">Select…</option>
-                      {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  ) : (
-                    <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
-                      className="h-11" {...invalid(q.key, q.description ? `${id}-help` : undefined)} />
-                  )}
-                  <FieldError id={`${id}-error`}>{errors[q.key]}</FieldError>
-                </Field>
-              );
-            })}
-          </FieldGroup>
-        </FieldSet>
-      )}
 
       {/* D410: PDPA consent, had before anything is stored. A native checkbox, like the select
           above, so it works before JavaScript arrives and posts "yes" only when ticked. */}

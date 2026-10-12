@@ -33,6 +33,7 @@ import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
 import { Modal } from "@/components/admin/Modal";
 import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
+import { editorQuestions, STANDARD_COUNT, STANDARD_RULES } from "@/lib/registration-standard";
 import { QuestionCards } from "@/components/admin/QuestionCards";
 import { DEFAULT_REGISTRATION_INTRO, REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
 import type { EventStatus } from "@/lib/types";
@@ -81,7 +82,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
   const hiddenTabs = hiddenSettingsTabs(await eventFeatures(ev.id));
-  const qs = ev.registration_questions;
+  const qs = editorQuestions(ev.registration_form);
   const base = appBaseUrl();
   const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr] = await Promise.all([
     loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id), eventAddress(ev),
@@ -274,7 +275,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_intro, ev.registration_questions])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_intro, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -370,9 +371,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </div>
           <div className="flex flex-col gap-1.5">
           <h3 className="text-sm font-extrabold">Questions</h3>
-          <p className="text-xs text-muted-foreground">Name, email, mobile and department are always asked. Add up to {MAX_QUESTIONS} more. Leave a row blank to remove it. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
+          <p className="text-xs text-muted-foreground">Name, email, mobile and department are always asked: move them or change their wording and help text, but they can&rsquo;t be removed. Add up to {MAX_QUESTIONS} more. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
           </div>
-          <QuestionCards questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS} />
+          <QuestionCards questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS + STANDARD_COUNT} standard={STANDARD_RULES} />
           </CardContent>
         </Card>
         <SaveBar label="Save settings" note={SAVE_NOTE} />

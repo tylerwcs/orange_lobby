@@ -10,6 +10,7 @@ import type { UploadImage } from "@/components/admin/RichTextEditor";
 import { acceptImage, IMAGE_ACCEPT } from "@/lib/storage";
 import { shrinkImage } from "@/lib/shrink-image";
 import type { QuestionType, RegistrationQuestion } from "@/lib/types";
+import type { StandardRule } from "@/lib/registration-standard";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const TYPE_LABELS: Record<QuestionType, string> = { text: "Text", phone: "Phone", number: "Number", select: "Choice", textarea: "Long text", file: "File" };
@@ -28,12 +29,17 @@ const blank = (): QuestionDraft => ({ key: "", label: "", type: "text", required
  *
  * `uploadImage` turns on a file question's sample picture (D395); registration has no file
  * questions, so only the submission editor passes it.
+ *
+ * `standard` names the questions every form of this kind asks, by key (registration's name,
+ * email, mobile and department): they move and take new wording like any other, but cannot be
+ * removed or made conditional, and their type and Required box are as locked as the rule says.
  */
-export function QuestionCards({ questions, types, max, uploadImage }: {
+export function QuestionCards({ questions, types, max, uploadImage, standard = {} }: {
   questions: RegistrationQuestion[];
   types: readonly QuestionType[];
   max: number;
   uploadImage?: UploadImage;
+  standard?: Record<string, StandardRule>;
 }) {
   const nextId = useRef(questions.length);
   const [cards, setCards] = useState<Card[]>(() => questions.map((q, i) => ({ ...draftFrom(q), id: i })));
@@ -64,7 +70,8 @@ export function QuestionCards({ questions, types, max, uploadImage }: {
           const expanded = open === c.id;
           const earlier = cards.slice(0, i).filter((e) => e.label.trim());
           const target = earlier.find((e) => keyFor(e.key || e.label) === c.showKey);
-          const summary = [TYPE_LABELS[c.type], c.required ? "required" : null, c.showKey ? "conditional" : null, c.type === "file" && c.sample ? "sample" : null].filter(Boolean).join(" · ");
+          const rule = c.key ? standard[c.key] : undefined;
+          const summary = [rule ? "always asked" : null, rule?.types.length === 1 ? rule.typeLabel : TYPE_LABELS[c.type], c.required ? "required" : null, c.showKey ? "conditional" : null, c.type === "file" && c.sample ? "sample" : null].filter(Boolean).join(" · ");
           return (
             <li key={c.id} className={`rounded-lg border ${expanded ? "border-primary/50" : "border-border"}`}>
               <div className="flex items-center gap-1 px-2 py-1.5">
@@ -81,7 +88,9 @@ export function QuestionCards({ questions, types, max, uploadImage }: {
                 </button>
                 <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${c.label || "question"} up`} disabled={i === 0} onClick={() => move(i, i - 1)}><ChevronUp /></Button>
                 <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${c.label || "question"} down`} disabled={i === cards.length - 1} onClick={() => move(i, i + 1)}><ChevronDown /></Button>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${c.label || "question"}`} onClick={() => setCards((cs) => cs.filter((x) => x.id !== c.id))}><Trash2 /></Button>
+                {rule
+                  ? <span className="size-8 shrink-0" aria-hidden />
+                  : <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${c.label || "question"}`} onClick={() => setCards((cs) => cs.filter((x) => x.id !== c.id))}><Trash2 /></Button>}
               </div>
 
               {expanded && (
@@ -89,12 +98,18 @@ export function QuestionCards({ questions, types, max, uploadImage }: {
                   <label className="grid gap-1.5 text-sm"><span className="font-bold">Question</span>
                     <input value={c.label} onChange={(e) => update(c.id, { label: e.target.value })} className={input} autoFocus /></label>
                   <div className="flex flex-wrap items-end gap-4">
-                    <label className="grid gap-1.5 text-sm"><span className="font-bold">Type</span>
-                      <select value={c.type} onChange={(e) => update(c.id, { type: e.target.value as QuestionType })} className={input}>
-                        {types.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-                      </select></label>
+                    {rule?.types.length === 1 ? (
+                      <div className="grid gap-1.5 text-sm"><span className="font-bold">Type</span>
+                        <span className="flex h-9 items-center text-muted-foreground">{rule.typeLabel}</span></div>
+                    ) : (
+                      <label className="grid gap-1.5 text-sm"><span className="font-bold">Type</span>
+                        <select value={c.type} onChange={(e) => update(c.id, { type: e.target.value as QuestionType })} className={input}>
+                          {(rule?.types ?? types).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+                        </select></label>
+                    )}
                     <label className="flex h-9 items-center gap-2 text-sm font-bold">
-                      <input type="checkbox" checked={c.required} onChange={(e) => update(c.id, { required: e.target.checked })} className="size-4 accent-primary" />
+                      <input type="checkbox" checked={rule?.alwaysRequired || c.required} disabled={rule?.alwaysRequired}
+                        onChange={(e) => update(c.id, { required: e.target.checked })} className="size-4 accent-primary" />
                       Required
                     </label>
                   </div>
@@ -118,7 +133,7 @@ export function QuestionCards({ questions, types, max, uploadImage }: {
                   )}
                   <label className="grid gap-1.5 text-sm"><span className="font-bold">Help text (optional)</span>
                     <input value={c.description} onChange={(e) => update(c.id, { description: e.target.value })} className={input} /></label>
-                  <div className="grid gap-1.5 text-sm">
+                  {!rule && <div className="grid gap-1.5 text-sm">
                     <span className="font-bold">Show only when</span>
                     <div className="flex flex-wrap gap-2">
                       <select aria-label="Depends on question" value={c.showKey} className={`${input} w-auto min-w-48 flex-1`}
@@ -150,7 +165,7 @@ export function QuestionCards({ questions, types, max, uploadImage }: {
                         <input aria-label="Answer contains" placeholder="answer contains…" value={c.showValue} onChange={(e) => update(c.id, { showValue: e.target.value })} className={`${input} w-auto min-w-40 flex-1`} />
                       ))}
                     </div>
-                  </div>
+                  </div>}
                 </div>
               )}
             </li>

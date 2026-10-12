@@ -5,7 +5,9 @@ import { requireAdmin } from "@/lib/auth";
 import { createEvent, deleteEvent, requireEvent, updateEvent, setEventStatus, rotateCrewToken } from "@/lib/db/events";
 import { confirmsDelete, deleteBlockedBecause } from "@/lib/event-delete";
 import { slugify } from "@/lib/slug";
-import { questionsFromForm } from "@/lib/questions-form";
+import { MAX_QUESTIONS, questionsFromForm } from "@/lib/questions-form";
+import { REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
+import { normaliseRegistrationForm, STANDARD_COUNT } from "@/lib/registration-standard";
 import type { EventStatus } from "@/lib/types";
 import { importedCategory, importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
@@ -67,7 +69,12 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   const ev = await requireEvent(eventId, orgId);
   let questions;
   try {
-    questions = questionsFromForm((k) => { const v = formData.get(k); return typeof v === "string" ? v : null; });
+    // The list carries the four standard questions too (name, email, mobile, department), which
+    // do not count towards the organiser's own MAX_QUESTIONS.
+    questions = normaliseRegistrationForm(questionsFromForm(
+      (k) => { const v = formData.get(k); return typeof v === "string" ? v : null; },
+      REGISTRATION_QUESTION_TYPES, MAX_QUESTIONS + STANDARD_COUNT,
+    ));
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }

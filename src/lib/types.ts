@@ -65,7 +65,10 @@ export type Event = {
   check_in_enabled: boolean;
   /** The checkpoint the event is running right now; every surface follows it. */
   active_checkpoint_id: string | null;
+  /** The questions whose answers live in `Attendee.extra`. Never name or email (`answerQuestions`). */
   registration_questions: RegistrationQuestion[];
+  /** The whole form in order, name and email included, as the invitee sees it (`registrationForm`). */
+  registration_form: RegistrationQuestion[];
   /** Organiser-defined columns on the attendee table; values live in `Attendee.extra`. */
   attendee_fields: AttendeeField[];
   scan_extra_fields: string[];

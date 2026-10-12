@@ -3,6 +3,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { getEvent, updateEvent } from "@/lib/db/events";
 import { generateToken } from "@/lib/tokens";
 import type { Event } from "@/lib/types";
+import { isStandardKey } from "@/lib/registration-standard";
 import type { SetupSection } from "./sections";
 import { sectionStatus } from "./status";
 import { SETUP_BUCKET } from "@/lib/storage";
@@ -141,7 +142,8 @@ export async function eventChecklist(ev: Event): Promise<ChecklistEntry[]> {
   const features = await eventFeatures(ev.id);
   return buildChecklist({
     features, custom: features.custom,
-    selfRegistration: ev.registration_open || ev.registration_questions.length > 0, builtSteps: BUILT_STEPS,
+    // Mobile and department are on every saved form, so only a question of the organiser's own counts.
+    selfRegistration: ev.registration_open || ev.registration_questions.some((q) => !isStandardKey(q.key)), builtSteps: BUILT_STEPS,
   });
 }
 
