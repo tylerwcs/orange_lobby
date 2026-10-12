@@ -68,7 +68,7 @@ export default async function AgendaAdmin({ params, searchParams }: { params: Pr
         actions={
           <>
             <Modal title="Agenda icon" hint="The round button attendees tap on the portal home." trigger="Agenda section settings" icon="settings" iconOnly>
-              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "agenda")} section="agenda" current={sectionIcons(ev.section_icons).agenda} />
+              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "agenda")} section="agenda" current={sectionIcons(ev.section_icons).agenda} tint={ev.primary_color} />
             </Modal>
             <Modal title="Add a day" hint="Name it for the portal's tab — “Day 1 (Conference)”. Sessions and images go under it." trigger="Add day" icon="plus" variant="default">
               <DayForm eventId={ev.id} suggestedDate={suggestedDayDate(eventDays(ev.starts_on, ev.ends_on), days.map((d) => d.date), today)} />

@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   // assets (HMR, chunks) for any origin but localhost unless it is listed here. Development only.
   allowedDevOrigins: ["*.localhost"],
   experimental: { serverActions: { bodySizeLimit: "10mb" } },
+  // D488: the tint route reads the launcher art from public/, which is not in a function's bundle by default.
+  outputFileTracingIncludes: { "/portal-icons/tint/*/*": ["./public/portal-icons/*.webp"] },
 };
 
 export default nextConfig;

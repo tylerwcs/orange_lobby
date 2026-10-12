@@ -12,8 +12,8 @@ const SLOT_LABELS: Record<PreviewSlot, string> = {
   header: "Name, dates and venue", logo: "Logo · 512 × 512", banner: "Banner · 2400 × 800", colour: "Brand colour",
 };
 
-// The launcher as every attendee's home starts: the portal's own sections, no tiles. Built once.
-const ITEMS = launcherItems({ basePath: "", personal: true, hasInfo: true, tiles: [], icons: sectionIcons(null) });
+// The launcher as every attendee's home starts: the portal's own sections, no tiles, in the draft's colour (D488).
+const itemsFor = (tint: string) => launcherItems({ basePath: "", personal: true, hasInfo: true, tiles: [], icons: sectionIcons(null), tint });
 
 /**
  * The portal home as attendees will see it, drawn from the organiser's draft (D445). The real
@@ -74,7 +74,7 @@ export function HomePreview({ basics, focused = null, onSlot, compact = false }:
               Banner<span className="font-semibold">2400 × 800 · optional</span>
             </div>
           ))}
-          {slot("colour", <div inert><LauncherGrid items={ITEMS} layout="row" /></div>)}
+          {slot("colour", <div inert><LauncherGrid items={itemsFor(basics.primary_color)} layout="row" /></div>)}
           <div aria-hidden className="flex flex-col gap-2">
             <div className="h-3 w-24 rounded bg-muted" />
             <div className="h-14 rounded-xl border border-border bg-card" />

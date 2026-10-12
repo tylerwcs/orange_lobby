@@ -1,6 +1,7 @@
 import type { IconName } from "@/components/ui/icon";
 import type { Tile, TileRoute } from "@/lib/modules";
 import type { ActivityNav } from "@/features/activities/client";
+import { tintedIcon } from "@/lib/tint";
 
 /**
  * One round button on the portal home. `builtin` marks the sections the desktop header
@@ -70,10 +71,12 @@ export function launcherItems(input: {
   activities?: ActivityNav;
   tiles: Tile[];
   icons?: SectionIcons;
+  /** D488: the event's primary colour. The portal's own pictures are drawn in it; uploads are untouched. */
+  tint?: string | null;
 }): LauncherItem[] {
-  const { basePath, hasInfo, hasGroup, tiles, icons } = input;
+  const { basePath, hasInfo, hasGroup, tiles, icons, tint } = input;
   const section = (key: string, label: string, path: string, icon: IconName, image: string | null = null): LauncherItem => ({
-    id: `builtin:${key}`, label, href: `${basePath}${path}`, icon, image, external: false, dot: false, builtin: true,
+    id: `builtin:${key}`, label, href: `${basePath}${path}`, icon, image: tintedIcon(image, tint), external: false, dot: false, builtin: true,
   });
 
   const items: LauncherItem[] = [
@@ -87,7 +90,7 @@ export function launcherItems(input: {
 
   for (const t of tiles) {
     if (t.route && covered.has(t.route)) continue;
-    items.push({ id: t.id, label: t.label, href: t.href, icon: t.icon, image: t.image, external: t.external, dot: false, builtin: false });
+    items.push({ id: t.id, label: t.label, href: t.href, icon: t.icon, image: tintedIcon(t.image, tint), external: t.external, dot: false, builtin: false });
   }
   return items;
 }

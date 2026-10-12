@@ -57,7 +57,7 @@ export default async function Groups({ params, searchParams }: { params: Promise
                 </label>
                 <SubmitButton variant="outline">Save</SubmitButton>
               </form>
-              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "group")} section="group" current={sectionIcons(ev.section_icons).group} />
+              <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "group")} section="group" current={sectionIcons(ev.section_icons).group} tint={ev.primary_color} />
             </Modal>
             <BuildFromColumn eventId={ev.id} fields={[{ key: "category", label: "Category" }, ...fields]} from={from ?? null} attendees={attendees} groups={groups} />
             <Modal title="New group" trigger="New group" icon="plus" variant="default">

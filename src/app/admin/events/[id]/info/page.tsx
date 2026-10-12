@@ -68,7 +68,7 @@ export default async function InfoAdmin({ params, searchParams }: {
                 <SubmitButton variant="outline">Save title</SubmitButton>
               </form>
               <div className="border-t border-border pt-4">
-                <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "info")} section="info" current={sectionIcons(ev.section_icons).info} />
+                <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "info")} section="info" current={sectionIcons(ev.section_icons).info} tint={ev.primary_color} />
               </div>
             </div>
           </Modal>
