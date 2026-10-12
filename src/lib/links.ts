@@ -36,6 +36,22 @@ export function attendeeLink(addr: EventAddress, token: string) {
 export function registrationLink(addr: EventAddress) {
   return addr.domain ? `${hostUrl(addr.domain)}/register` : `${appBaseUrl()}/e/${addr.slug}/register`;
 }
+
+/**
+ * The two addresses an organiser hands out (Settings → Share links), by the name the QR
+ * download takes (D491). Only these: the crew's link is a login and never goes on a poster.
+ */
+const SHARE_LINKS = { portal: genericLink, registration: registrationLink };
+export type ShareLinkKind = keyof typeof SHARE_LINKS;
+export function isShareLinkKind(s: string): s is ShareLinkKind {
+  return Object.hasOwn(SHARE_LINKS, s);
+}
+export function shareLink(kind: ShareLinkKind, addr: EventAddress) {
+  return SHARE_LINKS[kind](addr);
+}
+export function shareQrFileName(slug: string, kind: ShareLinkKind) {
+  return `${slug}-${kind}-qr.png`;
+}
 /**
  * The booth's scanner. Not under /e/<slug>: it is staff-facing, it is not part of the
  * attendee portal, and the token is looked up on its own before any event is known.

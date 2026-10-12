@@ -9,7 +9,8 @@ import { loadDoors, listActivities } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
 import { eventFeatures, FeaturesTab, hiddenSettingsTabs } from "@/features/catalogue";
-import { appBaseUrl, genericLink, registrationLink, crewLink } from "@/lib/links";
+import { appBaseUrl, crewLink, shareLink, type ShareLinkKind } from "@/lib/links";
+import { qrDataUrl } from "@/lib/qr";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
 import { ImageField } from "@/components/admin/ImageField";
@@ -88,6 +89,13 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
     loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id), eventAddress(ev),
   ]);
   const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
+  // The handed-out links with their QR beside them (D491): a preview to scan off the screen,
+  // and the print-size PNG from the export route.
+  const share = async (kind: ShareLinkKind) => {
+    const url = shareLink(kind, addr);
+    return { url, qr: { src: await qrDataUrl(url), href: `/admin/events/${ev.id}/export/share-qr/${kind}` } };
+  };
+  const [portalShare, registrationShare] = await Promise.all([share("portal"), share("registration")]);
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
   const tabs = (["features", "details", "registration", "checkpoints", "address", "alerts", "danger"] as const).filter((t) => !(hiddenTabs as readonly string[]).includes(t));
@@ -314,8 +322,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               <CardDescription>The two addresses you hand out. Personal per-attendee links are in Exports.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <ShareLink label="Portal" url={genericLink(addr)} />
-              <ShareLink label="Registration" url={registrationLink(addr)} />
+              <ShareLink label="Portal" {...portalShare} />
+              <ShareLink label="Registration" {...registrationShare} />
             </CardContent>
           </Card>
 

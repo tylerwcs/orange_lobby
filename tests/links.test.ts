@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attendeeLink, attendeePath, genericLink, registrationLink, boothScannerLink, crewLink, hostLink, displayLink } from "@/lib/links";
+import { attendeeLink, attendeePath, genericLink, registrationLink, boothScannerLink, crewLink, hostLink, displayLink, shareLink, isShareLinkKind, shareQrFileName } from "@/lib/links";
 
 describe("attendee links (D426)", () => {
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://events.ecopiaevents.com/"));
@@ -22,6 +22,28 @@ describe("attendee links (D426)", () => {
   it("keeps the app's protocol and port, so *.localhost works in development", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
     expect(attendeeLink({ slug: "kom", domain: "kom.localhost" }, "abcdefghjkmn")).toBe("http://kom.localhost:3000/a/abcdefghjkmn");
+  });
+});
+
+describe("share link QR codes (D491)", () => {
+  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://events.ecopiaevents.com/"));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("encodes the same address the Share links card shows, own domain included", () => {
+    expect(shareLink("portal", { slug: "kom-2026", domain: null })).toBe("https://events.ecopiaevents.com/e/kom-2026");
+    expect(shareLink("registration", { slug: "kom-2026", domain: null })).toBe("https://events.ecopiaevents.com/e/kom-2026/register");
+    expect(shareLink("registration", { slug: "kom-2026", domain: "kom.example.com" })).toBe("https://kom.example.com/register");
+  });
+
+  it("knows only the two handed-out links, not the crew's or anything else", () => {
+    expect(isShareLinkKind("portal")).toBe(true);
+    expect(isShareLinkKind("registration")).toBe(true);
+    expect(isShareLinkKind("crew")).toBe(false);
+    expect(isShareLinkKind("toString")).toBe(false);
+  });
+
+  it("names the download after the event and the link", () => {
+    expect(shareQrFileName("kom-2026", "registration")).toBe("kom-2026-registration-qr.png");
   });
 });
 
