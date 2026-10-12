@@ -18,7 +18,7 @@ import { StickerLayer } from "./StickerLayer";
 import { StickerTray } from "./StickerTray";
 import { preparePhoto } from "./prepare-photo";
 import {
-  CAMERA_H, CAMERA_W, DEFAULT_STAGE, EDGE, BAR_H, PRINT_SLACK, PROMPT_H, stageLayout, type StageBox,
+  CAMERA_H, CAMERA_W, DEFAULT_STAGE, BAR_H, PRINT_SLACK, PROMPT_H, stageLayout, type StageBox,
 } from "../lib/stage-layout";
 import { exitFullscreen, lockBodyScroll } from "./stage";
 import { STAGE_BG, StageGlow } from "./StageBackdrop";
@@ -28,16 +28,21 @@ type Photo = { file: File; url: string; width: number; height: number };
 
 const EJECT_MS = 1300;
 
+/** The stage's frosted round 44 px corner buttons: the close × and the portal's "Your polaroids". */
+export const STAGE_ROUND_BUTTON =
+  "flex size-11 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/80 disabled:opacity-40";
+
 /**
  * The instant-camera composer (D482), for portal attendees and walk-ins alike: a full-screen stage
  * where you snap or choose a photo, the print ejects and develops, you write on it, decorate it and
  * post it. `start` and `post` are server actions bound to who is posting; everything they refuse
  * is shown as it is said. While it is open the page behind does not scroll. `onClose` adds a close
- * button, focused on open, and Escape closes too: the portal opens the stage over its page, while
- * the walk-in page is the stage. Until it has measured itself the stage is laid out for a typical
- * phone, so the server's HTML already shows the camera on a slow connection.
+ * button, focused on open, and Escape closes too (the portal's × goes back to the attendee's home).
+ * `corner` is the portal's top-right button ("Your polaroids"); while what it opens is open,
+ * `blockEscape` leaves Escape to it. Until it has measured itself the stage is laid out for a
+ * typical phone, so the server's HTML already shows the camera on a slow connection.
  */
-export function PolaroidComposer({ prompt, stickers, start, post, brand, eventName, onClose }: {
+export function PolaroidComposer({ prompt, stickers, start, post, brand, eventName, onClose, corner, blockEscape = false }: {
   prompt: string;
   stickers: StickerDef[];
   start: () => Promise<StartResult>;
@@ -47,6 +52,11 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   /** A small line above the prompt, where the page has no other heading (the walk-in page). */
   eventName?: string;
   onClose?: () => void;
+  /** A round button for the top-right corner, styled with `STAGE_ROUND_BUTTON` like the close button
+   *  (the portal's "Your polaroids"); `posting` is true while a post is on its way. */
+  corner?: (posting: boolean) => React.ReactNode;
+  /** Something the corner opened is open, and Escape closes that first. */
+  blockEscape?: boolean;
 }) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>("camera");
@@ -71,11 +81,11 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   useEffect(() => lockBodyScroll(), []);
   useEffect(() => () => exitFullscreen(), []);
   // A closable stage is a dialog: its close button takes focus, and Escape closes it, unless the
-  // sticker tray (which Escape closes first) is open or a post is on its way.
+  // sticker tray or the corner's drawer (which Escape closes first) is open or a post is on its way.
   const closable = !!onClose;
   useEffect(() => { if (closable) closeButton.current?.focus(); }, [closable]);
   const onEscape = useEffectEvent((e: KeyboardEvent) => {
-    if (e.key !== "Escape" || e.defaultPrevented || !onClose || trayOpen || stage === "posting") return;
+    if (e.key !== "Escape" || e.defaultPrevented || !onClose || trayOpen || blockEscape || stage === "posting") return;
     onClose();
   });
   useEffect(() => {
@@ -111,7 +121,7 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   const srcs = Object.fromEntries(stickers.map((s) => [s.id, s.src]));
   const ratio = photo ? cardRatio(photo.width, photo.height) : 1.2;
   const editing = stage === "editing" || stage === "posting";
-  const at = stageLayout(box, !!eventName, closable, ratio);
+  const at = stageLayout(box, !!eventName, closable || !!corner, ratio);
 
   const reset = () => {
     setPhoto(null); setMessage(""); setPlaced([]); setSelected(null); setError(null); setTrayOpen(false); setStage("camera");
@@ -186,11 +196,11 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
           <StageGlow brand={brand} y={at.cameraTop + (CAMERA_H * at.k) / 2} size={CAMERA_W * at.k * 2.2} />
           {eventName && (
             <p className="absolute inset-x-12 truncate text-center text-xs font-bold uppercase tracking-widest text-white/50 transition-opacity duration-500"
-              style={{ top: EDGE, opacity: editing ? 0 : 1 }}>
+              style={{ top: at.eventTop, opacity: editing ? 0 : 1 }}>
               {eventName}
             </p>
           )}
-          <p className={`absolute ${onClose ? "inset-x-12" : "inset-x-4"} flex -rotate-2 items-center justify-center text-center text-4xl transition-opacity duration-500`}
+          <p className={`absolute ${onClose || corner ? "inset-x-12" : "inset-x-4"} flex -rotate-2 items-center justify-center text-center text-4xl transition-opacity duration-500`}
             style={{ top: at.promptTop, height: PROMPT_H, fontFamily: "var(--font-hand)", fontWeight: 700, opacity: editing ? 0 : 1 }}>
             {stage === "posted" ? "It's on the wall!" : prompt}
           </p>
@@ -264,10 +274,11 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
 
           {onClose && (
             <button ref={closeButton} type="button" aria-label="Close camera" onClick={onClose} disabled={stage === "posting"}
-              className="absolute left-1 top-1 z-50 flex size-11 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/80 disabled:opacity-40">
+              className={`absolute left-1 top-1 z-50 ${STAGE_ROUND_BUTTON}`}>
               <X aria-hidden className="size-5" />
             </button>
           )}
+          {corner && <div className="absolute right-1 top-1 z-50 flex">{corner(stage === "posting")}</div>}
         </div>
       </div>
 

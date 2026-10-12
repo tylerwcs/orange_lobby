@@ -52,8 +52,8 @@ export function activityCards(entries: ActivityEntries, basePath: string): Activ
       activity, view: passportCard({ passport, open: activity.is_open }), href: href(activity), emphasis: false, section: passportSection(passport),
     })),
     polaroid: (list) => list.map(({ activity, mine }) => ({
-      // Straight into the camera (D482): the page opens it on arrival.
-      activity, view: polaroidCard({ posted: mine.length }), href: `${href(activity)}?camera=1`, emphasis: false, section: "open" as const,
+      // Its page is the camera (D482).
+      activity, view: polaroidCard({ posted: mine.length }), href: href(activity), emphasis: false, section: "open" as const,
     })),
   };
   const cardsOf = <K extends ActivityKind>(kind: K) => cardsFor[kind](entries[kind]);

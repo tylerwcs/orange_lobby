@@ -39,8 +39,8 @@ describe("activityCards", () => {
     const cards = activityCards({ booking: [], submission: [], passport: [passport("p", false)], polaroid: [wall("w", 2)] }, "/p");
     expect(cards.map((c) => [c.activity.id, c.section, c.view.action.label])).toEqual([["p", "open", "View"], ["w", "open", "Open camera"]]);
     expect(cards[1].view.status).toEqual({ label: "2 on the wall", tone: "success" });
-    // Its card opens the camera on arrival (D482).
-    expect(cards[1].href).toBe("/p/activities/w?camera=1");
+    // Its page is the camera (D482).
+    expect(cards[1].href).toBe("/p/activities/w");
   });
 
   it("orders To choose, Booked, Open (bookings, forms, passports), Done", () => {

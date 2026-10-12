@@ -19,7 +19,6 @@ export * from "./lib/wire";
 export { handFont } from "./font";
 export { PolaroidCard } from "./components/PolaroidCard";
 export { PolaroidComposer } from "./components/PolaroidComposer";
-export { CameraLauncher } from "./components/CameraLauncher";
+export { PortalCamera } from "./components/PortalCamera";
 export { StageGlow, STAGE_BG } from "./components/StageBackdrop";
-export { YourPolaroids } from "./components/YourPolaroids";
 export { WallClient } from "./components/wall/WallClient";

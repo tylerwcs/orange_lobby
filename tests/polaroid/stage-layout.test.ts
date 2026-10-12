@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cardRatio } from "@/features/polaroid/lib/card";
 import {
-  ALERT_H, BAR_H, CAMERA_H, CAMERA_W, EDGE, PRINT_SLACK, SLOT_IN_CAMERA, UNDER_CLOSE, stageLayout,
+  ALERT_H, BAR_H, CAMERA_H, CAMERA_W, EDGE, EVENT_LINE, FOOT, PRINT_SLACK, PROMPT_H, SLOT_IN_CAMERA, UNDER_CLOSE, stageLayout,
 } from "@/features/polaroid/lib/stage-layout";
 
 const PHONES = [{ w: 390, h: 844 }, { w: 360, h: 740 }];
@@ -42,7 +42,36 @@ describe("stageLayout (D482)", () => {
     }
   });
 
-  it("moves the prompt down for the event's name", () => {
-    expect(stageLayout({ w: 390, h: 844 }, true, false, 1.2).promptTop).toBe(stageLayout({ w: 390, h: 844 }, false, false, 1.2).promptTop + 24);
+  it("puts the prompt just above the camera", () => {
+    for (const box of PHONES) for (const eventLine of [true, false]) for (const closable of [true, false]) {
+      const at = stageLayout(box, eventLine, closable, 1.2);
+      const gap = at.cameraTop - (at.promptTop + PROMPT_H);
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(gap).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it("centres the event line, prompt and camera as one group, below the corner buttons", () => {
+    for (const box of PHONES) for (const eventLine of [true, false]) for (const closable of [true, false]) {
+      const at = stageLayout(box, eventLine, closable, 1.2);
+      const top = closable ? UNDER_CLOSE : EDGE;
+      const above = at.eventTop - top;
+      const below = box.h - FOOT - (at.cameraTop + CAMERA_H * at.k);
+      expect(above).toBeGreaterThan(0);
+      expect(Math.abs(above - below)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("puts the event's name above the prompt", () => {
+    const at = stageLayout({ w: 390, h: 844 }, true, false, 1.2);
+    expect(at.promptTop - at.eventTop).toBe(EVENT_LINE);
+    expect(stageLayout({ w: 390, h: 844 }, false, false, 1.2).promptTop).toBe(stageLayout({ w: 390, h: 844 }, false, false, 1.2).eventTop);
+  });
+
+  it("never starts above the top edge on a short screen", () => {
+    for (const closable of [true, false]) {
+      const at = stageLayout({ w: 740, h: 360 }, true, closable, 1.2);
+      expect(at.eventTop).toBe(closable ? UNDER_CLOSE : EDGE);
+    }
   });
 });
