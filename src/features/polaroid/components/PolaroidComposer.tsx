@@ -2,13 +2,12 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { X } from "lucide-react";
+import { ArrowUp, LoaderCircle, RotateCcw, Sticker, X } from "lucide-react";
 import { browserStorage } from "@/lib/supabase/browser";
 import { POLAROID_BUCKET } from "@/lib/storage";
-import { Button } from "@/components/ui/button";
 import { handFont } from "../font";
 import { cardRatio } from "../lib/card";
-import { checkMessage, MAX_MESSAGE, messageLength } from "../lib/message";
+import { checkMessage } from "../lib/message";
 import { MAX_STICKERS, newPlacement, type StickerPlacement } from "../lib/placement";
 import type { StickerDef } from "../lib/stickers";
 import type { PostInput, PostResult, Refusal, StartResult } from "../lib/post-types";
@@ -235,18 +234,27 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
                   <p role="alert" className="w-full max-w-[360px] rounded-lg bg-red-500/15 px-3 py-2 text-center text-sm text-red-100">{error}</p>
                 </div>
               )}
-              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center justify-end gap-3 px-4 pb-4" style={{ height: BAR_H }}>
-                <div className="flex w-full max-w-[360px] justify-between text-xs text-white/60">
-                  <span>{messageLength(message)}/{MAX_MESSAGE}</span>
-                  <span>{placed.length}/{MAX_STICKERS} stickers</span>
+              {/* Camera-app bar: retake, the shutter that posts, stickers. The limits (80 characters,
+                  8 stickers) hold quietly: typing stops, and the sticker button dims when full. */}
+              <div className="absolute inset-x-0 bottom-0 z-30 flex items-start justify-center gap-10 px-4 pb-4 pt-2" style={{ height: BAR_H }}>
+                <BarButton label="Retake" aria="Retake photo" onClick={reset} disabled={stage === "posting"}>
+                  <RotateCcw aria-hidden className="size-5" />
+                </BarButton>
+                <div className="flex flex-col items-center gap-1">
+                  <button type="button" aria-label={wait > 0 ? `Post to wall, possible in ${wait} seconds` : "Post to wall"}
+                    onClick={() => void send()} disabled={stage === "posting" || wait > 0}
+                    className={`flex size-[72px] items-center justify-center rounded-full border-[6px] border-white text-white shadow-[0_6px_20px_rgb(0_0_0/0.45)] outline-none transition-transform focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black enabled:active:scale-95 ${wait > 0 ? "bg-zinc-600" : "bg-[#ff3b30]"}`}>
+                    {stage === "posting"
+                      ? <LoaderCircle aria-hidden className="size-7 animate-spin" />
+                      : wait > 0
+                        ? <span className="text-xl font-bold tabular-nums">{wait}</span>
+                        : <ArrowUp aria-hidden className="size-8" strokeWidth={2.75} />}
+                  </button>
+                  <BarLabel>{stage === "posting" ? "Posting…" : wait > 0 ? `Wait ${wait} s` : "Post"}</BarLabel>
                 </div>
-                <div className="flex w-full max-w-[360px] gap-2">
-                  <Button type="button" variant="secondary" className="flex-1" onClick={() => setTrayOpen(true)} disabled={stage === "posting"}>Stickers</Button>
-                  <Button type="button" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={reset} disabled={stage === "posting"}>Cancel</Button>
-                </div>
-                <Button type="button" size="lg" className="h-11 w-full max-w-[360px] text-base" onClick={() => void send()} disabled={stage === "posting" || wait > 0}>
-                  {stage === "posting" ? "Posting…" : wait > 0 ? `You can post again in ${wait} s` : "Post to wall"}
-                </Button>
+                <BarButton label="Stickers" aria="Add a sticker" onClick={() => setTrayOpen(true)} disabled={stage === "posting" || placed.length >= MAX_STICKERS}>
+                  <Sticker aria-hidden className="size-5" />
+                </BarButton>
               </div>
             </>
           )}
@@ -274,5 +282,29 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
       <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
       <StickerTray open={trayOpen} onOpenChange={setTrayOpen} stickers={stickers} onPick={addSticker} />
     </section>
+  );
+}
+
+/** The bar's small handwritten caption under each button. */
+function BarLabel({ children }: { children: React.ReactNode }) {
+  return <span className="text-lg leading-none text-white/80" style={{ fontFamily: "var(--font-hand)", fontWeight: 700 }}>{children}</span>;
+}
+
+/** A frosted round button either side of the shutter, sitting level with the shutter's centre. */
+function BarButton({ label, aria, onClick, disabled, children }: {
+  label: string;
+  aria: string;
+  onClick: () => void;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 pt-3">
+      <button type="button" aria-label={aria} onClick={onClick} disabled={disabled}
+        className="flex size-12 items-center justify-center rounded-full bg-white/12 text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/80 enabled:active:scale-95 disabled:opacity-35">
+        {children}
+      </button>
+      <BarLabel>{label}</BarLabel>
+    </div>
   );
 }

@@ -11,8 +11,8 @@ export const EVENT_LINE = 24;
 export const PROMPT_H = 72;
 /** Under the camera: room for a refusal before a photo is taken. */
 export const FOOT = 56;
-/** The controls bar pinned to the bottom, and room for an error just above it. */
-export const BAR_H = 148;
+/** The shutter bar pinned to the bottom (72 px shutter + its handwritten label), and room for an error above it. */
+export const BAR_H = 124;
 export const ALERT_H = 48;
 /** The print's wrapper reaches past the card itself. */
 export const PRINT_SLACK = 24;
