@@ -51,6 +51,13 @@ iOS needs Safari (not in-app browsers). The page must be HTTPS. Reload and allow
 5. Run the commented `insert into org_members` line from `seed_org.sql` with that user's UUID.
 6. Put the project URL, anon key and service-role key into `.env.local` (locally) and Vercel environment variables.
 
+## Verifiers (D492)
+
+Committee helpers who check submissions do not need an admin account. In the event's
+Settings → Verification, add each person by name and send them their own link. It opens that
+event's submissions only; they can revoke an entry with a reason. Remove or replace a link
+there to stop it at once.
+
 ## Breakout rooms: apply migration manually
 
 Migration `0007_breakouts.sql` adds columns `slot` and `code` to `agenda_items` and creates the `breakout_assignments` table. This migration has NOT been applied to production and must be run by a human before deploying code that uses breakout rooms.
