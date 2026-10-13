@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { entryCountsFrom, groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, taggedFirst, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY, groupTabs, pickGroupTab, allGroupCards } from "@/lib/groups";
 import type { AttendeeField } from "@/lib/attendee-fields";
-import type { Activity, ActivitySubmission, EventGroup } from "@/lib/types";
+import type { Activity, ActivitySubmission, Attendee, EventGroup } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}) => ({ id: "f1", group_mode: "entries" as const, group_target: 2, categories: null, ...over });
 const sub = (id: string, attendee: string, group: string | null, over: Partial<ActivitySubmission> = {}): ActivitySubmission => ({
@@ -245,7 +245,7 @@ describe("allGroupCards (D511–D513)", () => {
     { id: "g2", name: "Team 2", image_url: null },
     { id: "g3", name: "Team 3", image_url: null },
   ];
-  const people = [
+  const people: Pick<Attendee, "id" | "name" | "group_id" | "extra">[] = [
     { id: "a", name: "Aisyah", group_id: "g1", extra: { table_no: "7" } },
     { id: "b", name: "Ben", group_id: "g1", extra: { captain: "Yes", table_no: "7" } },
     { id: "c", name: "Chen", group_id: "g2", extra: {} },
