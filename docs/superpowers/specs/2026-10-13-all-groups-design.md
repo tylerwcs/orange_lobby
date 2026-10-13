@@ -110,8 +110,8 @@ Decision numbers D506–D515 belong to this spec.
   - My group: `getGroup` + `groupMembers` + activity entries, as today.
   - All groups: `listGroups` + `groupedAttendees`.
 
-  When only one tab shows, the other tab's queries do not run. When both show, everything
-  needed loads in one `Promise.all`. The open tab renders, and the other tab is just its link.
+  Only the open tab's queries run, each tab's in one `Promise.all`. The other tab is just its
+  link.
 - **Pure helpers in `src/lib/groups.ts`**, so they can be unit-tested:
   - `groupTabs`: D509.
   - `allGroupCards(groups, members, ownGroupId, groupFields, fields)`: returns the ordered
