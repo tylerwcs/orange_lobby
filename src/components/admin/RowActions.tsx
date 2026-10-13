@@ -33,7 +33,7 @@ export const RowMoveContext = createContext<RowMove | null>(null);
  * from the menu rather than inside it: a menu closes on click, and a confirmation that closes
  * with it is no confirmation.
  */
-export function RowActions({ name, edit, actions = [], links = [], remove, editOpen, onEditOpenChange }: {
+export function RowActions({ name, edit, actions = [], links = [], remove, dialog, editOpen, onEditOpenChange }: {
   name: string;
   edit?: { title: string; hint?: string; form: React.ReactNode };
   /** Extra one-click actions, e.g. "Unpin" — already bound on the server. */
@@ -42,6 +42,12 @@ export function RowActions({ name, edit, actions = [], links = [], remove, editO
   links?: { label: string; href: string; newTab?: boolean }[];
   /** `blocked` says why it cannot be removed right now; the item shows, disabled, with the reason. */
   remove?: { action: () => Promise<void>; message: string; label?: string; blocked?: string };
+  /**
+   * D498: an action that needs a few words before it runs (Revoke with its reason, Replace link).
+   * Opens a dialog holding `form`, rendered by the server like `edit.form`; the form's action
+   * redirects, and the URL changing closes it. `destructive` puts it in the red section, above Delete.
+   */
+  dialog?: { label: string; title: string; hint?: string; form: React.ReactNode; destructive?: boolean };
   /** For a row whose name also opens the editor (ModuleList): the dialog's state, held there. */
   editOpen?: boolean;
   onEditOpenChange?: (open: boolean) => void;
@@ -51,6 +57,7 @@ export function RowActions({ name, edit, actions = [], links = [], remove, editO
   const editing = editOpen ?? ownOpen;
   const setEditing = onEditOpenChange ?? setOwnOpen;
   const [confirming, setConfirming] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const removeLabel = remove?.label ?? "Delete";
 
@@ -61,9 +68,10 @@ export function RowActions({ name, edit, actions = [], links = [], remove, editO
     if (openedAt.current === null || openedAt.current === address) { openedAt.current = address; return; }
     openedAt.current = address;
     setEditing(false);
+    setDialogOpen(false);
   }, [address, setEditing]);
 
-  const hasTop = Boolean(edit || actions.length || links.length);
+  const hasTop = Boolean(edit || actions.length || links.length || (dialog && !dialog.destructive));
   const hasMove = Boolean(move && (move.up || move.down));
 
   return (
@@ -86,6 +94,7 @@ export function RowActions({ name, edit, actions = [], links = [], remove, editO
                   {l.newTab && <ExternalLink />}{l.label}
                 </DropdownMenuItem>
               ))}
+              {dialog && !dialog.destructive && <DropdownMenuItem onClick={() => setDialogOpen(true)}>{dialog.label}</DropdownMenuItem>}
             </DropdownMenuGroup>
           )}
           {hasMove && move && (
@@ -97,11 +106,12 @@ export function RowActions({ name, edit, actions = [], links = [], remove, editO
               </DropdownMenuGroup>
             </>
           )}
-          {remove && (
+          {(remove || dialog?.destructive) && (
             <>
               {(hasTop || hasMove) && <DropdownMenuSeparator />}
-              <DropdownMenuItem variant="destructive" disabled={Boolean(remove.blocked)} onClick={() => setConfirming(true)}><Trash2 />{removeLabel}</DropdownMenuItem>
-              {remove.blocked && <p className="px-2 pb-1.5 text-xs text-muted-foreground">{remove.blocked}</p>}
+              {dialog?.destructive && <DropdownMenuItem variant="destructive" onClick={() => setDialogOpen(true)}><Trash2 />{dialog.label}</DropdownMenuItem>}
+              {remove && <DropdownMenuItem variant="destructive" disabled={Boolean(remove.blocked)} onClick={() => setConfirming(true)}><Trash2 />{removeLabel}</DropdownMenuItem>}
+              {remove?.blocked && <p className="px-2 pb-1.5 text-xs text-muted-foreground">{remove.blocked}</p>}
             </>
           )}
         </DropdownMenuContent>
@@ -115,6 +125,18 @@ export function RowActions({ name, edit, actions = [], links = [], remove, editO
               {edit.hint && <DialogDescription>{edit.hint}</DialogDescription>}
             </DialogHeader>
             <div className="max-h-[70vh] overflow-y-auto">{edit.form}</div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {dialog && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{dialog.title}</DialogTitle>
+              {dialog.hint && <DialogDescription>{dialog.hint}</DialogDescription>}
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto">{dialog.form}</div>
           </DialogContent>
         </Dialog>
       )}

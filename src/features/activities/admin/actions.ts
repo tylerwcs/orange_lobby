@@ -27,6 +27,7 @@ import { challengeWeeks, mondayOf } from "../lib/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots";
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
+import { parseRevokeReason, reasonsOf } from "../lib/revoke";
 import { shortDate } from "@/lib/text";
 import { generateToken } from "@/lib/tokens";
 import { readPolaroidSettings, sweepActivityPhotos } from "@/features/polaroid";
@@ -388,8 +389,9 @@ export async function editSubmissionAction(eventId: string, activityId: string, 
  * Revokes one submission (D338): a status, not a delete, so the row and its files stay and the
  * admin table keeps it, greyed (D340). It stops counting everywhere (D339), which is what lets
  * the attendee submit again. Scoped to this activity the same way `editSubmissionAction` is.
+ * D498: always with a reason, from the event's templates or typed under Other.
  */
-export async function revokeSubmissionAction(eventId: string, activityId: string, submissionId: string) {
+export async function revokeSubmissionAction(eventId: string, activityId: string, submissionId: string, fd: FormData) {
   const { orgId, userId } = await requireAdmin();
   const ev = await requireEvent(eventId, orgId);
   const activity = await submissionOf(ev, activityId);
@@ -399,7 +401,9 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
     revalidatePath(detailPath(eventId, activityId));
     redirect(flashPath(back, "That submission no longer exists.", "error"));
   }
-  if (!(await revokeSubmission(submissionId, activity.id, "Revoked by the organiser", { userId }))) {
+  const parsed = parseRevokeReason(fd, reasonsOf(ev));
+  if ("error" in parsed) redirect(flashPath(back, parsed.error, "error"));
+  if (!(await revokeSubmission(submissionId, activity.id, parsed.reason, { userId }))) {
     revalidatePath(detailPath(eventId, activityId));
     redirect(flashPath(back, "That submission was already revoked.", "error"));
   }
@@ -408,7 +412,7 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
   // The list page's "X of Y submitted" counts live rows, so it moved too.
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
-  redirect(flashPath(back, `${name}'s submission is revoked. They can submit again${activity.is_open ? "." : " once it's open."}`));
+  redirect(flashPath(back, `${name}'s submission is revoked. They'll see why, and can submit again${activity.is_open ? "." : " once it's open."}`));
 }
 
 /**

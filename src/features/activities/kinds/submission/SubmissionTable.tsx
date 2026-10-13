@@ -5,6 +5,8 @@ import { retiredAnswerKeys } from "@/lib/exports";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SubmissionFields } from "./SubmissionFields";
+import { RevokeForm } from "./RevokeForm";
+import { revokeCredit } from "../../lib/revoke";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -23,16 +25,20 @@ export type SubmitterInfo = { name: string; email: string | null; category: stri
  *
  * Every row stays, revoked ones too (D340): greyed, marked Revoked, and with no menu, since a
  * revoked row cannot be edited. A live row's ⋯ menu edits its answers in the portal's own
- * fields (D337) or revokes it. The page's count is of live rows only (D339).
+ * fields (D337) or revokes it with a reason (D498). The page's count is of live rows only (D339).
  */
-export function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, adminNames, groupFor }: {
+export function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, reasons, adminNames, verifierNames, groupFor }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   submitterFor: (attendeeId: string) => SubmitterInfo;
   edit: (submissionId: string, fd: FormData) => Promise<void>;
-  revoke: (submissionId: string) => Promise<void>;
+  revoke: (submissionId: string, fd: FormData) => Promise<void>;
+  /** D497: the event's templates for the revoke dialog. */
+  reasons: string[];
   /** `edited_by`/`revoked_by` resolved to an email via `scannerNames`; unresolved ids are missing. */
   adminNames: Record<string, string>;
+  /** D492: `revoked_by_verifier` resolved to the link's name. */
+  verifierNames: Record<string, string>;
   /** D359: a group form's submissions carry the group they were sent for. */
   groupFor?: (s: ActivitySubmission) => string;
 }) {
@@ -94,7 +100,7 @@ export function SubmissionTable({ submissions, questions, submitterFor, edit, re
                 <div>{shortDate(submission.submitted_on)}</div>
                 {(revoked || submission.edited_at || submission.attendee_edited_at) && (
                   <div className="mt-1 flex gap-1">
-                    {revoked && <Badge variant="secondary" title={stamp("Revoked", submission.revoked_by, submission.revoked_at)}>Revoked</Badge>}
+                    {revoked && <Badge variant="secondary" title={revokeCredit(submission, { admins: adminNames, verifiers: verifierNames })}>Revoked</Badge>}
                     {(submission.edited_at || submission.attendee_edited_at) && (
                       <Badge variant="outline" title={[
                         submission.edited_at && stamp("Edited", submission.edited_by, submission.edited_at),
@@ -142,10 +148,12 @@ export function SubmissionTable({ submissions, questions, submitterFor, edit, re
                         </form>
                       ),
                     } : undefined}
-                    remove={{
-                      action: revoke.bind(null, submission.id),
+                    dialog={{
                       label: "Revoke",
-                      message: "It stops counting and they can submit again. It stays here, marked Revoked.",
+                      title: `Revoke ${who.name}'s submission?`,
+                      hint: "It stops counting and they can submit again. They'll see the reason you pick. It stays here, marked Revoked.",
+                      destructive: true,
+                      form: <RevokeForm action={revoke.bind(null, submission.id)} reasons={reasons} />,
                     }}
                   />
                 )}

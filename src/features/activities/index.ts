@@ -46,6 +46,7 @@ export * from "./kinds/booking/ActivitySessions";
 export * from "./kinds/booking/ActivityBooking";
 
 // Submission: the answers table and the chasing panels; the portal's form, history and helpers.
+export * from "./kinds/submission/RevokeForm";
 export * from "./kinds/submission/SubmissionTable";
 export * from "./kinds/submission/MissingPanel";
 export * from "./kinds/submission/GroupsNotDonePanel";

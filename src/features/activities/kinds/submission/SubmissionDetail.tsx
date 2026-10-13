@@ -15,6 +15,8 @@ import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { submissionsForActivity } from "../../db/activities";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { scannerNames } from "@/lib/db/users";
+import { verifierNames } from "../../db/verifiers";
+import { reasonsOf } from "../../lib/revoke";
 import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } from "../../lib/submissions";
 import { nowInKL, dayNav } from "@/lib/time";
 import { shortDate } from "@/lib/text";
@@ -47,6 +49,8 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
   const live = liveSubmissions(submissions);
   // Who edited or revoked a row, for its badge's title. Only the ids actually stamped.
   const adminNames = await scannerNames(submissions.flatMap((s) => [s.edited_by, s.revoked_by]));
+  // D492: a verifier's revoke names the link, not an auth user.
+  const verifiers = await verifierNames(submissions.map((s) => s.revoked_by_verifier));
 
   // D359/D360: a group form is chased by group, and its rows carry the group they were sent for.
   const grouped = isGroupForm(activity.group_mode);
@@ -161,6 +165,8 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
               edit={editSubmissionAction.bind(null, ev.id, activity.id)}
               revoke={revokeSubmissionAction.bind(null, ev.id, activity.id)}
               adminNames={adminNames}
+              reasons={reasonsOf(ev)}
+              verifierNames={verifiers}
               groupFor={teamed ? (s) => (s.group_id ? groupName.get(s.group_id) ?? "Deleted group" : "Deleted group") : undefined}
             />
           </CardContent>
