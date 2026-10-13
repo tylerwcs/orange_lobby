@@ -39,7 +39,8 @@ export async function MyGroup({ event, attendee, base, titled }: {
         <p className="text-sm text-muted-foreground">{members.length} member{members.length === 1 ? "" : "s"}</p>
       </div>
 
-      <ul className="-mx-4 divide-y border-y md:mx-0 md:rounded-xl md:border">
+      {/* Under the tab strip the swipe pane clips sideways, so the phone edge-to-edge bleed becomes a card. */}
+      <ul className={titled ? "divide-y rounded-xl border" : "-mx-4 divide-y border-y md:mx-0 md:rounded-xl md:border"}>
         {taggedFirst(members, event.group_fields, fields).map((m) => {
           const facts = groupFieldValues(m, event.group_fields, fields);
           const tags = facts.filter((f) => f.tag);

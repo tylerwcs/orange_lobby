@@ -8,7 +8,7 @@ import type { Attendee, Event } from "@/lib/types";
 const memberCount = (n: number) => `${n} member${n === 1 ? "" : "s"}`;
 
 /**
- * D511–D513: every group as a card - picture, name, a My group badge on theirs - that opens
+ * D511–D513: every group as a card - picture, name, member count, a My group badge on theirs - that opens
  * to its members. Native <details>, so it is server-rendered, works without JavaScript and
  * opens from the keyboard. Other groups show names and tags only (D512).
  */
@@ -26,14 +26,14 @@ export async function AllGroups({ event, attendee }: { event: Event; attendee: A
             <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 pr-4 [&::-webkit-details-marker]:hidden">
               {c.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.imageUrl} alt="" className="aspect-[3/2] w-[45%] shrink-0 object-cover" />
+                <img src={c.imageUrl} alt="" loading="lazy" decoding="async" className="aspect-[3/2] w-[45%] shrink-0 object-cover" />
               )}
               <span className={`flex min-w-0 flex-1 flex-col gap-0.5 ${c.imageUrl ? "" : "py-3 pl-4"}`}>
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-extrabold">{c.name}</span>
                   {c.mine && <Badge>My group</Badge>}
                 </span>
-                {!c.imageUrl && <span className="text-sm text-muted-foreground">{memberCount(c.members.length)}</span>}
+                <span className="text-sm text-muted-foreground">{memberCount(c.members.length)}</span>
               </span>
               <ChevronRight aria-hidden className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
             </summary>
