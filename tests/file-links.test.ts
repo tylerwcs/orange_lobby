@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { adminFileHref, portalFileHref } from "@/lib/file-links";
+import { adminFileHref, portalFileHref, verifyFileHref, isImagePath } from "@/lib/file-links";
 import { isOwnSubmissionPath } from "@/lib/storage";
 import { canViewFile } from "@/features/activities/lib/submissions";
 
@@ -48,5 +48,20 @@ describe("file links (D399)", () => {
   it("name the entry and question, never the stored path", () => {
     expect(adminFileHref("ev1", "s1", "strava")).toBe("/admin/events/ev1/submissions/s1/files/strava");
     expect(portalFileHref("ecphub", "tok", "s1", "strava")).toBe("/e/ecphub/a/tok/files/s1/strava");
+  });
+});
+
+describe("verifyFileHref (D495)", () => {
+  it("goes through the verifier's own route", () => {
+    expect(verifyFileHref("k7m2xq9rt4bd", "sub-1", "selfie")).toBe("/verify/k7m2xq9rt4bd/files/sub-1/selfie");
+  });
+});
+
+describe("isImagePath", () => {
+  it("is true for photos the browser can draw", () => {
+    for (const p of ["o/e/f/a.jpg", "o/e/f/a.JPEG", "x.png", "x.webp", "x.gif"]) expect(isImagePath(p)).toBe(true);
+  });
+  it("is false for anything else", () => {
+    for (const p of ["x.pdf", "x.heic", "x", "jpg"]) expect(isImagePath(p)).toBe(false);
   });
 });

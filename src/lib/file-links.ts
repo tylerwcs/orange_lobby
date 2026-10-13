@@ -14,3 +14,13 @@ export function adminFileHref(eventId: string, submissionId: string, key: string
 export function portalFileHref(slug: string, token: string, submissionId: string, key: string): string {
   return `/e/${slug}/a/${token}/files/${submissionId}/${key}`;
 }
+
+/** D495: the verifier's route; their link's token is the authority, re-checked at every click (D496). */
+export function verifyFileHref(token: string, submissionId: string, key: string): string {
+  return `/verify/${token}/files/${submissionId}/${key}`;
+}
+
+/** Whether a stored file can be shown inline as a thumbnail rather than only linked. */
+export function isImagePath(path: string): boolean {
+  return /\.(jpe?g|png|webp|gif)$/i.test(path);
+}
