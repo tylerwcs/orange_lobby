@@ -5,7 +5,7 @@ import { listAttendees, listAttendeesByIds } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
 import { allow } from "@/lib/ratelimit";
 import { brandStyle } from "@/lib/brand";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { listActivities } from "../db/activities";
 import { verifierByToken, submissionsForVerify, verifierNames } from "../db/verifiers";
@@ -84,7 +84,7 @@ export async function VerifyPage({ token, search }: { token: string; search: Rec
               <option value="all">All</option>
             </select>
             <input name="q" defaultValue={q.q} placeholder="Attendee name" className={select} aria-label="Attendee name" />
-            <Button type="submit" className="h-11">Filter</Button>
+            <SubmitButton className="h-11">Filter</SubmitButton>
           </form>
 
           {rows.length === 0 ? (
