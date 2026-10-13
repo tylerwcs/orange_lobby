@@ -5,6 +5,7 @@ import { shortTime } from "@/lib/text";
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { EntryPhotos } from "./EntryPhotos";
 import type { EditEntry } from "../../SubmissionHistory";
+import { attendeeRevokeLabel } from "../../../../lib/revoke";
 
 /**
  * The photos open in a dialog some time after the page renders, so their signed URLs outlive
@@ -55,7 +56,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
               <div className={`font-extrabold tabular-nums ${revoked ? "line-through" : ""}`}>{km}</div>
               {choices && <div className="line-clamp-2 text-sm text-muted-foreground">{choices}</div>}
               <div className="text-xs text-muted-foreground">
-                {at}{revoked ? " · Removed by the organiser" : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}{added ? ` · ${added}` : ""}
+                {at}{revoked ? ` · ${attendeeRevokeLabel(s.revoke_reason, "tracker")}` : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}{added ? ` · ${added}` : ""}
               </div>
             </div>
             {photos.length > 0 && <EntryPhotos title={`${km} at ${at}`} photos={photos} />}

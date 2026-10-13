@@ -5,6 +5,7 @@ import { dayRange } from "../../lib/activity-card";
 import { EntryActions } from "./EntryActions";
 import { SubmissionHistory, type EditEntry } from "./SubmissionHistory";
 import { GroupStatus } from "./GroupStatus";
+import { RevokedList } from "./RevokedList";
 import { SubmissionFields } from "./SubmissionFields";
 import { HealthConsentField } from "./HealthConsentField";
 import { SubmitFor } from "./SubmitFor";
@@ -112,7 +113,7 @@ export function AddedForGroup({ f, slug, token, proxy, edit }: { f: Activity; sl
   );
 }
 
-export async function SubmissionBody({ entry: { form: f, state, mine, group }, slug, token, writing, people, selfId, edit, proxy }: {
+export async function SubmissionBody({ entry: { form: f, state, mine, group, revoked }, slug, token, writing, people, selfId, edit, proxy }: {
   entry: SubmissionEntry;
   slug: string;
   token: string;
@@ -134,6 +135,7 @@ export async function SubmissionBody({ entry: { form: f, state, mine, group }, s
           <>
             {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
             <SubmissionHistory submissions={mine} questions={f.questions} fileHref={filesFor(slug, token)} edit={edit} addedBy={addedBy} />
+            <div className="mt-4"><RevokedList entries={revoked} canResend={state.can} /></div>
             <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />
           </>
         )}
@@ -148,6 +150,10 @@ export async function SubmissionBody({ entry: { form: f, state, mine, group }, s
               <GroupDone text={`You've submitted — waiting on ${group.need - group.have} other${group.need - group.have === 1 ? "" : "s"}`} />
             ) : null}
             {group && <GroupStatus form={f} group={group} people={people} selfId={selfId} edit={edit} fileHref={filesFor(slug, token)} />}
+            <div className="mt-4">
+              <RevokedList entries={revoked} canResend={state.can}
+                byline={(s) => (s.attendee_id === selfId ? "Your entry" : `${people[s.attendee_id]?.name ?? "A former member"}'s entry`)} />
+            </div>
             {state.reason === "nogroup" && <p className={note}>You need to be in a group to submit this.</p>}
           </>
         )}

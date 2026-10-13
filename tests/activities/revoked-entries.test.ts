@@ -23,6 +23,12 @@ describe("revokedFor (D501)", () => {
     expect(revokedFor({ id: "f1", group_mode: "entries" }, mine, group).map((x) => x.id)).toEqual(["g1", "m1"]);
   });
 
+  // An entry sent before the attendee had a group (or whose group was deleted, D349) carries
+  // group_id null, so the group's read misses it - its sender must still see why it went.
+  it("a group form still shows the attendee's own revoked entry that carries no group", () => {
+    expect(revokedFor({ id: "f1", group_mode: "entries" }, [s("own", "f1")], [s("g1", "f1")]).map((x) => x.id)).toEqual(["g1", "own"]);
+  });
+
   it("never passes a live row through", () => {
     expect(revokedFor({ id: "f1", group_mode: "off" }, [s("x", "f1", "submitted")], [])).toEqual([]);
   });

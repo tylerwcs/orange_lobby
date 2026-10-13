@@ -341,7 +341,7 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
 /** D392 adds `proxy`: the sender may not submit for that member. */
 export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone" | "proxy" | "duplicate";
 
-// revoked rows never count and never reach an attendee (D339, D341).
+// revoked rows never count and never reach an attendee's history (D339, D341); they are shown apart, with their reason, via revokedForAttendee (D500).
 // Paged (D289): a daily challenge passes 1,000 rows within days, and newest-first would drop the
 // OLDEST past the cap. `id` last keeps pages from overlapping or skipping (D383).
 export async function listSubmissions(eventId: string): Promise<ActivitySubmission[]> {
@@ -365,7 +365,7 @@ export async function submissionsForActivity(activityId: string): Promise<Activi
     .range(from, to));
 }
 
-// revoked rows never count and never reach an attendee (D339, D341).
+// revoked rows never count and never reach an attendee's history (D339, D341); they are shown apart, with their reason, via revokedForAttendee (D500).
 export async function submissionsForAttendee(attendeeId: string): Promise<ActivitySubmission[]> {
   const { data, error } = await serviceClient().from("activity_submissions").select("*")
     .eq("attendee_id", attendeeId).eq("status", "submitted").order("submitted_on", { ascending: false });
