@@ -84,6 +84,8 @@ export type Event = {
   group_fields: string[];
   /** D367: My group's tile and page are on the portal. Off hides both; groups and group forms carry on. */
   group_tile: boolean;
+  /** D507: the Groups page's All groups tab. Off by default; `group_tile` off still hides everything. */
+  all_groups: boolean;
   /** D388: the check-in pill on the portal badge. It follows the running checkpoint; off hides it. */
   badge_checkin: boolean;
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
@@ -269,8 +271,8 @@ export type ChallengeScoring = {
   void?: "season" | "week";
 };
 
-/** A named set of one event's attendees (D345). An attendee is in at most one (D344). */
-export type EventGroup = { id: string; org_id: string; event_id: string; name: string; created_at: string };
+/** A named set of one event's attendees (D345). An attendee is in at most one (D344). D506: an optional picture. */
+export type EventGroup = { id: string; org_id: string; event_id: string; name: string; image_url: string | null; created_at: string };
 
 export type Activity = {
   id: string;

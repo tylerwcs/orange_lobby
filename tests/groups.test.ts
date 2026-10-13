@@ -65,7 +65,7 @@ describe("groupSummary", () => {
 });
 
 describe("planGroupsFromColumn (D347)", () => {
-  const g = (id: string, name: string): EventGroup => ({ id, org_id: "o", event_id: "e", name, created_at: "" });
+  const g = (id: string, name: string): EventGroup => ({ id, org_id: "o", event_id: "e", name, image_url: null, created_at: "" });
   const at = (id: string, team: string, group_id: string | null = null) => ({ id, group_id, category: null, extra: { team } });
 
   it("creates one group per distinct trimmed value, ignoring case, keeping the first spelling", () => {
@@ -130,7 +130,7 @@ describe("taggedFirst (D366)", () => {
 });
 
 describe("groupsNotDone (F2)", () => {
-  const g = (id: string, name: string): EventGroup => ({ id, org_id: "o", event_id: "e", name, created_at: "" });
+  const g = (id: string, name: string): EventGroup => ({ id, org_id: "o", event_id: "e", name, image_url: null, created_at: "" });
   const attendee = (id: string, name: string, category: string, groupId: string | null) => ({ id, name, category, group_id: groupId });
 
   it("lists each not-done group with who's missing, in entries mode", () => {

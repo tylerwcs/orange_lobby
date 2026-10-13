@@ -1,5 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { selectAll } from "@/lib/db/select-all";
 import type { Attendee, Event, EventGroup } from "@/lib/types";
 import { entryCountsFrom } from "@/lib/groups";
 
@@ -64,6 +65,22 @@ export async function groupMembers(eventId: string, groupId: string): Promise<At
   const { data, error } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).eq("group_id", groupId).order("name");
   if (error) throw error;
   return (data ?? []) as Attendee[];
+}
+
+/**
+ * D512: everyone in a group, for the All groups tab - only the columns a card shows (the name)
+ * and needs to work out tags (`extra`). Paged (D289): an event can outgrow PostgREST's
+ * 1,000-row page, and the order ends on `id` so the pages never overlap.
+ */
+export async function groupedAttendees(eventId: string): Promise<Pick<Attendee, "id" | "name" | "group_id" | "extra">[]> {
+  return selectAll((from, to) => serviceClient().from("attendees").select("id, name, group_id, extra")
+    .eq("event_id", eventId).not("group_id", "is", null).order("name").order("id").range(from, to));
+}
+
+/** D506: the group's picture, or null to clear it. The caller removes the old object after. */
+export async function setGroupImage(eventId: string, groupId: string, url: string | null): Promise<void> {
+  const { error } = await serviceClient().from("event_groups").update({ image_url: url }).eq("event_id", eventId).eq("id", groupId);
+  if (error) throw error;
 }
 
 const ID_CHUNK = 100;
