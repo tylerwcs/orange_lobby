@@ -70,6 +70,10 @@ export function crewLink(base: string, token: string) {
 export function hostLink(base: string, token: string) {
   return `${trimSlash(base)}/host/${token}`;
 }
+/** D492: one verifier's own link to an event's submissions. Staff-facing like the crew link, looked up by token alone. */
+export function verifierLink(base: string, token: string) {
+  return `${trimSlash(base)}/verify/${token}`;
+}
 /** The LED display (D251). Show-only; a separate token from the host link (D252). */
 export function displayLink(base: string, token: string) {
   return `${trimSlash(base)}/display/${token}`;

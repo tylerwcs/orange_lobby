@@ -24,6 +24,8 @@ export * from "./lib/request-notify";
 export * from "./admin/ActivityDetailPage";
 export * from "./portal/ActivityPage";
 export * from "./admin/actions";
+export * from "./admin/VerificationTab";
+export * from "./admin/verifier-actions";
 
 // Shared by every kind: the admin list and its rows, the detail page's menu and tabs, the
 // Overview's activity summary; the portal's Activities tab, card parts, home row and dialog.

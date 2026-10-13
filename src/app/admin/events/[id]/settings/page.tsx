@@ -5,10 +5,10 @@ import { requireEvent } from "@/lib/db/events";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
 import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
-import { loadDoors, listActivities } from "@/features/activities";
+import { loadDoors, listActivities, VerificationTab } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
-import { eventFeatures, FeaturesTab, hiddenSettingsTabs } from "@/features/catalogue";
+import { activityKindsFor, eventFeatures, FeaturesTab, hiddenSettingsTabs } from "@/features/catalogue";
 import { appBaseUrl, crewLink, shareLink, type ShareLinkKind } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { crewLinkLastDay } from "@/lib/crew";
@@ -82,7 +82,10 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const { orgId } = await requireAdmin();
   const ev = await requireEvent(id, orgId);
-  const hiddenTabs = hiddenSettingsTabs(await eventFeatures(ev.id));
+  const features = await eventFeatures(ev.id);
+  const hiddenTabs = hiddenSettingsTabs(features);
+  // D502: Verification is about submissions, so it shows only when the event can run them.
+  const verifying = activityKindsFor(features).includes("submission");
   const qs = editorQuestions(ev.registration_form);
   const base = appBaseUrl();
   const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr] = await Promise.all([
@@ -98,7 +101,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const [portalShare, registrationShare] = await Promise.all([share("portal"), share("registration")]);
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
-  const tabs = (["features", "details", "registration", "checkpoints", "address", "alerts", "danger"] as const).filter((t) => !(hiddenTabs as readonly string[]).includes(t));
+  const tabs = (["features", "details", "registration", "checkpoints", "address", "alerts", "verification", "danger"] as const)
+    .filter((t) => !(hiddenTabs as readonly string[]).includes(t) && (t !== "verification" || verifying));
   const openTab = rememberedTab(jar, tabScope, tabs) ?? "details";
   const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
@@ -122,6 +126,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
           {!hiddenTabs.includes("address") && <TabsTrigger value="address">Address</TabsTrigger>}
           <TabsTrigger value="alerts">Committee alerts</TabsTrigger>
+          {verifying && <TabsTrigger value="verification">Verification</TabsTrigger>}
           <TabsTrigger value="danger">Danger zone</TabsTrigger>
         </TabsList>
 
@@ -418,6 +423,12 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </CardContent>
         </Card>
       </TabsContent>
+
+      {verifying && (
+        <TabsContent value="verification" className="flex flex-col gap-4">
+          <VerificationTab ev={ev} />
+        </TabsContent>
+      )}
 
       <TabsContent value="danger" className="flex flex-col gap-4">
         {ev.status === "archived" && (
