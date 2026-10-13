@@ -48,13 +48,18 @@ export default async function Groups({ params, searchParams }: { params: Promise
         subtitle={`${groups.length} group${groups.length === 1 ? "" : "s"} · ${grouped} of ${attendees.length} attendees grouped`}
         actions={
           <>
-            {/* D362: the My group button's picture, set here as Agenda's and Info's are on their pages. */}
-            <Modal title="My group tile" hint="The round button group members tap on the portal home." trigger="My group tile settings" icon="settings" iconOnly>
-              {/* D367: separate form, so turning the tile off never re-saves the picture. */}
-              <form action={setGroupTileAction.bind(null, ev.id)} className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b p-1 pb-4">
-                <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
-                  <input type="checkbox" name="group_tile" defaultChecked={ev.group_tile} className="size-4 accent-primary" /> Show My group on the portal
-                </label>
+            {/* D362: the Groups button's picture, set here as Agenda's and Info's are on their pages. */}
+            <Modal title="Groups tile" hint="The round button attendees tap on the portal home." trigger="Groups tile settings" icon="settings" iconOnly>
+              {/* D367/D507: separate form, so changing the switches never re-saves the picture. */}
+              <form action={setGroupTileAction.bind(null, ev.id)} className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b p-1 pb-4">
+                <div className="flex flex-col">
+                  <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
+                    <input type="checkbox" name="group_tile" defaultChecked={ev.group_tile} className="size-4 accent-primary" /> Show Groups on the portal
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
+                    <input type="checkbox" name="all_groups" defaultChecked={ev.all_groups} className="size-4 accent-primary" /> Show all groups to attendees
+                  </label>
+                </div>
                 <SubmitButton variant="outline">Save</SubmitButton>
               </form>
               <SectionIconForm action={saveSectionIconAction.bind(null, ev.id, "group")} section="group" current={sectionIcons(ev.section_icons).group} tint={ev.primary_color} />

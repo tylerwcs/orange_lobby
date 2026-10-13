@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { requireEvent, updateEvent } from "@/lib/db/events";
-import { createGroup, createGroups, renameGroup, deleteGroup, getGroup, listGroups, setGroupMembers, GroupNameRefused } from "@/lib/db/groups";
+import { createGroup, createGroups, renameGroup, deleteGroup, getGroup, listGroups, setGroupMembers, setGroupImage, GroupNameRefused } from "@/lib/db/groups";
+import { nextImage, deleteEventImage, type ImageChange } from "@/lib/db/media";
 import { listAttendees } from "@/lib/db/attendees";
 import { eventFields } from "@/lib/attendee-fields";
 import { planGroupsFromColumn } from "@/lib/groups";
@@ -50,10 +51,34 @@ export async function renameGroupAction(eventId: string, groupId: string, fd: Fo
   redirect(flashPath(back, "Group renamed."));
 }
 
+/**
+ * D506: the group's picture. Uploaded before the row is written, so a file we will not take
+ * leaves the old picture in place; the old object goes only after the row has saved (D160).
+ */
+export async function setGroupImageAction(eventId: string, groupId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const group = await getGroup(ev.id, groupId);
+  if (!group) redirect(flashPath(list(eventId), "That group no longer exists.", "error"));
+  let image: ImageChange = { url: group.image_url, stale: null };
+  try {
+    image = await nextImage(fd, "image", group.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "group" });
+  } catch (e) {
+    redirect(flashPath(detail(eventId, groupId), (e as Error).message, "error"));
+  }
+  await setGroupImage(ev.id, group.id, image.url);
+  await deleteEventImage(image.stale);
+  revalidatePath(list(eventId));
+  revalidatePath(detail(eventId, groupId));
+  redirect(flashPath(detail(eventId, groupId), image.url ? "Picture saved." : "Picture removed."));
+}
+
 export async function deleteGroupAction(eventId: string, groupId: string) {
   const ev = await event(eventId);
-  if (!(await getGroup(ev.id, groupId))) redirect(flashPath(list(eventId), "That group no longer exists.", "error"));
+  const group = await getGroup(ev.id, groupId);
+  if (!group) redirect(flashPath(list(eventId), "That group no longer exists.", "error"));
   await deleteGroup(ev.id, groupId);
+  // D515: nothing leaves the bucket until no row names it (D160).
+  await deleteEventImage(group.image_url);
   revalidatePath(list(eventId));
   redirect(flashPath(list(eventId), "Group deleted."));
 }
@@ -67,13 +92,15 @@ export async function updateGroupFieldsAction(eventId: string, fd: FormData) {
   redirect(flashPath(list(eventId), "Shared fields saved."));
 }
 
-/** D367: shows or hides My group on the portal. */
+/** D367: shows or hides Groups on the portal. D507: and whether it has the All groups tab. */
 export async function setGroupTileAction(eventId: string, fd: FormData) {
   const ev = await event(eventId);
   const on = fd.get("group_tile") === "on";
-  await updateEvent(ev.id, { group_tile: on });
+  const all = fd.get("all_groups") === "on";
+  await updateEvent(ev.id, { group_tile: on, all_groups: all });
   revalidatePath(list(eventId));
-  redirect(flashPath(list(eventId), on ? "My group is shown on the portal." : "My group is hidden from the portal."));
+  const msg = !on ? "Groups is hidden from the portal." : all ? "Groups is shown, with all groups." : "Groups is shown, with each attendee's own group.";
+  redirect(flashPath(list(eventId), msg));
 }
 
 /** D344: joining this group moves them out of any other; one column, one write. */

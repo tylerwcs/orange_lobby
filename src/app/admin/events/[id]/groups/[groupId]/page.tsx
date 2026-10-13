@@ -13,7 +13,8 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { RowActions } from "@/components/admin/RowActions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { addToGroupAction, removeFromGroupAction, renameGroupAction, deleteGroupAction } from "../actions";
+import { ImageField } from "@/components/admin/ImageField";
+import { addToGroupAction, removeFromGroupAction, renameGroupAction, deleteGroupAction, setGroupImageAction } from "../actions";
 
 const SEARCH_LIMIT = 20;
 
@@ -65,6 +66,17 @@ export default async function GroupPage({ params, searchParams }: { params: Prom
           </>
         }
       />
+
+      <Card>
+        <CardHeader><CardTitle>Picture</CardTitle></CardHeader>
+        <CardContent>
+          {/* D506: shown on the group's card under All groups. Optional. */}
+          <form action={setGroupImageAction.bind(null, ev.id, group.id)} className="flex flex-col items-start gap-3">
+            <ImageField key={group.image_url ?? "none"} label="Group picture" name="image" url={group.image_url} description="Landscape, about 3:2 (e.g. 900×600)." />
+            <SubmitButton>Save picture</SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Add people</CardTitle></CardHeader>
