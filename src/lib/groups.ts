@@ -178,6 +178,65 @@ export function taggedFirst<T extends Pick<Attendee, "extra">>(members: T[], key
   return members.map((m) => ({ m, r: rank(m) })).sort((a, b) => a.r - b.r).map((x) => x.m);
 }
 
+/** D509: the Groups page's tabs, in the order they sit in the strip. */
+export type GroupTab = "mine" | "all";
+
+export const GROUP_TAB_LABELS: Record<GroupTab, string> = { mine: "My group", all: "All groups" };
+
+/**
+ * D508/D509/D514: which tabs this attendee gets. None means no tile on the home page and a 404
+ * for the page - the same answer for both, so they can't disagree. The organiser's tile switch
+ * (D367) still hides everything.
+ */
+export function groupTabs(input: { tile: boolean; inGroup: boolean; allGroups: boolean }): GroupTab[] {
+  if (!input.tile) return [];
+  const tabs: GroupTab[] = [];
+  if (input.inGroup) tabs.push("mine");
+  if (input.allGroups) tabs.push("all");
+  return tabs;
+}
+
+/** D509: `?tab=` when it names one of their tabs; otherwise the first. A tab they may not see is never opened. */
+export function pickGroupTab(tabs: GroupTab[], requested: string | undefined): GroupTab | null {
+  return tabs.find((t) => t === requested) ?? tabs[0] ?? null;
+}
+
+/** One card on All groups (D511). Members carry a name and tag labels, nothing else (D512). */
+export type GroupCard = {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  mine: boolean;
+  members: { id: string; name: string; tags: string[] }[];
+};
+
+/**
+ * D511–D513: the All groups cards. The attendee's own group leads; the rest keep the order
+ * given (`listGroups` sorts by name), and so do each group's members (`groupedAttendees` sorts
+ * by name) once `taggedFirst` has lifted the captains. Only tag labels survive from the shared
+ * fields: a table number or phone is the attendee's own group's business, on My group.
+ */
+export function allGroupCards(
+  groups: Pick<EventGroup, "id" | "name" | "image_url">[],
+  members: Pick<Attendee, "id" | "name" | "group_id" | "extra">[],
+  ownGroupId: string | null,
+  groupFields: string[],
+  fields: AttendeeField[],
+): GroupCard[] {
+  const ordered = [...groups.filter((g) => g.id === ownGroupId), ...groups.filter((g) => g.id !== ownGroupId)];
+  return ordered.map((g) => ({
+    id: g.id,
+    name: g.name,
+    imageUrl: g.image_url,
+    mine: g.id === ownGroupId,
+    members: taggedFirst(members.filter((m) => m.group_id === g.id), groupFields, fields).map((m) => ({
+      id: m.id,
+      name: m.name,
+      tags: groupFieldValues(m, groupFields, fields).filter((f) => f.tag).map((f) => f.label),
+    })),
+  }));
+}
+
 /** Not a real attendee field: routes write the group's name into `extra` under this key for export only. */
 export const GROUP_EXPORT_KEY = "__group";
 

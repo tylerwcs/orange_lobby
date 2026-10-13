@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { entryCountsFrom, groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, taggedFirst, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
+import { entryCountsFrom, groupProgress, groupSummary, planGroupsFromColumn, groupFieldValues, taggedFirst, withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY, groupTabs, pickGroupTab, allGroupCards } from "@/lib/groups";
+import type { AttendeeField } from "@/lib/attendee-fields";
 import type { Activity, ActivitySubmission, EventGroup } from "@/lib/types";
 
 const form = (over: Partial<Activity> = {}) => ({ id: "f1", group_mode: "entries" as const, group_target: 2, categories: null, ...over });
@@ -192,5 +193,89 @@ describe("entryCountsFrom (D400)", () => {
 
   it("is empty with no rows", () => {
     expect(entryCountsFrom(null).size).toBe(0);
+  });
+});
+
+describe("groupTabs (D508, D509, D514)", () => {
+  it("shows My group alone for a member when All groups is off — today's page", () => {
+    expect(groupTabs({ tile: true, inGroup: true, allGroups: false })).toEqual(["mine"]);
+  });
+
+  it("shows both tabs, My group first, for a member when All groups is on", () => {
+    expect(groupTabs({ tile: true, inGroup: true, allGroups: true })).toEqual(["mine", "all"]);
+  });
+
+  it("shows All groups alone to someone in no group when it is on (D514)", () => {
+    expect(groupTabs({ tile: true, inGroup: false, allGroups: true })).toEqual(["all"]);
+  });
+
+  it("shows nothing to someone in no group when All groups is off", () => {
+    expect(groupTabs({ tile: true, inGroup: false, allGroups: false })).toEqual([]);
+  });
+
+  it("shows nothing at all when the organiser hid the tile, whatever the switch says (D367)", () => {
+    expect(groupTabs({ tile: false, inGroup: true, allGroups: true })).toEqual([]);
+  });
+});
+
+describe("pickGroupTab (D509)", () => {
+  it("opens the asked-for tab when it is one of theirs", () => {
+    expect(pickGroupTab(["mine", "all"], "all")).toBe("all");
+  });
+
+  it("falls back to the first tab for a missing, unknown or not-allowed tab", () => {
+    expect(pickGroupTab(["mine", "all"], undefined)).toBe("mine");
+    expect(pickGroupTab(["mine", "all"], "xyz")).toBe("mine");
+    expect(pickGroupTab(["mine"], "all")).toBe("mine");
+  });
+
+  it("answers null when there is no tab to show", () => {
+    expect(pickGroupTab([], "all")).toBeNull();
+  });
+});
+
+describe("allGroupCards (D511–D513)", () => {
+  const fields: AttendeeField[] = [
+    { key: "captain", label: "Captain", type: "text" },
+    { key: "table_no", label: "Table no.", type: "number" },
+  ];
+  const shared = ["captain", "table_no"];
+  const groups = [
+    { id: "g1", name: "Team 1", image_url: "https://x/1.png" },
+    { id: "g2", name: "Team 2", image_url: null },
+    { id: "g3", name: "Team 3", image_url: null },
+  ];
+  const people = [
+    { id: "a", name: "Aisyah", group_id: "g1", extra: { table_no: "7" } },
+    { id: "b", name: "Ben", group_id: "g1", extra: { captain: "Yes", table_no: "7" } },
+    { id: "c", name: "Chen", group_id: "g2", extra: {} },
+  ];
+
+  it("puts the attendee's own group first and keeps the rest in the order given (D513)", () => {
+    expect(allGroupCards(groups, people, "g2", shared, fields).map((c) => c.id)).toEqual(["g2", "g1", "g3"]);
+    expect(allGroupCards(groups, people, null, shared, fields).map((c) => c.id)).toEqual(["g1", "g2", "g3"]);
+  });
+
+  it("marks only the attendee's own group as mine", () => {
+    expect(allGroupCards(groups, people, "g2", shared, fields).map((c) => c.mine)).toEqual([true, false, false]);
+  });
+
+  it("lists tagged members first and gives each member only a name and tag labels (D512)", () => {
+    const team1 = allGroupCards(groups, people, null, shared, fields)[0];
+    expect(team1.members).toEqual([
+      { id: "b", name: "Ben", tags: ["Captain"] },
+      { id: "a", name: "Aisyah", tags: [] },
+    ]);
+    // A table number is a shared field but not a tag: it must never reach another group's card.
+    expect(JSON.stringify(team1)).not.toContain("7");
+  });
+
+  it("keeps an empty group, and a group without a picture, in the list (D511)", () => {
+    const team3 = allGroupCards(groups, people, null, shared, fields)[2];
+    expect(team3).toEqual({ id: "g3", name: "Team 3", imageUrl: null, mine: false, members: [] });
+  });
+
+  it("carries the picture through", () => {
+    expect(allGroupCards(groups, people, null, shared, fields)[0].imageUrl).toBe("https://x/1.png");
   });
 });
