@@ -76,6 +76,8 @@ export type Event = {
   export_fields: string[];
   /** WhatsApp numbers (60…, no plus) told when change requests wait an hour. */
   committee_alert_numbers: string[];
+  /** D497: the reasons offered when revoking a submission. Optional so old fixtures compile; hydrate always fills it. */
+  revoke_reasons?: string[];
   /** Facts shown on the badge card, in order. The first gets the large treatment. */
   pinned_fields: PinnedField[];
   /** D348: attendee field keys group members see about each other. Names are always shown. */
@@ -420,4 +422,19 @@ export type ActivitySubmission = {
   submitted_by: string | null;
   /** D396: question key to the SHA-256 of its uploaded file; empty on rows sent before fingerprints. */
   file_hashes: Record<string, string>;
+  /** D499: why it was revoked, a copy of the wording picked or typed; null on revokes before 0077. Optional so old fixtures compile. */
+  revoke_reason?: string | null;
+  /** D492: the verifier link that revoked it; null for an admin's revoke (see `revoked_by`). */
+  revoked_by_verifier?: string | null;
+};
+
+/** D492: one verifier's own link to an event's submissions. `removed_at` set means it no longer opens (D493). */
+export type VerifierLink = {
+  id: string;
+  event_id: string;
+  name: string;
+  token: string;
+  created_by: string | null;
+  created_at: string;
+  removed_at: string | null;
 };
