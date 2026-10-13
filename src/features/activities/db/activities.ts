@@ -392,6 +392,22 @@ export async function submissionsForGroup(groupId: string): Promise<ActivitySubm
   return (data ?? []) as ActivitySubmission[];
 }
 
+/** D500: an attendee's revoked entries, for display beside their history. Never counted (D501). */
+export async function revokedForAttendee(attendeeId: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("attendee_id", attendeeId).eq("status", "revoked").order("revoked_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
+}
+
+/** D500: a group's revoked entries, which every member of a group form sees. */
+export async function revokedForGroup(groupId: string): Promise<ActivitySubmission[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("*")
+    .eq("group_id", groupId).eq("status", "revoked").order("revoked_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ActivitySubmission[];
+}
+
 export async function getSubmission(id: string): Promise<ActivitySubmission | null> {
   const { data, error } = await serviceClient().from("activity_submissions").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
@@ -447,10 +463,20 @@ export async function submissionsAddedBy(activityId: string, attendeeId: string,
   return (data ?? []) as ActivitySubmission[];
 }
 
-/** D338. Status, not a delete: the row and its files stay. False when already revoked or gone. */
-export async function revokeSubmission(id: string, activityId: string, userId: string): Promise<boolean> {
+/** D492: an admin (an auth user) or a verifier link; exactly one of the two stamps is set. */
+export type RevokedBy = { userId: string } | { verifierId: string };
+
+/**
+ * D338. Status, not a delete: the row and its files stay. False when already revoked or gone.
+ * D498/D499: always with a reason, stored as the wording itself.
+ */
+export async function revokeSubmission(id: string, activityId: string, reason: string, by: RevokedBy): Promise<boolean> {
   const { data, error } = await serviceClient().from("activity_submissions")
-    .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_by: userId })
+    .update({
+      status: "revoked", revoked_at: new Date().toISOString(), revoke_reason: reason,
+      revoked_by: "userId" in by ? by.userId : null,
+      revoked_by_verifier: "verifierId" in by ? by.verifierId : null,
+    })
     .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;

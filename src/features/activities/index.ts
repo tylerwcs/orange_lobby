@@ -10,11 +10,13 @@ export * from "./db/activity-requests";
 export * from "./db/booths";
 export * from "./db/challenge";
 export * from "./db/doors";
+export * from "./db/verifiers";
 export * from "./lib/portal-activity-entries";
 export * from "./lib/challenge-data";
 export * from "./lib/submission-file";
 export * from "./lib/submission-uploads";
 export * from "./lib/verifier";
+export * from "./lib/revoked-entries";
 export * from "./lib/request-notify";
 
 // The two activity pages, for their route files to render (D419), and the server actions the

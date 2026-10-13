@@ -399,7 +399,7 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
     revalidatePath(detailPath(eventId, activityId));
     redirect(flashPath(back, "That submission no longer exists.", "error"));
   }
-  if (!(await revokeSubmission(submissionId, activity.id, userId))) {
+  if (!(await revokeSubmission(submissionId, activity.id, "Revoked by the organiser", { userId }))) {
     revalidatePath(detailPath(eventId, activityId));
     redirect(flashPath(back, "That submission was already revoked.", "error"));
   }

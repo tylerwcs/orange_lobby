@@ -1,6 +1,7 @@
 import "server-only";
 import { portalActivities, portalBookings } from "@/lib/portal";
-import { listSessions, countBookingsBySession, submissionsForAttendee, submissionsForGroup } from "../db/activities";
+import { listSessions, countBookingsBySession, submissionsForAttendee, submissionsForGroup, revokedForAttendee, revokedForGroup } from "../db/activities";
+import { revokedFor } from "./revoked-entries";
 import { listBooths, stampsForAttendee } from "../db/booths";
 import { requestsForAttendee } from "../db/activity-requests";
 import { bookingArrivalsFor } from "@/lib/db/checkins";
@@ -17,7 +18,8 @@ import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
 export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string> };
-export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null };
+/** D500: `revoked` is for display only - every count reads `mine` and `group`, which hold live rows (D501). */
+export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null; revoked: ActivitySubmission[] };
 /** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
 export type PassportEntry = { activity: Activity; passport: Passport };
 /** A polaroid wall this attendee may post to, and their own live polaroids on it (D482). */
@@ -47,7 +49,7 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   const activities = await portalActivities(event.id);
   const hasGroupForm = attendee.group_id !== null && activities.some((a) => a.kind === "submission" && isGroupForm(a.group_mode));
 
-  const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs] = await Promise.all([
+  const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs, revokedMine, revokedGroup] = await Promise.all([
     listSessions(event.id),
     countBookingsBySession(event.id),
     portalBookings(attendee.id),
@@ -58,6 +60,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     event.check_in_enabled ? bookingArrivalsFor(attendee.id) : Promise.resolve([]),
     hasGroupForm ? groupMembers(event.id, attendee.group_id!) : Promise.resolve([]),
     hasGroupForm ? submissionsForGroup(attendee.group_id!) : Promise.resolve([]),
+    revokedForAttendee(attendee.id),
+    hasGroupForm ? revokedForGroup(attendee.group_id!) : Promise.resolve([]),
   ]);
 
   const mineBySession = new Set(mine.map((b) => b.session_id));
@@ -81,7 +85,7 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     const sent = submissions.filter((s) => s.activity_id === form.id);
     // D353: on a group form every member reads the same progress, built from the group's rows.
     const group = isGroupForm(form.group_mode) && attendee.group_id ? groupProgress(form, attendee.group_id, members, groupSubs) : null;
-    return { form, state: canSubmit(form, sent, attendee.category, today, group, attendee.group_id), mine: sent, group };
+    return { form, state: canSubmit(form, sent, attendee.category, today, group, attendee.group_id), mine: sent, group, revoked: revokedFor(form, revokedMine, revokedGroup) };
   });
 
   // Names for every entry on show. A former member (D355) is not in `members`, so they are
