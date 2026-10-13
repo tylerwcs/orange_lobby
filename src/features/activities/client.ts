@@ -23,3 +23,4 @@ export * from "./lib/session-grid";
 export * from "./lib/session-slots";
 export * from "./lib/submissions";
 export * from "./lib/tracker";
+export * from "./lib/revoke";
