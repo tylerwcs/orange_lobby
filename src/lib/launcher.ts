@@ -65,7 +65,7 @@ export function launcherItems(input: {
   /** Kept for the callers' sake; the row is the same on both portals since Me left it (D236). */
   personal: boolean;
   hasInfo: boolean;
-  /** D348: the attendee is in a group, so My group has a tile. */
+  /** D348/D508: the attendee has a Groups tab (their own group, or All groups), so Groups has a tile. */
   hasGroup?: boolean;
   /** No longer read here: Activities has no button of its own in the row (D221, D237). */
   activities?: ActivityNav;
@@ -82,7 +82,7 @@ export function launcherItems(input: {
   const items: LauncherItem[] = [
     section("agenda", "Agenda", "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda),
     ...(hasInfo ? [section("info", "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
-    ...(hasGroup ? [section("group", "My group", "/group", "users", icons?.group ?? DEFAULT_SECTION_ICONS.group)] : []),
+    ...(hasGroup ? [section("group", "Groups", "/group", "users", icons?.group ?? DEFAULT_SECTION_ICONS.group)] : []),
   ];
 
   const covered = new Set<TileRoute>(["agenda"]);

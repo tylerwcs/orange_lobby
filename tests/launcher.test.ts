@@ -58,10 +58,10 @@ describe("launcherItems", () => {
     expect(launcherItems({ ...base, tiles: [routeTile("in", "info")] }).map((i) => i.id)).toEqual(["builtin:agenda", "in"]);
   });
 
-  it("adds My group after the built-in sections, only for someone in a group (D348)", () => {
+  it("adds Groups after the built-in sections, only when the attendee has a Groups tab (D348, D508)", () => {
     expect(launcherItems(base).map((i) => i.label)).toEqual(["Agenda"]);
     const items = launcherItems({ ...base, hasInfo: true, hasGroup: true });
-    expect(items.map((i) => i.label)).toEqual(["Agenda", "Info", "My group"]);
+    expect(items.map((i) => i.label)).toEqual(["Agenda", "Info", "Groups"]);
     expect(items[2]).toMatchObject({ icon: "users", href: `${BASE}/group`, builtin: true, image: "/portal-icons/group.webp" });
   });
 

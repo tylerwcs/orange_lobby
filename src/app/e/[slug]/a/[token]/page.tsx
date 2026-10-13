@@ -5,6 +5,7 @@ import { launcherItems, sectionIcons } from "@/lib/launcher";
 import { getCheckin } from "@/lib/db/checkins";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { getGroup } from "@/lib/db/groups";
+import { groupTabs } from "@/lib/groups";
 import { activeCheckpoint, badgeCheckin, type BadgeCheckin } from "@/lib/checkpoints";
 import { isoToLocalInput, nowInKL } from "@/lib/time";
 import { myBreakouts } from "@/lib/breakouts";
@@ -98,7 +99,7 @@ export default async function PersonalHome({ params, searchParams }: {
     activities.show ? loadActivityEntries(event, attendee).then((entries) => activityCards(entries, basePath)) : [],
     gameBanner(event, attendee, games > 0),
   ]);
-  const launcher = launcherItems({ basePath, personal: true, hasInfo, hasGroup: event.group_tile && !!attendee.group_id, activities, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
+  const launcher = launcherItems({ basePath, personal: true, hasInfo, hasGroup: groupTabs({ tile: event.group_tile, inGroup: !!attendee.group_id, allGroups: event.all_groups }).length > 0, activities, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
 
   return (
     <>
@@ -163,7 +164,7 @@ export default async function PersonalHome({ params, searchParams }: {
 
         <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
           {/* The header covers Agenda (via Home's Today column, D223) and Info (D216) - only
-              those two are dropped here. My group has no header link (F3), so it stays.
+              those two are dropped here. Groups has no header link (F3), so it stays.
               The tiles go first: a row or two of circles, where four activity cards run a
               screen tall and would push them out of sight (D490). */}
           <LauncherGrid items={launcher.filter((i) => i.id !== "builtin:agenda" && i.id !== "builtin:info")} />
