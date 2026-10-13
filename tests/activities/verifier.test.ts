@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseVerifierName, resolveVerifier, belongsToLink, verifyQuery, verifyQueryString } from "@/features/activities/lib/verifier";
+import { parseVerifierName, resolveVerifier, belongsToLink, verifyQuery, verifyQueryString, VERIFY_FILE_LIMIT, VERIFY_PAGE_SIZE } from "@/features/activities/lib/verifier";
 import type { VerifierLink } from "@/lib/types";
 
 const link = (over: Partial<VerifierLink> = {}): VerifierLink => ({
@@ -43,6 +43,14 @@ describe("resolveVerifier (D496)", () => {
   it("refuses an unknown token", async () => {
     expect(await resolveVerifier("zzzzzzzzzzzz", lookup)).toBeNull();
   });
+
+  // Final review: turning the Engagement add-on off hides the Verification tab, so a link the
+  // admin can no longer see or remove must stop opening too.
+  it("refuses a live link once its event no longer runs submissions", async () => {
+    db.set("k7m2xq9rt4bd", link());
+    expect(await resolveVerifier("k7m2xq9rt4bd", lookup, async () => false)).toBeNull();
+    expect((await resolveVerifier("k7m2xq9rt4bd", lookup, async (eventId) => eventId === "e1"))?.name).toBe("Aisyah");
+  });
 });
 
 // Review Focus 2: a submission from another event is never theirs.
@@ -67,5 +75,13 @@ describe("verifyQuery", () => {
   it("writes back only what differs from the defaults", () => {
     expect(verifyQueryString(verifyQuery({}))).toBe("");
     expect(verifyQueryString(verifyQuery({ status: "all", q: "Ali" }), { page: 1 })).toBe("?status=all&q=Ali&page=1");
+  });
+});
+
+// Final review: every thumbnail is a hit on the file route, so the limit must outlast a
+// committee member paging steadily through two-photo entries (Project Active) for a minute.
+describe("VERIFY_FILE_LIMIT", () => {
+  it("covers 30 page loads a minute of two-photo entries", () => {
+    expect(VERIFY_FILE_LIMIT).toBeGreaterThanOrEqual(VERIFY_PAGE_SIZE * 2 * 30);
   });
 });

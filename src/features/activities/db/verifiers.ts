@@ -2,7 +2,8 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken } from "@/lib/tokens";
 import type { ActivitySubmission, VerifierLink } from "@/lib/types";
-import type { VerifyStatus } from "../lib/verifier";
+import { featureForActivityKind, has, eventFeatures } from "@/features/catalogue";
+import { resolveVerifier, VERIFY_PAGE_SIZE, type VerifyStatus } from "../lib/verifier";
 
 const links = () => serviceClient().from("verifier_links");
 
@@ -11,6 +12,14 @@ export async function listVerifierLinks(eventId: string): Promise<VerifierLink[]
   const { data, error } = await links().select("*").eq("event_id", eventId).is("removed_at", null).order("created_at");
   if (error) throw error;
   return (data ?? []) as VerifierLink[];
+}
+
+/**
+ * D496: the one check every verifier page, action and file makes - a live link whose event still
+ * runs submissions. Turning the add-on off hides the Verification tab, so its links stop with it.
+ */
+export async function openVerifierLink(token: string): Promise<VerifierLink | null> {
+  return resolveVerifier(token, verifierByToken, async (eventId) => has(await eventFeatures(eventId), featureForActivityKind("submission")));
 }
 
 /** Raw lookup; `resolveVerifier` decides whether it still opens anything (D496). */
@@ -51,7 +60,6 @@ export async function verifierNames(ids: (string | null | undefined)[]): Promise
   return Object.fromEntries((data ?? []).map((r: { id: string; name: string }) => [r.id, r.name]));
 }
 
-export const VERIFY_PAGE_SIZE = 30;
 
 /**
  * D495: one page of the verify list, newest first, across the given submission activities.

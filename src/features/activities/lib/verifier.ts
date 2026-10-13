@@ -18,11 +18,24 @@ export function parseVerifierName(raw: string): { name: string } | { error: stri
  * D496: every page load, action and file asks this. A malformed token never reaches the
  * database; a removed link, or a row whose token has since been replaced, is no link at all.
  */
-export async function resolveVerifier(token: string, lookup: (token: string) => Promise<VerifierLink | null>): Promise<VerifierLink | null> {
+export async function resolveVerifier(
+  token: string,
+  lookup: (token: string) => Promise<VerifierLink | null>,
+  /** Whether the link's event still runs submissions: with the add-on off, the Verification tab is gone, so its links must stop too. */
+  eventAllows: (eventId: string) => Promise<boolean> = async () => true,
+): Promise<VerifierLink | null> {
   if (!isValidToken(token)) return null;
   const link = await lookup(token);
-  return link && link.removed_at === null && link.token === token ? link : null;
+  if (!link || link.removed_at !== null || link.token !== token) return null;
+  return (await eventAllows(link.event_id)) ? link : null;
 }
+
+export const VERIFY_PAGE_SIZE = 30;
+/**
+ * Thumbnails a link may load a minute. Every photo on the page is one hit, so this outlasts a
+ * committee member paging steadily through two-photo entries (Project Active) for a minute.
+ */
+export const VERIFY_FILE_LIMIT = 2400;
 
 /** D495: a verifier sees their link's event and nothing else - an id from another event is not theirs. */
 export function belongsToLink(link: Pick<VerifierLink, "event_id">, s: Pick<ActivitySubmission, "event_id"> | null): boolean {

@@ -5,8 +5,8 @@ import { getEvent } from "@/lib/db/events";
 import { flashPath } from "@/lib/flash";
 import { allow } from "@/lib/ratelimit";
 import { getActivity, getSubmission, revokeSubmission } from "../db/activities";
-import { verifierByToken } from "../db/verifiers";
-import { belongsToLink, resolveVerifier, verifyQuery, verifyQueryString } from "../lib/verifier";
+import { openVerifierLink } from "../db/verifiers";
+import { belongsToLink, verifyQuery, verifyQueryString } from "../lib/verifier";
 import { parseRevokeReason, reasonsOf } from "../lib/revoke";
 
 const INVALID = "This link isn't valid. Ask the organiser for the right one.";
@@ -18,7 +18,7 @@ const INVALID = "This link isn't valid. Ask the organiser for the right one.";
  */
 export async function revokeAsVerifierAction(token: string, query: string, submissionId: string, fd: FormData) {
   const back = `/verify/${token}${verifyQueryString(verifyQuery(Object.fromEntries(new URLSearchParams(query))))}`;
-  const link = await resolveVerifier(token, verifierByToken);
+  const link = await openVerifierLink(token);
   if (!link) redirect(flashPath(back, INVALID, "error"));
   if (!allow(`verify:${link.id}`, 60, 60_000)) redirect(flashPath(back, "Too many actions at once. Wait a moment and try again.", "error"));
 

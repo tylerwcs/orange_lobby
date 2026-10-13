@@ -8,8 +8,8 @@ import { brandStyle } from "@/lib/brand";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { listActivities } from "../db/activities";
-import { verifierByToken, submissionsForVerify, verifierNames } from "../db/verifiers";
-import { resolveVerifier, verifyQuery, verifyQueryString } from "../lib/verifier";
+import { openVerifierLink, submissionsForVerify, verifierNames } from "../db/verifiers";
+import { verifyQuery, verifyQueryString } from "../lib/verifier";
 import { reasonsOf, revokeCredit } from "../lib/revoke";
 import { revokeAsVerifierAction } from "./actions";
 import { VerifyCard } from "./VerifyCard";
@@ -37,7 +37,7 @@ export function InvalidVerifyLink() {
  * Admin revokes show as "an admin": a verifier is not shown organisers' emails.
  */
 export async function VerifyPage({ token, search }: { token: string; search: Record<string, string | undefined> }) {
-  const link = await resolveVerifier(token, verifierByToken);
+  const link = await openVerifierLink(token);
   if (!link || !allow(`verify-page:${link.id}`, 120, 60_000)) return <InvalidVerifyLink />;
   const ev = await getEvent(link.event_id);
   if (!ev) return <InvalidVerifyLink />;
