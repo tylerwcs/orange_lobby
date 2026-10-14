@@ -434,16 +434,32 @@ async function linkedScope(id: string): Promise<{ col: "id" | "pair_id"; val: st
   return pair ? { col: "pair_id", val: pair } : { col: "id", val: id };
 }
 
-/** D531: for each paired row given, the other row's attendee. One query for the whole list. */
-export async function pairPartnerIds(rows: Pick<ActivitySubmission, "id" | "pair_id">[]): Promise<Map<string, string>> {
-  const pairs = [...new Set(rows.flatMap((r) => (r.pair_id ? [r.pair_id] : [])))];
-  if (pairs.length === 0) return new Map();
-  const { data, error } = await serviceClient().from("activity_submissions").select("id, pair_id, attendee_id").in("pair_id", pairs);
-  if (error) throw error;
-  const all = (data ?? []) as { id: string; pair_id: string; attendee_id: string }[];
+/**
+ * D531: for each paired row given, the other row's attendee. A pair whose two rows are both in
+ * `rows` (with their `attendee_id`) needs no query; the rest are read together, 100 pair ids at
+ * a time and paged, since ids travel in the query string and a result is capped at 1,000 rows.
+ */
+export async function pairPartnerIds(
+  rows: (Pick<ActivitySubmission, "id" | "pair_id"> & Partial<Pick<ActivitySubmission, "attendee_id">>)[],
+): Promise<Map<string, string>> {
+  type Half = { id: string; attendee_id: string };
+  const halves = new Map<string, Half[]>();
+  const add = (pair: string, h: Half) => { const l = halves.get(pair); if (l) l.push(h); else halves.set(pair, [h]); };
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (r.pair_id && r.attendee_id && !seen.has(r.id)) { seen.add(r.id); add(r.pair_id, { id: r.id, attendee_id: r.attendee_id }); }
+  }
+  const unresolved = [...new Set(rows.flatMap((r) => (r.pair_id && (halves.get(r.pair_id)?.length ?? 0) < 2 ? [r.pair_id] : [])))];
+  const PAIR_CHUNK = 100;
+  for (let i = 0; i < unresolved.length; i += PAIR_CHUNK) {
+    const chunk = unresolved.slice(i, i + PAIR_CHUNK);
+    const found = await selectAll<{ id: string; pair_id: string; attendee_id: string }>((from, to) =>
+      serviceClient().from("activity_submissions").select("id, pair_id, attendee_id").in("pair_id", chunk).order("id").range(from, to));
+    for (const x of found) if (!seen.has(x.id)) { seen.add(x.id); add(x.pair_id, { id: x.id, attendee_id: x.attendee_id }); }
+  }
   const out = new Map<string, string>();
   for (const r of rows) {
-    const other = r.pair_id ? all.find((x) => x.pair_id === r.pair_id && x.id !== r.id) : undefined;
+    const other = r.pair_id ? halves.get(r.pair_id)?.find((h) => h.id !== r.id) : undefined;
     if (other) out.set(r.id, other.attendee_id);
   }
   return out;

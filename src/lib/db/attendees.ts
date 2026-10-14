@@ -188,10 +188,13 @@ export async function deleteAttendees(event: Pick<Event, "id" | "org_id">, ids: 
     const pairs = [...new Set(rows.flatMap((r) => (r.pair_id ? [r.pair_id] : [])))];
     let kept = new Set<string>();
     if (pairs.length > 0) {
-      const { data: partners, error: pairError } = await db.from("activity_submissions")
-        .select("answers").in("pair_id", pairs).not("attendee_id", "in", `(${chunk.join(",")})`);
-      if (pairError) throw pairError;
-      kept = new Set(submissionFilePaths(((partners ?? []) as { answers: Record<string, unknown> | null }[]).map((r) => r.answers ?? {}), `${event.org_id}/${event.id}`));
+      const partners: { answers: Record<string, unknown> | null }[] = [];
+      for (let j = 0; j < pairs.length; j += ID_CHUNK) {
+        const pairChunk = pairs.slice(j, j + ID_CHUNK);
+        partners.push(...await selectAll<{ answers: Record<string, unknown> | null }>((from, to) => db.from("activity_submissions")
+          .select("answers").in("pair_id", pairChunk).not("attendee_id", "in", `(${chunk.join(",")})`).order("id").range(from, to)));
+      }
+      kept = new Set(submissionFilePaths(partners.map((r) => r.answers ?? {}), `${event.org_id}/${event.id}`));
     }
     const paths = submissionFilePaths(rows.map((r) => r.answers ?? {}), `${event.org_id}/${event.id}`).filter((p) => !kept.has(p));
     await deleteSubmissionFiles(paths);
