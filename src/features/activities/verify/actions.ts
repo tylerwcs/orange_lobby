@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getEvent } from "@/lib/db/events";
 import { flashPath } from "@/lib/flash";
@@ -42,14 +42,17 @@ export async function revokeAsVerifierAction(token: string, query: string, submi
   redirect(flashPath(back, "Revoked. They'll see the reason and can send a new one."));
 }
 
-/** D518: a note for the committee that this entry's proof was checked. Nothing else changes. */
+/** D518: a note for the committee that this entry's proof was checked. Nothing else changes. D522: no jump to the top. */
 export async function approveAsVerifierAction(token: string, query: string, submissionId: string) {
   const { back, link, submission, activity } = await verifierEntry(token, query, submissionId);
   if (!(await approveSubmission(submission.id, activity.id, link.id))) {
     redirect(flashPath(back, "That entry was already approved or revoked.", "error"));
   }
+  // No redirect on success: a redirect lands back at the top of the list, and a verifier works
+  // down it. `refresh` redraws the page where they are, and the card leaving To check (or
+  // showing its badge) is the confirmation.
   revalidatePath(`/verify/${token}`);
-  redirect(flashPath(back, "Approved."));
+  refresh();
 }
 
 /** D521: Undo for a mis-tap; the entry goes back to To check. */
@@ -58,6 +61,7 @@ export async function unapproveAsVerifierAction(token: string, query: string, su
   if (!(await unapproveSubmission(submission.id, activity.id))) {
     redirect(flashPath(back, "That entry isn't approved any more.", "error"));
   }
+  // As Approve: redrawn in place, so the verifier keeps their spot in the list.
   revalidatePath(`/verify/${token}`);
-  redirect(flashPath(back, "Approval undone. It's back in To check."));
+  refresh();
 }
