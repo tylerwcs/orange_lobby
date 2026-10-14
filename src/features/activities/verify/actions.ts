@@ -39,7 +39,10 @@ export async function revokeAsVerifierAction(token: string, query: string, submi
   // The admin's activity pages count live rows; they moved.
   revalidatePath(`/admin/events/${link.event_id}/activities`, "layout");
   revalidatePath(`/verify/${token}`);
-  redirect(flashPath(back, "Revoked. They'll see the reason and can send a new one."));
+  // D523: redrawn in place like Approve (D522), so the verifier keeps their spot. The dialog
+  // closes with it: its Revoke button only renders on a live entry's card, so the redraw
+  // unmounts it - the card leaves To check, or turns Revoked under All.
+  refresh();
 }
 
 /** D518: a note for the committee that this entry's proof was checked. Nothing else changes. D522: no jump to the top. */
