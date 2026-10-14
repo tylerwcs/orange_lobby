@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseVerifierName, resolveVerifier, belongsToLink, verifyQuery, verifyQueryString, VERIFY_FILE_LIMIT, VERIFY_PAGE_SIZE } from "@/features/activities/lib/verifier";
+import { parseVerifierName, resolveVerifier, belongsToLink, verifyQuery, verifyQueryString, approveCredit, VERIFY_FILE_LIMIT, VERIFY_PAGE_SIZE } from "@/features/activities/lib/verifier";
 import type { VerifierLink } from "@/lib/types";
 
 const link = (over: Partial<VerifierLink> = {}): VerifierLink => ({
@@ -72,6 +72,11 @@ describe("verifyQuery", () => {
     expect(verifyQuery({ status: "deleted", page: "-1" })).toEqual({ activity: null, status: "submitted", q: "", page: 0 });
   });
 
+  it("keeps the Approved filter (D519)", () => {
+    expect(verifyQuery({ status: "approved" }).status).toBe("approved");
+    expect(verifyQueryString(verifyQuery({ status: "approved" }))).toBe("?status=approved");
+  });
+
   it("writes back only what differs from the defaults", () => {
     expect(verifyQueryString(verifyQuery({}))).toBe("");
     expect(verifyQueryString(verifyQuery({ status: "all", q: "Ali" }), { page: 1 })).toBe("?status=all&q=Ali&page=1");
@@ -83,5 +88,25 @@ describe("verifyQuery", () => {
 describe("VERIFY_FILE_LIMIT", () => {
   it("covers 30 page loads a minute of two-photo entries", () => {
     expect(VERIFY_FILE_LIMIT).toBeGreaterThanOrEqual(VERIFY_PAGE_SIZE * 2 * 30);
+  });
+});
+
+describe("approveCredit (D518)", () => {
+  const at = "2026-10-14T02:05:00Z"; // 10:05 in Kuala Lumpur
+
+  it("names the verifier and when", () => {
+    expect(approveCredit({ status: "submitted", approved_at: at, approved_by_verifier: "v1" }, { v1: "Aisyah" })).toBe("Approved by Aisyah on 14 Oct, 10:05");
+  });
+
+  it("says a verifier when the link's name is gone", () => {
+    expect(approveCredit({ status: "submitted", approved_at: at, approved_by_verifier: null }, {})).toBe("Approved by a verifier on 14 Oct, 10:05");
+  });
+
+  it("is null for an entry nobody approved", () => {
+    expect(approveCredit({ status: "submitted", approved_at: null, approved_by_verifier: null }, {})).toBeNull();
+  });
+
+  it("is null once revoked: the revoke is what the card says then", () => {
+    expect(approveCredit({ status: "revoked", approved_at: at, approved_by_verifier: "v1" }, { v1: "Aisyah" })).toBeNull();
   });
 });

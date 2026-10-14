@@ -1,4 +1,5 @@
 import { isValidToken } from "@/lib/tokens";
+import { shortDateTime } from "@/lib/text";
 import type { ActivitySubmission, VerifierLink } from "@/lib/types";
 import { NAME_MAX } from "./revoke";
 
@@ -42,12 +43,16 @@ export function belongsToLink(link: Pick<VerifierLink, "event_id">, s: Pick<Acti
   return s !== null && s.event_id === link.event_id;
 }
 
-export type VerifyStatus = "submitted" | "revoked" | "all";
+/**
+ * D519: "submitted" is To check - live and not yet approved; "approved" is live and approved;
+ * "revoked" and "all" as before.
+ */
+export type VerifyStatus = "submitted" | "approved" | "revoked" | "all";
 export type VerifyQuery = { activity: string | null; status: VerifyStatus; q: string; page: number };
 
 /** The verify page's filters from its search params. Anything unrecognised reads as the default. */
 export function verifyQuery(raw: Record<string, string | undefined>): VerifyQuery {
-  const status = raw.status === "revoked" || raw.status === "all" ? raw.status : "submitted";
+  const status = raw.status === "approved" || raw.status === "revoked" || raw.status === "all" ? raw.status : "submitted";
   const page = /^\d+$/.test(raw.page ?? "") ? Number(raw.page) : 0;
   return { activity: raw.activity || null, status, q: (raw.q ?? "").trim(), page };
 }
@@ -62,4 +67,17 @@ export function verifyQueryString(q: VerifyQuery, patch: Partial<VerifyQuery> = 
   if (v.page > 0) p.set("page", String(v.page));
   const s = p.toString();
   return s ? `?${s}` : "";
+}
+
+/**
+ * D518: the verify card's "Approved by …" line, or null when there is nothing to say - never
+ * approved, or revoked since (the card then shows the revoke instead).
+ */
+export function approveCredit(
+  s: Pick<ActivitySubmission, "status" | "approved_at" | "approved_by_verifier">,
+  verifiers: Record<string, string>,
+): string | null {
+  if (s.status !== "submitted" || !s.approved_at) return null;
+  const who = (s.approved_by_verifier && verifiers[s.approved_by_verifier]) || "a verifier";
+  return `Approved by ${who} on ${shortDateTime(s.approved_at)}`;
 }

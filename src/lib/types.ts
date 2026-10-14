@@ -428,6 +428,10 @@ export type ActivitySubmission = {
   revoke_reason?: string | null;
   /** D492: the verifier link that revoked it; null for an admin's revoke (see `revoked_by`). */
   revoked_by_verifier?: string | null;
+  /** D518: a verifier marked it checked. Notes only - nothing counts it. Cleared by any edit (D520). Optional so old fixtures compile. */
+  approved_at?: string | null;
+  /** D518: the verifier link that approved it; null once that link row is gone. */
+  approved_by_verifier?: string | null;
 };
 
 /** D492: one verifier's own link to an event's submissions. `removed_at` set means it no longer opens (D493). */

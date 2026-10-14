@@ -71,7 +71,10 @@ export async function submissionsForVerify(o: {
 }): Promise<{ rows: ActivitySubmission[]; more: boolean }> {
   if (o.activityIds.length === 0 || (o.attendeeIds && o.attendeeIds.length === 0)) return { rows: [], more: false };
   let q = serviceClient().from("activity_submissions").select("*").eq("event_id", o.eventId).in("activity_id", o.activityIds);
-  if (o.status !== "all") q = q.eq("status", o.status);
+  // D519: To check is live and not yet approved; Approved is live and approved.
+  if (o.status === "submitted") q = q.eq("status", "submitted").is("approved_at", null);
+  else if (o.status === "approved") q = q.eq("status", "submitted").not("approved_at", "is", null);
+  else if (o.status === "revoked") q = q.eq("status", "revoked");
   if (o.attendeeIds) q = q.in("attendee_id", o.attendeeIds);
   const from = o.page * VERIFY_PAGE_SIZE;
   const { data, error } = await q.order("created_at", { ascending: false }).order("id").range(from, from + VERIFY_PAGE_SIZE);

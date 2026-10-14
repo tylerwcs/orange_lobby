@@ -414,12 +414,12 @@ export async function getSubmission(id: string): Promise<ActivitySubmission | nu
   return data as ActivitySubmission | null;
 }
 
-/** D337. Only a live row can be edited; false when it was revoked or is gone. */
+/** D337. Only a live row can be edited; false when it was revoked or is gone. D520: an edit clears any approval. */
 export async function updateSubmissionAnswers(
   id: string, activityId: string, answers: Record<string, string>, userId: string, fileHashes: Record<string, string>,
 ): Promise<boolean> {
   const { data, error } = await serviceClient().from("activity_submissions")
-    .update({ answers, file_hashes: fileHashes, edited_at: new Date().toISOString(), edited_by: userId })
+    .update({ answers, file_hashes: fileHashes, edited_at: new Date().toISOString(), edited_by: userId, ...UNAPPROVED })
     .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
@@ -434,7 +434,7 @@ export async function updateOwnSubmissionAnswers(
   id: string, activityId: string, attendeeId: string, today: string, answers: Record<string, string>, fileHashes: Record<string, string>,
 ): Promise<boolean> {
   const { data, error } = await serviceClient().from("activity_submissions")
-    .update({ answers, file_hashes: fileHashes, attendee_edited_at: new Date().toISOString() })
+    .update({ answers, file_hashes: fileHashes, attendee_edited_at: new Date().toISOString(), ...UNAPPROVED })
     .eq("id", id).eq("activity_id", activityId).or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`)
     .eq("status", "submitted").eq("submitted_on", today).select("id");
   if (error) throw error;
@@ -470,6 +470,33 @@ export type RevokedBy = { userId: string } | { verifierId: string };
  * D338. Status, not a delete: the row and its files stay. False when already revoked or gone.
  * D498/D499: always with a reason, stored as the wording itself.
  */
+/**
+ * D520: what every edit writes besides the answers. A verifier approved the answer they saw;
+ * once it changes, the entry is back in their To check list.
+ */
+const UNAPPROVED = { approved_at: null, approved_by_verifier: null };
+
+/**
+ * D518: a verifier marks a live, not-yet-approved entry as checked. Guarded in the write, so
+ * a revoke or another verifier's approval landing first wins. False when either did.
+ */
+export async function approveSubmission(id: string, activityId: string, verifierId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("activity_submissions")
+    .update({ approved_at: new Date().toISOString(), approved_by_verifier: verifierId })
+    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").is("approved_at", null).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/** D521: Undo. Any of the event's verifiers may take an approval back, while the entry is live. */
+export async function unapproveSubmission(id: string, activityId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("activity_submissions")
+    .update(UNAPPROVED)
+    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").not("approved_at", "is", null).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 export async function revokeSubmission(id: string, activityId: string, reason: string, by: RevokedBy): Promise<boolean> {
   const { data, error } = await serviceClient().from("activity_submissions")
     .update({

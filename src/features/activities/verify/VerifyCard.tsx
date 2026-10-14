@@ -4,14 +4,16 @@ import { isImagePath, verifyFileHref } from "@/lib/file-links";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal } from "@/components/admin/Modal";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { RevokeForm } from "../kinds/submission/RevokeForm";
 
 /**
  * D495: one entry on the verifier's page - who, which activity, when, the answers, and the
  * photos inline, since checking proof is the whole job. A live entry has Revoke; a revoked
- * one shows who did it and why instead.
+ * one shows who did it and why instead. D518: a live entry also has Approve, and an approved
+ * one says who approved it, with Undo (D521).
  */
-export function VerifyCard({ s, activity, who, group, token, credit, reasons, revoke }: {
+export function VerifyCard({ s, activity, who, group, token, credit, reasons, revoke, approved, approve, unapprove }: {
   s: ActivitySubmission;
   activity: Activity;
   who: string;
@@ -21,6 +23,10 @@ export function VerifyCard({ s, activity, who, group, token, credit, reasons, re
   credit: string | null;
   reasons: string[];
   revoke: (fd: FormData) => Promise<void>;
+  /** `approveCredit`: "Approved by …" for an approved live entry; null otherwise. */
+  approved: string | null;
+  approve: () => Promise<void>;
+  unapprove: () => Promise<void>;
 }) {
   const answered = activity.questions.filter((q) => (s.answers[q.key] ?? "") !== "");
   return (
@@ -29,9 +35,11 @@ export function VerifyCard({ s, activity, who, group, token, credit, reasons, re
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           {who}
           {credit && <Badge variant="secondary">Revoked</Badge>}
+          {approved && <Badge className="bg-success-soft text-success-strong">Approved</Badge>}
         </CardTitle>
         <CardDescription>{[activity.name, group, shortDateTime(s.created_at)].filter(Boolean).join(" · ")}</CardDescription>
         {credit && <CardDescription className="text-xs">{credit}</CardDescription>}
+        {approved && <CardDescription className="text-xs">{approved}</CardDescription>}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {answered.map((q) => {
@@ -56,7 +64,16 @@ export function VerifyCard({ s, activity, who, group, token, credit, reasons, re
           );
         })}
         {!credit && (
-          <div className="pt-1">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {approved ? (
+              <form action={unapprove}>
+                <SubmitButton variant="ghost" size="sm">Undo approval</SubmitButton>
+              </form>
+            ) : (
+              <form action={approve}>
+                <SubmitButton>Approve</SubmitButton>
+              </form>
+            )}
             <Modal title={`Revoke ${who}'s entry?`} hint="It stops counting and they can send a new one. They'll see the reason you pick." trigger="Revoke" variant="outline">
               <RevokeForm action={revoke} reasons={reasons} />
             </Modal>
