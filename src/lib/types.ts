@@ -301,6 +301,8 @@ export type Activity = {
   health_data: boolean;
   /** D392: attendee fields whose Yes lets a member submit for anyone in their group (a Captain column). Empty is nobody. */
   proxy_fields: string[];
+  /** D524: people may tag one person from another team, and both get the entry. Optional so old fixtures compile. */
+  allow_pair?: boolean;
   /** The total one attendee may ever take. Null is no cap (D178); otherwise 1..366. */
   max_per_attendee: number | null;
   /** Null or empty means everyone, exactly as on an agenda item. */
@@ -432,6 +434,8 @@ export type ActivitySubmission = {
   approved_at?: string | null;
   /** D518: the verifier link that approved it; null once that link row is gone. */
   approved_by_verifier?: string | null;
+  /** D525: shared by the two rows of one tagged submit; null otherwise. Optional so old fixtures compile. */
+  pair_id?: string | null;
 };
 
 /** D492: one verifier's own link to an event's submissions. `removed_at` set means it no longer opens (D493). */
