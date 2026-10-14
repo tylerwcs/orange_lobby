@@ -88,7 +88,7 @@ export function SubmissionSetupFields({ activity, categories, fields, uploadImag
           Let people tag someone from another team
         </label>
         <p className="pl-6 text-xs text-muted-foreground">
-          One entry for an activity done together: both people get it, each for their own team. Editing, deleting or revoking one changes both.
+          One entry for an activity done together: both people get it, each for their own team. Editing, deleting or revoking one changes both. A tag uses up the partner&apos;s own daily or total limit, if this activity has one.
         </p>
       </div>
       <ScoringFields activity={activity} />

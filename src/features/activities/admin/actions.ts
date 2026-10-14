@@ -6,7 +6,7 @@ import { requireEvent } from "@/lib/db/events";
 import {
   createActivity, updateActivity, deleteActivity, deletePassportIfUnstamped, getActivity,
   createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
-  syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission,
+  syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission, pairPartnerIds,
   type BookResult, type DecisionResult,
 } from "../db/activities";
 import { getRequest, decideRequest } from "../db/activity-requests";
@@ -409,10 +409,14 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
   }
   const attendee = await getAttendee(current.attendee_id);
   const name = attendee?.name ?? "Someone";
+  // A paired entry revokes both rows (D528), so both people are named; no partner found keeps one name.
+  const partnerId = current.pair_id ? (await pairPartnerIds([current])).get(current.id) : undefined;
+  const partnerName = partnerId ? (await getAttendee(partnerId))?.name : undefined;
+  const who = partnerName ? `${name}'s and ${partnerName}'s submissions are` : `${name}'s submission is`;
   // The list page's "X of Y submitted" counts live rows, so it moved too.
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
-  redirect(flashPath(back, `${name}'s submission is revoked. They'll see why, and can submit again${activity.is_open ? "." : " once it's open."}`));
+  redirect(flashPath(back, `${who} revoked. They'll see why, and can submit again${activity.is_open ? "." : " once it's open."}`));
 }
 
 /**

@@ -328,6 +328,20 @@ export async function editMySubmissionAction(slug: string, token: string, activi
     await recordHealthConsent(attendee, activity.id);
   }
 
+  // A paired entry's edit also rewrites the partner's row (D532), so the partner's consent must
+  // already be on file. The partner is looked up once, and only when something needs them.
+  let partnerLookup: Promise<string | undefined> | undefined;
+  const partnerOf = () => (partnerLookup ??= current.pair_id
+    ? pairPartnerIds([current]).then((m) => m.get(current.id))
+    : Promise.resolve(undefined));
+  if (activity.health_data && current.pair_id) {
+    const partnerId = await partnerOf();
+    if (partnerId && !(await hasHealthConsent(partnerId, activity.id))) {
+      const name = (await getAttendee(partnerId))?.name ?? "Your partner";
+      redirect(flashPath(path, `${name} needs to agree to the health-information consent on their own page before this entry can be changed.`, "error"));
+    }
+  }
+
   const form = await readAnswers(activity, fd, current.answers);
   if (!form.ok) redirect(flashPath(path, form.error, "error"));
 
@@ -336,13 +350,15 @@ export async function editMySubmissionAction(slug: string, token: string, activi
   const answers = { ...retired, ...form.answers };
   // D396/D532: a swapped-in photo may not be one already in another live entry of either owner.
   // The pair's own rows are the entry being edited, so they never count against it.
-  const partnerId = current.pair_id ? (await pairPartnerIds([current])).get(current.id) : undefined;
-  const owners = [current.attendee_id, ...(partnerId ? [partnerId] : [])];
-  const others = (await Promise.all(owners.map((o) => entriesForAttendee(activity.id, o)))).flat()
-    .filter((e) => e.id !== current.id && (!current.pair_id || e.pair_id !== current.pair_id));
-  if (Object.keys(form.hashes).length > 0 && sharesFile(form.hashes, others)) {
-    await discardUploads(form.uploaded);
-    redirect(flashPath(path, DUPLICATE, "error"));
+  if (Object.keys(form.hashes).length > 0) {
+    const partnerId = await partnerOf();
+    const owners = [current.attendee_id, ...(partnerId ? [partnerId] : [])];
+    const others = (await Promise.all(owners.map((o) => entriesForAttendee(activity.id, o)))).flat()
+      .filter((e) => e.id !== current.id && (!current.pair_id || e.pair_id !== current.pair_id));
+    if (sharesFile(form.hashes, others)) {
+      await discardUploads(form.uploaded);
+      redirect(flashPath(path, DUPLICATE, "error"));
+    }
   }
   const hashes = nextFileHashes(activity.questions, current.answers, current.file_hashes, answers, form.hashes);
   const saved = await saveOrDiscard(form.uploaded, () => updateOwnSubmissionAnswers(current.id, activity.id, attendee.id, today, answers, hashes));
