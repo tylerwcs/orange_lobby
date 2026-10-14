@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { loadPortalAttendee } from "@/lib/portal";
 import {
   bookSession, getActivity, listSessions, bookingsForAttendee,
-  submitAnswers, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type BookResult, type SubmitCode,
+  submitAnswers, submitAnswersPair, pairPartnerIds, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type BookResult, type SubmitCode,
 } from "../db/activities";
 import { nextFileHashes, sharesFile } from "@/lib/file-hashes";
 import { canEditOwn } from "../lib/submissions";
+import { pairRefusal } from "../lib/pairs";
 import { getAttendee } from "@/lib/db/attendees";
 import { createRequest, withdrawRequest, requestsForAttendee } from "../db/activity-requests";
 import { bookingArrivalsFor } from "@/lib/db/checkins";
@@ -254,6 +255,18 @@ export async function submitAnswersAction(slug: string, token: string, activityI
     }
   }
 
+  // D526-D528: `:with` tags one person from another team. Only checked to be in this event here;
+  // `submit_answers_pair` decides the pair rules. Their health consent must already be on file -
+  // nobody consents for someone else (D412).
+  const withId = String(fd.get(":with") ?? "");
+  const partner = withId && activity.allow_pair ? await getAttendee(withId) : null;
+  if (withId && activity.allow_pair && (!partner || partner.event_id !== event.id)) {
+    redirect(flashPath(path, "That person isn't in this event.", "error"));
+  }
+  if (partner && activity.health_data && !(await hasHealthConsent(partner.id, activity.id))) {
+    redirect(flashPath(path, `${partner.name} needs to agree to the health-information consent on their own page first.`, "error"));
+  }
+
   // Uploads, validation and cleaning up after a refusal are the one protocol the admin's edit
   // shares (src/features/activities/lib/submission-uploads.ts): a `file` answer stores the object path the upload
   // returns (D168), and anything this request uploaded that does not end up in a stored
@@ -265,6 +278,16 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   // `canSubmit` decided what the page drew; it is never consulted here. Only `submit_answers`
   // decides what is allowed, and it is asked regardless of what the stale page believed.
   const today = nowInKL().date;
+  if (partner) {
+    const { code, who } = await saveOrDiscard(form.uploaded, () =>
+      submitAnswersPair(activity.id, member.id, partner.id, form.answers, today, onBehalf ? attendee.id : null, form.hashes));
+    if (code !== "ok") await discardUploads(form.uploaded);
+    const refused = pairRefusal(code, who, partner.name);
+    const message = code === "ok"
+      ? `Submitted${onBehalf ? ` for ${member.name}` : ""} with ${partner.name}. Thanks!`
+      : refused ?? SUBMIT_RESULT_MESSAGES[code as SubmitCode] ?? SUBMIT_RESULT_MESSAGES.missing;
+    redirect(flashPath(path, message, code === "ok" ? "ok" : "error"));
+  }
   const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, member.id, form.answers, today, onBehalf ? attendee.id : null, form.hashes));
   if (result !== "ok") await discardUploads(form.uploaded);
   const message = result === "ok" && onBehalf ? `Submitted for ${member.name}. Thanks!` : SUBMIT_RESULT_MESSAGES[result];
@@ -311,9 +334,13 @@ export async function editMySubmissionAction(slug: string, token: string, activi
   const keys = new Set(activity.questions.map((q) => q.key));
   const retired = Object.fromEntries(Object.entries(current.answers).filter(([k]) => !keys.has(k)));
   const answers = { ...retired, ...form.answers };
-  // D396: a swapped-in photo may not be one already in another of the entry owner's live entries.
-  // Read and checked here rather than in the write: an edit races nobody but its owner.
-  if (Object.keys(form.hashes).length > 0 && sharesFile(form.hashes, await entriesForAttendee(activity.id, current.attendee_id), current.id)) {
+  // D396/D532: a swapped-in photo may not be one already in another live entry of either owner.
+  // The pair's own rows are the entry being edited, so they never count against it.
+  const partnerId = current.pair_id ? (await pairPartnerIds([current])).get(current.id) : undefined;
+  const owners = [current.attendee_id, ...(partnerId ? [partnerId] : [])];
+  const others = (await Promise.all(owners.map((o) => entriesForAttendee(activity.id, o)))).flat()
+    .filter((e) => e.id !== current.id && (!current.pair_id || e.pair_id !== current.pair_id));
+  if (Object.keys(form.hashes).length > 0 && sharesFile(form.hashes, others)) {
     await discardUploads(form.uploaded);
     redirect(flashPath(path, DUPLICATE, "error"));
   }

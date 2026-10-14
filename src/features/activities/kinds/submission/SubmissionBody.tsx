@@ -9,12 +9,14 @@ import { RevokedList } from "./RevokedList";
 import { SubmissionFields } from "./SubmissionFields";
 import { HealthConsentField } from "./HealthConsentField";
 import { SubmitFor } from "./SubmitFor";
+import { PairPicker } from "./PairPicker";
+import { pairCandidates } from "../../lib/pairs";
 import { ActivityActionDialog } from "../../portal/ActivityActionDialog";
 import { canEditOwn, isGroupForm, isProxy, submitLabel, type SubmitState } from "../../lib/submissions";
 import { nowInKL } from "@/lib/time";
 import { submissionsAddedBy } from "../../db/activities";
-import { groupMembers } from "@/lib/db/groups";
-import { listAttendeesByIds } from "@/lib/db/attendees";
+import { groupMembers, listGroups } from "@/lib/db/groups";
+import { listAttendees, listAttendeesByIds } from "@/lib/db/attendees";
 import { type Activity, type ActivitySubmission, type Attendee } from "@/lib/types";
 import { submitAnswersAction, editMySubmissionAction, deleteMySubmissionAction } from "../../portal/actions";
 import { portalFileHref } from "@/lib/file-links";
@@ -81,6 +83,7 @@ export function SubmitForm({ f, slug, token, state, proxy }: { f: Activity; slug
   return (
     <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
       {proxy && proxy.members.length > 0 && <SubmitFor members={proxy.members} self={state.can} />}
+      <PairAsk f={f} slug={slug} token={token} />
       <HealthConsentAsk f={f} slug={slug} token={token} id="health-consent" />
       {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
       <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
@@ -96,6 +99,20 @@ async function HealthConsentAsk({ f, slug, token, id }: { f: Activity; slug: str
   if (!f.health_data) return null;
   const { attendee } = await loadPortalAttendee(slug, token);
   return (await hasHealthConsent(attendee.id, f.id)) ? null : <HealthConsentField id={id} />;
+}
+
+/**
+ * D530: the "with someone from another team" picker, when the activity allows it. Reads for
+ * itself (the attendee is memoised per request), as HealthConsentAsk does, so neither caller of
+ * SubmitForm has to load candidates it may never show.
+ */
+async function PairAsk({ f, slug, token }: { f: Activity; slug: string; token: string }) {
+  if (!f.allow_pair) return null;
+  const { attendee } = await loadPortalAttendee(slug, token);
+  if (!attendee.group_id) return null;
+  const [groups, attendees] = await Promise.all([listGroups(f.event_id), listAttendees(f.event_id)]);
+  const teams = pairCandidates(groups, attendees, attendee.group_id, f.categories);
+  return teams.length > 0 ? <PairPicker teams={teams} /> : null;
 }
 
 /** D399: "View file" on the portal goes through the attendee's own file route, signed at the click. */
