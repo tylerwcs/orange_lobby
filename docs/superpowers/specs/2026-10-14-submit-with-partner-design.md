@@ -117,9 +117,8 @@ Decision numbers D524–D535 belong to this spec.
     labelled **"Did this with someone from another team?"**.
   - The first option is "No one". After it come `<optgroup>`s by team name, each listing that
     team's members eligible by category, sorted by name.
-  - Every team but the submitting member's is listed. The picker follows the "Submitting for"
-    choice when a captain changes it, so the member's own team drops out. That makes it a
-    small client component: it gets every team's candidates and hides the member's team.
+  - Every team but the submitter's is listed. A proxy only ever submits for their own group
+    (D392), so the member's team is always the submitter's: a plain server-rendered select.
   - The server re-checks D526 regardless.
 - **D531 "with \<name\>" everywhere an entry is shown:**
   - the attendee's history and the tracker's entry timeline;
