@@ -27,7 +27,7 @@ export type SubmitterInfo = { name: string; email: string | null; category: stri
  * revoked row cannot be edited. A live row's ⋯ menu edits its answers in the portal's own
  * fields (D337) or revokes it with a reason (D498). The page's count is of live rows only (D339).
  */
-export function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, reasons, adminNames, verifierNames, groupFor }: {
+export function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, reasons, adminNames, verifierNames, groupFor, withFor }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   submitterFor: (attendeeId: string) => SubmitterInfo;
@@ -41,6 +41,8 @@ export function SubmissionTable({ submissions, questions, submitterFor, edit, re
   verifierNames: Record<string, string>;
   /** D359: a group form's submissions carry the group they were sent for. */
   groupFor?: (s: ActivitySubmission) => string;
+  /** D531: "With <name>" for a tagged pair. */
+  withFor?: (s: ActivitySubmission) => string | null;
 }) {
   if (submissions.length === 0) {
     return (
@@ -113,6 +115,7 @@ export function SubmissionTable({ submissions, questions, submitterFor, edit, re
               <TableCell>
                 <div className="font-semibold">{who.name}</div>
                 {submission.submitted_by && <div className="text-xs text-muted-foreground">Added by {submitterFor(submission.submitted_by).name}</div>}
+                {withFor?.(submission) && <div className="text-xs text-muted-foreground">{withFor(submission)}</div>}
                 {who.email && <div className="text-xs text-muted-foreground">{who.email}</div>}
               </TableCell>
               {groupFor && <TableCell className="text-muted-foreground">{groupFor(submission)}</TableCell>}

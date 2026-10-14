@@ -10,11 +10,11 @@ import { SubmissionFields } from "./SubmissionFields";
 import { HealthConsentField } from "./HealthConsentField";
 import { SubmitFor } from "./SubmitFor";
 import { PairPicker } from "./PairPicker";
-import { pairCandidates } from "../../lib/pairs";
+import { pairCandidates, withText } from "../../lib/pairs";
 import { ActivityActionDialog } from "../../portal/ActivityActionDialog";
 import { canEditOwn, isGroupForm, isProxy, submitLabel, type SubmitState } from "../../lib/submissions";
 import { nowInKL } from "@/lib/time";
-import { submissionsAddedBy } from "../../db/activities";
+import { submissionsAddedBy, pairPartnerIds } from "../../db/activities";
 import { groupMembers, listGroups } from "@/lib/db/groups";
 import { listAttendees, listAttendeesByIds } from "@/lib/db/attendees";
 import { type Activity, type ActivitySubmission, type Attendee } from "@/lib/types";
@@ -66,11 +66,20 @@ export async function proxyFor(f: Activity, attendee: Attendee): Promise<Proxy |
   return { members: members.filter((m) => m.id !== attendee.id), added };
 }
 
-/** D392: "Added by <name>" for entries a group member sent for this attendee. One read, and only when there are any. */
-export async function addedByLine(eventId: string, entries: Pick<ActivitySubmission, "submitted_by">[]) {
-  const ids = [...new Set(entries.flatMap((s) => (s.submitted_by ? [s.submitted_by] : [])))];
+/**
+ * D392: "Added by <name>" for entries a group member sent for this attendee. D531: "With <name>"
+ * for a tagged pair. One read for each, and only when there are any.
+ */
+export async function addedByLine(eventId: string, entries: Pick<ActivitySubmission, "id" | "submitted_by" | "pair_id" | "attendee_id">[]) {
+  const partners = await pairPartnerIds(entries);
+  const ids = [...new Set([...entries.flatMap((s) => (s.submitted_by ? [s.submitted_by] : [])), ...partners.values()])];
   const names = new Map(ids.length ? (await listAttendeesByIds(eventId, ids)).map((a) => [a.id, a.name]) : []);
-  return (s: ActivitySubmission) => (s.submitted_by ? `Added by ${names.get(s.submitted_by) ?? "a group member"}` : null);
+  return (s: ActivitySubmission) => {
+    const added = s.submitted_by ? `Added by ${names.get(s.submitted_by) ?? "a group member"}` : null;
+    const partner = partners.get(s.id);
+    const together = withText(partner ? names.get(partner) : null);
+    return [added, together].filter(Boolean).join(" · ") || null;
+  };
 }
 
 /** Whether the submit dialog shows: their own entry is open, or (D392) they may send one for a member. */

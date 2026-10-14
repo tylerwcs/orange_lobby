@@ -46,7 +46,7 @@ export function SubmissionHistory({ submissions, questions, fileHref, title = "Y
         const answered = Object.entries(s.answers).filter(([, v]) => v !== "");
         const rows = answered.map(([key, value]) => ({ key, value, href: isFile(key) ? fileHref(s, key) : null }));
         const by = byline?.(s);
-        const added = s.submitted_by ? addedBy?.(s) : null;
+        const added = addedBy?.(s) ?? null;
         const editor = edit?.(s, Object.fromEntries(rows.filter((r) => isFile(r.key)).map((r) => [r.key, r.href])));
         return (
           <Card key={s.id}>

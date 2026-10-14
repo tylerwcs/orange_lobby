@@ -42,7 +42,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
           url: await signedSubmissionUrl(s.answers[q.key], PHOTO_SECONDS),
         })));
         const editor = revoked ? null : edit?.(s, Object.fromEntries(photos.map((p) => [p.key, p.url])), "menu");
-        const added = s.submitted_by ? addedBy?.(s) : null;
+        const added = addedBy?.(s) ?? null;
         const at = shortTime(s.created_at);
         const km = `${metricKm(s, metricKey)} ${unit}`;
         const choices = entryChoices(s, questions);

@@ -7,10 +7,11 @@ import { allow } from "@/lib/ratelimit";
 import { brandStyle } from "@/lib/brand";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { listActivities } from "../db/activities";
+import { listActivities, pairPartnerIds } from "../db/activities";
 import { openVerifierLink, submissionsForVerify, verifierNames } from "../db/verifiers";
 import { approveCredit, verifyQuery, verifyQueryString } from "../lib/verifier";
 import { reasonsOf, revokeCredit } from "../lib/revoke";
+import { withText } from "../lib/pairs";
 import { approveAsVerifierAction, revokeAsVerifierAction, unapproveAsVerifierAction } from "./actions";
 import { VerifyCard } from "./VerifyCard";
 
@@ -50,8 +51,9 @@ export async function VerifyPage({ token, search }: { token: string; search: Rec
   const matched = q.q ? (await listAttendees(ev.id, q.q, "name")).slice(0, 200).map((a) => a.id) : null;
   const { rows, more } = await submissionsForVerify({ eventId: ev.id, activityIds: chosen, status: q.status, attendeeIds: matched, page: q.page });
 
+  const partners = await pairPartnerIds(rows);
   const [people, groups, verifiers] = await Promise.all([
-    listAttendeesByIds(ev.id, [...new Set(rows.map((r) => r.attendee_id))]),
+    listAttendeesByIds(ev.id, [...new Set([...rows.map((r) => r.attendee_id), ...partners.values()])]),
     listGroups(ev.id),
     verifierNames(rows.flatMap((r) => [r.revoked_by_verifier, r.approved_by_verifier])),
   ]);
@@ -98,6 +100,7 @@ export async function VerifyPage({ token, search }: { token: string; search: Rec
                   s={s}
                   activity={formById.get(s.activity_id)!}
                   who={nameOf.get(s.attendee_id) ?? "Unknown"}
+                  together={withText(partners.has(s.id) ? nameOf.get(partners.get(s.id)!) : null)}
                   group={s.group_id ? groupOf.get(s.group_id) ?? null : null}
                   token={token}
                   credit={s.status === "revoked" ? revokeCredit(s, { admins: {}, verifiers }) : null}

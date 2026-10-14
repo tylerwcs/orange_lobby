@@ -13,10 +13,12 @@ import { RevokeForm } from "../kinds/submission/RevokeForm";
  * one shows who did it and why instead. D518: a live entry also has Approve, and an approved
  * one says who approved it, with Undo (D521).
  */
-export function VerifyCard({ s, activity, who, group, token, credit, reasons, revoke, approved, approve, unapprove }: {
+export function VerifyCard({ s, activity, who, together, group, token, credit, reasons, revoke, approved, approve, unapprove }: {
   s: ActivitySubmission;
   activity: Activity;
   who: string;
+  /** D531: "With <name>" for a tagged pair. */
+  together: string | null;
   group: string | null;
   token: string;
   /** `revokeCredit` for a revoked entry; null for a live one. */
@@ -38,6 +40,7 @@ export function VerifyCard({ s, activity, who, group, token, credit, reasons, re
           {approved && <Badge className="bg-success-soft text-success-strong">Approved</Badge>}
         </CardTitle>
         <CardDescription>{[activity.name, group, shortDateTime(s.created_at)].filter(Boolean).join(" · ")}</CardDescription>
+        {together && <CardDescription className="text-xs">{together}</CardDescription>}
         {credit && <CardDescription className="text-xs">{credit}</CardDescription>}
         {approved && <CardDescription className="text-xs">{approved}</CardDescription>}
       </CardHeader>

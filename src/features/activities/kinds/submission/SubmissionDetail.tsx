@@ -17,6 +17,7 @@ import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { scannerNames } from "@/lib/db/users";
 import { verifierNames } from "../../db/verifiers";
 import { reasonsOf } from "../../lib/revoke";
+import { withText } from "../../lib/pairs";
 import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } from "../../lib/submissions";
 import { nowInKL, dayNav } from "@/lib/time";
 import { shortDate } from "@/lib/text";
@@ -42,6 +43,13 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
   const submitterFor = (attendeeId: string) => {
     const a = attendeeById.get(attendeeId);
     return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null };
+  };
+  // D531: every row of this activity is already loaded, so a pair's partner is found here.
+  const byPair = new Map<string, typeof submissions>();
+  for (const s of submissions) if (s.pair_id) byPair.set(s.pair_id, [...(byPair.get(s.pair_id) ?? []), s]);
+  const withFor = (s: (typeof submissions)[number]) => {
+    const other = s.pair_id ? byPair.get(s.pair_id)?.find((x) => x.id !== s.id) : undefined;
+    return withText(other ? submitterFor(other.attendee_id).name : null);
   };
 
   // A revoked row stays for the record (D340, so SubmissionTable below still gets `submissions`
@@ -162,6 +170,7 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
               submissions={tableRows}
               questions={activity.questions}
               submitterFor={submitterFor}
+              withFor={withFor}
               edit={editSubmissionAction.bind(null, ev.id, activity.id)}
               revoke={revokeSubmissionAction.bind(null, ev.id, activity.id)}
               adminNames={adminNames}
