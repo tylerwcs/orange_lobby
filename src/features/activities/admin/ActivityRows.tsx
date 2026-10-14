@@ -81,6 +81,16 @@ export function SubmissionSetupFields({ activity, categories, fields, uploadImag
           </div>
         </fieldset>
       )}
+      {/* D524 */}
+      <div className="flex flex-col gap-1">
+        <label className="flex items-center gap-2 text-sm font-bold">
+          <input type="checkbox" name="allow_pair" defaultChecked={activity?.allow_pair ?? false} className="size-4" />
+          Let people tag someone from another team
+        </label>
+        <p className="pl-6 text-xs text-muted-foreground">
+          One entry for an activity done together: both people get it, each for their own team. Editing, deleting or revoking one changes both.
+        </p>
+      </div>
       <ScoringFields activity={activity} />
       <div className="flex flex-col gap-1.5">
         <h3 className="text-sm font-extrabold">Questions</h3>

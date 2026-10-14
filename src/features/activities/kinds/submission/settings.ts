@@ -8,7 +8,7 @@ import type { NewActivity } from "../../db/activities";
 import type { ChallengeScoring, GroupMode } from "@/lib/types";
 import { categoryValues, type FormReader } from "../form";
 
-export type SubmissionSettings = Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label" | "attendee_edit" | "proxy_fields" | "health_data">
+export type SubmissionSettings = Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label" | "attendee_edit" | "proxy_fields" | "health_data" | "allow_pair">
   & { group_mode: GroupMode; group_target: number | null; scoring: ChallengeScoring | null };
 
 /**
@@ -42,6 +42,8 @@ export function readSubmissionSettings(form: FormReader): SubmissionSettings {
     per_day: group.group_mode === "off" ? form.checked("per_day") : false,
     attendee_edit: form.checked("attendee_edit"),
     health_data: form.checked("health_data"),
+    // D524: tag one person from another team; both get the entry.
+    allow_pair: form.checked("allow_pair"),
     // D392: field keys, as ticked. A key no attendee holds a Yes in simply makes nobody a proxy.
     proxy_fields: [...new Set(form.all("proxy_fields").map((v) => v.trim()).filter(Boolean))].slice(0, 10),
     questions,

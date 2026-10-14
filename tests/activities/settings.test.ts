@@ -39,11 +39,15 @@ describe("readSettings (D420)", () => {
         ok: true,
         settings: {
           name: "Photo", description: null, categories: null, max_per_attendee: null, per_day: false,
-          attendee_edit: false, health_data: false, proxy_fields: [], questions: [],
+          attendee_edit: false, health_data: false, proxy_fields: [], allow_pair: false, questions: [],
           starts_on: null, ends_on: null, venue: null, action_label: null,
           group_mode: "off", group_target: null, scoring: null,
         },
       });
+    });
+
+    it("reads the tag-someone-from-another-team switch (D524)", () => {
+      expect(readSettings("submission", form({ name: "Active", allow_pair: "on" }))).toMatchObject({ ok: true, settings: { allow_pair: true } });
     });
 
     it("drops the per-person rules on a group form (D351)", () => {
