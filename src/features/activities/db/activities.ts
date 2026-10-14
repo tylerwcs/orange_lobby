@@ -3,6 +3,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
 import type { RegistrationQuestion, GroupMode, ChallengeScoring } from "@/lib/types";
 import type { Activity, ActivityBooking, ActivityKind, ActivitySession, ActivitySubmission, Event } from "@/lib/types";
+import type { PairCode, PairWho } from "../lib/pairs";
 
 export type NewActivity = {
   name: string;
@@ -38,6 +39,8 @@ export type NewActivity = {
   proxy_fields?: string[];
   /** Submission kind only (D412). Left out, the column's false stands. */
   health_data?: boolean;
+  /** Submission kind only (D524). Left out, the column's false stands. */
+  allow_pair?: boolean;
   /** D397. Left out, the column's true stands; `toggleLeaderboardAction` alone flips it. */
   show_leaderboard?: boolean;
   /** Polaroid kind only (D474, D475). Left out, the columns' nulls stand. */
@@ -414,13 +417,49 @@ export async function getSubmission(id: string): Promise<ActivitySubmission | nu
   return data as ActivitySubmission | null;
 }
 
-/** D337. Only a live row can be edited; false when it was revoked or is gone. D520: an edit clears any approval. */
+/**
+ * D520: what every edit writes besides the answers. A verifier approved the answer they saw;
+ * once it changes, the entry is back in their To check list.
+ */
+const UNAPPROVED = { approved_at: null, approved_by_verifier: null };
+
+/**
+ * D532/D533: what a write to one entry acts on - both rows of a tagged pair, or just this row.
+ * Read fresh per write rather than trusted from the caller's copy of the row.
+ */
+async function linkedScope(id: string): Promise<{ col: "id" | "pair_id"; val: string }> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("pair_id").eq("id", id).maybeSingle();
+  if (error) throw error;
+  const pair = (data as { pair_id: string | null } | null)?.pair_id ?? null;
+  return pair ? { col: "pair_id", val: pair } : { col: "id", val: id };
+}
+
+/** D531: for each paired row given, the other row's attendee. One query for the whole list. */
+export async function pairPartnerIds(rows: Pick<ActivitySubmission, "id" | "pair_id">[]): Promise<Map<string, string>> {
+  const pairs = [...new Set(rows.flatMap((r) => (r.pair_id ? [r.pair_id] : [])))];
+  if (pairs.length === 0) return new Map();
+  const { data, error } = await serviceClient().from("activity_submissions").select("id, pair_id, attendee_id").in("pair_id", pairs);
+  if (error) throw error;
+  const all = (data ?? []) as { id: string; pair_id: string; attendee_id: string }[];
+  const out = new Map<string, string>();
+  for (const r of rows) {
+    const other = r.pair_id ? all.find((x) => x.pair_id === r.pair_id && x.id !== r.id) : undefined;
+    if (other) out.set(r.id, other.attendee_id);
+  }
+  return out;
+}
+
+/**
+ * D337. Only a live row can be edited; false when it was revoked or is gone. D520: an edit clears any approval.
+ * D532: on a tagged pair the edit lands on both rows.
+ */
 export async function updateSubmissionAnswers(
   id: string, activityId: string, answers: Record<string, string>, userId: string, fileHashes: Record<string, string>,
 ): Promise<boolean> {
+  const s = await linkedScope(id);
   const { data, error } = await serviceClient().from("activity_submissions")
     .update({ answers, file_hashes: fileHashes, edited_at: new Date().toISOString(), edited_by: userId, ...UNAPPROVED })
-    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
+    .eq(s.col, s.val).eq("activity_id", activityId).eq("status", "submitted").select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }
@@ -429,14 +468,18 @@ export async function updateSubmissionAnswers(
  * D391: an attendee's edit of their own entry. Every rule `canEditOwn` checked is re-checked in
  * the write itself - their row, still live, sent today - so a revoke or midnight landing between
  * the check and the save wins. False when any of them no longer holds.
+ * D532: a pair is written as a whole. Who may edit was checked by `canEditOwn` on a fresh read and
+ * the owner never changes, so the owner guard stays only for an unpaired row.
  */
 export async function updateOwnSubmissionAnswers(
   id: string, activityId: string, attendeeId: string, today: string, answers: Record<string, string>, fileHashes: Record<string, string>,
 ): Promise<boolean> {
-  const { data, error } = await serviceClient().from("activity_submissions")
+  const s = await linkedScope(id);
+  let q = serviceClient().from("activity_submissions")
     .update({ answers, file_hashes: fileHashes, attendee_edited_at: new Date().toISOString(), ...UNAPPROVED })
-    .eq("id", id).eq("activity_id", activityId).or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`)
-    .eq("status", "submitted").eq("submitted_on", today).select("id");
+    .eq(s.col, s.val).eq("activity_id", activityId);
+  if (s.col === "id") q = q.or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`);
+  const { data, error } = await q.eq("status", "submitted").eq("submitted_on", today).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }
@@ -445,11 +488,14 @@ export async function updateOwnSubmissionAnswers(
  * D398: an attendee deletes their own entry - gone for good, row and (by the caller) files. The
  * same rules as `updateOwnSubmissionAnswers`, re-checked in the delete itself. Returns the row it
  * removed, so the caller deletes exactly that row's files; null when any rule no longer holds.
+ * D533: a tagged pair goes as a whole; both rows name the same files, so the first removed row
+ * is enough for the caller to delete them once.
  */
 export async function deleteOwnSubmission(id: string, activityId: string, attendeeId: string, today: string): Promise<ActivitySubmission | null> {
-  const { data, error } = await serviceClient().from("activity_submissions").delete()
-    .eq("id", id).eq("activity_id", activityId).or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`)
-    .eq("status", "submitted").eq("submitted_on", today).select("*");
+  const s = await linkedScope(id);
+  let q = serviceClient().from("activity_submissions").delete().eq(s.col, s.val).eq("activity_id", activityId);
+  if (s.col === "id") q = q.or(`attendee_id.eq.${attendeeId},submitted_by.eq.${attendeeId}`);
+  const { data, error } = await q.eq("status", "submitted").eq("submitted_on", today).select("*");
   if (error) throw error;
   return (data?.[0] as ActivitySubmission | undefined) ?? null;
 }
@@ -467,44 +513,43 @@ export async function submissionsAddedBy(activityId: string, attendeeId: string,
 export type RevokedBy = { userId: string } | { verifierId: string };
 
 /**
- * D338. Status, not a delete: the row and its files stay. False when already revoked or gone.
- * D498/D499: always with a reason, stored as the wording itself.
- */
-/**
- * D520: what every edit writes besides the answers. A verifier approved the answer they saw;
- * once it changes, the entry is back in their To check list.
- */
-const UNAPPROVED = { approved_at: null, approved_by_verifier: null };
-
-/**
  * D518: a verifier marks a live, not-yet-approved entry as checked. Guarded in the write, so
  * a revoke or another verifier's approval landing first wins. False when either did.
+ * D532: on a tagged pair the approval covers both rows.
  */
 export async function approveSubmission(id: string, activityId: string, verifierId: string): Promise<boolean> {
+  const s = await linkedScope(id);
   const { data, error } = await serviceClient().from("activity_submissions")
     .update({ approved_at: new Date().toISOString(), approved_by_verifier: verifierId })
-    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").is("approved_at", null).select("id");
+    .eq(s.col, s.val).eq("activity_id", activityId).eq("status", "submitted").is("approved_at", null).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }
 
-/** D521: Undo. Any of the event's verifiers may take an approval back, while the entry is live. */
+/** D521: Undo. Any of the event's verifiers may take an approval back, while the entry is live. D532: both rows of a pair. */
 export async function unapproveSubmission(id: string, activityId: string): Promise<boolean> {
+  const s = await linkedScope(id);
   const { data, error } = await serviceClient().from("activity_submissions")
     .update(UNAPPROVED)
-    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").not("approved_at", "is", null).select("id");
+    .eq(s.col, s.val).eq("activity_id", activityId).eq("status", "submitted").not("approved_at", "is", null).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * D338. Status, not a delete: the row and its files stay. False when already revoked or gone.
+ * D498/D499: always with a reason, stored as the wording itself.
+ * D533: revoking one row of a tagged pair revokes both, with the same reason and stamp.
+ */
 export async function revokeSubmission(id: string, activityId: string, reason: string, by: RevokedBy): Promise<boolean> {
+  const s = await linkedScope(id);
   const { data, error } = await serviceClient().from("activity_submissions")
     .update({
       status: "revoked", revoked_at: new Date().toISOString(), revoke_reason: reason,
       revoked_by: "userId" in by ? by.userId : null,
       revoked_by_verifier: "verifierId" in by ? by.verifierId : null,
     })
-    .eq("id", id).eq("activity_id", activityId).eq("status", "submitted").select("id");
+    .eq(s.col, s.val).eq("activity_id", activityId).eq("status", "submitted").select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }
@@ -529,6 +574,23 @@ export async function submitAnswers(
   });
   if (error) throw error;
   return data as SubmitCode;
+}
+
+/**
+ * D527: the tagged submit - both people's entries or neither, decided in one transaction by
+ * `submit_answers_pair`. `who` says whose refusal it is, so the message can name the partner.
+ */
+export async function submitAnswersPair(
+  activityId: string, attendeeId: string, partnerId: string, answers: Record<string, string>, today: string,
+  submittedBy: string | null, fileHashes: Record<string, string>,
+): Promise<{ code: PairCode; who: PairWho }> {
+  const { data, error } = await serviceClient().rpc("submit_answers_pair", {
+    p_activity_id: activityId, p_attendee_id: attendeeId, p_partner_id: partnerId, p_answers: answers, p_today: today,
+    p_submitted_by: submittedBy, p_file_hashes: fileHashes,
+  });
+  if (error) throw error;
+  const row = (data as { code: PairCode; who: PairWho }[] | null)?.[0];
+  return row ?? { code: "missing", who: "self" };
 }
 
 /**

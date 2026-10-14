@@ -180,10 +180,21 @@ export async function deleteAttendees(event: Pick<Event, "id" | "org_id">, ids: 
   for (let i = 0; i < ids.length; i += ID_CHUNK) {
     const chunk = ids.slice(i, i + ID_CHUNK);
     const { data: subs, error: readError } = await db.from("activity_submissions")
-      .select("answers").eq("event_id", event.id).in("attendee_id", chunk);
+      .select("answers, pair_id").eq("event_id", event.id).in("attendee_id", chunk);
     if (readError) throw readError;
-    const answers = ((subs ?? []) as { answers: Record<string, unknown> | null }[]).map((r) => r.answers ?? {});
-    await deleteSubmissionFiles(submissionFilePaths(answers, `${event.org_id}/${event.id}`));
+    const rows = (subs ?? []) as { answers: Record<string, unknown> | null; pair_id: string | null }[];
+    // D534: a tagged pair shares one set of files. The partner's row survives this delete
+    // (unless the partner is in this chunk too), so the paths it still names are kept.
+    const pairs = [...new Set(rows.flatMap((r) => (r.pair_id ? [r.pair_id] : [])))];
+    let kept = new Set<string>();
+    if (pairs.length > 0) {
+      const { data: partners, error: pairError } = await db.from("activity_submissions")
+        .select("answers").in("pair_id", pairs).not("attendee_id", "in", `(${chunk.join(",")})`);
+      if (pairError) throw pairError;
+      kept = new Set(submissionFilePaths(((partners ?? []) as { answers: Record<string, unknown> | null }[]).map((r) => r.answers ?? {}), `${event.org_id}/${event.id}`));
+    }
+    const paths = submissionFilePaths(rows.map((r) => r.answers ?? {}), `${event.org_id}/${event.id}`).filter((p) => !kept.has(p));
+    await deleteSubmissionFiles(paths);
     const { data, error } = await db.from("attendees").delete().eq("event_id", event.id).in("id", chunk).select("id");
     if (error) throw error;
     deleted += data?.length ?? 0;
