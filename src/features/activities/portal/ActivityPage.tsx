@@ -9,6 +9,7 @@ import { trackerTab } from "../lib/tracker";
 import { BookingBody } from "../kinds/booking/BookingBody";
 import { editorFor, proxyFor, SubmissionBody } from "../kinds/submission/SubmissionBody";
 import { TrackerBody } from "../kinds/submission/scoring/TrackerBody";
+import { eventFields } from "@/lib/attendee-fields";
 import { PassportBody } from "../kinds/passport/PassportBody";
 import { PolaroidBody } from "../kinds/polaroid/PolaroidBody";
 
@@ -54,6 +55,8 @@ export async function ActivityPage({ params, searchParams }: {
         const form = found.entry;
         return form.form.scoring
           ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy}
+              // D517: rosters follow the All groups switch - one switch for seeing other teams' members.
+              rosters={event.all_groups ? { groupFields: event.group_fields, fields: eventFields(event.registration_questions, event.attendee_fields) } : null}
               day={typeof day === "string" ? day : null} writing={writing === "1"}
               // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
               tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined, form.form.show_leaderboard)} />

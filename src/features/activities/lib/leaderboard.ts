@@ -14,18 +14,22 @@ export type LeaderboardView = {
   scored: boolean;
   /** The first three live teams in standings order, with their real ranks (a tie for 1st is 1, 1). */
   podium: Standing[];
-  /** Everyone not on the podium, void teams last; every team while nothing is scored. */
+  /**
+   * Everyone not on the podium, void teams last; every team while nothing is scored. D516: with
+   * `everyTeam`, every team in standings order, the podium too, so each one has a row to open.
+   */
   rest: Standing[];
   /** What a bar measures against: the leader's total is a full bar. */
   leaderTotal: number;
 };
 
-export function leaderboardView(standings: Standing[]): LeaderboardView {
+export function leaderboardView(standings: Standing[], opts: { everyTeam?: boolean } = {}): LeaderboardView {
   const live = standings.filter((s) => !s.void);
   const scored = live.some((s) => s.total > 0);
   const podium = scored ? live.slice(0, 3) : [];
   const onPodium = new Set(podium.map((s) => s.id));
-  return { scored, podium, rest: standings.filter((s) => !onPodium.has(s.id)), leaderTotal: live[0]?.total ?? 0 };
+  const rest = opts.everyTeam ? standings : standings.filter((s) => !onPodium.has(s.id));
+  return { scored, podium, rest, leaderTotal: live[0]?.total ?? 0 };
 }
 
 export type StandingLine = { rank: string; title: string; line: string };

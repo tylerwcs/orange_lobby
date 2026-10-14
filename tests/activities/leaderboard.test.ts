@@ -92,6 +92,16 @@ describe("leaderboardView (D386)", () => {
     expect(v.podium.map((s) => s.rank)).toEqual([1, 1, 3]);
   });
 
+  it("lists every team below, podium included, in rank order with void last, when rosters open (D516)", () => {
+    const v = leaderboardView(table, { everyTeam: true });
+    expect(v.podium.map((s) => s.id)).toEqual(["04", "07", "02"]);
+    expect(v.rest.map((s) => s.id)).toEqual(["04", "07", "02", "09", "01", "05", "03"]);
+  });
+
+  it("keeps today's list, 4th onwards, without the option (D516)", () => {
+    expect(leaderboardView(table, { everyTeam: false }).rest.map((s) => s.id)).toEqual(["09", "01", "05", "03"]);
+  });
+
   it("before any points, leaves the podium empty and lists every team below", () => {
     const zero = [row("01", 0, 1), row("02", 0, 1), row("03", 0, null)];
     const v = leaderboardView(zero);

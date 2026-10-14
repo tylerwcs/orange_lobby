@@ -10,6 +10,8 @@ import { TrackerTabs } from "./tracker/TrackerTabs";
 import { nowInKL } from "@/lib/time";
 import { buildTracker, trackerTabs, type TrackerTab } from "../../../lib/tracker";
 import { standingLine } from "../../../lib/leaderboard";
+import { allGroupCards, type GroupCard } from "@/lib/groups";
+import type { AttendeeField } from "@/lib/attendee-fields";
 import { entriesForAttendee } from "../../../db/activities";
 import { RichSections } from "@/components/portal/RichSections";
 import { PendingScope, PendingSwap } from "@/components/PendingNav";
@@ -25,9 +27,11 @@ import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../S
  * opens this page for every day, with My team at its foot (D387); Info holds the About and rules;
  * Leaderboard the standings (D386). Each tab reads only what it draws.
  */
-export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit, proxy }: {
+export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit, proxy, rosters }: {
   entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
   day: string | null; writing: boolean; tab: TrackerTab; edit?: EditEntry; proxy: Proxy | null;
+  /** D517: the event shows all groups, so the Leaderboard's teams open to their rosters; null keeps rows closed. */
+  rosters: RosterRules | null;
 }) {
   const path = `/e/${slug}/a/${token}/activities/${entry.form.id}`;
   return (
@@ -39,7 +43,7 @@ export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStart
         {tab === "info"
           ? <TrackerInfo html={entry.form.description} />
           : tab === "leaderboard"
-            ? <TrackerLeaderboard entry={entry} teamId={teamId} eventStartsOn={eventStartsOn} />
+            ? <TrackerLeaderboard entry={entry} teamId={teamId} attendeeId={attendeeId} eventStartsOn={eventStartsOn} rosters={rosters} />
             : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} edit={edit} proxy={proxy} />}
       </PendingSwap>
     </PendingScope>
@@ -121,17 +125,27 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
   );
 }
 
-/** D386: every team's standing - the podium, where you stand, and the rest. My team is on My stats (D387). */
-async function TrackerLeaderboard({ entry: { form: f }, teamId, eventStartsOn }: {
-  entry: SubmissionEntry; teamId: string | null; eventStartsOn: string | null;
+/** D517: what the Leaderboard's rosters may show - the event's shared fields, of which only tags survive (D512). */
+export type RosterRules = { groupFields: string[]; fields: AttendeeField[] };
+
+/**
+ * D386: every team's standing - the podium, where you stand, and the rest. My team is on My stats (D387).
+ * D516/D517: with `rosters`, every team gets a row that opens to its members, built by the same rule
+ * as All groups (names and tags only), from the rows the score was read from.
+ */
+async function TrackerLeaderboard({ entry: { form: f }, teamId, attendeeId, eventStartsOn, rosters }: {
+  entry: SubmissionEntry; teamId: string | null; attendeeId: string; eventStartsOn: string | null; rosters: RosterRules | null;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
   const challenge = await loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today);
   const standings = challenge.score.standings;
+  const members: Map<string, GroupCard["members"]> | null = rosters
+    ? new Map(allGroupCards(challenge.groups, challenge.attendees, null, rosters.groupFields, rosters.fields).map((c) => [c.id, c.members]))
+    : null;
   return (
     <section className="flex flex-col gap-4 py-5">
-      <Leaderboard standings={standings} mine={teamId}
+      <Leaderboard standings={standings} mine={teamId} rosters={members} selfId={attendeeId}
         stand={standingLine(standings, teamId, { startsOn: scoring.starts_on, today })}
         podiumPoints={(scoring.podium ?? []).some((p) => p > 0)} />
     </section>

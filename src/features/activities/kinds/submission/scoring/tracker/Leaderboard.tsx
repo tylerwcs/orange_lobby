@@ -1,4 +1,6 @@
-import { Crown, Medal, Trophy } from "lucide-react";
+import { ChevronRight, Crown, Medal, Trophy } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import type { GroupCard } from "@/lib/groups";
 import type { Standing } from "../../../../lib/challenge-score";
 import { leaderboardView, pts, type StandingLine } from "../../../../lib/leaderboard";
 
@@ -22,9 +24,30 @@ const PLACE = {
 } as const;
 const place = (rank: number) => PLACE[Math.min(rank, 3) as 1 | 2 | 3];
 
+/** One standings row's box, whether it opens (a summary) or not (a div). */
+const ROW = "flex min-h-14 items-center gap-3 px-3 py-2.5";
+
+/** D516: a team's members, numbered, captains first, tags as badges - never anyone's points. */
+function Roster({ members, selfId }: { members: GroupCard["members"]; selfId: string | null }) {
+  if (members.length === 0) return <p className="border-t border-border px-3 py-2.5 text-sm text-muted-foreground">No members yet.</p>;
+  return (
+    <ol className="divide-y divide-border border-t border-border bg-background/40 px-3">
+      {members.map((m, i) => (
+        <li key={m.id} className="flex items-center gap-3 py-2 text-sm">
+          <span className="w-6 shrink-0 text-right tabular-nums text-muted-foreground">{i + 1}</span>
+          <span className="min-w-0 flex-1 truncate">
+            {m.name}{m.id === selfId && <span className="text-muted-foreground"> (you)</span>}
+          </span>
+          {m.tags.map((t) => <Badge key={t} variant="secondary">{t}</Badge>)}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 type Column = { key: string; name: string; total: number | null; rank: number; mine: boolean };
 
-export function Leaderboard({ standings, mine, stand, podiumPoints }: {
+export function Leaderboard({ standings, mine, stand, podiumPoints, rosters = null, selfId = null }: {
   standings: Standing[];
   /** The viewer's team id, null without one. */
   mine: string | null;
@@ -32,8 +55,16 @@ export function Leaderboard({ standings, mine, stand, podiumPoints }: {
   stand: StandingLine | null;
   /** Whether the challenge awards weekly podium points at all, so the header can promise them. */
   podiumPoints: boolean;
+  /**
+   * D516/D517: each team's members (names and tags only), when the event shows all groups. Then
+   * the list below holds every team, podium too, and each row opens to its roster; null keeps
+   * today's closed rows from 4th place on.
+   */
+  rosters?: Map<string, GroupCard["members"]> | null;
+  /** The viewer, marked "(you)" in their team's roster. */
+  selfId?: string | null;
 }) {
-  const view = leaderboardView(standings);
+  const view = leaderboardView(standings, { everyTeam: !!rosters });
   // Before any points, the podium is its three empty places, so the page still shows the prize.
   const columns: Column[] = view.scored
     ? view.podium.map((s) => ({ key: s.id, name: s.name, total: s.total, rank: s.rank ?? 3, mine: s.id === mine }))
@@ -92,12 +123,14 @@ export function Leaderboard({ standings, mine, stand, podiumPoints }: {
           {view.rest.map((s, i) => {
             const isMine = s.id === mine;
             const width = view.leaderTotal > 0 ? Math.round((s.total / view.leaderTotal) * 100) : 0;
-            return (
-              <li key={s.id} className={`flex min-h-14 items-center gap-3 border-b border-border px-3 py-2.5 last:border-b-0 ${isMine ? "bg-success-soft text-success-strong" : ""}`}>
+            const tint = isMine ? "bg-success-soft text-success-strong" : "";
+            const roster = rosters?.get(s.id) ?? null;
+            const row = (
+              <>
                 <span className={`w-6 shrink-0 text-right text-sm font-bold tabular-nums ${isMine ? "" : "text-muted-foreground"}`}>
                   {view.scored && s.rank !== null ? s.rank : "–"}
                 </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <span className={`truncate text-sm ${isMine ? "font-extrabold" : "font-bold"} ${s.void ? "text-muted-foreground" : ""}`}>
                     {s.name}{isMine ? " (your team)" : ""}
                   </span>
@@ -110,10 +143,26 @@ export function Leaderboard({ standings, mine, stand, podiumPoints }: {
                       />
                     </span>
                   )}
-                </div>
+                </span>
                 <span className={`shrink-0 text-sm font-extrabold tabular-nums ${s.void ? "text-muted-foreground" : ""}`}>
                   {s.void ? "Void" : pts(s.total)}
                 </span>
+              </>
+            );
+            return (
+              <li key={s.id} className="border-b border-border last:border-b-0">
+                {roster ? (
+                  // Native <details>: server-drawn, no client JS, opens from the keyboard (as All groups, D511).
+                  <details className="group/row">
+                    <summary className={`${ROW} cursor-pointer list-none [&::-webkit-details-marker]:hidden ${tint}`}>
+                      {row}
+                      <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground transition-transform group-open/row:rotate-90" />
+                    </summary>
+                    <Roster members={roster} selfId={selfId} />
+                  </details>
+                ) : (
+                  <div className={`${ROW} ${tint}`}>{row}</div>
+                )}
               </li>
             );
           })}

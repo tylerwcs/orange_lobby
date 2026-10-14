@@ -4,7 +4,7 @@ import { scoreChallenge, type ChallengeScore, type Team } from "./challenge-scor
 import { dailyTotals, listDisqualifications, type Disqualification } from "../db/challenge";
 import { listGroups } from "@/lib/db/groups";
 import { listAttendees } from "@/lib/db/attendees";
-import type { Activity, Event } from "@/lib/types";
+import type { Activity, Attendee, Event, EventGroup } from "@/lib/types";
 
 /**
  * D375: the one read behind every leaderboard - the portal's team table and My team, the admin
@@ -17,6 +17,9 @@ export async function loadChallenge(event: Pick<Event, "id" | "starts_on">, acti
   weeks: ChallengeWeek[];
   names: Map<string, string>;
   disqualifications: Disqualification[];
+  /** D516: the rows this read already has, so the leaderboard's rosters need no second query. */
+  groups: EventGroup[];
+  attendees: Attendee[];
 }> {
   const scoring = activity.scoring!;
   const [totals, groups, attendees, disqualifications] = await Promise.all([
@@ -29,5 +32,5 @@ export async function loadChallenge(event: Pick<Event, "id" | "starts_on">, acti
   const weeks = challengeWeeks(scoring, event.starts_on);
   const disqualified = new Map(disqualifications.map((d) => [d.attendee_id, d.week_of]));
   const score = scoreChallenge({ totals, teams, disqualified, scoring, weeks, today });
-  return { score, teams, weeks, names: new Map(attendees.map((a) => [a.id, a.name])), disqualifications };
+  return { score, teams, weeks, names: new Map(attendees.map((a) => [a.id, a.name])), disqualifications, groups, attendees };
 }
