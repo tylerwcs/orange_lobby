@@ -14,6 +14,7 @@ import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { ScheduleOpen } from "../../admin/ScheduleOpen";
 import { ActivityMenu } from "../../admin/ActivityMenu";
 import { COVER_HINT } from "../../admin/ActivityRows";
 import { removeWarning } from "../../row";
@@ -25,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  toggleOpenAction, togglePinAction, savePassportActivityAction, deletePassportActivityAction,
+  toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, savePassportActivityAction, deletePassportActivityAction,
   addBoothAction, renameBoothAction, reorderBoothsAction, deleteBoothAction,
   uploadActivityImageAction,
 } from "../../admin/actions";
@@ -78,6 +79,11 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
         subtitle={`${completed} of ${audience} have filled their card · ${booths.length} booth${booths.length === 1 ? "" : "s"}`}
         actions={
           <>
+            <ScheduleOpen
+              activity={activity}
+              schedule={scheduleOpenAction.bind(null, ev.id, activity.id, "setup")}
+              remove={removeScheduleAction.bind(null, ev.id, activity.id, "setup")}
+            />
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup")} name={activity.name} showLabel />
             <Modal title="Add a booth" hint="Prints its own scanner link once it exists." trigger="Add booth" icon="plus">
               <form action={addBoothAction.bind(null, ev.id, activity.id)} className="grid gap-4">

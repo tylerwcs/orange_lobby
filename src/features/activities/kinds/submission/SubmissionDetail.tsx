@@ -12,6 +12,7 @@ import { ParticipationPanel } from "./ParticipationPanel";
 import { LeaderboardPanel } from "./scoring/LeaderboardPanel";
 import { TeamGrid } from "./scoring/TeamGrid";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { ScheduleOpen } from "../../admin/ScheduleOpen";
 import { submissionsForActivity } from "../../db/activities";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { scannerNames } from "@/lib/db/users";
@@ -31,7 +32,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { DayNav } from "@/components/admin/DayNav";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toggleOpenAction, togglePinAction, toggleLeaderboardAction, saveSubmissionActivityAction, deleteSubmissionActivityAction, uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction, disqualifyAction, undoDisqualifyAction } from "../../admin/actions";
+import { toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, toggleLeaderboardAction, saveSubmissionActivityAction, deleteSubmissionActivityAction, uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction, disqualifyAction, undoDisqualifyAction } from "../../admin/actions";
 
 export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId }: {
   ev: Event; activity: Activity; requestedDay?: string; tab?: string; week?: string; teamId?: string;
@@ -127,6 +128,11 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
         subtitle={`${live.length} submission${live.length === 1 ? "" : "s"} · ${capSummary(activity)}`}
         actions={
           <>
+            <ScheduleOpen
+              activity={activity}
+              schedule={scheduleOpenAction.bind(null, ev.id, activity.id, current)}
+              remove={removeScheduleAction.bind(null, ev.id, activity.id, current)}
+            />
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
             <ActivityMenu
               name={activity.name}

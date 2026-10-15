@@ -11,6 +11,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Field } from "@/components/admin/Field";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { ScheduleOpen } from "../../admin/ScheduleOpen";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,7 @@ import { ActivityTabs } from "../../admin/ActivityTabs";
 import { activityTabs, resolveTab, activityHref, type ActivityTab } from "../../tabs";
 import { COVER_HINT } from "../../admin/ActivityRows";
 import { removeWarning } from "../../row";
-import { toggleOpenAction, togglePinAction, savePolaroidActivityAction, deletePolaroidActivityAction, uploadActivityImageAction } from "../../admin/actions";
+import { toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, savePolaroidActivityAction, deletePolaroidActivityAction, uploadActivityImageAction } from "../../admin/actions";
 
 /** A polaroid wall's page (D485): Setup holds details, links and the wall; Polaroids is the moderation feed; Stickers is the pack. */
 export async function PolaroidDetail({ ev, activity, tab, show }: { ev: Event; activity: Activity; tab?: string; show?: string }) {
@@ -40,6 +41,11 @@ export async function PolaroidDetail({ ev, activity, tab, show }: { ev: Event; a
         subtitle={`${onWall} polaroid${onWall === 1 ? "" : "s"} on the wall`}
         actions={
           <>
+            <ScheduleOpen
+              activity={activity}
+              schedule={scheduleOpenAction.bind(null, ev.id, activity.id, "setup")}
+              remove={removeScheduleAction.bind(null, ev.id, activity.id, "setup")}
+            />
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup")} name={activity.name} showLabel />
             {wall && (
               <Link href={wall} target="_blank" rel="noopener" className={buttonVariants({ variant: "outline", size: "sm" })}>

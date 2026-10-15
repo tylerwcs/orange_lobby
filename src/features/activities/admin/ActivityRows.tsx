@@ -5,6 +5,7 @@ import type { AttendeeField } from "@/lib/attendee-fields";
 import { KIND_META } from "../kinds/meta";
 import { type ActivityRowView } from "../row";
 import { MAX_SUBMISSION_QUESTIONS } from "../lib/submissions";
+import { opensShort } from "../lib/schedule";
 import { FORM_QUESTION_TYPES } from "@/lib/registration";
 import { meterPercent } from "@/lib/meter";
 import { Field } from "@/components/admin/Field";
@@ -116,7 +117,16 @@ export function ActivityThumb({ activity }: { activity: Pick<Activity, "kind" | 
   );
 }
 
-export function StatusPill({ open }: { open: boolean }) {
+/** Open, Closed, or D608's Scheduled with when beneath it: scheduled is still closed, but it is not the same news. */
+export function StatusPill({ open, opensAt = null }: { open: boolean; opensAt?: string | null }) {
+  if (!open && opensAt) {
+    return (
+      <span className="inline-flex flex-col items-start gap-0.5">
+        <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">Scheduled</span>
+        <span className="text-xs text-muted-foreground">{opensShort(opensAt)}</span>
+      </span>
+    );
+  }
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${open ? "bg-success-soft text-success-strong" : "bg-muted text-muted-foreground"}`}>
       {open ? "Open" : "Closed"}
@@ -195,11 +205,11 @@ function Row({ activity, view, href, toggle, menu }: ActivityListItem) {
         </div>
         {/* Phone only: status and progress fold under the name. */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground md:hidden">
-          <StatusPill open={activity.is_open} />
+          <StatusPill open={activity.is_open} opensAt={activity.opens_at} />
           <span className="tabular-nums">{view.progress.label}</span>
         </div>
       </div>
-      <div role="cell" className="hidden md:block"><StatusPill open={activity.is_open} /></div>
+      <div role="cell" className="hidden md:block"><StatusPill open={activity.is_open} opensAt={activity.opens_at} /></div>
       <div role="cell" className="hidden flex-col gap-1.5 md:flex">
         <span className="text-sm tabular-nums">{view.progress.label}</span>
         <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>

@@ -12,6 +12,7 @@ import { BookingsByDay } from "./BookingsByDay";
 import { UnbookedPanel } from "./UnbookedPanel";
 import { RequestQueue } from "./RequestQueue";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { ScheduleOpen } from "../../admin/ScheduleOpen";
 import { listSessions, listBookings, countBookingsBySession } from "../../db/activities";
 import { listRequests } from "../../db/activity-requests";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
@@ -28,7 +29,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { saveActivityAction, toggleOpenAction, togglePinAction, deleteActivityAction, addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction, placeAttendeesAction, approveRequestAction, declineRequestAction, uploadActivityImageAction } from "../../admin/actions";
+import { saveActivityAction, toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, deleteActivityAction, addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction, placeAttendeesAction, approveRequestAction, declineRequestAction, uploadActivityImageAction } from "../../admin/actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";
@@ -106,6 +107,11 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
         subtitle={`${bookedCount} of ${attendees.length} have booked · ${seats.reduce((n, s) => n + s.left, 0)} seats left`}
         actions={
           <>
+            <ScheduleOpen
+              activity={activity}
+              schedule={scheduleOpenAction.bind(null, ev.id, activity.id, current)}
+              remove={removeScheduleAction.bind(null, ev.id, activity.id, current)}
+            />
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
             <ActivityMenu
               name={activity.name}
