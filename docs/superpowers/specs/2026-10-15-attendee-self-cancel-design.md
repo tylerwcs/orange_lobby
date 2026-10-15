@@ -1,6 +1,46 @@
 # Attendees cancel their own registration — design
 
 Date: 15 Oct 2026. Decisions D580–D592. Migration 0084.
+**Amended 15 Oct 2026 (D593–D599, migration 0085): cancelling needs an organiser's approval** — see
+"Amendment: approval" below. Where it disagrees with D582/D585/D586, the amendment wins: the
+attendee now *asks* to cancel, and the cancel itself (D580–D582) happens when an organiser approves.
+
+## Amendment: approval (D593–D599)
+
+**D593 — The attendee asks; an organiser approves.** The same button and dialog, but confirming
+sends a request: `attendees.cancel_requested_at` is set. Nothing else changes until an organiser
+approves. Dialog: title `Ask to cancel your registration for <event>?`, body `Your request goes to
+the organiser. You stay registered until they approve it.`, buttons `Yes, ask to cancel` /
+`Keep my place`. Flash after sending: `Request sent. The organiser will confirm.`
+
+**D594 — While a request waits, they are fully registered.** Counted, listed, can book, can check
+in, can use the portal. D581's exclusions apply only once approved (`cancelled_at` set).
+
+**D595 — Waiting state and withdraw.** Instead of the Cancel card/link, the Me page (live) and the
+draft page show `You asked to cancel on <d MMM>. The organiser will confirm.` and a plain-form
+button `Withdraw request` (no dialog). Flash: `Request withdrawn.` `canSelfCancel` refuses a second
+request with `You've already asked to cancel.`
+
+**D596 — Decline.** Declining clears the request and sets `attendees.cancel_declined_at`. The Me
+page (live) / draft page then show `The organiser declined your cancellation request.` above the
+usual Cancel card (they may ask again while D584 allows it). Asking again clears
+`cancel_declined_at`.
+
+**D597 — Turning up withdraws the request.** Any check-in (scanner, crew link, admin bulk
+check-in) clears `cancel_requested_at` for that attendee: they came.
+
+**D598 — Organisers approve in Attendees.** A `Cancellation requests (<n>)` view
+(`?show=requests`) beside `Cancelled (<n>)` lists waiting requests — Name, Email, Asked on — with
+**Approve** and **Decline** per row (plain server forms). Approve runs the D580–D582 cancel (mark,
+free bookings, withdraw change requests) and clears the request; flash `Cancelled <name>.`.
+Decline: flash `Declined <name>'s request.`. Both stay on the requests view. Admins and committee
+alike (`requireEventAccess`, D588). The cut-off (D583) limits *asking*; approving works any time
+until archive. The sidebar's **Attendees** item shows a badge with the waiting count. No WhatsApp
+alert (D589 still holds).
+
+**D599 — Data.** Migration 0085 adds `attendees.cancel_requested_at timestamptz` and
+`attendees.cancel_declined_at timestamptz`, plus a partial index on `(event_id)` where a request
+is waiting and the row is not cancelled.
 
 ## Goal
 
