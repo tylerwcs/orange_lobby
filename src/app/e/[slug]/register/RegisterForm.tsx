@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { registerAction, type RegisterState } from "./actions";
 import type { RegistrationQuestion } from "@/lib/types";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH, TERMS_FIELD } from "@/lib/privacy";
 import { Spinner } from "@/components/ui/spinner";
 import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
+import { problemsInFormOrder, registrationErrors } from "@/lib/registration-check";
 
 /**
  * A select stays native. The rest of this form is shadcn's Field set, but the choices an
@@ -51,12 +52,52 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
   // a rejected submit the value the invitee could see and the value the component believed
   // in had already parted company, and Base UI says so out loud.
   const [answers, setAnswers] = useState<Record<string, string>>(() => ({ ...(state.values ?? {}) }));
-  const set = (k: string, val: string) => setAnswers((a) => ({ ...a, [k]: val }));
   const [agreed, setAgreed] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const value = (k: string) => answers[k] ?? "";
-  const errors = state.errors ?? {};
-  const fieldErrors = Object.keys(errors).filter((k) => k !== "form");
+
+  // D546: the problems on show. The form's own check on Register sets them, tied to the server
+  // state it was made against: once the server answers, its errors are the ones shown.
+  const [checked, setChecked] = useState<{ against: RegisterState; errors: Record<string, string> } | null>(null);
+  const errors = checked && checked.against === state ? checked.errors : (state.errors ?? {});
+  const problems = problemsInFormOrder(errors, questions);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const valuesWith = (a: Record<string, string>, consent: boolean, terms: boolean) =>
+    ({ ...a, [CONSENT_FIELD]: consent ? "yes" : "", [TERMS_FIELD]: terms ? "yes" : "" });
+
+  /**
+   * Once problems are on show, each change re-checks them: a fixed answer drops off the list
+   * there and then. Only problems already shown are kept, so the invitee is not scolded for a
+   * field they have not reached yet.
+   */
+  const recheck = (a: Record<string, string>, consent: boolean, terms: boolean) => {
+    if (problems.length === 0) return;
+    const now = registrationErrors(valuesWith(a, consent, terms), questions, !!termsHtml);
+    setChecked({ against: state, errors: Object.fromEntries(Object.entries(now).filter(([k]) => k in errors)) });
+  };
+  const set = (k: string, val: string) => {
+    const next = { ...answers, [k]: val };
+    setAnswers(next);
+    recheck(next, agreed, agreedTerms);
+  };
+
+  /** Register with something missing: nothing is sent, and the list above the button says what is still needed. */
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const found = registrationErrors(valuesWith(answers, agreed, agreedTerms), questions, !!termsHtml);
+    if (Object.keys(found).length === 0) { setChecked(null); return; }
+    e.preventDefault();
+    setChecked({ against: state, errors: found });
+    // After React has drawn it. Focus reads it out to a screen reader and brings it into view.
+    requestAnimationFrame(() => summaryRef.current?.focus());
+  };
+
+  /** A summary item takes the invitee to its field. */
+  const jump = (k: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    const el = document.getElementById(`reg-${k}`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.focus({ preventScroll: true });
+  };
 
   useEffect(() => {
     // React resets the <form> when a server action returns (React 19). A controlled <select>
@@ -74,14 +115,9 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
     const termsBox = document.getElementById(`reg-${TERMS_FIELD}`);
     if (termsBox instanceof HTMLInputElement) termsBox.checked = agreedTerms;
 
-    // A rejected form is read from wherever the submit button was — the bottom, on a phone,
-    // with the answer that needs fixing somewhere above the fold. Take the invitee to it
-    // rather than leaving them to hunt for the red text.
-    const first = fieldErrors[0];
-    if (!first) return;
-    const el = document.getElementById(`reg-${first}`);
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
-    el?.focus({ preventScroll: true });
+    // A rejected form is read from wherever the submit button was — the bottom, on a phone.
+    // The list of what to fix sits right above that button (D546), so it is the one to show.
+    if (Object.keys(state.errors ?? {}).some((k) => k !== "form")) summaryRef.current?.focus();
     // `state` is a fresh object on every submit, so the same error twice still moves focus.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
@@ -92,7 +128,8 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
     : help ? { "aria-describedby": help } : {});
 
   return (
-    <form action={action} className="flex flex-col gap-6">
+    // noValidate: the browser's own bubbles name one field at a time; the form's check names them all (D546).
+    <form action={action} onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
       {errors.form && (
         <Alert variant="destructive">
           <CircleAlert />
@@ -139,12 +176,13 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
 
       {/* D540-D541: the event's own terms, read in place and agreed with a tick of their own. */}
       {termsHtml && (
-        <FieldSet>
+        // min-w-0: a fieldset is otherwise as wide as its widest unbreakable word.
+        <FieldSet className="min-w-0">
           <FieldLegend>Event terms</FieldLegend>
           <EventTermsPanel html={termsHtml} />
           <Field orientation="horizontal" data-invalid={!!errors[TERMS_FIELD]}>
             <input id={`reg-${TERMS_FIELD}`} name={TERMS_FIELD} type="checkbox" value="yes" required
-              checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)}
+              checked={agreedTerms} onChange={(e) => { setAgreedTerms(e.target.checked); recheck(answers, agreed, e.target.checked); }}
               className="mt-0.5 size-5 shrink-0 accent-primary" {...invalid(TERMS_FIELD)} />
             <FieldContent>
               <FieldLabel htmlFor={`reg-${TERMS_FIELD}`} className="font-normal leading-snug">I have read and agree to the event terms above.</FieldLabel>
@@ -158,7 +196,7 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
           above, so it works before JavaScript arrives and posts "yes" only when ticked. */}
       <Field orientation="horizontal" data-invalid={!!errors[CONSENT_FIELD]}>
         <input id={`reg-${CONSENT_FIELD}`} name={CONSENT_FIELD} type="checkbox" value="yes" required
-          checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
+          checked={agreed} onChange={(e) => { setAgreed(e.target.checked); recheck(answers, e.target.checked, agreedTerms); }}
           className="mt-0.5 size-5 shrink-0 accent-primary" {...invalid(CONSENT_FIELD)} />
         <FieldContent>
           <FieldLabel htmlFor={`reg-${CONSENT_FIELD}`} className="flex-col items-start gap-1 font-normal leading-snug">
@@ -177,6 +215,19 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
       </Field>
 
       <Field>
+        {problems.length > 0 && (
+          <Alert ref={summaryRef} tabIndex={-1} variant="destructive" className="outline-none">
+            <CircleAlert />
+            <AlertTitle>{problems.length === 1 ? "One thing to fix before you register" : `${problems.length} things to fix before you register`}</AlertTitle>
+            <AlertDescription>
+              <ul className="flex list-disc flex-col gap-1 pl-4">
+                {problems.map((p) => (
+                  <li key={p.key}><a href={`#reg-${p.key}`} onClick={jump(p.key)} className="underline underline-offset-4">{p.message}</a></li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
         <Button type="submit" disabled={pending} className="h-12 w-full text-base font-bold">
           {pending && <Spinner data-icon="inline-start" />}
           {pending ? "Submitting…" : "Register"}

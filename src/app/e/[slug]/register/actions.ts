@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { recordConsent, recordTermsAgreed, upsertByEmail } from "@/lib/db/attendees";
 import { validateRegistration } from "@/lib/registration";
-import { CONSENT_FIELD, consentError, TERMS_FIELD, termsError } from "@/lib/privacy";
+import { registrationErrors } from "@/lib/registration-check";
 import { isRichTextEmpty } from "@/lib/rich-text";
 import { allow } from "@/lib/ratelimit";
 
@@ -21,15 +21,12 @@ export async function registerAction(slug: string, _prev: RegisterState, formDat
 
   const values: Record<string, string> = {};
   formData.forEach((v, k) => { if (typeof v === "string") values[k] = v; });
-  const result = validateRegistration(values, event.registration_questions);
-  // Checked alongside the answers, not before them, so one submit reports everything to fix
-  // (D410). The browser's `required` asks first; this is what a direct POST meets.
-  const consent = consentError(values);
+  // Answers and both ticks checked together, so one submit reports everything to fix (D410).
+  // The form runs the same check before it sends (D546); this is what a direct POST meets.
   const hasTerms = !isRichTextEmpty(event.registration_terms);
-  const terms = termsError(values, hasTerms);
-  if (!result.ok || consent || terms) {
-    return { errors: { ...(result.ok ? {} : result.errors), ...(consent ? { [CONSENT_FIELD]: consent } : {}), ...(terms ? { [TERMS_FIELD]: terms } : {}) }, values };
-  }
+  const errors = registrationErrors(values, event.registration_form, hasTerms);
+  const result = validateRegistration(values, event.registration_questions);
+  if (Object.keys(errors).length || !result.ok) return { errors, values };
 
   const { attendee } = await upsertByEmail(event, result.data, "registration");
   await recordConsent(attendee.id);
