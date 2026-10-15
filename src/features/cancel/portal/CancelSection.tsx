@@ -54,8 +54,8 @@ export function CancelSection({ eventName, until, action, variant }: {
   }
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base font-extrabold">Can&apos;t make it?</CardTitle></CardHeader>
-      <CardContent className="flex flex-col items-start gap-3">
+      <CardHeader className="text-center"><CardTitle className="text-base font-extrabold">Can&apos;t make it?</CardTitle></CardHeader>
+      <CardContent className="flex flex-col items-center gap-3 text-center">
         <p className="text-sm text-muted-foreground">
           {until ? `You can cancel your registration until ${until}.` : "You can cancel your registration."}
         </p>

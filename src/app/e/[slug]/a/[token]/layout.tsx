@@ -75,7 +75,7 @@ export default async function PersonalLayout({ children, params }: {
         withdraw={withdrawCancelRequestAction.bind(null, slug, token)} />
     : null;
   const draftExtra = draftNote || draftCancel
-    ? <div className="flex flex-col items-start gap-2">{draftNote}{draftCancel}</div>
+    ? <div className="flex flex-col items-center gap-2 text-center">{draftNote}{draftCancel}</div>
     : undefined;
   return (
     <>
