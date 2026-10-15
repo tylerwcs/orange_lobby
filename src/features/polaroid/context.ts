@@ -17,7 +17,8 @@ export async function portalContext(slug: string, token: string, activityId: str
   const event = await getEventBySlug(slug);
   if (!event) return null;
   const attendee = await findByToken(event.id, token);
-  if (!attendee) return null;
+  // D581: a cancelled registration cannot post, though the token still resolves.
+  if (!attendee || attendee.cancelled_at) return null;
   const activity = await getPolaroidActivity(activityId, event.id);
   if (!activity || !categoryMatches(activity.categories, attendee.category)) return null;
   return { event, activity, attendeeId: attendee.id };

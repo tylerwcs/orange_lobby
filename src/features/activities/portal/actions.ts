@@ -238,7 +238,8 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   // Only checked to be in this event here; `submit_answers` decides whether they may, below.
   const forId = String(fd.get(":for") ?? "") || attendee.id;
   const member = forId === attendee.id ? attendee : await getAttendee(forId);
-  if (!member || member.event_id !== event.id) redirect(flashPath(path, SUBMIT_RESULT_MESSAGES.proxy, "error"));
+  // D581: a cancelled member is treated like a missing one; `getAttendee` still returns them.
+  if (!member || member.event_id !== event.id || member.cancelled_at) redirect(flashPath(path, SUBMIT_RESULT_MESSAGES.proxy, "error"));
   const onBehalf = member.id !== attendee.id;
 
   // D412: health data needs the explicit consent of the person it is about, had before any of
@@ -263,6 +264,8 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   if (withId && activity.allow_pair && (!partner || partner.event_id !== event.id)) {
     redirect(flashPath(path, "That person isn't in this event.", "error"));
   }
+  // D581: a cancelled partner cannot take part; `getAttendee` still returns them.
+  if (partner?.cancelled_at) redirect(flashPath(path, `${partner.name} can't take part in this activity.`, "error"));
   if (partner && activity.health_data && !(await hasHealthConsent(partner.id, activity.id))) {
     redirect(flashPath(path, `${partner.name} needs to agree to the health-information consent on their own page first.`, "error"));
   }

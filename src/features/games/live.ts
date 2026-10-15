@@ -62,7 +62,8 @@ export type PlayContext = { event: Event; attendee: Attendee };
 export async function playContext(token: string): Promise<PlayContext | null> {
   if (!isValidToken(token)) return null;
   const attendee = await attendeeMemo.get(token, () => getAttendeeByToken(token));
-  if (!attendee) return null;
+  // D581: a cancelled registration cannot play, though the token still resolves.
+  if (!attendee || attendee.cancelled_at) return null;
   const event = await eventMemo.get(attendee.event_id, () => getEvent(attendee.event_id));
   if (!event || isUnpublished(event) || event.status === "archived") return null;
   return { event, attendee };

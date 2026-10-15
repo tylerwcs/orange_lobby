@@ -12,6 +12,7 @@ import { crewLinkLive } from "@/lib/crew";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
 import { nowInKL } from "@/lib/time";
+import { klDay } from "@/features/cancel";
 import type { Attendee, Checkpoint, Event } from "@/lib/types";
 
 export type ScanResult = {
@@ -61,6 +62,8 @@ async function authorise(eventId: string, crewToken?: string): Promise<{ ev: Eve
 
 async function doCheckin(ev: Event, userId: string | null, checkpointId: string, attendee: Attendee, walkIn = false): Promise<ScanResult> {
   if (ev.status === "archived") return { status: "error", message: "This event is archived, so check-in is closed." };
+  // D581: a cancelled registration is not an arrival. The badge still resolves so crew see why.
+  if (attendee.cancelled_at) return { status: "error", attendee, message: `Cancelled registration. ${attendee.name} cancelled on ${klDay(attendee.cancelled_at)}.` };
   // Beside the archived check because it is the same kind of refusal, and here rather than
   // only on the page because this is the one place a checkin is written (D159). The page
   // refuses a reader; this refuses a POST — a crew phone with the scanner still open when
