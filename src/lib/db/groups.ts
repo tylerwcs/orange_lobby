@@ -62,7 +62,7 @@ export async function deleteGroup(eventId: string, groupId: string): Promise<voi
 }
 
 export async function groupMembers(eventId: string, groupId: string): Promise<Attendee[]> {
-  const { data, error } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).eq("group_id", groupId).order("name");
+  const { data, error } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).eq("group_id", groupId).is("cancelled_at", null).order("name");
   if (error) throw error;
   return (data ?? []) as Attendee[];
 }
@@ -74,7 +74,7 @@ export async function groupMembers(eventId: string, groupId: string): Promise<At
  */
 export async function groupedAttendees(eventId: string): Promise<Pick<Attendee, "id" | "name" | "group_id" | "extra">[]> {
   return selectAll((from, to) => serviceClient().from("attendees").select("id, name, group_id, extra")
-    .eq("event_id", eventId).not("group_id", "is", null).order("name").order("id").range(from, to));
+    .eq("event_id", eventId).is("cancelled_at", null).not("group_id", "is", null).order("name").order("id").range(from, to));
 }
 
 /** D506: the group's picture, or null to clear it. The caller removes the old object after. */

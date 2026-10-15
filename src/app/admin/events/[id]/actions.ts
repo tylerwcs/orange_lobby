@@ -270,7 +270,9 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   const leftOut = fresh.slice(room).map((f) => f.label);
   if (added.length > 0) await updateEvent(eventId, { attendee_fields: [...ev.attendee_fields, ...added] });
   // One read of the existing roster instead of a lookup per row; new rows go out in one bulk insert.
-  const existingByEmail = new Map((await listAttendees(ev.id)).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
+  // Cancelled people are in it (ruling 3): their row matches by email rather than being inserted twice
+  // (unique index on event_id + lower(email)), and the update below never touches cancelled_at.
+  const existingByEmail = new Map((await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
   const queued = new Map<string, AttendeeInput>();
   const toInsert: AttendeeInput[] = [];
   let updated = 0;

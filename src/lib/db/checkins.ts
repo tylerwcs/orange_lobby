@@ -15,6 +15,13 @@ export async function recordCheckin(event: Pick<Event, "id" | "org_id">, checkpo
   throw error;
 }
 
+/** D584: has this attendee been scanned anywhere at this event? */
+export async function hasAnyCheckin(attendeeId: string): Promise<boolean> {
+  const { count, error } = await serviceClient().from("checkins").select("id", { count: "exact", head: true }).eq("attendee_id", attendeeId);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
 /**
  * Checks several attendees in at once. `ignoreDuplicates` matters: the unique constraint
  * on (checkpoint_id, attendee_id) would otherwise fail the whole batch because one person

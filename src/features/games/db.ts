@@ -102,7 +102,7 @@ export async function getRun(id: string): Promise<Run | null> {
  */
 export async function listRoster(eventId: string): Promise<Attendee[]> {
   return selectAll<Attendee>((from, to) => serviceClient().from("attendees")
-    .select("*").eq("event_id", eventId).order("id").range(from, to));
+    .select("*").eq("event_id", eventId).is("cancelled_at", null).order("id").range(from, to));
 }
 
 /** Who has been checked in at one of this event's checkpoints (the draw's eligibility, D278). */
@@ -120,6 +120,7 @@ export async function listCheckins(eventId: string, checkpointId: string): Promi
 
 /** The attendee a personal link belongs to. `attendees.token` is unique across the table. */
 export async function getAttendeeByToken(token: string): Promise<Attendee | null> {
+  // any-status: playContext refuses cancelled people (D581), this only finds the person
   const { data, error } = await serviceClient().from("attendees").select("*").eq("token", token).maybeSingle();
   if (error) throw error;
   return (data as Attendee | null) ?? null;

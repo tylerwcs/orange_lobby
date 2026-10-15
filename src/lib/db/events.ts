@@ -80,6 +80,7 @@ export async function getEventByCrewToken(token: string): Promise<Event | null> 
  * in the URL that goes out, or every event would need its own template and its own review.
  */
 export async function getEventByAttendeeToken(token: string): Promise<Event | null> {
+  // any-status: the short link lands on the portal, which shows the cancelled card (D581)
   const { data: attendee } = await serviceClient().from("attendees").select("event_id").eq("token", token).maybeSingle();
   if (!attendee) return null;
   const { data } = await serviceClient().from("events").select("*").eq("id", attendee.event_id).maybeSingle();

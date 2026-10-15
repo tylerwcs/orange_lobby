@@ -1,8 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { generateToken, freshTokens } from "@/lib/tokens";
-import { mergeExtra } from "@/lib/attendee-merge";
-import { dropBlankAnswers } from "@/lib/registration";
+import { reactivationPatch } from "@/lib/attendee-merge";
 import { buildAttendeeSearchFilter, buildNameSearchFilter, isSearchable } from "@/lib/search-filter";
 import { deleteSubmissionFiles, sweepSubmissionPrefix } from "@/lib/db/media";
 import { submissionFilePaths } from "@/lib/storage";
@@ -15,16 +14,19 @@ export type AttendeeInput = {
 };
 
 export async function findByToken(eventId: string, token: string): Promise<Attendee | null> {
+  // any-status: a personal link still resolves after cancelling, the caller decides what it may do (D581)
   const { data } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).eq("token", token).maybeSingle();
   return (data as Attendee) ?? null;
 }
 
 export async function findByEmail(eventId: string, email: string): Promise<Attendee | null> {
+  // any-status: the unique email index covers cancelled rows too, so registering again must find them (D587)
   const { data } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).eq("email", email.trim().toLowerCase()).maybeSingle();
   return (data as Attendee) ?? null;
 }
 
 export async function getAttendee(id: string): Promise<Attendee | null> {
+  // any-status: lookups by id name people in history and the admin detail panel, cancelled or not
   const { data } = await serviceClient().from("attendees").select("*").eq("id", id).maybeSingle();
   return (data as Attendee) ?? null;
 }
@@ -38,11 +40,18 @@ export async function getAttendee(id: string): Promise<Attendee | null> {
  * Paged (D401): a `limit` past 1,000 is still cut to 1,000 by PostgREST, so a bigger event lost
  * everyone after the 1,000th name from the WhatsApp send, the exports and import's duplicate
  * check, without an error. `id` after `name` keeps the order unique, so pages never overlap.
+ *
+ * Cancelled people (D581) are left out unless `includeCancelled` asks for them: only the admin
+ * import does, so a cancelled person's row is matched by email instead of inserted twice.
  */
-export async function listAttendees(eventId: string, q?: string, scope: "wide" | "name" = "wide"): Promise<Attendee[]> {
+export async function listAttendees(
+  eventId: string, q?: string, scope: "wide" | "name" = "wide", opts: { includeCancelled?: boolean } = {},
+): Promise<Attendee[]> {
   const search = q && isSearchable(q) ? (scope === "name" ? buildNameSearchFilter(q) : buildAttendeeSearchFilter(q)) : null;
   return selectAll<Attendee>((from, to) => {
+    // any-status: opts.includeCancelled is the caller's explicit ask, the default branch filters on the next line
     let query = serviceClient().from("attendees").select("*").eq("event_id", eventId);
+    if (!opts.includeCancelled) query = query.is("cancelled_at", null);
     if (search) query = query.or(search);
     return query.order("name").order("id").range(from, to);
   });
@@ -53,12 +62,14 @@ const ID_CHUNK = 100;
 
 /**
  * Some of one event's attendees, by id, in chunks: only the rows asked for, rather than the
- * whole event from listAttendees. Ids from another event are simply not found.
+ * whole event from listAttendees. Ids from another event are simply not found. Cancelled people
+ * are returned too: this names people in history (winners, revokes, polaroids).
  */
 export async function listAttendeesByIds(eventId: string, ids: string[]): Promise<Attendee[]> {
   const unique = [...new Set(ids)];
   const out: Attendee[] = [];
   for (let i = 0; i < unique.length; i += ID_CHUNK) {
+    // any-status: by-id lookups name people in history, cancelled or not
     const { data, error } = await serviceClient().from("attendees").select("*")
       .eq("event_id", eventId).in("id", unique.slice(i, i + ID_CHUNK));
     if (error) throw error;
@@ -67,8 +78,23 @@ export async function listAttendeesByIds(eventId: string, ids: string[]): Promis
   return out;
 }
 
+/** Registered people only: a cancelled registration is not counted (D581). */
 export async function countAttendees(eventId: string): Promise<number> {
-  const { count } = await serviceClient().from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
+  const { count } = await serviceClient().from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId).is("cancelled_at", null);
+  return count ?? 0;
+}
+
+/** D588: the Cancelled view in Attendees, newest cancellation first. */
+export async function listCancelledAttendees(eventId: string): Promise<Attendee[]> {
+  return selectAll<Attendee>((from, to) => serviceClient().from("attendees").select("*").eq("event_id", eventId)
+    .not("cancelled_at", "is", null) // any-status: this is the cancelled list
+    .order("cancelled_at", { ascending: false }).order("id").range(from, to));
+}
+
+export async function countCancelled(eventId: string): Promise<number> {
+  const { count, error } = await serviceClient().from("attendees").select("id", { count: "exact", head: true })
+    .eq("event_id", eventId).not("cancelled_at", "is", null); // any-status: counting the cancelled
+  if (error) throw error;
   return count ?? 0;
 }
 
@@ -100,23 +126,23 @@ export async function createAttendees(event: Pick<Event, "id" | "org_id">, input
   return inserted;
 }
 
-export async function updateAttendee(id: string, patch: Partial<AttendeeInput>): Promise<void> {
+export async function updateAttendee(id: string, patch: Partial<AttendeeInput> & { cancelled_at?: string | null }): Promise<void> {
   const { error } = await serviceClient().from("attendees")
     .update({ ...patch, email: patch.email === undefined ? undefined : patch.email?.toLowerCase() ?? null, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
 }
 
-/** Insert or, if an attendee with this email exists for the event, update it. Returns the attendee and whether it was new. */
+/**
+ * Insert or, if an attendee with this email exists for the event, update it. Returns the attendee and whether it was new.
+ * An existing row that had cancelled is reactivated (D587): registration and the admin's Add attendee both come through here.
+ */
 export async function upsertByEmail(event: Pick<Event, "id" | "org_id">, input: AttendeeInput & { email: string }, source: AttendeeSource) {
   const existing = await findByEmail(event.id, input.email);
   if (existing) {
-    // A blank answer never erases a value already on file: an upsert is how a
-    // re-registration and a walk-in both arrive, and neither is a reason to drop what
-    // the masterlist supplied.
-    const extra = mergeExtra(existing.extra, dropBlankAnswers(input.extra ?? {}));
-    await updateAttendee(existing.id, { ...input, extra });
-    return { attendee: { ...existing, ...input, email: input.email.toLowerCase(), extra } as Attendee, created: false };
+    const patch = reactivationPatch(existing, input);
+    await updateAttendee(existing.id, patch);
+    return { attendee: { ...existing, ...patch, email: input.email.toLowerCase() } as Attendee, created: false };
   }
   return { attendee: await createAttendee(event, input, source), created: true };
 }
@@ -253,7 +279,7 @@ export async function deleteAttendees(event: Pick<Event, "id" | "org_id">, ids: 
 export async function purgeAttendeePersonalData(eventId: string, orgId: string): Promise<number> {
   const db = serviceClient();
   await sweepSubmissionPrefix(`${orgId}/${eventId}`);
-  const { count, error: countError } = await db
+  const { count, error: countError } = await db // any-status: the purge rewrites every row, cancelled ones included
     .from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
   if (countError) throw countError;
   const { data, error } = await db.rpc("purge_event_personal_data", {
@@ -274,8 +300,9 @@ export async function purgeAttendeePersonalData(eventId: string, orgId: string):
  */
 export async function listCategories(eventId: string): Promise<string[]> {
   // Paged (D401): one row per attendee, so a category only the 1,001st person holds still shows.
+  // Registered people only (D581): a cancelled person's category is not offered.
   const rows = await selectAll<{ category: string | null }>((from, to) => serviceClient().from("attendees")
-    .select("category").eq("event_id", eventId).order("id").range(from, to));
+    .select("category").eq("event_id", eventId).is("cancelled_at", null).order("id").range(from, to));
   // Keyed lowercased, so "KOM" and "kom" are one toggle; the first spelling met is shown.
   const seen = new Map<string, string>();
   for (const r of rows) {
