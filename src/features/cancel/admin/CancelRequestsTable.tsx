@@ -7,8 +7,9 @@ import { approveCancelRequestAction, declineCancelRequestAction } from "./action
 /**
  * D598: the cancellation requests waiting on an organiser, oldest first. Approve and Decline
  * are plain server forms, so they work before the page has hydrated. Admins and committee alike.
+ * An archived event is read-only: the rows show, the buttons do not.
  */
-export function CancelRequestsTable({ eventId, rows }: { eventId: string; rows: Attendee[] }) {
+export function CancelRequestsTable({ eventId, rows, archived = false }: { eventId: string; rows: Attendee[]; archived?: boolean }) {
   if (rows.length === 0) return <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No cancellation requests.</p>;
   return (
     <div className="rounded-xl border bg-card">
@@ -28,10 +29,12 @@ export function CancelRequestsTable({ eventId, rows }: { eventId: string; rows: 
               <TableCell className="text-muted-foreground">{a.email}</TableCell>
               <TableCell className="text-muted-foreground">{a.cancel_requested_at ? klDayTime(a.cancel_requested_at) : ""}</TableCell>
               <TableCell>
-                <div className="flex justify-end gap-2">
-                  <form action={approveCancelRequestAction.bind(null, eventId, a.id)}><SubmitButton>Approve</SubmitButton></form>
-                  <form action={declineCancelRequestAction.bind(null, eventId, a.id)}><SubmitButton variant="outline">Decline</SubmitButton></form>
-                </div>
+                {!archived && (
+                  <div className="flex justify-end gap-2">
+                    <form action={approveCancelRequestAction.bind(null, eventId, a.id)}><SubmitButton>Approve</SubmitButton></form>
+                    <form action={declineCancelRequestAction.bind(null, eventId, a.id)}><SubmitButton variant="outline">Decline</SubmitButton></form>
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           ))}

@@ -63,7 +63,8 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   // it; the check-in read is skipped when the event has no self-cancel, or a request is waiting (D595).
   const canCancel = event.self_cancel && !attendee.cancel_requested_at
     && canSelfCancel(event, attendee, await hasAnyCheckin(attendee.id), new Date()).ok;
-  const showNote = attendee.cancel_requested_at || attendee.cancel_declined_at;
+  // The decline note shows only while they could ask again, i.e. while the card below shows.
+  const showNote = attendee.cancel_requested_at || (attendee.cancel_declined_at && canCancel);
 
   return (
     <>

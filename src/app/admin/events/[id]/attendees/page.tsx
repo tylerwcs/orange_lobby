@@ -240,7 +240,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           </>
         }
       />
-      {showRequests ? <CancelRequestsTable eventId={ev.id} rows={await listCancelRequests(ev.id)} /> : (<>
+      {showRequests ? <CancelRequestsTable eventId={ev.id} rows={await listCancelRequests(ev.id)} archived={ev.status === "archived"} /> : (<>
       <SearchInput initial={sp.q ?? ""} matches={rows.length} total={showCancelled ? everyone.length : total} />
       {/* Previous and Next change only `?page=`, which the route's loading.tsx never sees.
           The scope swaps the table for its skeleton while the next page loads. Search keeps

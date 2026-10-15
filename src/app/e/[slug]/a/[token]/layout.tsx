@@ -65,13 +65,14 @@ export default async function PersonalLayout({ children, params }: {
   // the server (the chrome is a client component). D595/D596: a waiting request shows its note with
   // Withdraw instead of the link; a decline shows its note above the link. The check-in read happens
   // only when the link might show.
-  const draftNote = event.status === "draft" && (attendee.cancel_requested_at || attendee.cancel_declined_at)
-    ? <CancelRequestNote variant="draft" requestedAt={attendee.cancel_requested_at} declinedAt={attendee.cancel_declined_at}
-        withdraw={withdrawCancelRequestAction.bind(null, slug, token)} />
-    : null;
   const draftCancel = event.status === "draft" && event.self_cancel && !attendee.cancel_requested_at
     && canSelfCancel(event, attendee, await hasAnyCheckin(attendee.id), new Date()).ok
     ? <CancelSection variant="draft" eventName={event.name} until={event.self_cancel_closes_at ? klDayTime(event.self_cancel_closes_at) : null} action={requestCancelAction.bind(null, slug, token)} />
+    : null;
+  // The decline note shows only while the link below does (they could ask again); the waiting note always shows.
+  const draftNote = event.status === "draft" && (attendee.cancel_requested_at || (attendee.cancel_declined_at && draftCancel))
+    ? <CancelRequestNote variant="draft" requestedAt={attendee.cancel_requested_at} declinedAt={attendee.cancel_declined_at}
+        withdraw={withdrawCancelRequestAction.bind(null, slug, token)} />
     : null;
   const draftExtra = draftNote || draftCancel
     ? <div className="flex flex-col items-start gap-2">{draftNote}{draftCancel}</div>
