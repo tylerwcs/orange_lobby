@@ -7,12 +7,17 @@ import { serviceClient } from "@/lib/supabase/service";
  * runs whenever the row ends up cancelled (this call or an earlier one), so a retry after a partial
  * failure still frees the seats; both steps are idempotent. Returns true only when this call set the
  * mark. Entries, points, check-ins and polaroids stay.
+ * `onlyIfRequested` (D598): the mark also needs a waiting request, checked in the same statement, so
+ * a withdraw or check-in landing first cancels no one. A retry where the mark matches nothing still
+ * decides the cleanup by `cancelled_at`, as above.
  */
-export async function cancelAttendee(eventId: string, attendeeId: string): Promise<boolean> {
+export async function cancelAttendee(eventId: string, attendeeId: string, opts: { onlyIfRequested?: boolean } = {}): Promise<boolean> {
   const db = serviceClient();
   // D598: approving clears the waiting request together with the mark.
-  const { data, error } = await db.from("attendees").update({ cancelled_at: new Date().toISOString(), cancel_requested_at: null, updated_at: new Date().toISOString() })
-    .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).select("id");
+  let mark = db.from("attendees").update({ cancelled_at: new Date().toISOString(), cancel_requested_at: null, updated_at: new Date().toISOString() })
+    .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null);
+  if (opts.onlyIfRequested) mark = mark.not("cancel_requested_at", "is", null);
+  const { data, error } = await mark.select("id");
   if (error) throw error;
   const didMark = (data?.length ?? 0) > 0;
   if (!didMark) {
@@ -71,12 +76,9 @@ export async function declineCancelRequest(eventId: string, attendeeId: string):
 
 /**
  * D598: an organiser says yes - the D580-D582 cancel, only for a row whose request is still
- * waiting (a withdrawn or checked-in request approves nothing).
+ * waiting (a withdrawn or checked-in request approves nothing). The check and the mark are one
+ * statement, so nothing can land between them.
  */
 export async function approveCancelRequest(eventId: string, attendeeId: string): Promise<boolean> {
-  const { data, error } = await serviceClient().from("attendees").select("id") // registered row with a waiting request
-    .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).not("cancel_requested_at", "is", null).maybeSingle();
-  if (error) throw error;
-  if (!data) return false;
-  return cancelAttendee(eventId, attendeeId);
+  return cancelAttendee(eventId, attendeeId, { onlyIfRequested: true });
 }

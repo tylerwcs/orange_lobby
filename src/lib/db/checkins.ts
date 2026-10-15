@@ -4,12 +4,24 @@ import { selectAll } from "@/lib/db/select-all";
 import type { Arrival } from "@/features/activities/client";
 import type { Checkin, Event } from "@/lib/types";
 
-/** D597: turning up withdraws a waiting cancellation request. */
+/** Ids per `.in()` request: a long list overflows the URL. Same value as ID_CHUNK in attendees.ts and groups.ts. */
+const ID_CHUNK = 100;
+
+/**
+ * D597: turning up withdraws a waiting cancellation request. The check-in is already written when
+ * this runs, so a failure here is logged and swallowed - it must never fail the check-in (a retry
+ * clears the request anyway).
+ */
 async function clearCancelRequests(eventId: string, attendeeIds: string[]): Promise<void> {
-  if (attendeeIds.length === 0) return;
-  const { error } = await serviceClient().from("attendees").update({ cancel_requested_at: null })
-    .eq("event_id", eventId).in("id", attendeeIds).not("cancel_requested_at", "is", null);
-  if (error) throw error;
+  try {
+    for (let i = 0; i < attendeeIds.length; i += ID_CHUNK) {
+      const { error } = await serviceClient().from("attendees").update({ cancel_requested_at: null })
+        .eq("event_id", eventId).in("id", attendeeIds.slice(i, i + ID_CHUNK)).not("cancel_requested_at", "is", null);
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error("clearCancelRequests failed (D597)", e);
+  }
 }
 
 export async function recordCheckin(event: Pick<Event, "id" | "org_id">, checkpointId: string, attendeeId: string, userId: string | null): Promise<{ created: boolean; existing?: Checkin }> {
