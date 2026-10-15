@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowRight, CalendarCheck } from "lucide-react";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
@@ -24,6 +24,8 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   const attendee = await findByToken(event.id, t);
   if (!attendee) notFound();
   const link = attendeeLink(await eventAddress(event), attendee.token);
+  // D581: a cancelled registration is not "Registered"; their personal link shows the cancelled card.
+  if (attendee.cancelled_at) redirect(link);
   // No door, no code (D228): an event without check-in never scans anyone, so the page leads
   // with the event page instead of a QR there is no use for.
   const door = event.check_in_enabled;
