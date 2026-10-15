@@ -99,6 +99,9 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     primary_color: str(formData, "primary_color") ?? "#F97316",
     registration_open: formData.get("registration_open") === "on",
     registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
+    // D583
+    self_cancel: formData.get("self_cancel") === "on",
+    self_cancel_closes_at: localInputToIso(str(formData, "self_cancel_closes_at")),
     registration_intro: str(formData, "registration_intro"),
     registration_terms: cleanRichText(str(formData, "registration_terms")),
     registration_done_title: str(formData, "registration_done_title"),
