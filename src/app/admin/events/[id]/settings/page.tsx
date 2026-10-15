@@ -83,7 +83,12 @@ const SAVE_NOTE = "Saves every tab, not just this one. Changes apply to the port
 
 export default async function Settings({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { ev } = await requireEventAccess(id);
+  const { ev, actor } = await requireEventAccess(id);
+  // D553, D563: Features, Address and the Danger zone are the Ecopia team's. A committee member
+  // never gets their tab, and their panels (AddressTab guards itself and would 404 the page)
+  // are not rendered at all.
+  const isAdmin = actor.kind === "admin";
+  const statuses = isAdmin ? STATUSES : STATUSES.filter((s) => s.value !== "archived");
   const features = await eventFeatures(ev.id);
   const hiddenTabs = hiddenSettingsTabs(features);
   // D502: Verification is about submissions, so it shows only when the event can run them.
@@ -104,7 +109,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
   const tabs = (["features", "details", "registration", "me", "checkpoints", "address", "alerts", "verification", "danger"] as const)
-    .filter((t) => !(hiddenTabs as readonly string[]).includes(t) && (t !== "verification" || verifying));
+    .filter((t) => !(hiddenTabs as readonly string[]).includes(t) && (t !== "verification" || verifying)
+      && (isAdmin || (t !== "features" && t !== "address" && t !== "danger")));
   const openTab = rememberedTab(jar, tabScope, tabs) ?? "details";
   const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
@@ -122,15 +128,15 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
       <RememberedTabs scope={tabScope} defaultValue={openTab} className="gap-4">
         <TabsList>
-          <TabsTrigger value="features">Features</TabsTrigger>
+          {isAdmin && <TabsTrigger value="features">Features</TabsTrigger>}
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
           <TabsTrigger value="me">Me page</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
-          {!hiddenTabs.includes("address") && <TabsTrigger value="address">Address</TabsTrigger>}
+          {isAdmin && !hiddenTabs.includes("address") && <TabsTrigger value="address">Address</TabsTrigger>}
           <TabsTrigger value="alerts">Committee alerts</TabsTrigger>
           {verifying && <TabsTrigger value="verification">Verification</TabsTrigger>}
-          <TabsTrigger value="danger">Danger zone</TabsTrigger>
+          {isAdmin && <TabsTrigger value="danger">Danger zone</TabsTrigger>}
         </TabsList>
 
       <TabsContent value="checkpoints" className="flex flex-col gap-4 @container">
@@ -320,7 +326,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               <CardDescription>Applies the moment you choose it — there is no separate save.</CardDescription>
             </CardHeader>
             <CardContent>
-              <StatusPicker current={ev.status} statuses={STATUSES} setStatus={setStatusAction.bind(null, ev.id)} />
+              <StatusPicker current={ev.status} statuses={statuses} setStatus={setStatusAction.bind(null, ev.id)} />
             </CardContent>
           </Card>
 
@@ -456,11 +462,13 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
       {/* Always there now, since Delete is for any event that is not live; Purge still needs
           the event archived first. */}
-      <TabsContent value="features" className="flex flex-col gap-4 @container">
-        <FeaturesTab eventId={ev.id} />
-      </TabsContent>
+      {isAdmin && (
+        <TabsContent value="features" className="flex flex-col gap-4 @container">
+          <FeaturesTab eventId={ev.id} />
+        </TabsContent>
+      )}
 
-      {!hiddenTabs.includes("address") && (
+      {isAdmin && !hiddenTabs.includes("address") && (
         <TabsContent value="address" className="flex flex-col gap-4">
           <AddressTab eventId={ev.id} />
         </TabsContent>
@@ -491,6 +499,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         </TabsContent>
       )}
 
+      {isAdmin && (
       <TabsContent value="danger" className="flex flex-col gap-4">
         {ev.status === "archived" && (
           <Card className="border-destructive/30">
@@ -529,6 +538,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </CardContent>
         </Card>
       </TabsContent>
+      )}
       </RememberedTabs>
     </div>
   );

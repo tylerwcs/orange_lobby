@@ -24,7 +24,7 @@ export default async function AdminHome() {
     <>
         <AdminHeader
           title="Events"
-          actions={
+          actions={me.kind === "admin" ? (
             <Modal title="New event" hint="You can change everything else later, but not the link slug once badges are printed." trigger="New event" icon="plus" variant="default">
               <form action={createEventAction} className="grid gap-4">
                 <Field label="Event name" name="name" placeholder="Ecopia Kick-Off Meeting 2026" />
@@ -36,7 +36,7 @@ export default async function AdminHome() {
                 <p className="text-xs text-muted-foreground">Next: settings and modules, then checkpoints, then import the masterlist or open registration. Draft links show &ldquo;Coming soon&rdquo; until you set the status to live.</p>
               </form>
             </Modal>
-          }
+          ) : undefined}
         />
         <div className="@container"><div className="grid gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3 @6xl:grid-cols-4">
           {events.map((e, i) => (

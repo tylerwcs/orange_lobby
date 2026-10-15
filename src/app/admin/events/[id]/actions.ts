@@ -36,6 +36,7 @@ import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, moduleId, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
+import { canSetStatus } from "@/lib/access-rules";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
@@ -184,7 +185,11 @@ export async function setBadgeCheckinAction(eventId: string, fd: FormData) {
 }
 
 export async function setStatusAction(eventId: string, status: EventStatus) {
-  await requireEventAccess(eventId);
+  const { actor } = await requireEventAccess(eventId);
+  // D553: a committee member can take an event Draft or Live, never Archived.
+  if (!canSetStatus(actor.kind, status)) {
+    redirect(flashPath(`/admin/events/${eventId}/settings`, "Only the Ecopia team can archive an event.", "error"));
+  }
   await setEventStatus(eventId, status);
   revalidatePath(`/admin/events/${eventId}`);
 }
