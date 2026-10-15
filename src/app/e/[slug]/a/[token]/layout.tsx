@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { loadPortalAttendeeAny, portalHasInfo } from "@/lib/portal";
 import { hasAnyCheckin } from "@/lib/db/checkins";
-import { CancelSection, CancelledCard, canSelfCancel, klDayTime, registrationOpenNow, selfCancelAction } from "@/features/cancel";
+import { CancelRequestNote, CancelSection, CancelledCard, canSelfCancel, klDayTime, registrationOpenNow, requestCancelAction, withdrawCancelRequestAction } from "@/features/cancel";
 import { loadActivityNav } from "@/lib/portal-home";
 import { PortalChrome } from "@/components/portal/PortalChrome";
 import { ConsentGate } from "@/components/portal/ConsentGate";
@@ -62,10 +62,19 @@ export default async function PersonalLayout({ children, params }: {
   }
   const [activities, hasInfo] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category)]);
   // D585: a draft shows only Coming soon, so the cancel link rides in under it. Built here on
-  // the server (the chrome is a client component); the check-in read happens for drafts only.
-  const draftExtra = event.status === "draft" && event.self_cancel
+  // the server (the chrome is a client component). D595/D596: a waiting request shows its note with
+  // Withdraw instead of the link; a decline shows its note above the link. The check-in read happens
+  // only when the link might show.
+  const draftNote = event.status === "draft" && (attendee.cancel_requested_at || attendee.cancel_declined_at)
+    ? <CancelRequestNote variant="draft" requestedAt={attendee.cancel_requested_at} declinedAt={attendee.cancel_declined_at}
+        withdraw={withdrawCancelRequestAction.bind(null, slug, token)} />
+    : null;
+  const draftCancel = event.status === "draft" && event.self_cancel && !attendee.cancel_requested_at
     && canSelfCancel(event, attendee, await hasAnyCheckin(attendee.id), new Date()).ok
-    ? <CancelSection variant="draft" eventName={event.name} until={event.self_cancel_closes_at ? klDayTime(event.self_cancel_closes_at) : null} action={selfCancelAction.bind(null, slug, token)} />
+    ? <CancelSection variant="draft" eventName={event.name} until={event.self_cancel_closes_at ? klDayTime(event.self_cancel_closes_at) : null} action={requestCancelAction.bind(null, slug, token)} />
+    : null;
+  const draftExtra = draftNote || draftCancel
+    ? <div className="flex flex-col items-start gap-2">{draftNote}{draftCancel}</div>
     : undefined;
   return (
     <>

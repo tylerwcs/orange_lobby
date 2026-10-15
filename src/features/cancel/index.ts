@@ -4,3 +4,4 @@ export * from "./db";
 export * from "./portal/actions";
 export * from "./admin/actions";
 export * from "./portal/CancelledCard";
+export * from "./portal/CancelRequestNote";

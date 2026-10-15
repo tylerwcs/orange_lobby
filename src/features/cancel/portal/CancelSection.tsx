@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
 /**
- * D585: Cancel my registration. "me" is the card at the bottom of the Me page; "draft" is the small
+ * D585/D593: Cancel my registration - which now asks the organiser, who approves (D594). "me" is the card at the bottom of the Me page; "draft" is the small
  * link under Coming soon. Both confirm first; the action re-checks every rule (D586).
  */
 export function CancelSection({ eventName, until, action, variant }: {
@@ -27,14 +27,14 @@ export function CancelSection({ eventName, until, action, variant }: {
     <AlertDialog open={confirming} onOpenChange={setConfirming}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Cancel your registration for {eventName}?</AlertDialogTitle>
-          <AlertDialogDescription>You&apos;ll lose your place and any activity bookings. This can&apos;t be undone from here.</AlertDialogDescription>
+          <AlertDialogTitle>Ask to cancel your registration for {eventName}?</AlertDialogTitle>
+          <AlertDialogDescription>Your request goes to the organiser. You stay registered until they approve it.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep my place</AlertDialogCancel>
           <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90"
             onClick={() => { setConfirming(false); startTransition(() => action()); }}>
-            Yes, cancel
+            Yes, ask to cancel
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -46,7 +46,7 @@ export function CancelSection({ eventName, until, action, variant }: {
       <>
         <button type="button" onClick={open} disabled={pending} aria-busy={pending}
           className="min-h-11 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
-          {pending ? "Cancelling…" : "Can't make it? Cancel my registration"}
+          {pending ? "Sending…" : "Can't make it? Cancel my registration"}
         </button>
         {dialog}
       </>

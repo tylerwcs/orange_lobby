@@ -10,7 +10,7 @@ import { meAnswerFields, ME_BADGE, ME_CATEGORY, ME_EMAIL, ME_TABLE } from "@/lib
 import { fieldValue } from "@/lib/attendee-values";
 import { initials } from "@/lib/text";
 import { hasAnyCheckin } from "@/lib/db/checkins";
-import { CancelSection, canSelfCancel, klDayTime, selfCancelAction } from "@/features/cancel";
+import { CancelRequestNote, CancelSection, canSelfCancel, klDayTime, requestCancelAction, withdrawCancelRequestAction } from "@/features/cancel";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
@@ -60,8 +60,10 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   const contactDetails = attendee.email && shows(ME_EMAIL) ? [{ label: "Email", value: attendee.email }] : [];
 
   // D585: the cancel card, last and outside the show/hide checklist. Only while the rules allow
-  // it; the check-in read is skipped when the event has no self-cancel.
-  const canCancel = event.self_cancel && canSelfCancel(event, attendee, await hasAnyCheckin(attendee.id), new Date()).ok;
+  // it; the check-in read is skipped when the event has no self-cancel, or a request is waiting (D595).
+  const canCancel = event.self_cancel && !attendee.cancel_requested_at
+    && canSelfCancel(event, attendee, await hasAnyCheckin(attendee.id), new Date()).ok;
+  const showNote = attendee.cancel_requested_at || attendee.cancel_declined_at;
 
   return (
     <>
@@ -115,8 +117,13 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
           </Card>
         )}
 
+        {showNote && (
+          <CancelRequestNote variant="me" requestedAt={attendee.cancel_requested_at} declinedAt={attendee.cancel_declined_at}
+            withdraw={withdrawCancelRequestAction.bind(null, slug, token)} />
+        )}
+
         {canCancel && (
-          <CancelSection variant="me" eventName={event.name} until={event.self_cancel_closes_at ? klDayTime(event.self_cancel_closes_at) : null} action={selfCancelAction.bind(null, slug, token)} />
+          <CancelSection variant="me" eventName={event.name} until={event.self_cancel_closes_at ? klDayTime(event.self_cancel_closes_at) : null} action={requestCancelAction.bind(null, slug, token)} />
         )}
 
       </div>
