@@ -27,6 +27,7 @@ import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
 import { parseRevokeReason, reasonsOf } from "../lib/revoke";
+import { scheduleAt, scheduleCheck, opensLabel } from "../lib/schedule";
 import { shortDate } from "@/lib/text";
 import { generateToken } from "@/lib/tokens";
 import { readPolaroidSettings, sweepActivityPhotos } from "@/features/polaroid";
@@ -137,7 +138,9 @@ export async function toggleOpenAction(eventId: string, activityId: string, from
   const ev = await event(eventId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
-  await updateActivity(activityId, ev.id, { is_open: !activity.is_open });
+  // D602: opening by hand opens now and drops the schedule; closing leaves none behind, so the
+  // timer can never reopen something the organiser just closed.
+  await updateActivity(activityId, ev.id, { is_open: !activity.is_open, opens_at: null });
   const path = from === "list" ? listPath(eventId) : activityHref(eventId, activityId, from);
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
@@ -149,6 +152,36 @@ export async function toggleOpenAction(eventId: string, activityId: string, from
     polaroid: ["Posting open.", "Posting closed."],
   };
   redirect(flashPath(path, LABELS[activity.kind][opened ? 0 : 1]));
+}
+
+/**
+ * D602/D607: sets when a closed activity opens itself. Its own action, like the Open switch,
+ * so no settings form can ever clear a schedule by leaving it out. Lands back on the tab it
+ * was set from.
+ */
+export async function scheduleOpenAction(eventId: string, activityId: string, from: ActivityTab, fd: FormData) {
+  const ev = await event(eventId);
+  const activity = await getActivity(activityId, ev.id);
+  if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  const path = activityHref(eventId, activityId, from);
+  const at = scheduleAt(text(fd, "date"), text(fd, "time"));
+  const refusal = scheduleCheck(activity, at, new Date());
+  if (refusal || !at) redirect(flashPath(path, refusal ?? "Pick a date and time.", "error"));
+  await updateActivity(activityId, ev.id, { opens_at: at });
+  revalidatePath(listPath(eventId));
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(path, `Opening scheduled for ${opensLabel(at)}.`));
+}
+
+/** D602: drops the schedule; the activity is plainly Closed again, and hidden from attendees (D384). */
+export async function removeScheduleAction(eventId: string, activityId: string, from: ActivityTab) {
+  const ev = await event(eventId);
+  const activity = await getActivity(activityId, ev.id);
+  if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
+  await updateActivity(activityId, ev.id, { opens_at: null });
+  revalidatePath(listPath(eventId));
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(activityHref(eventId, activityId, from), "Schedule removed."));
 }
 
 /**
