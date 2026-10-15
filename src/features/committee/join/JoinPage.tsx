@@ -26,7 +26,10 @@ export async function JoinPage({ params, searchParams }: { params: Promise<{ tok
   const ev = m ? await getEvent(m.event_id) : null;
   const existing = m ? await userIdByEmail(m.email) : null;
   const admin = existing !== null && await isOrgAdmin(existing);
-  const open = Boolean(m && ev && ev.status !== "archived" && linkIsLive(m, new Date()) && !admin);
+  // A reset sets the password of `m.user_id`: it is dead unless that login is still the one this
+  // email resolves to and is not an Ecopia admin. The action checks the same, so no form that loops.
+  const resetOk = m?.link_kind !== "reset" || Boolean(m.user_id && existing === m.user_id && !await isOrgAdmin(m.user_id));
+  const open = Boolean(m && ev && ev.status !== "archived" && linkIsLive(m, new Date()) && !admin && resetOk);
   const mode = !open ? null : m!.link_kind === "reset" ? "reset" : existing ? "existing" : "new";
   const problem = joinErrorCopy(error);
 

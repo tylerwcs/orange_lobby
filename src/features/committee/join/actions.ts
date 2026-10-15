@@ -26,25 +26,30 @@ export async function joinAction(token: string, fd: FormData) {
   const auth = serviceClient().auth.admin;
 
   if (m.link_kind === "reset") {
-    // D560: a new password for an existing login.
+    // D560: a new password for an existing login. The password is set on `m.user_id`, so that
+    // is the login every check is about: it must still be the one this email resolves to, and
+    // never an Ecopia admin (the check above is about the email, which can drift from the login).
+    if (!m.user_id || existing !== m.user_id || await isOrgAdmin(m.user_id)) redirect(page);
     const problem = passwordProblem(password, confirm);
     if (problem) redirect(`${page}?error=${problem}`);
-    if (!m.user_id) redirect(page);
+    // The claim comes first: only one submit of this link gets to set a password.
+    if (!await clearLink(m.id, token)) redirect(page);
     const { error } = await auth.updateUserById(m.user_id, { password });
     if (error) redirect(`${page}?error=rejected`);
-    await clearLink(m.id);
   } else if (existing) {
     // D555/D559: they already have a login; their current password proves it is them.
     const { error } = await (await sessionClient()).auth.signInWithPassword({ email: m.email, password });
     if (error) redirect(`${page}?error=wrong`);
-    await acceptMember(m.id, existing);
+    if (!await acceptMember(m.id, token, existing)) redirect(page);
     redirect(`/admin/events/${m.event_id}`);
   } else {
     const problem = passwordProblem(password, confirm);
     if (problem) redirect(`${page}?error=${problem}`);
     const { data, error } = await auth.createUser({ email: m.email, password, email_confirm: true });
     if (error || !data.user) redirect(`${page}?error=rejected`);
-    await acceptMember(m.id, data.user.id);
+    // If the link was spent meanwhile the new login stays: harmless, a later link for this
+    // email takes the existing-login branch.
+    if (!await acceptMember(m.id, token, data.user.id)) redirect(page);
   }
   // D561: the same sign-in as /login, so the cookies are set the same way.
   await (await sessionClient()).auth.signInWithPassword({ email: m.email, password });

@@ -52,16 +52,29 @@ export async function memberByToken(token: string): Promise<CommitteeMember | nu
   return (data as CommitteeMember | null) ?? null;
 }
 
-/** D559: the set-up link was used. The link is spent. */
-export async function acceptMember(id: string, userId: string): Promise<void> {
-  const { error } = await table().update({ user_id: userId, accepted_at: new Date().toISOString(), link_token: null, link_kind: null, link_expires_at: null }).eq("id", id);
+/**
+ * D559: the set-up link was used. The link is spent. Conditional on the token still being the
+ * row's current one, so a submit that read the row before an admin replaced or removed the link,
+ * or a second submit of the same link, claims nothing. False means the link was not ours to spend.
+ */
+export async function acceptMember(id: string, token: string, userId: string): Promise<boolean> {
+  const { data, error } = await table()
+    .update({ user_id: userId, accepted_at: new Date().toISOString(), link_token: null, link_kind: null, link_expires_at: null })
+    .eq("id", id).eq("link_token", token).is("removed_at", null).select("id");
   if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
-/** D560: a reset link was used. Only the link changes. */
-export async function clearLink(id: string): Promise<void> {
-  const { error } = await table().update({ link_token: null, link_kind: null, link_expires_at: null }).eq("id", id);
+/**
+ * D560: a reset link was used. Only the link changes. It is the claim made before the password is
+ * set, and is conditional on the token like `acceptMember`: false means somebody else got there first.
+ */
+export async function clearLink(id: string, token: string): Promise<boolean> {
+  const { data, error } = await table()
+    .update({ link_token: null, link_kind: null, link_expires_at: null })
+    .eq("id", id).eq("link_token", token).is("removed_at", null).select("id");
   if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 export async function userIdByEmail(email: string): Promise<string | null> {
