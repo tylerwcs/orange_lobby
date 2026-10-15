@@ -46,7 +46,7 @@ export async function PolaroidDetail({ ev, activity, tab, show }: { ev: Event; a
               schedule={scheduleOpenAction.bind(null, ev.id, activity.id, "setup")}
               remove={removeScheduleAction.bind(null, ev.id, activity.id, "setup")}
             />
-            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup")} name={activity.name} showLabel />
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup", !activity.is_open)} name={activity.name} showLabel />
             {wall && (
               <Link href={wall} target="_blank" rel="noopener" className={buttonVariants({ variant: "outline", size: "sm" })}>
                 <ExternalLink data-icon="inline-start" />Open wall

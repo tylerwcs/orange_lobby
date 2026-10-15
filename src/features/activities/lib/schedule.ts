@@ -39,3 +39,13 @@ export function opensLabel(iso: string): string {
 export function opensShort(iso: string): string {
   return opensLabel(iso).split(" ").slice(1).join(" ");
 }
+
+/**
+ * What the Open switch writes, given what the organiser's page showed and what they asked for.
+ * Null when the activity is already there - the timer may have opened it while the page sat
+ * showing Closed, and flipping the server's state instead would close what they meant to open.
+ * Either way any schedule goes (D602), so the timer can never reopen something just closed.
+ */
+export function openSwitchPatch(current: boolean, wanted: boolean): { is_open: boolean; opens_at: null } | null {
+  return current === wanted ? null : { is_open: wanted, opens_at: null };
+}

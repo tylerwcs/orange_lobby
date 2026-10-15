@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { opensLabel, opensShort, scheduleAt, scheduleCheck } from "@/features/activities/lib/schedule";
+import { openSwitchPatch, opensLabel, opensShort, scheduleAt, scheduleCheck } from "@/features/activities/lib/schedule";
 
 describe("scheduleAt", () => {
   it("reads the dialog's date and time as Malaysia time", () => {
@@ -49,5 +49,22 @@ describe("opensLabel / opensShort (D604, D608)", () => {
   it("reads noon as 12:00pm and the afternoon with pm", () => {
     expect(opensLabel("2026-10-17T04:00:00Z")).toBe("Sat 17 Oct, 12:00pm");
     expect(opensLabel("2026-10-17T07:05:00Z")).toBe("Sat 17 Oct, 3:05pm");
+  });
+});
+
+describe("openSwitchPatch (D602, final review)", () => {
+  it("opens a closed activity and drops any schedule", () => {
+    expect(openSwitchPatch(false, true)).toEqual({ is_open: true, opens_at: null });
+  });
+
+  it("closes an open one", () => {
+    expect(openSwitchPatch(true, false)).toEqual({ is_open: false, opens_at: null });
+  });
+
+  it("writes nothing when the timer already did what the organiser asked for", () => {
+    // The page drew Closed, the timer opened it, then the organiser flipped it to open:
+    // flipping the server's state instead would close what they meant to open.
+    expect(openSwitchPatch(true, true)).toBeNull();
+    expect(openSwitchPatch(false, false)).toBeNull();
   });
 });

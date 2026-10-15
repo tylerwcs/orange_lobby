@@ -194,7 +194,7 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
           days: facts.sessions.map((s) => s.day), sessions: facts.sessions.length, booked,
           seats: facts.sessions.reduce((sum, s) => sum + s.capacity, 0), pending: facts.pending,
         }),
-        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list", !a.is_open),
         menu: {
           ...base, exportHref: `${exports}/activities.xlsx`,
           remove: deleteActivityAction.bind(null, ev.id, a.id),
@@ -206,7 +206,7 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
       return {
         activity: a, href,
         view: submissionRow({ form: a, submitters: new Set(facts.submissions).size, eligible: facts.audience, groups: facts.groupDone ?? undefined }),
-        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list", !a.is_open),
         menu: {
           ...base, exportHref: `${exports}/submissions.xlsx`,
           remove: deleteSubmissionActivityAction.bind(null, ev.id, a.id),
@@ -217,7 +217,7 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
       return {
         activity: a, href,
         view: passportRow({ ...facts.passport, eligible: facts.audience, open: a.is_open }),
-        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list", !a.is_open),
         menu: {
           ...base, exportHref: `${exports}/passport.xlsx`,
           remove: deletePassportActivityAction.bind(null, ev.id, a.id),
@@ -228,7 +228,7 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
       return {
         activity: a, href,
         view: polaroidRow({ live: facts.polaroids, walkIn: facts.walkIn }),
-        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list"),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list", !a.is_open),
         menu: {
           ...base,
           remove: deletePolaroidActivityAction.bind(null, ev.id, a.id),

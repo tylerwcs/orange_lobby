@@ -84,7 +84,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
               schedule={scheduleOpenAction.bind(null, ev.id, activity.id, "setup")}
               remove={removeScheduleAction.bind(null, ev.id, activity.id, "setup")}
             />
-            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup")} name={activity.name} showLabel />
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup", !activity.is_open)} name={activity.name} showLabel />
             <Modal title="Add a booth" hint="Prints its own scanner link once it exists." trigger="Add booth" icon="plus">
               <form action={addBoothAction.bind(null, ev.id, activity.id)} className="grid gap-4">
                 <Field label="Name" name="name" placeholder="Operations" />

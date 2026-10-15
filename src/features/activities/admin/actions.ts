@@ -27,7 +27,7 @@ import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
 import { parseRevokeReason, reasonsOf } from "../lib/revoke";
-import { scheduleAt, scheduleCheck, opensLabel } from "../lib/schedule";
+import { scheduleAt, scheduleCheck, opensLabel, openSwitchPatch } from "../lib/schedule";
 import { shortDate } from "@/lib/text";
 import { generateToken } from "@/lib/tokens";
 import { readPolaroidSettings, sweepActivityPhotos } from "@/features/polaroid";
@@ -133,18 +133,23 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
  * Every kind carries the same switch in the same two places — its row on the list and its own
  * page's header — so `from` says which one was flipped (on the page, which tab) and the
  * organiser lands back there, rather than being carried off to a page they did not ask for.
+ *
+ * `open` is the state the organiser asked for - the opposite of what their page drew - not a
+ * flip of what the server holds: the scheduled-opening timer (D601) changes `is_open` behind
+ * pages already open, and a blind flip at the opening minute would close what they meant to open.
  */
-export async function toggleOpenAction(eventId: string, activityId: string, from: "list" | ActivityTab) {
+export async function toggleOpenAction(eventId: string, activityId: string, from: "list" | ActivityTab, open: boolean) {
   const ev = await event(eventId);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) redirect(flashPath(listPath(eventId), "That activity no longer exists.", "error"));
   // D602: opening by hand opens now and drops the schedule; closing leaves none behind, so the
   // timer can never reopen something the organiser just closed.
-  await updateActivity(activityId, ev.id, { is_open: !activity.is_open, opens_at: null });
+  const patch = openSwitchPatch(activity.is_open, open);
+  if (patch) await updateActivity(activityId, ev.id, patch);
   const path = from === "list" ? listPath(eventId) : activityHref(eventId, activityId, from);
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
-  const opened = !activity.is_open;
+  const opened = open;
   const LABELS: Record<Activity["kind"], [string, string]> = {
     booking: ["Booking open.", "Booking closed."],
     submission: ["Submissions open.", "Submissions closed."],

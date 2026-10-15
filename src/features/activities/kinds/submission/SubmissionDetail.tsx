@@ -133,7 +133,7 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
               schedule={scheduleOpenAction.bind(null, ev.id, activity.id, current)}
               remove={removeScheduleAction.bind(null, ev.id, activity.id, current)}
             />
-            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current)} name={activity.name} showLabel />
+            <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, current, !activity.is_open)} name={activity.name} showLabel />
             <ActivityMenu
               name={activity.name}
               pinned={activity.pinned}
