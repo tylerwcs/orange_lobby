@@ -22,9 +22,24 @@ describe("exports", () => {
     const cps = [{ id: "c1", name: "Day 1" }, { id: "c2", name: "Day 2" }] as never;
     const cis = [{ checkpoint_id: "c1", attendee_id: "a1", scanned_at: "2026-09-30T01:00:00Z", scanned_by: "u1" }] as never;
     const ws = buildAttendanceWorkbook(attendees, cps, cis, { u1: "crew@ecopia" }).getWorksheet("Attendance")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Phone", "Category", "Table", "Source", "Dietary", "Day 1 checked in", "Day 1 time", "Day 1 scanned by", "Day 2 checked in", "Day 2 time", "Day 2 scanned by"]);
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Phone", "Category", "Table", "Source", "Dietary", "Day 1 checked in", "Day 1 time", "Day 1 scanned by", "Day 2 checked in", "Day 2 time", "Day 2 scanned by", "Cancelled at"]);
     const r = ws.getRow(2).values as unknown[];
     expect(r[8]).toBe("Yes"); expect(r[10]).toBe("crew@ecopia"); expect(r[11]).toBe("No");
+  });
+
+  it("ends with a Cancelled at column: the date for a cancelled row, blank for an active one (D588)", () => {
+    const base = { phone: null, company: null, category: null, table_no: null, source: "import", extra: {} };
+    const attendees = [
+      { ...base, id: "a1", name: "Ann", email: "a@b.co", cancelled_at: null },
+      { ...base, id: "a2", name: "Bob", email: "b@b.co", cancelled_at: "2026-10-14T17:30:00Z" },
+    ] as never;
+    const ws = buildAttendanceWorkbook(attendees, [] as never, [] as never, {}).getWorksheet("Attendance")!;
+    const header = ws.getRow(1).values as unknown[];
+    expect(header[header.length - 1]).toBe("Cancelled at");
+    const last = (n: number) => { const v = ws.getRow(n).values as unknown[]; return v[v.length - 1]; };
+    // 17:30 UTC is 01:30 the next day in Malaysia.
+    expect(last(2)).toBe("");
+    expect(last(3)).toBe("15 Oct, 01:30");
   });
 
   it("leads with the event's own columns under their labels, then anything else in extra", () => {

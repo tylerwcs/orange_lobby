@@ -23,6 +23,7 @@ import { writeTablePrefs } from "@/lib/table-prefs-cookie";
 import type { Sort, SortDir } from "@/lib/attendee-sort";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { AttendeeSource, Checkpoint } from "@/lib/types";
+import { cancelledLabel } from "@/features/cancel/client";
 
 // Exactly the fields this table renders — never the full `Attendee` shape, which carries
 // `token` (the bearer credential for the attendee portal link) and `extra` unfiltered.
@@ -35,6 +36,8 @@ export type AttendeeRow = {
   category: string | null;
   source: AttendeeSource;
   checkedInAt: string | null;
+  /** D588: set only on the Cancelled view, where the name carries the badge. */
+  cancelledAt: string | null;
   values: Record<string, string>;
 };
 
@@ -374,6 +377,7 @@ export function AttendeeTable({
                       title={nameWidth ? a.name : undefined}
                       className={`font-semibold text-primary hover:underline ${nameWidth ? "block truncate" : ""}`}
                     >{a.name}</Link>
+                    {a.cancelledAt && <Badge variant="outline" className="ml-2 align-middle">{cancelledLabel(a.cancelledAt)}</Badge>}
                     {/* Only when Email is not a column of its own, so ticking it on in the
                         Columns menu does not print the same address twice in one row. */}
                     {!emailShown && a.email && (

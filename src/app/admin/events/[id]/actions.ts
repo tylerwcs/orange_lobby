@@ -382,7 +382,8 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
  */
 export async function deleteAttendeesAction(eventId: string, formData: FormData): Promise<number> {
   const { ev } = await requireEventAccess(eventId);
-  const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
+  // D588: includeCancelled, so a bulk delete from the Cancelled view keeps its ids.
+  const allowed = new Set((await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })).map((a) => a.id));
   const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
   if (ids.length === 0) return 0;
   const deleted = await deleteAttendees(ev, ids);

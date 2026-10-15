@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { buttonVariants } from "@/components/ui/button";
 import { updateAttendeeAction, deleteAttendeeAction } from "@/app/admin/events/[id]/actions";
+import { cancelledLabel, restoreAttendeeAction } from "@/features/cancel";
 
 const hhmm = (iso: string) => isoToLocalInput(iso).split("T")[1] ?? "";
 
@@ -72,6 +73,7 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
         <div className="min-w-64 flex-1 space-y-3">
           <h2 className="text-xl font-extrabold leading-tight">{a.name}</h2>
           <div className="flex flex-wrap items-center gap-2">
+            {a.cancelled_at && <Badge variant="outline">{cancelledLabel(a.cancelled_at)}</Badge>}
             {a.category && <Badge variant="secondary">{a.category}</Badge>}
             {firstScan
               ? <Badge variant="success">In at {hhmm(firstScan)}</Badge>
@@ -89,6 +91,14 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qr} alt={`QR code for ${a.name}`} width={152} height={152} className="h-38 w-38 shrink-0 rounded-xl bg-card p-2.5" />
       </div>
+
+      {/* D588: Restore is its own form, placed before the edit form because a form cannot nest
+          inside it. Bookings given up at cancellation are not brought back. */}
+      {a.cancelled_at && (
+        <form action={restoreAttendeeAction.bind(null, ev.id, a.id)} className="mt-4 flex justify-end">
+          <SubmitButton variant="outline">Restore registration</SubmitButton>
+        </form>
+      )}
 
       {/* The @container is a parent of everything that reads it - an element does not
           query itself, so the split and the field pairs both hang off this one. */}

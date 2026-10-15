@@ -6,6 +6,7 @@ import { completionByAttendee, weekLabel, type ChallengeScore } from "@/features
 import { fieldValue } from "@/lib/attendee-values";
 import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 import type { ExportColumn } from "@/lib/export-columns";
+import { klDayTime } from "@/features/cancel/client";
 
 const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 
@@ -73,13 +74,15 @@ export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick
   const byKey = new Map(checkins.map((c) => [`${c.checkpoint_id}:${c.attendee_id}`, c]));
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Attendance");
-  ws.addRow(["Name", "Email", "Phone", "Category", "Table", "Source", ...extraColumns.map((c) => c.label), ...checkpoints.flatMap((c) => [`${c.name} checked in`, `${c.name} time`, `${c.name} scanned by`])]);
+  ws.addRow(["Name", "Email", "Phone", "Category", "Table", "Source", ...extraColumns.map((c) => c.label), ...checkpoints.flatMap((c) => [`${c.name} checked in`, `${c.name} time`, `${c.name} scanned by`]), "Cancelled at"]);
   for (const a of attendees) {
     const row = attendeeSheetRow(a, extraColumns);
     for (const c of checkpoints) {
       const ci = byKey.get(`${c.id}:${a.id}`);
       row.push(ci ? "Yes" : "No", ci ? new Date(ci.scanned_at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" }) : "", ci?.scanned_by ? scannerNames[ci.scanned_by] ?? ci.scanned_by : "");
     }
+    // D588: last column, blank for anyone still registered.
+    row.push(a.cancelled_at ? klDayTime(a.cancelled_at) : "");
     ws.addRow(row);
   }
   ws.columns?.forEach((c) => { c.width = 20; });

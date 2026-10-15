@@ -89,7 +89,8 @@ the button does not render in those cases (the server re-checks anyway).
 
 **D586 — Authorised by the token, like every portal action.** A server action bound to
 `(slug, token)` re-loads the attendee and event, re-checks D584, rate-limits `cancel:<token>`, then
-writes. A plain form, so it works before the page hydrates.
+writes. The confirm dialog needs JavaScript; the action itself is a plain server action re-checked
+on the server.
 
 **D587 — Register again reactivates.** `upsertByEmail` on a cancelled row clears `cancelled_at`
 (same token, same record, answers merged as today). Registration's own open/closed rules decide
@@ -102,8 +103,8 @@ whether that is possible. The "You're in" page then behaves as for any registrat
   the default list. Cancelled rows show a "Cancelled · 15 Oct" badge in the table and detail panel.
 - The attendee detail panel of a cancelled person offers **Restore** (clears `cancelled_at`, same as
   D587; bookings are not restored). Restore uses `requireEventAccess` like other attendee edits.
-- Exports: the Attendees export gets a **Cancelled at** column and includes cancelled rows (so the
-  organiser has the record); every other export excludes them.
+- Exports: the Attendance export (the Attendees table's export) includes cancelled rows with a
+  **Cancelled at** column; every other export excludes them.
 - Committee members (D550–D566) see and can restore cancellations like admins — it is event data.
 
 **D589 — No notification in this version.** A WhatsApp alert needs a new Meta-approved template;
@@ -139,8 +140,8 @@ event purge. No copy change in this version.
   `upsertByEmail` reactivation decision as a pure helper.
 - **Browser, on ecpkom only (never ecphub), with a throwaway attendee:** switch on → Me shows the
   section → cancel → link shows the cancelled card; Attendees default list and counts drop by one,
-  Cancelled filter shows them, Attendance export excludes them, Attendees export includes them with
-  the date; scanner scan of their token shows "Cancelled registration"; register again with the same
-  email → same link works again; set the event to draft → cancel link under Coming soon works;
+  Cancelled filter shows them, Attendance export includes them with the date; Links and other
+  exports exclude them; scanner scan of their token shows "Cancelled registration"; register again
+  with the same email → same link works again; set the event to draft → cancel link under Coming soon works;
   switch off / cut-off passed / checked-in → no button and the action refuses.
 - **Cleanup:** delete the throwaway attendee, switch the setting back off, restore ecpkom's status.

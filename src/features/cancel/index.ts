@@ -2,4 +2,5 @@
 export * from "./client";
 export * from "./db";
 export * from "./portal/actions";
+export * from "./admin/actions";
 export * from "./portal/CancelledCard";

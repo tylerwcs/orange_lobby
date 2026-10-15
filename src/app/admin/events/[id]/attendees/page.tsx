@@ -2,7 +2,7 @@ import { PendingLink, PendingScope, PendingSwap } from "@/components/PendingNav"
 import { SkeletonCard, SkeletonRows } from "@/components/ui/skeletons";
 import { cookies } from "next/headers";
 import { requireEventAccess } from "@/lib/access";
-import { listAttendees, countAttendees } from "@/lib/db/attendees";
+import { listAttendees, countAttendees, listCancelledAttendees, countCancelled } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldsAction, deleteAttendeesAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
@@ -52,8 +52,10 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // With check-in off the two check-in queries are skipped and the rest of the page carries
   // on unchanged: `BulkBar` already hides its check-in menu when handed no checkpoints, and
   // an empty `checkins` leaves every row simply un-scanned (D159).
-  const [everyone, total, checkins, cps, agenda, groups, jar] = await Promise.all([
-    listAttendees(ev.id), countAttendees(ev.id),
+  // D588: `?show=cancelled` lists the people who cancelled instead of the registered roster.
+  const showCancelled = sp.show === "cancelled";
+  const [everyone, total, cancelledCount, checkins, cps, agenda, groups, jar] = await Promise.all([
+    showCancelled ? listCancelledAttendees(ev.id) : listAttendees(ev.id), countAttendees(ev.id), countCancelled(ev.id),
     ev.check_in_enabled ? listCheckinsForEvent(ev.id) : [],
     ev.check_in_enabled ? listCheckpoints(ev.id) : [],
     listAgenda(ev.id), listGroups(ev.id), cookies(),
@@ -153,9 +155,19 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const pageHref = (p: number) => {
     const qs = new URLSearchParams();
     if (sp.q) qs.set("q", sp.q);
+    if (showCancelled) qs.set("show", "cancelled");
     if (sort) { qs.set("sort", sort.key); qs.set("dir", sort.dir); }
     qs.set("page", String(p));
     return `/admin/events/${ev.id}/attendees?${qs.toString()}`;
+  };
+  // The toggle keeps the search and sort; it starts back on page 1 of the other list.
+  const viewHref = (cancelled: boolean) => {
+    const qs = new URLSearchParams();
+    if (sp.q) qs.set("q", sp.q);
+    if (sort) { qs.set("sort", sort.key); qs.set("dir", sort.dir); }
+    if (cancelled) qs.set("show", "cancelled");
+    const s = qs.toString();
+    return `/admin/events/${ev.id}/attendees${s ? `?${s}` : ""}`;
   };
   const from = slice.length === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = (page - 1) * pageSize + slice.length;
@@ -164,9 +176,12 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     <div className="flex flex-col gap-4" data-wide>
       <AdminHeader
         title="Attendees"
-        subtitle={`${total} registered · ${checkedInCount} checked in`}
+        subtitle={showCancelled ? `${everyone.length} cancelled` : `${total} registered · ${checkedInCount} checked in`}
         actions={
           <>
+            {showCancelled
+              ? <PendingLink href={viewHref(false)} className={buttonVariants({ variant: "outline" })}>Back to registered</PendingLink>
+              : cancelledCount > 0 && <PendingLink href={viewHref(true)} className={buttonVariants({ variant: "outline" })}>Cancelled ({cancelledCount})</PendingLink>}
             <Modal title="Add an attendee" hint="For someone who is not on the masterlist and is not registering themselves." trigger="Add attendee" icon="plus">
               <form action={addAttendeeAction.bind(null, ev.id)} className="grid gap-3 md:grid-cols-2">
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
@@ -219,14 +234,14 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           </>
         }
       />
-      <SearchInput initial={sp.q ?? ""} matches={rows.length} total={total} />
+      <SearchInput initial={sp.q ?? ""} matches={rows.length} total={showCancelled ? everyone.length : total} />
       {/* Previous and Next change only `?page=`, which the route's loading.tsx never sees.
           The scope swaps the table for its skeleton while the next page loads. Search keeps
           its own spinner instead: a skeleton flashing on every keystroke would be worse. */}
       <PendingScope>
       <PendingSwap fallback={<SkeletonCard><SkeletonRows rows={12} /></SkeletonCard>}>
       <AttendeeTable
-        key={`${page}:${sp.q ?? ""}`}
+        key={`${page}:${sp.q ?? ""}:${showCancelled ? "cancelled" : ""}`}
         eventId={ev.id}
         rows={slice.map((a): AttendeeRow => ({
           id: a.id,
@@ -235,6 +250,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           category: a.category,
           source: a.source,
           checkedInAt: earliestScan.get(a.id) ?? null,
+          cancelledAt: showCancelled ? a.cancelled_at ?? null : null,
           // Only the defined columns cross to the client: an unmapped header an import
           // left in `extra` has no column to land in and stays on the server. `fieldValue`
           // rather than `a.extra` directly, since it trims each value before it renders.
@@ -259,7 +275,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         renameColumn={renameAttendeeFieldAction.bind(null, ev.id)}
         deleteColumn={deleteAttendeeFieldsAction.bind(null, ev.id)}
         addColumnForm={<AddColumnForm addColumn={addAttendeeFieldAction.bind(null, ev.id)} suggestions={suggestions} />}
-        emptyMessage={sp.q ? `No one matches “${sp.q}”.` : "No attendees yet. Import a masterlist or open registration."}
+        emptyMessage={sp.q ? `No one matches “${sp.q}”.` : showCancelled ? "No one has cancelled." : "No attendees yet. Import a masterlist or open registration."}
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
         deleteAttendees={deleteAttendeesAction.bind(null, ev.id)}
