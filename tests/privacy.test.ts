@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONSENT_FIELD, consentError, HEALTH_CONSENT_FIELD, healthConsentTicked, TERMS_FIELD, termsError } from "@/lib/privacy";
+import { CONSENT_FIELD, consentError, HEALTH_CONSENT_FIELD, healthConsentTicked, portalAsks, TERMS_FIELD, termsError } from "@/lib/privacy";
 
 describe("consentError (D410)", () => {
   it("passes only the ticked box's value", () => {
@@ -25,6 +25,31 @@ describe("termsError (D541)", () => {
     expect(termsError({ [TERMS_FIELD]: "yes" }, true)).toBeNull();
     expect(termsError({ [CONSENT_FIELD]: "yes" }, true)).toMatch(/event terms/);
     expect(termsError({ [TERMS_FIELD]: "on" }, true)).not.toBeNull();
+  });
+});
+
+describe("portalAsks (D543)", () => {
+  const terms = "<p><strong>1. Photos</strong><br>Photos will be taken.</p>";
+  const fresh = { consented_at: null, terms_agreed_at: null };
+
+  it("asks consent alone of an event without terms, as D410 always did", () => {
+    expect(portalAsks({ status: "live", registration_terms: null }, fresh)).toEqual({ consent: true, terms: false });
+    expect(portalAsks({ status: "live", registration_terms: "<p></p>" }, fresh)).toEqual({ consent: true, terms: false });
+  });
+
+  it("asks both of an import or walk-in on an event with terms", () => {
+    expect(portalAsks({ status: "live", registration_terms: terms }, fresh)).toEqual({ consent: true, terms: true });
+  });
+
+  it("asks the terms alone of someone who registered before the event had them", () => {
+    expect(portalAsks({ status: "live", registration_terms: terms }, { consented_at: "2026-10-01T00:00:00Z", terms_agreed_at: null }))
+      .toEqual({ consent: false, terms: true });
+  });
+
+  it("asks nothing once both are agreed, or of a draft event", () => {
+    const both = { consented_at: "2026-10-01T00:00:00Z", terms_agreed_at: "2026-10-15T00:00:00Z" };
+    expect(portalAsks({ status: "live", registration_terms: terms }, both)).toEqual({ consent: false, terms: false });
+    expect(portalAsks({ status: "draft", registration_terms: terms }, fresh)).toEqual({ consent: false, terms: false });
   });
 });
 

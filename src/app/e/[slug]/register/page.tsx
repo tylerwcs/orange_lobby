@@ -10,8 +10,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { brandStyle } from "@/lib/brand";
 import { shortDateTime } from "@/lib/text";
 import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
-import { isRichTextEmpty, toRichHtml } from "@/lib/rich-text";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { eventTermsHtml } from "@/lib/privacy";
 
 export default async function RegisterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -51,7 +50,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
             <p className="mt-1 text-sm text-muted-foreground">{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
             <Card className="mt-4">
               <CardContent>
-                <RegisterForm slug={slug} questions={event.registration_form} door={event.check_in_enabled} termsHtml={isRichTextEmpty(event.registration_terms) ? null : sanitizeHtml(toRichHtml(event.registration_terms))} />
+                <RegisterForm slug={slug} questions={event.registration_form} door={event.check_in_enabled} termsHtml={eventTermsHtml(event)} />
               </CardContent>
             </Card>
           </>

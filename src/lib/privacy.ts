@@ -1,3 +1,7 @@
+import type { Attendee, Event } from "@/lib/types";
+import { isRichTextEmpty, toRichHtml } from "@/lib/rich-text";
+import { sanitizeHtml } from "@/lib/sanitize";
+
 /**
  * The Privacy Notice's "last updated" date. Shown at the top of /privacy and stored on each
  * attendee as `consent_notice` when they agree (D410), so change it whenever the notice's
@@ -32,6 +36,25 @@ export const TERMS_FIELD = "event_terms_consent";
 /** The terms tick's check, asked only when the event has terms. */
 export function termsError(input: Record<string, string>, hasTerms: boolean): string | null {
   return !hasTerms || input[TERMS_FIELD] === "yes" ? null : "Tick the box to agree to the event terms before registering.";
+}
+
+/** The event's terms as HTML ready for the page, or null when it has none (D540). */
+export function eventTermsHtml(event: Pick<Event, "registration_terms">): string | null {
+  return isRichTextEmpty(event.registration_terms) ? null : sanitizeHtml(toRichHtml(event.registration_terms));
+}
+
+/**
+ * D543: what the portal's gate still has to ask this attendee. Consent is once, as D410 always
+ * was. The terms are asked of anyone the form never asked: an import, a walk-in, an admin's
+ * addition, or someone who registered before the event had terms. A draft event shows only
+ * "coming soon", so it asks nothing.
+ */
+export function portalAsks(
+  event: Pick<Event, "status" | "registration_terms">,
+  attendee: Pick<Attendee, "consented_at" | "terms_agreed_at">,
+): { consent: boolean; terms: boolean } {
+  if (event.status === "draft") return { consent: false, terms: false };
+  return { consent: !attendee.consented_at, terms: !isRichTextEmpty(event.registration_terms) && !attendee.terms_agreed_at };
 }
 
 /**

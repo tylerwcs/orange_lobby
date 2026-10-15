@@ -10,6 +10,7 @@ import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLab
 import { Input } from "@/components/ui/input";
 import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH, TERMS_FIELD } from "@/lib/privacy";
 import { Spinner } from "@/components/ui/spinner";
+import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
 
 /**
  * A select stays native. The rest of this form is shadcn's Field set, but the choices an
@@ -136,14 +137,11 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
         </FieldGroup>
       </FieldSet>
 
-      {/* D540-D541: the event's own terms, read in place and agreed with a tick of their own. The
-          panel scrolls rather than pushing Register a screen further down on a phone. */}
+      {/* D540-D541: the event's own terms, read in place and agreed with a tick of their own. */}
       {termsHtml && (
         <FieldSet>
           <FieldLegend>Event terms</FieldLegend>
-          <div id="reg-terms-text" tabIndex={0} aria-label="Event terms"
-            className="rich-text prose prose-sm max-h-72 overflow-y-auto rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            dangerouslySetInnerHTML={{ __html: termsHtml }} />
+          <EventTermsPanel html={termsHtml} />
           <Field orientation="horizontal" data-invalid={!!errors[TERMS_FIELD]}>
             <input id={`reg-${TERMS_FIELD}`} name={TERMS_FIELD} type="checkbox" value="yes" required
               checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)}
