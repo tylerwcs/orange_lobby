@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { listEvents } from "@/lib/db/events";
+import { requireSignedIn } from "@/lib/access";
+import { listEvents, listEventsByIds } from "@/lib/db/events";
 import { pickLandingEvent } from "@/lib/landing";
 
 export default async function AdminHome() {
-  const { orgId } = await requireAdmin();
-  const landing = pickLandingEvent(await listEvents(orgId));
+  const me = await requireSignedIn();
+  const landing = pickLandingEvent(me.kind === "admin" ? await listEvents(me.orgId) : await listEventsByIds(me.eventIds));
   redirect(landing ? `/admin/events/${landing.id}` : "/admin/events");
 }

@@ -1,8 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import {
   createActivity, updateActivity, deleteActivity, deletePassportIfUnstamped, getActivity,
   createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
@@ -33,8 +32,7 @@ import { generateToken } from "@/lib/tokens";
 import { readPolaroidSettings, sweepActivityPhotos } from "@/features/polaroid";
 
 async function event(eventId: string) {
-  const { orgId } = await requireAdmin();
-  return requireEvent(eventId, orgId);
+  return (await requireEventAccess(eventId)).ev;
 }
 
 const listPath = (eventId: string) => `/admin/events/${eventId}/activities`;
@@ -72,12 +70,11 @@ async function bookingOf(ev: Event, activityId: string): Promise<Activity> {
  * the activity here - the image only becomes part of it when the form is saved.
  */
 export async function uploadActivityImageAction(eventId: string, formData: FormData): Promise<{ url: string } | { error: string }> {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const file = formData.get("image");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose an image first." };
   try {
-    return { url: await uploadEventImage({ orgId, eventId, kind: "activity", file }) };
+    return { url: await uploadEventImage({ orgId: ev.org_id, eventId, kind: "activity", file }) };
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -354,8 +351,7 @@ export async function deleteSubmissionActivityAction(eventId: string, activityId
  * `updateSubmissionAnswers` re-checks that in its own write, so a revoke landing mid-edit wins.
  */
 export async function editSubmissionAction(eventId: string, activityId: string, submissionId: string, fd: FormData) {
-  const { orgId, userId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev, actor: { userId } } = await requireEventAccess(eventId);
   const activity = await submissionOf(ev, activityId);
   const current = await getSubmission(submissionId);
   const back = submissionsBack(eventId, activity, current);
@@ -392,8 +388,7 @@ export async function editSubmissionAction(eventId: string, activityId: string, 
  * D498: always with a reason, from the event's templates or typed under Other.
  */
 export async function revokeSubmissionAction(eventId: string, activityId: string, submissionId: string, fd: FormData) {
-  const { orgId, userId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev, actor: { userId } } = await requireEventAccess(eventId);
   const activity = await submissionOf(ev, activityId);
   const current = await getSubmission(submissionId);
   const back = submissionsBack(eventId, activity, current);
@@ -440,8 +435,7 @@ function leaderboardBack(eventId: string, activityId: string, fd: FormData): str
  * D467: under a week void, only the grid's week is voided, so its Monday is stored with the row.
  */
 export async function disqualifyAction(eventId: string, activityId: string, attendeeId: string, fd: FormData) {
-  const { orgId, userId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev, actor: { userId } } = await requireEventAccess(eventId);
   const activity = await submissionOf(ev, activityId);
   const back = leaderboardBack(eventId, activityId, fd);
   const reason = text(fd, "reason");
@@ -461,8 +455,7 @@ export async function disqualifyAction(eventId: string, activityId: string, atte
 }
 
 export async function undoDisqualifyAction(eventId: string, activityId: string, attendeeId: string, fd: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const activity = await submissionOf(ev, activityId);
   const back = leaderboardBack(eventId, activityId, fd);
   await undoDisqualify(activity.id, attendeeId);
@@ -623,17 +616,17 @@ const REQUEST_GONE = "That request is no longer waiting.";
  * the page it was posted from, and deciding it through the wrong activity's page redirects and
  * revalidates the wrong path, so the desk watches a queue that did not change.
  *
- * `requireAdmin()` runs twice on this path: once inside `event()`, and again here for
+ * `requireEventAccess()` is asked twice on this path: once inside `event()`, and again here for
  * `userId`, which `decideRequest` needs for `decided_by`. `event()` is kept to its existing
- * shape (just the event) rather than widened to return the whole `AdminContext`: nine other
- * actions in this file already destructure its return as the event alone, and this is the one
- * desk action that also needs "who decided" — it pays for one extra session lookup rather
- * than reshaping a helper every other call site shares unchanged.
+ * shape (just the event) rather than widened to return the actor too: nine other actions in
+ * this file already destructure its return as the event alone, and this is the one desk action
+ * that also needs "who decided" — it pays for at most one more lookup rather than reshaping a
+ * helper every other call site shares unchanged.
  */
 export async function approveRequestAction(eventId: string, activityId: string, requestId: string) {
   const ev = await event(eventId);
   await bookingOf(ev, activityId);
-  const { userId } = await requireAdmin();
+  const { actor: { userId } } = await requireEventAccess(eventId);
   const path = activityHref(eventId, activityId, "bookings");
   const request = await getRequest(requestId, ev.id);
   if (!request || request.activity_id !== activityId) {
@@ -661,7 +654,7 @@ export async function approveRequestAction(eventId: string, activityId: string, 
 export async function declineRequestAction(eventId: string, activityId: string, requestId: string) {
   const ev = await event(eventId);
   await bookingOf(ev, activityId);
-  const { userId } = await requireAdmin();
+  const { actor: { userId } } = await requireEventAccess(eventId);
   const path = activityHref(eventId, activityId, "bookings");
   // Same event- and activity-scoping note as approveRequestAction: this exists so a posted id
   // from outside this event, or from a sibling activity in it, can't be decided through this

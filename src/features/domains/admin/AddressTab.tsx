@@ -5,8 +5,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { ShareLink } from "@/components/admin/ShareLink";
 import { genericLink } from "@/lib/links";
-import { requireEvent } from "@/lib/db/events";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdminEvent } from "@/lib/access";
 import { domainConfig, isSubdomainOf } from "../hosts";
 import { eventAddress, listEventDomains } from "../db";
 import { vercelDomainStatus, type DomainStatus } from "../vercel";
@@ -21,8 +20,7 @@ const STATUS: Record<DomainStatus, { label: string; tone: "success" | "destructi
 
 /** D424: where attendees open this event. Staff pages stay on the main address. */
 export async function AddressTab({ eventId }: { eventId: string }) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireAdminEvent(eventId);
   const { root } = domainConfig();
   const [domains, addr] = await Promise.all([listEventDomains(ev.id), eventAddress(ev)]);
   // Subdomains of our root are covered by the wildcard, so they are always live.

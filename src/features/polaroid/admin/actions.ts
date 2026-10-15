@@ -1,8 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { flashPath } from "@/lib/flash";
 import { generateToken } from "@/lib/tokens";
 import { acceptImage, acceptVideo, isEventMediaFor } from "@/lib/storage";
@@ -21,13 +20,12 @@ const pageOf = (eventId: string, activityId: string, tab?: "polaroids" | "sticke
   `/admin/events/${eventId}/activities/${activityId}${tab ? `?tab=${tab}` : ""}`;
 
 async function wallOf(eventId: string, activityId: string): Promise<{ ev: Event; userId: string; activity: Activity; settings: PolaroidSettings }> {
-  const { orgId, userId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const list = `/admin/events/${eventId}/activities`;
   await requireFeature(ev.id, "engagement", list);
   const activity = await getPolaroidActivity(activityId, ev.id);
   if (!activity) redirect(flashPath(list, "That polaroid wall no longer exists.", "error"));
-  return { ev, userId, activity, settings: readPolaroidSettings(activity.polaroid) };
+  return { ev, userId: actor.userId, activity, settings: readPolaroidSettings(activity.polaroid) };
 }
 
 async function saved(ev: Event, activity: Activity, next: PolaroidSettings, back: string, message: string): Promise<never> {

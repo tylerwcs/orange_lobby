@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
@@ -23,8 +22,7 @@ export const maxDuration = 120;
 // there is no `ids` param and no way for it to fail open.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
 
   const [forms, submissions, attendees, groups] = await Promise.all([
     listActivities(ev.id, "submission"), listSubmissions(ev.id), listAttendees(ev.id), listGroups(ev.id),

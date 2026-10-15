@@ -1,6 +1,5 @@
 import { eventFields } from "@/lib/attendee-fields";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, addPolaroidActivityAction, deletePolaroidActivityAction, uploadActivityImageAction } from "@/features/activities";
 import { countLiveByActivity, readPolaroidSettings } from "@/features/polaroid";
 import { activityKindsFor, eventFeatures, NotInEvent } from "@/features/catalogue";
@@ -23,8 +22,7 @@ const check = "flex items-center gap-2 text-sm font-bold";
 
 export default async function Activities({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const kinds = activityKindsFor(await eventFeatures(ev.id));
   if (kinds.length === 0) {
     return <NotInEvent eventId={ev.id} title="Activities" keys={["booking", "engagement"]} back={`/admin/events/${ev.id}/activities`} />;

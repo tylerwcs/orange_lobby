@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listAttendees } from "@/lib/db/attendees";
 import { listSends } from "@/lib/db/whatsapp-sends";
 import { eventFields } from "@/lib/attendee-fields";
@@ -29,8 +28,7 @@ const STATUS_TONE: Record<string, "default" | "secondary" | "destructive"> = {
 
 export default async function WhatsappAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   if (!has(await eventFeatures(ev.id), "whatsapp")) {
     return <NotInEvent eventId={ev.id} title="WhatsApp" keys={["whatsapp"]} back={`/admin/events/${ev.id}/whatsapp`} />;
   }

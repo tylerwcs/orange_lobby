@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { eventFeatures, featureForActivityKind, has, NotInEvent } from "@/features/catalogue";
 import { getActivity } from "../db/activities";
 import { BookingDetail } from "../kinds/booking/BookingDetail";
@@ -14,8 +13,7 @@ export async function ActivityDetailPage({ params, searchParams }: {
 }) {
   const { id, activityId } = await params;
   const { day: requestedDay, qr, tab, week, team, show } = await searchParams;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) notFound();
   const need = featureForActivityKind(activity.kind);

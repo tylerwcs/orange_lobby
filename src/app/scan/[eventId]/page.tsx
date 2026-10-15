@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { PendingLink } from "@/components/PendingNav";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
 import { loadBoard, loadDoors } from "@/features/activities";
 import { nowInKL } from "@/lib/time";
@@ -14,7 +13,7 @@ import { ChevronRight, Flag } from "lucide-react";
 
 export default async function ScanPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ cp?: string; pick?: string }> }) {
   const { eventId } = await params; const { cp, pick } = await searchParams;
-  const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
 
   // Refused here, not merely hidden from the sidebar (D159). The scanner is reached by a
   // bookmark and a shared link as often as by the nav, and a stale one must not go on

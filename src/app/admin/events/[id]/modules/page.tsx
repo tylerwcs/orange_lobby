@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { MODULE_ICONS, TILE_ROUTES, TILE_ROUTE_LABELS, normalizeModules, type EventModule, type ModuleIcon } from "@/lib/modules";
 import { MAX_TILES, moduleId } from "@/lib/modules-form";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,8 +107,7 @@ function TileForm({ eventId, module: m, categories, preset }: {
 
 export default async function ModulesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const modules = normalizeModules(ev);
   const categories = await listCategories(ev.id);
   const hasPlan = modules.some((m) => m.key === "floor_plan");

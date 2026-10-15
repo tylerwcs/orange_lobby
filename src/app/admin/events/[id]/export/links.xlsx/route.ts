@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
@@ -11,7 +10,7 @@ import { fieldValue } from "@/lib/attendee-values";
 import { withGroupColumn, GROUP_EXPORT_KEY } from "@/lib/groups";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
+  const { id } = await params; const { ev } = await requireEventAccess(id);
   const addr = await eventAddress(ev);
   const [attendees, groups] = await Promise.all([listAttendees(ev.id), listGroups(ev.id)]);
   const groupName = new Map(groups.map((g) => [g.id, g.name]));

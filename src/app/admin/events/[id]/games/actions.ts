@@ -1,8 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent, rotateDisplayToken, rotateHostToken } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
+import { rotateDisplayToken, rotateHostToken } from "@/lib/db/events";
 import { createGame, deleteGame, getGame, listGames, resetDraw, updateGame, GAME_KIND_LABELS, gameMediaUrls, isGameKind, parseConfig, type Game, configFromForm, backgroundFromForm } from "@/features/games";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { acceptImage, acceptVideo, isEventMediaFor, isGameVideoFor, mediaPathInEvent, type ImageKind } from "@/lib/storage";
@@ -13,8 +13,7 @@ import { flashPath } from "@/lib/flash";
 const gamesPath = (eventId: string) => `/admin/events/${eventId}/games`;
 
 export async function createGameAction(eventId: string, kind: string, form: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   if (!isGameKind(kind)) redirect(flashPath(gamesPath(ev.id), "That kind of game does not exist.", "error"));
   await requireFeature(ev.id, featureForGameKind(kind), gamesPath(ev.id));
   const title = (String(form.get("title") ?? "").trim() || GAME_KIND_LABELS[kind]).slice(0, 80);
@@ -25,8 +24,7 @@ export async function createGameAction(eventId: string, kind: string, form: Form
 }
 
 export async function deleteGameAction(eventId: string, gameId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   await deleteGame(gameId, ev.id);
   revalidatePath(gamesPath(ev.id));
   redirect(flashPath(gamesPath(ev.id), "Game deleted."));
@@ -34,24 +32,21 @@ export async function deleteGameAction(eventId: string, gameId: string) {
 
 /** Rotation is the revocation (D252): every copy of the old link stops at once. */
 export async function rotateHostTokenAction(eventId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   await rotateHostToken(ev.id);
   revalidatePath(gamesPath(ev.id));
   redirect(flashPath(gamesPath(ev.id), "New host link ready. The old one has stopped working."));
 }
 
 export async function rotateDisplayTokenAction(eventId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   await rotateDisplayToken(ev.id);
   revalidatePath(gamesPath(ev.id));
   redirect(flashPath(gamesPath(ev.id), "New display link ready. The old one has stopped working."));
 }
 
 export async function updateGameAction(eventId: string, gameId: string, form: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const game = await getGame(gameId, ev.id);
   if (!game) redirect(flashPath(gamesPath(ev.id), "That game no longer exists.", "error"));
   await requireFeature(ev.id, featureForGameKind(game.kind), gamesPath(ev.id));
@@ -137,8 +132,7 @@ export async function updateGameAction(eventId: string, gameId: string, form: Fo
 
 /** Mints the signed URL a background video uploads to (D300), after checking the game is this event's and the file is one we take. */
 export async function backgroundVideoUploadAction(eventId: string, gameId: string, type: string, size: number): Promise<{ ok: true; path: string; token: string; url: string } | { ok: false; error: string }> {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const game = await getGame(gameId, ev.id);
   if (!game) return { ok: false, error: "That game no longer exists." };
   if (!has(await eventFeatures(ev.id), featureForGameKind(game.kind))) return { ok: false, error: notPartOf(featureForGameKind(game.kind)) };
@@ -170,8 +164,7 @@ export async function backgroundVideoUploadAction(eventId: string, gameId: strin
 export async function gameImageUploadAction(
   eventId: string, gameId: string, kind: "prize" | "card-back", type: string, size: number,
 ): Promise<{ ok: true; path: string; token: string; url: string } | { ok: false; error: string }> {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const game = await getGame(gameId, ev.id);
   if (!game) return { ok: false, error: "That game no longer exists." };
   if (!has(await eventFeatures(ev.id), featureForGameKind(game.kind))) return { ok: false, error: notPartOf(featureForGameKind(game.kind)) };
@@ -195,8 +188,7 @@ export async function gameImageUploadAction(
  * looked up in this event first, so a posted id can only ever reset one of its own draws.
  */
 export async function resetDrawAction(eventId: string, gameId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const game = await getGame(gameId, ev.id);
   if (!game || game.kind !== "draw") redirect(flashPath(gamesPath(ev.id), "That draw no longer exists.", "error"));
   await requireFeature(ev.id, featureForGameKind(game.kind), gamesPath(ev.id));

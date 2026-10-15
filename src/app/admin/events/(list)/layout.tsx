@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireSignedIn } from "@/lib/access";
 import { AppSidebar } from "@/components/admin/AppSidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 
@@ -11,7 +11,7 @@ import { SidebarInset } from "@/components/ui/sidebar";
  * sidebar, and must not be wrapped in this one.
  */
 export default async function EventsListLayout({ children }: { children: React.ReactNode }) {
-  const { email } = await requireAdmin();
+  const { email } = await requireSignedIn();
   return (
     <>
       <AppSidebar email={email} />

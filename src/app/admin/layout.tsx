@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import { requireAdmin } from "@/lib/auth";
+import { requireSignedIn } from "@/lib/access";
 import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  await requireSignedIn();
   return (
     <TooltipProvider>
       <SidebarProvider>

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listGames, GAME_KIND_LABELS, gameSummary, type GameKind, NewGameMenu } from "@/features/games";
 import { appBaseUrl, displayLink, hostLink } from "@/lib/links";
 import { crewLinkLastDay } from "@/lib/crew";
@@ -27,8 +26,7 @@ const EMPTY_STATE_PHRASE: Record<GameKind, string> = {
 
 export default async function Games({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const kinds = gameKindsFor(await eventFeatures(ev.id));
   if (kinds.length === 0) {
     return <NotInEvent eventId={ev.id} title="Games" keys={["live_games", "lucky_draw"]} back={`/admin/events/${ev.id}/games`} />;

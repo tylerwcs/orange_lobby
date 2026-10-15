@@ -1,6 +1,5 @@
 import JSZip from "jszip";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listAttendees } from "@/lib/db/attendees";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
@@ -8,7 +7,7 @@ import { qrPngBuffer } from "@/lib/qr";
 import { safeFileName } from "@/lib/filenames";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
+  const { id } = await params; const { ev } = await requireEventAccess(id);
   const attendees = await listAttendees(ev.id);
   const zip = new JSZip();
   const addr = await eventAddress(ev);

@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listAttendees } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
@@ -9,7 +8,7 @@ import { eventFields } from "@/lib/attendee-fields";
 import { parseIds } from "@/lib/bulk";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
+  const { id } = await params; const { ev } = await requireEventAccess(id);
   const [attendees, cps, cis] = await Promise.all([listAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id)]);
   // The posted list decides which rows are exported, so it is validated against this event's
   // own attendees exactly as the bulk server actions do — an id from another event never widens the export.

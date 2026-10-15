@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { buildWinnersWorkbook, getGame, listWinners, winnerSheetRows } from "@/features/games";
@@ -9,7 +8,7 @@ import { listAttendeesByIds } from "@/lib/db/attendees";
 // It carries the event's chosen export columns like every other export; Company is already a
 // fixed column here, so it is never added a second time.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
+  const { id } = await params; const { ev } = await requireEventAccess(id);
   const gameId = new URL(req.url).searchParams.get("game") ?? "";
   const game = gameId ? await getGame(gameId, ev.id) : null;
   if (!game || game.kind !== "draw") return new Response("No such draw.", { status: 404 });

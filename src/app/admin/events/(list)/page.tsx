@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
-import { listEvents } from "@/lib/db/events";
+import { requireSignedIn } from "@/lib/access";
+import { listEvents, listEventsByIds } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
 import { waitingCounts } from "@/features/setup";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -16,8 +16,8 @@ import { formatDateRange } from "@/lib/text";
 export const metadata = { title: "All events" };
 
 export default async function AdminHome() {
-  const { orgId } = await requireAdmin();
-  const events = await listEvents(orgId);
+  const me = await requireSignedIn();
+  const events = me.kind === "admin" ? await listEvents(me.orgId) : await listEventsByIds(me.eventIds);
   const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
   const waiting = await waitingCounts(events.map((e) => e.id));
   return (

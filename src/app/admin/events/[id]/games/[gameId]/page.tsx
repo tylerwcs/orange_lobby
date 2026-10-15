@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { getGame, listWinners, GAME_KIND_LABELS, prizeProgress, QuestionsEditor, PrizesEditor, DrawFormatFields, BackgroundPicker } from "@/features/games";
 import { eventFeatures, featureForGameKind, has, NotInEvent } from "@/features/catalogue";
 import { listCheckpoints } from "@/lib/db/checkpoints";
@@ -21,8 +20,7 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
 
 export default async function GameEditor({ params }: { params: Promise<{ id: string; gameId: string }> }) {
   const { id, gameId } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const game = await getGame(gameId, ev.id);
   if (!game) notFound();
   const need = featureForGameKind(game.kind);

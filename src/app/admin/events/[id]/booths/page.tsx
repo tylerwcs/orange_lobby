@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listActivities, getBoothInEvent } from "@/features/activities";
 
 /**
@@ -18,8 +17,7 @@ import { listActivities, getBoothInEvent } from "@/features/activities";
 export default async function Booths({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ qr?: string }> }) {
   const { id } = await params;
   const { qr } = await searchParams;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   if (qr) {
     const booth = await getBoothInEvent(qr, ev.id);
     if (booth) redirect(`/admin/events/${ev.id}/activities/${booth.activity_id}?qr=${encodeURIComponent(qr)}`);

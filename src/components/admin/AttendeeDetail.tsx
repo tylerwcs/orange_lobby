@@ -1,4 +1,4 @@
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { getAttendee } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsForEvent } from "@/lib/db/checkins";
@@ -33,8 +33,8 @@ export type AttendeeDetailData = NonNullable<Awaited<ReturnType<typeof loadAtten
  * Everything the panel renders, loaded once. Returns null when the attendee does not
  * belong to the event, so the page and the modal can each decide what that means.
  */
-export async function loadAttendeeDetail(eventId: string, attendeeId: string, orgId: string) {
-  const ev = await requireEvent(eventId, orgId);
+export async function loadAttendeeDetail(eventId: string, attendeeId: string) {
+  const { ev } = await requireEventAccess(eventId);
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== ev.id) return null;
   // No door, no queries. `cps` empty is already the panel's "nothing to show" case; what

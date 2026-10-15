@@ -1,6 +1,5 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireEventAccess } from "@/lib/access";
 import { formKey } from "@/lib/form-key";
-import { requireEvent } from "@/lib/db/events";
 import { listInfoTabs } from "@/lib/db/info-tabs";
 import { listCategories } from "@/lib/db/attendees";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
@@ -40,8 +39,7 @@ export default async function InfoAdmin({ params, searchParams }: {
 }) {
   const { id } = await params;
   const { tab } = await searchParams;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const [tabs, categories] = await Promise.all([listInfoTabs(ev.id), listCategories(ev.id)]);
   const editing = tabs.find((t) => t.id === tab) ?? tabs[0] ?? null;
   const base = `/admin/events/${ev.id}/info`;

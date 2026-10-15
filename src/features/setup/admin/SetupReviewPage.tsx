@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { shortDateTime } from "@/lib/text";
 import type { Event } from "@/lib/types";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -52,8 +51,7 @@ async function reviewFor(section: SetupSection, ev: Event, row: SetupRow): Promi
 /** What Apply would change on the live event, next to the preview the organiser saw (D449). */
 export async function SetupReviewPage({ params }: { params: Promise<{ id: string; section: string }> }) {
   const { id, section } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   if (!isBuiltStep(section)) notFound();
   const row = await getSetupRow(ev.id, section);
   const status = sectionStatus(row);

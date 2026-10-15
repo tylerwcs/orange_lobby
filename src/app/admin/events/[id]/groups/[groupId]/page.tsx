@@ -2,8 +2,7 @@ import Link from "next/link";
 import Form from "next/form";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listAttendees } from "@/lib/db/attendees";
 import { getGroup, groupMembers, listGroups, liveGroupEntryCount } from "@/lib/db/groups";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -25,8 +24,7 @@ const SEARCH_LIMIT = 20;
 export default async function GroupPage({ params, searchParams }: { params: Promise<{ id: string; groupId: string }>; searchParams: Promise<{ q?: string }> }) {
   const { id, groupId } = await params;
   const { q = "" } = await searchParams;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const group = await getGroup(ev.id, groupId);
   if (!group) notFound();
   const [members, groups, found, entries] = await Promise.all([

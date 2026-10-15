@@ -1,8 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent, updateEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
+import { updateEvent } from "@/lib/db/events";
 import { flashPath } from "@/lib/flash";
 import { featureForActivityKind, requireFeature } from "@/features/catalogue";
 import { addVerifierLink, replaceVerifierToken, removeVerifierLink } from "../db/verifiers";
@@ -13,10 +13,9 @@ const settingsPath = (eventId: string) => `/admin/events/${eventId}/settings`;
 
 /** D502: the Verification tab's writes. Submissions are part of the Engagement add-on, so each one checks it. */
 async function guard(eventId: string) {
-  const { orgId, userId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev, actor } = await requireEventAccess(eventId);
   await requireFeature(ev.id, featureForActivityKind("submission"), settingsPath(eventId));
-  return { ev, userId };
+  return { ev, userId: actor.userId };
 }
 
 export async function addVerifierAction(eventId: string, fd: FormData) {

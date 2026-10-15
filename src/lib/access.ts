@@ -28,7 +28,8 @@ const claimsOrLogin = cache(async (): Promise<{ userId: string; email: string }>
 });
 
 const adminOrgOf = cache(async (userId: string): Promise<string | null> => {
-  const { data } = await serviceClient().from("org_members").select("org_id").eq("user_id", userId).limit(1).maybeSingle();
+  const { data, error } = await serviceClient().from("org_members").select("org_id").eq("user_id", userId).limit(1).maybeSingle();
+  if (error) throw error;
   return (data?.org_id as string | undefined) ?? null;
 });
 

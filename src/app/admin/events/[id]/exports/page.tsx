@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { countAttendees } from "@/lib/db/attendees";
 import { listAgenda } from "@/lib/db/agenda";
 import { listBooths, listActivities } from "@/features/activities";
@@ -19,8 +18,7 @@ export const metadata = { title: "Exports" };
 
 export default async function ExportsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const [total, items, booths, activities, forms] = await Promise.all([
     countAttendees(ev.id), listAgenda(ev.id), listBooths(ev.id), listActivities(ev.id, "booking"), listActivities(ev.id, "submission"),
   ]);

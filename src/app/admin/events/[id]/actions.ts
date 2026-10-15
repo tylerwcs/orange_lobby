@@ -1,8 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { createEvent, deleteEvent, requireEvent, updateEvent, setEventStatus, rotateCrewToken } from "@/lib/db/events";
+import { requireEventAccess, requireAdminEvent, requireOrgAdmin } from "@/lib/access";
+import { createEvent, deleteEvent, updateEvent, setEventStatus, rotateCrewToken } from "@/lib/db/events";
 import { confirmsDelete, deleteBlockedBecause } from "@/lib/event-delete";
 import { slugify } from "@/lib/slug";
 import { MAX_QUESTIONS, questionsFromForm } from "@/lib/questions-form";
@@ -57,7 +57,7 @@ const str = (fd: FormData, k: string) => {
 };
 
 export async function createEventAction(formData: FormData) {
-  const { orgId } = await requireAdmin();
+  const { orgId } = await requireOrgAdmin();
   const name = str(formData, "name");
   if (!name) redirect(flashPath("/admin/events", "An event needs a name.", "error"));
   const slug = str(formData, "slug") ?? slugify(name);
@@ -66,8 +66,7 @@ export async function createEventAction(formData: FormData) {
 }
 
 export async function updateSettingsAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   let questions;
   try {
     // The list carries the four standard questions too (name, email, mobile, department), which
@@ -84,8 +83,8 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   let logo: ImageChange = { url: ev.logo_url, stale: null };
   let banner: ImageChange = { url: ev.banner_url, stale: null };
   try {
-    logo = await nextImage(formData, "logo", ev.logo_url, { orgId, eventId, kind: "logo" });
-    banner = await nextImage(formData, "banner", ev.banner_url, { orgId, eventId, kind: "banner" });
+    logo = await nextImage(formData, "logo", ev.logo_url, { orgId: ev.org_id, eventId, kind: "logo" });
+    banner = await nextImage(formData, "banner", ev.banner_url, { orgId: ev.org_id, eventId, kind: "banner" });
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }
@@ -113,8 +112,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
 
 /** D536: what the attendee's Me page shows. Its own action: the tab sits outside the big settings form. */
 export async function updateMePageAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   await updateEvent(eventId, { me_hidden: meHiddenFromForm(formData.getAll("me_shown").map(String), meGroups(ev)) });
   const path = `/admin/events/${eventId}/settings`;
   revalidatePath(path);
@@ -123,8 +121,7 @@ export async function updateMePageAction(eventId: string, formData: FormData) {
 
 /** The attendee columns every export (bar Attendance) carries, saved from the Exports page. */
 export async function updateExportFieldsAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   await updateEvent(eventId, { export_fields: exportFieldsFromForm(formData.getAll("export_fields").map(String), fields) });
   const path = `/admin/events/${eventId}/exports`;
@@ -134,8 +131,7 @@ export async function updateExportFieldsAction(eventId: string, formData: FormDa
 
 /** The numbers told when change requests wait an hour. Its own action: the tab sits outside the big settings form. */
 export async function updateCommitteeNumbersAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   const path = `/admin/events/${eventId}/settings`;
   const { numbers, bad } = parseAlertNumbers(String(formData.get("committee_alert_numbers") ?? ""));
   if (bad.length > 0) {
@@ -151,8 +147,7 @@ export async function updateCommitteeNumbersAction(eventId: string, formData: Fo
  * sits outside the one big settings form — see the SaveBar comment in settings/page.tsx.
  */
 export async function updateScanFieldsAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   await updateEvent(eventId, { scan_extra_fields: scanFieldsFromForm(formData.getAll("scan_extra_fields").map(String), fields) });
   const path = `/admin/events/${eventId}/settings`;
@@ -173,8 +168,7 @@ export async function updateScanFieldsAction(eventId: string, formData: FormData
  * notice are the ones outside Settings.
  */
 export async function setCheckInEnabledAction(eventId: string, enabled: boolean) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   await updateEvent(eventId, { check_in_enabled: enabled });
   revalidatePath(`/admin/events/${eventId}`, "layout");
   redirect(flashPath(`/admin/events/${eventId}/settings`, enabled ? "Check-in is on." : "Check-in is off."));
@@ -182,8 +176,7 @@ export async function setCheckInEnabledAction(eventId: string, enabled: boolean)
 
 /** D388: shows or hides the check-in pill on the portal badge. Its own form, like the door switch. */
 export async function setBadgeCheckinAction(eventId: string, fd: FormData) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   const on = fd.get("badge_checkin") === "on";
   await updateEvent(eventId, { badge_checkin: on });
   revalidatePath(`/admin/events/${eventId}/settings`);
@@ -191,8 +184,7 @@ export async function setBadgeCheckinAction(eventId: string, fd: FormData) {
 }
 
 export async function setStatusAction(eventId: string, status: EventStatus) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   await setEventStatus(eventId, status);
   revalidatePath(`/admin/events/${eventId}`);
 }
@@ -203,8 +195,7 @@ export async function setStatusAction(eventId: string, status: EventStatus) {
  * that nobody else has (D108).
  */
 export async function rotateCrewTokenAction(eventId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   await rotateCrewToken(ev.id);
   const path = `/admin/events/${eventId}/settings`;
   revalidatePath(path);
@@ -258,8 +249,7 @@ async function assignRoundsFromColumns(ev: Event, only: string | null, overwrite
 }
 
 export async function importMasterlistAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const file = formData.get("file");
   if (!(file instanceof File)) redirect(flashPath(`/admin/events/${eventId}/attendees`, "Choose a file first.", "error"));
   let parsed: MasterlistResult | null = null;
@@ -340,8 +330,7 @@ function attendeeInputFrom(ev: Event, formData: FormData, existingExtra: Record<
 }
 
 export async function addAttendeeAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const input = attendeeInputFrom(ev, formData);
   if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees`, "An attendee needs a name.", "error"));
   const source = (str(formData, "source") ?? "walkin") as "walkin" | "import";
@@ -351,8 +340,7 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
 }
 
 export async function updateAttendeeAction(eventId: string, attendeeId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const existing = await requireEventAttendee(eventId, attendeeId);
   const input = attendeeInputFrom(ev, formData, existing.extra);
   // Back to the panel the edit was made in, not a page of its own - there is no longer a
@@ -366,8 +354,7 @@ export async function updateAttendeeAction(eventId: string, attendeeId: string, 
 }
 
 export async function deleteAttendeeAction(eventId: string, attendeeId: string) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   // Loaded before the delete, because the toast needs a name the row will no longer have.
   const gone = await requireEventAttendee(eventId, attendeeId);
   await deleteAttendee(attendeeId);
@@ -384,8 +371,7 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
  * event's attendee.
  */
 export async function deleteAttendeesAction(eventId: string, formData: FormData): Promise<number> {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const allowed = new Set((await listAttendees(ev.id)).map((a) => a.id));
   const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
   if (ids.length === 0) return 0;
@@ -401,8 +387,7 @@ export async function deleteAttendeesAction(eventId: string, formData: FormData)
  * a check-in into somebody else's door.
  */
 export async function markCheckedInAction(eventId: string, formData: FormData) {
-  const { orgId, userId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev, actor: { userId } } = await requireEventAccess(eventId);
   // The bulk bar hides itself when this event has no checkpoints to offer, but a posted
   // form is not the bar; refuse the write itself the way doCheckin does (D159).
   if (!ev.check_in_enabled) redirect(flashPath(`/admin/events/${ev.id}/attendees`, "Check-in is off for this event.", "error"));
@@ -429,8 +414,7 @@ export async function markCheckedInAction(eventId: string, formData: FormData) {
  * confirmation the bar puts in front of a clear, which is the honest place for it.
  */
 export async function setColumnAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const attendees = await listAttendees(ev.id);
   const ids = parseIds(String(formData.get("ids") ?? ""), new Set(attendees.map((a) => a.id)));
   if (ids.length === 0) return;
@@ -487,8 +471,7 @@ export async function setColumnAction(eventId: string, formData: FormData) {
 const columnsBack = (eventId: string) => `/admin/events/${eventId}/attendees`;
 
 export async function addAttendeeFieldAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const result = addField(ev.attendee_fields, {
     label: String(formData.get("label") ?? ""),
     type: String(formData.get("type") ?? "text"),
@@ -516,8 +499,7 @@ export async function addAttendeeFieldAction(eventId: string, formData: FormData
 }
 
 export async function renameAttendeeFieldAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const result = renameField(ev.attendee_fields, String(formData.get("key") ?? ""), String(formData.get("label") ?? ""));
   if (!result.ok) redirect(flashPath(columnsBack(eventId), result.error, "error"));
   await updateEvent(eventId, { attendee_fields: result.fields });
@@ -539,8 +521,7 @@ export async function renameAttendeeFieldAction(eventId: string, formData: FormD
  * which the "add a column" suggestions still offer back — the recoverable side to fail on.
  */
 export async function deleteAttendeeFieldsAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const asked = new Set(formData.getAll("key").map(String));
   const questionKeys = new Set(ev.registration_questions.map((q) => q.key));
   const doomed = ev.attendee_fields.filter((f) => asked.has(f.key) && !questionKeys.has(f.key));
@@ -587,8 +568,7 @@ async function placeInDay(eventId: string, dayId: string, key: string, time: str
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function addAgendaDayAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const date = str(formData, "date");
   if (!date || !ISO_DATE.test(date)) redirect(flashPath(agendaBack(eventId), "A day needs a date.", "error"));
   const made = await createAgendaDay(ev, { date, name: str(formData, "name") });
@@ -600,8 +580,7 @@ export async function addAgendaDayAction(eventId: string, formData: FormData) {
 
 /** Renames or re-dates a day; its rows move with a new date, in the database (D194). */
 export async function updateAgendaDayAction(eventId: string, dayId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const day = await dayOf(ev.id, dayId);
   if (!day) redirect(flashPath(agendaBack(eventId), "That day no longer exists.", "error"));
   const date = str(formData, "date");
@@ -619,8 +598,7 @@ export async function updateAgendaDayAction(eventId: string, dayId: string, form
  * from the bucket after, in the D160 order: nothing leaves storage until no row names it.
  */
 export async function deleteAgendaDayAction(eventId: string, dayId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const day = await dayOf(ev.id, dayId);
   if (!day) redirect(flashPath(agendaBack(eventId), "That day no longer exists.", "error"));
   const doomed = (await listAgenda(ev.id)).filter((i) => i.day_id === day.id);
@@ -635,8 +613,7 @@ export async function deleteAgendaDayAction(eventId: string, dayId: string) {
  * rows - posted from a stale page - is ignored, and the list snaps back to what is stored.
  */
 export async function reorderAgendaDayAction(eventId: string, dayId: string, keys: string[]) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const rows = agendaRows((await listAgenda(ev.id)).filter((i) => i.day_id === dayId));
   if (rows.length === 0 || !isValidOrder(rows.map(rowKey), keys)) return;
   await setAgendaOrder(ev.id, sortOrdersFor(rows, keys));
@@ -644,8 +621,7 @@ export async function reorderAgendaDayAction(eventId: string, dayId: string, key
 }
 
 export async function addAgendaItemAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const day = await dayOf(ev.id, str(formData, "day_id"));
   const starts_at = str(formData, "starts_at");
   const title = str(formData, "title");
@@ -654,7 +630,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
   // leave nothing behind rather than a session with half its fields.
   let image: ImageChange = { url: null, stale: null };
   try {
-    image = await nextImage(formData, "image", null, { orgId, eventId, kind: "agenda" });
+    image = await nextImage(formData, "image", null, { orgId: ev.org_id, eventId, kind: "agenda" });
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/agenda`, (e as Error).message, "error"));
   }
@@ -680,8 +656,7 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
 }
 
 export async function deleteAgendaItemAction(eventId: string, itemId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   // Read before the delete, because afterwards there is no row to ask.
   const doomed = (await listAgenda(ev.id)).find((i) => i.id === itemId);
   await deleteAgendaItem(itemId, eventId);
@@ -690,8 +665,7 @@ export async function deleteAgendaItemAction(eventId: string, itemId: string) {
 }
 
 export async function addAnnouncementAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const title = str(formData, "title");
   const body = str(formData, "body");
   if (!title || !body) redirect(flashPath(`/admin/events/${eventId}/announcements`, "An announcement needs a title and a body.", "error"));
@@ -701,8 +675,7 @@ export async function addAnnouncementAction(eventId: string, formData: FormData)
 }
 
 export async function updateAnnouncementAction(eventId: string, annId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   const back = `/admin/events/${eventId}/announcements`;
   const title = str(formData, "title");
   const body = str(formData, "body");
@@ -713,16 +686,14 @@ export async function updateAnnouncementAction(eventId: string, annId: string, f
 }
 
 export async function deleteAnnouncementAction(eventId: string, annId: string) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   await deleteAnnouncement(annId, eventId);
   revalidatePath(`/admin/events/${eventId}/announcements`);
 }
 
 /** The order a drag or an arrow left them in (D249). A list that is not exactly this event's announcements is dropped, as for info tabs. */
 export async function reorderAnnouncementsAction(eventId: string, ids: string[]) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const current = (await listAnnouncements(ev.id)).map((a) => a.id);
   if (current.length === 0 || !isValidOrder(current, ids)) return;
   await setAnnouncementOrder(ev.id, ids);
@@ -733,8 +704,7 @@ const infoBack = (eventId: string) => `/admin/events/${eventId}/info`;
 
 /** The section's name: the Info tile's label and the page heading (D203). Saved on its own. */
 export async function saveInfoTitleAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   await updateEvent(eventId, { info_page_title: str(formData, "info_page_title") ?? "Info" });
   revalidatePath(infoBack(eventId));
   redirect(flashPath(infoBack(eventId), "Title saved."));
@@ -742,8 +712,7 @@ export async function saveInfoTitleAction(eventId: string, formData: FormData) {
 
 /** A new, empty tab at the end; its editor opens straight away (D207). */
 export async function addInfoTabAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const title = str(formData, "title");
   if (!title) redirect(flashPath(infoBack(eventId), "A tab needs a title.", "error"));
   const id = await createInfoTab(ev, title);
@@ -752,8 +721,7 @@ export async function addInfoTabAction(eventId: string, formData: FormData) {
 }
 
 export async function saveInfoTabAction(eventId: string, tabId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const back = `${infoBack(eventId)}?tab=${tabId}`;
   if (!(await listInfoTabs(ev.id)).some((t) => t.id === tabId)) redirect(flashPath(infoBack(eventId), "That tab no longer exists.", "error"));
   const title = str(formData, "title");
@@ -765,8 +733,7 @@ export async function saveInfoTabAction(eventId: string, tabId: string, formData
 
 /** Its content goes with it. Images inside it stay in the bucket - D160's known limitation. */
 export async function deleteInfoTabAction(eventId: string, tabId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const tab = (await listInfoTabs(ev.id)).find((t) => t.id === tabId);
   if (!tab) redirect(flashPath(infoBack(eventId), "That tab no longer exists.", "error"));
   await deleteInfoTab(tab.id, ev.id);
@@ -776,8 +743,7 @@ export async function deleteInfoTabAction(eventId: string, tabId: string) {
 
 /** From the drag list. A list that is not exactly this event's tabs is ignored and snaps back. */
 export async function reorderInfoTabsAction(eventId: string, ids: string[]) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const current = (await listInfoTabs(ev.id)).map((t) => t.id);
   if (current.length === 0 || !isValidOrder(current, ids)) return;
   await setInfoTabOrder(ev.id, ids);
@@ -794,20 +760,18 @@ export async function reorderInfoTabsAction(eventId: string, ids: string[]) {
  * written to the event here - the image only becomes part of the page when the page is saved.
  */
 export async function uploadInfoImageAction(eventId: string, formData: FormData): Promise<{ url: string } | { error: string }> {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const file = formData.get("image");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose an image first." };
   try {
-    return { url: await uploadEventImage({ orgId, eventId, kind: "info", file }) };
+    return { url: await uploadEventImage({ orgId: ev.org_id, eventId, kind: "info", file }) };
   } catch (e) {
     return { error: (e as Error).message };
   }
 }
 
 export async function addCheckpointAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const activityId = str(formData, "activity_id");
   const day = str(formData, "day");
   const back = `/admin/events/${eventId}/settings`;
@@ -837,8 +801,7 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
  * payload cannot reorder — or touch — anything it does not own.
  */
 export async function reorderCheckpointsAction(eventId: string, day: string, orderedIds: string[]) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const onDay = new Set((await listCheckpoints(ev.id)).filter((c) => c.day === day).map((c) => c.id));
   const ids = orderedIds.filter((id) => onDay.has(id));
   if (ids.length !== onDay.size) return; // a partial list would renumber the rest by accident
@@ -853,8 +816,7 @@ export async function reorderCheckpointsAction(eventId: string, day: string, ord
  * rather than three screens each guessing separately.
  */
 export async function setActiveCheckpointAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   // Chosen from the Overview, and settable from anywhere else that grows a control for it,
   // so the flash lands where the organiser is rather than always on Settings.
   const back = `/admin/events/${eventId}`;
@@ -871,8 +833,7 @@ export async function setActiveCheckpointAction(eventId: string, formData: FormD
 }
 
 export async function deleteCheckpointAction(eventId: string, cpId: string) {
-  const { orgId } = await requireAdmin();
-  await requireEvent(eventId, orgId);
+  await requireEventAccess(eventId);
   await deleteCheckpoint(cpId, eventId);
   revalidatePath(`/admin/events/${eventId}/settings`);
   revalidatePath(`/admin/events/${eventId}`);
@@ -881,11 +842,11 @@ export async function deleteCheckpointAction(eventId: string, cpId: string) {
 // ---- Archive / purge ----
 
 export async function purgeEventAction(eventId: string) {
-  const { orgId } = await requireAdmin(); const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireAdminEvent(eventId);
   if (ev.status !== "archived") redirect(flashPath(`/admin/events/${eventId}/settings`, "Archive the event first.", "error"));
-  await purgeSetupFiles(orgId, eventId);
-  await purgePolaroids(orgId, eventId);
-  await purgeAttendeePersonalData(eventId, orgId);
+  await purgeSetupFiles(ev.org_id, eventId);
+  await purgePolaroids(ev.org_id, eventId);
+  await purgeAttendeePersonalData(eventId, ev.org_id);
   revalidatePath(`/admin/events/${eventId}`); redirect(flashPath(`/admin/events/${eventId}/settings`, "Personal data purged."));
 }
 
@@ -895,16 +856,15 @@ export async function purgeEventAction(eventId: string) {
  * every attendee, booking, check-in and message with it. Nothing here can be undone.
  */
 export async function deleteEventAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireAdminEvent(eventId);
   const back = `/admin/events/${eventId}/settings`;
   const blocked = deleteBlockedBecause(ev.status);
   if (blocked) redirect(flashPath(back, `${ev.name} cannot be deleted. ${blocked}`, "error"));
   if (!confirmsDelete(String(formData.get("confirm_name") ?? ""), ev.name)) {
     redirect(flashPath(back, "Type the event's name exactly to delete it.", "error"));
   }
-  await deleteEventFiles(orgId, ev.id);
-  await deleteEvent(ev.id, orgId);
+  await deleteEventFiles(ev.org_id, ev.id);
+  await deleteEvent(ev.id, ev.org_id);
   revalidatePath("/admin/events");
   redirect(flashPath("/admin/events", `${ev.name} deleted.`));
 }
@@ -915,8 +875,7 @@ const modulesPath = (eventId: string) => `/admin/events/${eventId}/modules`;
 
 /** Loads the event's tiles in the shape the editor works in. */
 async function currentModules(eventId: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   return { ev, modules: normalizeModules(ev) };
 }
 
@@ -1007,8 +966,7 @@ const settingsPath = (eventId: string) => `/admin/events/${eventId}/settings`;
  * take effect — and reordering a pin is not a thing anyone expects to have to save twice.
  */
 export async function addPinAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const result = addPin(ev.pinned_fields, String(formData.get("key") ?? ""), String(formData.get("label") ?? ""));
   if (!result.ok) redirect(flashPath(settingsPath(eventId), result.error, "error"));
   await updateEvent(eventId, { pinned_fields: result.pins });
@@ -1017,16 +975,14 @@ export async function addPinAction(eventId: string, formData: FormData) {
 }
 
 export async function removePinAction(eventId: string, key: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   await updateEvent(eventId, { pinned_fields: removePin(ev.pinned_fields, key) });
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(settingsPath(eventId), "Unpinned."));
 }
 
 export async function reorderPinsAction(eventId: string, keys: string[]) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   await updateEvent(eventId, { pinned_fields: reorderPins(ev.pinned_fields, keys) });
   revalidatePath(settingsPath(ev.id));
   revalidatePath(`/admin/events/${ev.id}`);
@@ -1044,8 +1000,7 @@ export async function reorderPinsAction(eventId: string, keys: string[]) {
  * attends is decided by assignment rather than by category.
  */
 export async function addBreakoutRoundAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const back = `/admin/events/${eventId}/agenda`;
   const day = await dayOf(ev.id, str(formData, "day_id"));
   const starts_at = str(formData, "starts_at");
@@ -1115,8 +1070,7 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
  * safe here and dangerous one room at a time — this cannot split a round.
  */
 export async function updateBreakoutRoundAction(eventId: string, slot: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const back = `/admin/events/${eventId}/agenda`;
 
   const current = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
@@ -1194,8 +1148,7 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
 
 /** Deletes a round and every room in it. Assignments go with the rooms, by cascade. */
 export async function deleteBreakoutRoundAction(eventId: string, slot: string) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const round = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
   if (round) for (const room of round.items) await deleteAgendaItem(room.id, ev.id);
   revalidatePath(`/admin/events/${eventId}/agenda`);
@@ -1217,8 +1170,7 @@ export async function deleteBreakoutRoundAction(eventId: string, slot: string) {
  * violates that unique index.
  */
 export async function updateAgendaItemAction(eventId: string, itemId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const back = `/admin/events/${eventId}/agenda`;
 
   const item = (await listAgenda(ev.id)).find((i) => i.id === itemId);
@@ -1239,7 +1191,7 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
   let image: ImageChange = { url: item.image_url, stale: null };
   if (!isBreakout) {
     try {
-      image = await nextImage(formData, "image", item.image_url, { orgId, eventId, kind: "agenda" });
+      image = await nextImage(formData, "image", item.image_url, { orgId: ev.org_id, eventId, kind: "agenda" });
     } catch (e) {
       redirect(flashPath(back, (e as Error).message, "error"));
     }
@@ -1286,14 +1238,13 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
  * categories, and no time - so it goes to the end of its day and the organiser drags it.
  */
 export async function addAgendaImageAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const back = agendaBack(eventId);
   const day = await dayOf(ev.id, str(formData, "day_id"));
   if (!day) redirect(flashPath(back, "That day no longer exists.", "error"));
   let image: ImageChange = { url: null, stale: null };
   try {
-    image = await nextImage(formData, "image", null, { orgId, eventId, kind: "agenda" });
+    image = await nextImage(formData, "image", null, { orgId: ev.org_id, eventId, kind: "agenda" });
   } catch (e) {
     redirect(flashPath(back, (e as Error).message, "error"));
   }
@@ -1320,8 +1271,7 @@ export async function addAgendaImageAction(eventId: string, formData: FormData) 
 }
 
 export async function updateAgendaImageAction(eventId: string, itemId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const back = agendaBack(eventId);
   const item = (await listAgenda(ev.id)).find((i) => i.id === itemId && i.kind === "image");
   if (!item) redirect(flashPath(back, "That image no longer exists.", "error"));
@@ -1329,7 +1279,7 @@ export async function updateAgendaImageAction(eventId: string, itemId: string, f
   if (!day) redirect(flashPath(back, "That day no longer exists.", "error"));
   let image: ImageChange = { url: item.image_url, stale: null };
   try {
-    image = await nextImage(formData, "image", item.image_url, { orgId, eventId, kind: "agenda" });
+    image = await nextImage(formData, "image", item.image_url, { orgId: ev.org_id, eventId, kind: "agenda" });
   } catch (e) {
     redirect(flashPath(back, (e as Error).message, "error"));
   }
@@ -1367,8 +1317,7 @@ export async function updateAgendaImageAction(eventId: string, itemId: string, f
  * day 2 does not undo what the desk did at breakfast.
  */
 export async function assignFromColumnAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const wanted = String(formData.get("slot") ?? "").trim();
   const overwrite = formData.get("overwrite") === "on";
   // Back to the attendee list, which is where this is run from and where the result is
@@ -1402,8 +1351,7 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
  * corrected and the button pressed again.
  */
 export async function sendWhatsappAction(eventId: string, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   const here = `/admin/events/${eventId}/whatsapp`;
   const fail = (message: string): never => redirect(flashPath(here, message, "error"));
   await requireFeature(ev.id, "whatsapp", here);
@@ -1446,7 +1394,7 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
 
   const eventDates = formatDateRange(ev.starts_on, ev.ends_on);
   const result = await runSend({
-    orgId,
+    orgId: ev.org_id,
     eventId,
     template: template.name,
     language: template.language,
@@ -1476,8 +1424,7 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
  * the portal's default illustration back.
  */
 export async function saveSectionIconAction(eventId: string, section: IconSection, formData: FormData) {
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   if (!ICON_SECTIONS.includes(section)) redirect(flashPath(`/admin/events/${eventId}`, "That section has no icon.", "error"));
   // Each section's picture is set from its own admin page, and lands back there (My group's from Groups, D362).
   const back = section === "agenda" ? agendaBack(eventId) : section === "group" ? `/admin/events/${eventId}/groups` : infoBack(eventId);

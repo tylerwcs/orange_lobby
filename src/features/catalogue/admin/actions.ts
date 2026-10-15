@@ -1,8 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireAdminEvent } from "@/lib/access";
 import { flashPath } from "@/lib/flash";
 import { FEATURES } from "../catalogue";
 import { isStoredAddon } from "../features";
@@ -12,8 +11,7 @@ import { setAddon, addCustomModule, updateCustomModule, removeCustomModule } fro
 const settingsPath = (eventId: string) => `/admin/events/${eventId}/settings`;
 
 async function event(eventId: string) {
-  const { orgId } = await requireAdmin();
-  return requireEvent(eventId, orgId);
+  return (await requireAdminEvent(eventId)).ev;
 }
 
 /**

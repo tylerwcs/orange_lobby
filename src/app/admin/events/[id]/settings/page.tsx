@@ -1,7 +1,6 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireEventAccess } from "@/lib/access";
 import { formKey } from "@/lib/form-key";
 import { deleteBlockedBecause } from "@/lib/event-delete";
-import { requireEvent } from "@/lib/db/events";
 import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
 import { eventDays, nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
@@ -84,8 +83,7 @@ const SAVE_NOTE = "Saves every tab, not just this one. Changes apply to the port
 
 export default async function Settings({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const features = await eventFeatures(ev.id);
   const hiddenTabs = hiddenSettingsTabs(features);
   // D502: Verification is about submissions, so it shows only when the event can run them.

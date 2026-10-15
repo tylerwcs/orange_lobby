@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listAnnouncements } from "@/lib/db/announcements";
 import { listCategories } from "@/lib/db/attendees";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
@@ -21,8 +20,7 @@ const PIN_LABEL = "Pin: highlight it, and show it on the home banner";
 
 export default async function AnnouncementsAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const [list, categories] = await Promise.all([listAnnouncements(ev.id), listCategories(ev.id)]);
   const form = (a?: (typeof list)[number]) => (
     <form action={a ? updateAnnouncementAction.bind(null, ev.id, a.id) : addAnnouncementAction.bind(null, ev.id)} className="grid gap-3 p-1">

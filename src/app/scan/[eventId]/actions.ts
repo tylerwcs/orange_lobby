@@ -1,6 +1,6 @@
 "use server";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent, getEventByCrewToken } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
+import { getEventByCrewToken } from "@/lib/db/events";
 import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
 import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin, getCheckin } from "@/lib/db/checkins";
 import { getCheckpoint } from "@/lib/db/checkpoints";
@@ -55,9 +55,8 @@ async function authorise(eventId: string, crewToken?: string): Promise<{ ev: Eve
     if (!crewLinkLive(ev, nowInKL().date)) return { error: "This scanner link has expired. Ask the organiser for a new one." };
     return { ev, userId: null };
   }
-  const { orgId, userId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
-  return { ev, userId };
+  const { ev, actor } = await requireEventAccess(eventId);
+  return { ev, userId: actor.userId };
 }
 
 async function doCheckin(ev: Event, userId: string | null, checkpointId: string, attendee: Attendee, walkIn = false): Promise<ScanResult> {

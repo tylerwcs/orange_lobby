@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
@@ -9,7 +8,7 @@ import { buildActivityRostersWorkbook, type ActivitySessionRoster, type Activity
 // Same shape as rosters.xlsx: the whole door list, not a selection, so there is no `ids` param
 // and no way for it to fail open.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
+  const { id } = await params; const { ev } = await requireEventAccess(id);
   const [attendees, activities, sessions, bookings] = await Promise.all([
     listAttendees(ev.id), listActivities(ev.id, "booking"), listSessions(ev.id), listBookings(ev.id),
   ]);

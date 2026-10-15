@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 
 /**
  * Where the committee reminder's button lands. A WhatsApp template's link is a fixed prefix plus
@@ -9,7 +8,6 @@ import { requireEvent } from "@/lib/db/events";
  */
 export default async function RequestsRedirect({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(eventId, orgId);
+  const { ev } = await requireEventAccess(eventId);
   redirect(`/admin/events/${ev.id}/activities`);
 }

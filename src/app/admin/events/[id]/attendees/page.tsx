@@ -1,8 +1,7 @@
 import { PendingLink, PendingScope, PendingSwap } from "@/components/PendingNav";
 import { SkeletonCard, SkeletonRows } from "@/components/ui/skeletons";
 import { cookies } from "next/headers";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listAttendees, countAttendees } from "@/lib/db/attendees";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -49,8 +48,7 @@ const IMPORT_COLUMNS: [string, string][] = [
 export default async function Attendees({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const sp = await searchParams;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   // With check-in off the two check-in queries are skipped and the rest of the page carries
   // on unchanged: `BulkBar` already hides its check-in menu when handed no checkpoints, and
   // an empty `checkins` leaves every row simply un-scanned (D159).
@@ -130,7 +128,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // `?attendee=` opens the panel over this list. It is a query parameter rather than an
   // intercepted route because Next's interception rewrite is broken under a dynamic
   // segment — see AttendeeDialog for what that looked like.
-  const open = sp.attendee ? await loadAttendeeDetail(ev.id, sp.attendee, orgId) : null;
+  const open = sp.attendee ? await loadAttendeeDetail(ev.id, sp.attendee) : null;
 
   // Sorted here, over everyone the search matched, before the list is cut into pages — so page
   // 2 continues page 1's order. The value is what the column shows: the assignment for a

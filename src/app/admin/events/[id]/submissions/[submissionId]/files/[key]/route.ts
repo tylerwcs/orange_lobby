@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { getSubmission, submissionFileResponse } from "@/features/activities";
 
 /**
@@ -10,8 +9,7 @@ import { getSubmission, submissionFileResponse } from "@/features/activities";
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string; submissionId: string; key: string }> }) {
   const { id, submissionId, key } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const submission = await getSubmission(submissionId);
   if (!submission || submission.event_id !== ev.id) notFound();
   return submissionFileResponse(submission, key);

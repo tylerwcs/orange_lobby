@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
@@ -9,7 +8,7 @@ import { buildPassportWorkbook } from "@/lib/exports";
 // No `ids` param, same as rosters.xlsx: the passport answers a whole-room question — who has
 // collected what — not a per-selection one, so there is no selection to honour here either.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
+  const { id } = await params; const { ev } = await requireEventAccess(id);
   const [attendees, passports, booths, stamps] = await Promise.all([
     listAttendees(ev.id), listActivities(ev.id, "passport"), listBooths(ev.id), listStampsForEvent(ev.id),
   ]);

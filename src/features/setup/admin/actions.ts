@@ -1,8 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent, updateEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
+import { updateEvent } from "@/lib/db/events";
 import { deleteEventImage } from "@/lib/db/media";
 import { flashPath } from "@/lib/flash";
 import { isEventMediaFor } from "@/lib/storage";
@@ -18,8 +18,7 @@ import { agendaReview } from "./plans";
 const setupPath = (eventId: string) => `/admin/events/${eventId}/setup`;
 
 async function event(eventId: string) {
-  const { orgId } = await requireAdmin();
-  return requireEvent(eventId, orgId);
+  return (await requireEventAccess(eventId)).ev;
 }
 
 /** Creates the first link only: a second click (another tab, a double submit) must not replace it. */

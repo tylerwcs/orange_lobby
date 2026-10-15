@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
@@ -11,7 +10,7 @@ import { buildRosterWorkbook, type RosterPerson } from "@/lib/exports";
 // Unlike attendance.xlsx, this route takes no `ids` param: a roster is the whole room or it is
 // not a roster, so there is no selection to honour and no way for it to fail open.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const { orgId } = await requireAdmin(); const ev = await requireEvent(id, orgId);
+  const { id } = await params; const { ev } = await requireEventAccess(id);
   const [attendees, items] = await Promise.all([listAttendees(ev.id), listAgenda(ev.id)]);
   // Only queried when the event actually runs breakout rounds — same guard as the agenda admin
   // page and the exports list, so a non-breakout event issues no new queries and gets an empty

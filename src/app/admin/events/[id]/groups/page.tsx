@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { listAttendees } from "@/lib/db/attendees";
 import { listGroups, liveEntryCountsByGroup } from "@/lib/db/groups";
 import { eventFields, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
@@ -29,8 +28,7 @@ export const metadata = { title: "Groups" };
 export default async function Groups({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string }> }) {
   const { id } = await params;
   const { from } = await searchParams;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const [groups, attendees] = await Promise.all([listGroups(ev.id), listAttendees(ev.id)]);
   const counts = new Map<string, number>();
   for (const a of attendees) if (a.group_id) counts.set(a.group_id, (counts.get(a.group_id) ?? 0) + 1);

@@ -1,5 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
 import { countAttendees, listAttendees } from "@/lib/db/attendees";
 import { listActivities, listSessions, listBookings, countBookingsBySession, loadDoors, ActivityOverview, activitySummaries } from "@/features/activities";
 import Link from "next/link";
@@ -27,8 +26,7 @@ export const metadata = { title: "Overview" };
  */
 export default async function Overview({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const basePath = `/admin/events/${ev.id}`;
 
   if (!ev.check_in_enabled) {

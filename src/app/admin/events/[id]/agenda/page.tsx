@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
-import { requireAdmin } from "@/lib/auth";
+import { requireEventAccess } from "@/lib/access";
 import { rememberedTab } from "@/lib/remembered-tab";
-import { requireEvent } from "@/lib/db/events";
 import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listAssignments } from "@/lib/db/breakouts";
@@ -32,8 +31,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export default async function AgendaAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ day?: string }> }) {
   const { id } = await params;
   const { day: requestedDay } = await searchParams;
-  const { orgId } = await requireAdmin();
-  const ev = await requireEvent(id, orgId);
+  const { ev } = await requireEventAccess(id);
   const [items, days, categories, jar] = await Promise.all([listAgenda(ev.id), listAgendaDays(ev.id), listCategories(ev.id), cookies()]);
   const slots = breakoutSlots(items);
   // Only fetched when the event actually runs breakout rounds — a non-breakout event must

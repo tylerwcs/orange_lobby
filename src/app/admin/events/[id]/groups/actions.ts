@@ -1,8 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { requireEvent, updateEvent } from "@/lib/db/events";
+import { requireEventAccess } from "@/lib/access";
+import { updateEvent } from "@/lib/db/events";
 import { createGroup, createGroups, renameGroup, deleteGroup, getGroup, listGroups, setGroupMembers, setGroupImage, GroupNameRefused } from "@/lib/db/groups";
 import { nextImage, deleteEventImage, type ImageChange } from "@/lib/db/media";
 import { listAttendees } from "@/lib/db/attendees";
@@ -13,8 +13,7 @@ import { flashPath } from "@/lib/flash";
 import { parseIds } from "@/lib/bulk";
 
 async function event(eventId: string) {
-  const { orgId } = await requireAdmin();
-  return requireEvent(eventId, orgId);
+  return (await requireEventAccess(eventId)).ev;
 }
 
 const list = (eventId: string) => `/admin/events/${eventId}/groups`;
