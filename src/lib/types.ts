@@ -59,6 +59,10 @@ export type Event = {
   /** D540: the event's own terms (a client's clauses), rich text. Null: none, and no second tick on the form. */
   registration_terms: string | null;
   registration_closes_at: string | null;
+  /** D583: attendees may cancel their own registration. */
+  self_cancel: boolean;
+  /** D583: when self-cancel stops; null = until archived. */
+  self_cancel_closes_at: string | null;
   /** D537: the success page's heading; null for DEFAULT_DONE_TITLE. `{name}` is the first name. */
   registration_done_title: string | null;
   /** D537: the success page's message; null for the default, which follows check-in. */
@@ -141,6 +145,8 @@ export type Attendee = {
   consent_notice: string | null;
   /** D542: when they ticked the event's terms on the registration form. Null: never asked, or before the event had terms. */
   terms_agreed_at: string | null;
+  /** D580: when they cancelled; null/absent = active. Optional so old fixtures compile; rows from the DB always carry it. */
+  cancelled_at?: string | null;
 };
 
 /** A day of the programme, made before anything is put on it (D193). */
