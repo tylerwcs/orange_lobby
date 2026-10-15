@@ -74,6 +74,10 @@ export function hostLink(base: string, token: string) {
 export function verifierLink(base: string, token: string) {
   return `${trimSlash(base)}/verify/${token}`;
 }
+/** D559: a committee member's one-time set-up or reset link. Always the main address. */
+export function joinLink(base: string, token: string) {
+  return `${trimSlash(base)}/join/${token}`;
+}
 /** The LED display (D251). Show-only; a separate token from the host link (D252). */
 export function displayLink(base: string, token: string) {
   return `${trimSlash(base)}/display/${token}`;

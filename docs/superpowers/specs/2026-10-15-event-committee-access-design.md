@@ -139,8 +139,8 @@ copy today.
 ### Admin UI
 
 **D563 — Settings → Committee tab (admin only).** In the approved admin style:
-- **Add member** in the header opens a modal (Name, Email). Saving shows the set-up link in a
-  dialog with Copy.
+- **Add member** in the header opens a modal (Name, Email). Saving adds the row with its set-up link in a **Link** column with Copy,
+  as the verifier list does, and the flash says to copy it.
 - A table-style list: **Name**, **Email**, **Status** — "Invited · link expires 22 Oct",
   "Link expired", or "Active since 16 Oct" (plus "· reset link until 22 Oct" while one is live).
 - ⋯ menu per row: **Copy set-up link** (while live), **New set-up link** (invited rows),

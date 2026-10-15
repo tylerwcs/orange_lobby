@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attendeeLink, attendeePath, genericLink, registrationLink, boothScannerLink, crewLink, hostLink, verifierLink, displayLink, shareLink, isShareLinkKind, shareQrFileName } from "@/lib/links";
+import { attendeeLink, attendeePath, genericLink, registrationLink, boothScannerLink, crewLink, hostLink, verifierLink, joinLink, displayLink, shareLink, isShareLinkKind, shareQrFileName } from "@/lib/links";
 
 describe("attendee links (D426)", () => {
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://events.ecopiaevents.com/"));
@@ -99,5 +99,11 @@ describe("game links (D252)", () => {
 describe("verifierLink (D492)", () => {
   it("is staff-facing, on the app's address, by token alone", () => {
     expect(verifierLink("https://events.example.com/", "k7m2xq9rt4bd")).toBe("https://events.example.com/verify/k7m2xq9rt4bd");
+  });
+});
+
+describe("joinLink (D559)", () => {
+  it("builds the committee set-up link on the main address (D559)", () => {
+    expect(joinLink("https://ecphub.vercel.app/", "abcdefghjkmn")).toBe("https://ecphub.vercel.app/join/abcdefghjkmn");
   });
 });
