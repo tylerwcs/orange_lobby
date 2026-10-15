@@ -4,7 +4,7 @@ import { listAgenda, listAgendaDays } from "@/lib/db/agenda";
 import { listAnnouncements } from "@/lib/db/announcements";
 import { assignedItemIdsFor } from "@/lib/db/breakouts";
 import { listSessions, eligible, personalAgenda, activityNav, type ActivityNav } from "@/features/activities";
-import { portalActivities, portalBookings } from "@/lib/portal";
+import { portalActivities, portalComingSoon, portalBookings } from "@/lib/portal";
 import { dayTabs, pickDay, type DayTab } from "@/lib/agenda";
 import { isBreakout } from "@/lib/breakouts";
 import { nowInKL } from "@/lib/time";
@@ -102,8 +102,8 @@ export async function loadHomeData(
  * the slot costs the page below it nothing extra.
  */
 export async function loadActivityNav(event: Pick<Event, "id">, attendee: Pick<Attendee, "id" | "category">): Promise<ActivityNav> {
-  const activities = await portalActivities(event.id);
+  const [activities, coming] = await Promise.all([portalActivities(event.id), portalComingSoon(event.id)]);
   const mayOwe = activities.some((a) => a.kind === "booking" && a.required && eligible(a, attendee.category));
   const held = mayOwe ? new Set((await portalBookings(attendee.id)).map((b) => b.activity_id)) : new Set<string>();
-  return activityNav(activities, attendee.category, held);
+  return activityNav(activities, attendee.category, held, coming);
 }

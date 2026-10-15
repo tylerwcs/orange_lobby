@@ -16,7 +16,7 @@ export function isUnpublished(event: Pick<Event, "status">): boolean {
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
-import { listActivities, bookingsForAttendee, shownToAttendees } from "@/features/activities";
+import { listActivities, bookingsForAttendee, shownToAttendees, comingSoonForAttendees } from "@/features/activities";
 import { listInfoTabs } from "@/lib/db/info-tabs";
 import { isValidToken } from "@/lib/tokens";
 import { hasInfo } from "@/lib/info-tabs";
@@ -45,7 +45,10 @@ export const loadPortalEvent = cache(async (slug: string): Promise<Event> => {
  * page below it both need: without it, every portal page paid for them twice. Closed
  * activities are already gone from what this returns (D384).
  */
-export const portalActivities = cache(async (eventId: string) => shownToAttendees(await listActivities(eventId)));
+const eventActivities = cache((eventId: string) => listActivities(eventId));
+export const portalActivities = cache(async (eventId: string) => shownToAttendees(await eventActivities(eventId)));
+/** D603: the scheduled ones, for the cards and the nav's `show` only. Same read as `portalActivities`. */
+export const portalComingSoon = cache(async (eventId: string) => comingSoonForAttendees(await eventActivities(eventId)));
 export const portalBookings = cache((attendeeId: string) => bookingsForAttendee(attendeeId));
 
 /**

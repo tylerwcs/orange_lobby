@@ -1,5 +1,5 @@
 import "server-only";
-import { portalActivities, portalBookings } from "@/lib/portal";
+import { portalActivities, portalComingSoon, portalBookings } from "@/lib/portal";
 import { listSessions, countBookingsBySession, submissionsForAttendee, submissionsForGroup, revokedForAttendee, revokedForGroup } from "../db/activities";
 import { revokedFor } from "./revoked-entries";
 import { listBooths, stampsForAttendee } from "../db/booths";
@@ -42,11 +42,13 @@ void covers;
  */
 export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category" | "group_id">): Promise<ActivityEntries & {
   people: Record<string, { name: string; movedTo: string | null }>;
+  /** D603: scheduled activities this attendee's category could use, for their Coming soon cards. */
+  coming: Activity[];
 }> {
   // Read first: whether any group reads are worth doing at all depends on it. Most attendees
   // are not in a group, and most events run no group form, so this keeps `groupMembers` and
   // `submissionsForGroup` off the hot path for every other page load.
-  const activities = await portalActivities(event.id);
+  const [activities, scheduled] = await Promise.all([portalActivities(event.id), portalComingSoon(event.id)]);
   const hasGroupForm = attendee.group_id !== null && activities.some((a) => a.kind === "submission" && isGroupForm(a.group_mode));
 
   const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs, revokedMine, revokedGroup] = await Promise.all([
@@ -117,5 +119,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   const myPolaroids = walls.length ? await polaroidsForAttendee(attendee.id) : [];
   const polaroids = walls.map((activity) => ({ activity, mine: myPolaroids.filter((p) => p.activity_id === activity.id) }));
 
-  return { booking: bookings, submission: forms, passport: passports, polaroid: polaroids, people };
+  return {
+    booking: bookings, submission: forms, passport: passports, polaroid: polaroids, people,
+    coming: scheduled.filter((a) => eligible(a, attendee.category)),
+  };
 }

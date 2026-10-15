@@ -12,21 +12,24 @@ const SECTIONS: { key: CardSection; title: string }[] = [
   { key: "choose", title: "To choose" },
   { key: "booked", title: "Booked" },
   { key: "open", title: "Open to you" },
+  { key: "coming", title: "Coming soon" },
   { key: "done", title: "Done" },
 ];
 
 /**
  * The Activities tab: every activity this attendee can see, as a card with its picture, sorted
- * by what they need to do about it - Pinned (D387), To choose, Booked, Open to you, Done. A section with
- * nothing in it is not drawn. The order is `activityCards`', shared with the home page's row.
+ * by what they need to do about it - Pinned (D387), To choose, Booked, Open to you, Coming soon
+ * (D605), Done. A section with nothing in it is not drawn. The order is `activityCards`', shared
+ * with the home page's row.
  *
  * Every card goes to the activity's own page, whichever kind it is: that is where the poster is
  * read in full, the sections are, and the booking, the form, or the stamp grid is. The card says
  * only enough to decide whether to tap - `bookingCard`, `formCard` and `passportCard`, one per kind, decide what.
+ * The one exception is a Coming soon card (D604): it says when, and goes nowhere until then.
  *
  * A stacked list here; the home page is where they run as a swipeable row (D214).
  */
-export function ActivitiesTab({ entries, basePath }: { entries: ActivityEntries; basePath: string }) {
+export function ActivitiesTab({ entries, basePath }: { entries: ActivityEntries & { coming?: Activity[] }; basePath: string }) {
   const cards = activityCards(entries, basePath);
   if (cards.length === 0) {
     return <p className="text-sm text-muted-foreground">There is nothing here for this event yet.</p>;
@@ -57,20 +60,22 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /**
  * One activity as a card. The whole card is the link; the pill on the right is what tapping
  * it will do, drawn as a button so it reads as one, but it is not a second target.
+ *
+ * A Coming soon card (D604) has no link and no pill: a plain block with the same outline, and
+ * no press effect, because there is nothing to open yet.
  */
 export function ActivityCard({ activity, view, href, emphasis = false, className = "" }: {
   activity: Activity;
   view: CardView;
-  href: string;
+  /** Null for a Coming soon card. */
+  href: string | null;
   /** Required and not yet chosen: ringed in the brand colour so it is the card the eye lands on. */
   emphasis?: boolean;
   className?: string;
 }) {
-  return (
-    <Link
-      href={href}
-      className={`group flex flex-col overflow-hidden rounded-2xl bg-card outline-none transition-transform active:scale-[0.99] focus-visible:ring-3 focus-visible:ring-ring/50 ${emphasis ? "ring-2 ring-primary" : "ring-1 ring-foreground/10"} ${className}`}
-    >
+  const shape = `flex flex-col overflow-hidden rounded-2xl bg-card ${emphasis ? "ring-2 ring-primary" : "ring-1 ring-foreground/10"} ${className}`;
+  const body = (
+    <>
       <ActivityCover activity={activity} variant="card" />
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -80,13 +85,21 @@ export function ActivityCard({ activity, view, href, emphasis = false, className
         <div className="text-[15px] font-bold leading-snug">{activity.name}</div>
         <div className="mt-auto flex items-center justify-between gap-3">
           {view.meta ? <MetaLine meta={view.meta} /> : <span />}
-          <span
-            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold ${view.action.primary ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}
-          >
-            {view.action.label}
-          </span>
+          {view.action && (
+            <span
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold ${view.action.primary ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}
+            >
+              {view.action.label}
+            </span>
+          )}
         </div>
       </div>
+    </>
+  );
+  if (href === null) return <div className={shape}>{body}</div>;
+  return (
+    <Link href={href} className={`group outline-none transition-transform active:scale-[0.99] focus-visible:ring-3 focus-visible:ring-ring/50 ${shape}`}>
+      {body}
     </Link>
   );
 }
