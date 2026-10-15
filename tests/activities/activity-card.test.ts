@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingCard, dayRange, formCard, passportCard, polaroidCard, type BookingCardInput, type FormCardInput } from "@/features/activities/lib/activity-card";
+import { bookingCard, comingSoonCard, dayRange, formCard, passportCard, polaroidCard, type BookingCardInput, type FormCardInput } from "@/features/activities/lib/activity-card";
 import type { SeatsForViewer } from "@/features/activities/lib/activities";
 
 const seat = (day: string, starts_at: string, left: number, mine = false, location: string | null = "Gardensby17"): SeatsForViewer => ({
@@ -174,5 +174,15 @@ describe("passportCard", () => {
 describe("polaroidCard (D481)", () => {
   it("opens the camera, with no count of theirs on the wall", () => {
     expect(polaroidCard()).toEqual({ status: null, meta: null, action: { label: "Join Now", primary: true } });
+  });
+});
+
+describe("comingSoonCard (D604)", () => {
+  it("says Coming soon and when, with no button", () => {
+    expect(comingSoonCard("2026-10-17T02:00:00+00:00")).toEqual({
+      status: { label: "Coming soon", tone: "muted" },
+      meta: { icon: "clock", text: "Opens Sat 17 Oct, 10:00am" },
+      action: null,
+    });
   });
 });

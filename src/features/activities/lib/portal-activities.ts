@@ -13,6 +13,15 @@ export function shownToAttendees<T extends Pick<Activity, "is_open">>(activities
 }
 
 /**
+ * D603: the one closed state attendees see - a closed activity with a schedule. Only the
+ * Activities tab's and home row's cards and the nav's `show` read this; everything else reads
+ * `shownToAttendees` and never sees it.
+ */
+export function comingSoonForAttendees<T extends Pick<Activity, "is_open" | "opens_at">>(activities: T[]): T[] {
+  return activities.filter((a) => !a.is_open && !!a.opens_at);
+}
+
+/**
  * Where an activity sits on the attendee's Activities tab.
  *
  * "choose" is the one that is owed — required, eligible, nothing held — and leads the page for
@@ -59,10 +68,12 @@ export function activityNav(
   activities: Pick<Activity, "id" | "kind" | "required" | "categories">[],
   category: string | null,
   heldActivityIds: ReadonlySet<string>,
+  /** D606: Coming soon activities. They bring the button, so their card has somewhere to show, but never the dot. */
+  coming: Pick<Activity, "categories">[] = [],
 ): ActivityNav {
   const visible = activities.filter((a) => eligible(a, category));
   return {
-    show: visible.length > 0,
+    show: visible.length > 0 || coming.some((a) => eligible(a, category)),
     owed: visible.some((a) => a.kind === "booking" && a.required && !heldActivityIds.has(a.id)),
   };
 }

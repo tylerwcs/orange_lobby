@@ -3,6 +3,7 @@ import { submitLabel, type SubmitState } from "./submissions";
 import type { Activity } from "@/lib/types";
 import type { Passport } from "./booths";
 import { shortDate } from "@/lib/text";
+import { opensLabel } from "./schedule";
 
 /**
  * What one activity's card on the Activities tab says: a status chip, one line of detail and
@@ -17,7 +18,8 @@ export type CardTone = "primary" | "success" | "warning" | "muted";
 export type CardView = {
   status: { label: string; tone: CardTone } | null;
   meta: { icon: "calendar" | "pin" | "clock"; text: string } | null;
-  action: { label: string; primary: boolean };
+  /** What tapping does. Null on a Coming soon card, which is not a link (D604). */
+  action: { label: string; primary: boolean } | null;
 };
 
 const view = { label: "View", primary: false };
@@ -123,4 +125,12 @@ export function passportCard({ passport, open }: PassportCardInput): CardView {
  */
 export function polaroidCard(): CardView {
   return { status: null, meta: null, action: { label: "Join Now", primary: true } };
+}
+
+/**
+ * A scheduled activity's card before it opens (D604): when it opens, and nothing to press -
+ * the card is not a link, because nothing on its page is open yet. Every kind uses this one.
+ */
+export function comingSoonCard(opensAt: string): CardView {
+  return { status: { label: "Coming soon", tone: "muted" }, meta: { icon: "clock", text: `Opens ${opensLabel(opensAt)}` }, action: null };
 }

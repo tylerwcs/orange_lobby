@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activityState } from "@/features/activities/lib/activities";
-import { activityNav, bookingSection, passportSection, shownToAttendees } from "@/features/activities/lib/portal-activities";
+import { activityNav, bookingSection, comingSoonForAttendees, passportSection, shownToAttendees } from "@/features/activities/lib/portal-activities";
 import type { Activity, ActivitySession } from "@/lib/types";
 
 const activity = (over: Partial<Activity> = {}): Activity => ({
@@ -111,5 +111,32 @@ describe("shownToAttendees", () => {
       activity({ id: "p-open", kind: "passport" }),
     ];
     expect(shownToAttendees(list).map((a) => a.id)).toEqual(["b-open", "p-open"]);
+  });
+});
+
+describe("comingSoonForAttendees (D603)", () => {
+  it("keeps closed activities with a schedule, and nothing else", () => {
+    const list = [
+      activity({ id: "open", is_open: true }),
+      activity({ id: "closed", is_open: false }),
+      activity({ id: "soon", is_open: false, opens_at: "2026-10-17T02:00:00+00:00" }),
+    ];
+    expect(comingSoonForAttendees(list).map((a) => a.id)).toEqual(["soon"]);
+  });
+});
+
+describe("activityNav with Coming soon (D606)", () => {
+  const soon = activity({ id: "soon", is_open: false, opens_at: "2026-10-17T02:00:00+00:00", required: true, categories: ["VIP"] });
+
+  it("shows the button when the only thing is Coming soon, for a category that can use it", () => {
+    expect(activityNav([], "VIP", new Set(), [soon])).toEqual({ show: true, owed: false });
+  });
+
+  it("does not show it to a category the activity is not for", () => {
+    expect(activityNav([], "Staff", new Set(), [soon])).toEqual({ show: false, owed: false });
+  });
+
+  it("never owes a required booking that has not opened", () => {
+    expect(activityNav([], "VIP", new Set(), [soon]).owed).toBe(false);
   });
 });

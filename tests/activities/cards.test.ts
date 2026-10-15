@@ -37,7 +37,7 @@ const wall = (id: string, posted = 0): PolaroidEntry => ({
 describe("activityCards", () => {
   it("lists a polaroid wall under Open, after passports, with its camera (D481)", () => {
     const cards = activityCards({ booking: [], submission: [], passport: [passport("p", false)], polaroid: [wall("w", 2)] }, "/p");
-    expect(cards.map((c) => [c.activity.id, c.section, c.view.action.label])).toEqual([["p", "open", "View"], ["w", "open", "Join Now"]]);
+    expect(cards.map((c) => [c.activity.id, c.section, c.view.action?.label])).toEqual([["p", "open", "View"], ["w", "open", "Join Now"]]);
     // No "2 on the wall" badge: the card is the camera's way in, nothing more.
     expect(cards[1].view.status).toBeNull();
     // Its page is the camera (D482).
@@ -120,5 +120,32 @@ describe("findEntry (D416)", () => {
   it("does not find a booking the attendee's category cannot see, or an unknown id", () => {
     expect(findEntry(entries, "vip")).toBeNull();
     expect(findEntry(entries, "nope")).toBeNull();
+  });
+});
+
+describe("activityCards — Coming soon (D605)", () => {
+  const soon = (id: string, over: Partial<Activity> = {}) =>
+    activity(id, { is_open: false, opens_at: "2026-10-17T02:00:00+00:00", ...over });
+
+  it("lists it after Open and before Done, with no link, ring or button", () => {
+    const cards = activityCards(
+      { booking: [booking("b")], submission: [], passport: [passport("p", true)], polaroid: [], coming: [soon("s", { required: true })] },
+      "/p",
+    );
+    expect(cards.map((c) => [c.activity.id, c.section])).toEqual([["b", "open"], ["s", "coming"], ["p", "done"]]);
+    const s = cards.find((c) => c.activity.id === "s")!;
+    expect(s.href).toBeNull();
+    expect(s.emphasis).toBe(false);
+    expect(s.view.action).toBeNull();
+    expect(s.view.status).toEqual({ label: "Coming soon", tone: "muted" });
+  });
+
+  it("keeps a pinned one under Pinned, still as Coming soon", () => {
+    const cards = activityCards({ booking: [booking("b")], submission: [], passport: [], polaroid: [], coming: [soon("s", { pinned: true })] }, "/p");
+    expect(cards.map((c) => [c.activity.id, c.section, c.href])).toEqual([["s", "pinned", null], ["b", "open", "/p/activities/b"]]);
+  });
+
+  it("draws nothing extra when there is no coming list", () => {
+    expect(activityCards({ booking: [booking("b")], submission: [], passport: [], polaroid: [] }, "/p")).toHaveLength(1);
   });
 });
