@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireEventAccess } from "@/lib/access";
+import { requireAdminEvent } from "@/lib/access";
 import { updateEvent } from "@/lib/db/events";
 import { flashPath } from "@/lib/flash";
 import { featureForActivityKind, requireFeature } from "@/features/catalogue";
@@ -11,9 +11,12 @@ import { parseReasonList } from "../lib/revoke";
 
 const settingsPath = (eventId: string) => `/admin/events/${eventId}/settings`;
 
-/** D502: the Verification tab's writes. Submissions are part of the Engagement add-on, so each one checks it. */
+/**
+ * D502: the Verification tab's writes. Submissions are part of the Engagement add-on, so each one checks it.
+ * D565: the tab is Ecopia's, so these are admin-only.
+ */
 async function guard(eventId: string) {
-  const { ev, actor } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireAdminEvent(eventId);
   await requireFeature(ev.id, featureForActivityKind("submission"), settingsPath(eventId));
   return { ev, userId: actor.userId };
 }

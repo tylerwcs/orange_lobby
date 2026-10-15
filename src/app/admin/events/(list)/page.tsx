@@ -19,7 +19,8 @@ export default async function AdminHome() {
   const me = await requireSignedIn();
   const events = me.kind === "admin" ? await listEvents(me.orgId) : await listEventsByIds(me.eventIds);
   const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
-  const waiting = await waitingCounts(events.map((e) => e.id));
+  // D565: "to review" counts Setup items, and Setup is admin-only.
+  const waiting: Record<string, number> = me.kind === "admin" ? await waitingCounts(events.map((e) => e.id)) : {};
   return (
     <>
         <AdminHeader

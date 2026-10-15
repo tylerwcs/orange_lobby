@@ -13,11 +13,17 @@ const ACCESS_FILES = new Set(["lib/auth.ts", "lib/db/events.ts", "lib/access.ts"
 
 /** File → how many times each admin-only check is called in it (D553). */
 const ADMIN_ONLY: Record<string, { requireOrgAdmin?: number; requireAdminEvent?: number }> = {
-  "app/admin/events/[id]/actions.ts": { requireOrgAdmin: 1, requireAdminEvent: 2 }, // create; delete, purge
+  "app/admin/events/[id]/actions.ts": { requireOrgAdmin: 1, requireAdminEvent: 3 }, // create; delete, purge, committee alert numbers (D565)
   "features/catalogue/admin/actions.ts": { requireAdminEvent: 1 }, // its event() helper
   "features/domains/admin/actions.ts": { requireAdminEvent: 1 }, // its event() helper
   "features/domains/admin/AddressTab.tsx": { requireAdminEvent: 1 },
   "features/committee/admin/actions.ts": { requireAdminEvent: 1 }, // its guard() helper (Task 5)
+  // D565: Setup, Committee alerts and Verification are Ecopia's.
+  "features/setup/admin/actions.ts": { requireAdminEvent: 1 }, // its event() helper
+  "features/setup/admin/SetupAdminPage.tsx": { requireAdminEvent: 1 },
+  "features/setup/admin/SetupReviewPage.tsx": { requireAdminEvent: 1 },
+  "app/admin/events/[id]/setup/files/[fileId]/route.ts": { requireAdminEvent: 1 },
+  "features/activities/admin/verifier-actions.ts": { requireAdminEvent: 1 }, // its guard() helper
 };
 
 function walk(dir: string): string[] {

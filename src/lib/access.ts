@@ -70,9 +70,16 @@ export const requireEventAccess = cache(async (eventId: string): Promise<{ actor
   return { actor: { userId, email, kind }, ev };
 });
 
-/** The admin-only list inside an event (D553): delete, purge, Features, Address, Committee. */
+/**
+ * The admin-only list inside an event (D553, D565): delete, purge, Features, Address, Committee,
+ * Setup, Committee alerts, Verification. A signed-in non-admin (a committee member following an
+ * old link) gets a 404 rather than requireAdmin's "no access" login page, which would wrongly tell
+ * them they have no events. Signed out still goes to /login.
+ */
 export const requireAdminEvent = cache(async (eventId: string): Promise<{ actor: Actor; ev: Event }> => {
-  const { userId, email, orgId } = await requireAdmin();
+  const { userId, email } = await claimsOrLogin();
+  const orgId = await adminOrgOf(userId);
+  if (!orgId) notFound();
   const ev = await requireEvent(eventId, orgId);
   return { actor: { userId, email, kind: "admin" }, ev };
 });

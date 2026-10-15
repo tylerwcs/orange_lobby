@@ -50,6 +50,12 @@ export const metadata = { title: "Settings" };
 
 const input = "w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
+/**
+ * D553/D565: Settings tabs only Ecopia admins see. Their actions refuse anyone else too, so
+ * hiding them is about not showing a committee member controls that are not theirs.
+ */
+const ADMIN_ONLY_TABS: readonly string[] = ["features", "address", "alerts", "verification", "committee", "danger"];
+
 const STATUSES: { value: EventStatus; label: string; what: string }[] = [
   { value: "draft", label: "Draft", what: "Every link shows “Coming soon”." },
   { value: "live", label: "Live", what: "The portal is open to attendees." },
@@ -111,7 +117,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const tabScope = `settings:${ev.id}`;
   const tabs = (["features", "details", "registration", "me", "checkpoints", "address", "alerts", "verification", "committee", "danger"] as const)
     .filter((t) => !(hiddenTabs as readonly string[]).includes(t) && (t !== "verification" || verifying)
-      && (isAdmin || (t !== "features" && t !== "address" && t !== "committee" && t !== "danger")));
+      && (isAdmin || !ADMIN_ONLY_TABS.includes(t)));
   const openTab = rememberedTab(jar, tabScope, tabs) ?? "details";
   const deleteBlocked = deleteBlockedBecause(ev.status);
   const grouped = checkpointsByDay(cps);
@@ -135,8 +141,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="me">Me page</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
           {isAdmin && !hiddenTabs.includes("address") && <TabsTrigger value="address">Address</TabsTrigger>}
-          <TabsTrigger value="alerts">Committee alerts</TabsTrigger>
-          {verifying && <TabsTrigger value="verification">Verification</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="alerts">Committee alerts</TabsTrigger>}
+          {isAdmin && verifying && <TabsTrigger value="verification">Verification</TabsTrigger>}
           {isAdmin && <TabsTrigger value="committee">Committee</TabsTrigger>}
           {isAdmin && <TabsTrigger value="danger">Danger zone</TabsTrigger>}
         </TabsList>
@@ -476,6 +482,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         </TabsContent>
       )}
 
+      {isAdmin && (
       <TabsContent value="alerts" className="flex flex-col gap-4">
         <Card>
           <CardHeader>
@@ -494,8 +501,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           </CardContent>
         </Card>
       </TabsContent>
+      )}
 
-      {verifying && (
+      {isAdmin && verifying && (
         <TabsContent value="verification" className="flex flex-col gap-4">
           <VerificationTab ev={ev} />
         </TabsContent>

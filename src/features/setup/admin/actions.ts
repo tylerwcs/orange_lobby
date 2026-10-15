@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireEventAccess } from "@/lib/access";
+import { requireAdminEvent } from "@/lib/access";
 import { updateEvent } from "@/lib/db/events";
 import { deleteEventImage } from "@/lib/db/media";
 import { flashPath } from "@/lib/flash";
@@ -17,8 +17,9 @@ import { agendaReview } from "./plans";
 
 const setupPath = (eventId: string) => `/admin/events/${eventId}/setup`;
 
+/** D565: Setup is Ecopia's, so every action here is admin-only. */
 async function event(eventId: string) {
-  return (await requireEventAccess(eventId)).ev;
+  return (await requireAdminEvent(eventId)).ev;
 }
 
 /** Creates the first link only: a second click (another tab, a double submit) must not replace it. */

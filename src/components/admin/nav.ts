@@ -2,7 +2,7 @@ import type { IconName } from "@/components/ui/icon";
 import type { NavKey } from "@/features/catalogue/client";
 
 /** `newTab`: the Scanner is a tool of its own, worked on a phone or at a desk alongside the admin. */
-export type Item = { href: string; label: string; icon: IconName; newTab?: boolean; key?: NavKey; badge?: number };
+export type Item = { href: string; label: string; icon: IconName; newTab?: boolean; key?: NavKey; badge?: number; adminOnly?: true };
 export type Group = { title: string; items: Item[] };
 
 /**
@@ -21,8 +21,11 @@ export type Group = { title: string; items: Item[] };
  *
  * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities and Games each
  * carry the key `hiddenNav` names.
+ *
+ * D565: Setup is Ecopia's (it reviews and applies what the organiser sent), so a committee
+ * member (`admin` false) does not get it.
  */
-export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { setup?: number } = {}): Group[] {
+export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { setup?: number } = {}, admin = true): Group[] {
   if (!ev) return [{ title: "Events", items: [{ href: "/admin/events", label: "All events", icon: "layers" }] }];
   const b = `/admin/events/${ev.id}`;
   const groups: Group[] = [
@@ -41,11 +44,11 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
       { href: `${b}/activities`, label: "Activities", icon: "flag", key: "activities" },
     ] },
     { title: "Event", items: [
-      { href: `${b}/setup`, label: "Setup", icon: "check", ...(badges.setup ? { badge: badges.setup } : {}) },
+      { href: `${b}/setup`, label: "Setup", icon: "check", adminOnly: true, ...(badges.setup ? { badge: badges.setup } : {}) },
       { href: `${b}/whatsapp`, label: "WhatsApp", icon: "chat", key: "whatsapp" },
       { href: `${b}/settings`, label: "Settings", icon: "settings" },
       { href: `${b}/exports`, label: "Exports", icon: "file" },
     ] },
   ];
-  return groups.map((g) => ({ ...g, items: g.items.filter((i) => !i.key || !hidden.includes(i.key)) }));
+  return groups.map((g) => ({ ...g, items: g.items.filter((i) => (!i.key || !hidden.includes(i.key)) && (admin || !i.adminOnly)) }));
 }

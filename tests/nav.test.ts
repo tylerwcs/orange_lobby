@@ -66,4 +66,10 @@ describe("groupsFor", () => {
     const event = groupsFor({ id: "e1", check_in_enabled: true }).find((g) => g.title === "Event");
     expect(event?.items[0].badge).toBeUndefined();
   });
+
+  it("leaves Setup out for a committee member, and keeps everything else (D565)", () => {
+    const labels = (admin: boolean) => groupsFor({ id: "e1", check_in_enabled: true }, [], { setup: 2 }, admin).flatMap((g) => g.items.map((i) => i.label));
+    expect(labels(false)).not.toContain("Setup");
+    expect(labels(false)).toEqual(labels(true).filter((l) => l !== "Setup"));
+  });
 });

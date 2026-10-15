@@ -130,9 +130,9 @@ export async function updateExportFieldsAction(eventId: string, formData: FormDa
   redirect(flashPath(path, "Export columns saved."));
 }
 
-/** The numbers told when change requests wait an hour. Its own action: the tab sits outside the big settings form. */
+/** The numbers told when change requests wait an hour. Its own action: the tab sits outside the big settings form. D565: admin-only. */
 export async function updateCommitteeNumbersAction(eventId: string, formData: FormData) {
-  await requireEventAccess(eventId);
+  await requireAdminEvent(eventId);
   const path = `/admin/events/${eventId}/settings`;
   const { numbers, bad } = parseAlertNumbers(String(formData.get("committee_alert_numbers") ?? ""));
   if (bad.length > 0) {

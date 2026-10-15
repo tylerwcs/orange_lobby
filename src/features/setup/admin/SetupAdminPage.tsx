@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireEventAccess } from "@/lib/access";
+import { requireAdminEvent } from "@/lib/access";
 import { appBaseUrl } from "@/lib/links";
 import { shortDateTime } from "@/lib/text";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -71,7 +71,7 @@ function ItemRow({ eventId, entry, item, files, row }: { eventId: string; entry:
  */
 export async function SetupAdminPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { ev } = await requireEventAccess(id);
+  const { ev } = await requireAdminEvent(id); // D565: admin-only
   const [rows, list, items, files] = await Promise.all([listSetupRows(ev.id), eventChecklist(ev), listSetupItems(ev.id), listSetupFiles(ev.id)]);
   const url = ev.setup_token ? setupLink(appBaseUrl(), ev.setup_token) : null;
   // The Setup badge counts every item row, so one whose feature has since been turned off is listed too, after the checklist.
