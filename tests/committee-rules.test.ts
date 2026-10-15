@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normaliseEmail, parseMember, linkExpiry, linkIsLive, memberStatus, passwordProblem, joinErrorCopy, LINK_DAYS } from "@/features/committee/lib/rules";
+import { normaliseEmail, parseMember, linkExpiry, linkIsLive, memberStatus, passwordProblem, joinErrorCopy, LINK_DAYS, LINK_LIFETIME } from "@/features/committee/lib/rules";
 
 const now = new Date("2026-10-15T04:00:00Z"); // 12:00 in KL
 const base = {
@@ -27,8 +27,10 @@ describe("parseMember", () => {
 
 describe("links", () => {
   it("expire LINK_DAYS after they are made", () => {
-    expect(LINK_DAYS).toBe(7);
-    expect(linkExpiry(now)).toBe("2026-10-22T04:00:00.000Z");
+    // D566: two months (60 days), so a committee has time to get round to it.
+    expect(LINK_DAYS).toBe(60);
+    expect(LINK_LIFETIME).toBe("2 months");
+    expect(linkExpiry(now)).toBe("2026-12-14T04:00:00.000Z");
   });
   it("are live only with a token, before expiry, on a member not removed", () => {
     expect(linkIsLive(base, now)).toBe(true);

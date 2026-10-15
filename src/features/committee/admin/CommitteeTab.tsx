@@ -8,7 +8,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { CopyLink } from "@/components/admin/CopyLink";
 import { RowActions } from "@/components/admin/RowActions";
 import { listMembers } from "../db";
-import { linkIsLive, memberStatus } from "../lib/rules";
+import { linkIsLive, memberStatus, LINK_LIFETIME } from "../lib/rules";
 import { addMemberAction, newSetupLinkAction, resetLinkAction, removeMemberAction } from "./actions";
 
 /**
@@ -29,7 +29,7 @@ export async function CommitteeTab({ ev }: { ev: Event }) {
           Their access ends when the event is archived.
         </CardDescription>
         <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
-          <Modal title="Add a committee member" hint="You'll get a one-time link to send them. It works for 7 days." trigger="Add member" icon="plus">
+          <Modal title="Add a committee member" hint={`You'll get a one-time link to send them. It works for ${LINK_LIFETIME}.`} trigger="Add member" icon="plus">
             <form action={addMemberAction.bind(null, ev.id)} className="grid gap-4">
               <Field label="Name" name="name" placeholder="Aisyah Rahman" />
               <Field label="Email" name="email" type="email" placeholder="aisyah@client.com" description="They sign in with this. If they're on another event's committee, use the same email." />
@@ -70,7 +70,7 @@ export async function CommitteeTab({ ev }: { ev: Event }) {
                         dialog={setUp ? {
                           label: "Password reset link",
                           title: `Make a password reset link for ${m.name}?`,
-                          hint: "It works once, for 7 days. Their new password applies to every event they're on.",
+                          hint: `It works once, for ${LINK_LIFETIME}. Their new password applies to every event they're on.`,
                           form: <form action={resetLinkAction.bind(null, ev.id, m.id)}><SubmitButton>Make reset link</SubmitButton></form>,
                         } : {
                           label: "New set-up link",

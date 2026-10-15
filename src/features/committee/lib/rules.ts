@@ -1,8 +1,10 @@
 import { MONTHS } from "@/lib/text";
 import type { CommitteeMember } from "../types";
 
-/** D559/D560: every link lasts this long and works once. */
-export const LINK_DAYS = 7;
+/** D559/D560/D566: every link lasts this long and works once. Two months gives a committee time to get round to it. */
+export const LINK_DAYS = 60;
+/** LINK_DAYS as the admin reads it. */
+export const LINK_LIFETIME = "2 months";
 export const MIN_PASSWORD = 8;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

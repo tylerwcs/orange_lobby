@@ -99,7 +99,7 @@ change.
 ### Links and accounts
 
 **D559 — The set-up link.** Adding a member makes a `setup` link,
-`<main address>/join/<token>`, valid **7 days** and **single use**, shown to the admin to copy and
+`<main address>/join/<token>`, valid **2 months (60 days)** and **single use** (D566; was 7 days), shown to the admin to copy and
 send however they like. The app sends nothing. Tokens come from `generateToken()`, like every
 other link. `/join` lives on the main address only (the proxy already keeps event domains away
 from it).
@@ -121,7 +121,7 @@ A used, expired, replaced, or removed link shows one message: "This link no long
 the Ecopia team for a new one." It never says which.
 
 **D560 — Password reset by link.** There is no forgot-password flow. The Committee list's ⋯
-menu has **Password reset link** for an active member: a `reset` link, same 7 days and single
+menu has **Password reset link** for an active member: a `reset` link, same 2 months and single
 use, whose page asks for a new password twice and sets it with `auth.admin.updateUserById`, then
 signs them in. Their login is shared across events, so the new password applies to all of them.
 Available only for rows with a `user_id`.
