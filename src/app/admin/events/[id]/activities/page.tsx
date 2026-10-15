@@ -22,10 +22,10 @@ const check = "flex items-center gap-2 text-sm font-bold";
 
 export default async function Activities({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { ev } = await requireEventAccess(id);
+  const { actor, ev } = await requireEventAccess(id);
   const kinds = activityKindsFor(await eventFeatures(ev.id));
   if (kinds.length === 0) {
-    return <NotInEvent eventId={ev.id} title="Activities" keys={["booking", "engagement"]} back={`/admin/events/${ev.id}/activities`} />;
+    return <NotInEvent eventId={ev.id} title="Activities" keys={["booking", "engagement"]} back={`/admin/events/${ev.id}/activities`} canTurnOn={actor.kind === "admin"} />;
   }
   const [allActivities, sessions, bookings, requests, submissions, booths, stamps, attendees, groups, liveByWall] = await Promise.all([
     listActivities(ev.id), listSessions(ev.id), countBookingsBySession(ev.id), listRequests(ev.id), listSubmissions(ev.id),

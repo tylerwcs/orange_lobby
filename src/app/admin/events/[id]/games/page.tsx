@@ -26,10 +26,10 @@ const EMPTY_STATE_PHRASE: Record<GameKind, string> = {
 
 export default async function Games({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { ev } = await requireEventAccess(id);
+  const { actor, ev } = await requireEventAccess(id);
   const kinds = gameKindsFor(await eventFeatures(ev.id));
   if (kinds.length === 0) {
-    return <NotInEvent eventId={ev.id} title="Games" keys={["live_games", "lucky_draw"]} back={`/admin/events/${ev.id}/games`} />;
+    return <NotInEvent eventId={ev.id} title="Games" keys={["live_games", "lucky_draw"]} back={`/admin/events/${ev.id}/games`} canTurnOn={actor.kind === "admin"} />;
   }
   // A game of a kind this event no longer has is kept (D439), but not listed.
   const games = (await listGames(ev.id)).filter((g) => kinds.includes(g.kind));

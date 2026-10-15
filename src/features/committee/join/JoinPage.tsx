@@ -1,5 +1,6 @@
 import { TriangleAlert } from "lucide-react";
 import { getEvent } from "@/lib/db/events";
+import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
 import { APP_NAME, APP_MARK } from "@/lib/app-name";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -21,7 +22,8 @@ const BUSY = "Too many tries at once. Wait a minute and try again.";
 export async function JoinPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ error?: string }> }) {
   const { token } = await params;
   const { error } = await searchParams;
-  const busy = !allow(`join-page:${token}`, 60, 60_000);
+  // Checked before the rate limiter, which remembers every key it is given: a crafted token must not grow it.
+  const busy = isValidToken(token) && !allow(`join-page:${token}`, 60, 60_000);
   const m = busy ? null : await memberByToken(token);
   const ev = m ? await getEvent(m.event_id) : null;
   const existing = m ? await userIdByEmail(m.email) : null;

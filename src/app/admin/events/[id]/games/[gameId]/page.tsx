@@ -20,12 +20,12 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
 
 export default async function GameEditor({ params }: { params: Promise<{ id: string; gameId: string }> }) {
   const { id, gameId } = await params;
-  const { ev } = await requireEventAccess(id);
+  const { actor, ev } = await requireEventAccess(id);
   const game = await getGame(gameId, ev.id);
   if (!game) notFound();
   const need = featureForGameKind(game.kind);
   if (!has(await eventFeatures(ev.id), need)) {
-    return <NotInEvent eventId={ev.id} title={game.title} keys={[need]} back={`/admin/events/${ev.id}/games/${game.id}`} />;
+    return <NotInEvent eventId={ev.id} title={game.title} keys={[need]} back={`/admin/events/${ev.id}/games/${game.id}`} canTurnOn={actor.kind === "admin"} />;
   }
   const back = `/admin/events/${ev.id}/games`;
 

@@ -62,7 +62,9 @@ export const requireEventAccess = cache(async (eventId: string): Promise<{ actor
   const { userId, email } = await claimsOrLogin();
   const ev = await getEvent(eventId);
   if (!ev) notFound();
-  const [adminOrgId, seats] = await Promise.all([adminOrgOf(userId), seatsOf(userId)]);
+  // An admin of this event's org is decided by `adminOrgId` alone, so skip the seats query for them.
+  const adminOrgId = await adminOrgOf(userId);
+  const seats = adminOrgId === ev.org_id ? [] : await seatsOf(userId);
   const kind = decideAccess({ userId, adminOrgId, ev, seats });
   if (!kind) notFound();
   return { actor: { userId, email, kind }, ev };

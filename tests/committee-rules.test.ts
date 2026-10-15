@@ -64,6 +64,7 @@ describe("passwordProblem", () => {
 describe("joinErrorCopy", () => {
   it("has copy for every code and ignores anything else", () => {
     expect(joinErrorCopy("short")).toBe("Use at least 8 characters.");
+    expect(joinErrorCopy("unavailable")).toBe("Couldn't sign you in just now. Try again in a minute.");
     expect(joinErrorCopy("made-up")).toBeNull();
     expect(joinErrorCopy(undefined)).toBeNull();
   });

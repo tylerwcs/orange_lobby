@@ -56,7 +56,8 @@ export async function CommitteeTab({ ev }: { ev: Event }) {
               {members.map((m) => {
                 const live = linkIsLive(m, now);
                 const url = live && m.link_token ? joinLink(base, m.link_token) : null;
-                const setUp = Boolean(m.accepted_at);
+                // A login that was deleted leaves accepted_at behind with no user: it needs a set-up link again.
+                const setUp = Boolean(m.user_id);
                 return (
                   <TableRow key={m.id}>
                     <TableCell className="font-semibold">{m.name}</TableCell>

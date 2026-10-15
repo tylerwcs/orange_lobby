@@ -26,12 +26,14 @@ export async function addMember(eventId: string, name: string, email: string, ad
 
 /**
  * D558-D560: a fresh link overwrites the old one, which stops it. A reset link needs a login to
- * reset, so it is refused for someone who never finished setting up.
+ * reset, so it is refused for someone with no login. A set-up link is for someone with none, which
+ * includes a member whose login was deleted: their `accepted_at` is cleared so the row reads as
+ * invited again.
  */
 export async function issueLink(eventId: string, id: string, kind: "setup" | "reset"): Promise<boolean> {
-  const patch = { link_token: generateToken(), link_kind: kind, link_expires_at: linkExpiry(new Date()) };
+  const patch = { link_token: generateToken(), link_kind: kind, link_expires_at: linkExpiry(new Date()), ...(kind === "setup" ? { accepted_at: null } : {}) };
   const base = table().update(patch).eq("id", id).eq("event_id", eventId).is("removed_at", null);
-  const { data, error } = await (kind === "reset" ? base.not("user_id", "is", null) : base.is("accepted_at", null)).select("id");
+  const { data, error } = await (kind === "reset" ? base.not("user_id", "is", null) : base.is("user_id", null)).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }

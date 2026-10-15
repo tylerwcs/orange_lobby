@@ -9,7 +9,7 @@ import { setAddonAction } from "./actions";
  * turn it on, rather than a 404 that reads like something broke. Activities and Games can need
  * either of two add-ons, so it takes a list.
  */
-export function NotInEvent({ eventId, title, keys, back }: { eventId: string; title: string; keys: AddonKey[]; back: string }) {
+export function NotInEvent({ eventId, title, keys, back, canTurnOn }: { eventId: string; title: string; keys: AddonKey[]; back: string; canTurnOn: boolean }) {
   const names = keys.map((k) => FEATURES[k].name).join(" or ");
   return (
     <div className="flex flex-col gap-4">
@@ -17,14 +17,21 @@ export function NotInEvent({ eventId, title, keys, back }: { eventId: string; ti
       <Card>
         <CardContent className="flex flex-col items-start gap-3">
           <p className="text-sm font-bold">Not part of this event</p>
-          <p className="text-sm text-muted-foreground">This needs {names}. Turning it on hides nothing else and deletes nothing.</p>
-          <div className="flex flex-wrap gap-2">
-            {keys.map((k) => (
-              <form key={k} action={setAddonAction.bind(null, eventId, k, true, back)}>
-                <SubmitButton>Turn on {FEATURES[k].name}</SubmitButton>
-              </form>
-            ))}
-          </div>
+          {canTurnOn ? (
+            <>
+              <p className="text-sm text-muted-foreground">This needs {names}. Turning it on hides nothing else and deletes nothing.</p>
+              <div className="flex flex-wrap gap-2">
+                {keys.map((k) => (
+                  <form key={k} action={setAddonAction.bind(null, eventId, k, true, back)}>
+                    <SubmitButton>Turn on {FEATURES[k].name}</SubmitButton>
+                  </form>
+                ))}
+              </div>
+            </>
+          ) : (
+            // D553: Features is Ecopia's, so a committee member is told who to ask, not given a button that would refuse.
+            <p className="text-sm text-muted-foreground">Ask the Ecopia team to turn on {names}.</p>
+          )}
         </CardContent>
       </Card>
     </div>

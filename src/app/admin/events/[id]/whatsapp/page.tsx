@@ -28,9 +28,9 @@ const STATUS_TONE: Record<string, "default" | "secondary" | "destructive"> = {
 
 export default async function WhatsappAdmin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { ev } = await requireEventAccess(id);
+  const { actor, ev } = await requireEventAccess(id);
   if (!has(await eventFeatures(ev.id), "whatsapp")) {
-    return <NotInEvent eventId={ev.id} title="WhatsApp" keys={["whatsapp"]} back={`/admin/events/${ev.id}/whatsapp`} />;
+    return <NotInEvent eventId={ev.id} title="WhatsApp" keys={["whatsapp"]} back={`/admin/events/${ev.id}/whatsapp`} canTurnOn={actor.kind === "admin"} />;
   }
   const attendees = await listAttendees(ev.id);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);

@@ -59,6 +59,7 @@ const JOIN_COPY = {
   wrong: "That isn't the password for this login. Try again, or ask the Ecopia team for a password reset link.",
   rejected: "That password wasn't accepted. Try a longer one.",
   busy: "Too many tries at once. Wait a minute and try again.",
+  unavailable: "Couldn't sign you in just now. Try again in a minute.",
 } as const;
 export const JOIN_ERRORS = Object.keys(JOIN_COPY) as (keyof typeof JOIN_COPY)[];
 export type JoinError = keyof typeof JOIN_COPY;

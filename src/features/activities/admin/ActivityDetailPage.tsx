@@ -13,12 +13,12 @@ export async function ActivityDetailPage({ params, searchParams }: {
 }) {
   const { id, activityId } = await params;
   const { day: requestedDay, qr, tab, week, team, show } = await searchParams;
-  const { ev } = await requireEventAccess(id);
+  const { actor, ev } = await requireEventAccess(id);
   const activity = await getActivity(activityId, ev.id);
   if (!activity) notFound();
   const need = featureForActivityKind(activity.kind);
   if (!has(await eventFeatures(ev.id), need)) {
-    return <NotInEvent eventId={ev.id} title={activity.name} keys={[need]} back={`/admin/events/${ev.id}/activities/${activity.id}`} />;
+    return <NotInEvent eventId={ev.id} title={activity.name} keys={[need]} back={`/admin/events/${ev.id}/activities/${activity.id}`} canTurnOn={actor.kind === "admin"} />;
   }
 
   // Three entirely different screens share this route because they share everything ABOVE this

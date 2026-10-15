@@ -1,6 +1,8 @@
 "use server";
 import { redirect } from "next/navigation";
 import { getEvent } from "@/lib/db/events";
+import { classifyLoginError } from "@/lib/login-errors";
+import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
 import { sessionClient } from "@/lib/supabase/session";
 import { serviceClient } from "@/lib/supabase/service";
@@ -14,6 +16,8 @@ import { memberByToken, acceptMember, clearLink, userIdByEmail, isOrgAdmin } fro
  */
 export async function joinAction(token: string, fd: FormData) {
   const page = `/join/${token}`;
+  // Before the rate limiter, which remembers every key it is given: a crafted token must not grow it.
+  if (!isValidToken(token)) redirect(page);
   if (!allow(`join-submit:${token}`, 10, 60_000)) redirect(`${page}?error=busy`);
   const m = await memberByToken(token);
   const ev = m ? await getEvent(m.event_id) : null;
@@ -39,7 +43,10 @@ export async function joinAction(token: string, fd: FormData) {
   } else if (existing) {
     // D555/D559: they already have a login; their current password proves it is them.
     const { error } = await (await sessionClient()).auth.signInWithPassword({ email: m.email, password });
-    if (error) redirect(`${page}?error=wrong`);
+    if (error) {
+      const why = classifyLoginError(error.message);
+      redirect(`${page}?error=${why === "invalid" ? "wrong" : why === "rate" ? "busy" : "unavailable"}`);
+    }
     if (!await acceptMember(m.id, token, existing)) redirect(page);
     redirect(`/admin/events/${m.event_id}`);
   } else {
