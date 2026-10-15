@@ -492,7 +492,8 @@ export async function addAttendeeFieldAction(eventId: string, formData: FormData
   // own data.
   const field = result.fields[result.fields.length - 1];
   let adopted = 0;
-  for (const a of await listAttendees(ev.id)) {
+  // Everyone, cancelled included, so a person restored later has the same columns as the rest.
+  for (const a of await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })) {
     const next = adoptValue(a.extra ?? {}, field);
     if (!next) continue;
     await updateAttendee(a.id, { extra: next });
@@ -543,7 +544,7 @@ export async function deleteAttendeeFieldsAction(eventId: string, formData: Form
     pinned_fields: ev.pinned_fields.filter((p) => !gone.has(p.key)),
     export_fields: ev.export_fields.filter((k) => !gone.has(k)),
   });
-  const keys = keysToErase((await listAttendees(ev.id)).map((a) => a.extra ?? {}), doomed, eventFields(ev.registration_questions, kept));
+  const keys = keysToErase((await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })).map((a) => a.extra ?? {}), doomed, eventFields(ev.registration_questions, kept));
   await eraseExtraKeys(ev.id, keys);
 
   revalidatePath(columnsBack(eventId));

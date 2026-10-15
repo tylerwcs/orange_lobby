@@ -24,11 +24,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const { ev } = await requireEventAccess(id);
 
-  const [forms, submissions, attendees, groups] = await Promise.all([
-    listActivities(ev.id, "submission"), listSubmissions(ev.id), listAttendees(ev.id), listGroups(ev.id),
+  const [forms, submissions, everyone, groups] = await Promise.all([
+    listActivities(ev.id, "submission"), listSubmissions(ev.id), listAttendees(ev.id, undefined, "wide", { includeCancelled: true }), listGroups(ev.id),
   ]);
+  // D582: cancelled people keep their entries and their names, but nobody chases them as missing.
+  const attendees = everyone.filter((a) => !a.cancelled_at);
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
-  const attendeeById = new Map(attendees.map((a) => [a.id, a]));
+  const attendeeById = new Map(everyone.map((a) => [a.id, a]));
   const byForm = new Map<string, typeof submissions>();
   for (const s of submissions) byForm.set(s.activity_id, [...(byForm.get(s.activity_id) ?? []), s]);
 

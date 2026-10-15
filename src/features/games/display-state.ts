@@ -40,7 +40,8 @@ export async function poolFor(event: Event, game: DrawGame, prizeNo: number | nu
     const [roster, checkins, winners] = await Promise.all([
       rosterFor(event.id), listCheckins(event.id, checkpoint_id), listEventWinners(event.id),
     ]);
-    return { roster: [...roster.values()], checkins, winners };
+    // D581: the roster also names past winners (D582), so a cancelled person is dropped here, from the pool.
+    return { roster: [...roster.values()].filter((a) => !a.cancelled_at), checkins, winners };
   });
   const cards = game.config.format === "cards";
   const cardTurn = prizeNo === null && cards;

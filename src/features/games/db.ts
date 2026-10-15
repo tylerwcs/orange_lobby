@@ -98,11 +98,14 @@ export async function getRun(id: string): Promise<Run | null> {
 
 /**
  * An event's whole attendee list, for names on the LED and the draw pool. Paged like the
- * player reads (D289): `listAttendees` stops at one request's worth of rows.
+ * player reads (D289): `listAttendees` stops at one request's worth of rows. Cancelled people
+ * are in it (D582): past winners and players still need a name on the LED. The draw pool drops
+ * them in `poolFor`, which is the one place that picks who may win.
  */
 export async function listRoster(eventId: string): Promise<Attendee[]> {
+  // any-status: LED names for past winners and players, the draw pool filters cancelled people itself
   return selectAll<Attendee>((from, to) => serviceClient().from("attendees")
-    .select("*").eq("event_id", eventId).is("cancelled_at", null).order("id").range(from, to));
+    .select("*").eq("event_id", eventId).order("id").range(from, to));
 }
 
 /** Who has been checked in at one of this event's checkpoints (the draw's eligibility, D278). */

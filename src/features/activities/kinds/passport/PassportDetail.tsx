@@ -39,7 +39,7 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
 export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity: Activity; qr?: string }) {
   const path = `/admin/events/${ev.id}/activities/${activity.id}`;
   const [booths, allStamps, attendees, categories] = await Promise.all([
-    listPassportBooths(activity.id), listStampsForEvent(ev.id), listAttendees(ev.id), listCategories(ev.id),
+    listPassportBooths(activity.id), listStampsForEvent(ev.id), listAttendees(ev.id, undefined, "wide", { includeCancelled: true }), listCategories(ev.id),
   ]);
   const boothIds = new Set(booths.map((b) => b.id));
   const stamps = allStamps.filter((s) => boothIds.has(s.booth_id));
@@ -64,10 +64,12 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
   }
 
   const completion = completionByAttendee(booths, stamps, activity.stamps_required);
-  const completed = [...completion.values()].filter((c) => c.complete).length;
+  // D582: a cancelled person keeps their stamps but is neither in the audience nor among the completed.
+  const registered = new Set(attendees.filter((a) => !a.cancelled_at).map((a) => a.id));
+  const completed = [...completion].filter(([id, c]) => c.complete && registered.has(id)).length;
   // Out of the people this passport is for, not the whole roster: a VIP-only passport that
   // every VIP has finished is finished (D184).
-  const audience = attendees.filter((a) => eligible(activity, a.category)).length;
+  const audience = attendees.filter((a) => !a.cancelled_at && eligible(activity, a.category)).length;
 
   return (
     <div className="flex flex-col gap-4">

@@ -22,15 +22,20 @@ export async function loadChallenge(event: Pick<Event, "id" | "starts_on">, acti
   attendees: Attendee[];
 }> {
   const scoring = activity.scoring!;
-  const [totals, groups, attendees, disqualifications] = await Promise.all([
-    dailyTotals(activity.id), listGroups(event.id), listAttendees(event.id), listDisqualifications(activity.id),
+  // D582: cancelled people are read too. A disqualification stays on the team they cancelled from
+  // (cancelling must not lift a void) and their names stay on past entries, but they are not
+  // members for the bonus, the counts or the rosters.
+  const [totals, groups, everyone, disqualifications] = await Promise.all([
+    dailyTotals(activity.id), listGroups(event.id), listAttendees(event.id, undefined, "wide", { includeCancelled: true }), listDisqualifications(activity.id),
   ]);
+  const attendees = everyone.filter((a) => !a.cancelled_at);
   const teams = groups.map((g) => ({
     id: g.id, name: g.name,
     memberIds: attendees.filter((a) => a.group_id === g.id).map((a) => a.id),
+    cancelledIds: everyone.filter((a) => a.cancelled_at && a.group_id === g.id).map((a) => a.id),
   }));
   const weeks = challengeWeeks(scoring, event.starts_on);
   const disqualified = new Map(disqualifications.map((d) => [d.attendee_id, d.week_of]));
   const score = scoreChallenge({ totals, teams, disqualified, scoring, weeks, today });
-  return { score, teams, weeks, names: new Map(attendees.map((a) => [a.id, a.name])), disqualifications, groups, attendees };
+  return { score, teams, weeks, names: new Map(everyone.map((a) => [a.id, a.name])), disqualifications, groups, attendees };
 }

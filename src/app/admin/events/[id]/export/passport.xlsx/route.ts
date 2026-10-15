@@ -9,9 +9,12 @@ import { buildPassportWorkbook } from "@/lib/exports";
 // collected what — not a per-selection one, so there is no selection to honour here either.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; const { ev } = await requireEventAccess(id);
-  const [attendees, passports, booths, stamps] = await Promise.all([
-    listAttendees(ev.id), listActivities(ev.id, "passport"), listBooths(ev.id), listStampsForEvent(ev.id),
+  const [everyone, passports, booths, stamps] = await Promise.all([
+    listAttendees(ev.id, undefined, "wide", { includeCancelled: true }), listActivities(ev.id, "passport"), listBooths(ev.id), listStampsForEvent(ev.id),
   ]);
+  // D582: a cancelled person keeps the stamps they collected, but a cancelled person with none has no row.
+  const stampedIds = new Set(stamps.map((s) => s.attendee_id));
+  const attendees = everyone.filter((a) => !a.cancelled_at || stampedIds.has(a.id));
   // A workbook with no sheets is corrupt (Excel refuses it); the Exports page only offers this link
   // when booths exist, so this is reachable only by URL — return 404 rather than broken file (D100/D181).
   if (passports.length === 0) return new Response("This event has no booth passport.", { status: 404 });

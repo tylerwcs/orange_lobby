@@ -221,3 +221,31 @@ describe("a week void (D467)", () => {
     expect(season.counts("a1", W2[0])).toBe(true);
   });
 });
+
+describe("cancelled members (D582)", () => {
+  // a2 cancelled: still in cancelledIds, no longer a member for the bonus or the counts.
+  const CANCELLED: Team[] = [{ id: "A", name: "Group 01", memberIds: ["a1"], cancelledIds: ["a2"] }, ...TEAMS.slice(1)];
+
+  it("does not block the team bonus when the cancelled member logged nothing", () => {
+    const totals = everyDay("a1", "A");
+    const s = score(totals, "2026-10-12", new Map(), CANCELLED);
+    expect(s.weeks[0].teams.A).toMatchObject({ bonus: 20, members: 1, onTrack: 1 });
+    // The same people with a2 still a member: the bonus is withheld, which is what cancelling avoids.
+    expect(score(totals).weeks[0].teams.A.bonus).toBe(0);
+  });
+
+  it("keeps the earned points of a cancelled member's days", () => {
+    const s = score([...everyDay("a1", "A"), t("a2", "A", WEEK2[0], 10)], "2026-10-12", new Map(), CANCELLED);
+    expect(s.weeks[0].teams.A.tier1).toBe(everyDay("a1", "A").length * 1 + 8);
+  });
+
+  it("still voids the team for a cancelled member's disqualification (season)", () => {
+    const s = score(everyDay("a1", "A"), "2026-10-12", new Map([["a2", null]]), CANCELLED);
+    expect(s.standings.find((x) => x.id === "A")!.void).toBe(true);
+  });
+
+  it("still voids the week for a cancelled member's week disqualification", () => {
+    const s = score(everyDay("a1", "A"), "2026-10-12", new Map([["a2", WEEK2[0]]]), CANCELLED, { ...S, void: "week" });
+    expect(s.weeks[0].teams.A).toMatchObject({ tier1: 0, bonus: 0, void: true });
+  });
+});

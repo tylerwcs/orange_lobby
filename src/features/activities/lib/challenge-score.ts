@@ -14,7 +14,12 @@ import type { ChallengeScoring } from "@/lib/types";
  */
 
 export type DailyTotal = { attendeeId: string; groupId: string | null; day: string; km: number };
-export type Team = { id: string; name: string; memberIds: string[] };
+/**
+ * `memberIds` are the people on the team now (D582: not cancelled) - the bonus, the counts and
+ * the rosters use them. `cancelledIds` are members who cancelled: they still carry a
+ * disqualification, so cancelling cannot lift a void.
+ */
+export type Team = { id: string; name: string; memberIds: string[]; cancelledIds?: string[] };
 /** `void` is D467's week void: every tier is 0 that week and the team is off its podium. */
 export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; onTrack: number; members: number; void: boolean };
 export type WeekResult = { week: ChallengeWeek; ended: boolean; teams: Record<string, TeamWeek> };
@@ -56,7 +61,8 @@ export function scoreChallenge(input: {
   const logged = (attendeeId: string, day: string) => personKm(attendeeId, day) >= scoring.daily_min;
   const weekVoid = scoring.void === "week";
   // D380: the season void - any disqualified member voids the team for good.
-  const isVoid = new Set(weekVoid ? [] : teams.filter((t) => t.memberIds.some((id) => disqualified.has(id))).map((t) => t.id));
+  const everyMember = (t: Team) => (t.cancelledIds ? [...t.memberIds, ...t.cancelledIds] : t.memberIds);
+  const isVoid = new Set(weekVoid ? [] : teams.filter((t) => everyMember(t).some((id) => disqualified.has(id))).map((t) => t.id));
   // D467: from the void week on, a disqualified person counts nothing and is not on the team for
   // Tier 2. A week_of that is missing counts them out from the start; one matching no challenge
   // week still counts them out from that day, but voids no week.
@@ -79,7 +85,7 @@ export function scoreChallenge(input: {
         km += t.km;
         tier1 += stepPoints(t.km, steps);
       }
-      const voided = weekVoid && monday !== null && team.memberIds.some((id) => disqualified.has(id) && disqualified.get(id) === monday);
+      const voided = weekVoid && monday !== null && everyMember(team).some((id) => disqualified.has(id) && disqualified.get(id) === monday);
       const members = team.memberIds.filter((id) => counts(id, week.days[0]));
       const allLogged = members.length > 0 && members.every((id) => week.days.every((d) => logged(id, d)));
       result[team.id] = {

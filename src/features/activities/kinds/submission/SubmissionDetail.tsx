@@ -36,10 +36,12 @@ import { toggleOpenAction, togglePinAction, toggleLeaderboardAction, saveSubmiss
 export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId }: {
   ev: Event; activity: Activity; requestedDay?: string; tab?: string; week?: string; teamId?: string;
 }) {
-  const [submissions, attendees, categories, groups] = await Promise.all([
-    submissionsForActivity(activity.id), listAttendees(ev.id), listCategories(ev.id), listGroups(ev.id),
+  const [submissions, everyone, categories, groups] = await Promise.all([
+    submissionsForActivity(activity.id), listAttendees(ev.id, undefined, "wide", { includeCancelled: true }), listCategories(ev.id), listGroups(ev.id),
   ]);
-  const attendeeById = new Map(attendees.map((a) => [a.id, a]));
+  // D582: cancelled people keep their names on past entries, but are not chased, counted or grouped.
+  const attendees = everyone.filter((a) => !a.cancelled_at);
+  const attendeeById = new Map(everyone.map((a) => [a.id, a]));
   const submitterFor = (attendeeId: string) => {
     const a = attendeeById.get(attendeeId);
     return { name: a?.name ?? "Unknown", email: a?.email ?? null, category: a?.category ?? null };

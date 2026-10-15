@@ -48,7 +48,7 @@ export async function VerifyPage({ token, search }: { token: string; search: Rec
   const formById = new Map(forms.map((f) => [f.id, f]));
   const chosen = q.activity && formById.has(q.activity) ? [q.activity] : forms.map((f) => f.id);
   // A name search narrows to at most 200 people, which keeps the `in` filter's URL sane.
-  const matched = q.q ? (await listAttendees(ev.id, q.q, "name")).slice(0, 200).map((a) => a.id) : null;
+  const matched = q.q ? (await listAttendees(ev.id, q.q, "name", { includeCancelled: true })).slice(0, 200).map((a) => a.id) : null;
   const { rows, more } = await submissionsForVerify({ eventId: ev.id, activityIds: chosen, status: q.status, attendeeIds: matched, page: q.page });
 
   const partners = await pairPartnerIds(rows);
