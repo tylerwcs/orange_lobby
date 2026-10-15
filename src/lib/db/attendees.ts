@@ -98,6 +98,20 @@ export async function countCancelled(eventId: string): Promise<number> {
   return count ?? 0;
 }
 
+/** D598: waiting requests, oldest first. Registered rows only. */
+export async function listCancelRequests(eventId: string): Promise<Attendee[]> {
+  return selectAll<Attendee>((from, to) => serviceClient().from("attendees").select("*").eq("event_id", eventId)
+    .is("cancelled_at", null).not("cancel_requested_at", "is", null)
+    .order("cancel_requested_at").order("id").range(from, to));
+}
+
+export async function countCancelRequests(eventId: string): Promise<number> {
+  const { count, error } = await serviceClient().from("attendees").select("id", { count: "exact", head: true })
+    .eq("event_id", eventId).is("cancelled_at", null).not("cancel_requested_at", "is", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function createAttendee(event: Pick<Event, "id" | "org_id">, input: AttendeeInput, source: AttendeeSource): Promise<Attendee> {
   const { data, error } = await serviceClient().from("attendees")
     .insert({ org_id: event.org_id, event_id: event.id, token: generateToken(), source, extra: {}, ...input, email: input.email?.trim().toLowerCase() || null })

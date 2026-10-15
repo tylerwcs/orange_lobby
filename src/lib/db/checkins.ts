@@ -4,11 +4,23 @@ import { selectAll } from "@/lib/db/select-all";
 import type { Arrival } from "@/features/activities/client";
 import type { Checkin, Event } from "@/lib/types";
 
+/** D597: turning up withdraws a waiting cancellation request. */
+async function clearCancelRequests(eventId: string, attendeeIds: string[]): Promise<void> {
+  if (attendeeIds.length === 0) return;
+  const { error } = await serviceClient().from("attendees").update({ cancel_requested_at: null })
+    .eq("event_id", eventId).in("id", attendeeIds).not("cancel_requested_at", "is", null);
+  if (error) throw error;
+}
+
 export async function recordCheckin(event: Pick<Event, "id" | "org_id">, checkpointId: string, attendeeId: string, userId: string | null): Promise<{ created: boolean; existing?: Checkin }> {
   const db = serviceClient();
   const { error } = await db.from("checkins").insert({ org_id: event.org_id, event_id: event.id, checkpoint_id: checkpointId, attendee_id: attendeeId, scanned_by: userId });
-  if (!error) return { created: true };
+  if (!error) {
+    await clearCancelRequests(event.id, [attendeeId]);
+    return { created: true };
+  }
   if (error.code === "23505") {
+    await clearCancelRequests(event.id, [attendeeId]); // a repeat scan still means they turned up
     const { data } = await db.from("checkins").select("*").eq("checkpoint_id", checkpointId).eq("attendee_id", attendeeId).single();
     return { created: false, existing: data as Checkin };
   }
@@ -34,6 +46,7 @@ export async function recordCheckins(event: Pick<Event, "id" | "org_id">, checkp
   }));
   const { error } = await serviceClient().from("checkins").upsert(rows, { onConflict: "checkpoint_id,attendee_id", ignoreDuplicates: true });
   if (error) throw error;
+  await clearCancelRequests(event.id, attendeeIds);
 }
 
 /**

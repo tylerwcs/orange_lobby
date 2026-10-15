@@ -19,6 +19,11 @@ describe("canSelfCancel (D584)", () => {
     expect(canSelfCancel({ ...ev, self_cancel_closes_at: "2026-10-15T02:00:00Z" }, a, false, now)).toEqual({ ok: false, reason: "Cancelling closed on 15 Oct, 10:00." });
     expect(canSelfCancel(ev, a, true, now)).toEqual({ ok: false, reason: "You've already checked in, so your registration can't be cancelled." });
   });
+
+  it("refuses a second request while one waits (D595)", () => {
+    expect(canSelfCancel(ev, { cancelled_at: null, cancel_requested_at: "2026-10-15T01:00:00Z" }, false, now))
+      .toEqual({ ok: false, reason: "You've already asked to cancel." });
+  });
 });
 
 describe("registrationOpenNow", () => {

@@ -10,7 +10,8 @@ import { serviceClient } from "@/lib/supabase/service";
  */
 export async function cancelAttendee(eventId: string, attendeeId: string): Promise<boolean> {
   const db = serviceClient();
-  const { data, error } = await db.from("attendees").update({ cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+  // D598: approving clears the waiting request together with the mark.
+  const { data, error } = await db.from("attendees").update({ cancelled_at: new Date().toISOString(), cancel_requested_at: null, updated_at: new Date().toISOString() })
     .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).select("id");
   if (error) throw error;
   const didMark = (data?.length ?? 0) > 0;
@@ -37,4 +38,45 @@ export async function restoreAttendee(eventId: string, attendeeId: string): Prom
     .eq("id", attendeeId).eq("event_id", eventId).not("cancelled_at", "is", null).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+/** D593: ask to cancel. Only for a registered row with no waiting request; clears an old decline. */
+export async function requestCancel(eventId: string, attendeeId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  const { data, error } = await serviceClient().from("attendees")
+    .update({ cancel_requested_at: now, cancel_declined_at: null, updated_at: now })
+    .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).is("cancel_requested_at", null).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/** D595: the attendee takes it back. */
+export async function withdrawCancelRequest(eventId: string, attendeeId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("attendees")
+    .update({ cancel_requested_at: null, updated_at: new Date().toISOString() })
+    .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).not("cancel_requested_at", "is", null).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/** D596: an organiser says no. */
+export async function declineCancelRequest(eventId: string, attendeeId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  const { data, error } = await serviceClient().from("attendees")
+    .update({ cancel_requested_at: null, cancel_declined_at: now, updated_at: now })
+    .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).not("cancel_requested_at", "is", null).select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/**
+ * D598: an organiser says yes - the D580-D582 cancel, only for a row whose request is still
+ * waiting (a withdrawn or checked-in request approves nothing).
+ */
+export async function approveCancelRequest(eventId: string, attendeeId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from("attendees").select("id") // registered row with a waiting request
+    .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).not("cancel_requested_at", "is", null).maybeSingle();
+  if (error) throw error;
+  if (!data) return false;
+  return cancelAttendee(eventId, attendeeId);
 }

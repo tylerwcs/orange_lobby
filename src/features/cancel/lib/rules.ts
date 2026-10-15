@@ -25,11 +25,12 @@ export function cancelledLabel(iso: string): string {
 /** D584: may this attendee cancel now? The reason is shown to them as-is. */
 export function canSelfCancel(
   ev: Pick<Event, "status" | "self_cancel" | "self_cancel_closes_at">,
-  a: Pick<Attendee, "cancelled_at">,
+  a: Pick<Attendee, "cancelled_at" | "cancel_requested_at">,
   hasCheckin: boolean,
   now: Date,
 ): { ok: true } | { ok: false; reason: string } {
   if (a.cancelled_at) return { ok: false, reason: "You've already cancelled." };
+  if (a.cancel_requested_at) return { ok: false, reason: "You've already asked to cancel." }; // D595
   if (!ev.self_cancel) return { ok: false, reason: "Cancelling isn't available for this event." };
   if (ev.status === "archived") return { ok: false, reason: "This event has ended." };
   if (ev.self_cancel_closes_at && Date.parse(ev.self_cancel_closes_at) <= now.getTime()) {

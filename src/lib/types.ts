@@ -147,6 +147,10 @@ export type Attendee = {
   terms_agreed_at: string | null;
   /** D580: when they cancelled; null/absent = active. Optional so old fixtures compile; rows from the DB always carry it. */
   cancelled_at?: string | null;
+  /** D593: when they asked to cancel; null/absent = no waiting request. */
+  cancel_requested_at?: string | null;
+  /** D596: when an organiser last declined their request; shown until they ask again. */
+  cancel_declined_at?: string | null;
 };
 
 /** A day of the programme, made before anything is put on it (D193). */
