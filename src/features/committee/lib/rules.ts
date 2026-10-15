@@ -65,5 +65,5 @@ export type JoinError = keyof typeof JOIN_COPY;
 
 /** Anything that is not one of our codes shows nothing, so a crafted URL cannot put words here. */
 export function joinErrorCopy(raw: string | undefined): string | null {
-  return raw && raw in JOIN_COPY ? JOIN_COPY[raw as JoinError] : null;
+  return raw && Object.hasOwn(JOIN_COPY, raw) ? JOIN_COPY[raw as JoinError] : null;
 }

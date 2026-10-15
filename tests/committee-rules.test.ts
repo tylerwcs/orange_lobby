@@ -67,4 +67,8 @@ describe("joinErrorCopy", () => {
     expect(joinErrorCopy("made-up")).toBeNull();
     expect(joinErrorCopy(undefined)).toBeNull();
   });
+  it("ignores names that exist on every object, not just unknown ones", () => {
+    expect(joinErrorCopy("toString")).toBeNull();
+    expect(joinErrorCopy("constructor")).toBeNull();
+  });
 });

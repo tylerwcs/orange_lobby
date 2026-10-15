@@ -2,3 +2,4 @@
 export * from "./db";
 export * from "./types";
 export { CommitteeTab } from "./admin/CommitteeTab";
+export { JoinPage } from "./join/JoinPage";
