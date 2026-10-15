@@ -41,6 +41,13 @@ describe("loginErrorCopy", () => {
     }
   });
 
+  it("has its own copy for a login with no events left (D562)", () => {
+    expect(loginErrorCopy("no-access")).toEqual({
+      title: "No events to open",
+      description: "You don't have access to any events right now.",
+    });
+  });
+
   /**
    * The reason this module exists. A crafted query string must not be able to put its own
    * sentence on the login screen — at most it chooses between the five this app wrote.

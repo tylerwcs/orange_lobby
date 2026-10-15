@@ -26,6 +26,6 @@ export const requireAdmin = cache(async (): Promise<AdminContext> => {
     .eq("user_id", claims.sub)
     .limit(1)
     .maybeSingle();
-  if (!member) redirect("/login?error=not-a-member");
+  if (!member) redirect("/login?error=no-access");
   return { userId: claims.sub, orgId: member.org_id, email: claims.email ?? "" };
 });

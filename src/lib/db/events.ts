@@ -43,6 +43,14 @@ export async function listEvents(orgId: string): Promise<Event[]> {
   return (data as unknown[]).map(hydrate);
 }
 
+/** D552: a committee member's events, in the same order as the admin's list. */
+export async function listEventsByIds(ids: string[]): Promise<Event[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await serviceClient().from("events").select("*").in("id", ids).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as unknown[]).map(hydrate);
+}
+
 export async function getEvent(id: string): Promise<Event | null> {
   const { data } = await serviceClient().from("events").select("*").eq("id", id).maybeSingle();
   return data ? hydrate(data) : null;

@@ -9,7 +9,7 @@
  * A code cannot carry a sentence. Anything unrecognised — including a crafted one — falls
  * through to `unknown`, whose copy is written here.
  */
-export const LOGIN_ERRORS = ["invalid", "unconfirmed", "rate", "disabled", "unknown"] as const;
+export const LOGIN_ERRORS = ["invalid", "unconfirmed", "rate", "disabled", "no-access", "unknown"] as const;
 export type LoginErrorCode = (typeof LOGIN_ERRORS)[number];
 
 const COPY: Record<LoginErrorCode, { title: string; description: string }> = {
@@ -28,6 +28,10 @@ const COPY: Record<LoginErrorCode, { title: string; description: string }> = {
   disabled: {
     title: "Password sign-in is turned off",
     description: "This is a setting on the project, not on your account. Ask the team.",
+  },
+  "no-access": {
+    title: "No events to open",
+    description: "You don't have access to any events right now.",
   },
   unknown: {
     title: "Could not sign you in",
