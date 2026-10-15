@@ -3,5 +3,6 @@ export * from "./client";
 export * from "./db";
 export * from "./portal/actions";
 export * from "./admin/actions";
+export * from "./admin/CancelRequestsTable";
 export * from "./portal/CancelledCard";
 export * from "./portal/CancelRequestNote";

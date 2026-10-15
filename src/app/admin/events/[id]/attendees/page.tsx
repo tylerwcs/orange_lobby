@@ -2,7 +2,8 @@ import { PendingLink, PendingScope, PendingSwap } from "@/components/PendingNav"
 import { SkeletonCard, SkeletonRows } from "@/components/ui/skeletons";
 import { cookies } from "next/headers";
 import { requireEventAccess } from "@/lib/access";
-import { listAttendees, countAttendees, listCancelledAttendees, countCancelled } from "@/lib/db/attendees";
+import { listAttendees, countAttendees, listCancelledAttendees, countCancelled, countCancelRequests, listCancelRequests } from "@/lib/db/attendees";
+import { CancelRequestsTable } from "@/features/cancel";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldsAction, deleteAttendeesAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
@@ -53,9 +54,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // on unchanged: `BulkBar` already hides its check-in menu when handed no checkpoints, and
   // an empty `checkins` leaves every row simply un-scanned (D159).
   // D588: `?show=cancelled` lists the people who cancelled instead of the registered roster.
+  // D598: `?show=requests` lists the cancellation requests waiting for an organiser, instead of the roster.
   const showCancelled = sp.show === "cancelled";
-  const [everyone, total, cancelledCount, checkins, cps, agenda, groups, jar] = await Promise.all([
-    showCancelled ? listCancelledAttendees(ev.id) : listAttendees(ev.id), countAttendees(ev.id), countCancelled(ev.id),
+  const showRequests = sp.show === "requests";
+  const [everyone, total, cancelledCount, requestCount, checkins, cps, agenda, groups, jar] = await Promise.all([
+    showRequests ? [] : showCancelled ? listCancelledAttendees(ev.id) : listAttendees(ev.id), countAttendees(ev.id), countCancelled(ev.id), countCancelRequests(ev.id),
     ev.check_in_enabled ? listCheckinsForEvent(ev.id) : [],
     ev.check_in_enabled ? listCheckpoints(ev.id) : [],
     listAgenda(ev.id), listGroups(ev.id), cookies(),
@@ -161,11 +164,11 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     return `/admin/events/${ev.id}/attendees?${qs.toString()}`;
   };
   // The toggle keeps the search and sort; it starts back on page 1 of the other list.
-  const viewHref = (cancelled: boolean) => {
+  const viewHref = (view?: "cancelled" | "requests") => {
     const qs = new URLSearchParams();
     if (sp.q) qs.set("q", sp.q);
     if (sort) { qs.set("sort", sort.key); qs.set("dir", sort.dir); }
-    if (cancelled) qs.set("show", "cancelled");
+    if (view) qs.set("show", view);
     const s = qs.toString();
     return `/admin/events/${ev.id}/attendees${s ? `?${s}` : ""}`;
   };
@@ -176,12 +179,15 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     <div className="flex flex-col gap-4" data-wide>
       <AdminHeader
         title="Attendees"
-        subtitle={showCancelled ? `${everyone.length} cancelled` : `${total} registered · ${checkedInCount} checked in`}
+        subtitle={showRequests ? `${requestCount} waiting` : showCancelled ? `${everyone.length} cancelled` : `${total} registered · ${checkedInCount} checked in`}
         actions={
           <>
-            {showCancelled
-              ? <PendingLink href={viewHref(false)} className={buttonVariants({ variant: "outline" })}>Back to registered</PendingLink>
-              : cancelledCount > 0 && <PendingLink href={viewHref(true)} className={buttonVariants({ variant: "outline" })}>Cancelled ({cancelledCount})</PendingLink>}
+            {showCancelled || showRequests
+              ? <PendingLink href={viewHref()} className={buttonVariants({ variant: "outline" })}>Back to registered</PendingLink>
+              : <>
+                {requestCount > 0 && <PendingLink href={viewHref("requests")} className={buttonVariants({ variant: "outline" })}>Cancellation requests ({requestCount})</PendingLink>}
+                {cancelledCount > 0 && <PendingLink href={viewHref("cancelled")} className={buttonVariants({ variant: "outline" })}>Cancelled ({cancelledCount})</PendingLink>}
+              </>}
             <Modal title="Add an attendee" hint="For someone who is not on the masterlist and is not registering themselves." trigger="Add attendee" icon="plus">
               <form action={addAttendeeAction.bind(null, ev.id)} className="grid gap-3 md:grid-cols-2">
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
@@ -234,6 +240,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           </>
         }
       />
+      {showRequests ? <CancelRequestsTable eventId={ev.id} rows={await listCancelRequests(ev.id)} /> : (<>
       <SearchInput initial={sp.q ?? ""} matches={rows.length} total={showCancelled ? everyone.length : total} />
       {/* Previous and Next change only `?page=`, which the route's loading.tsx never sees.
           The scope swaps the table for its skeleton while the next page loads. Search keeps
@@ -298,6 +305,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         </div>
       </div>
       </PendingScope>
+      </>)}
     </div>
   );
 }

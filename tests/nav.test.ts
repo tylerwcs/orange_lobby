@@ -67,6 +67,11 @@ describe("groupsFor", () => {
     expect(event?.items[0].badge).toBeUndefined();
   });
 
+  it("badges Attendees with the waiting cancellation requests (D598)", () => {
+    const onsite = groupsFor({ id: "e1", check_in_enabled: true }, [], { attendees: 3 }).find((g) => g.title === "Onsite");
+    expect(onsite?.items.find((i) => i.label === "Attendees")).toMatchObject({ badge: 3 });
+  });
+
   it("leaves Setup out for a committee member, and keeps everything else (D565)", () => {
     const labels = (admin: boolean) => groupsFor({ id: "e1", check_in_enabled: true }, [], { setup: 2 }, admin).flatMap((g) => g.items.map((i) => i.label));
     expect(labels(false)).not.toContain("Setup");

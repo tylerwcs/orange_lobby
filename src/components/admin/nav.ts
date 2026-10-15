@@ -22,16 +22,19 @@ export type Group = { title: string; items: Item[] };
  * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities and Games each
  * carry the key `hiddenNav` names.
  *
+ * D598: Attendees carries the number of cancellation requests waiting for an organiser, for
+ * admins and committee alike.
+ *
  * D565: Setup is Ecopia's (it reviews and applies what the organiser sent), so a committee
  * member (`admin` false) does not get it.
  */
-export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { setup?: number } = {}, admin = true): Group[] {
+export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { setup?: number; attendees?: number } = {}, admin = true): Group[] {
   if (!ev) return [{ title: "Events", items: [{ href: "/admin/events", label: "All events", icon: "layers" }] }];
   const b = `/admin/events/${ev.id}`;
   const groups: Group[] = [
     { title: "Onsite", items: [
       { href: b, label: "Overview", icon: "home" },
-      { href: `${b}/attendees`, label: "Attendees", icon: "users" },
+      { href: `${b}/attendees`, label: "Attendees", icon: "users", ...(badges.attendees ? { badge: badges.attendees } : {}) },
       { href: `${b}/groups`, label: "Groups", icon: "layers" },
       { href: `${b}/games`, label: "Games", icon: "star", key: "games" },
       ...(ev.check_in_enabled ? [{ href: `/scan/${ev.id}`, label: "Scanner", icon: "scan" as IconName, newTab: true }] : []),
