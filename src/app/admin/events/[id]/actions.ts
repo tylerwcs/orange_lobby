@@ -100,6 +100,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_open: formData.get("registration_open") === "on",
     registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
     registration_intro: str(formData, "registration_intro"),
+    registration_terms: cleanRichText(str(formData, "registration_terms")),
     registration_done_title: str(formData, "registration_done_title"),
     registration_done_message: str(formData, "registration_done_message"),
     registration_questions: questions,

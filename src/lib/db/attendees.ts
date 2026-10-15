@@ -134,6 +134,16 @@ export async function recordConsent(id: string): Promise<void> {
 }
 
 /**
+ * Records that this attendee ticked the event's terms on the form now (D542). Unlike consent it
+ * moves on every registration: terms an organiser edits are agreed afresh by whoever registers
+ * again, and the latest tick is the one that counts.
+ */
+export async function recordTermsAgreed(id: string): Promise<void> {
+  const { error } = await serviceClient().from("attendees").update({ terms_agreed_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+}
+
+/**
  * Rotates one attendee's token, invalidating the QR already printed on their badge.
  * No admin control points here any more — it was one confirm dialog away from the QR you
  * had just handed someone. It stays because it is the only answer to a leaked link, and

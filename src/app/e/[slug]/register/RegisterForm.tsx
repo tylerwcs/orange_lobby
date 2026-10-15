@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH } from "@/lib/privacy";
+import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH, TERMS_FIELD } from "@/lib/privacy";
 import { Spinner } from "@/components/ui/spinner";
 
 /**
@@ -35,12 +35,14 @@ function autoCompleteFor(q: RegistrationQuestion): string | undefined {
   return q.type === "phone" ? "tel" : undefined;
 }
 
-export function RegisterForm({ slug, questions, door = true }: {
+export function RegisterForm({ slug, questions, door = true, termsHtml = null }: {
   slug: string;
   /** The whole form in order, name and email included (`Event.registration_form`). */
   questions: RegistrationQuestion[];
   /** Whether the event checks people in; without a door there is no QR on the next screen (D228). */
   door?: boolean;
+  /** D540: the event's own terms, already sanitised. Null: none, and no second tick. */
+  termsHtml?: string | null;
 }) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug), {});
   // Every field is controlled, name and email included. They used to be uncontrolled
@@ -50,6 +52,7 @@ export function RegisterForm({ slug, questions, door = true }: {
   const [answers, setAnswers] = useState<Record<string, string>>(() => ({ ...(state.values ?? {}) }));
   const set = (k: string, val: string) => setAnswers((a) => ({ ...a, [k]: val }));
   const [agreed, setAgreed] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
   const value = (k: string) => answers[k] ?? "";
   const errors = state.errors ?? {};
   const fieldErrors = Object.keys(errors).filter((k) => k !== "form");
@@ -67,6 +70,8 @@ export function RegisterForm({ slug, questions, door = true }: {
     // The consent tick is reset the same way, and must not make the invitee agree twice.
     const box = document.getElementById(`reg-${CONSENT_FIELD}`);
     if (box instanceof HTMLInputElement) box.checked = agreed;
+    const termsBox = document.getElementById(`reg-${TERMS_FIELD}`);
+    if (termsBox instanceof HTMLInputElement) termsBox.checked = agreedTerms;
 
     // A rejected form is read from wherever the submit button was — the bottom, on a phone,
     // with the answer that needs fixing somewhere above the fold. Take the invitee to it
@@ -130,6 +135,26 @@ export function RegisterForm({ slug, questions, door = true }: {
           })}
         </FieldGroup>
       </FieldSet>
+
+      {/* D540-D541: the event's own terms, read in place and agreed with a tick of their own. The
+          panel scrolls rather than pushing Register a screen further down on a phone. */}
+      {termsHtml && (
+        <FieldSet>
+          <FieldLegend>Event terms</FieldLegend>
+          <div id="reg-terms-text" tabIndex={0} aria-label="Event terms"
+            className="rich-text prose prose-sm max-h-72 overflow-y-auto rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            dangerouslySetInnerHTML={{ __html: termsHtml }} />
+          <Field orientation="horizontal" data-invalid={!!errors[TERMS_FIELD]}>
+            <input id={`reg-${TERMS_FIELD}`} name={TERMS_FIELD} type="checkbox" value="yes" required
+              checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)}
+              className="mt-0.5 size-5 shrink-0 accent-primary" {...invalid(TERMS_FIELD)} />
+            <FieldContent>
+              <FieldLabel htmlFor={`reg-${TERMS_FIELD}`} className="font-normal leading-snug">I have read and agree to the event terms above.</FieldLabel>
+              <FieldError id={`reg-${TERMS_FIELD}-error`}>{errors[TERMS_FIELD]}</FieldError>
+            </FieldContent>
+          </Field>
+        </FieldSet>
+      )}
 
       {/* D410: PDPA consent, had before anything is stored. A native checkbox, like the select
           above, so it works before JavaScript arrives and posts "yes" only when ticked. */}

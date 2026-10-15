@@ -24,6 +24,17 @@ export function consentError(input: Record<string, string>): string | null {
 }
 
 /**
+ * D541: the event's own terms get a tick of their own beside the Privacy Notice's. They are the
+ * client's conditions, not our data notice, so agreeing to one is never read as agreeing to both.
+ */
+export const TERMS_FIELD = "event_terms_consent";
+
+/** The terms tick's check, asked only when the event has terms. */
+export function termsError(input: Record<string, string>, hasTerms: boolean): string | null {
+  return !hasTerms || input[TERMS_FIELD] === "yes" ? null : "Tick the box to agree to the event terms before registering.";
+}
+
+/**
  * D412: the separate, explicit consent a health-data activity asks for before an attendee's
  * first entry. A colon, like the submit form's `:for`, so no question key can be it.
  */

@@ -56,6 +56,8 @@ export type Event = {
   registration_open: boolean;
   /** The line under the Register heading; null for DEFAULT_REGISTRATION_INTRO (D229). */
   registration_intro: string | null;
+  /** D540: the event's own terms (a client's clauses), rich text. Null: none, and no second tick on the form. */
+  registration_terms: string | null;
   registration_closes_at: string | null;
   /** D537: the success page's heading; null for DEFAULT_DONE_TITLE. `{name}` is the first name. */
   registration_done_title: string | null;
@@ -137,6 +139,8 @@ export type Attendee = {
   consented_at: string | null;
   /** D410: the notice's PRIVACY_UPDATED date they agreed to. */
   consent_notice: string | null;
+  /** D542: when they ticked the event's terms on the registration form. Null: never asked, or before the event had terms. */
+  terms_agreed_at: string | null;
 };
 
 /** A day of the programme, made before anything is put on it (D193). */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONSENT_FIELD, consentError, HEALTH_CONSENT_FIELD, healthConsentTicked } from "@/lib/privacy";
+import { CONSENT_FIELD, consentError, HEALTH_CONSENT_FIELD, healthConsentTicked, TERMS_FIELD, termsError } from "@/lib/privacy";
 
 describe("consentError (D410)", () => {
   it("passes only the ticked box's value", () => {
@@ -13,6 +13,18 @@ describe("consentError (D410)", () => {
   it("refuses anything but yes from a hand-made POST", () => {
     expect(consentError({ [CONSENT_FIELD]: "" })).not.toBeNull();
     expect(consentError({ [CONSENT_FIELD]: "on" })).not.toBeNull();
+  });
+});
+
+describe("termsError (D541)", () => {
+  it("asks nothing of an event without terms", () => {
+    expect(termsError({}, false)).toBeNull();
+  });
+
+  it("passes the ticked box and refuses anything else when the event has terms", () => {
+    expect(termsError({ [TERMS_FIELD]: "yes" }, true)).toBeNull();
+    expect(termsError({ [CONSENT_FIELD]: "yes" }, true)).toMatch(/event terms/);
+    expect(termsError({ [TERMS_FIELD]: "on" }, true)).not.toBeNull();
   });
 });
 

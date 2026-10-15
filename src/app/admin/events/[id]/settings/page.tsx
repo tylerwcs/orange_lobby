@@ -43,6 +43,8 @@ import type { EventStatus } from "@/lib/types";
 import { FieldPicker } from "@/components/admin/FieldPicker";
 import { eventFields } from "@/lib/attendee-fields";
 import { MAX_SCAN_FIELDS } from "@/lib/scan";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export const metadata = { title: "Settings" };
 
@@ -291,7 +293,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_intro, ev.registration_done_title, ev.registration_done_message, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -390,6 +392,14 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <p className="text-xs text-muted-foreground">Name, email, mobile and department are always asked: move them or change their wording and help text, but they can&rsquo;t be removed. Add up to {MAX_QUESTIONS} more. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
           </div>
           <QuestionCards questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS + STANDARD_COUNT} standard={STANDARD_RULES} />
+          {/* D540: a client's own clauses, shown under the questions with a tick of their own (D541). */}
+          <RichTextEditor
+            name="registration_terms"
+            label="Event terms (optional)"
+            defaultValue={sanitizeHtml(ev.registration_terms ?? "")}
+            description="Your client's own clauses, such as photo consent or no-show charges. Shown under the questions with a tick invitees must agree to, next to the Privacy Notice tick. Leave empty for no terms."
+            minHeight={140}
+          />
           </CardContent>
         </Card>
         {/* D537: the page an invitee lands on after Register. The QR, the button and the link
