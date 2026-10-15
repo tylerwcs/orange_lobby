@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { openSwitchPatch, opensLabel, opensShort, scheduleAt, scheduleCheck } from "@/features/activities/lib/schedule";
+import { openSwitchPatch, opensLabel, opensShort, scheduleAt, scheduleCheck, scheduleResultFlash } from "@/features/activities/lib/schedule";
 
 describe("scheduleAt", () => {
   it("reads the dialog's date and time as Malaysia time", () => {
@@ -66,5 +66,18 @@ describe("openSwitchPatch (D602, final review)", () => {
     // flipping the server's state instead would close what they meant to open.
     expect(openSwitchPatch(true, true)).toBeNull();
     expect(openSwitchPatch(false, false)).toBeNull();
+  });
+});
+
+describe("scheduleResultFlash (D611)", () => {
+  it("says nothing went wrong when it was saved", () => {
+    expect(scheduleResultFlash("ok")).toBeNull();
+  });
+
+  it("explains each refusal the database can give", () => {
+    // 'open': the timer or another organiser opened it between the page and the save.
+    expect(scheduleResultFlash("open")).toBe("It's already open.");
+    expect(scheduleResultFlash("archived")).toBe("This event is archived, so nothing in it can be scheduled.");
+    expect(scheduleResultFlash("missing")).toBe("That activity no longer exists.");
   });
 });

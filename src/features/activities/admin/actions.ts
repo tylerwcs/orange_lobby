@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireEventAccess } from "@/lib/access";
 import {
-  createActivity, updateActivity, deleteActivity, deletePassportIfUnstamped, getActivity,
+  createActivity, updateActivity, scheduleOpening, deleteActivity, deletePassportIfUnstamped, getActivity,
   createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
   syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission, pairPartnerIds,
   type BookResult, type DecisionResult,
@@ -27,7 +27,7 @@ import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
 import { parseRevokeReason, reasonsOf } from "../lib/revoke";
-import { scheduleAt, scheduleCheck, opensLabel, openSwitchPatch } from "../lib/schedule";
+import { scheduleAt, scheduleCheck, opensLabel, openSwitchPatch, scheduleResultFlash } from "../lib/schedule";
 import { shortDate } from "@/lib/text";
 import { generateToken } from "@/lib/tokens";
 import { readPolaroidSettings, sweepActivityPhotos } from "@/features/polaroid";
@@ -172,9 +172,12 @@ export async function scheduleOpenAction(eventId: string, activityId: string, fr
   const at = scheduleAt(text(fd, "date"), text(fd, "time"));
   const refusal = scheduleCheck(activity, at, new Date());
   if (refusal || !at) redirect(flashPath(path, refusal ?? "Pick a date and time.", "error"));
-  await updateActivity(activityId, ev.id, { opens_at: at });
+  // D611: the database re-checks closed and not archived as it writes, so a race with the timer
+  // or another organiser reads as a refusal, never as an error page.
+  const refused = scheduleResultFlash(await scheduleOpening(activityId, ev.id, at));
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
+  if (refused) redirect(flashPath(path, refused, "error"));
   redirect(flashPath(path, `Opening scheduled for ${opensLabel(at)}.`));
 }
 

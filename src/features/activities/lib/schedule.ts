@@ -49,3 +49,19 @@ export function opensShort(iso: string): string {
 export function openSwitchPatch(current: boolean, wanted: boolean): { is_open: boolean; opens_at: null } | null {
   return current === wanted ? null : { is_open: wanted, opens_at: null };
 }
+
+/** Every answer `schedule_opening` can give (D611). */
+export type ScheduleResult = "ok" | "open" | "archived" | "missing";
+
+/**
+ * The flash for a schedule the database refused, or null when it was saved (D611). 'open' is
+ * the race with the timer or another organiser: the page drew Closed, but it opened meanwhile.
+ */
+export function scheduleResultFlash(result: ScheduleResult): string | null {
+  switch (result) {
+    case "ok": return null;
+    case "open": return "It's already open.";
+    case "archived": return "This event is archived, so nothing in it can be scheduled.";
+    case "missing": return "That activity no longer exists.";
+  }
+}

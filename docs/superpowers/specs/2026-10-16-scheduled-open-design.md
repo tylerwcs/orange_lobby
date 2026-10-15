@@ -1,6 +1,32 @@
 # Scheduled opening for activities — design
 
 Date: 16 Oct 2026. Decisions D600–D609. Migration 0086.
+**Amended 16 Oct 2026 after the final review (D610–D612, migration 0087)**: see "Amendment:
+hardening" below. Where it disagrees with D601's "archived events keep their opens_at", the
+amendment wins.
+
+## Amendment: hardening (D610–D612)
+
+**D610 — Archiving clears schedules.** A trigger on `events` (`events_archive_clears_schedules`)
+sets `opens_at = null` on every activity of an event the moment its status becomes `archived`.
+Otherwise an archived event's portal kept showing `Opens <a past date>` for good, and setting the
+event back to Live opened every one of those within a minute. Un-archiving now opens nothing.
+
+**D611 — Scheduling is one checked write.** `scheduleOpenAction` calls
+`schedule_opening(activity, event, at)`, which writes `opens_at` only while the activity is closed
+and its event is not archived (event row share-locked), and answers `ok`, `open`, `archived` or
+`missing`. A schedule saved in the same moment the timer (or another organiser) opens the activity
+now gets the flash `It's already open.` instead of the check-constraint error page. An archived
+event gets `This event is archived, so nothing in it can be scheduled.`
+
+**D612 — Pinned search_path.** `open_scheduled_activities()`, `schedule_opening()` and the archive
+trigger's function run with `search_path = ''` and schema-qualified names; the cron job calls
+`public.open_scheduled_activities()`. Execute is revoked from `public`, `anon` and
+`authenticated` on both callable functions.
+
+Also from the final review: the Open switch now posts the state the organiser asked for and is a
+no-op when the activity is already there (`openSwitchPatch`), so a stale Closed page flipped just
+after the timer fired no longer closes what it meant to open.
 
 An organiser sets a date and time; the activity opens itself then. Until it does, attendees see
 its card marked Coming soon, with when it opens. Every kind — booking, submission, passport,

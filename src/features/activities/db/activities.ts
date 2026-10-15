@@ -4,6 +4,7 @@ import { selectAll } from "@/lib/db/select-all";
 import type { RegistrationQuestion, GroupMode, ChallengeScoring } from "@/lib/types";
 import type { Activity, ActivityBooking, ActivityKind, ActivitySession, ActivitySubmission, Event } from "@/lib/types";
 import type { PairCode, PairWho } from "../lib/pairs";
+import type { ScheduleResult } from "../lib/schedule";
 
 export type NewActivity = {
   name: string;
@@ -116,6 +117,19 @@ export async function updateActivity(id: string, eventId: string, patch: Partial
   const { error } = await serviceClient().from("activities").update(patch)
     .eq("id", id).eq("event_id", eventId);
   if (error) throw error;
+}
+
+/**
+ * D611: sets when a closed activity opens, in one statement that re-checks it is still closed
+ * and its event not archived - so the timer opening it a moment earlier comes back as 'open',
+ * not as the check-constraint error a plain `updateActivity` would throw.
+ */
+export async function scheduleOpening(activityId: string, eventId: string, at: string): Promise<ScheduleResult> {
+  const { data, error } = await serviceClient().rpc("schedule_opening", {
+    p_activity_id: activityId, p_event_id: eventId, p_at: at,
+  });
+  if (error) throw error;
+  return data as ScheduleResult;
 }
 
 /** Cascades its sessions and bookings, or its submissions, depending on kind (D135, D178). */
