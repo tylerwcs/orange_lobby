@@ -5,7 +5,6 @@ import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
 import { extractToken } from "@/lib/scan";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
-import { klDay } from "@/features/cancel";
 import type { Activity, Booth, Event } from "@/lib/types";
 
 /**
@@ -76,8 +75,9 @@ async function stamp(booth: Booth, passport: Activity, attendeeId: string, name:
 }
 
 /** D581: a cancelled registration earns no stamp. Token and id lookups still resolve them, so the booth is told why. */
-function cancelledStamp(name: string, cancelledAt: string): BoothScanResult {
-  return { status: "error", name, message: `Cancelled registration. ${name} cancelled on ${klDay(cancelledAt)}.` };
+function cancelledStamp(): BoothScanResult {
+  // D98: a name goes only to someone this booth may stamp, so a cancelled person is not named.
+  return { status: "error", message: "Cancelled registration." };
 }
 
 export async function stampByTokenAction(boothToken: string, scanned: string): Promise<BoothScanResult> {
@@ -88,7 +88,7 @@ export async function stampByTokenAction(boothToken: string, scanned: string): P
   const a = await findByToken(auth.event.id, token);
   // A booth cannot create attendees (D99): an unknown badge is sent to registration, not added.
   if (!a) return { status: "notfound", message: "This badge isn't on the list for this event. Please see registration." };
-  if (a.cancelled_at) return cancelledStamp(a.name, a.cancelled_at);
+  if (a.cancelled_at) return cancelledStamp();
   return stamp(auth.booth, auth.passport, a.id, a.name);
 }
 
@@ -97,7 +97,7 @@ export async function stampByIdAction(boothToken: string, attendeeId: string): P
   if ("error" in auth) return { status: "error", message: auth.error };
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== auth.event.id) return { status: "notfound", message: "That attendee is no longer on the list." };
-  if (a.cancelled_at) return cancelledStamp(a.name, a.cancelled_at);
+  if (a.cancelled_at) return cancelledStamp();
   return stamp(auth.booth, auth.passport, a.id, a.name);
 }
 

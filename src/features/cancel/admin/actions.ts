@@ -11,7 +11,7 @@ export async function restoreAttendeeAction(eventId: string, attendeeId: string)
   const { ev } = await requireEventAccess(eventId);
   const a = await getAttendee(attendeeId);
   const path = `/admin/events/${ev.id}/attendees`;
-  if (!a || a.event_id !== ev.id) redirect(path);
+  if (!a || a.event_id !== ev.id) redirect(flashPath(path, "That attendee is no longer on this event.", "error"));
   await restoreAttendee(ev.id, a.id);
   revalidatePath(path);
   redirect(flashPath(path, `Restored ${a.name}.`));

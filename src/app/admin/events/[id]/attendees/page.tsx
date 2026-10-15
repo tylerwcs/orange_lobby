@@ -279,8 +279,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         setColumn={setColumnAction.bind(null, ev.id)}
         markCheckedIn={markCheckedInAction.bind(null, ev.id)}
         deleteAttendees={deleteAttendeesAction.bind(null, ev.id)}
-        bulkEditable={[...bulkFields(allFields), ...roundColumns, ...groupColumns]}
-        checkpoints={cps}
+        bulkEditable={showCancelled ? [] : [...bulkFields(allFields), ...roundColumns, ...groupColumns]}
+        checkpoints={showCancelled ? [] : cps}
         defaultCheckpointId={defaultCheckpointId}
       />
       </PendingSwap>

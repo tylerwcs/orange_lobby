@@ -28,7 +28,7 @@ describe("attendee reads guard (D591)", () => {
         const semi = src.indexOf(";", m.index);
         const eol = semi === -1 ? -1 : src.indexOf("\n", semi);
         const stmt = src.slice(start, eol === -1 ? undefined : eol);
-        const ok = stmt.includes('.is("cancelled_at", null)') || stmt.includes("cancelledFilter(") || /any-status:/.test(stmt);
+        const ok = stmt.includes('.is("cancelled_at", null)') || /any-status:/.test(stmt);
         if (!ok) offenders.push(`${relative(SRC, p).split("\\").join("/")}:${src.slice(0, m.index).split("\n").length}`);
       }
     }
