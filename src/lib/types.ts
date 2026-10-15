@@ -309,8 +309,13 @@ export type Activity = {
   kind: ActivityKind;
   /** At least one booking or one submission is expected. Never max_per_attendee of them (D129). */
   required: boolean;
-  /** Flipped by hand; there is deliberately no scheduled close (D127). */
+  /** Flipped by hand, or by the one-minute timer at `opens_at` (D601); there is deliberately no scheduled close (D127). */
   is_open: boolean;
+  /**
+   * D600: when a closed activity opens itself. Null is no schedule; never set on an open one
+   * (constraint `activities_open_unscheduled`). Optional so old fixtures compile.
+   */
+  opens_at?: string | null;
   /** Leads the attendee's home row and the Activities tab, under its own heading (D387). */
   pinned: boolean;
   /** Submission kind only (D391). Attendees may edit or delete (D398) their own entries on the day they sent them. */

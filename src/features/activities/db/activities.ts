@@ -11,6 +11,8 @@ export type NewActivity = {
   kind: ActivityKind;
   required: boolean;
   is_open: boolean;
+  /** D600. Left out, the column's null stands; only the schedule actions and the Open switch write it (D602). */
+  opens_at?: string | null;
   /** Null is no cap at all (D178). */
   max_per_attendee: number | null;
   categories: string[] | null;
