@@ -26,7 +26,9 @@ import { RememberedTabs } from "@/components/admin/RememberedTabs";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction } from "../actions";
+import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction } from "../actions";
+import { meGroups } from "@/lib/me-page";
+import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { StatusPicker } from "@/components/admin/StatusPicker";
@@ -101,7 +103,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const [portalShare, registrationShare] = await Promise.all([share("portal"), share("registration")]);
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
-  const tabs = (["features", "details", "registration", "checkpoints", "address", "alerts", "verification", "danger"] as const)
+  const tabs = (["features", "details", "registration", "me", "checkpoints", "address", "alerts", "verification", "danger"] as const)
     .filter((t) => !(hiddenTabs as readonly string[]).includes(t) && (t !== "verification" || verifying));
   const openTab = rememberedTab(jar, tabScope, tabs) ?? "details";
   const deleteBlocked = deleteBlockedBecause(ev.status);
@@ -123,6 +125,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="details">Event details</TabsTrigger>
           <TabsTrigger value="registration">Registration form</TabsTrigger>
+          <TabsTrigger value="me">Me page</TabsTrigger>
           <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
           {!hiddenTabs.includes("address") && <TabsTrigger value="address">Address</TabsTrigger>}
           <TabsTrigger value="alerts">Committee alerts</TabsTrigger>
@@ -288,7 +291,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_intro, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_intro, ev.registration_done_title, ev.registration_done_message, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -389,9 +392,59 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           <QuestionCards questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS + STANDARD_COUNT} standard={STANDARD_RULES} />
           </CardContent>
         </Card>
+        {/* D537: the page an invitee lands on after Register. The QR, the button and the link
+            box stay fixed - they are how the attendee gets back in - so only the words move. */}
+        <Card>
+          <CardHeader>
+            <CardTitle>After they register</CardTitle>
+            <CardDescription>
+              The heading and message on the page shown once someone registers. Write {"{name}"} for their first name. Leave either blank to use the placeholder text.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Field label="Heading" name="registration_done_title" defaultValue={ev.registration_done_title ?? ""} placeholder={DEFAULT_DONE_TITLE} />
+            <Field
+              label="Message"
+              name="registration_done_message"
+              textarea
+              defaultValue={ev.registration_done_message ?? ""}
+              placeholder={ev.check_in_enabled ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR}
+              description={ev.check_in_enabled
+                ? "Shown under their QR code. Line breaks are kept."
+                : "Check-in is off, so there is no QR code on this page. Line breaks are kept."}
+            />
+          </CardContent>
+        </Card>
         <SaveBar label="Save settings" note={SAVE_NOTE} />
         </TabsContent>
       </form>
+
+      {/* D536: its own form, like the scan card, so it never re-saves the big one above. */}
+      <TabsContent value="me" className="flex flex-col gap-4 @container">
+        <Card>
+          <CardHeader>
+            <CardTitle>What attendees see on their Me page</CardTitle>
+            <CardDescription>
+              Their name is always shown. Untick anything you would rather they did not see. A question you add later shows until you untick it here, and a card with nothing left to show disappears.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form key={(ev.me_hidden ?? []).join("␟")} action={updateMePageAction.bind(null, ev.id)} className="flex flex-col gap-5">
+              {meGroups(ev).map((g) => (
+                <fieldset key={g.title} className="flex flex-col gap-1">
+                  <legend className="mb-1 text-sm font-extrabold">{g.title}</legend>
+                  {g.items.map((i) => (
+                    <label key={i.key} className="flex min-h-11 items-center gap-2 text-sm">
+                      <input type="checkbox" name="me_shown" value={i.key} defaultChecked={!(ev.me_hidden ?? []).includes(i.key)} className="size-4 accent-primary" /> {i.label}
+                    </label>
+                  ))}
+                </fieldset>
+              ))}
+              <div><SubmitButton>Save Me page</SubmitButton></div>
+            </form>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
       {/* Always there now, since Delete is for any event that is not live; Purge still needs
           the event archived first. */}

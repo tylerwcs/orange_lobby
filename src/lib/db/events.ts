@@ -5,6 +5,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import type { Event, EventStatus } from "@/lib/types";
 import { parseAttendeeFields } from "@/lib/attendee-fields";
 import { hydratePins } from "@/lib/pinned-fields";
+import { parseMeHidden } from "@/lib/me-page";
 import { answerQuestions, registrationForm } from "@/lib/registration-standard";
 import { generateToken } from "@/lib/tokens";
 
@@ -17,7 +18,7 @@ export { slugify } from "@/lib/slug";
  */
 function hydrate(row: unknown): Event {
   const ev = row as Event;
-  const raw = row as { attendee_fields?: unknown; pinned_fields?: unknown; export_fields?: unknown; committee_alert_numbers?: unknown; revoke_reasons?: unknown };
+  const raw = row as { attendee_fields?: unknown; pinned_fields?: unknown; export_fields?: unknown; committee_alert_numbers?: unknown; revoke_reasons?: unknown; me_hidden?: unknown };
   // The column holds the whole form, name and email included for their place and wording;
   // everything that reads questions as answers gets the list without them.
   const form = Array.isArray(ev.registration_questions) ? ev.registration_questions : [];
@@ -30,6 +31,7 @@ function hydrate(row: unknown): Event {
     export_fields: Array.isArray(raw.export_fields) ? raw.export_fields.filter((k): k is string => typeof k === "string") : [],
     // Absent on a database that predates 0077 (D497); no templates leaves only "Other".
     revoke_reasons: Array.isArray(raw.revoke_reasons) ? raw.revoke_reasons.filter((r): r is string => typeof r === "string") : [],
+    me_hidden: parseMeHidden(raw.me_hidden),
     attendee_fields: parseAttendeeFields(raw.attendee_fields),
     pinned_fields: hydratePins(raw),
   };

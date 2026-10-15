@@ -57,6 +57,12 @@ export type Event = {
   /** The line under the Register heading; null for DEFAULT_REGISTRATION_INTRO (D229). */
   registration_intro: string | null;
   registration_closes_at: string | null;
+  /** D537: the success page's heading; null for DEFAULT_DONE_TITLE. `{name}` is the first name. */
+  registration_done_title: string | null;
+  /** D537: the success page's message; null for the default, which follows check-in. */
+  registration_done_message: string | null;
+  /** D536: Me page items the organiser hid (`meGroups` keys). Optional so old fixtures compile; hydrate always fills it. */
+  me_hidden?: string[];
   /**
    * Whether this event has a door at all (D159). Off hides the Scanner, the arrival stats,
    * the attendance export and the attendee's own arrival line; it never deletes a

@@ -40,6 +40,7 @@ import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { scanFieldsFromForm } from "@/lib/scan";
+import { meGroups, meHiddenFromForm } from "@/lib/me-page";
 import { exportFieldsFromForm } from "@/lib/export-columns";
 import { parseAlertNumbers } from "@/lib/committee-reminders";
 import { cleanRichText } from "@/lib/rich-text";
@@ -99,12 +100,24 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_open: formData.get("registration_open") === "on",
     registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
     registration_intro: str(formData, "registration_intro"),
+    registration_done_title: str(formData, "registration_done_title"),
+    registration_done_message: str(formData, "registration_done_message"),
     registration_questions: questions,
   });
   await deleteEventImage(logo.stale);
   await deleteEventImage(banner.stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(`/admin/events/${eventId}/settings`, "Settings saved."));
+}
+
+/** D536: what the attendee's Me page shows. Its own action: the tab sits outside the big settings form. */
+export async function updateMePageAction(eventId: string, formData: FormData) {
+  const { orgId } = await requireAdmin();
+  const ev = await requireEvent(eventId, orgId);
+  await updateEvent(eventId, { me_hidden: meHiddenFromForm(formData.getAll("me_shown").map(String), meGroups(ev)) });
+  const path = `/admin/events/${eventId}/settings`;
+  revalidatePath(path);
+  redirect(flashPath(path, "Me page saved."));
 }
 
 /** The attendee columns every export (bar Attendance) carries, saved from the Exports page. */

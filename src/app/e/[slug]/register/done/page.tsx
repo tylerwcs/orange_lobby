@@ -14,7 +14,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { brandStyle } from "@/lib/brand";
 import { cn } from "@/lib/utils";
-import { displayName } from "@/lib/text";
+import { doneCopy } from "@/lib/registration-done";
 
 export default async function Done({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ t?: string }> }) {
   const { slug } = await params;
@@ -28,6 +28,8 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   // with the event page instead of a QR there is no use for.
   const door = event.check_in_enabled;
   const qr = door ? await qrDataUrl(link) : null;
+  // D537: the organiser's own words, or the defaults this page always had.
+  const copy = doneCopy(event, attendee.name);
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background" style={brandStyle(event.primary_color) as React.CSSProperties}>
       <PortalHeader event={event} />
@@ -37,7 +39,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
           <CardContent className="flex flex-col items-center gap-4 text-center">
             <Badge variant="success">Registered</Badge>
             {/* The greeting is a paragraph, not a second h1: the sr-only heading above names the page. */}
-            <p className="text-2xl font-extrabold leading-tight text-balance">You&apos;re in, {displayName(attendee.name).split(" ")[0]}</p>
+            <p className="text-2xl font-extrabold leading-tight text-balance">{copy.title}</p>
             {qr ? (
               <>
                 {/* The code is the point of this page, so it is the largest thing on it. The crew
@@ -45,16 +47,14 @@ export default async function Done({ params, searchParams }: { params: Promise<{
                     again tomorrow. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt="Your QR code" width={224} height={224} className="size-56 rounded-xl" />
-                <p className="text-sm text-muted-foreground text-balance">Show this at the door. It is also your event page — the agenda, your table, and anything the organiser posts.</p>
+                <p className="text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.message}</p>
               </>
             ) : (
               <>
                 <div aria-hidden className="flex size-20 items-center justify-center rounded-full bg-accent text-primary">
                   <CalendarCheck className="size-9" />
                 </div>
-                <p className="text-sm text-muted-foreground text-balance">
-                  Your event page has the agenda, your details and anything the organiser posts. Keep it handy: open it and add it to your home screen.
-                </p>
+                <p className="text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.message}</p>
               </>
             )}
             <div className="flex w-full flex-col gap-2">

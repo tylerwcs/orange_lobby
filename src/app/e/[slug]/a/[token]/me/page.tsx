@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BadgeQrDialog } from "@/components/portal/BadgeQrDialog";
 import { Button } from "@/components/ui/button";
-import { eventFields } from "@/lib/attendee-fields";
+import { meAnswerFields, ME_BADGE, ME_CATEGORY, ME_EMAIL, ME_TABLE } from "@/lib/me-page";
 import { fieldValue } from "@/lib/attendee-values";
 import { initials } from "@/lib/text";
 
@@ -32,29 +32,30 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const qr = await qrDataUrl(attendeeLink(await eventAddress(event), attendee.token));
+  // D536: what the organiser chose to hide. Name and avatar are not on the list.
+  const hidden = new Set(event.me_hidden ?? []);
+  const shows = (key: string) => !hidden.has(key);
+  const qr = shows(ME_BADGE) ? await qrDataUrl(attendeeLink(await eventAddress(event), attendee.token)) : null;
 
   // Everything the event asked this person, in the order it asked, with blanks dropped -
   // an attendee should not read a list of questions they left empty. `fieldValue`, not
   // `extra` directly, so a value is trimmed before "left empty" is decided.
   //
-  // table_no is excluded here on purpose — the identity card below shows it as a badge, and
+  // table_no is excluded on purpose (inside meAnswerFields) — the identity card below shows it as a badge, and
   // it would otherwise print a second time in this list. Do not remove the filter to "fix" a
   // missing row; add the fact to the card instead if it ever needs to leave this list.
   //
   // company used to be excluded too, for the same reason. It no longer prints on the card,
   // so it belongs in this list with every other answer the event collected.
-  const identityCardFields = new Set(["table_no"]);
-  const fields = eventFields(event.registration_questions, event.attendee_fields);
-  const answered = fields
-    .filter((f) => !identityCardFields.has(f.key))
+  const answered = meAnswerFields(event)
+    .filter((f) => shows(f.key))
     .map((f) => ({ label: f.label, value: fieldValue(attendee, f.key) }))
     .filter((f) => f.value.trim() !== "");
 
   // Company, phone and table are ordinary fields now, so they surface once, in the
   // "answered" list above (table as a badge on the card) — the contact block keeps only what
   // is not: the address this attendee's link was sent to.
-  const contactDetails = attendee.email ? [{ label: "Email", value: attendee.email }] : [];
+  const contactDetails = attendee.email && shows(ME_EMAIL) ? [{ label: "Email", value: attendee.email }] : [];
 
   return (
     <>
@@ -74,11 +75,11 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
               <div className="text-xl font-extrabold leading-tight">{attendee.name}</div>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
-              {attendee.category && <Badge variant="secondary">{attendee.category}</Badge>}
-              {fieldValue(attendee, "table_no") && <Badge>Table {fieldValue(attendee, "table_no")}</Badge>}
+              {attendee.category && shows(ME_CATEGORY) && <Badge variant="secondary">{attendee.category}</Badge>}
+              {fieldValue(attendee, ME_TABLE) && shows(ME_TABLE) && <Badge>Table {fieldValue(attendee, ME_TABLE)}</Badge>}
             </div>
 
-            <BadgeQrDialog qr={qr} name={attendee.name} trigger={<Button className="mt-1 w-full sm:w-64">Show my badge</Button>} />
+            {qr && <BadgeQrDialog qr={qr} name={attendee.name} trigger={<Button className="mt-1 w-full sm:w-64">Show my badge</Button>} />}
           </CardContent>
         </Card>
 
