@@ -75,7 +75,7 @@ export type ChromeEvent = Pick<
   "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url"
 >;
 
-export function PortalChrome({ event, basePath, personal, activities, hasInfo, children }: {
+export function PortalChrome({ event, basePath, personal, activities, hasInfo, draftExtra, children }: {
   event: ChromeEvent;
   basePath: string;
   personal: boolean;
@@ -84,6 +84,8 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
   /** Whether the event has an Info section (D205). A boolean, not the HTML: this component's
    *  props are published into the page (D121). */
   hasInfo: boolean;
+  /** Shown under Coming soon on a draft event (D585): the cancel link. Built on the server. */
+  draftExtra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -106,6 +108,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, c
           <h1 className="text-xl font-extrabold">{event.name}</h1>
           {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
           <p className="mt-4 text-sm text-muted-foreground">Coming soon. Check back closer to the event.</p>
+          {draftExtra && <div className="mt-4">{draftExtra}</div>}
         </div>
       </main>
     );

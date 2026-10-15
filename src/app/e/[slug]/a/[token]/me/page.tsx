@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { meAnswerFields, ME_BADGE, ME_CATEGORY, ME_EMAIL, ME_TABLE } from "@/lib/me-page";
 import { fieldValue } from "@/lib/attendee-values";
 import { initials } from "@/lib/text";
+import { hasAnyCheckin } from "@/lib/db/checkins";
+import { CancelSection, canSelfCancel, klDayTime, selfCancelAction } from "@/features/cancel";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
@@ -56,6 +58,10 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   // "answered" list above (table as a badge on the card) — the contact block keeps only what
   // is not: the address this attendee's link was sent to.
   const contactDetails = attendee.email && shows(ME_EMAIL) ? [{ label: "Email", value: attendee.email }] : [];
+
+  // D585: the cancel card, last and outside the show/hide checklist. Only while the rules allow
+  // it; the check-in read is skipped when the event has no self-cancel.
+  const canCancel = event.self_cancel && canSelfCancel(event, attendee, await hasAnyCheckin(attendee.id), new Date()).ok;
 
   return (
     <>
@@ -107,6 +113,10 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
               </dl>
             </CardContent>
           </Card>
+        )}
+
+        {canCancel && (
+          <CancelSection variant="me" eventName={event.name} until={event.self_cancel_closes_at ? klDayTime(event.self_cancel_closes_at) : null} action={selfCancelAction.bind(null, slug, token)} />
         )}
 
       </div>

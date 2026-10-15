@@ -56,12 +56,25 @@ export const portalInfoTabsFor = cache((eventId: string) => listInfoTabs(eventId
 /** Whether the Info button shows for this viewer: their category, or null on the public portal. */
 export const portalHasInfo = cache(async (eventId: string, category: string | null) => hasInfo(await portalInfoTabsFor(eventId), category));
 
-export const loadPortalAttendee = cache(
+/** D585: the personal layout only - it shows the cancelled card. Everything else uses loadPortalAttendee. */
+export const loadPortalAttendeeAny = cache(
   async (slug: string, token: string): Promise<{ event: Event; attendee: Attendee }> => {
     const event = await loadPortalEvent(slug);
     if (!isValidToken(token)) notFound();
     const attendee = await findByToken(event.id, token);
     if (!attendee) notFound();
     return { event, attendee };
+  },
+);
+
+/**
+ * Every portal page and action. A cancelled registration is refused here (D581), so no portal
+ * write - booking, entry, game, polaroid - can run for them, whatever is POSTed.
+ */
+export const loadPortalAttendee = cache(
+  async (slug: string, token: string): Promise<{ event: Event; attendee: Attendee }> => {
+    const loaded = await loadPortalAttendeeAny(slug, token);
+    if (loaded.attendee.cancelled_at) notFound();
+    return loaded;
   },
 );
