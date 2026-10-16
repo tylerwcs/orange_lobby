@@ -15,23 +15,23 @@ export function fillName(text: string, attendeeName: string): string {
 }
 
 /**
- * D634: whether /register/done shows the attendee's QR. Off unless the organiser turns it on, and
- * never without check-in (D228): an event that scans no one has no use for the code.
+ * D634: whether registering shows the "You're in" page. Off unless the organiser turns it on;
+ * without it the attendee lands straight on their own event page.
  */
-export function showsDoneQr(e: Pick<Event, "check_in_enabled"> & { registration_show_qr?: boolean }): boolean {
-  return e.check_in_enabled && e.registration_show_qr === true;
+export function showsDonePage(e: { registration_done_page?: boolean }): boolean {
+  return e.registration_done_page === true;
 }
 
 /**
  * The heading and message on /register/done. A blank field falls back to the default, and the
- * default message follows the QR (D634): with no code on the page there is nothing to "show at the door".
+ * default message still follows check-in: with no door there is no QR to "show at the door".
  */
 export function doneCopy(
-  e: Pick<Event, "registration_done_title" | "registration_done_message" | "check_in_enabled"> & { registration_show_qr?: boolean },
+  e: Pick<Event, "registration_done_title" | "registration_done_message" | "check_in_enabled">,
   attendeeName: string,
 ) {
   const title = e.registration_done_title?.trim() || DEFAULT_DONE_TITLE;
   const message = e.registration_done_message?.trim()
-    || (showsDoneQr(e) ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR);
+    || (e.check_in_enabled ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR);
   return { title: fillName(title, attendeeName), message: fillName(message, attendeeName) };
 }

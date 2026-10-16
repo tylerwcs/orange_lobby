@@ -111,7 +111,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_terms: cleanRichText(str(formData, "registration_terms")),
     registration_done_title: str(formData, "registration_done_title"),
     registration_done_message: str(formData, "registration_done_message"),
-    registration_show_qr: formData.get("registration_show_qr") === "on", // D634
+    registration_done_page: formData.get("registration_done_page") === "on", // D634
     coming_soon_message: str(formData, "coming_soon_message"), // D617
     registration_banner_url: regBanner.url, // D618
     theme: themeFromForm(formData), // D622

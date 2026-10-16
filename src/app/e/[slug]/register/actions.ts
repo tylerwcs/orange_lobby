@@ -7,6 +7,9 @@ import { validateRegistration } from "@/lib/registration";
 import { registrationErrors } from "@/lib/registration-check";
 import { isRichTextEmpty } from "@/lib/rich-text";
 import { allow } from "@/lib/ratelimit";
+import { showsDonePage } from "@/lib/registration-done";
+import { eventAddress } from "@/features/domains";
+import { attendeeLink } from "@/lib/links";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
 
@@ -31,5 +34,7 @@ export async function registerAction(slug: string, _prev: RegisterState, formDat
   const { attendee } = await upsertByEmail(event, result.data, "registration");
   await recordConsent(attendee.id);
   if (hasTerms) await recordTermsAgreed(attendee.id);
+  // D634: straight to their own event page unless the organiser wants the "You're in" page.
+  if (!showsDonePage(event)) redirect(attendeeLink(await eventAddress(event), attendee.token));
   redirect(`/e/${slug}/register/done?t=${attendee.token}`);
 }

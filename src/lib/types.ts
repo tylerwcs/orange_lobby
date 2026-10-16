@@ -66,10 +66,10 @@ export type Event = {
   self_cancel_closes_at: string | null;
   /** D537: the success page's heading; null for DEFAULT_DONE_TITLE. `{name}` is the first name. */
   registration_done_title: string | null;
-  /** D537: the success page's message; null for the default, which follows the QR (D634). */
+  /** D537: the success page's message; null for the default, which follows check-in. */
   registration_done_message: string | null;
-  /** D634: show the attendee's QR on the success page (needs check-in too); off by default. Optional so old fixtures compile. */
-  registration_show_qr?: boolean;
+  /** D634: show the "You're in" page after registering; off by default (they land on their event page). Optional so old fixtures compile. */
+  registration_done_page?: boolean;
   /** D633: the name with the organiser's line breaks, for the event bar and Coming soon card; null/absent = name. */
   display_name?: string | null;
   /** D618: the registration page's banner, full width at its own height; null/absent = none. Optional so old fixtures compile. */

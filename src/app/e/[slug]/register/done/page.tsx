@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ThemeStyle } from "@/features/theme";
 import { TITLE_INK } from "@/lib/ink";
 import { cn } from "@/lib/utils";
-import { doneCopy, showsDoneQr } from "@/lib/registration-done";
+import { doneCopy, showsDonePage } from "@/lib/registration-done";
 
 export default async function Done({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ t?: string }> }) {
   const { slug } = await params;
@@ -26,10 +26,11 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   if (!attendee) notFound();
   const link = attendeeLink(await eventAddress(event), attendee.token);
   // D581: a cancelled registration is not "Registered"; their personal link shows the cancelled card.
-  if (attendee.cancelled_at) redirect(link);
-  // The QR only when the organiser turns it on (D634), and never without check-in (D228): without
-  // it the page leads with the event page.
-  const qr = showsDoneQr(event) ? await qrDataUrl(link) : null;
+  // D634: with the page switched off (an old bookmark, say), the same - their event page is the answer.
+  if (attendee.cancelled_at || !showsDonePage(event)) redirect(link);
+  // No door, no code (D228): an event without check-in never scans anyone, so the page leads
+  // with the event page instead of a QR there is no use for.
+  const qr = event.check_in_enabled ? await qrDataUrl(link) : null;
   // D537: the organiser's own words, or the defaults this page always had.
   const copy = doneCopy(event, attendee.name);
   return (

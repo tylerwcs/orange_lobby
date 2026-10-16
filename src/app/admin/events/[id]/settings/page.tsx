@@ -30,7 +30,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction } from "../actions";
 import { meGroups } from "@/lib/me-page";
 import { DEFAULT_COMING_SOON } from "@/lib/coming-soon";
-import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR, showsDoneQr } from "@/lib/registration-done";
+import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
 import { StatusPicker } from "@/components/admin/StatusPicker";
@@ -307,7 +307,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_show_qr, ev.display_name, ev.coming_soon_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.coming_soon_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -442,14 +442,12 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {/* D634: off by default; the QR is still on their badge in the portal. */}
+            {/* D634: off by default - registering lands straight on their event page. */}
             <label className="flex min-h-11 items-start gap-2 text-sm">
-              <input type="checkbox" name="registration_show_qr" defaultChecked={ev.registration_show_qr ?? false} disabled={!ev.check_in_enabled} className="mt-0.5 size-4 accent-primary" />
+              <input type="checkbox" name="registration_done_page" defaultChecked={ev.registration_done_page ?? false} className="mt-0.5 size-4 accent-primary" />
               <span>
-                <span className="font-bold">Show their QR code on this page</span>
-                <span className="block text-muted-foreground">{ev.check_in_enabled
-                  ? "Off: the page leads with their event page, where the QR is on their badge."
-                  : "Check-in is off, so there is no QR code to show."}</span>
+                <span className="font-bold">Show a &ldquo;You&rsquo;re in&rdquo; page after they register</span>
+                <span className="block text-muted-foreground">Off: they go straight to their own event page. On: they see this page first, with the heading and message below{ev.check_in_enabled ? " and their QR code" : ""}.</span>
               </span>
             </label>
             <Field label="Heading" name="registration_done_title" defaultValue={ev.registration_done_title ?? ""} placeholder={DEFAULT_DONE_TITLE} />
@@ -458,8 +456,10 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               name="registration_done_message"
               textarea
               defaultValue={ev.registration_done_message ?? ""}
-              placeholder={showsDoneQr(ev) ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR}
-              description={showsDoneQr(ev) ? "Shown under their QR code. Line breaks are kept." : "Line breaks are kept."}
+              placeholder={ev.check_in_enabled ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR}
+              description={ev.check_in_enabled
+                ? "Shown under their QR code. Line breaks are kept."
+                : "Check-in is off, so there is no QR code on this page. Line breaks are kept."}
             />
           </CardContent>
         </Card>
