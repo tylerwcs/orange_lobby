@@ -7,7 +7,7 @@ import { PortalHeader } from "@/components/portal/PortalHeader";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { CARD_TITLE_INK, TITLE_INK } from "@/lib/ink";
+import { CARD_TITLE_INK } from "@/lib/ink";
 import { ThemeStyle } from "@/features/theme";
 import { shortDateTime } from "@/lib/text";
 import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
@@ -53,10 +53,10 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
           </>
         ) : (
           <>
-            {/* A visible heading, not an sr-only one: an invitee arriving from a link needs to
-                read what this page wants from them before they meet the first input. */}
-            <h1 className={`text-2xl font-extrabold leading-tight ${TITLE_INK}`}>Register</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
+            {/* Screen readers only, at the organiser's request: the intro line and the form say what
+                the page wants, and the event bar already names the event. */}
+            <h1 className="sr-only">Register</h1>
+            <p className="text-sm text-muted-foreground">{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
             <Card className="mt-4">
               <CardContent>
                 <RegisterForm slug={slug} questions={event.registration_form} door={event.check_in_enabled} termsHtml={eventTermsHtml(event)} />

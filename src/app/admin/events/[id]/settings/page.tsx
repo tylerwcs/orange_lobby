@@ -408,7 +408,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input type="checkbox" name="self_cancel" defaultChecked={ev.self_cancel} className="size-4 accent-primary" /> Attendees can cancel their own registration</label>
             <Field label="Cancelling closes at" name="self_cancel_closes_at" type="datetime-local" defaultValue={isoToLocalInput(ev.self_cancel_closes_at)} description="Leave blank to allow it until the event is archived." />
             <div className="@xl:col-span-2">
-              <Field label="Line under the Register heading" name="registration_intro" defaultValue={ev.registration_intro ?? ""} placeholder={DEFAULT_REGISTRATION_INTRO} description="Leave blank to use the placeholder text." />
+              <Field label="Line above the form" name="registration_intro" defaultValue={ev.registration_intro ?? ""} placeholder={DEFAULT_REGISTRATION_INTRO} description="Leave blank to use the placeholder text." />
             </div>
             {/* D618: the registration page's own banner. The colours live in the event theme (D625). */}
             <ImageField label="Banner above the form" name="registration_banner" url={ev.registration_banner_url}

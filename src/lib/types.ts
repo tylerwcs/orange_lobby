@@ -55,7 +55,7 @@ export type Event = {
   /** Organiser pictures for the launcher's own sections, keyed "agenda" / "info" / "group" (D222, D362). Read through `sectionIcons`. */
   section_icons: Record<string, unknown>;
   registration_open: boolean;
-  /** The line under the Register heading; null for DEFAULT_REGISTRATION_INTRO (D229). */
+  /** The line above the registration form; null for DEFAULT_REGISTRATION_INTRO (D229). */
   registration_intro: string | null;
   /** D540: the event's own terms (a client's clauses), rich text. Null: none, and no second tick on the form. */
   registration_terms: string | null;
