@@ -33,7 +33,7 @@ export function BadgeCard({ attendee, checkin, pins, qr }: {
       <div className="flex items-center gap-3.5">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
           {checkin && (checkin.at
-            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-success-soft"><span aria-hidden="true" className="size-1.5 rounded-full bg-success-soft" /><span className="sr-only">Checked in: </span>{checkin.name} · {checkin.at}</span>
+            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-feature-success"><span aria-hidden="true" className="size-1.5 rounded-full bg-feature-success" /><span className="sr-only">Checked in: </span>{checkin.name} · {checkin.at}</span>
             : <span /* theme-fixed: on --feature */ className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-feature-foreground/70">Not checked in to {checkin.name} yet</span>)}
           <div className="text-lg font-extrabold leading-tight text-balance @2xs:text-xl">{displayName(attendee.name)}</div>
         </div>

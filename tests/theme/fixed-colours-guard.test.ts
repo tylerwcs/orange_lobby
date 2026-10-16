@@ -19,17 +19,23 @@ const ROOTS = [
   "src/features/cancel/portal",
   "src/features/games/components/phone",
   "src/features/games/components/PlayClient.tsx",
+  // Portalled over attendee pages: the toast stack and the form-error alert.
+  "src/components/ui/toaster.tsx",
+  "src/components/ui/alert.tsx",
 ];
 const EXCLUDED = ["src/app/e/[slug]/polaroid/", "src/features/polaroid/"];
 
 const norm = (p: string) => relative(ROOT, p).split("\\").join("/");
 function walk(path: string): string[] {
-  if (!existsSync(path)) return [];
   if (!statSync(path).isDirectory()) return path.endsWith(".tsx") ? [path] : [];
   return readdirSync(path).flatMap((n) => walk(join(path, n)));
 }
 
 describe("attendee components read theme tokens (D625)", () => {
+  it("every listed root exists, so a move or rename cannot silently drop it", () => {
+    expect(ROOTS.filter((r) => !existsSync(join(ROOT, r)))).toEqual([]);
+  });
+
   it("no fixed white/black/gray colour class without a theme-fixed: reason", () => {
     const offenders: string[] = [];
     for (const r of ROOTS) {

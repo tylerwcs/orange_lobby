@@ -139,7 +139,12 @@ describe("token contrast (WCAG 2.x, sRGB)", () => {
   it("feature-foreground on feature meets 4.5:1 (badge, passport header, seat tile)", () => assertPair("feature-foreground", "feature"));
   it("primary-foreground on primary meets 4.5:1", () => assertPair("primary", "primary-foreground"));
   it("white text on success-strong fill meets 4.5:1", () => assertPair("success-strong", "white", WHITE));
-  it("white text on destructive-strong fill meets 4.5:1 (error toast)", () => assertPair("destructive-strong", "white", WHITE));
+  it("white text on destructive-strong fill meets 4.5:1", () => assertPair("destructive-strong", "white", WHITE));
+  it("white text on toast-error fill meets 4.5:1 (error toast, fixed on every theme)", () => assertPair("toast-error", "white", WHITE));
+  it("feature-success on its pill (success at 25% over feature) meets 4.5:1 (badge check-in)", () => {
+    const [s, f] = [rgb("success"), rgb("feature")];
+    assertPair("feature-success", "feature + success/25", s.map((c, i) => Math.round(c * 0.25 + f[i] * 0.75)) as Rgb);
+  });
   it("white text on foreground fill meets 4.5:1 (toast, bulk bar)", () => assertPair("foreground", "white", WHITE));
 });
 

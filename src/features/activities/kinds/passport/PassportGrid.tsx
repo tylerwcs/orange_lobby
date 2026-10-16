@@ -128,7 +128,7 @@ function CompleteHeader({ passport, attendeeName, message }: { passport: Passpor
       <div className="flex items-center gap-3.5 p-4">
         <StampGlyph deg={-8} size={62} />
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="inline-flex w-fit items-center rounded-full bg-brand/25 px-2.5 py-1 text-xs font-extrabold text-accent">{progressLine(passport)}</span>
+          <span className="inline-flex w-fit items-center rounded-full bg-brand/25 px-2.5 py-1 text-xs font-extrabold text-feature-accent">{progressLine(passport)}</span>
           {/*
             Wraps rather than truncates. This name is the largest thing on the card because a
             counter reads it against the badge in the person's hand - and "Zainab binti Abdul…"

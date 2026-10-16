@@ -107,3 +107,97 @@ describe("themeTokens (D622-D632)", () => {
     expect(parseTheme(null)).toEqual(EMPTY_THEME);
   });
 });
+
+/** `bg-x/NN` over a surface, flattened as the browser composites it (sRGB). */
+const over = (fg: string, alpha: number, surface: string) => {
+  const [a, b] = [hexToRgb(fg)!, hexToRgb(surface)!];
+  return toHex(a.map((c, i) => Math.round(c * alpha + b[i] * (1 - alpha))) as Rgb);
+};
+const UOB_REAL = { ...EMPTY_THEME, background: "#000c36", overrides: { heading: "#ffffff" } };
+const DARK_CASES: [string, typeof EMPTY_THEME, string][] = [
+  ["uobih2", UOB_REAL, "#005cb9"],
+  ["black", { ...EMPTY_THEME, background: "#000000" }, "#005cb9"],
+  ["black/gold", { ...EMPTY_THEME, background: "#000000" }, "#d9b25f"],
+];
+
+describe("off-card readers get tokens for their own surface (final review 1)", () => {
+  it("the badge check-in pill and the passport complete pill read on the feature panel", () => {
+    for (const [name, theme, p] of DARK_CASES) {
+      const { tokens: t } = themeTokens(theme, p);
+      // BadgeCard: text-feature-success on bg-success/25 over --feature (--success is never re-drawn).
+      expect(r(t["--feature-success"], over("#16A34A", 0.25, t["--feature"])), `${name} check-in pill`).toBeGreaterThanOrEqual(4.5);
+      // PassportGrid: text-feature-accent on bg-brand/25 over --feature.
+      expect(r(t["--feature-accent"], over(t["--brand"], 0.25, t["--feature"])), `${name} passport pill`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("an untouched event emits neither, so globals.css's defaults (today's colours) apply", () => {
+    const { tokens: t } = themeTokens(EMPTY_THEME, "#005cb9");
+    expect(t["--feature-success"]).toBeUndefined();
+    expect(t["--feature-accent"]).toBeUndefined();
+  });
+
+  it("--destructive is re-drawn on dark themes: text on ground, card and its own tints, fill under its text", () => {
+    for (const [name, theme, p] of DARK_CASES) {
+      const { tokens: t } = themeTokens(theme, p);
+      const d = t["--destructive"];
+      expect(d, name).toBeDefined();
+      for (const g of ["--background", "--card"]) expect(r(d, t[g]), `${name} destructive on ${g}`).toBeGreaterThanOrEqual(4.5);
+      // ghost button / badge: text-destructive on bg-destructive/10 and its /20 hover, over the card
+      for (const a of [0.1, 0.2]) expect(r(d, over(d, a, t["--card"])), `${name} on destructive/${a}`).toBeGreaterThanOrEqual(4.5);
+      // the destructive alert's description is text-destructive/90 on the card
+      expect(r(over(d, 0.9, t["--card"]), t["--card"]), `${name} destructive/90`).toBeGreaterThanOrEqual(4.5);
+      // CancelSection / EntryActions: bg-destructive text-destructive-foreground
+      expect(r(t["--destructive-foreground"], d), `${name} destructive-foreground`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("the error toast's fill is never re-drawn by the theme", () => {
+    for (const [, theme, p] of DARK_CASES) expect(themeTokens(theme, p).tokens["--toast-error"]).toBeUndefined();
+  });
+});
+
+describe("color-scheme follows the card (final review 1 ruling)", () => {
+  it("a white card on navy is a light scheme; a dark card on the default ground is a dark one", () => {
+    expect(themeTokens({ ...UOB, overrides: { card: "#ffffff" } }, "#005cb9").dark).toBe(false);
+    expect(themeTokens({ ...EMPTY_THEME, overrides: { card: "#0b1f4b" } }, "#005cb9").dark).toBe(true);
+    expect(themeTokens(UOB_REAL, "#005cb9").dark).toBe(true);
+    expect(themeTokens(EMPTY_THEME, "#005cb9").dark).toBe(false);
+  });
+});
+
+describe("overrides on the default ground (no background)", () => {
+  // globals.css's values for the tokens an overrides-only theme leaves alone.
+  const DEFAULTS: Record<string, string> = {
+    "--background": "#F5F5F3", "--foreground": "#111827", "--card": "#FFFFFF", "--card-foreground": "#111827",
+    "--muted": "#F1F2F4", "--secondary": "#F1F2F4", "--secondary-foreground": "#111827", "--muted-foreground": "#4B5563",
+  };
+  const shipped = (t: Record<string, string>) => ({ ...DEFAULTS, ...t });
+
+  it("card, text and secondary-text overrides ship readable pairs and never the bar or the ground", () => {
+    for (const overrides of [
+      { card: "#fff8e1", text: "#1e3a8a", muted_text: "#64748b" },
+      { card: "#fff8e1" },
+      { text: "#f0f0f0", muted_text: "#e5e7eb" },
+    ]) {
+      const { tokens } = themeTokens({ ...EMPTY_THEME, overrides }, "#005cb9");
+      expect(tokens["--bar"], JSON.stringify(overrides)).toBeUndefined();
+      expect(tokens["--background"], JSON.stringify(overrides)).toBeUndefined();
+      const t = shipped(tokens);
+      for (const [fg, g] of [["--foreground", "--background"], ["--card-foreground", "--card"], ["--muted-foreground", "--card"], ["--muted-foreground", "--background"], ["--muted-foreground", "--muted"], ["--secondary-foreground", "--secondary"], ["--primary", "--card"], ["--primary-foreground", "--primary"]])
+        expect(r(t[fg], t[g]), `${JSON.stringify(overrides)} ${fg} on ${g}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("a dark card on the default ground (mixed polarity) keeps text and buttons readable, and draws dark status", () => {
+    const { tokens } = themeTokens({ ...EMPTY_THEME, overrides: { card: "#0b1f4b" } }, "#005cb9");
+    expect(tokens["--bar"]).toBeUndefined();
+    const t = shipped(tokens);
+    for (const [fg, g] of [["--foreground", "--background"], ["--card-foreground", "--card"], ["--secondary-foreground", "--secondary"], ["--primary-foreground", "--primary"], ["--success-strong", "--success-soft"]])
+      expect(r(t[fg], t[g]), `${fg} on ${g}`).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("a picked card is what ships", () => {
+    expect(themeTokens({ ...EMPTY_THEME, overrides: { card: "#fff8e1" } }, null).tokens["--card"]).toBe("#FFF8E1");
+  });
+});

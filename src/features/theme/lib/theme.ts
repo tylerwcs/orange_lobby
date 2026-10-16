@@ -19,6 +19,8 @@ const WHITE: Rgb = [255, 255, 255];
 const INK = "#111827"; // globals.css --foreground
 const MUTED_INK = "#4B5563"; // globals.css --muted-foreground
 const MIN = 4.5;
+/** The tokens globals.css's `.rich-text` maps Tailwind Typography's colours to (final review 1). */
+const RICH = ["--rich-text", "--rich-muted", "--rich-rule"];
 
 const hex = (v: unknown): string | null => (typeof v === "string" && HEX.test(v.trim()) ? v.trim().toLowerCase() : null);
 
@@ -113,9 +115,14 @@ function lift(ground: Rgb, dL: number, ratio: number): Rgb {
   return c;
 }
 
-/** `bg-white/10` over a surface, flattened as the browser composites it (in sRGB). */
+/** `bg-<colour>/<alpha>` over a surface, flattened as the browser composites it (in sRGB). */
+function over(fg: Rgb, alpha: number, surface: Rgb): Rgb {
+  return surface.map((c, i) => Math.round(fg[i] * alpha + c * (1 - alpha))) as Rgb;
+}
+
+/** `bg-white/10` over a surface - the badge's pin tile. */
 function wash(surface: Rgb): Rgb {
-  return surface.map((c) => Math.round(c * 0.9 + 255 * 0.1)) as Rgb;
+  return over(WHITE, 0.1, surface);
 }
 
 function shade(ground: Rgb, dL: number): Rgb {
@@ -200,9 +207,27 @@ function darkStatus(ground: Rgb, card: Rgb): Record<string, string> {
   const warnSoft = soft(warn);
   out["--warning-soft"] = toHex(warnSoft);
   out["--warning"] = toHex(ensure(warn, [ground, card, warnSoft], MIN).rgb);
+  // Form errors, the destructive alert and ghost buttons draw `text-destructive` on cards (and the
+  // page): lightened like --warning, and kept readable on its own tints (bg-destructive/10, /20
+  // hover) and at the alert description's /90. The card decides when the page is the other polarity.
+  const red = hexToRgb("#DC2626")!;
+  const destructive = ensure(red, dark(ground) ? [ground, card] : [card], MIN, (c) =>
+    contrastRatio(c, over(c, 0.2, card)) >= MIN && contrastRatio(over(c, 0.9, card), card) >= MIN).rgb;
+  out["--destructive"] = toHex(destructive);
+  // The fill under the cancel and delete confirms' text (bg-destructive text-destructive-foreground).
+  out["--destructive-foreground"] = readableOn(destructive).hex;
   return out;
 }
 
+/** Tailwind's `bg-success` (globals.css --success, never re-drawn): the badge check-in pill's fill at 25%. */
+const SUCCESS = "#16A34A";
+/** globals.css --success-soft: the check-in pill's text today, the seed of its re-drawn one. */
+const SUCCESS_SOFT = "#E7F6EC";
+
+/**
+ * `dark` is the colour scheme native controls follow: the card's polarity, as they sit on cards
+ * (final review 1 ruling) - the ground decides the worked-out set (D630), the card the scheme.
+ */
 type Built = { tokens: Record<string, string>; dark: boolean; adjusted: Partial<Record<ThemeColorKey, true>> };
 
 function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
@@ -231,12 +256,19 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
   const muted = ensure(rgb("muted_text"), [ground, card, fills], MIN);
   flag("muted_text", muted.adjusted);
 
-  // D72 on the theme's grounds: the organiser's colour as text on page and cards, carrying readable button text.
+  // D72 on the theme's grounds: the organiser's colour as text on page, cards and the muted fills
+  // inside them (links in event terms, rich text in a muted panel), carrying readable button text.
   const brand = primary && HEX.test(primary) ? primary : brandStyle(null)["--brand"];
   const brandRgb = hexToRgb(brand)!;
-  const ink = ensure(brandRgb, [ground, card], MIN, (c) => readableOn(c).ratio >= MIN).rgb;
+  const ink = ensure(brandRgb, [ground, card, fills], MIN, (c) => readableOn(c).ratio >= MIN).rgb;
   const accent = mix(brandRgb, ground, 0.14);
   const fill = brandStyle(brand);
+
+  // The two pills on the feature panel (badge check-in, passport complete) are tinted by a colour
+  // at 25% over the panel, so they read their own tokens, not the card's re-drawn status ones.
+  const pill = (tint: Rgb) => over(tint, 0.25, s.feature);
+  const featureSuccess = ensure(hexToRgb(SUCCESS_SOFT)!, [pill(hexToRgb(SUCCESS)!)], MIN).rgb;
+  const featureAccent = ensure(mix(brandRgb, WHITE, 0.14), [pill(brandRgb)], MIN).rgb;
 
   const tokens: Record<string, string> = {
     "--background": toHex(ground),
@@ -264,6 +296,14 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
     "--brand-foreground": fill["--brand-foreground"],
     // Its one reader is the badge's pin text, on a 10% white tile over the feature panel (BADGE_TILE's job in brand.ts).
     "--brand-on-dark": toHex(ensure(brandRgb, [s.feature, wash(s.feature)], MIN).rgb),
+    "--feature-success": toHex(featureSuccess),
+    "--feature-accent": toHex(featureAccent),
+    // Organiser rich text (globals.css `.rich-text`): body and headings in the colour of the text
+    // around it - the card's on a card, the page's on the page - so they read wherever they sit;
+    // captions and rules in the theme's secondary text and border. Unset, prose keeps today's greys.
+    "--rich-text": "currentColor",
+    "--rich-muted": toHex(muted.rgb),
+    "--rich-rule": toHex(border),
   };
 
   // D632: headings default to the text colour (inherited); an override reaches titles, or cards too.
@@ -281,15 +321,16 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
   }
   // Status chips sit on cards: re-drawn for a dark card; a light one keeps globals.css's.
   if (dark(card)) Object.assign(tokens, darkStatus(ground, card));
-  return { tokens, dark: isDark, adjusted };
+  // Native controls (selects, date pickers, checkboxes) sit on cards, so the card picks the scheme.
+  return { tokens, dark: dark(card), adjusted };
 }
 
 /**
  * D622-D624, D630: the CSS variables an event's portal reads, from its theme and primary colour.
  *  - No background, no overrides: exactly `brandStyle(primary)` - every untouched event as today.
  *  - Background set: the whole worked-out set, overrides winning, every text/ground pair at 4.5:1.
- *  - Overrides on the default ground: only the tokens they change, so the rest (and the white
- *    event bar, D629) stay globals.css's.
+ *  - Overrides on the default ground: only the tokens they change (and the rich-text ones), so
+ *    the rest (and the white event bar, D629) stay globals.css's.
  * `adjusted` names the overrides that had to move to be read (D624: shown adjusted, never rejected).
  */
 export function themeTokens(theme: EventTheme, primary: string | null): Built {
@@ -304,7 +345,9 @@ export function themeTokens(theme: EventTheme, primary: string | null): Built {
   const untouched = build(def, { ...theme, overrides: {} }, primary).tokens;
   const tokens = { ...plain };
   for (const [k, v] of Object.entries(themed.tokens)) if (untouched[k] !== v) tokens[k] = v;
-  return { tokens, dark: false, adjusted: themed.adjusted };
+  // Rich text follows the theme once any colour is set: its unset greys are tuned for white cards.
+  for (const k of RICH) tokens[k] = themed.tokens[k];
+  return { tokens, dark: themed.dark, adjusted: themed.adjusted };
 }
 
 /** D622: the tokens as one `:root` rule, with the colour scheme native controls follow (D630). */

@@ -5,8 +5,9 @@ import { dismissToast, getServerToasts, getToasts, subscribeToasts } from "@/lib
 import { cn } from "@/lib/utils";
 
 const TONE = {
-  ok: "bg-foreground text-background",
-  error: "bg-destructive-strong text-white",
+  ok: "bg-foreground text-background", // theme-fixed: the page's own pair inverted - foreground on background is 4.5:1 on every theme
+  // --toast-error, not --destructive-strong: a dark theme lightens that one for text, which white cannot read on.
+  error: "bg-toast-error text-white", // theme-fixed: a fill no theme re-draws; white on it is 6.5:1
 } as const;
 
 /**

@@ -90,6 +90,14 @@
   --feature: oklch(0.2101 0.0318 264.66); /* #111827 */
   --feature-foreground: oklch(0.9696 0.0026 106.45); /* #F5F5F3 */
   --logo-tile: transparent;
+  /* The panel's pills, tinted by a colour at 25% over --feature (badge check-in: --success;
+     passport complete: --brand). Their own tokens, not the card's status ones, which a dark theme
+     re-draws for cards. Defaults are what the pills drew before themes; the theme replaces both. */
+  --feature-success: oklch(0.9592 0.0206 156.82); /* #E7F6EC, today's --success-soft */
+  --feature-accent: var(--accent);
+
+  /* The error toast's fill: solid, carrying white on every theme, so never re-drawn by one. */
+  --toast-error: oklch(0.5054 0.1905 27.52); /* #B91C1C */
 }
 
 @theme inline {
@@ -161,6 +169,9 @@
   --color-feature: var(--feature);
   --color-feature-foreground: var(--feature-foreground);
   --color-logo-tile: var(--logo-tile);
+  --color-feature-success: var(--feature-success);
+  --color-feature-accent: var(--feature-accent);
+  --color-toast-error: var(--toast-error);
 }
 
 html { scroll-behavior: smooth; }
@@ -195,6 +206,28 @@ input, textarea { touch-action: manipulation; }
    editor writes a highlight box as a <blockquote>; it is drawn as a grey panel for figures and
    rules, not as a quotation, so prose's italics, rule and quote marks all go. Shared by the
    editor and every page that shows the text, so what the organiser sees is what attendees get. */
+/* Prose's colours, mapped to the event theme (final review 1). With no theme set, --rich-* are
+   unset and each falls back to exactly what .prose draws today (Tailwind Typography's gray set,
+   tests/theme/rich-text-theme.test.ts); a theme sets --rich-text to currentColor (the card's text
+   on a card, the page's on the page), --rich-muted and --rich-rule to its secondary text and border.
+   Links have always been --primary (below). Code blocks keep their own dark panel. */
+.rich-text {
+  --tw-prose-body: var(--rich-text, oklch(37.3% 0.034 259.733));
+  --tw-prose-headings: var(--rich-text, oklch(21% 0.034 264.665));
+  --tw-prose-bold: var(--rich-text, oklch(21% 0.034 264.665));
+  --tw-prose-quotes: var(--rich-text, oklch(21% 0.034 264.665));
+  --tw-prose-kbd: var(--rich-text, oklch(21% 0.034 264.665));
+  --tw-prose-code: var(--rich-text, oklch(21% 0.034 264.665));
+  --tw-prose-links: var(--primary);
+  --tw-prose-lead: var(--rich-muted, oklch(44.6% 0.03 256.802));
+  --tw-prose-counters: var(--rich-muted, oklch(55.1% 0.027 264.364));
+  --tw-prose-captions: var(--rich-muted, oklch(55.1% 0.027 264.364));
+  --tw-prose-bullets: var(--rich-rule, oklch(87.2% 0.01 258.338));
+  --tw-prose-th-borders: var(--rich-rule, oklch(87.2% 0.01 258.338));
+  --tw-prose-hr: var(--rich-rule, oklch(92.8% 0.006 264.531));
+  --tw-prose-quote-borders: var(--rich-rule, oklch(92.8% 0.006 264.531));
+  --tw-prose-td-borders: var(--rich-rule, oklch(92.8% 0.006 264.531));
+}
 .rich-text blockquote { font-style: normal; font-weight: 400; color: inherit; quotes: none; border: 0; background: var(--muted); border-radius: var(--radius-lg); padding: 0.75rem 1rem; }
 .rich-text blockquote p::before, .rich-text blockquote p::after { content: none; }
 .rich-text blockquote > :first-child { margin-top: 0; }
