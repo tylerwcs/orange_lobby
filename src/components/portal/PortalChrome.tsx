@@ -74,7 +74,7 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
  */
 export type ChromeEvent = Pick<
   Event,
-  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "coming_soon_message" | "display_name"
+  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "coming_soon_message" | "display_name" | "display_name_in_bar"
 >;
 
 export function PortalChrome({ event, basePath, personal, activities, hasInfo, draftExtra, children }: {
@@ -126,7 +126,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
     <div className="flex min-h-screen flex-col bg-background">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-feature focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-feature-foreground">Skip to content</a>
 
-      <div className="bg-[color:var(--bar,var(--card))] shadow-[0_1px_0_rgba(17,24,39,.08)]">
+      <div className="bg-[color:var(--bar,var(--card))] text-[color:var(--bar-foreground,var(--card-foreground))] shadow-[0_1px_0_rgba(17,24,39,.08)]">
         <div className={`mx-auto w-full ${shellWidth} md:px-6`}>
           <div className="flex flex-col md:flex-row md:items-center md:gap-8">
             {/* Phone, away from home: the way back, where the bottom bar used to be the way

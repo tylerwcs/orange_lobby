@@ -253,8 +253,13 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
   const cardFg = readableOrFallback(text, [card], inkFor(card), !!o.text);
   const secondaryFg = ensure(cardFg.rgb, [fills], MIN);
   flag("text", fg.adjusted || cardFg.adjusted);
-  const muted = ensure(rgb("muted_text"), [ground, card, fills], MIN);
-  flag("muted_text", muted.adjusted);
+  // Secondary text, like text, is checked where it sits. With the card and the ground on the same
+  // side one colour serves both; with mixed polarity (white cards on navy) the page keeps the
+  // organiser's colour and cards get their own, which globals.css swaps in on card surfaces.
+  const mixed = dark(card) !== isDark;
+  const muted = ensure(rgb("muted_text"), mixed ? [ground] : [ground, card, fills], MIN);
+  const cardMuted = mixed ? ensure(rgb("muted_text"), [card, fills], MIN) : muted;
+  flag("muted_text", muted.adjusted || cardMuted.adjusted);
 
   // D72 on the theme's grounds: the organiser's colour as text on page, cards and the muted fills
   // inside them (links in event terms, rich text in a muted panel), carrying readable button text.
@@ -281,10 +286,13 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
     "--secondary-foreground": toHex(secondaryFg.rgb),
     "--muted": toHex(fills),
     "--muted-foreground": toHex(muted.rgb),
+    "--card-muted-foreground": toHex(cardMuted.rgb),
     "--border": toHex(border),
     "--input": toHex(border),
-    // D629: the event bar is the ground whenever the ground is not the default.
+    // D629: the event bar is the ground whenever the ground is not the default - and so is its
+    // text, which must not inherit the card's ink when a card override flips polarity.
     "--bar": toHex(ground),
+    "--bar-foreground": toHex(fg.rgb),
     "--feature": toHex(s.feature),
     "--feature-foreground": toHex(ensure(hexToRgb(readableOn(s.feature).hex)!, [s.feature], MIN).rgb),
     "--primary": toHex(ink),
@@ -302,7 +310,7 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
     // around it - the card's on a card, the page's on the page - so they read wherever they sit;
     // captions and rules in the theme's secondary text and border. Unset, prose keeps today's greys.
     "--rich-text": "currentColor",
-    "--rich-muted": toHex(muted.rgb),
+    "--rich-muted": toHex(cardMuted.rgb),
     "--rich-rule": toHex(border),
   };
 

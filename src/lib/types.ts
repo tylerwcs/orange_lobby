@@ -70,8 +70,10 @@ export type Event = {
   registration_done_message: string | null;
   /** D634: show the "You're in" page after registering; off by default (they land on their event page). Optional so old fixtures compile. */
   registration_done_page?: boolean;
-  /** D633: the name with the organiser's line breaks, for the event bar and Coming soon card; null/absent = name. */
+  /** D633: the name with the organiser's line breaks, for the Coming soon card (and the bar if D635 is on); null/absent = name. */
   display_name?: string | null;
+  /** D635: also use display_name's line breaks in the top bar; off by default. */
+  display_name_in_bar?: boolean;
   /** D618: the registration page's banner, full width at its own height; null/absent = none. Optional so old fixtures compile. */
   registration_banner_url?: string | null;
   /** D622: the event's colour theme; always present after hydrate, optional so old fixtures compile. */

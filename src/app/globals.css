@@ -28,6 +28,9 @@
   /* D64: --muted is a BACKGROUND here. The secondary text colour is --muted-foreground. */
   --muted: oklch(0.961 0.0029 264.54); /* #F1F2F4 */
   --muted-foreground: oklch(0.4461 0.0263 256.8); /* #4B5563 */
+  /* Secondary text on card surfaces; differs from --muted-foreground only when a theme puts light
+     cards on a dark ground (or the reverse). The base layer swaps it in on .bg-card / .bg-popover. */
+  --card-muted-foreground: oklch(0.4461 0.0263 256.8); /* #4B5563 */
   --accent: oklch(0.9665 0.0202 58.07); /* #FFF1E7 */
   --accent-foreground: oklch(0.5534 0.1739 38.4); /* #C2410C */
   --destructive: oklch(0.5771 0.2152 27.33); /* #DC2626 */
@@ -254,6 +257,18 @@ input, textarea { touch-action: manipulation; }
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* A card-coloured surface reads in the card's ink unless it names its own (D624). Text otherwise
+     inherits the page's --foreground, which a theme with white cards on a dark ground makes white
+     on white. In the base layer so any text-* utility still wins; untouched events and admin have
+     --card-foreground equal to --foreground, so nothing there changes. */
+  .bg-card {
+    color: var(--card-foreground);
+    --muted-foreground: var(--card-muted-foreground);
+  }
+  .bg-popover {
+    color: var(--popover-foreground);
+    --muted-foreground: var(--card-muted-foreground);
   }
   html {
     @apply font-sans;

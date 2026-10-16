@@ -19,6 +19,13 @@ describe("themeTokens (D622-D632)", () => {
     expect(themeTokens(UOB, "#d9b25f").dark).toBe(true);
   });
 
+  it("the bar carries its own text colour: the ground's, not the card's (white cards on navy)", () => {
+    const { tokens: t } = themeTokens({ ...UOB, overrides: { card: "#ffffff", muted_text: "#e5efff" }, heading_reach: "titles_and_cards" }, "#005cb9");
+    expect(t["--bar-foreground"]).toBe(t["--foreground"]);
+    expect(r(t["--bar-foreground"], t["--bar"])).toBeGreaterThanOrEqual(4.5);
+    expect(r(t["--card-foreground"], t["--card"])).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("UOB navy + gold gives option A: lighter navy cards, white text, gold that reads", () => {
     const { tokens: t } = themeTokens(UOB, "#d9b25f");
     expect(t["--background"]).toBe("#000C36");
@@ -199,5 +206,20 @@ describe("overrides on the default ground (no background)", () => {
 
   it("a picked card is what ships", () => {
     expect(themeTokens({ ...EMPTY_THEME, overrides: { card: "#fff8e1" } }, null).tokens["--card"]).toBe("#FFF8E1");
+  });
+});
+
+describe("secondary text with mixed polarity (white cards on navy)", () => {
+  it("keeps the organiser's light colour on the page and gives cards a readable one", () => {
+    const { tokens: t } = themeTokens({ ...UOB, overrides: { card: "#ffffff", muted_text: "#e5efff" } }, "#005cb9");
+    expect(t["--muted-foreground"]).toBe("#E5EFFF");
+    expect(r(t["--muted-foreground"], t["--background"])).toBeGreaterThanOrEqual(4.5);
+    expect(r(t["--card-muted-foreground"], t["--card"])).toBeGreaterThanOrEqual(4.5);
+    expect(r(t["--card-muted-foreground"], t["--muted"])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("uses one colour for both when card and page are on the same side", () => {
+    const { tokens: t } = themeTokens(UOB, "#d9b25f");
+    expect(t["--card-muted-foreground"]).toBe(t["--muted-foreground"]);
   });
 });

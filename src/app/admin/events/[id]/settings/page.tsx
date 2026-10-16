@@ -307,14 +307,19 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.coming_soon_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.display_name_in_bar, ev.coming_soon_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
             <Field label="Name" name="name" defaultValue={ev.name} />
             {/* D633: where the big name breaks onto lines. Sentences, tab titles and WhatsApp keep the plain name. */}
             <Field label="Name as shown on the portal" name="display_name" textarea defaultValue={ev.display_name ?? ""} placeholder={ev.name}
-              description="Press Enter where you want a new line, e.g. after Hub 2. Used for the big name at the top of the portal and registration pages. Leave blank to use the name as it is." />
+              description="Press Enter where you want a new line, e.g. after Hub 2. Used for the big event name on the Coming soon page. Leave blank to use the name as it is." />
+            {/* D635: the bar is narrow and on every page, so the breaks stay out of it unless asked. */}
+            <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
+              <input type="checkbox" name="display_name_in_bar" defaultChecked={ev.display_name_in_bar ?? false} className="size-4 accent-primary" />
+              Also use these line breaks in the top bar
+            </label>
             <Field label="Venue" name="venue_name" defaultValue={ev.venue_name} description="Shown beside the dates at the top of the portal." />
             {/* One row: at their own width the two dates sit side by side even in a half card. */}
             <div className="flex flex-wrap gap-4 @xl:col-span-2">

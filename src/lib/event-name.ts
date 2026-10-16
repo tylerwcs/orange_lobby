@@ -15,10 +15,15 @@ export function parseDisplayName(raw: string | null | undefined, name: string): 
 }
 
 /**
- * D633: the name for the big headings attendees see - the event bar and the Coming soon card -
- * with the organiser's line breaks (render it with `whitespace-pre-line`). Sentences, page
- * titles, WhatsApp and exports keep the plain `name`.
+ * D633: the name for the big page title attendees see - the Coming soon card - with the
+ * organiser's line breaks (render it with `whitespace-pre-line`). Sentences, tab titles,
+ * WhatsApp and exports keep the plain `name`; the top bar follows `barName`.
  */
 export function shownName(e: Pick<Event, "name"> & { display_name?: string | null }): string {
   return e.display_name || e.name;
+}
+
+/** D635: the top bar's name - the organiser's line breaks only when they ask for them there too. */
+export function barName(e: Pick<Event, "name"> & { display_name?: string | null; display_name_in_bar?: boolean }): string {
+  return e.display_name_in_bar ? shownName(e) : e.name;
 }

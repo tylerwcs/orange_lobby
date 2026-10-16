@@ -96,6 +96,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   await updateEvent(eventId, {
     name: str(formData, "name") ?? undefined,
     display_name: parseDisplayName(str(formData, "display_name"), str(formData, "name") ?? ev.name), // D633
+    display_name_in_bar: formData.get("display_name_in_bar") === "on", // D635
     starts_on: str(formData, "starts_on"),
     ends_on: str(formData, "ends_on"),
     venue_name: str(formData, "venue_name"),

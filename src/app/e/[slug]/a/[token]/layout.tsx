@@ -51,6 +51,7 @@ export default async function PersonalLayout({ children, params }: {
     banner_url: event.banner_url,
     coming_soon_message: event.coming_soon_message ?? null,
     display_name: event.display_name ?? null,
+    display_name_in_bar: event.display_name_in_bar ?? false,
   };
   // D585: a cancelled registration sees only this, on every page under the link - before the
   // consent gate, which has nothing to ask them.

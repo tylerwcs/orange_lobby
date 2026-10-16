@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDisplayName, shownName } from "@/lib/event-name";
+import { barName, parseDisplayName, shownName } from "@/lib/event-name";
 
 describe("parseDisplayName (D633)", () => {
   it("keeps the organiser's line breaks, tidying each line", () => {
@@ -22,5 +22,15 @@ describe("shownName", () => {
     expect(shownName({ name: "UOB Gala", display_name: "UOB\nGala" })).toBe("UOB\nGala");
     expect(shownName({ name: "UOB Gala", display_name: null })).toBe("UOB Gala");
     expect(shownName({ name: "UOB Gala" })).toBe("UOB Gala");
+  });
+});
+
+describe("barName (D635)", () => {
+  it("keeps the plain name in the top bar unless the organiser opts in", () => {
+    const e = { name: "UOB Gala", display_name: "UOB\nGala" };
+    expect(barName(e)).toBe("UOB Gala");
+    expect(barName({ ...e, display_name_in_bar: false })).toBe("UOB Gala");
+    expect(barName({ ...e, display_name_in_bar: true })).toBe("UOB\nGala");
+    expect(barName({ name: "UOB Gala", display_name: null, display_name_in_bar: true })).toBe("UOB Gala");
   });
 });
