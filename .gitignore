@@ -48,3 +48,4 @@ next-env.d.ts
 
 # design canvas working files
 .design/
+.playwright-mcp/
