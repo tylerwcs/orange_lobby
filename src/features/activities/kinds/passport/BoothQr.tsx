@@ -74,7 +74,7 @@ export function BoothQr({ boothName, location, eventName, link, qr }: {
           {location && <div className="mt-1.5 text-base text-muted-foreground">{location}</div>}
         </div>
 
-        <div className="h-0.5 shrink-0 bg-foreground" />
+        <div /* theme-fixed: printed staff sheet, not themed */ className="h-0.5 shrink-0 bg-foreground" />
 
         <div className="flex flex-col items-center gap-3">
           <p className="text-center text-lg font-extrabold">Staff: open this once, then keep it open</p>

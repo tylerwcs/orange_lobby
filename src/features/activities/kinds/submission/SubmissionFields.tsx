@@ -72,7 +72,7 @@ function renderQuestion(q: RegistrationQuestion, current: string) {
            6px padding each side) fills the line box exactly, and 5px padding plus the 1px border
            each side makes 44px with it dead centre. `inputClass` is not reused because its
            `text-base` would fight the `text-sm` here. */
-        className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 py-[5px] text-sm leading-5 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 file:mr-3 file:rounded-[8px] file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-sm file:leading-5 file:font-bold file:text-white"
+        className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 py-[5px] text-sm leading-5 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 file:mr-3 file:rounded-[8px] file:border-0 file:bg-feature file:px-3 file:py-1.5 file:text-sm file:leading-5 file:font-bold file:text-feature-foreground"
       />
     );
   }

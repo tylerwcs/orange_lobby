@@ -74,7 +74,7 @@ export function EntryActions({ title, editForm, remove, variant }: {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             {/* Closed on confirm, as in RowActions: left open while the delete runs, it is a
                 second confirm waiting to be pressed. */}
-            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90"
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => { setConfirming(false); startTransition(() => remove()); }}>
               Yes, delete
             </AlertDialogAction>

@@ -79,7 +79,17 @@
   */
   --brand: oklch(0.7017 0.1868 44.13); /* #F97316 */
   --brand-foreground: var(--foreground); /* readable on the default orange; per-event too */
-  --brand-on-dark: var(--brand); /* the default orange reads on the dark badge as it is; per-event too */
+  /* Read on --feature, under the badge tile's 10% white wash (bg-white/10); the default orange reads there as it is. Per-event too. */
+  --brand-on-dark: var(--brand);
+
+  /*
+    --- D625: the attendee portal's dark panels (badge, passport header, seat tile) ---
+    --feature is the panel ground and --feature-foreground its text; the theme engine replaces both
+    per event. --logo-tile is what the event logo sits on (transparent unless the organiser picks one).
+  */
+  --feature: oklch(0.2101 0.0318 264.66); /* #111827 */
+  --feature-foreground: oklch(0.9696 0.0026 106.45); /* #F5F5F3 */
+  --logo-tile: transparent;
 }
 
 @theme inline {
@@ -148,6 +158,9 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-on-dark: var(--brand-on-dark);
+  --color-feature: var(--feature);
+  --color-feature-foreground: var(--feature-foreground);
+  --color-logo-tile: var(--logo-tile);
 }
 
 html { scroll-behavior: smooth; }

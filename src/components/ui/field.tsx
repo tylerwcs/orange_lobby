@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
+import { CARD_TITLE_INK } from "@/lib/ink"
 
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -31,6 +32,7 @@ function FieldLegend({
       data-variant={variant}
       className={cn(
         "mb-1.5 font-medium data-[variant=label]:text-sm data-[variant=legend]:text-base",
+        CARD_TITLE_INK,
         className
       )}
       {...props}

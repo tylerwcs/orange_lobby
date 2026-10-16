@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"
+import { CARD_TITLE_INK } from "@/lib/ink"
 
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
@@ -123,6 +124,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
       data-slot="dialog-title"
       className={cn(
         "font-heading text-base leading-none font-medium",
+        CARD_TITLE_INK,
         className
       )}
       {...props}

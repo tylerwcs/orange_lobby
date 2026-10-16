@@ -59,7 +59,7 @@ export function SwipeRow({ label, stackOnDesktop = false, children }: {
               aria-current={i === at ? "true" : undefined}
               className="flex h-6 items-center rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className={`block h-1.5 rounded-full transition-all ${i === at ? "w-4 bg-primary" : "w-1.5 bg-foreground/20"}`} />
+              <span /* theme-fixed: --foreground follows the theme; this is its 20% wash */ className={`block h-1.5 rounded-full transition-all ${i === at ? "w-4 bg-primary" : "w-1.5 bg-foreground/20"}`} />
             </button>
           ))}
         </div>

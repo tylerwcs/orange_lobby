@@ -42,7 +42,7 @@ export function CancelSection({ eventName, until, action, variant }: {
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep my place</AlertDialogCancel>
-          <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={!reason.trim()}
+          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={!reason.trim()}
             onClick={() => { setConfirming(false); startTransition(() => action(reason)); }}>
             Yes, ask to cancel
           </AlertDialogAction>

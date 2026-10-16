@@ -48,7 +48,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
                     scan this at the door; everything else here exists to make sure it can be found
                     again tomorrow. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qr} alt="Your QR code" width={224} height={224} className="size-56 rounded-xl" />
+                <img src={qr} alt="Your QR code" width={224} height={224} /* theme-fixed: QR on white (D627) */ className="size-56 rounded-xl bg-white p-3" />
                 <p className="text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.message}</p>
               </>
             ) : (

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"
+import { CARD_TITLE_INK } from "@/lib/ink"
 
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
@@ -106,6 +107,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
       data-slot="sheet-title"
       className={cn(
         "font-heading text-base font-medium text-foreground",
+        CARD_TITLE_INK,
         className
       )}
       {...props}

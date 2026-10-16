@@ -24,7 +24,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
       style={{ ...brandStyle(event.primary_color), ...registrationLook(event.registration_heading_color, event.registration_background_color) } as React.CSSProperties}>
     <div className="mx-auto flex min-h-screen max-w-md flex-col">
       {/* D621: with a chosen background the bar sits on it, so the event name shows in the heading colour. */}
-      <PortalHeader event={event} onGround={!!event.registration_background_color} />
+      <PortalHeader event={event} />
       {/* D618: the organiser's banner, straight under the event bar, as wide as the column at its own height. */}
       {event.registration_banner_url && (
         // eslint-disable-next-line @next/next/no-img-element

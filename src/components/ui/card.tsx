@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "cn"
+import { CARD_TITLE_INK } from "@/lib/ink"
 
 function Card({
   className,
@@ -38,6 +39,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="card-title"
       className={cn(
         "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        CARD_TITLE_INK,
         className
       )}
       {...props}

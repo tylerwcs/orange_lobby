@@ -93,15 +93,15 @@ function BoothGrid({ cells }: { cells: PassportCell[] }) {
 /** The counter while still collecting: same dark treatment as BadgeCard, brand-coloured big number. */
 function ProgressHeader({ passport }: { passport: Passport }) {
   if (passport.target === 0) {
-    return <div className="rounded-2xl bg-foreground p-4 text-sm font-bold text-background/70">No booths yet</div>;
+    return <div className="rounded-2xl bg-feature p-4 text-sm font-bold text-feature-foreground/70">No booths yet</div>;
   }
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-foreground p-4 text-background">
+    <div className="flex flex-col gap-3 rounded-2xl bg-feature p-4 text-feature-foreground">
       <div className="flex items-end gap-2.5">
         <div className="text-[46px] leading-[0.88] font-extrabold tabular-nums text-brand">{passport.collected}</div>
         <div className="pb-0.5 text-base font-bold">of {passport.target} stamps</div>
         <div className="flex-1" />
-        <div className="pb-1 text-xs font-bold text-background/70">{passport.remaining} more to go</div>
+        <div className="pb-1 text-xs font-bold text-feature-foreground/70">{passport.remaining} more to go</div>
       </div>
       <Progress
         value={meterPercent(passport.collected, passport.target)}
@@ -109,7 +109,7 @@ function ProgressHeader({ passport }: { passport: Passport }) {
         aria-valuenow={meterAriaValue(passport.collected, passport.target)}
         aria-valuemin={0}
         aria-valuemax={meterAriaMax(passport.target)}
-        className="[&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:bg-white/15 [&_[data-slot=progress-indicator]]:bg-brand"
+        /* theme-fixed: track wash on --feature */ className="[&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:bg-white/15 [&_[data-slot=progress-indicator]]:bg-brand"
       />
     </div>
   );
@@ -123,7 +123,7 @@ function ProgressHeader({ passport }: { passport: Passport }) {
  */
 function CompleteHeader({ passport, attendeeName, message }: { passport: Passport; attendeeName: string; message: string | null }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl bg-foreground text-background">
+    <div className="flex flex-col overflow-hidden rounded-2xl bg-feature text-feature-foreground">
       <div className="flex items-center gap-3.5 p-4">
         <StampGlyph deg={-8} size={62} />
         <div className="flex min-w-0 flex-col gap-1">
@@ -135,7 +135,7 @@ function CompleteHeader({ passport, attendeeName, message }: { passport: Passpor
             so the design never met a real one.
           */}
           <div className="text-2xl font-extrabold leading-tight text-balance break-words">{attendeeName}</div>
-          {passport.completedAt && <div className="text-xs font-semibold tabular-nums text-background/70">Completed {shortDateTime(passport.completedAt)}</div>}
+          {passport.completedAt && <div className="text-xs font-semibold tabular-nums text-feature-foreground/70">Completed {shortDateTime(passport.completedAt)}</div>}
         </div>
       </div>
       {message && <div className="text-pretty bg-accent px-4 py-3.5 text-sm font-bold leading-relaxed text-primary">{message}</div>}

@@ -15,7 +15,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
       <h1 className="mb-3 text-xl font-extrabold">Floor plan</h1>
       {plan ? (
         <>
-          {table && <div className="mb-3 rounded-[12px] bg-foreground px-4 py-3 text-sm font-bold text-white">You are at Table {table}</div>}
+          {table && <div className="mb-3 rounded-[12px] bg-feature px-4 py-3 text-sm font-bold text-feature-foreground">You are at Table {table}</div>}
           <div className="overflow-auto rounded-xl border border-border bg-card p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={plan} alt="Floor plan" loading="lazy" className="min-h-64 w-full" />

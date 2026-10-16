@@ -3,8 +3,8 @@ import { motion } from "motion/react";
 
 const TONES = {
   brand: "bg-primary text-primary-foreground",
-  go: "bg-emerald-500 text-white",
-  out: "bg-rose-600 text-white",
+  go: "bg-emerald-500 text-white", // theme-fixed: white on a fixed status colour
+  out: "bg-rose-600 text-white", // theme-fixed: white on a fixed status colour
   win: "bg-amber-400 text-amber-950",
   calm: "bg-muted text-foreground",
 } as const;

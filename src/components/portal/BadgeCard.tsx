@@ -29,12 +29,12 @@ export function BadgeCard({ attendee, checkin, pins, qr }: {
   qr: string;
 }) {
   return (
-    <section className="@container flex flex-col gap-3 rounded-xl bg-foreground p-4 text-background">
+    <section className="@container flex flex-col gap-3 rounded-xl bg-feature p-4 text-feature-foreground">
       <div className="flex items-center gap-3.5">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
           {checkin && (checkin.at
             ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-success-soft"><span aria-hidden="true" className="size-1.5 rounded-full bg-success-soft" /><span className="sr-only">Checked in: </span>{checkin.name} · {checkin.at}</span>
-            : <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-background/70">Not checked in to {checkin.name} yet</span>)}
+            : <span /* theme-fixed: on --feature */ className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-feature-foreground/70">Not checked in to {checkin.name} yet</span>)}
           <div className="text-lg font-extrabold leading-tight text-balance @2xs:text-xl">{displayName(attendee.name)}</div>
         </div>
         <BadgeQrDialog
@@ -49,7 +49,7 @@ export function BadgeCard({ attendee, checkin, pins, qr }: {
       </div>
       {pins.length > 0 && (
         <>
-          <div className="h-px bg-white/10" />
+          <div /* theme-fixed: on --feature */ className="h-px bg-white/10" />
           {/* A wrapping row sized by the text itself: tiles share one line whenever their real
               widths fit the card, grow to fill it evenly, and the one that does not fit starts
               the next line and fills that. */}
@@ -57,8 +57,8 @@ export function BadgeCard({ attendee, checkin, pins, qr }: {
             {pins.map((p) => {
               const long = pinScale(p.value) === "small";
               return (
-                <div key={p.key} className="flex min-w-20 max-w-full flex-auto flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5">
-                  <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-background/70">{p.label}</dt>
+                <div key={p.key} /* theme-fixed: on --feature */ className="flex min-w-20 max-w-full flex-auto flex-col gap-0.5 rounded-md bg-white/10 px-2.5 py-1.5">
+                  <dt className="truncate text-[10px] font-bold uppercase tracking-[0.06em] text-feature-foreground/70">{p.label}</dt>
                   {/* The event's colour as chosen, the logo's, rather than --primary: that one is
                       darkened for white cards and reads muddy on this dark one. */}
                   <dd className={long

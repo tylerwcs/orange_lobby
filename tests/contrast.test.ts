@@ -136,6 +136,7 @@ describe("token contrast (WCAG 2.x, sRGB)", () => {
   it("foreground on background meets 4.5:1", () => assertPair("foreground", "background"));
   it("foreground on card meets 4.5:1", () => assertPair("foreground", "card"));
 
+  it("feature-foreground on feature meets 4.5:1 (badge, passport header, seat tile)", () => assertPair("feature-foreground", "feature"));
   it("primary-foreground on primary meets 4.5:1", () => assertPair("primary", "primary-foreground"));
   it("white text on success-strong fill meets 4.5:1", () => assertPair("success-strong", "white", WHITE));
   it("white text on destructive-strong fill meets 4.5:1 (error toast)", () => assertPair("destructive-strong", "white", WHITE));

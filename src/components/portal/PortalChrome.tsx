@@ -124,9 +124,9 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
       From md:  the column widens and the sections are text links in the header (D210).
     */
     <div className="flex min-h-screen flex-col bg-background" style={style}>
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">Skip to content</a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-feature focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-feature-foreground">Skip to content</a>
 
-      <div className="bg-card shadow-[0_1px_0_rgba(17,24,39,.08)]">
+      <div className="bg-[color:var(--bar,var(--card))] shadow-[0_1px_0_rgba(17,24,39,.08)]">
         <div className={`mx-auto w-full ${shellWidth} md:px-6`}>
           <div className="flex flex-col md:flex-row md:items-center md:gap-8">
             {/* Phone, away from home: the way back, where the bottom bar used to be the way

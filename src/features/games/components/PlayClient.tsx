@@ -47,7 +47,7 @@ export function PlayClient({ token, initial }: { token: string; initial: PhoneSt
     }
   };
   const joinButton = (label: string) => (
-    <Button className="h-16 w-full max-w-xs bg-white font-game text-2xl text-primary hover:bg-white/90" onClick={join} disabled={joining}>
+    <Button className="h-16 w-full max-w-xs bg-card font-game text-2xl text-primary hover:bg-card/90" onClick={join} disabled={joining}>
       {joining ? "Joining…" : label}
     </Button>
   );
@@ -172,7 +172,7 @@ function SurvivalPlay({ token, stage, me, now }: { token: string; stage: PublicS
         {q.options.map((o, i) => (
           <motion.button key={i} type="button" disabled={locked} onClick={() => answer(i)} whileTap={{ scale: 0.96 }}
             animate={{ opacity: locked && picked !== i ? 0.3 : 1, scale: picked === i ? 1.02 : 1 }}
-            className="flex min-h-20 items-center gap-4 rounded-2xl px-5 text-left font-game text-2xl text-white shadow-[inset_0_-6px_0_rgba(0,0,0,0.25)]"
+            /* theme-fixed: white on the fixed answer colours */ className="flex min-h-20 items-center gap-4 rounded-2xl px-5 text-left font-game text-2xl text-white shadow-[inset_0_-6px_0_rgba(0,0,0,0.25)]"
             style={{ background: styles[i].colour }}>
             <span aria-hidden className="text-3xl">{styles[i].shape}</span>
             <span className="min-w-0 flex-1">{o}</span>
