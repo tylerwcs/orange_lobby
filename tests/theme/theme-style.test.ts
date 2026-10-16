@@ -7,7 +7,7 @@ describe("eventThemeCss (D625)", () => {
     const css = eventThemeCss({ theme: { background: "#000c36", overrides: {}, heading_reach: "titles" }, primary_color: "#d9b25f" });
     expect(css.startsWith(":root{")).toBe(true);
     expect(css).toContain("--background:#000C36");
-    expect(css.endsWith("color-scheme:dark}")).toBe(true);
+    expect(css).toContain("color-scheme:dark}");
   });
 
   it("writes an unthemed event's brand tokens only, on the light scheme", () => {
@@ -25,7 +25,15 @@ describe("eventThemeCss (D625)", () => {
   });
 
   it("a white card on navy writes the light scheme; a dark card on the default ground the dark one", () => {
-    expect(eventThemeCss({ theme: { background: "#000c36", overrides: { card: "#ffffff" }, heading_reach: "titles" }, primary_color: "#005cb9" }).endsWith("color-scheme:light}")).toBe(true);
-    expect(eventThemeCss({ theme: { background: null, overrides: { card: "#0b1f4b" }, heading_reach: "titles" }, primary_color: "#005cb9" }).endsWith("color-scheme:dark}")).toBe(true);
+    expect(eventThemeCss({ theme: { background: "#000c36", overrides: { card: "#ffffff" }, heading_reach: "titles" }, primary_color: "#005cb9" })).toContain("color-scheme:light}");
+    expect(eventThemeCss({ theme: { background: null, overrides: { card: "#0b1f4b" }, heading_reach: "titles" }, primary_color: "#005cb9" })).toContain("color-scheme:dark}");
+  });
+
+  it("on a themed page, anything on a card or dialog uses the card's colours, not the page's", () => {
+    // Outline buttons and other bg-background / text-foreground parts sit on cards: a white
+    // dialog on a navy page showed "Keep my place" as navy with dark text.
+    const css = eventThemeCss({ theme: { background: "#000c36", overrides: { card: "#ffffff" }, heading_reach: "titles" }, primary_color: "#005cb9" });
+    expect(css).toContain(".bg-card,.bg-popover{--background:var(--card);--foreground:var(--card-foreground)}");
+    expect(eventThemeCss({ theme: undefined, primary_color: "#005cb9" })).not.toContain(".bg-card");
   });
 });

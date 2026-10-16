@@ -412,7 +412,11 @@ export function themeTokens(theme: EventTheme, primary: string | null): Built {
 /** D622: the tokens as one `:root` rule, with the colour scheme native controls follow (D630). */
 export function themeCss(tokens: Record<string, string>, dark: boolean): string {
   const body = Object.entries(tokens).map(([k, v]) => `${k}:${v};`).join("");
-  return `:root{${body}color-scheme:${dark ? "dark" : "light"}}`;
+  // A themed card can differ from the page (white cards on navy). Parts on it that paint with the
+  // page's colours - outline buttons (bg-background), hover text (text-foreground) - take the
+  // card's there. Only when the theme sets the card, so untouched events and admin keep theirs.
+  const onCards = "--card" in tokens ? ".bg-card,.bg-popover{--background:var(--card);--foreground:var(--card-foreground)}" : "";
+  return `:root{${body}color-scheme:${dark ? "dark" : "light"}}${onCards}`;
 }
 
 /** D625: the `:root` rule an attendee page of this event carries. No theme set: exactly today's brand tokens. */
