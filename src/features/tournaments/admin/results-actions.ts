@@ -8,7 +8,7 @@ import {
   addManualMatch, deleteMatch, loadSportResults, resetSport, saveSlots, setForfeit, setManualPlaces, setShowOverall, setSlotGroups, writePlan,
 } from "../db/results";
 import {
-  blockedBy, drawPools, formatProblem, planPools, readResult, resolveSport, withChange, type MatchPlan, type SportResults,
+  blockedBy, drawPools, formatProblem, planPools, readResult, resolveSport, withChange, withForfeit, type MatchPlan, type SportResults,
 } from "../lib/results";
 import { done, formOf, tabPath, tournament } from "./guard";
 import { markForfeitsIfDue } from "./forfeits";
@@ -81,6 +81,7 @@ export async function resetSportAction(eventId: string, activityId: string, spor
 export async function setForfeitAction(eventId: string, activityId: string, sportId: string, groupId: string, forfeit: boolean) {
   const c = await sportOf(eventId, activityId, sportId);
   if (!c.sr.pools.some((p) => p.group_id === groupId)) fail(c.back, "That group isn't playing this sport.");
+  guard(c, withForfeit(c.sr, groupId, forfeit));
   await setForfeit(sportId, [groupId], forfeit);
   done(c.ev.id, c.cup.id, c.back, `${c.names.get(groupId) ?? "That group"} ${forfeit ? "marked forfeit" : "no longer forfeits"} in ${c.sr.sport.name}.`);
 }

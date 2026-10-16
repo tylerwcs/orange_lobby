@@ -2,7 +2,7 @@ import { RichSections } from "@/components/portal/RichSections";
 import { getGroup, groupMembers } from "@/lib/db/groups";
 import { isYes } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
-import { isLocked, portalSquadPeople, ResultsPage, SquadsPage, type MatchFilter, type ResultsView } from "@/features/tournaments";
+import { isLocked, portalOpening, portalSquadPeople, ResultsPage, SquadsPage, type MatchFilter, type ResultsView } from "@/features/tournaments";
 import type { TournamentEntry } from "../../lib/portal-activity-entries";
 import { opensLabel } from "../../lib/schedule";
 
@@ -32,13 +32,14 @@ export async function TournamentBody({ entry, slug, token, sport = null, view = 
     />
   );
   const started = locked || results.some((r) => r.pools.length > 0);
+  const open = portalOpening({ locked, sport, view, firstSport: sports[0]?.id ?? null });
   return (
     <div className="flex flex-col gap-6">
       <RichSections html={activity.description} />
       {started ? (
         <ResultsPage
           activity={activity} results={results} groups={groups} groupId={groupId}
-          sportId={sport} view={VIEWS.find((v) => v === view) ?? null} show={SHOWS.find((s) => s === show) ?? "all"}
+          sportId={open.sport} view={VIEWS.find((v) => v === open.view) ?? null} show={SHOWS.find((s) => s === show) ?? "all"}
           path={`/e/${slug}/a/${token}/activities/${activity.id}`}
           squads={(s) => squads(sports.filter((x) => x.id === s.id))}
         />

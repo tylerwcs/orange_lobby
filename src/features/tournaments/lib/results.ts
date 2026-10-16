@@ -582,3 +582,18 @@ export function tournamentOverall(results: SportResults[], groups: { id: string;
   const forfeits = new Map(results.map((r) => [r.sport.id, new Set(r.pools.filter((p) => p.forfeit).map((p) => p.group_id))]));
   return overallTable({ sports: results.map((r) => r.sport), places, groupIds: groups.map((g) => g.id).filter((g) => playing.has(g)), table, forfeits });
 }
+
+/** D660: a copy of the sport with one group's forfeit flag changed, for `blockedBy`. */
+export function withForfeit(sr: SportResults, groupId: string, forfeit: boolean): SportResults {
+  return { ...sr, pools: sr.pools.map((p) => (p.group_id === groupId ? { ...p, forfeit } : p)) };
+}
+
+/**
+ * D663: which sport and view the portal opens on. Before the squad deadline, with nothing asked
+ * for, the first sport's Squads (pools may already be drawn, but squads are still the job);
+ * otherwise what the URL says (no sport: Overall, or the first sport).
+ */
+export function portalOpening(input: { locked: boolean; sport: string | null; view: string | null; firstSport: string | null }): { sport: string | null; view: string | null } {
+  if (!input.locked && !input.sport && input.firstSport) return { sport: input.firstSport, view: "squads" };
+  return { sport: input.sport, view: input.view };
+}

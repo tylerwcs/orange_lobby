@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  blockedBy, bracketName, defaultPlaying, pickerOptions, readResult, tournamentOverall, withChange, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
+  blockedBy, bracketName, defaultPlaying, pickerOptions, portalOpening, readResult, tournamentOverall, withChange, withForfeit, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
   pointsFor, poolName, poolPlaces, poolStandings, readPlacePoints, resolveSport, roundRobinPairs, sportPlaces,
   type MatchPlan, type Slot, type SportResults,
 } from "@/features/tournaments/lib/results";
@@ -429,5 +429,26 @@ describe("tournamentOverall (D662)", () => {
     const forfeited = { ...sr, pools: sr.pools.map((p) => (p.group_id === "g03" ? { ...p, forfeit: true } : p)) };
     const rows = tournamentOverall([forfeited], ids(12).map((id) => ({ id, name: names.get(id)! })), [40]);
     expect(rows.find((r) => r.groupId === "g03")?.bySport).toEqual(["F"]);
+  });
+});
+
+describe("final review fixes", () => {
+  it("refuses a forfeit flip that would change a played final's teams (D658, D660)", () => {
+    let sr = twelve();
+    const s1 = matchOf(sr, "Gold · Semi 1");
+    const s2 = matchOf(sr, "Gold · Semi 2");
+    const fin = matchOf(sr, "Gold · Final");
+    sr = score(pick(sr, s1.id, ["g01", "g07"]), s1.id, 4, 2);
+    sr = score(pick(sr, s2.id, ["g04", "g10"]), s2.id, 0, 3);
+    expect(blockedBy(sr, withForfeit(sr, "g01", true), names)).toBeNull();
+    const played = score(sr, fin.id, 2, 1);
+    expect(withForfeit(played, "g01", true).pools.find((p) => p.group_id === "g01")?.forfeit).toBe(true);
+    expect(blockedBy(played, withForfeit(played, "g01", true), names)).toBe("Gold · Final");
+  });
+  it("opens the portal on Squads before the deadline, and as asked after it (D663)", () => {
+    expect(portalOpening({ locked: false, sport: null, view: null, firstSport: "s1" })).toEqual({ sport: "s1", view: "squads" });
+    expect(portalOpening({ locked: false, sport: "s2", view: "matches", firstSport: "s1" })).toEqual({ sport: "s2", view: "matches" });
+    expect(portalOpening({ locked: true, sport: null, view: null, firstSport: "s1" })).toEqual({ sport: null, view: null });
+    expect(portalOpening({ locked: false, sport: null, view: null, firstSport: null })).toEqual({ sport: null, view: null });
   });
 });
