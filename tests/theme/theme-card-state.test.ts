@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { EMPTY_THEME, workedOut, type EventTheme } from "@/features/theme/client";
 import { themeFromForm } from "@/features/theme/lib/form";
-import { adjustedNote, pickerValue, postedValue, withOverride, withReach, FIELD_NAMES } from "@/features/theme/admin/card-state";
+import { adjustedNote, pickerValue, postedValue, primaryNote, reachHint, withOverride, withReach, FIELD_NAMES } from "@/features/theme/admin/card-state";
+import { themeTokens } from "@/features/theme/client";
 
 describe("Theme card state (D623, D624, D626)", () => {
   it("posts nothing for an untouched theme, and shows the default ground", () => {
@@ -47,5 +48,25 @@ describe("Theme card state (D623, D624, D626)", () => {
   it("sets the heading reach", () => {
     expect(withReach(EMPTY_THEME, "titles_and_cards").heading_reach).toBe("titles_and_cards");
     expect(EMPTY_THEME.heading_reach).toBe("titles");
+  });
+
+  it("hints that the reach needs a heading colour until one is picked", () => {
+    expect(reachHint(EMPTY_THEME)).toBe("Pick a heading colour to use this.");
+    expect(reachHint(withOverride(EMPTY_THEME, "heading", "#d9b25f"))).toBeNull();
+  });
+
+  it("says when the primary colour is shown moved, and which way", () => {
+    const navy = withOverride(EMPTY_THEME, "background", "#000c36");
+    expect(themeTokens(navy, "#005cb9").tokens["--primary"]).toBe("#4794F6");
+    expect(primaryNote(navy, "#005cb9")).toBe("Shown lighter so it can be read");
+    expect(primaryNote(EMPTY_THEME, "#ffb066")).toBe("Shown darker so it can be read");
+    expect(primaryNote(EMPTY_THEME, "#1d4ed8")).toBeNull();
+  });
+
+  it("the adjusted note follows where the colour moved, not the colour scheme", () => {
+    // A dark card on the default ground: a dark scheme, but gold text on the light page is darkened.
+    const t = withOverride(withOverride(EMPTY_THEME, "card", "#0b1f4b"), "text", "#d9b25f");
+    expect(themeTokens(t, "#005cb9").dark).toBe(true);
+    expect(adjustedNote(t, "#005cb9", "text")).toBe("Shown darker so it can be read");
   });
 });

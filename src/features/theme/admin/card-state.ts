@@ -1,3 +1,4 @@
+import { hexToRgb, rgbToOklab } from "@/lib/contrast";
 import { DEFAULT_BACKGROUND, themeTokens, workedOut, type EventTheme, type HeadingReach, type ThemeColorKey } from "../lib/theme";
 import { OVERRIDE_FIELDS } from "../lib/form";
 
@@ -39,9 +40,44 @@ export function withReach(theme: EventTheme, heading_reach: HeadingReach): Event
   return { ...theme, heading_reach };
 }
 
-/** D624: the note beside a picked colour the portal has to move to keep it readable; null when it shows as picked. */
+/** Which way a colour was moved to be read - by where it ended up, not by the theme's scheme. */
+function moved(picked: string, shown: string): string {
+  const L = (hex: string) => rgbToOklab(hexToRgb(hex)!)[0];
+  return L(shown) > L(picked) ? "Shown lighter so it can be read" : "Shown darker so it can be read";
+}
+
+/** The tokens each override ships as, in the order the note reads them (text: the page's, then the cards'). */
+const SHOWN: Record<ThemeColorKey, string[]> = {
+  card: ["--card"],
+  text: ["--foreground", "--card-foreground"],
+  muted_text: ["--muted-foreground"],
+  border: ["--border"],
+  heading: ["--heading"],
+};
+
+/**
+ * D624: the note beside a picked colour the portal has to move to keep it readable; null when it
+ * shows as picked. "Lighter" or "darker" is read off the colour that ships against the one picked:
+ * the surface it sits on decides, and that is not always the scheme's (a dark card on a light page).
+ */
 export function adjustedNote(theme: EventTheme, primary: string, key: ThemeColorKey): string | null {
-  const { adjusted, dark } = themeTokens(theme, primary);
-  if (!adjusted[key]) return null;
-  return dark ? "Shown lighter so it can be read" : "Shown darker so it can be read";
+  if (!themeTokens(theme, primary).adjusted[key]) return null;
+  const picked = theme.overrides[key];
+  if (!picked) return null;
+  // The whole worked-out set, so a colour moved back onto a default value is still there to compare.
+  const { tokens } = themeTokens({ ...theme, background: theme.background ?? DEFAULT_BACKGROUND }, primary);
+  const shown = SHOWN[key].map((t) => tokens[t]).find((v) => v && v.toLowerCase() !== picked.toLowerCase());
+  return shown ? moved(picked, shown) : null;
+}
+
+/** D72/D624: the note beside the primary colour when the portal shows it moved (as text on this theme's grounds). */
+export function primaryNote(theme: EventTheme, primary: string): string | null {
+  const shown = themeTokens(theme, primary).tokens["--primary"];
+  if (!hexToRgb(primary) || !shown || shown.toLowerCase() === primary.toLowerCase()) return null;
+  return moved(primary, shown);
+}
+
+/** D632: the reach only matters once a heading colour is picked; until then headings are the text colour. */
+export function reachHint(theme: EventTheme): string | null {
+  return theme.overrides.heading ? null : "Pick a heading colour to use this.";
 }

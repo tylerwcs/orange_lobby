@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { EventTheme, HeadingReach, ThemeColorKey } from "../client";
-import { adjustedNote, FIELD_NAMES, pickerValue, postedValue, REACH_FIELD, withOverride, withReach, type ThemeField } from "./card-state";
+import { adjustedNote, FIELD_NAMES, pickerValue, postedValue, primaryNote, REACH_FIELD, reachHint, withOverride, withReach, type ThemeField } from "./card-state";
 import { ThemePreview, type PreviewEvent } from "./ThemePreview";
 
 const WORKED_OUT: { key: ThemeColorKey; label: string }[] = [
@@ -77,7 +77,8 @@ export function ThemeCard({ theme: saved, primaryColor, event, className = "" }:
             reset={postedValue(theme, "background") ? () => pick("background")(null) : null} resetLabel="Reset to default" />
 
           {/* Moved here from the Event card (D631); it keeps exactly its meaning (D622). */}
-          <ColourRow label="Primary colour" name="primary_color" value={primary} onPick={setPrimary} reset={null} note="Buttons, links and highlights" />
+          <ColourRow label="Primary colour" name="primary_color" value={primary} onPick={setPrimary} reset={null}
+            note={["Buttons, links and highlights", primaryNote(theme, primary)].filter(Boolean).join(" · ")} />
 
           {WORKED_OUT.map(({ key, label }) => (
             <ColourRow key={key} label={label} value={pickerValue(theme, key)} onPick={pick(key)}
@@ -93,6 +94,7 @@ export function ThemeCard({ theme: saved, primaryColor, event, className = "" }:
                       {r.label}
                     </label>
                   ))}
+                  {reachHint(theme) && <p className="text-xs text-muted-foreground">{reachHint(theme)}</p>}
                 </fieldset>
               )}
             </ColourRow>
