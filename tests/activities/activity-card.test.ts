@@ -208,4 +208,13 @@ describe("tournamentCard (D647)", () => {
       });
     }
   });
+  it("shows the group's overall place once results are in (D663)", () => {
+    const base = { role: "member" as const, ready: 5, sports: 5, playing: 1, locked: true };
+    expect(tournamentCard({ ...base, results: { overall: { rank: 3, tied: false, total: 104 }, any: true } })).toEqual({
+      status: { label: "Your group: 3rd overall · 104 pts", tone: "primary" }, meta: null, action: { label: "View results", primary: false },
+    });
+    expect(tournamentCard({ ...base, results: { overall: { rank: 1, tied: true, total: 80 }, any: true } }).status?.label).toBe("Your group: 1st= overall · 80 pts");
+    expect(tournamentCard({ ...base, results: { overall: null, any: true } }).status).toEqual({ label: "Results are in", tone: "primary" });
+    expect(tournamentCard({ ...base, results: { overall: null, any: false } }).status?.label).toBe("Squads locked");
+  });
 });

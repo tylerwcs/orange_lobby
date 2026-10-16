@@ -4,6 +4,7 @@ import type { Activity } from "@/lib/types";
 import type { Passport } from "./booths";
 import { shortDate } from "@/lib/text";
 import { opensLabel } from "./schedule";
+import { ordinal } from "@/features/tournaments/client";
 
 /**
  * What one activity's card on the Activities tab says: a status chip, one line of detail and
@@ -131,8 +132,17 @@ export function polaroidCard(): CardView {
  * A tournament's card (D647). A picker sees how many of their group's squads are ready; anyone
  * else sees what they're playing. Once squads lock, everyone sees that, and the page is to look at.
  */
-export function tournamentCard(input: { role: "picker" | "member"; ready: number; sports: number; playing: number; locked: boolean }): CardView {
+export function tournamentCard(input: {
+  role: "picker" | "member"; ready: number; sports: number; playing: number; locked: boolean;
+  /** D663: once any result is in - the group's overall place when attendees may see it, else null. */
+  results?: { overall: { rank: number; tied: boolean; total: number } | null; any: boolean };
+}): CardView {
   const look = { label: "View squads", primary: false };
+  if (input.results?.any) {
+    const o = input.results.overall;
+    const label = o ? `Your group: ${ordinal(o.rank)}${o.tied ? "=" : ""} overall · ${o.total} pts` : "Results are in";
+    return { status: { label, tone: "primary" }, meta: null, action: { label: "View results", primary: false } };
+  }
   if (input.locked) return { status: { label: "Squads locked", tone: "muted" }, meta: null, action: look };
   if (input.role === "picker") {
     const status = input.sports > 0 && input.ready >= input.sports

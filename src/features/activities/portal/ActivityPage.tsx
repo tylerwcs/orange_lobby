@@ -33,10 +33,11 @@ import { TITLE_INK } from "@/lib/ink";
  */
 export async function ActivityPage({ params, searchParams }: {
   params: Promise<{ slug: string; token: string; activityId: string }>;
-  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[] }>;
+  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[]; sport?: string | string[]; view?: string | string[]; show?: string | string[] }>;
 }) {
   const { slug, token, activityId } = await params;
-  const { new: writing, day, tab } = await searchParams;
+  const { new: writing, day, tab, sport, view, show } = await searchParams;
+  const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : null);
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
@@ -69,7 +70,7 @@ export async function ActivityPage({ params, searchParams }: {
       case "polaroid":
         return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} />;
       case "tournament":
-        return <TournamentBody entry={found.entry} slug={slug} token={token} />;
+        return <TournamentBody entry={found.entry} slug={slug} token={token} sport={one(sport)} view={one(view)} show={one(show)} />;
       default: {
         const exhaustive: never = found;
         throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);

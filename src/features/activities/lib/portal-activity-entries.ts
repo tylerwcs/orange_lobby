@@ -14,7 +14,7 @@ import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
-import { countedRows, isPicker, listSportsForActivities, squadPeople, squadRows, type SquadRow, type TournamentSport } from "@/features/tournaments";
+import { countedRows, isPicker, listSportsForActivities, loadResults, squadPeople, squadRows, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
@@ -29,7 +29,11 @@ export type PolaroidEntry = { activity: Activity; mine: PolaroidRow[] };
  * A tournament this attendee's group plays in (D639), its sports, and its counted squad rows
  * (D643). Only for an attendee in a group: nobody else has a squad to see (D645).
  */
-export type TournamentEntry = { activity: Activity; sports: TournamentSport[]; rows: SquadRow[]; attendeeId: string; groupId: string; picker: boolean };
+export type TournamentEntry = {
+  activity: Activity; sports: TournamentSport[]; rows: SquadRow[]; attendeeId: string; groupId: string; picker: boolean;
+  /** D663: every sport's pools, matches and slots, and the event's groups to name them. */
+  results: SportResults[]; groups: { id: string; name: string }[];
+};
 
 /** Each kind's portal entry (D416). Its keys must be exactly ActivityKind: the check below fails the build otherwise. */
 export type EntryMap = { booking: ActivityEntry; submission: SubmissionEntry; passport: PassportEntry; polaroid: PolaroidEntry; tournament: TournamentEntry };
@@ -139,7 +143,9 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
 
 /** Each tournament's sports and counted rows (D643), people read once across all of them. */
 async function loadTournaments(eventId: string, cups: Activity[], attendee: Pick<Attendee, "id" | "extra">, groupId: string): Promise<TournamentEntry[]> {
-  const [sports, rowsByCup] = await Promise.all([listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id)))]);
+  const [sports, rowsByCup, resultsByCup, groups] = await Promise.all([
+    listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id))), Promise.all(cups.map((a) => loadResults(a.id))), listGroups(eventId),
+  ]);
   const people = await squadPeople(eventId, rowsByCup.flat().map((r) => r.attendee_id));
   return cups.map((activity, i) => ({
     activity,
@@ -148,5 +154,7 @@ async function loadTournaments(eventId: string, cups: Activity[], attendee: Pick
     attendeeId: attendee.id,
     groupId,
     picker: isPicker(activity, attendee),
+    results: resultsByCup[i],
+    groups: groups.map((g) => ({ id: g.id, name: g.name })),
   }));
 }
