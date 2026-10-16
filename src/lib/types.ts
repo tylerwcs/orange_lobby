@@ -381,6 +381,10 @@ export type Activity = {
   squads_close_at?: string | null;
   /** Tournament kind only (D640): captains (`proxy_fields` holders) pick squads, or members join themselves. */
   squad_fill?: "captains" | "self" | null;
+  /** Tournament kind only (D654): points per place, 1st first; null is no overall leaderboard. */
+  place_points?: number[] | null;
+  /** Tournament kind only (D662): whether attendees see the overall leaderboard. */
+  show_overall?: boolean | null;
   sort_order: number;
 };
 

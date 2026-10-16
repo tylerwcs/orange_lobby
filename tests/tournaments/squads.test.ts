@@ -5,7 +5,7 @@ import {
 } from "@/features/tournaments/lib/squads";
 
 const sport = (min: number, max: number) => ({ min_size: min, max_size: max });
-const S = (id: string, name: string, position: number, min = 2, max = 2): TournamentSport => ({ id, activity_id: "act", name, min_size: min, max_size: max, position });
+const S = (id: string, name: string, position: number, min = 2, max = 2): TournamentSport => ({ id, activity_id: "act", name, min_size: min, max_size: max, position, result_kind: "score", format: "pools", pool_size: 3, forfeits_marked_at: null });
 const R = (sport_id: string, group_id: string, attendee_id: string, added_at = "2026-10-16T00:00:00Z"): SquadRow => ({ sport_id, group_id, attendee_id, added_by: null, added_at });
 const P = (id: string, name: string, group_id: string | null, cancelled_at: string | null = null): SquadPerson => ({ id, name, group_id, cancelled_at });
 const people = (...ps: SquadPerson[]) => new Map(ps.map((p) => [p.id, p]));

@@ -6,7 +6,16 @@ import { categoryMatches } from "@/lib/agenda";
  */
 
 /** One of a tournament's sports (D638). Later layers hang their formats and matches off it (D651). */
-export type TournamentSport = { id: string; activity_id: string; name: string; min_size: number; max_size: number; position: number };
+export type TournamentSport = {
+  id: string; activity_id: string; name: string; min_size: number; max_size: number; position: number;
+  /** D653: scores (higher wins) or times (faster wins). */
+  result_kind: "score" | "time";
+  /** D653: pools then placing brackets, or matches the admin adds by hand (D665). */
+  format: "pools" | "manual";
+  pool_size: number;
+  /** D660: when its short squads were marked forfeit; null until then. */
+  forfeits_marked_at: string | null;
+};
 
 /** One squad place, as stored. Counts only while `countedRows` keeps it (D643). */
 export type SquadRow = { sport_id: string; group_id: string; attendee_id: string; added_by: string | null; added_at: string };

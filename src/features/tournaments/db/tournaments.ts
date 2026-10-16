@@ -11,11 +11,13 @@ export async function getTournamentActivity(id: string, eventId: string): Promis
   return (data as Activity | null) ?? null;
 }
 
-type SportInput = { name: string; min_size: number; max_size: number };
+export const SPORT_COLUMNS = "id, activity_id, name, min_size, max_size, position, result_kind, format, pool_size, forfeits_marked_at";
+
+type SportInput = { name: string; min_size: number; max_size: number; result_kind?: "score" | "time"; format?: "pools" | "manual"; pool_size?: number };
 
 /** A tournament's sports in the organiser's order (D638). */
 export async function listSports(activityId: string): Promise<TournamentSport[]> {
-  const { data, error } = await serviceClient().from("tournament_sports").select("id, activity_id, name, min_size, max_size, position")
+  const { data, error } = await serviceClient().from("tournament_sports").select(SPORT_COLUMNS)
     .eq("activity_id", activityId).order("position").order("created_at");
   if (error) throw error;
   return (data ?? []) as TournamentSport[];
@@ -24,7 +26,7 @@ export async function listSports(activityId: string): Promise<TournamentSport[]>
 /** Every sport of these tournaments, for the admin list's one line each. */
 export async function listSportsForActivities(activityIds: string[]): Promise<TournamentSport[]> {
   if (activityIds.length === 0) return [];
-  const { data, error } = await serviceClient().from("tournament_sports").select("id, activity_id, name, min_size, max_size, position")
+  const { data, error } = await serviceClient().from("tournament_sports").select(SPORT_COLUMNS)
     .in("activity_id", activityIds).order("position").order("created_at");
   if (error) throw error;
   return (data ?? []) as TournamentSport[];
