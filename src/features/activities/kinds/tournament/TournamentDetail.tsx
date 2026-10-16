@@ -48,6 +48,9 @@ export async function TournamentDetail({ ev, activity, tab, sport }: { ev: Event
             <Link href={`/admin/events/${ev.id}/export/squads.xlsx?activity=${activity.id}`} prefetch={false} className={buttonVariants({ variant: "outline", size: "sm" })}>
               <Download data-icon="inline-start" />Export squads
             </Link>
+            <Link href={`/admin/events/${ev.id}/export/results.xlsx?activity=${activity.id}`} prefetch={false} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Download data-icon="inline-start" />Export results
+            </Link>
             <ActivityMenu
               name={activity.name}
               pinned={activity.pinned}
