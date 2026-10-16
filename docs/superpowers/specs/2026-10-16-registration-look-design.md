@@ -1,6 +1,9 @@
 # Registration page banner, heading and background colours — design
 
 Date: 16 Oct 2026. Decisions D618–D621. Migration 0090.
+**Superseded the same day:** D619–D621 (heading colour, background colour, event bar on the ground)
+were replaced by the event theme, D622–D632 (`2026-10-16-event-theme-design.md`); their values moved
+into `events.theme` (0091) and the two columns were dropped (0092). D618, the banner, still stands.
 
 **D618 — A banner above the registration page.** Settings → Registration gains an image field,
 `Banner above the form`, saved with **Save settings** like the logo and the event banner. It shows
