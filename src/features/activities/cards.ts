@@ -1,5 +1,6 @@
 import { bookingSection, passportSection, type ActivitySection } from "./lib/portal-activities";
-import { bookingCard, comingSoonCard, formCard, passportCard, polaroidCard, type CardView } from "./lib/activity-card";
+import { bookingCard, comingSoonCard, formCard, passportCard, polaroidCard, tournamentCard, type CardView } from "./lib/activity-card";
+import { isLocked, squadMembers } from "@/features/tournaments/client";
 import { allCheckedIn } from "./lib/booking-door";
 import type { ActivityEntries, EntryMap } from "./lib/portal-activity-entries";
 import type { Activity, ActivityKind } from "@/lib/types";
@@ -56,6 +57,16 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
       // Its page is the camera (D482).
       activity, view: polaroidCard(), href: href(activity), emphasis: false, section: "open" as const,
     })),
+    // D647: open to look at whatever its state; never ringed, a short squad is the captain's to chase.
+    tournament: (list) => list.map(({ activity, sports, rows, attendeeId, groupId, picker }) => {
+      const ready = sports.filter((s) => {
+        const n = squadMembers(rows, s.id, groupId).length;
+        return n >= s.min_size && n <= s.max_size;
+      }).length;
+      const playing = new Set(rows.filter((r) => r.attendee_id === attendeeId).map((r) => r.sport_id)).size;
+      const view = tournamentCard({ role: picker ? "picker" : "member", ready, sports: sports.length, playing, locked: isLocked(activity.squads_close_at, new Date()) });
+      return { activity, view, href: href(activity), emphasis: false, section: "open" as const };
+    }),
   };
   const cardsOf = <K extends ActivityKind>(kind: K) => cardsFor[kind](entries[kind]);
 
@@ -95,6 +106,10 @@ export function findEntry(entries: ActivityEntries, activityId: string): FoundEn
     },
     polaroid: (list) => {
       const e = list.find((p) => p.activity.id === activityId);
+      return e ? { entry: e, activity: e.activity } : null;
+    },
+    tournament: (list) => {
+      const e = list.find((t) => t.activity.id === activityId);
       return e ? { entry: e, activity: e.activity } : null;
     },
   };

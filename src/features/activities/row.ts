@@ -89,6 +89,18 @@ export function polaroidRow(input: { live: number; walkIn: boolean }): ActivityR
   };
 }
 
+/** D648: a squad per sport per group; ready is every one not short. Short (or forfeit, once locked) needs you. */
+export function tournamentRow(input: { sports: number; groups: number; short: number; locked: boolean }): ActivityRowView {
+  const { sports, groups, short, locked } = input;
+  const total = sports * groups;
+  return {
+    kind: KIND_META.tournament.label,
+    detail: sports ? `${plural(sports, "sport")} · ${plural(groups, "group")}` : null,
+    progress: { done: total - short, total, label: `${total - short} of ${total} squads ready` },
+    attention: sports === 0 ? "No sports yet" : short > 0 ? `${plural(short, "squad")} ${locked ? "forfeit" : "short"}` : null,
+  };
+}
+
 /** The header line: "3 activities · 2 open · 1 needs you", dropping whatever is zero. */
 export function listSummary(rows: { open: boolean; attention: string | null }[]): string {
   if (rows.length === 0) return "No activities yet";
@@ -107,6 +119,7 @@ type RemoveFacts = {
   submission: { submissions: number };
   passport: { booths: number };
   polaroid: { polaroids: number };
+  tournament: { sports: number; players: number };
 };
 /** Indexed by ActivityKind, so a kind missing from RemoveFacts fails the build (D414). */
 export type RemoveInput = { [K in ActivityKind]: { kind: K } & RemoveFacts[K] }[ActivityKind];
@@ -126,6 +139,9 @@ export function removeWarning(input: RemoveInput): string {
     // Cascades its posts; the photos are swept from the bucket by the delete action (D485).
     case "polaroid":
       return `${input.polaroids > 0 ? `Its ${plural(input.polaroids, "polaroid")} and their photos go with it. ` : ""}This can't be undone.`;
+    // Cascades its sports and their squads (0097).
+    case "tournament":
+      return `${input.sports > 0 ? `Its ${plural(input.sports, "sport")} and ${plural(input.players, "squad place")} go with it. ` : ""}This can't be undone.`;
     default: {
       const exhaustive: never = input;
       throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);

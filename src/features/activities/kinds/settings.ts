@@ -5,9 +5,10 @@ import { newBooking, readBookingSettings, type BookingSettings } from "./booking
 import { newSubmission, readSubmissionSettings, type SubmissionSettings } from "./submission/settings";
 import { newPassport, readPassportSettingsForm, type PassportSettings } from "./passport/settings";
 import { newPolaroid, readPolaroidKindSettings, type PolaroidKindSettings } from "./polaroid/settings";
+import { newTournament, readTournamentKindSettings, type TournamentKindSettings } from "./tournament/settings";
 
 /** What each kind's Setup form saves (D420). Indexed by ActivityKind below, so a new kind needs its own. */
-export type SettingsFor = { booking: BookingSettings; submission: SubmissionSettings; passport: PassportSettings; polaroid: PolaroidKindSettings };
+export type SettingsFor = { booking: BookingSettings; submission: SubmissionSettings; passport: PassportSettings; polaroid: PolaroidKindSettings; tournament: TournamentKindSettings };
 
 /** What a reader may need beyond the form: a passport's target is bounded by the booths it has. */
 export type SettingsContext = { boothCount: number | null };
@@ -24,6 +25,7 @@ export const KIND_SETTINGS: { [K in ActivityKind]: KindSettings<K> } = {
   submission: { read: (form) => readSubmissionSettings(form), create: newSubmission },
   passport: { read: (form, ctx) => readPassportSettingsForm(form, ctx.boothCount), create: newPassport },
   polaroid: { read: (form) => readPolaroidKindSettings(form), create: newPolaroid },
+  tournament: { read: (form) => readTournamentKindSettings(form), create: newTournament },
 };
 
 export type SettingsResult<K extends ActivityKind> = { ok: true; settings: SettingsFor[K] } | { ok: false; error: string };

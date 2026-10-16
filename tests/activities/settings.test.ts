@@ -99,3 +99,29 @@ describe("polaroid settings (D471, D475)", () => {
     expect(readSettings("polaroid", form({ name: "Wall", prompt: "x".repeat(61) })).ok).toBe(false);
   });
 });
+
+describe("tournament settings (D640, D641)", () => {
+  const base = { name: "Sports Carnival", close_date: "2026-10-24", close_time: "18:00" };
+  it("reads the deadline in Malaysia time, who fills squads and the ticked fields", () => {
+    const r = readSettings("tournament", form({ ...base, squad_fill: "captains", proxy_fields: ["captain", "vice_captain"] }));
+    expect(r).toEqual({ ok: true, settings: {
+      name: "Sports Carnival", description: null, categories: null,
+      squads_close_at: "2026-10-24T18:00:00+08:00", squad_fill: "captains", proxy_fields: ["captain", "vice_captain"],
+    } });
+  });
+  it("defaults to captains pick, and reads self", () => {
+    const r = readSettings("tournament", form(base));
+    expect(r.ok && r.settings.squad_fill).toBe("captains");
+    const s = readSettings("tournament", form({ ...base, squad_fill: "self" }));
+    expect(s.ok && s.settings.squad_fill).toBe("self");
+  });
+  it("needs a name and a deadline", () => {
+    expect(readSettings("tournament", form({ ...base, name: "" }))).toEqual({ ok: false, error: "A tournament needs a name" });
+    expect(readSettings("tournament", form({ name: "X" }))).toEqual({ ok: false, error: "Set the squad deadline" });
+  });
+  it("creates with no cap and no questions", () => {
+    const r = readSettings("tournament", form(base));
+    if (!r.ok) throw new Error(r.error);
+    expect(newActivityFrom("tournament", r.settings, true)).toMatchObject({ kind: "tournament", required: false, is_open: true, max_per_attendee: null, questions: [], per_day: false });
+  });
+});

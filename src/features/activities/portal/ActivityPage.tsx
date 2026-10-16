@@ -12,6 +12,7 @@ import { TrackerBody } from "../kinds/submission/scoring/TrackerBody";
 import { eventFields } from "@/lib/attendee-fields";
 import { PassportBody } from "../kinds/passport/PassportBody";
 import { PolaroidBody } from "../kinds/polaroid/PolaroidBody";
+import { TournamentBody } from "../kinds/tournament/TournamentBody";
 import { TITLE_INK } from "@/lib/ink";
 
 /**
@@ -67,6 +68,8 @@ export async function ActivityPage({ params, searchParams }: {
         return <PassportBody entry={found.entry} attendeeName={attendee.name} />;
       case "polaroid":
         return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} />;
+      case "tournament":
+        return <TournamentBody entry={found.entry} slug={slug} token={token} />;
       default: {
         const exhaustive: never = found;
         throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);

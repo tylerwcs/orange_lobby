@@ -155,6 +155,7 @@ export async function toggleOpenAction(eventId: string, activityId: string, from
     submission: ["Submissions open.", "Submissions closed."],
     passport: ["Stamping open.", "Stamping closed."],
     polaroid: ["Posting open.", "Posting closed."],
+    tournament: ["Tournament open.", "Tournament closed."],
   };
   redirect(flashPath(path, LABELS[activity.kind][opened ? 0 : 1]));
 }
@@ -836,6 +837,61 @@ export async function deletePolaroidActivityAction(eventId: string, activityId: 
   for (const url of [doomed.image_url, settings.background?.url ?? null, ...settings.stickers.map((s) => s.url)]) await deleteEventImage(url);
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Polaroid wall deleted."));
+}
+
+/** The tournament a posted id names, or a flash back to the list (as `passportOf`). */
+async function tournamentOf(ev: Event, activityId: string): Promise<Activity> {
+  const cup = await getActivity(activityId, ev.id);
+  if (!cup || cup.kind !== "tournament") redirect(flashPath(listPath(ev.id), "That tournament no longer exists.", "error"));
+  await allowKind(ev, cup.kind);
+  return cup;
+}
+
+/** D638: straight to its Sports tab - a tournament with no sports has no squads to fill. */
+export async function addTournamentActivityAction(eventId: string, fd: FormData) {
+  const ev = await event(eventId);
+  await allowKind(ev, "tournament");
+  const read = readSettings("tournament", fd);
+  if (!read.ok) redirect(flashPath(listPath(eventId), read.error, "error"));
+  let image: ImageChange = { url: null, stale: null };
+  try {
+    image = await nextImage(fd, "image", null, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(listPath(eventId), (e as Error).message, "error"));
+  }
+  const id = await createActivity(ev, { ...newActivityFrom("tournament", read.settings, checked(fd, "is_open")), image_url: image.url });
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(activityHref(eventId, id, "sports"), "Tournament added. Add its sports next."));
+}
+
+/** Never touches `is_open`; its sports and squads save on their own tabs. */
+export async function saveTournamentActivityAction(eventId: string, activityId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const back = detailPath(eventId, activityId);
+  const current = await tournamentOf(ev, activityId);
+  const read = readSettings("tournament", fd);
+  if (!read.ok) redirect(flashPath(back, read.error, "error"));
+  let image: ImageChange = { url: current.image_url, stale: null };
+  try {
+    image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  await updateActivity(activityId, ev.id, { ...read.settings, image_url: image.url });
+  await deleteEventImage(image.stale);
+  revalidatePath(listPath(eventId));
+  revalidatePath(back);
+  redirect(flashPath(back, "Tournament saved."));
+}
+
+/** Its sports and their squads cascade (0097); then its picture. */
+export async function deleteTournamentActivityAction(eventId: string, activityId: string) {
+  const ev = await event(eventId);
+  const doomed = await tournamentOf(ev, activityId);
+  await deleteActivity(activityId, ev.id);
+  await deleteEventImage(doomed.image_url);
+  revalidatePath(listPath(eventId));
+  redirect(flashPath(listPath(eventId), "Tournament deleted."));
 }
 
 export async function addBoothAction(eventId: string, activityId: string, fd: FormData) {

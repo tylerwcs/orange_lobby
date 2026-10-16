@@ -14,6 +14,7 @@ import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
+import { countedRows, isPicker, listSportsForActivities, squadPeople, squadRows, type SquadRow, type TournamentSport } from "@/features/tournaments";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
@@ -24,9 +25,14 @@ export type SubmissionEntry = { form: Activity; state: SubmitState; mine: Activi
 export type PassportEntry = { activity: Activity; passport: Passport };
 /** A polaroid wall this attendee may post to, and their own live polaroids on it (D482). */
 export type PolaroidEntry = { activity: Activity; mine: PolaroidRow[] };
+/**
+ * A tournament this attendee's group plays in (D639), its sports, and its counted squad rows
+ * (D643). Only for an attendee in a group: nobody else has a squad to see (D645).
+ */
+export type TournamentEntry = { activity: Activity; sports: TournamentSport[]; rows: SquadRow[]; attendeeId: string; groupId: string; picker: boolean };
 
 /** Each kind's portal entry (D416). Its keys must be exactly ActivityKind: the check below fails the build otherwise. */
-export type EntryMap = { booking: ActivityEntry; submission: SubmissionEntry; passport: PassportEntry; polaroid: PolaroidEntry };
+export type EntryMap = { booking: ActivityEntry; submission: SubmissionEntry; passport: PassportEntry; polaroid: PolaroidEntry; tournament: TournamentEntry };
 export type ActivityEntries = { [K in keyof EntryMap]: EntryMap[K][] };
 type Covers = [ActivityKind] extends [keyof EntryMap] ? ([keyof EntryMap] extends [ActivityKind] ? true : never) : never;
 const covers: Covers = true;
@@ -40,7 +46,7 @@ void covers;
  * and one shape for both pages is worth more than the rows it saves; `portalActivities` and
  * `portalBookings` are memoised, so the layout's nav dot costs nothing extra.
  */
-export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category" | "group_id">): Promise<ActivityEntries & {
+export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category" | "group_id" | "extra">): Promise<ActivityEntries & {
   people: Record<string, { name: string; movedTo: string | null }>;
   /** D603: scheduled activities this attendee's category could use, for their Coming soon cards. */
   coming: Activity[];
@@ -119,8 +125,28 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   const myPolaroids = walls.length ? await polaroidsForAttendee(attendee.id) : [];
   const polaroids = walls.map((activity) => ({ activity, mine: myPolaroids.filter((p) => p.activity_id === activity.id) }));
 
+  // D645: only someone in a group has squads. Read only when the event runs a tournament they can see.
+  const groupId = attendee.group_id;
+  const cups = groupId ? activities.filter((a) => a.kind === "tournament" && eligible(a, attendee.category)) : [];
+  const tournaments = cups.length && groupId ? await loadTournaments(event.id, cups, attendee, groupId) : [];
+
   return {
-    booking: bookings, submission: forms, passport: passports, polaroid: polaroids, people,
-    coming: scheduled.filter((a) => eligible(a, attendee.category)),
+    booking: bookings, submission: forms, passport: passports, polaroid: polaroids, tournament: tournaments, people,
+    // A groupless attendee has no squads, so no Coming soon card for one either (D645).
+    coming: scheduled.filter((a) => eligible(a, attendee.category) && (a.kind !== "tournament" || groupId !== null)),
   };
+}
+
+/** Each tournament's sports and counted rows (D643), people read once across all of them. */
+async function loadTournaments(eventId: string, cups: Activity[], attendee: Pick<Attendee, "id" | "extra">, groupId: string): Promise<TournamentEntry[]> {
+  const [sports, rowsByCup] = await Promise.all([listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id)))]);
+  const people = await squadPeople(eventId, rowsByCup.flat().map((r) => r.attendee_id));
+  return cups.map((activity, i) => ({
+    activity,
+    sports: sports.filter((s) => s.activity_id === activity.id),
+    rows: countedRows(rowsByCup[i], people),
+    attendeeId: attendee.id,
+    groupId,
+    picker: isPicker(activity, attendee),
+  }));
 }

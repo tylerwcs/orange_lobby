@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning } from "@/features/activities/client";
+import { bookingRow, submissionRow, passportRow, polaroidRow, tournamentRow, listSummary, removeWarning } from "@/features/activities/client";
 
 describe("bookingRow", () => {
   const base = { days: ["2026-09-28", "2026-10-02"], sessions: 32, booked: 3, seats: 96, pending: 0 };
@@ -127,5 +127,23 @@ describe("polaroidRow (D485)", () => {
   it("warns that the photos go with it", () => {
     expect(removeWarning({ kind: "polaroid", polaroids: 2 })).toBe("Its 2 polaroids and their photos go with it. This can't be undone.");
     expect(removeWarning({ kind: "polaroid", polaroids: 0 })).toBe("This can't be undone.");
+  });
+});
+
+describe("tournamentRow (D648)", () => {
+  it("counts ready squads across every sport and group, and flags the short ones", () => {
+    expect(tournamentRow({ sports: 5, groups: 12, short: 3, locked: false })).toEqual({
+      kind: "Tournament", detail: "5 sports · 12 groups", progress: { done: 57, total: 60, label: "57 of 60 squads ready" }, attention: "3 squads short",
+    });
+    expect(tournamentRow({ sports: 5, groups: 12, short: 3, locked: true }).attention).toBe("3 squads forfeit");
+    expect(tournamentRow({ sports: 1, groups: 1, short: 1, locked: false }).attention).toBe("1 squad short");
+    expect(tournamentRow({ sports: 5, groups: 12, short: 0, locked: false }).attention).toBeNull();
+  });
+  it("says when it has no sports yet", () => {
+    expect(tournamentRow({ sports: 0, groups: 12, short: 0, locked: false })).toMatchObject({ detail: null, attention: "No sports yet" });
+  });
+  it("warns that its sports and squad places go with it", () => {
+    expect(removeWarning({ kind: "tournament", sports: 5, players: 40 })).toBe("Its 5 sports and 40 squad places go with it. This can't be undone.");
+    expect(removeWarning({ kind: "tournament", sports: 0, players: 0 })).toBe("This can't be undone.");
   });
 });

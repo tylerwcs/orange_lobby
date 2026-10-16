@@ -64,14 +64,14 @@ describe("allowed kinds", () => {
     expect(activityKindsFor(featureSet(["booking"], 0))).toEqual(["booking"]);
   });
   it("allows submission and passport with Engagement activities", () => {
-    expect(activityKindsFor(featureSet(["engagement"], 0))).toEqual(["submission", "passport", "polaroid"]);
+    expect(activityKindsFor(featureSet(["engagement"], 0))).toEqual(["submission", "passport", "polaroid", "tournament"]);
   });
   it("splits games between Live games and Lucky draw", () => {
     expect(gameKindsFor(featureSet(["live_games"], 0))).toEqual(["tap_race", "survival"]);
     expect(gameKindsFor(featureSet(["lucky_draw"], 0))).toEqual(["draw"]);
   });
   it("allows every kind with every add-on, in menu order", () => {
-    expect(activityKindsFor(all)).toEqual(["booking", "submission", "passport", "polaroid"]);
+    expect(activityKindsFor(all)).toEqual(["booking", "submission", "passport", "polaroid", "tournament"]);
     expect(gameKindsFor(all)).toEqual(["tap_race", "survival", "draw"]);
   });
   it("names the add-on behind each kind", () => {
@@ -79,6 +79,7 @@ describe("allowed kinds", () => {
     expect(featureForActivityKind("submission")).toBe("engagement");
     expect(featureForActivityKind("passport")).toBe("engagement");
     expect(featureForActivityKind("polaroid")).toBe("engagement");
+    expect(featureForActivityKind("tournament")).toBe("engagement");
     expect(featureForGameKind("tap_race")).toBe("live_games");
     expect(featureForGameKind("survival")).toBe("live_games");
     expect(featureForGameKind("draw")).toBe("lucky_draw");

@@ -3,12 +3,12 @@ import { ACTIVITY_KINDS, KIND_META, activityTabs } from "@/features/activities/c
 
 describe("KIND_META (D415)", () => {
   it("lists every kind once, in the order the menu and the portal use", () => {
-    expect(ACTIVITY_KINDS).toEqual(["booking", "submission", "passport", "polaroid"]);
+    expect(ACTIVITY_KINDS).toEqual(["booking", "submission", "passport", "polaroid", "tournament"]);
     expect(Object.keys(KIND_META).sort()).toEqual([...ACTIVITY_KINDS].sort());
   });
 
   it("keeps the words attendees and organisers already see", () => {
-    expect(ACTIVITY_KINDS.map((k) => KIND_META[k].label)).toEqual(["Sessions", "Submission", "Passport", "Polaroid wall"]);
+    expect(ACTIVITY_KINDS.map((k) => KIND_META[k].label)).toEqual(["Sessions", "Submission", "Passport", "Polaroid wall", "Tournament"]);
     expect(KIND_META.passport.title).toBe("Add a booth passport");
   });
 });
@@ -24,5 +24,15 @@ describe("the polaroid kind (D471)", () => {
     const tabs = activityTabs("polaroid", { polaroids: 4 });
     expect(tabs.map((t) => t.tab)).toEqual(["setup", "polaroids", "stickers"]);
     expect(tabs[1].count).toBe(4);
+  });
+});
+
+describe("the tournament kind (D637, D648)", () => {
+  it("has Setup, Squads and Sports, with a dot on Squads while any squad is short", () => {
+    const tabs = activityTabs("tournament", { shortSquads: 3 });
+    expect(tabs.map((t) => t.tab)).toEqual(["setup", "squads", "sports"]);
+    expect(tabs.map((t) => t.label)).toEqual(["Setup", "Squads", "Sports"]);
+    expect(tabs[1].dot).toBe(true);
+    expect(activityTabs("tournament", { shortSquads: 0 })[1].dot).toBe(false);
   });
 });

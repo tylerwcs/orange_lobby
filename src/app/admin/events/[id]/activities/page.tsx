@@ -1,6 +1,7 @@
 import { eventFields } from "@/lib/attendee-fields";
 import { requireEventAccess } from "@/lib/access";
-import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, addPolaroidActivityAction, deletePolaroidActivityAction, uploadActivityImageAction } from "@/features/activities";
+import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, addPolaroidActivityAction, deletePolaroidActivityAction, addTournamentActivityAction, deleteTournamentActivityAction, tournamentRow, TournamentSetupFields, uploadActivityImageAction } from "@/features/activities";
+import { countedRows, isLocked, listSportsForActivities, shortCount, squadPeople, squadRows } from "@/features/tournaments";
 import { countLiveByActivity, readPolaroidSettings } from "@/features/polaroid";
 import { activityKindsFor, eventFeatures, NotInEvent } from "@/features/catalogue";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
@@ -34,6 +35,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   // An activity of a kind this event no longer has is kept, not deleted (D439), but not listed.
   const activities = allActivities.filter((a) => kinds.includes(a.kind));
   const categories = await listCategories(ev.id);
+  const tournaments = await tournamentFacts(ev.id, activities.filter((a) => a.kind === "tournament"), groups.map((g) => g.id));
 
   // Everything below is rolled up from what the page already loaded, rather than queried per
   // row: the page shows one line each, and a query per row is how a ten-activity event gets slow.
@@ -64,6 +66,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
       groupDone: groupDoneFor(a, formSubs),
       polaroids: liveByWall[a.id] ?? 0,
       walkIn: a.kind === "polaroid" && readPolaroidSettings(a.polaroid).public,
+      tournament: tournaments.get(a.id) ?? { sports: 0, groups: groups.length, short: 0, players: 0, locked: false },
     });
   });
 
@@ -146,6 +149,17 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   <SubmitButton>Add polaroid wall</SubmitButton>
                 </form>
               ),
+              tournament: (
+                <form action={addTournamentActivityAction.bind(null, ev.id)} className="grid grid-cols-1 gap-4">
+  <TournamentSetupFields categories={categories} fields={eventFields(ev.registration_questions, ev.attendee_fields)} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
+  {/* Checked by default: captains can only pick while it is open. */}
+  <label className={check}>
+    <input type="checkbox" name="is_open" className="size-4" defaultChecked />
+    Open for squads now
+  </label>
+  <SubmitButton>Add tournament</SubmitButton>
+                </form>
+              ),
             }}
           />
         }
@@ -172,7 +186,22 @@ type RowFacts = {
   /** Live polaroids on a wall, and whether its walk-in link is on. */
   polaroids: number;
   walkIn: boolean;
+  /** D648: a tournament's sports, its groups' short squads, its squad places, and whether squads have locked. */
+  tournament: { sports: number; groups: number; short: number; players: number; locked: boolean };
 };
+
+/** D648: one line per tournament, from one read of each one's squads. An event has few. */
+async function tournamentFacts(eventId: string, cups: Activity[], groupIds: string[]): Promise<Map<string, RowFacts["tournament"]>> {
+  if (cups.length === 0) return new Map();
+  const [sports, rowsByCup] = await Promise.all([listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id)))]);
+  const people = await squadPeople(eventId, rowsByCup.flat().map((r) => r.attendee_id));
+  return new Map(cups.map((a, i) => {
+    const mine = sports.filter((s) => s.activity_id === a.id);
+    const rows = countedRows(rowsByCup[i], people);
+    const short = mine.reduce((n, s) => n + shortCount(s, groupIds, rows), 0);
+    return [a.id, { sports: mine.length, groups: groupIds.length, short, players: rows.length, locked: isLocked(a.squads_close_at, new Date()) }];
+  }));
+}
 
 /**
  * One row, every kind the same shape. What differs by kind is decided here and nowhere else, in
@@ -233,6 +262,17 @@ function listItem(ev: Event, a: Activity, facts: RowFacts): ActivityListItem {
           ...base,
           remove: deletePolaroidActivityAction.bind(null, ev.id, a.id),
           removeMessage: removeWarning({ kind: "polaroid", polaroids: facts.polaroids }),
+        },
+      };
+    case "tournament":
+      return {
+        activity: a, href,
+        view: tournamentRow(facts.tournament),
+        toggle: toggleOpenAction.bind(null, ev.id, a.id, "list", !a.is_open),
+        menu: {
+          ...base, exportHref: `${exports}/squads.xlsx?activity=${a.id}`,
+          remove: deleteTournamentActivityAction.bind(null, ev.id, a.id),
+          removeMessage: removeWarning({ kind: "tournament", sports: facts.tournament.sports, players: facts.tournament.players }),
         },
       };
     default: {

@@ -31,6 +31,7 @@ export * from "./verify/VerifyPage";
 // Shared by every kind: the admin list and its rows, the detail page's menu and tabs, the
 // Overview's activity summary; the portal's Activities tab, card parts, home row and dialog.
 export * from "./admin/ActivityRows";
+export * from "./kinds/tournament/TournamentSetupFields";
 export * from "./admin/ActivityMenu";
 export * from "./admin/ActivityTabs";
 export * from "./admin/ActivityOverview";

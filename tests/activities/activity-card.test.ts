@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingCard, comingSoonCard, dayRange, formCard, passportCard, polaroidCard, type BookingCardInput, type FormCardInput } from "@/features/activities/lib/activity-card";
+import { bookingCard, comingSoonCard, dayRange, formCard, passportCard, polaroidCard, tournamentCard, type BookingCardInput, type FormCardInput } from "@/features/activities/lib/activity-card";
 import type { SeatsForViewer } from "@/features/activities/lib/activities";
 
 const seat = (day: string, starts_at: string, left: number, mine = false, location: string | null = "Gardensby17"): SeatsForViewer => ({
@@ -184,5 +184,28 @@ describe("comingSoonCard (D604)", () => {
       meta: { icon: "clock", text: "Opens Sat 17 Oct, 10:00am" },
       action: null,
     });
+  });
+});
+
+describe("tournamentCard (D647)", () => {
+  it("tells a picker how many sports are ready", () => {
+    expect(tournamentCard({ role: "picker", ready: 3, sports: 5, playing: 0, locked: false })).toEqual({
+      status: { label: "3 of 5 sports ready", tone: "primary" }, meta: null, action: { label: "Pick squads", primary: true },
+    });
+    expect(tournamentCard({ role: "picker", ready: 5, sports: 5, playing: 0, locked: false }).status).toEqual({ label: "All squads ready ✓", tone: "success" });
+  });
+  it("tells a member what they're playing", () => {
+    expect(tournamentCard({ role: "member", ready: 0, sports: 5, playing: 2, locked: false })).toEqual({
+      status: { label: "You're playing 2 sports", tone: "success" }, meta: null, action: { label: "View squads", primary: false },
+    });
+    expect(tournamentCard({ role: "member", ready: 0, sports: 5, playing: 1, locked: false }).status?.label).toBe("You're playing 1 sport");
+    expect(tournamentCard({ role: "member", ready: 0, sports: 5, playing: 0, locked: false }).status).toEqual({ label: "Not playing yet", tone: "muted" });
+  });
+  it("says Squads locked to everyone after the deadline", () => {
+    for (const role of ["picker", "member"] as const) {
+      expect(tournamentCard({ role, ready: 2, sports: 5, playing: 1, locked: true })).toEqual({
+        status: { label: "Squads locked", tone: "muted" }, meta: null, action: { label: "View squads", primary: false },
+      });
+    }
   });
 });

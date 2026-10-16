@@ -275,8 +275,8 @@ export type BoothStamp = {
   stamped_at: string;
 };
 
-/** What an attendee does with an activity: take a seat, send answers, collect stamps, or post a polaroid (D178, D179, D471). */
-export type ActivityKind = "booking" | "submission" | "passport" | "polaroid";
+/** What an attendee does with an activity: take a seat, send answers, collect stamps, post a polaroid, or play in a squad (D178, D179, D471, D637). */
+export type ActivityKind = "booking" | "submission" | "passport" | "polaroid" | "tournament";
 
 /** Who submits a submission form (D350). `off` is one attendee at a time, as before groups. */
 /** D350, D369: `members` is each member submitting their own entries, stamped with their team. */
@@ -377,6 +377,10 @@ export type Activity = {
   public_token?: string | null;
   /** Polaroid kind only (D475): its settings, always read through `readPolaroidSettings`, which fills every default. */
   polaroid?: Record<string, unknown> | null;
+  /** Tournament kind only (D641): when squads lock for the portal. Optional so fixtures need not name it. */
+  squads_close_at?: string | null;
+  /** Tournament kind only (D640): captains (`proxy_fields` holders) pick squads, or members join themselves. */
+  squad_fill?: "captains" | "self" | null;
   sort_order: number;
 };
 

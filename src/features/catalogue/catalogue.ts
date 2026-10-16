@@ -79,7 +79,7 @@ export const FEATURES: Record<FeatureKey, Feature> = {
   booking: addon("Session booking", "Time slots attendees book, with capacity.", { activityKinds: ["booking"] }, [
     { key: "booking", kind: "card", title: "Session booking", send: ["Days, opening hours, slot length and breaks", "Places per slot, the location, and how many bookings each person may make"] },
   ]),
-  engagement: addon("Engagement activities", "Stamp passport, submissions, scored challenges and the polaroid wall.", { activityKinds: ["submission", "passport", "polaroid"] }, [
+  engagement: addon("Engagement activities", "Stamp passport, submissions, scored challenges, the polaroid wall and tournaments.", { activityKinds: ["submission", "passport", "polaroid", "tournament"] }, [
     { key: "activities", kind: "card", title: "Activities", send: ["A name, a short description and a 1600 × 800 cover image for each", "Passport: booth names and locations, stamps needed and the reward message", "Submissions: the questions, open and close dates, entries per person and team rules"] },
   ]),
   live_games: addon("Live games", "Tap race and Last one standing on the LED.", { gameKinds: ["tap_race", "survival"] }, [
@@ -98,7 +98,7 @@ export const FEATURES: Record<FeatureKey, Feature> = {
 };
 
 /** The activity kinds in the New activity menu's order (`ACTIVITY_KINDS`). A kind missing here stops the build. */
-export const ACTIVITY_KIND_ORDER = ["booking", "submission", "passport", "polaroid"] as const satisfies readonly ActivityKind[];
+export const ACTIVITY_KIND_ORDER = ["booking", "submission", "passport", "polaroid", "tournament"] as const satisfies readonly ActivityKind[];
 type CoversActivities = [ActivityKind] extends [(typeof ACTIVITY_KIND_ORDER)[number]] ? true : never;
 const coversActivities: CoversActivities = true;
 void coversActivities;

@@ -128,6 +128,23 @@ export function polaroidCard(): CardView {
 }
 
 /**
+ * A tournament's card (D647). A picker sees how many of their group's squads are ready; anyone
+ * else sees what they're playing. Once squads lock, everyone sees that, and the page is to look at.
+ */
+export function tournamentCard(input: { role: "picker" | "member"; ready: number; sports: number; playing: number; locked: boolean }): CardView {
+  const look = { label: "View squads", primary: false };
+  if (input.locked) return { status: { label: "Squads locked", tone: "muted" }, meta: null, action: look };
+  if (input.role === "picker") {
+    const status = input.sports > 0 && input.ready >= input.sports
+      ? { label: "All squads ready ✓", tone: "success" as const }
+      : { label: `${input.ready} of ${input.sports} sports ready`, tone: "primary" as const };
+    return { status, meta: null, action: { label: "Pick squads", primary: true } };
+  }
+  if (input.playing === 0) return { status: { label: "Not playing yet", tone: "muted" }, meta: null, action: look };
+  return { status: { label: `You're playing ${input.playing} sport${input.playing === 1 ? "" : "s"}`, tone: "success" }, meta: null, action: look };
+}
+
+/**
  * A scheduled activity's card before it opens (D604): when it opens, and nothing to press -
  * the card is not a link, because nothing on its page is open yet. Every kind uses this one.
  */

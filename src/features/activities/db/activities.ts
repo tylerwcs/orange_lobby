@@ -50,6 +50,9 @@ export type NewActivity = {
   wall_token?: string | null;
   public_token?: string | null;
   polaroid?: Record<string, unknown> | null;
+  /** Tournament kind only (D640, D641). Left out, the columns' nulls stand. */
+  squads_close_at?: string | null;
+  squad_fill?: "captains" | "self" | null;
 };
 
 export type NewSession = {
