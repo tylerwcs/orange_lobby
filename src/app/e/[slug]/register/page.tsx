@@ -23,12 +23,12 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
     <div className="min-h-screen bg-background"
       style={{ ...brandStyle(event.primary_color), ...registrationLook(event.registration_heading_color, event.registration_background_color) } as React.CSSProperties}>
     <div className="mx-auto flex min-h-screen max-w-md flex-col">
-      {/* D618: the organiser's banner, first thing on the page, as wide as the column at its own height. */}
+      <PortalHeader event={event} />
+      {/* D618: the organiser's banner, straight under the event bar, as wide as the column at its own height. */}
       {event.registration_banner_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={event.registration_banner_url} alt="" className="block h-auto w-full" />
       )}
-      <PortalHeader event={event} />
       <main className="flex-1 px-4 py-4">
         {closed ? (
           <>

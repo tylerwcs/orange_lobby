@@ -409,7 +409,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             </div>
             {/* D618-D619: the registration page's own look. */}
             <ImageField label="Banner above the form" name="registration_banner" url={ev.registration_banner_url}
-              description="Shown at the very top of the registration page, as wide as the page and at the image's own height - nothing is cropped." />
+              description="Shown on the registration page just under the event name bar, as wide as the page and at the image's own height - nothing is cropped." />
             <Field label="Heading colour" name="registration_heading_color" type="color" defaultValue={ev.registration_heading_color ?? DEFAULT_HEADING_COLOR}
               description="The event name, the Register heading and the form's section headings. A colour too pale to read on white is shown darker." />
             <Field label="Background colour" name="registration_background_color" type="color" defaultValue={ev.registration_background_color ?? DEFAULT_PAGE_BACKGROUND}

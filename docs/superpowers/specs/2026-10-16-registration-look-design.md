@@ -4,8 +4,8 @@ Date: 16 Oct 2026. Decisions D618–D620. Migration 0090.
 
 **D618 — A banner above the registration page.** Settings → Registration gains an image field,
 `Banner above the form`, saved with **Save settings** like the logo and the event banner. It shows
-at the very top of `/e/<slug>/register`, above the event header, as wide as the page column, at
-its own height: no crop, no fixed ratio. Shown whether registration is open or closed. Stored in
+on `/e/<slug>/register` straight under the event bar (amended 16 Oct; it first sat above it), as
+wide as the page column, at its own height: no crop, no fixed ratio. Shown whether registration is open or closed. Stored in
 `events.registration_banner_url` (null = none); uploads as kind `registration-banner`. The portal's
 own banner (`banner_url`) is unchanged.
 
