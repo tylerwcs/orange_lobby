@@ -88,7 +88,13 @@ shows its places. A sport has no weighting. Every sport uses this one table.
 - **Draw at random** splits the event's groups into pools of the sport's pool size, named
   Pool A, B, C…, at random, independently for each sport.
 - **Edit pools** lets the admin place each group in a pool by hand, or move one after a draw.
-- The number of groups must be a multiple of the pool size. If it isn't, the format can't run,
+- **Who plays (my call, added while planning: ecphub has a 13th group, `Sean`, with one
+  member).** Draw at random opens a list of the event's groups to tick. A group is ticked by
+  default when any of its members is in a squad of this tournament. A group left unticked is out
+  of this sport's results: it isn't in a pool, it isn't a forfeit, and it has no place. The
+  overall table lists only groups that play in at least one sport. Edit pools can leave a group
+  out the same way.
+- The number of groups playing must be a multiple of the pool size. If it isn't, the format can't run,
   and the tab says `12 groups don't split into pools of 5. Change the pool size, or switch this
   sport to Matches I add by hand.` My call: uneven pools would leave a bracket short of teams,
   which this layer doesn't handle.
@@ -302,6 +308,10 @@ count view.
 Calls made by the designer, not the user. Each is marked "My call" where it appears:
 - uneven pools and pool counts other than 2 or 4 (score sports) aren't supported this layer
   (D655, D656). They go to Matches I add by hand.
+- the admin ticks which groups play in a sport before the draw, so ecphub's one-person `Sean`
+  group can sit out (D655).
+- on the portal, the page stays the layer 1 squads page until squads lock or a sport has pools.
+  After that, the Squads tab under a sport shows that sport's squad only.
 - pools are locked once a sport has a result; Reset is the way back (D655).
 - a level bracket match keeps its score and records who went through (D658).
 - forfeits are marked at the later of the deadline and the draw, by the first admin action after
