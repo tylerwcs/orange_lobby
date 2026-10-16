@@ -5,7 +5,7 @@ import { listCategories } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
 import { eventFields } from "@/lib/attendee-fields";
 import type { Activity, Event } from "@/lib/types";
-import { countedRows, isLocked, listSports, MatchesPanel, shortCount, squadPeople, squadRows, SportsPanel, SquadsPanel } from "@/features/tournaments";
+import { countedRows, isLocked, LeaderboardPanel, listSports, MatchesPanel, shortCount, squadPeople, squadRows, SportsPanel, SquadsPanel } from "@/features/tournaments";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
@@ -63,6 +63,7 @@ export async function TournamentDetail({ ev, activity, tab, sport }: { ev: Event
       {current === "squads" && <SquadsPanel ev={ev} activity={activity} sportId={sport} />}
       {current === "sports" && <SportsPanel ev={ev} activity={activity} />}
       {current === "matches" && <MatchesPanel ev={ev} activity={activity} sportId={sport} />}
+      {current === "leaderboard" && <LeaderboardPanel ev={ev} activity={activity} />}
       {current === "setup" && (
         <Card className="overflow-hidden">
           <CardHeader><CardTitle>Details</CardTitle></CardHeader>

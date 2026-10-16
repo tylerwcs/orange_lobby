@@ -430,14 +430,21 @@ export type OverallRow = { groupId: string; rank: number; tied: boolean; total: 
  * D662: each group's points across sports (null: no place yet; "F": a forfeit, worth 0), ranked
  * by total, ties going to more 1st places, then more 2nd places…, and otherwise shared.
  */
-export function overallTable(input: { sports: TournamentSport[]; places: Map<string, Place[]>; groupIds: string[]; table: number[] }): OverallRow[] {
+export function overallTable(input: {
+  sports: TournamentSport[];
+  places: Map<string, Place[]>;
+  groupIds: string[];
+  table: number[];
+  /** Per sport, the groups marked forfeit: "F" even before they have a place (D660: they score 0 whatever happens). */
+  forfeits?: Map<string, Set<string>>;
+}): OverallRow[] {
   const sports = [...input.sports].sort((a, b) => a.position - b.position);
   const depth = Math.max(input.table.length, ...[...input.places.values()].flat().map((p) => p.place), 0);
   const rows = input.groupIds.map((groupId) => {
     const counts = Array<number>(depth).fill(0);
     const bySport = sports.map((s): number | "F" | null => {
       const p = (input.places.get(s.id) ?? []).find((x) => x.groupId === groupId);
-      if (!p) return null;
+      if (!p) return input.forfeits?.get(s.id)?.has(groupId) ? "F" : null;
       if (p.forfeit) return "F";
       counts[p.place - 1] += 1;
       return pointsFor(p, input.table);
@@ -565,4 +572,13 @@ export function pickerOptions(sr: SportResults, resolved: Resolved[], tables: Po
       label: `${names.get(p.group_id) ?? "A group"}${place.get(p.group_id) ? ` · ${place.get(p.group_id)}` : ""}`,
       usedIn: used.get(p.group_id) ?? null,
     }));
+}
+
+/** D662: the overall table straight from every sport's results - the groups that play some sport, in `groups` order. */
+export function tournamentOverall(results: SportResults[], groups: { id: string; name: string }[], table: number[]): OverallRow[] {
+  const names = new Map(groups.map((g) => [g.id, g.name]));
+  const playing = new Set(results.flatMap((r) => r.pools.map((p) => p.group_id)));
+  const places = new Map(results.map((r) => [r.sport.id, sportPlaces(r, resolveSport(r, names))]));
+  const forfeits = new Map(results.map((r) => [r.sport.id, new Set(r.pools.filter((p) => p.forfeit).map((p) => p.group_id))]));
+  return overallTable({ sports: results.map((r) => r.sport), places, groupIds: groups.map((g) => g.id).filter((g) => playing.has(g)), table, forfeits });
 }

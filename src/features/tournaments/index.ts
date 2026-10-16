@@ -7,6 +7,8 @@ export * from "./admin/actions";
 export { SportsPanel } from "./admin/SportsPanel";
 export { SquadsPanel } from "./admin/SquadsPanel";
 export { MatchesPanel } from "./admin/MatchesPanel";
+export { LeaderboardPanel } from "./admin/LeaderboardPanel";
+export { OverallTable, pointsLine } from "./components/OverallTable";
 export * from "./admin/results-actions";
 export * from "./actions";
 export { SquadsPage } from "./components/SquadsPage";

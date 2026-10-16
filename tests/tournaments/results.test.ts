@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  blockedBy, bracketName, defaultPlaying, pickerOptions, readResult, withChange, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
+  blockedBy, bracketName, defaultPlaying, pickerOptions, readResult, tournamentOverall, withChange, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
   pointsFor, poolName, poolPlaces, poolStandings, readPlacePoints, resolveSport, roundRobinPairs, sportPlaces,
   type MatchPlan, type Slot, type SportResults,
 } from "@/features/tournaments/lib/results";
@@ -406,5 +406,28 @@ describe("readResult / withChange / pickerOptions (D657, D658)", () => {
     expect(opts[0]).toEqual({ id: "g02", label: "Team 2 · A2", usedIn: null });
     expect(opts.find((o) => o.id === "g05")?.usedIn).toBe("Silver · Semi 2");
     expect(opts).toHaveLength(12);
+  });
+});
+
+describe("tournamentOverall (D662)", () => {
+  it("adds every sport's places for the groups that play, in the given group order", () => {
+    let sr = twelve();
+    const s1 = matchOf(sr, "Gold · Semi 1");
+    const s2 = matchOf(sr, "Gold · Semi 2");
+    const fin = matchOf(sr, "Gold · Final");
+    sr = score(pick(sr, s1.id, ["g01", "g07"]), s1.id, 4, 2);
+    sr = score(pick(sr, s2.id, ["g04", "g10"]), s2.id, 0, 3);
+    sr = score(sr, fin.id, 2, 1);
+    const groups = [{ id: "sean", name: "Sean" }, ...ids(12).map((id) => ({ id, name: names.get(id)! }))];
+    const rows = tournamentOverall([sr], groups, [40, 35, 30]);
+    expect(rows).toHaveLength(12);
+    expect(rows.slice(0, 2).map((r) => [r.groupId, r.total, r.rank])).toEqual([["g01", 40, 1], ["g10", 35, 2]]);
+    expect(rows[2]).toMatchObject({ groupId: "g02", total: 0, rank: 3, tied: true, bySport: [null] });
+  });
+  it("shows a forfeit as 0 F before it has a place", () => {
+    const sr = twelve();
+    const forfeited = { ...sr, pools: sr.pools.map((p) => (p.group_id === "g03" ? { ...p, forfeit: true } : p)) };
+    const rows = tournamentOverall([forfeited], ids(12).map((id) => ({ id, name: names.get(id)! })), [40]);
+    expect(rows.find((r) => r.groupId === "g03")?.bySport).toEqual(["F"]);
   });
 });
