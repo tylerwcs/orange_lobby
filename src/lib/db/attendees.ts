@@ -140,7 +140,7 @@ export async function createAttendees(event: Pick<Event, "id" | "org_id">, input
   return inserted;
 }
 
-export async function updateAttendee(id: string, patch: Partial<AttendeeInput> & { cancelled_at?: string | null }): Promise<void> {
+export async function updateAttendee(id: string, patch: Partial<AttendeeInput> & { cancelled_at?: string | null; cancel_reason?: null }): Promise<void> {
   const { error } = await serviceClient().from("attendees")
     .update({ ...patch, email: patch.email === undefined ? undefined : patch.email?.toLowerCase() ?? null, updated_at: new Date().toISOString() })
     .eq("id", id);

@@ -5,14 +5,15 @@ import { loadPortalAttendee } from "@/lib/portal";
 import { hasAnyCheckin } from "@/lib/db/checkins";
 import { allow } from "@/lib/ratelimit";
 import { flashPath } from "@/lib/flash";
-import { canSelfCancel } from "../lib/rules";
+import { canSelfCancel, parseCancelReason } from "../lib/rules";
 import { requestCancel, withdrawCancelRequest } from "../db";
 
 /**
  * D593/D586: the attendee asks to cancel. The token is the authority; every rule is re-checked here.
- * Nothing is cancelled until an organiser approves (D594) - this only records the request.
+ * Nothing is cancelled until an organiser approves (D594) - this only records the request, with
+ * the reason typed in the dialog (D613).
  */
-export async function requestCancelAction(slug: string, token: string) {
+export async function requestCancelAction(slug: string, token: string, rawReason: string) {
   const base = `/e/${slug}/a/${token}`;
   // Loaded before the rate limit so every redirect below can pick the right landing page. This is the
   // same per-request memo every portal page already pays for, so the limit guards nothing it did not.
@@ -22,7 +23,9 @@ export async function requestCancelAction(slug: string, token: string) {
   if (!allow(`cancel:${token}`, 5, 60_000)) redirect(flashPath(landing, "Too many attempts. Try again in a minute.", "error"));
   const verdict = canSelfCancel(event, attendee, await hasAnyCheckin(attendee.id), new Date());
   if (!verdict.ok) redirect(flashPath(landing, verdict.reason, "error"));
-  await requestCancel(event.id, attendee.id);
+  const parsed = parseCancelReason(rawReason);
+  if ("error" in parsed) redirect(flashPath(landing, parsed.error, "error"));
+  await requestCancel(event.id, attendee.id, parsed.reason);
   revalidatePath(base, "layout");
   redirect(flashPath(landing, "Request sent. The organiser will confirm."));
 }

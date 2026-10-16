@@ -22,6 +22,17 @@ export function cancelledLabel(iso: string): string {
   return `Cancelled · ${klDay(iso)}`;
 }
 
+/** D616: matches the `cancel_reason` check in 0088, which counts characters (code points). */
+export const CANCEL_REASON_MAX = 500;
+
+/** D613: the reason typed in the dialog, trimmed. Empty or too long is refused with the message to show. */
+export function parseCancelReason(raw: unknown): { reason: string } | { error: string } {
+  const reason = typeof raw === "string" ? raw.trim() : "";
+  if (!reason) return { error: "Tell the organiser why you're cancelling." };
+  if ([...reason].length > CANCEL_REASON_MAX) return { error: `Keep the reason to ${CANCEL_REASON_MAX} characters or fewer.` };
+  return { reason };
+}
+
 /** D584: may this attendee cancel now? The reason is shown to them as-is. */
 export function canSelfCancel(
   ev: Pick<Event, "status" | "self_cancel" | "self_cancel_closes_at">,

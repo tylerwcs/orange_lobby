@@ -6,20 +6,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import { CANCEL_REASON_MAX } from "../lib/rules";
 
 /**
  * D585/D593: Cancel my registration - which now asks the organiser, who approves (D594). "me" is the card at the bottom of the Me page; "draft" is the small
- * link under Coming soon. Both confirm first; the action re-checks every rule (D586).
+ * link under Coming soon. Both confirm first, and the dialog asks why (D613); the action re-checks every rule (D586)
+ * and the reason.
  */
 export function CancelSection({ eventName, until, action, variant }: {
   eventName: string;
   /** The cut-off as "21 Oct, 18:00", or null for none. */
   until: string | null;
-  action: () => Promise<void>;
+  action: (reason: string) => Promise<void>;
   variant: "me" | "draft";
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
   const open = () => setConfirming(true);
 
@@ -30,10 +35,15 @@ export function CancelSection({ eventName, until, action, variant }: {
           <AlertDialogTitle>Ask to cancel your registration for {eventName}?</AlertDialogTitle>
           <AlertDialogDescription>Your request goes to the organiser. You stay registered until they approve it.</AlertDialogDescription>
         </AlertDialogHeader>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="cancel-reason">Reason</Label>
+          <Textarea id="cancel-reason" value={reason} onChange={(e) => setReason(e.target.value)} required maxLength={CANCEL_REASON_MAX} rows={3}
+            placeholder="Let the organiser know why you can't make it." />
+        </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep my place</AlertDialogCancel>
-          <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90"
-            onClick={() => { setConfirming(false); startTransition(() => action()); }}>
+          <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={!reason.trim()}
+            onClick={() => { setConfirming(false); startTransition(() => action(reason)); }}>
             Yes, ask to cancel
           </AlertDialogAction>
         </AlertDialogFooter>

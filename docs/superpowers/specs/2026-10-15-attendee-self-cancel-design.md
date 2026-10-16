@@ -42,6 +42,25 @@ alert (D589 still holds).
 `attendees.cancel_declined_at timestamptz`, plus a partial index on `(event_id)` where a request
 is waiting and the row is not cancelled.
 
+## Amendment: reason (D613–D616), 16 Oct 2026
+
+Replaces the "A reason field on cancel" line under Out of scope.
+
+**D613 — A reason is required to ask.** The D593 dialog gains one open text box, label `Reason`,
+placeholder `Let the organiser know why you can't make it.` `Yes, ask to cancel` stays disabled
+until something is typed. The action trims it and refuses an empty one (`Tell the organiser why
+you're cancelling.`) or one over 500 characters (`Keep the reason to 500 characters or fewer.`).
+
+**D614 — It belongs to the request.** Stored in `attendees.cancel_reason` when they ask. Withdraw,
+decline, a check-in (D597), Restore (D588) and registering again (D587) clear it; approving keeps
+it, so a cancelled row still says why.
+
+**D615 — Organisers see it.** A `Reason` column on the requests view (D598), a `Reason` line under
+the cancelled badge on the attendee page, and a `Cancel reason` column after `Cancelled at` in the
+Attendance export. Requests made before this change show `—`.
+
+**D616 — Data.** Migration 0088 adds `attendees.cancel_reason text`, 1–500 characters when set.
+
 ## Goal
 
 A registered attendee can cancel their own registration from their personal link, on events

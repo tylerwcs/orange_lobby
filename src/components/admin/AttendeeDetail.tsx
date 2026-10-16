@@ -80,6 +80,10 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
               : <Badge variant="warning">Not checked in</Badge>}
             {fieldValue(a, "table_no") && <Badge variant="secondary">Table {fieldValue(a, "table_no")}</Badge>}
           </div>
+          {/* D615: why they cancelled, kept from the approved request. */}
+          {a.cancelled_at && a.cancel_reason && (
+            <p className="whitespace-pre-line text-sm"><span className="font-semibold">Reason:</span> {a.cancel_reason}</p>
+          )}
           <a href={link} className="block break-all font-mono text-xs leading-relaxed text-primary">{link}</a>
           <div className="flex flex-wrap gap-2">
             <CopyLink link={link} />

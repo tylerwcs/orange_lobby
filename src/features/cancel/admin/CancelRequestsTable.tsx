@@ -5,7 +5,7 @@ import { klDayTime } from "../lib/rules";
 import { approveCancelRequestAction, declineCancelRequestAction } from "./actions";
 
 /**
- * D598: the cancellation requests waiting on an organiser, oldest first. Approve and Decline
+ * D598: the cancellation requests waiting on an organiser, oldest first, with the reason they gave (D615). Approve and Decline
  * are plain server forms, so they work before the page has hydrated. Admins and committee alike.
  * An archived event is read-only: the rows show, the buttons do not.
  */
@@ -18,6 +18,7 @@ export function CancelRequestsTable({ eventId, rows, archived = false }: { event
           <TableRow className="hover:bg-transparent">
             <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
+            <TableHead>Reason</TableHead>
             <TableHead>Asked on</TableHead>
             <TableHead><span className="sr-only">Actions</span></TableHead>
           </TableRow>
@@ -27,6 +28,8 @@ export function CancelRequestsTable({ eventId, rows, archived = false }: { event
             <TableRow key={a.id}>
               <TableCell className="font-semibold">{a.name}</TableCell>
               <TableCell className="text-muted-foreground">{a.email}</TableCell>
+              {/* Wraps: a reason can run to a paragraph. Requests from before D613 have none. */}
+              <TableCell className="min-w-56 max-w-md whitespace-pre-line">{a.cancel_reason || <span className="text-muted-foreground">—</span>}</TableCell>
               <TableCell className="text-muted-foreground">{a.cancel_requested_at ? klDayTime(a.cancel_requested_at) : ""}</TableCell>
               <TableCell>
                 {!archived && (

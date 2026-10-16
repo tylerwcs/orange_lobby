@@ -15,7 +15,7 @@ const ID_CHUNK = 100;
 async function clearCancelRequests(eventId: string, attendeeIds: string[]): Promise<void> {
   try {
     for (let i = 0; i < attendeeIds.length; i += ID_CHUNK) {
-      const { error } = await serviceClient().from("attendees").update({ cancel_requested_at: null })
+      const { error } = await serviceClient().from("attendees").update({ cancel_requested_at: null, cancel_reason: null })
         .eq("event_id", eventId).in("id", attendeeIds.slice(i, i + ID_CHUNK)).not("cancel_requested_at", "is", null);
       if (error) throw error;
     }

@@ -37,19 +37,19 @@ export async function cancelAttendee(eventId: string, attendeeId: string, opts: 
   return didMark;
 }
 
-/** D588: Restore clears the mark. Bookings given up are not restored. */
+/** D588: Restore clears the mark (and D614's reason). Bookings given up are not restored. */
 export async function restoreAttendee(eventId: string, attendeeId: string): Promise<boolean> {
-  const { data, error } = await serviceClient().from("attendees").update({ cancelled_at: null, updated_at: new Date().toISOString() })
+  const { data, error } = await serviceClient().from("attendees").update({ cancelled_at: null, cancel_reason: null, updated_at: new Date().toISOString() })
     .eq("id", attendeeId).eq("event_id", eventId).not("cancelled_at", "is", null).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
 }
 
-/** D593: ask to cancel. Only for a registered row with no waiting request; clears an old decline. */
-export async function requestCancel(eventId: string, attendeeId: string): Promise<boolean> {
+/** D593/D614: ask to cancel, with the reason. Only for a registered row with no waiting request; clears an old decline. */
+export async function requestCancel(eventId: string, attendeeId: string, reason: string): Promise<boolean> {
   const now = new Date().toISOString();
   const { data, error } = await serviceClient().from("attendees")
-    .update({ cancel_requested_at: now, cancel_declined_at: null, updated_at: now })
+    .update({ cancel_requested_at: now, cancel_reason: reason, cancel_declined_at: null, updated_at: now })
     .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).is("cancel_requested_at", null).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
@@ -58,7 +58,7 @@ export async function requestCancel(eventId: string, attendeeId: string): Promis
 /** D595: the attendee takes it back. */
 export async function withdrawCancelRequest(eventId: string, attendeeId: string): Promise<boolean> {
   const { data, error } = await serviceClient().from("attendees")
-    .update({ cancel_requested_at: null, updated_at: new Date().toISOString() })
+    .update({ cancel_requested_at: null, cancel_reason: null, updated_at: new Date().toISOString() })
     .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).not("cancel_requested_at", "is", null).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
@@ -68,7 +68,7 @@ export async function withdrawCancelRequest(eventId: string, attendeeId: string)
 export async function declineCancelRequest(eventId: string, attendeeId: string): Promise<boolean> {
   const now = new Date().toISOString();
   const { data, error } = await serviceClient().from("attendees")
-    .update({ cancel_requested_at: null, cancel_declined_at: now, updated_at: now })
+    .update({ cancel_requested_at: null, cancel_reason: null, cancel_declined_at: now, updated_at: now })
     .eq("id", attendeeId).eq("event_id", eventId).is("cancelled_at", null).not("cancel_requested_at", "is", null).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;

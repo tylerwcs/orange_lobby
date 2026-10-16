@@ -151,6 +151,8 @@ export type Attendee = {
   cancel_requested_at?: string | null;
   /** D596: when an organiser last declined their request; shown until they ask again. */
   cancel_declined_at?: string | null;
+  /** D614: why they asked; kept once approved, cleared when the request ends any other way. */
+  cancel_reason?: string | null;
 };
 
 /** A day of the programme, made before anything is put on it (D193). */

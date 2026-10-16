@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canSelfCancel, registrationOpenNow, klDayTime, klDay, cancelledLabel } from "@/features/cancel/lib/rules";
+import { canSelfCancel, registrationOpenNow, klDayTime, klDay, cancelledLabel, parseCancelReason, CANCEL_REASON_MAX } from "@/features/cancel/lib/rules";
 
 const now = new Date("2026-10-15T04:00:00Z"); // 12:00 in KL
 const ev = { status: "live" as const, self_cancel: true, self_cancel_closes_at: null as string | null };
@@ -42,5 +42,18 @@ describe("dates on the Malaysian calendar", () => {
     expect(klDayTime("2026-10-21T10:00:00Z")).toBe("21 Oct, 18:00");
     expect(klDay("2026-10-20T17:00:00Z")).toBe("21 Oct");
     expect(cancelledLabel("2026-10-20T17:00:00Z")).toBe("Cancelled · 21 Oct");
+  });
+});
+
+describe("parseCancelReason (D613)", () => {
+  it("trims and keeps the text", () => {
+    expect(parseCancelReason("  Clash with a client visit \n")).toEqual({ reason: "Clash with a client visit" });
+  });
+  it("refuses empty, blank or missing", () => {
+    for (const raw of ["", "   \n ", null, undefined, 42]) expect(parseCancelReason(raw)).toEqual({ error: "Tell the organiser why you're cancelling." });
+  });
+  it("allows the limit, refuses one over, counting characters not bytes", () => {
+    expect(parseCancelReason("é".repeat(CANCEL_REASON_MAX))).toEqual({ reason: "é".repeat(CANCEL_REASON_MAX) });
+    expect(parseCancelReason("x".repeat(CANCEL_REASON_MAX + 1))).toEqual({ error: "Keep the reason to 500 characters or fewer." });
   });
 });
