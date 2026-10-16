@@ -178,7 +178,8 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
       {termsHtml && (
         // min-w-0: a fieldset is otherwise as wide as its widest unbreakable word.
         <FieldSet className="min-w-0">
-          <FieldLegend>Event terms</FieldLegend>
+          {/* Bold like the consent screen's heading (ConsentGate): it is a clause they are signing up to. */}
+          <FieldLegend className="font-extrabold">Event terms</FieldLegend>
           <EventTermsPanel html={termsHtml} />
           <Field orientation="horizontal" data-invalid={!!errors[TERMS_FIELD]}>
             <input id={`reg-${TERMS_FIELD}`} name={TERMS_FIELD} type="checkbox" value="yes" required
