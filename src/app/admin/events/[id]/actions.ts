@@ -40,6 +40,7 @@ import { canSetStatus } from "@/lib/access-rules";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
+import { parseDisplayName } from "@/lib/event-name";
 import { themeFromForm } from "@/features/theme";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { meGroups, meHiddenFromForm } from "@/lib/me-page";
@@ -94,6 +95,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   }
   await updateEvent(eventId, {
     name: str(formData, "name") ?? undefined,
+    display_name: parseDisplayName(str(formData, "display_name"), str(formData, "name") ?? ev.name), // D633
     starts_on: str(formData, "starts_on"),
     ends_on: str(formData, "ends_on"),
     venue_name: str(formData, "venue_name"),
@@ -109,6 +111,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_terms: cleanRichText(str(formData, "registration_terms")),
     registration_done_title: str(formData, "registration_done_title"),
     registration_done_message: str(formData, "registration_done_message"),
+    registration_show_qr: formData.get("registration_show_qr") === "on", // D634
     coming_soon_message: str(formData, "coming_soon_message"), // D617
     registration_banner_url: regBanner.url, // D618
     theme: themeFromForm(formData), // D622

@@ -8,6 +8,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
 import { comingSoonMessage } from "@/lib/coming-soon";
+import { shownName } from "@/lib/event-name";
 import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
 import type { ActivityNav } from "@/features/activities/client";
 import { Mark, PortalHeader } from "./PortalHeader";
@@ -73,7 +74,7 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
  */
 export type ChromeEvent = Pick<
   Event,
-  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "coming_soon_message"
+  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "coming_soon_message" | "display_name"
 >;
 
 export function PortalChrome({ event, basePath, personal, activities, hasInfo, draftExtra, children }: {
@@ -105,7 +106,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
         {event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         <div className="w-full rounded-xl border border-border bg-card p-6 text-center">
           <div className="mx-auto mb-4 w-fit"><Mark event={event} /></div>
-          <h1 className={`text-xl font-extrabold ${TITLE_INK}`}>{event.name}</h1>
+          <h1 className={`text-xl font-extrabold whitespace-pre-line ${TITLE_INK}`}>{shownName(event)}</h1>
           {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
           {/* D617: the organiser's words, or the default. Line breaks are kept. */}
           <p className="mt-4 whitespace-pre-line text-sm text-muted-foreground">{comingSoonMessage(event)}</p>

@@ -1,15 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { doneCopy, fillName, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
+import { doneCopy, fillName, showsDoneQr, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
 
-const base = { registration_done_title: null, registration_done_message: null, check_in_enabled: true };
+const base = { registration_done_title: null, registration_done_message: null, check_in_enabled: true, registration_show_qr: true };
 
 describe("doneCopy", () => {
   it("keeps the old wording when nothing is written", () => {
     expect(doneCopy(base, "Mei Ling Tan")).toEqual({ title: "You're in, Mei", message: DEFAULT_DONE_MESSAGE_DOOR });
   });
 
-  it("follows check-in for the default message only", () => {
+  it("follows the QR for the default message only", () => {
     expect(doneCopy({ ...base, check_in_enabled: false }, "Ali").message).toBe(DEFAULT_DONE_MESSAGE_NO_DOOR);
+    // D634: check-in on but the QR switched off - nothing to "show at the door" on this page.
+    expect(doneCopy({ ...base, registration_show_qr: false }, "Ali").message).toBe(DEFAULT_DONE_MESSAGE_NO_DOOR);
     expect(doneCopy({ ...base, check_in_enabled: false, registration_done_message: "See you there" }, "Ali").message).toBe("See you there");
   });
 
@@ -20,6 +22,15 @@ describe("doneCopy", () => {
 
   it("treats a blank field as unset", () => {
     expect(doneCopy({ ...base, registration_done_title: "   " }, "Ali").title).toBe("You're in, Ali");
+  });
+});
+
+describe("showsDoneQr (D634)", () => {
+  it("needs both check-in and the switch; off when the switch is unset", () => {
+    expect(showsDoneQr(base)).toBe(true);
+    expect(showsDoneQr({ ...base, registration_show_qr: false })).toBe(false);
+    expect(showsDoneQr({ check_in_enabled: true })).toBe(false);
+    expect(showsDoneQr({ ...base, check_in_enabled: false })).toBe(false);
   });
 });
 

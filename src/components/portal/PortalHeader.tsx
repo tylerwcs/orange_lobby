@@ -2,8 +2,9 @@ import { HomeLink } from "./HomeLink";
 import type { Event } from "@/lib/types";
 import { initials, formatDateRange } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
+import { shownName } from "@/lib/event-name";
 
-type HeaderEvent = Pick<Event, "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name">;
+type HeaderEvent = Pick<Event, "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "display_name">;
 
 export function Mark({ event }: { event: HeaderEvent }) {
   if (event.logo_url) return (
@@ -32,7 +33,7 @@ export function PortalHeader({ event, href, action, className = "" }: {
       <Mark event={event} />
       <div className="min-w-0 flex-1">
         {/* The usual ink unless the event's theme sets --heading (D625). */}
-        <div className={`line-clamp-2 text-base font-extrabold leading-tight ${TITLE_INK}`}>{event.name}</div>
+        <div className={`line-clamp-2 text-base font-extrabold leading-tight whitespace-pre-line ${TITLE_INK}`}>{shownName(event)}</div>
         {meta && <div className="truncate text-xs font-medium text-muted-foreground">{meta}</div>}
       </div>
     </>
