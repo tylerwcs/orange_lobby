@@ -8,6 +8,7 @@ import { hydratePins } from "@/lib/pinned-fields";
 import { parseMeHidden } from "@/lib/me-page";
 import { answerQuestions, registrationForm } from "@/lib/registration-standard";
 import { generateToken } from "@/lib/tokens";
+import { parseTheme } from "@/features/theme/client";
 
 export { slugify } from "@/lib/slug";
 
@@ -32,6 +33,8 @@ function hydrate(row: unknown): Event {
     // Absent on a database that predates 0077 (D497); no templates leaves only "Other".
     revoke_reasons: Array.isArray(raw.revoke_reasons) ? raw.revoke_reasons.filter((r): r is string => typeof r === "string") : [],
     me_hidden: parseMeHidden(raw.me_hidden),
+    // D622: absent on a database that predates 0091; none set is the portal as it always looked.
+    theme: parseTheme((row as { theme?: unknown }).theme),
     attendee_fields: parseAttendeeFields(raw.attendee_fields),
     pinned_fields: hydratePins(raw),
   };

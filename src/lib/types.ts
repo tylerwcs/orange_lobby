@@ -1,6 +1,7 @@
 import type { EventModule } from "@/lib/modules";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import type { PinnedField } from "@/lib/pinned-fields";
+import type { EventTheme } from "@/features/theme/client";
 
 export type EventStatus = "draft" | "live" | "archived";
 
@@ -73,6 +74,8 @@ export type Event = {
   registration_heading_color?: string | null;
   /** D620: the registration page's background (#RRGGBB); null/absent = the usual ground. */
   registration_background_color?: string | null;
+  /** D622: the event's colour theme; always present after hydrate, optional so old fixtures compile. */
+  theme?: EventTheme;
   /** D617: what a draft event's links say; null/absent for DEFAULT_COMING_SOON. Optional so old fixtures compile. */
   coming_soon_message?: string | null;
   /** D536: Me page items the organiser hid (`meGroups` keys). Optional so old fixtures compile; hydrate always fills it. */

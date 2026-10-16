@@ -40,7 +40,7 @@ import { canSetStatus } from "@/lib/access-rules";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
-import { DEFAULT_HEADING_COLOR, DEFAULT_PAGE_BACKGROUND, parseColor } from "@/lib/brand";
+import { themeFromForm } from "@/features/theme";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { meGroups, meHiddenFromForm } from "@/lib/me-page";
 import { exportFieldsFromForm } from "@/lib/export-columns";
@@ -111,8 +111,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_done_message: str(formData, "registration_done_message"),
     coming_soon_message: str(formData, "coming_soon_message"), // D617
     registration_banner_url: regBanner.url, // D618
-    registration_heading_color: parseColor(str(formData, "registration_heading_color"), DEFAULT_HEADING_COLOR), // D619
-    registration_background_color: parseColor(str(formData, "registration_background_color"), DEFAULT_PAGE_BACKGROUND), // D620
+    theme: themeFromForm(formData), // D622
     registration_questions: questions,
   });
   await deleteEventImage(logo.stale);
