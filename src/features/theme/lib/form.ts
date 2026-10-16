@@ -1,7 +1,7 @@
 import { DEFAULT_BACKGROUND, parseTheme, type EventTheme } from "./theme";
 
 /** The Settings → Look form's field names (D622, D623, D632). An empty value means "not set / worked out". */
-const OVERRIDE_FIELDS = { card: "theme_card", text: "theme_text", muted_text: "theme_muted_text", border: "theme_border", heading: "theme_heading" } as const;
+export const OVERRIDE_FIELDS = { card: "theme_card", text: "theme_text", muted_text: "theme_muted_text", border: "theme_border", heading: "theme_heading" } as const;
 
 type FormLike = { get(name: string): FormDataEntryValue | null };
 

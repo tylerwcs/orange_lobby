@@ -13,3 +13,4 @@ export * from "./sections/agenda-apply";
 export * from "./sections/changes";
 export { HomePreview, type PreviewBasics, type PreviewSlot } from "./preview/HomePreview";
 export { AgendaPreview, type AgendaSlot } from "./preview/AgendaPreview";
+export { PhoneFrame } from "./preview/PhoneFrame";

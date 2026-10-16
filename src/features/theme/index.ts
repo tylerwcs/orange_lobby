@@ -2,3 +2,4 @@
 export * from "./client";
 export * from "./lib/form";
 export { ThemeStyle } from "./ThemeStyle";
+export { ThemeCard } from "./admin/ThemeCard";

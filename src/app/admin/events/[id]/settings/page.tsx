@@ -8,6 +8,7 @@ import { loadDoors, listActivities, VerificationTab } from "@/features/activitie
 import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
 import { CommitteeTab } from "@/features/committee";
+import { EMPTY_THEME, ThemeCard } from "@/features/theme";
 import { activityKindsFor, eventFeatures, FeaturesTab, hiddenSettingsTabs } from "@/features/catalogue";
 import { appBaseUrl, crewLink, shareLink, type ShareLinkKind } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
@@ -306,7 +307,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.coming_soon_message, ev.registration_banner_url, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.coming_soon_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -317,7 +318,6 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               <div><Field label="Starts on" name="starts_on" type="date" defaultValue={ev.starts_on} /></div>
               <div><Field label="Ends on" name="ends_on" type="date" defaultValue={ev.ends_on} /></div>
             </div>
-            <Field label="Primary colour" name="primary_color" type="color" defaultValue={ev.primary_color} />
             {/* D617: saved with Save settings, unlike the Status card it describes. */}
             <div className="@xl:col-span-2">
               <Field label="Coming soon message" name="coming_soon_message" textarea defaultValue={ev.coming_soon_message ?? ""} placeholder={DEFAULT_COMING_SOON}
@@ -329,6 +329,10 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <ImageField label="Logo" name="logo" url={ev.logo_url} />
             <ImageField label="Banner" name="banner" url={ev.banner_url} />
           </Section>
+
+          {/* D631: the event's colours, Primary among them; posts all seven theme fields on every save. */}
+          <ThemeCard className="@4xl:col-span-2" theme={ev.theme ?? EMPTY_THEME} primaryColor={ev.primary_color}
+            event={{ name: ev.name, logo_url: ev.logo_url, banner_url: ev.banner_url, starts_on: ev.starts_on, ends_on: ev.ends_on, venue_name: ev.venue_name }} />
 
           {/* Status, the share links and the badge pins used to be tabs of their own. They
               live inside the settings form now, so none of them may be a form: status and
