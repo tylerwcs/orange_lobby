@@ -13,15 +13,17 @@ type Member = { id: string; name: string };
  * Under Members join themselves, anyone else gets Join / Leave. From the deadline on, it is
  * read-only for everyone.
  */
-export function SquadsPage({ activity, groupId, groupName, sports, rows, members, selfId, picker, locked, deadline, captainName, slug, token }: {
+export function SquadsPage({ activity, groupId, groupName, sports, rows, members, names, selfId, picker, locked, deadline, captainName, slug, token }: {
   activity: Activity;
   groupId: string;
   groupName: string;
   sports: TournamentSport[];
   /** Counted rows (D643). */
   rows: SquadRow[];
-  /** The group's members this tournament is for, in the group's order. */
+  /** The group's members this tournament is for, in the group's order: who can be picked. */
   members: Member[];
+  /** Every group member's name, so a player the categories now leave out is still named. */
+  names: Map<string, string>;
   selfId: string;
   picker: boolean;
   locked: boolean;
@@ -32,7 +34,7 @@ export function SquadsPage({ activity, groupId, groupName, sports, rows, members
   token: string;
 }) {
   const selfMode = activity.squad_fill === "self";
-  const name = new Map(members.map((m) => [m.id, m.name]));
+  const name = names;
   const squad = (sportId: string) => squadMembers(rows, sportId, groupId);
   const mine = sports.filter((s) => squad(s.id).includes(selfId));
   const lockWords = deadline ? ` They lock ${deadline}.` : "";

@@ -1,3 +1,5 @@
+import { categoryMatches } from "@/lib/agenda";
+
 /**
  * Squad rules and words (D642-D649). Pure, so the captain's page, the member's view, the admin
  * Squads tab and the export all count the same people and say the same thing about them.
@@ -80,6 +82,30 @@ export function namesLine(names: string[], max = 10): string {
 /** How many of these groups are below the sport's minimum, from counted rows. */
 export function shortCount(sport: TournamentSport, groupIds: string[], rows: SquadRow[]): number {
   return groupIds.filter((g) => squadMembers(rows, sport.id, g).length < sport.min_size).length;
+}
+
+/** How many of these groups are above the sport's maximum: not ready either, and the list says so. */
+export function overCount(sport: TournamentSport, groupIds: string[], rows: SquadRow[]): number {
+  return groupIds.filter((g) => squadMembers(rows, sport.id, g).length > sport.max_size).length;
+}
+
+/**
+ * The portal page's people: every group member's name, so a player outside the tournament's
+ * categories (it changed after they were picked) is still named, and the members it offers.
+ */
+export function portalSquadPeople<T extends { id: string; name: string; category: string | null }>(
+  everyone: T[],
+  categories: string[] | null,
+): { names: Map<string, string>; members: { id: string; name: string }[] } {
+  return {
+    names: new Map(everyone.map((m) => [m.id, m.name])),
+    members: everyone.filter((m) => categoryMatches(categories, m.category)).map((m) => ({ id: m.id, name: m.name })),
+  };
+}
+
+/** A name for a flash, only for this event's own attendee; anyone else is "They". */
+export function nameInEvent(attendee: { name: string; event_id: string } | null, eventId: string): string {
+  return attendee && attendee.event_id === eventId ? attendee.name : "They";
 }
 
 /** D642: each refusal as the flash to show. */

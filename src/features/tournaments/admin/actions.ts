@@ -8,7 +8,7 @@ import { requireFeature } from "@/features/catalogue";
 import type { Activity, Event } from "@/lib/types";
 import { addSquadMember, createSport, deleteSport, getTournamentActivity, listSports, moveSport, removeSquadMember, updateSport } from "../db/tournaments";
 import { readSport } from "../lib/sports";
-import { refusalFlash, type TournamentSport } from "../lib/squads";
+import { nameInEvent, refusalFlash, type TournamentSport } from "../lib/squads";
 
 /**
  * The organiser's sport and squad writes (D638, D648). Every one is guarded like the activities'
@@ -85,8 +85,9 @@ async function sportOf(cup: Activity, eventId: string, sportId: string): Promise
   return sport;
 }
 
+/** Only this event's attendee is named: a posted id from another event gets "They" (review #3). */
 async function nameOf(eventId: string, attendeeId: string): Promise<string> {
-  return (await getAttendee(attendeeId))?.name ?? "They";
+  return nameInEvent(await getAttendee(attendeeId), eventId);
 }
 
 /** D648: an organiser may add after the deadline and over max; only the group and category still apply. */

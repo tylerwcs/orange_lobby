@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  alsoIn, countedRows, isLocked, namesLine, notInAnySport, refusalFlash, shortCount, sizeLabel, squadExportRows, squadMembers, squadState,
+  alsoIn, countedRows, isLocked, nameInEvent, namesLine, notInAnySport, overCount, portalSquadPeople, refusalFlash, shortCount, sizeLabel, squadExportRows, squadMembers, squadState,
   type SquadPerson, type SquadRow, type TournamentSport,
 } from "@/features/tournaments/lib/squads";
 
@@ -123,5 +123,35 @@ describe("squadExportRows (D649)", () => {
   it("says Forfeit once squads are locked", () => {
     const out = squadExportRows({ sports, groups, rows, people: ps, locked: true });
     expect(out.filter((r) => r.attendeeId === null).map((r) => r.state)).toEqual(["Forfeit", "Forfeit"]);
+  });
+});
+
+describe("overCount (review #1)", () => {
+  it("counts the groups above the sport's maximum", () => {
+    const rows = [R("s1", "g1", "a"), R("s1", "g1", "b"), R("s1", "g1", "c"), R("s1", "g2", "d")];
+    expect(overCount(S("s1", "Badminton", 0), ["g1", "g2"], rows)).toBe(1);
+  });
+});
+
+describe("portalSquadPeople (review #2)", () => {
+  const everyone = [
+    { id: "a", name: "Aina", category: "Staff" },
+    { id: "b", name: "Ben", category: "Guest" },
+  ];
+  it("names everyone in the group, but offers only those the tournament is for", () => {
+    const r = portalSquadPeople(everyone, ["Staff"]);
+    expect(r.members).toEqual([{ id: "a", name: "Aina" }]);
+    expect(r.names.get("b")).toBe("Ben");
+  });
+  it("offers everyone when the tournament has no categories", () => {
+    expect(portalSquadPeople(everyone, null).members.map((m) => m.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("nameInEvent (review #3)", () => {
+  it("gives a name only for this event's attendee", () => {
+    expect(nameInEvent({ name: "Aina", event_id: "e1" }, "e1")).toBe("Aina");
+    expect(nameInEvent({ name: "Aina", event_id: "e2" }, "e1")).toBe("They");
+    expect(nameInEvent(null, "e1")).toBe("They");
   });
 });

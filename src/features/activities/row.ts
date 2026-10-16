@@ -89,15 +89,21 @@ export function polaroidRow(input: { live: number; walkIn: boolean }): ActivityR
   };
 }
 
-/** D648: a squad per sport per group; ready is every one not short. Short (or forfeit, once locked) needs you. */
-export function tournamentRow(input: { sports: number; groups: number; short: number; locked: boolean }): ActivityRowView {
-  const { sports, groups, short, locked } = input;
+/**
+ * D648: a squad per sport per group; ready is every one within its size. Short (forfeit, once
+ * locked) needs you first; an over-size squad after that.
+ */
+export function tournamentRow(input: { sports: number; groups: number; short: number; over: number; locked: boolean }): ActivityRowView {
+  const { sports, groups, short, over, locked } = input;
   const total = sports * groups;
+  const ready = total - short - over;
   return {
     kind: KIND_META.tournament.label,
     detail: sports ? `${plural(sports, "sport")} · ${plural(groups, "group")}` : null,
-    progress: { done: total - short, total, label: `${total - short} of ${total} squads ready` },
-    attention: sports === 0 ? "No sports yet" : short > 0 ? `${plural(short, "squad")} ${locked ? "forfeit" : "short"}` : null,
+    progress: { done: ready, total, label: `${ready} of ${total} squads ready` },
+    attention: sports === 0 ? "No sports yet"
+      : short > 0 ? `${plural(short, "squad")} ${locked ? "forfeit" : "short"}`
+      : over > 0 ? `${plural(over, "squad")} over` : null,
   };
 }
 

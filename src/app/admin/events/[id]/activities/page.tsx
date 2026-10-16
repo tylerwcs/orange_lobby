@@ -1,7 +1,7 @@
 import { eventFields } from "@/lib/attendee-fields";
 import { requireEventAccess } from "@/lib/access";
 import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, addPolaroidActivityAction, deletePolaroidActivityAction, addTournamentActivityAction, deleteTournamentActivityAction, tournamentRow, TournamentSetupFields, uploadActivityImageAction } from "@/features/activities";
-import { countedRows, isLocked, listSportsForActivities, shortCount, squadPeople, squadRows } from "@/features/tournaments";
+import { countedRows, isLocked, listSportsForActivities, overCount, shortCount, squadPeople, squadRows } from "@/features/tournaments";
 import { countLiveByActivity, readPolaroidSettings } from "@/features/polaroid";
 import { activityKindsFor, eventFeatures, NotInEvent } from "@/features/catalogue";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
@@ -66,7 +66,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
       groupDone: groupDoneFor(a, formSubs),
       polaroids: liveByWall[a.id] ?? 0,
       walkIn: a.kind === "polaroid" && readPolaroidSettings(a.polaroid).public,
-      tournament: tournaments.get(a.id) ?? { sports: 0, groups: groups.length, short: 0, players: 0, locked: false },
+      tournament: tournaments.get(a.id) ?? { sports: 0, groups: groups.length, short: 0, over: 0, players: 0, locked: false },
     });
   });
 
@@ -187,7 +187,7 @@ type RowFacts = {
   polaroids: number;
   walkIn: boolean;
   /** D648: a tournament's sports, its groups' short squads, its squad places, and whether squads have locked. */
-  tournament: { sports: number; groups: number; short: number; players: number; locked: boolean };
+  tournament: { sports: number; groups: number; short: number; over: number; players: number; locked: boolean };
 };
 
 /** D648: one line per tournament, from one read of each one's squads. An event has few. */
@@ -199,7 +199,8 @@ async function tournamentFacts(eventId: string, cups: Activity[], groupIds: stri
     const mine = sports.filter((s) => s.activity_id === a.id);
     const rows = countedRows(rowsByCup[i], people);
     const short = mine.reduce((n, s) => n + shortCount(s, groupIds, rows), 0);
-    return [a.id, { sports: mine.length, groups: groupIds.length, short, players: rows.length, locked: isLocked(a.squads_close_at, new Date()) }];
+    const over = mine.reduce((n, s) => n + overCount(s, groupIds, rows), 0);
+    return [a.id, { sports: mine.length, groups: groupIds.length, short, over, players: rows.length, locked: isLocked(a.squads_close_at, new Date()) }];
   }));
 }
 

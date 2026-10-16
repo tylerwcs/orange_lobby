@@ -132,15 +132,21 @@ describe("polaroidRow (D485)", () => {
 
 describe("tournamentRow (D648)", () => {
   it("counts ready squads across every sport and group, and flags the short ones", () => {
-    expect(tournamentRow({ sports: 5, groups: 12, short: 3, locked: false })).toEqual({
+    expect(tournamentRow({ sports: 5, groups: 12, short: 3, over: 0, locked: false })).toEqual({
       kind: "Tournament", detail: "5 sports · 12 groups", progress: { done: 57, total: 60, label: "57 of 60 squads ready" }, attention: "3 squads short",
     });
-    expect(tournamentRow({ sports: 5, groups: 12, short: 3, locked: true }).attention).toBe("3 squads forfeit");
-    expect(tournamentRow({ sports: 1, groups: 1, short: 1, locked: false }).attention).toBe("1 squad short");
-    expect(tournamentRow({ sports: 5, groups: 12, short: 0, locked: false }).attention).toBeNull();
+    expect(tournamentRow({ sports: 5, groups: 12, short: 3, over: 0, locked: true }).attention).toBe("3 squads forfeit");
+    expect(tournamentRow({ sports: 1, groups: 1, short: 1, over: 0, locked: false }).attention).toBe("1 squad short");
+    expect(tournamentRow({ sports: 5, groups: 12, short: 0, over: 0, locked: false }).attention).toBeNull();
+  });
+  it("does not count an over-size squad as ready (review #1)", () => {
+    expect(tournamentRow({ sports: 5, groups: 12, short: 0, over: 1, locked: false })).toMatchObject({
+      progress: { done: 59, total: 60, label: "59 of 60 squads ready" }, attention: "1 squad over",
+    });
+    expect(tournamentRow({ sports: 5, groups: 12, short: 2, over: 1, locked: false }).attention).toBe("2 squads short");
   });
   it("says when it has no sports yet", () => {
-    expect(tournamentRow({ sports: 0, groups: 12, short: 0, locked: false })).toMatchObject({ detail: null, attention: "No sports yet" });
+    expect(tournamentRow({ sports: 0, groups: 12, short: 0, over: 0, locked: false })).toMatchObject({ detail: null, attention: "No sports yet" });
   });
   it("warns that its sports and squad places go with it", () => {
     expect(removeWarning({ kind: "tournament", sports: 5, players: 40 })).toBe("Its 5 sports and 40 squad places go with it. This can't be undone.");
