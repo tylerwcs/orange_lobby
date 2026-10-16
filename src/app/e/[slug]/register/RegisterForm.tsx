@@ -37,12 +37,10 @@ function autoCompleteFor(q: RegistrationQuestion): string | undefined {
   return q.type === "phone" ? "tel" : undefined;
 }
 
-export function RegisterForm({ slug, questions, door = true, termsHtml = null }: {
+export function RegisterForm({ slug, questions, termsHtml = null }: {
   slug: string;
   /** The whole form in order, name and email included (`Event.registration_form`). */
   questions: RegistrationQuestion[];
-  /** Whether the event checks people in; without a door there is no QR on the next screen (D228). */
-  door?: boolean;
   /** D540: the event's own terms, already sanitised. Null: none, and no second tick. */
   termsHtml?: string | null;
 }) {
@@ -233,7 +231,6 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
           {pending && <Spinner data-icon="inline-start" />}
           {pending ? "Submitting…" : "Register"}
         </Button>
-        <FieldDescription className="text-center">{door ? "Your QR badge appears on the next screen." : "Your event page link appears on the next screen."}</FieldDescription>
       </Field>
     </form>
   );
