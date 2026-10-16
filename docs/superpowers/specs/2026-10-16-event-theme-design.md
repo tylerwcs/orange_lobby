@@ -127,6 +127,10 @@ lighter navy, white text, soft blue-grey secondary text, gold buttons and highli
 - **D630 — Light or dark is decided by the background.** Whichever of white or ink text reads
   better on the background decides whether the worked-out set is a light or dark one; the
   organiser does not pick "dark mode" separately.
+- **Reach of the primary colour (build note, final review 1).** The theme's rule is set on `:root`
+  so dialogs, sheets and toasts get it. That widens reach for untouched events too: their primary
+  colour now also shows inside dialogs, sheets and the toaster (portals used to escape the page
+  root's `brandStyle`). Token values are unchanged; only where they reach is wider.
 - **D631 — Settings placement.** A **Theme** card in Settings → Details (with Event, Branding and
   images), saved with **Save settings** like the other Details fields: Background and Primary at
   the top, then Cards / Text / Secondary text / Borders / Headings, each picker + Reset, with the
