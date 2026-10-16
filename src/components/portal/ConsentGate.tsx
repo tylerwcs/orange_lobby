@@ -31,7 +31,7 @@ export function ConsentGate({ event, consent = true, termsHtml = null, agree }: 
   agree: (formData: FormData) => Promise<void>;
 }) {
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col">
       <PortalHeader event={event} />
       <main className="flex-1 px-4 py-4">
         <Card>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { EMPTY_THEME, workedOut, type EventTheme } from "@/features/theme/client";
 import { themeFromForm } from "@/features/theme/lib/form";
-import { adjustedNote, pickerValue, postedValue, primaryNote, reachHint, withOverride, withReach, FIELD_NAMES } from "@/features/theme/admin/card-state";
+import { adjustedNote, pickerValue, postedValue, primaryNote, reachHint, withOverride, withReach, withStyle, FIELD_NAMES, type ThemeField } from "@/features/theme/admin/card-state";
 import { themeTokens } from "@/features/theme/client";
 
 describe("Theme card state (D623, D624, D626)", () => {
@@ -68,5 +68,20 @@ describe("Theme card state (D623, D624, D626)", () => {
     const t = withOverride(withOverride(EMPTY_THEME, "card", "#0b1f4b"), "text", "#d9b25f");
     expect(themeTokens(t, "#005cb9").dark).toBe(true);
     expect(adjustedNote(t, "#005cb9", "text")).toBe("Shown darker so it can be read");
+  });
+});
+
+describe("background style (D636)", () => {
+  it("round-trips glow through the form, and solid as absent", () => {
+    const glowing: EventTheme = { background: "#000c36", overrides: {}, heading_reach: "titles", background_style: "glow" };
+    const post = (t: EventTheme) => {
+      const values: Record<string, string> = { theme_heading_reach: t.heading_reach, theme_background_style: t.background_style ?? "solid" };
+      for (const key of Object.keys(FIELD_NAMES) as ThemeField[]) values[FIELD_NAMES[key]] = postedValue(t, key);
+      return { get: (k: string) => values[k] ?? null };
+    };
+    expect(themeFromForm(post(glowing))).toEqual(glowing);
+    const solid = withStyle(glowing, "solid");
+    expect(solid).not.toHaveProperty("background_style");
+    expect(themeFromForm(post(solid))).toEqual(solid);
   });
 });

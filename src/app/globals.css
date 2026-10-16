@@ -257,6 +257,11 @@ input, textarea { touch-action: manipulation; }
   }
   body {
     @apply bg-background text-foreground;
+    /* D636: an event theme's glow, over the background colour. Fixed so it stays put as the page
+       scrolls (browsers that ignore fixed show it once, at the top); no repeat either way. */
+    background-image: var(--page-glow, none);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
   /* A card-coloured surface reads in the card's ink unless it names its own (D624). Text otherwise
      inherits the page's --foreground, which a theme with white cards on a dark ground makes white

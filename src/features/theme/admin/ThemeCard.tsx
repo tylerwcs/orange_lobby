@@ -3,8 +3,8 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { EventTheme, HeadingReach, ThemeColorKey } from "../client";
-import { adjustedNote, FIELD_NAMES, pickerValue, postedValue, primaryNote, REACH_FIELD, reachHint, withOverride, withReach, type ThemeField } from "./card-state";
+import type { BackgroundStyle, EventTheme, HeadingReach, ThemeColorKey } from "../client";
+import { adjustedNote, FIELD_NAMES, pickerValue, postedValue, primaryNote, REACH_FIELD, reachHint, STYLE_FIELD, withOverride, withReach, withStyle, type ThemeField } from "./card-state";
 import { ThemePreview, type PreviewEvent } from "./ThemePreview";
 
 const WORKED_OUT: { key: ThemeColorKey; label: string }[] = [
@@ -18,6 +18,11 @@ const WORKED_OUT: { key: ThemeColorKey; label: string }[] = [
 const REACH: { value: HeadingReach; label: string }[] = [
   { value: "titles", label: "Page titles only" },
   { value: "titles_and_cards", label: "Page titles and card titles" },
+];
+
+const STYLES: { value: BackgroundStyle; label: string }[] = [
+  { value: "solid", label: "Solid" },
+  { value: "glow", label: "Glow - a soft light from the top and your primary colour in two corners" },
 ];
 
 const SWATCH = "h-9 w-16 shrink-0 cursor-pointer p-1";
@@ -52,7 +57,7 @@ function ColourRow({ label, name, value, onPick, reset, resetLabel = "Reset", no
  * D626, D631: the event's colours in Settings → Details, saved with Save settings. The theme is
  * held here and drawn only through card-state's helpers (the tested logic is the logic that runs);
  * the preview follows every pick before anything is saved. Every save posts all seven theme
- * fields - the ones not set post "" - so saving another tab never wipes the stored theme.
+ * fields (and the style) - the ones not set post "" - so saving another tab never wipes the stored theme.
  */
 export function ThemeCard({ theme: saved, primaryColor, event, className = "" }: {
   theme: EventTheme;
@@ -74,7 +79,19 @@ export function ThemeCard({ theme: saved, primaryColor, event, className = "" }:
       <CardContent className="grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-start">
         <div className="flex flex-col">
           <ColourRow label="Background" value={pickerValue(theme, "background")} onPick={pick("background")}
-            reset={postedValue(theme, "background") ? () => pick("background")(null) : null} resetLabel="Reset to default" />
+            reset={postedValue(theme, "background") ? () => pick("background")(null) : null} resetLabel="Reset to default">
+            {/* D636: the glow is worked out from the background and the primary - nothing more to pick. */}
+            <fieldset className="flex flex-col gap-2 pl-[76px]">
+              <legend className="mb-2 text-sm text-muted-foreground">Background style</legend>
+              {STYLES.map((s) => (
+                <label key={s.value} className="flex min-h-9 items-center gap-2 text-sm">
+                  <input type="radio" name={STYLE_FIELD} value={s.value} checked={(theme.background_style ?? "solid") === s.value}
+                    onChange={() => setTheme((t) => withStyle(t, s.value))} className="size-4 accent-primary" />
+                  {s.label}
+                </label>
+              ))}
+            </fieldset>
+          </ColourRow>
 
           {/* Moved here from the Event card (D631); it keeps exactly its meaning (D622). */}
           <ColourRow label="Primary colour" name="primary_color" value={primary} onPick={setPrimary} reset={null}

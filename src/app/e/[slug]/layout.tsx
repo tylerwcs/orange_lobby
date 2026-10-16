@@ -25,5 +25,5 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default function EventLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-background">{children}</div>;
+  return <div className="min-h-screen">{children}</div>;
 }

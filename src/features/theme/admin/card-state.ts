@@ -1,5 +1,5 @@
 import { hexToRgb, rgbToOklab } from "@/lib/contrast";
-import { DEFAULT_BACKGROUND, themeTokens, workedOut, type EventTheme, type HeadingReach, type ThemeColorKey } from "../lib/theme";
+import { DEFAULT_BACKGROUND, themeTokens, workedOut, type BackgroundStyle, type EventTheme, type HeadingReach, type ThemeColorKey } from "../lib/theme";
 import { OVERRIDE_FIELDS } from "../lib/form";
 
 /**
@@ -12,6 +12,7 @@ export type ThemeField = ThemeColorKey | "background";
 /** The posted field each picker writes - the names `themeFromForm` reads (D622). */
 export const FIELD_NAMES: Record<ThemeField, string> = { background: "theme_background", ...OVERRIDE_FIELDS };
 export const REACH_FIELD = "theme_heading_reach";
+export const STYLE_FIELD = "theme_background_style";
 
 /** D623: what a picker shows - the override, else the colour worked out from the ground (lower-case, as `<input type="color">` gives it). */
 export function pickerValue(theme: EventTheme, key: ThemeField): string {
@@ -33,6 +34,14 @@ export function withOverride(theme: EventTheme, key: ThemeField, hex: string | n
   if (value) overrides[key] = value;
   else delete overrides[key];
   return { ...theme, overrides };
+}
+
+/** D636: solid or glow; solid is stored as absent. */
+export function withStyle(theme: EventTheme, style: BackgroundStyle): EventTheme {
+  const next = { ...theme };
+  if (style === "glow") next.background_style = "glow";
+  else delete next.background_style;
+  return next;
 }
 
 /** D632: how far the heading colour reaches. */

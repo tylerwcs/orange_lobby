@@ -137,6 +137,18 @@ lighter navy, white text, soft blue-grey secondary text, gold buttons and highli
   live preview beside it on wide screens and under it on narrow ones. The existing Primary colour
   field moves into this card. Committee members can edit it, like the rest of Details.
 
+## Amendment: background glow (D636), 16 Oct 2026
+
+The organiser found a flat colour plain. The Theme card's Background row gains **Background
+style**: Solid (default; stored as absent) or Glow - a lifted ground glowing from the top plus the
+primary colour in two corners (top-left, bottom-right), all worked out from colours already set.
+Fainter on light grounds. Painted on `body` (`--page-glow`, fixed, no repeat) behind every
+attendee page; page wrappers no longer paint their own ground; cards, form and QR stay solid; the
+event bar goes clear (`--bar: transparent`) so the top glow is not cut off. Page text is checked
+against the glow's brightest points as well as the ground, and the glow softens itself when even
+the ground's own ink would not read on it (a white primary on navy). The live preview shows it.
+This loosens the earlier non-goal "colours only": still no images or patterns.
+
 ## What happens to D619–D621
 
 D619 (registration heading colour) and D620 (registration background colour) were registration-only

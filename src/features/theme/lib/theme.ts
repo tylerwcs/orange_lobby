@@ -6,8 +6,18 @@ import { contrastRatio, hexToRgb, oklabToRgb, readableOn, rgbToOklab, toHex, typ
 export type ThemeColorKey = "card" | "text" | "muted_text" | "border" | "heading";
 /** D632: how far the heading colour reaches. */
 export type HeadingReach = "titles" | "titles_and_cards";
-/** D622/D623: an event's theme as stored. A null background is the default ground; an absent override is worked out. */
-export type EventTheme = { background: string | null; overrides: Partial<Record<ThemeColorKey, string>>; heading_reach: HeadingReach };
+/** D636: the page behind the cards - one flat colour, or soft glows worked out from it and the primary. */
+export type BackgroundStyle = "solid" | "glow";
+/**
+ * D622/D623: an event's theme as stored. A null background is the default ground; an absent
+ * override is worked out; an absent background_style is solid (D636).
+ */
+export type EventTheme = {
+  background: string | null;
+  overrides: Partial<Record<ThemeColorKey, string>>;
+  heading_reach: HeadingReach;
+  background_style?: BackgroundStyle;
+};
 
 export const EMPTY_THEME: EventTheme = { background: null, overrides: {}, heading_reach: "titles" };
 /** D622: the ground when the organiser has not picked one (globals.css --background). */
@@ -34,7 +44,10 @@ export function parseTheme(raw: unknown): EventTheme {
     const v = hex(given[k]);
     if (v) overrides[k] = v;
   }
-  return { background: hex(r.background), overrides, heading_reach: r.heading_reach === "titles_and_cards" ? "titles_and_cards" : "titles" };
+  const theme: EventTheme = { background: hex(r.background), overrides, heading_reach: r.heading_reach === "titles_and_cards" ? "titles_and_cards" : "titles" };
+  // D636: only "glow" is stored; anything else is the solid default, left out so untouched themes stay as they were.
+  if (r.background_style === "glow") theme.background_style = "glow";
+  return theme;
 }
 
 /** D630: a ground is dark when white text reads better on it than ink - the organiser never picks "dark mode". */
@@ -118,6 +131,35 @@ function lift(ground: Rgb, dL: number, ratio: number): Rgb {
 /** `bg-<colour>/<alpha>` over a surface, flattened as the browser composites it (in sRGB). */
 function over(fg: Rgb, alpha: number, surface: Rgb): Rgb {
   return surface.map((c, i) => Math.round(fg[i] * alpha + c * (1 - alpha))) as Rgb;
+}
+
+/**
+ * D636: the glow - a lifted ground from the top, and the primary in two corners like stage lights.
+ * Fainter on a light ground, where the same strength reads as a wash. `peaks` are the brightest
+ * points as they composite over the ground, which page text must read on too (D624).
+ */
+function glow(ground: Rgb, brand: Rgb): { css: string; peaks: Rgb[] } {
+  const isDark = dark(ground);
+  const top = isDark ? lift(ground, 0.16, 1.2) : mix(WHITE, ground, 0.7);
+  let [aTop, aLeft, aRight] = isDark ? [0.75, 0.45, 0.4] : [0.8, 0.16, 0.14];
+  // A bright primary on a dark ground (or a dark one on a light ground) would leave no text
+  // colour readable on both the ground and the glow: soften the glow until the page's own ink
+  // still reads on its brightest point.
+  const ink = isDark ? WHITE : hexToRgb(INK)!;
+  const peaksAt = (t: number, l: number, r: number) => {
+    const topPeak = over(top, t, ground);
+    return [topPeak, over(brand, l, ground), over(brand, r, ground), over(brand, l, topPeak)];
+  };
+  for (let i = 0; i < 20 && worst(ink, peaksAt(aTop, aLeft, aRight)) < MIN; i++) {
+    [aTop, aLeft, aRight] = [aTop * 0.85, aLeft * 0.85, aRight * 0.85].map((a) => Math.round(a * 100) / 100);
+  }
+  const rgba = (c: Rgb, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const css = [
+    `radial-gradient(130% 55% at 50% 0%,${rgba(top, aTop)} 0%,transparent 70%)`,
+    `radial-gradient(70% 40% at 0% 8%,${rgba(brand, aLeft)} 0%,transparent 70%)`,
+    `radial-gradient(80% 45% at 100% 100%,${rgba(brand, aRight)} 0%,transparent 70%)`,
+  ].join(",");
+  return { css, peaks: peaksAt(aTop, aLeft, aRight) };
 }
 
 /** `bg-white/10` over a surface - the badge's pin tile. */
@@ -245,11 +287,17 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
     if (moved && o[key]) adjusted[key] = true;
   };
 
+  // D636: with the glow on, text on the page must also read on its brightest points.
+  const brand = primary && HEX.test(primary) ? primary : brandStyle(null)["--brand"];
+  const brandRgb = hexToRgb(brand)!;
+  const glowing = theme.background_style === "glow" ? glow(ground, brandRgb) : null;
+  const page = glowing ? [ground, ...glowing.peaks] : [ground];
+
   // D624: text is checked where it sits - the ground and the cards separately, so a white card on
   // navy (mixed polarity) gets ink while the page keeps white.
   const text = rgb("text");
   const inkFor = (g: Rgb) => (dark(g) ? WHITE : hexToRgb(INK)!);
-  const fg = readableOrFallback(text, [ground], inkFor(ground), !!o.text);
+  const fg = readableOrFallback(text, page, inkFor(ground), !!o.text);
   const cardFg = readableOrFallback(text, [card], inkFor(card), !!o.text);
   const secondaryFg = ensure(cardFg.rgb, [fills], MIN);
   flag("text", fg.adjusted || cardFg.adjusted);
@@ -257,15 +305,13 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
   // side one colour serves both; with mixed polarity (white cards on navy) the page keeps the
   // organiser's colour and cards get their own, which globals.css swaps in on card surfaces.
   const mixed = dark(card) !== isDark;
-  const muted = ensure(rgb("muted_text"), mixed ? [ground] : [ground, card, fills], MIN);
+  const muted = ensure(rgb("muted_text"), mixed ? page : [...page, card, fills], MIN);
   const cardMuted = mixed ? ensure(rgb("muted_text"), [card, fills], MIN) : muted;
   flag("muted_text", muted.adjusted || cardMuted.adjusted);
 
   // D72 on the theme's grounds: the organiser's colour as text on page, cards and the muted fills
   // inside them (links in event terms, rich text in a muted panel), carrying readable button text.
-  const brand = primary && HEX.test(primary) ? primary : brandStyle(null)["--brand"];
-  const brandRgb = hexToRgb(brand)!;
-  const ink = ensure(brandRgb, [ground, card, fills], MIN, (c) => readableOn(c).ratio >= MIN).rgb;
+  const ink = ensure(brandRgb, [...page, card, fills], MIN, (c) => readableOn(c).ratio >= MIN).rgb;
   const accent = mix(brandRgb, ground, 0.14);
   const fill = brandStyle(brand);
 
@@ -316,12 +362,17 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
 
   // D632: headings default to the text colour (inherited); an override reaches titles, or cards too.
   if (o.heading) {
-    const heading = readableOrFallback(hexToRgb(o.heading)!, [ground, card], fg.rgb);
+    const heading = readableOrFallback(hexToRgb(o.heading)!, [...page, card], fg.rgb);
     flag("heading", heading.adjusted);
     tokens["--heading"] = toHex(heading.rgb);
     if (theme.heading_reach === "titles_and_cards") tokens["--card-heading"] = tokens["--heading"];
   }
 
+  if (glowing) {
+    // D636: painted behind the page by globals.css; the bar goes clear so the top glow is not cut off.
+    tokens["--page-glow"] = glowing.css;
+    tokens["--bar"] = "transparent";
+  }
   if (isDark) {
     // D628: dark logos stay visible on a white tile.
     tokens["--logo-tile"] = "#FFFFFF";
@@ -346,11 +397,11 @@ export function themeTokens(theme: EventTheme, primary: string | null): Built {
   const hasOverrides = Object.keys(theme.overrides).length > 0;
   const ground = theme.background ? hexToRgb(theme.background) : null;
   if (ground) return build(ground, theme, primary);
-  if (!hasOverrides) return { tokens: plain, dark: false, adjusted: {} };
+  if (!hasOverrides && theme.background_style !== "glow") return { tokens: plain, dark: false, adjusted: {} };
 
   const def = hexToRgb(DEFAULT_BACKGROUND)!;
   const themed = build(def, theme, primary);
-  const untouched = build(def, { ...theme, overrides: {} }, primary).tokens;
+  const untouched = build(def, { ...theme, overrides: {}, background_style: undefined }, primary).tokens;
   const tokens = { ...plain };
   for (const [k, v] of Object.entries(themed.tokens)) if (untouched[k] !== v) tokens[k] = v;
   // Rich text follows the theme once any colour is set: its unset greys are tuned for white cards.

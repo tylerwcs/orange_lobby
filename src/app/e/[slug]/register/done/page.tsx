@@ -34,7 +34,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   // D537: the organiser's own words, or the defaults this page always had.
   const copy = doneCopy(event, attendee.name);
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col">
       <ThemeStyle event={event} />
       <PortalHeader event={event} />
       <main className="flex-1 px-4 py-4">

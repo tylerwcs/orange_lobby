@@ -18,5 +18,6 @@ export function themeFromForm(fd: FormLike): EventTheme {
     background: bg.toLowerCase() === DEFAULT_BACKGROUND.toLowerCase() ? null : bg,
     overrides,
     heading_reach: text("theme_heading_reach"),
+    background_style: text("theme_background_style"),
   });
 }

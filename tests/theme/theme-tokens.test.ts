@@ -223,3 +223,46 @@ describe("secondary text with mixed polarity (white cards on navy)", () => {
     expect(t["--card-muted-foreground"]).toBe(t["--muted-foreground"]);
   });
 });
+
+describe("background glow (D636)", () => {
+  it("solid (or unset) emits no glow and keeps the bar on the ground", () => {
+    const { tokens: t } = themeTokens(UOB, "#005cb9");
+    expect(t["--page-glow"]).toBeUndefined();
+    expect(t["--bar"]).toBe("#000C36");
+  });
+
+  it("glow paints the page and clears the bar, built from the ground and the primary", () => {
+    const { tokens: t } = themeTokens({ ...UOB, background_style: "glow" }, "#005cb9");
+    expect(t["--page-glow"]).toMatch(/^radial-gradient\(/);
+    expect(t["--page-glow"]).toContain("rgba(0,92,185,");
+    expect(t["--bar"]).toBe("transparent");
+  });
+
+  it("page text still reads on the glow's brightest points, light and dark grounds, odd primaries", () => {
+    for (const bg of ["#000c36", "#000000", "#fef3c7", "#F5F5F3"])
+      for (const p of ["#005cb9", "#d9b25f", "#ffffff"]) {
+        const { tokens: t } = themeTokens({ ...EMPTY_THEME, background: bg, background_style: "glow" }, p);
+        const peaks = [...t["--page-glow"].matchAll(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/g)].map((m) => {
+          const g = hexToRgb(t["--background"])!;
+          const a = Number(m[4]);
+          return [0, 1, 2].map((i) => Math.round(Number(m[i + 1]) * a + g[i] * (1 - a))) as [number, number, number];
+        });
+        for (const peak of peaks) {
+          expect(contrastRatio(hexToRgb(t["--foreground"])!, peak), `${bg}/${p} text`).toBeGreaterThanOrEqual(4.5);
+          expect(contrastRatio(hexToRgb(t["--muted-foreground"])!, peak), `${bg}/${p} muted`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+  });
+
+  it("glow on the default ground works without a background colour", () => {
+    const { tokens: t } = themeTokens({ ...EMPTY_THEME, background_style: "glow" }, "#005cb9");
+    expect(t["--page-glow"]).toBeDefined();
+    expect(t["--background"]).toBeUndefined();
+  });
+
+  it("only glow is stored", () => {
+    expect(parseTheme({ background_style: "glow" }).background_style).toBe("glow");
+    expect(parseTheme({ background_style: "solid" })).not.toHaveProperty("background_style");
+    expect(parseTheme({ background_style: "sparkles" })).not.toHaveProperty("background_style");
+  });
+});

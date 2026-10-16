@@ -33,7 +33,8 @@ const ROWS = [
 export function ThemePreview({ theme, primary, event }: { theme: EventTheme; primary: string; event: PreviewEvent }) {
   const style = useMemo(() => {
     const { tokens, dark } = themeTokens(theme, primary);
-    return { ...tokens, colorScheme: dark ? "dark" : "light" } as React.CSSProperties;
+    // D636: the glow paints the frame as globals.css paints an attendee page.
+    return { ...tokens, colorScheme: dark ? "dark" : "light", backgroundImage: "var(--page-glow, none)", backgroundRepeat: "no-repeat" } as React.CSSProperties;
   }, [theme, primary]);
   const items = useMemo(
     () => launcherItems({ basePath: "", personal: true, hasInfo: true, tiles: [], icons: sectionIcons(null), tint: primary }),

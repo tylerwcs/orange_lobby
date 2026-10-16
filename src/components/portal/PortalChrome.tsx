@@ -123,7 +123,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
       Below md: a phone column. No bar: home is the launcher, other pages lead back to it (D209).
       From md:  the column widens and the sections are text links in the header (D210).
     */
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-feature focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-feature-foreground">Skip to content</a>
 
       <div className="bg-[color:var(--bar,var(--card))] text-[color:var(--bar-foreground,var(--card-foreground))] shadow-[0_1px_0_rgba(17,24,39,.08)]">
