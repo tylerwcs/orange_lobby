@@ -1,4 +1,4 @@
-import { contrastRatio, darkenUntilReadable, hexToRgb, lightenUntilReadable, readableOn, toHex, type Rgb } from "@/lib/contrast";
+import { contrastRatio, darkenUntilReadable, hexToRgb, lightenUntilReadable, readableOn, rgbToOklab, toHex, type Rgb } from "@/lib/contrast";
 
 const DEFAULT_BRAND = "#F97316";
 
@@ -17,19 +17,29 @@ export function parseColor(raw: string | null | undefined, fallback: string): st
 }
 
 /**
+ * D619: a heading colour as it can be shown on white. Kept when it reads (4.5:1); a coloured one
+ * is darkened, hue kept, the move `--primary` makes (D72). White or a grey has no hue to keep -
+ * darkening it gives a dull mid-grey - so it falls back to the usual ink.
+ */
+function headingOnWhite(rgb: Rgb): Rgb {
+  if (contrastRatio(rgb, [255, 255, 255]) >= 4.5) return rgb;
+  const [, A, B] = rgbToOklab(rgb);
+  return Math.hypot(A, B) < 0.03 ? hexToRgb(DEFAULT_HEADING_COLOR)! : darkenUntilReadable(rgb);
+}
+
+/**
  * D619/D620: the registration page's colours, as variables on its root.
- *  - `--heading`: headings on white (the header, the form card). Darkened, hue kept, until it
- *    clears 4.5:1 on white - the move `--primary` makes (D72).
+ *  - `--heading`: headings on white (the form card), via `headingOnWhite`.
  *  - `--background`: the organiser's ground, which `bg-background` reads.
- *  - `--page-heading` / `--page-text`: what sits on that ground (the Register heading, the line
- *    under it). The heading keeps its colour where it reads there; otherwise both become
- *    whichever of white or ink reads on the ground, so a dark ground never hides them.
+ *  - `--page-heading` / `--page-text`: what sits on that ground - the event bar (D621), the
+ *    Register heading and the line under it. The heading colour exactly as chosen where it reads
+ *    there; otherwise both become whichever of white or ink reads on the ground.
  * Nothing chosen, nothing set: everything falls back to the usual tokens.
  */
 export function registrationLook(heading: string | null | undefined, background: string | null | undefined): Record<string, string> {
   const style: Record<string, string> = {};
-  const head = heading && HEX.test(heading) ? darkenUntilReadable(hexToRgb(heading)!) : null;
-  if (head) style["--heading"] = toHex(head);
+  const head = heading && HEX.test(heading) ? hexToRgb(heading)! : null;
+  if (head) style["--heading"] = toHex(headingOnWhite(head));
   const ground = background && HEX.test(background) ? hexToRgb(background)! : null;
   if (ground) {
     const onGround = readableOn(ground).hex;
@@ -42,7 +52,7 @@ export function registrationLook(heading: string | null | undefined, background:
 
 /** D619: a heading on white follows `--heading` where it is set, and the usual ink elsewhere. */
 export const HEADING_INK = "text-[color:var(--heading,var(--foreground))]";
-/** D620: the Register heading, which sits on the page ground rather than on white. */
+/** D620/D621: a heading on the page ground rather than on white - Register, and the event bar's name. */
 export const PAGE_HEADING_INK = "text-[color:var(--page-heading,var(--heading,var(--foreground)))]";
 /** D620: body text on the page ground; the usual muted ink when the ground is the default. */
 export const PAGE_TEXT_INK = "text-[color:var(--page-text,var(--muted-foreground))]";

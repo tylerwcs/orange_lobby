@@ -411,9 +411,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <ImageField label="Banner above the form" name="registration_banner" url={ev.registration_banner_url}
               description="Shown on the registration page just under the event name bar, as wide as the page and at the image's own height - nothing is cropped." />
             <Field label="Heading colour" name="registration_heading_color" type="color" defaultValue={ev.registration_heading_color ?? DEFAULT_HEADING_COLOR}
-              description="The event name, the Register heading and the form's section headings. A colour too pale to read on white is shown darker." />
+              description="The event name, the Register heading and the form's section headings. On the white form, a colour too pale to read is shown darker (white or grey shows as the usual dark ink)." />
             <Field label="Background colour" name="registration_background_color" type="color" defaultValue={ev.registration_background_color ?? DEFAULT_PAGE_BACKGROUND}
-              description="Behind the form. The header and the form stay white; text on a dark background turns white so it can be read." />
+              description="Behind the form and the event name bar. The form stays white; text on a dark background turns white if your heading colour can't be read there." />
           </div>
           <div className="flex flex-col gap-1.5">
           <h3 className="text-sm font-extrabold">Questions</h3>

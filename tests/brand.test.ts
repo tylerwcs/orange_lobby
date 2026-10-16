@@ -155,6 +155,13 @@ describe("registration page colours (D619, D620)", () => {
     expect(ratio(look["--page-text"], "#fef3c7")).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("white or grey on white falls back to the usual ink, not a dull grey; on a dark ground it stays as chosen", () => {
+    const look = registrationLook("#ffffff", "#000c36");
+    expect(look["--heading"]).toBe(DEFAULT_HEADING_COLOR);
+    expect(look["--page-heading"]).toBe("#FFFFFF");
+    expect(registrationLook("#cccccc", null)["--heading"]).toBe(DEFAULT_HEADING_COLOR);
+  });
+
   it("on a dark ground, what sits on it turns readable instead of vanishing", () => {
     const look = registrationLook("#1d4ed8", "#0b1f4b");
     expect(ratio(look["--page-heading"], "#0b1f4b")).toBeGreaterThanOrEqual(4.5);

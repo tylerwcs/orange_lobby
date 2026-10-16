@@ -1,6 +1,6 @@
 # Registration page banner, heading and background colours — design
 
-Date: 16 Oct 2026. Decisions D618–D620. Migration 0090.
+Date: 16 Oct 2026. Decisions D618–D621. Migration 0090.
 
 **D618 — A banner above the registration page.** Settings → Registration gains an image field,
 `Banner above the form`, saved with **Save settings** like the logo and the event banner. It shows
@@ -22,6 +22,14 @@ width). The header and the form card stay white. What sits straight on the groun
 `Register` heading and the line under it - keeps the heading colour where that clears 4.5:1 on
 the ground, and otherwise turns whichever of white or ink reads there. The default ground #F5F5F3
 is stored as null. Stored in `events.registration_background_color` (#RRGGBB or null).
+
+**D621 — The event bar sits on the background** (amended 16 Oct). When a background colour is
+chosen, the event bar at the top takes it instead of white, and the event name shows in the
+heading colour exactly as chosen (or white/ink when that would not read on the ground); the date
+line follows the ground's text colour. With no background chosen the bar stays white. On the
+white form card, a heading colour with no hue (white or a grey) that cannot be read shows as the
+usual ink #111827 rather than being darkened to a dull grey; a coloured one is still darkened,
+hue kept.
 
 Server Action body limit goes from 10 MB to 14 MB: a Settings save can now carry three images
 of up to 4 MB each.

@@ -1,7 +1,7 @@
 import { HomeLink } from "./HomeLink";
 import type { Event } from "@/lib/types";
 import { initials, formatDateRange } from "@/lib/text";
-import { HEADING_INK } from "@/lib/brand";
+import { HEADING_INK, PAGE_HEADING_INK, PAGE_TEXT_INK } from "@/lib/brand";
 
 type HeaderEvent = Pick<Event, "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name">;
 
@@ -16,9 +16,11 @@ export function Mark({ event }: { event: HeaderEvent }) {
   return <div className="flex size-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-brand-foreground">{initials(event.name)}</div>;
 }
 
-export function PortalHeader({ event, href, action, className = "" }: {
+export function PortalHeader({ event, href, action, onGround = false, className = "" }: {
   event: HeaderEvent;
   href?: string;
+  /** D621: the bar takes the page's own background, and its text what reads there (registration only). */
+  onGround?: boolean;
   /**
    * Something at the right-hand end, e.g. the phone home's Me button (D236). With `href` it
    * sits under the home link's overlay, so it must lift itself above it (`relative z-10`).
@@ -31,9 +33,9 @@ export function PortalHeader({ event, href, action, className = "" }: {
     <>
       <Mark event={event} />
       <div className="min-w-0 flex-1">
-        {/* HEADING_INK: the usual ink unless the page sets --heading (only registration does, D619). */}
-        <div className={`line-clamp-2 text-base font-extrabold leading-tight ${HEADING_INK}`}>{event.name}</div>
-        {meta && <div className="truncate text-xs font-medium text-muted-foreground">{meta}</div>}
+        {/* The usual ink unless the page sets --heading (only registration does, D619/D621). */}
+        <div className={`line-clamp-2 text-base font-extrabold leading-tight ${onGround ? PAGE_HEADING_INK : HEADING_INK}`}>{event.name}</div>
+        {meta && <div className={`truncate text-xs font-medium ${onGround ? PAGE_TEXT_INK : "text-muted-foreground"}`}>{meta}</div>}
       </div>
     </>
   );
@@ -45,7 +47,7 @@ export function PortalHeader({ event, href, action, className = "" }: {
   // Me button's own <a> inside it, and a link inside a link is invalid HTML: the browser split
   // them apart, so the page hydrated against a tree the server never sent.
   return (
-    <header className={`bg-card px-4 py-4 ${href ? "relative" : ""} ${className}`}>
+    <header className={`${onGround ? "bg-background" : "bg-card"} px-4 py-4 ${href ? "relative" : ""} ${className}`}>
       <div className="flex items-center gap-3">
         {href ? (
           <HomeLink href={href} label={`Home: ${event.name}`} className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-[12px] p-1 outline-none transition-opacity after:absolute after:inset-0 focus-visible:ring-3 focus-visible:ring-ring/50">
