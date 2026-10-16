@@ -5,7 +5,7 @@ import { listCategories } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
 import { eventFields } from "@/lib/attendee-fields";
 import type { Activity, Event } from "@/lib/types";
-import { countedRows, isLocked, listSports, shortCount, squadPeople, squadRows, SportsPanel, SquadsPanel } from "@/features/tournaments";
+import { countedRows, isLocked, listSports, MatchesPanel, shortCount, squadPeople, squadRows, SportsPanel, SquadsPanel } from "@/features/tournaments";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
@@ -28,7 +28,7 @@ export async function TournamentDetail({ ev, activity, tab, sport }: { ev: Event
   const groupIds = groups.map((g) => g.id);
   const short = sports.reduce((n, s) => n + shortCount(s, groupIds, counted), 0);
   const locked = isLocked(activity.squads_close_at, new Date());
-  const tabs = activityTabs("tournament", { shortSquads: short });
+  const tabs = activityTabs("tournament", { shortSquads: short, scored: !!activity.place_points?.length });
   const current = resolveTab(tabs, tab);
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
   const subtitle = activity.squads_close_at ? `Squads ${locked ? "locked" : "lock"} ${opensLabel(activity.squads_close_at)}` : "No squad deadline";
@@ -62,6 +62,7 @@ export async function TournamentDetail({ ev, activity, tab, sport }: { ev: Event
       <ActivityTabs tabs={tabs} current={current} href={href} />
       {current === "squads" && <SquadsPanel ev={ev} activity={activity} sportId={sport} />}
       {current === "sports" && <SportsPanel ev={ev} activity={activity} />}
+      {current === "matches" && <MatchesPanel ev={ev} activity={activity} sportId={sport} />}
       {current === "setup" && (
         <Card className="overflow-hidden">
           <CardHeader><CardTitle>Details</CardTitle></CardHeader>

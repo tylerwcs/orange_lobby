@@ -102,11 +102,22 @@ export async function claimForfeitMarking(sportId: string): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
-/** D665: the admin's places, a number (ties allowed) or null per group. */
-export async function setManualPlaces(sportId: string, places: { group_id: string; place: number | null }[]): Promise<void> {
+/**
+ * D665: the admin's places (a number, ties allowed, or null) and forfeits, per group. A group
+ * given a place or a forfeit joins the sport; one cleared of both keeps its row if it has one
+ * (it may be in a match), with nothing set.
+ */
+export async function setManualPlaces(sportId: string, rows: { group_id: string; place: number | null; forfeit: boolean }[]): Promise<void> {
   const db = serviceClient();
-  for (const p of places) {
-    const { error } = await db.from("tournament_pool_groups").update({ manual_place: p.place }).eq("sport_id", sportId).eq("group_id", p.group_id);
+  const set = rows.filter((r) => r.place !== null || r.forfeit);
+  if (set.length) {
+    const { error } = await db.from("tournament_pool_groups")
+      .upsert(set.map((r) => ({ sport_id: sportId, group_id: r.group_id, pool: 0, manual_place: r.place, forfeit: r.forfeit })), { onConflict: "sport_id,group_id" });
+    if (error) throw error;
+  }
+  const cleared = rows.filter((r) => r.place === null && !r.forfeit).map((r) => r.group_id);
+  if (cleared.length) {
+    const { error } = await db.from("tournament_pool_groups").update({ manual_place: null, forfeit: false }).eq("sport_id", sportId).in("group_id", cleared);
     if (error) throw error;
   }
 }

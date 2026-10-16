@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  blockedBy, bracketName, defaultPlaying, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
+  blockedBy, bracketName, defaultPlaying, pickerOptions, readResult, withChange, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
   pointsFor, poolName, poolPlaces, poolStandings, readPlacePoints, resolveSport, roundRobinPairs, sportPlaces,
   type MatchPlan, type Slot, type SportResults,
 } from "@/features/tournaments/lib/results";
@@ -210,6 +210,12 @@ describe("poolStandings (D659)", () => {
     const g2 = poolStandings(sr, resolveSport(sr, names))[0].rows.find((x) => x.groupId === "g02")!;
     expect([g2.won, g2.diff, g2.scored]).toEqual([1, 0, 0]);
   });
+  it("ranks a forfeit squad last even before its heat is swum", () => {
+    let sr = twelve({ result_kind: "time" });
+    sr = { ...sr, pools: sr.pools.map((p) => (p.group_id === "g01" ? { ...p, forfeit: true } : p)) };
+    const rows = poolStandings(sr, resolveSport(sr, names))[0].rows;
+    expect(rows.map((r) => [r.groupId, r.rank])).toEqual([["g02", 1], ["g03", 1], ["g01", 3]]);
+  });
   it("orders a time heat fastest first, then DNF, then forfeit", () => {
     let sr = twelve({ result_kind: "time" });
     sr = { ...sr, pools: sr.pools.map((p) => (p.group_id === "g04" ? { ...p, forfeit: true } : p)) };
@@ -351,5 +357,54 @@ describe("blockedBy (D658)", () => {
     expect(blockedBy(played, score(played, s1.id, 1, 5), names)).toBe("Gold · Final");
     expect(blockedBy(played, score(played, s1.id, 5, 1), names)).toBeNull();
     expect(blockedBy(played, pick(played, s1.id, ["g02", "g07"]), names)).toBe("Gold · Semi 1");
+  });
+});
+
+describe("readResult / withChange / pickerOptions (D657, D658)", () => {
+  const read = (o: Record<string, string>) => (k: string) => o[k] ?? "";
+  it("reads two scores, and a went-through only for a level bracket match", () => {
+    let sr = twelve();
+    const pool = resolveSport(sr, names).find((r) => r.match.stage === "pool")!;
+    expect(readResult(pool, "score", read({ "score:0": "3", "score:1": "1" }))).toEqual({ ok: true, slots: [{ slot: 0, score: 3, time_ms: null, dnf: false }, { slot: 1, score: 1, time_ms: null, dnf: false }], went_through: null });
+    expect(readResult(pool, "score", read({ "score:0": "3", "score:1": "" }))).toEqual({ ok: false, error: "Scores must be whole numbers from 0 to 999." });
+    expect(readResult(pool, "score", read({ "score:0": "1000", "score:1": "1" })).ok).toBe(false);
+    const s1 = matchOf(sr, "Gold · Semi 1");
+    sr = pick(sr, s1.id, ["g01", "g07"]);
+    const semi = resolveSport(sr, names).find((r) => r.match.id === s1.id)!;
+    expect(readResult(semi, "score", read({ "score:0": "1", "score:1": "1" }))).toEqual({ ok: false, error: "Pick who went through." });
+    expect(readResult(semi, "score", read({ "score:0": "1", "score:1": "1", went_through: "g07" }))).toMatchObject({ ok: true, went_through: "g07" });
+    expect(readResult(semi, "score", read({ "score:0": "2", "score:1": "1", went_through: "g07" }))).toMatchObject({ ok: true, went_through: null });
+  });
+  it("reads times and DNF, leaving blanks empty", () => {
+    const sr = twelve({ result_kind: "time" });
+    const heat = resolveSport(sr, names).find((r) => r.match.stage === "pool")!;
+    expect(readResult(heat, "time", read({ "time:0": "1:52.30", "time:1": "dnf", "time:2": "" }))).toEqual({ ok: true, went_through: null, slots: [
+      { slot: 0, score: null, time_ms: 112300, dnf: false }, { slot: 1, score: null, time_ms: null, dnf: true }, { slot: 2, score: null, time_ms: null, dnf: false },
+    ] });
+    expect(readResult(heat, "time", read({ "time:0": "fast" }))).toEqual({ ok: false, error: "Times look like 1:52.30, or DNF." });
+    expect(readResult(heat, "time", read({}))).toEqual({ ok: false, error: "Type at least one time." });
+  });
+  it("applies a change to a copy, for blockedBy", () => {
+    const sr = twelve();
+    const m = sr.matches[0];
+    const after = withChange(sr, m.id, { slots: [{ slot: 0, score: 2, time_ms: null, dnf: false }], walkover_to: null, went_through: null });
+    expect(slotsOf(after, m.id)[0].score).toBe(2);
+    expect(slotsOf(sr, m.id)[0].score).toBeNull();
+    const g = withChange(sr, m.id, { groups: [{ slot: 1, group_id: "g09" }] });
+    expect(slotsOf(g, m.id)[1].group_id).toBe("g09");
+  });
+  it("offers a bracket's own pool place first, and marks groups already picked", () => {
+    let sr = twelve();
+    sr = play(sr, "g01", "g02", 1, 0);
+    sr = play(sr, "g02", "g03", 1, 0);
+    sr = play(sr, "g01", "g03", 1, 0);
+    const s1 = matchOf(sr, "Silver · Semi 1");
+    const s2 = matchOf(sr, "Silver · Semi 2");
+    sr = pick(sr, s2.id, ["g05", null as unknown as string]);
+    const resolved = resolveSport(sr, names);
+    const opts = pickerOptions(sr, resolved, poolStandings(sr, resolved), names, s1.id);
+    expect(opts[0]).toEqual({ id: "g02", label: "Team 2 · A2", usedIn: null });
+    expect(opts.find((o) => o.id === "g05")?.usedIn).toBe("Silver · Semi 2");
+    expect(opts).toHaveLength(12);
   });
 });

@@ -1,13 +1,11 @@
 "use server";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireEventAccess } from "@/lib/access";
 import { flashPath } from "@/lib/flash";
 import { getAttendee } from "@/lib/db/attendees";
-import { requireFeature } from "@/features/catalogue";
-import type { Activity, Event } from "@/lib/types";
+import type { Activity } from "@/lib/types";
+import { done, formOf, tabPath, tournament } from "./guard";
 import { hasMatches } from "../db/results";
-import { addSquadMember, createSport, deleteSport, getTournamentActivity, listSports, moveSport, removeSquadMember, updateSport } from "../db/tournaments";
+import { addSquadMember, createSport, deleteSport, listSports, moveSport, removeSquadMember, updateSport } from "../db/tournaments";
 import { readSport } from "../lib/sports";
 import { nameInEvent, refusalFlash, type TournamentSport } from "../lib/squads";
 
@@ -17,31 +15,7 @@ import { nameInEvent, refusalFlash, type TournamentSport } from "../lib/squads";
  * Squad writes go through the same checked functions as the portal's, as the admin (D642).
  */
 
-const tabPath = (eventId: string, activityId: string, tab: "sports" | "squads", sportId?: string) => {
-  const qs = new URLSearchParams({ tab });
-  if (sportId) qs.set("sport", sportId);
-  return `/admin/events/${eventId}/activities/${activityId}?${qs}`;
-};
 
-async function tournament(eventId: string, activityId: string): Promise<{ ev: Event; cup: Activity }> {
-  const { ev } = await requireEventAccess(eventId);
-  const list = `/admin/events/${eventId}/activities`;
-  await requireFeature(ev.id, "engagement", list);
-  const cup = await getTournamentActivity(activityId, ev.id);
-  if (!cup) redirect(flashPath(list, "That tournament no longer exists.", "error"));
-  return { ev, cup };
-}
-
-const formOf = (fd: FormData) => ({
-  text: (k: string) => String(fd.get(k) ?? "").trim(),
-  checked: (k: string) => fd.get(k) !== null,
-});
-
-function done(eventId: string, activityId: string, back: string, message: string, tone?: "error"): never {
-  revalidatePath(`/admin/events/${eventId}/activities`);
-  revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
-  redirect(flashPath(back, message, tone));
-}
 
 function readOrBack(fd: FormData, back: string) {
   try {

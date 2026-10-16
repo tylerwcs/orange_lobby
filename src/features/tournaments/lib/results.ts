@@ -245,8 +245,8 @@ function labels(sr: SportResults): Map<string, { label: string; short: string }>
   return out;
 }
 
-/** Fastest first; a DNF after every finisher; a forfeit after that; no result yet last. */
-const raceKey = (e: Pick<Entry, "forfeit" | "dnf" | "timeMs">) => (e.forfeit ? 3e9 : e.dnf ? 2e9 : e.timeMs ?? 4e9);
+/** Fastest first; a DNF after every finisher; no result yet after that; a forfeit always last. */
+const raceKey = (e: Pick<Entry, "forfeit" | "dnf" | "timeMs">) => (e.forfeit ? 5e9 : e.dnf ? 2e9 : e.timeMs ?? 4e9);
 
 /**
  * D658-D660: every match of a sport, in order, with pointer slots resolved to the winner or loser
@@ -472,4 +472,97 @@ export function blockedBy(before: SportResults, after: SportResults, names: Map<
     if (next && next.entries.map((e) => e.groupId).join("|") !== was) return r.label;
   }
   return null;
+}
+
+// ---------- organiser input ----------
+
+type SlotResult = Pick<Slot, "slot" | "score" | "time_ms" | "dnf">;
+export type ResultRead = { ok: true; slots: SlotResult[]; went_through: string | null } | { ok: false; error: string };
+
+/**
+ * D658: a match's result form, read. Scores: both whole numbers 0-999, and a level bracket match
+ * names who went through. Times: `m:ss.hh` or DNF per squad, a blank left empty (a race can be
+ * typed in as the squads finish).
+ */
+export function readResult(r: Resolved, kind: ResultKind, read: (key: string) => string): ResultRead {
+  const slots = r.entries.map((e) => e.slot);
+  if (kind === "time") {
+    const out: SlotResult[] = [];
+    for (const slot of slots) {
+      const text = read(`time:${slot}`).trim();
+      if (!text) {
+        out.push({ slot, score: null, time_ms: null, dnf: false });
+        continue;
+      }
+      const t = parseTime(text);
+      if (t === null) return { ok: false, error: "Times look like 1:52.30, or DNF." };
+      out.push({ slot, score: null, time_ms: t === "dnf" ? null : t, dnf: t === "dnf" });
+    }
+    if (out.every((s) => s.time_ms === null && !s.dnf)) return { ok: false, error: "Type at least one time." };
+    return { ok: true, slots: out, went_through: null };
+  }
+  const scores = slots.map((slot) => read(`score:${slot}`).trim());
+  if (!scores.every((s) => /^\d{1,3}$/.test(s))) return { ok: false, error: `Scores must be whole numbers from 0 to ${MAX_SCORE}.` };
+  const n = scores.map(Number);
+  let went_through: string | null = null;
+  if (r.match.stage === "bracket" && n.length === 2 && n[0] === n[1]) {
+    const pick = read("went_through");
+    if (!r.entries.some((e) => e.groupId && e.groupId === pick)) return { ok: false, error: "Pick who went through." };
+    went_through = pick;
+  }
+  return { ok: true, slots: slots.map((slot, i) => ({ slot, score: n[i], time_ms: null, dnf: false })), went_through };
+}
+
+/** A copy of the sport with one match changed: its results, walkover / went-through, or who plays. */
+export function withChange(sr: SportResults, matchId: string, change: {
+  slots?: SlotResult[];
+  walkover_to?: string | null;
+  went_through?: string | null;
+  groups?: { slot: number; group_id: string | null }[];
+}): SportResults {
+  return {
+    ...sr,
+    matches: sr.matches.map((m) => (m.id !== matchId ? m : {
+      ...m,
+      ...(change.walkover_to !== undefined && { walkover_to: change.walkover_to }),
+      ...(change.went_through !== undefined && { went_through: change.went_through }),
+    })),
+    slots: sr.slots.map((s) => {
+      if (s.match_id !== matchId) return s;
+      const res = change.slots?.find((x) => x.slot === s.slot);
+      const grp = change.groups?.find((x) => x.slot === s.slot);
+      return { ...s, ...(res && { score: res.score, time_ms: res.time_ms, dnf: res.dnf }), ...(grp && !s.source_match_id && { group_id: grp.group_id }) };
+    }),
+  };
+}
+
+export type PickerOption = { id: string; label: string; usedIn: string | null };
+
+/**
+ * D657: who can be picked into a bracket match - every group playing the sport, those at the
+ * bracket's pool place first (Silver: the 2nds), each with its place ("Team 4 · A1"), and where
+ * it is already picked in another bracket match of this sport.
+ */
+export function pickerOptions(sr: SportResults, resolved: Resolved[], tables: PoolTable[], names: Map<string, string>, matchId: string): PickerOption[] {
+  const match = sr.matches.find((m) => m.id === matchId);
+  const want = (match?.bracket ?? 0) + 1;
+  const place = poolPlaces(tables);
+  const rank = new Map(tables.flatMap((t) => t.rows.map((r) => [r.groupId, { rank: r.rank, pool: t.pool }] as const)));
+  const used = new Map<string, string>();
+  for (const r of resolved) {
+    if (r.match.stage !== "bracket" || r.match.id === matchId) continue;
+    for (const s of sr.slots) if (s.match_id === r.match.id && !s.source_match_id && s.group_id) used.set(s.group_id, r.label);
+  }
+  const order = new Map(sr.pools.map((p, i) => [p.group_id, i]));
+  return [...sr.pools]
+    .sort((a, b) => {
+      const ra = rank.get(a.group_id);
+      const rb = rank.get(b.group_id);
+      return Number(ra?.rank !== want) - Number(rb?.rank !== want) || (ra?.pool ?? 0) - (rb?.pool ?? 0) || (ra?.rank ?? 0) - (rb?.rank ?? 0) || (order.get(a.group_id) ?? 0) - (order.get(b.group_id) ?? 0);
+    })
+    .map((p) => ({
+      id: p.group_id,
+      label: `${names.get(p.group_id) ?? "A group"}${place.get(p.group_id) ? ` · ${place.get(p.group_id)}` : ""}`,
+      usedIn: used.get(p.group_id) ?? null,
+    }));
 }

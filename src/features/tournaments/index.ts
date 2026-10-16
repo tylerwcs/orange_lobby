@@ -6,6 +6,8 @@ export * from "./context";
 export * from "./admin/actions";
 export { SportsPanel } from "./admin/SportsPanel";
 export { SquadsPanel } from "./admin/SquadsPanel";
+export { MatchesPanel } from "./admin/MatchesPanel";
+export * from "./admin/results-actions";
 export * from "./actions";
 export { SquadsPage } from "./components/SquadsPage";
 export * from "./export";

@@ -28,11 +28,14 @@ describe("the polaroid kind (D471)", () => {
 });
 
 describe("the tournament kind (D637, D648)", () => {
-  it("has Setup, Squads and Sports, with a dot on Squads while any squad is short", () => {
+  it("has Setup, Squads, Sports and Matches, with a dot on Squads while any squad is short", () => {
     const tabs = activityTabs("tournament", { shortSquads: 3 });
-    expect(tabs.map((t) => t.tab)).toEqual(["setup", "squads", "sports"]);
-    expect(tabs.map((t) => t.label)).toEqual(["Setup", "Squads", "Sports"]);
+    expect(tabs.map((t) => t.tab)).toEqual(["setup", "squads", "sports", "matches"]);
+    expect(tabs.map((t) => t.label)).toEqual(["Setup", "Squads", "Sports", "Matches"]);
     expect(tabs[1].dot).toBe(true);
     expect(activityTabs("tournament", { shortSquads: 0 })[1].dot).toBe(false);
+  });
+  it("adds Leaderboard once there is a points table (D664)", () => {
+    expect(activityTabs("tournament", { scored: true }).map((t) => t.tab)).toEqual(["setup", "squads", "sports", "matches", "leaderboard"]);
   });
 });
