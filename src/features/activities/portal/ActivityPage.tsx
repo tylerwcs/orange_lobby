@@ -12,6 +12,7 @@ import { TrackerBody } from "../kinds/submission/scoring/TrackerBody";
 import { eventFields } from "@/lib/attendee-fields";
 import { PassportBody } from "../kinds/passport/PassportBody";
 import { PolaroidBody } from "../kinds/polaroid/PolaroidBody";
+import { TITLE_INK } from "@/lib/ink";
 
 /**
  * One activity's own page, the same shape for every kind (D178): the picture whole, the
@@ -81,7 +82,7 @@ export async function ActivityPage({ params, searchParams }: {
         <ArrowLeft aria-hidden className="size-4" />Activities
       </Link>
       <ActivityCover activity={activity} variant="hero" />
-      <h1 className="py-4 text-xl font-extrabold leading-tight">{activity.name}</h1>
+      <h1 className={`py-4 text-xl font-extrabold leading-tight ${TITLE_INK}`}>{activity.name}</h1>
       {body(found)}
     </div>
   );

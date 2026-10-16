@@ -11,6 +11,7 @@ import { fieldValue } from "@/lib/attendee-values";
 import { initials } from "@/lib/text";
 import { hasAnyCheckin } from "@/lib/db/checkins";
 import { CancelRequestNote, CancelSection, canSelfCancel, klDayTime, requestCancelAction, withdrawCancelRequestAction } from "@/features/cancel";
+import { TITLE_INK } from "@/lib/ink";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
@@ -81,7 +82,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
               {initials(attendee.name)}
             </div>
             <div className="flex flex-col gap-1">
-              <div className="text-xl font-extrabold leading-tight">{attendee.name}</div>
+              <div className={`text-xl font-extrabold leading-tight ${TITLE_INK}`}>{attendee.name}</div>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {attendee.category && shows(ME_CATEGORY) && <Badge variant="secondary">{attendee.category}</Badge>}

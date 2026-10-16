@@ -6,6 +6,7 @@ import { isBreakout } from "@/lib/breakouts";
 import { dayTabs, pickDay } from "@/lib/agenda";
 import { nowInKL } from "@/lib/time";
 import { AgendaList } from "@/components/portal/AgendaList";
+import { TITLE_INK } from "@/lib/ink";
 
 export default async function PersonalAgenda({ params, searchParams }: { params: Promise<{ slug: string; token: string }>; searchParams: Promise<{ day?: string }> }) {
   const { slug, token } = await params; const { day: requested } = await searchParams;
@@ -44,7 +45,7 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const day = pickDay(days.map((d) => d.date), requested, now.date);
   return (
     <>
-      <h1 className="mb-3 text-xl font-extrabold">Agenda</h1>
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>Agenda</h1>
       <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} calendarHref={calendarHref} />
     </>
   );

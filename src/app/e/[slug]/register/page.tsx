@@ -7,7 +7,8 @@ import { PortalHeader } from "@/components/portal/PortalHeader";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { brandStyle, HEADING_INK, PAGE_HEADING_INK, PAGE_TEXT_INK, registrationLook } from "@/lib/brand";
+import { CARD_TITLE_INK, TITLE_INK } from "@/lib/ink";
+import { ThemeStyle } from "@/features/theme";
 import { shortDateTime } from "@/lib/text";
 import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
 import { eventTermsHtml } from "@/lib/privacy";
@@ -18,12 +19,10 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
   if (!event) notFound();
   const closed = !event.registration_open || (event.registration_closes_at && new Date(event.registration_closes_at) < new Date());
   return (
-    // D620: the ground spans the window, so a chosen background is not a stripe on desktop; the
-    // column inside keeps the phone width.
-    <div className="min-h-screen bg-background"
-      style={{ ...brandStyle(event.primary_color), ...registrationLook(event.registration_heading_color, event.registration_background_color) } as React.CSSProperties}>
+    // D625: the theme is written on :root (ThemeStyle), so body's bg-background fills the window
+    // and the column inside keeps the phone width.
     <div className="mx-auto flex min-h-screen max-w-md flex-col">
-      {/* D621: with a chosen background the bar sits on it, so the event name shows in the heading colour. */}
+      <ThemeStyle event={event} />
       <PortalHeader event={event} />
       {/* D618: the organiser's banner, straight under the event bar, as wide as the column at its own height. */}
       {event.registration_banner_url && (
@@ -39,7 +38,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
             <Empty className="border border-dashed bg-card">
               <EmptyHeader>
                 <EmptyMedia variant="icon"><CalendarOff /></EmptyMedia>
-                <EmptyTitle className={HEADING_INK}>Registration is closed</EmptyTitle>
+                <EmptyTitle className={CARD_TITLE_INK}>Registration is closed</EmptyTitle>
                 <EmptyDescription>
                   {event.registration_closes_at && new Date(event.registration_closes_at) < new Date()
                     ? `It closed on ${shortDateTime(event.registration_closes_at)}.`
@@ -56,8 +55,8 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
           <>
             {/* A visible heading, not an sr-only one: an invitee arriving from a link needs to
                 read what this page wants from them before they meet the first input. */}
-            <h1 className={`text-2xl font-extrabold leading-tight ${PAGE_HEADING_INK}`}>Register</h1>
-            <p className={`mt-1 text-sm ${PAGE_TEXT_INK}`}>{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
+            <h1 className={`text-2xl font-extrabold leading-tight ${TITLE_INK}`}>Register</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
             <Card className="mt-4">
               <CardContent>
                 <RegisterForm slug={slug} questions={event.registration_form} door={event.check_in_enabled} termsHtml={eventTermsHtml(event)} />
@@ -66,7 +65,6 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
           </>
         )}
       </main>
-    </div>
     </div>
   );
 }

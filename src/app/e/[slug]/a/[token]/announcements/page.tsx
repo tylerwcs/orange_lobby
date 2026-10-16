@@ -2,6 +2,7 @@ import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { listAnnouncements } from "@/lib/db/announcements";
 import { categoryMatches } from "@/lib/agenda";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
+import { TITLE_INK } from "@/lib/ink";
 
 export default async function PersonalNews({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -10,7 +11,7 @@ export default async function PersonalNews({ params }: { params: Promise<{ slug:
   if (isUnpublished(event)) return null;
   return (
     <>
-      <h1 className="mb-3 text-xl font-extrabold">Announcements</h1>
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>Announcements</h1>
       <AnnouncementList items={(await listAnnouncements(event.id)).filter((a) => categoryMatches(a.categories, attendee.category))} />
     </>
   );

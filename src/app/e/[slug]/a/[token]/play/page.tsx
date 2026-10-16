@@ -1,6 +1,7 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { phoneState, PlayClient } from "@/features/games";
 import type { Attendee, Event } from "@/lib/types";
+import { TITLE_INK } from "@/lib/ink";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +17,14 @@ export default async function Play({ params }: { params: Promise<{ slug: string;
   if (event.status === "archived") {
     return (
       <>
-        <h1 className="mb-4 text-xl font-extrabold">Games</h1>
+        <h1 className={`mb-4 text-xl font-extrabold ${TITLE_INK}`}>Games</h1>
         <p className="text-base text-muted-foreground">Games are closed for this event.</p>
       </>
     );
   }
   return (
     <>
-      <h1 className="mb-4 text-xl font-extrabold">Games</h1>
+      <h1 className={`mb-4 text-xl font-extrabold ${TITLE_INK}`}>Games</h1>
       <PlayClient token={token} initial={await firstView(event, attendee)} />
     </>
   );

@@ -24,7 +24,7 @@ export function BadgeQrDialog({ qr, name, trigger }: { qr: string; name: string;
           Show this at check-in if you do not have your printed badge.
         </DialogDescription>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qr} alt="Your QR code" width={240} height={240} /* theme-fixed: QR on white (D627) */ className="mx-auto size-60 rounded-lg bg-white p-3" />
+        <img src={qr} alt="Your QR code" width={240} height={240} /* theme-fixed: QR on white (D627) */ className="mx-auto box-content size-60 rounded-lg bg-white p-3" />
       </DialogContent>
     </Dialog>
   );

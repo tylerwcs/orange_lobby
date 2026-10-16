@@ -1,0 +1,11 @@
+import { eventThemeCss } from "./client";
+
+/**
+ * D625: the event's theme (and primary colour) as one `:root` rule. On `:root`, not a page root,
+ * because dialogs, sheets and popovers render under <body> through portals, outside every page
+ * root - and body's own `bg-background text-foreground` then follows the ground. Rendered once
+ * by each attendee layout or page; an event with no theme gets exactly today's brand tokens.
+ */
+export function ThemeStyle({ event }: { event: Parameters<typeof eventThemeCss>[0] }) {
+  return <style>{eventThemeCss(event)}</style>;
+}

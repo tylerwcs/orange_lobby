@@ -4,6 +4,7 @@ import type { PortalInfoTab } from "@/lib/info-tabs";
 import { Skeleton } from "@/components/ui/skeletons";
 import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
 import { PortalTabStrip } from "./PortalTabStrip";
+import { TITLE_INK } from "@/lib/ink";
 
 /**
  * The Info page, for both portals (D206): the section's heading, the tab strip, and the
@@ -22,7 +23,7 @@ export function InfoPage({ event, tabs, selected, basePath }: {
   const nextHref = at >= 0 && at < tabs.length - 1 ? href(tabs[at + 1].key) : null;
   return (
     <>
-      <h1 className="mb-3 text-xl font-extrabold">{event.info_page_title}</h1>
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>{event.info_page_title}</h1>
       {!selected ? (
         <p className="text-sm text-muted-foreground">More information will be published soon.</p>
       ) : (

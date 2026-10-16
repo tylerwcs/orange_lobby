@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { meterPercent, meterAriaValue, meterAriaMax } from "@/lib/meter";
 import { shortTime, shortDateTime } from "@/lib/text";
+import { TITLE_INK } from "@/lib/ink";
 
 // A small tilt per cell echoes an actual rubber stamp landing slightly askew - purely
 // decorative, cycled by index so it never depends on how many booths an event has.
@@ -195,7 +196,7 @@ export function PassportGrid({ passport, message, attendeeName, title }: {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
-        {title !== null && <h1 className="text-xl font-extrabold leading-tight">{title}</h1>}
+        {title !== null && <h1 className={`text-xl font-extrabold leading-tight ${TITLE_INK}`}>{title}</h1>}
         {attendeeName !== null && <p className="text-sm text-muted-foreground">Visit a booth, hand over your badge, collect a chop.</p>}
       </div>
 

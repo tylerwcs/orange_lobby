@@ -3,6 +3,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { floorPlanShown } from "@/lib/modules";
 import { fieldValue } from "@/lib/attendee-values";
+import { TITLE_INK } from "@/lib/ink";
 
 export default async function Seat({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -13,7 +14,7 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
   const table = fieldValue(attendee, "table_no");
   return (
     <>
-      <h1 className="mb-3 text-xl font-extrabold">My seat</h1>
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>My seat</h1>
       {table ? (
         <div className="mb-4 rounded-[14px] bg-feature p-6 text-center text-feature-foreground">
           <div className="text-xs font-bold uppercase tracking-[0.08em] text-feature-foreground/70">Table</div>

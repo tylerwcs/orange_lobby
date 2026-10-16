@@ -2,7 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { brandStyle } from "@/lib/brand";
+import { TITLE_INK } from "@/lib/ink";
 import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
 import { PRIVACY_CONTACT, PRIVACY_MS_PATH, PRIVACY_PATH, TERMS_FIELD } from "@/lib/privacy";
 import type { Event } from "@/lib/types";
@@ -31,14 +31,14 @@ export function ConsentGate({ event, consent = true, termsHtml = null, agree }: 
   agree: (formData: FormData) => Promise<void>;
 }) {
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background" style={brandStyle(event.primary_color) as React.CSSProperties}>
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background">
       <PortalHeader event={event} />
       <main className="flex-1 px-4 py-4">
         <Card>
           <CardContent className="flex flex-col gap-4">
             <span className="flex size-11 items-center justify-center rounded-full bg-accent text-primary"><ShieldCheck aria-hidden className="size-6" /></span>
             <div>
-              <h1 className="text-xl font-extrabold leading-tight">Before you continue</h1>
+              <h1 className={`text-xl font-extrabold leading-tight ${TITLE_INK}`}>Before you continue</h1>
               <p className="mt-1 text-sm text-muted-foreground">This is your personal page for {event.name}.</p>
             </div>
             {consent && (

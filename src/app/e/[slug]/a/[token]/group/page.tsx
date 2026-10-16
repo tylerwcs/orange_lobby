@@ -6,6 +6,7 @@ import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav
 import { Skeleton } from "@/components/ui/skeletons";
 import { MyGroup } from "./my-group";
 import { AllGroups } from "./all-groups";
+import { TITLE_INK } from "@/lib/ink";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function GroupsPage({ params, searchParams }: {
   const at = tabs.indexOf(selected);
   return (
     <>
-      <h1 className="mb-3 text-xl font-extrabold">Groups</h1>
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>Groups</h1>
       {/* `?tab=` changes no route segment, so no loading.tsx sees it (as on Info, D206). */}
       <PendingScope>
         <div className="flex flex-col gap-4">

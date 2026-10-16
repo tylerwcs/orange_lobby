@@ -12,7 +12,8 @@ import { BadgeLink } from "./BadgeLink";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { brandStyle } from "@/lib/brand";
+import { ThemeStyle } from "@/features/theme";
+import { TITLE_INK } from "@/lib/ink";
 import { cn } from "@/lib/utils";
 import { doneCopy } from "@/lib/registration-done";
 
@@ -33,7 +34,8 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   // D537: the organiser's own words, or the defaults this page always had.
   const copy = doneCopy(event, attendee.name);
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background" style={brandStyle(event.primary_color) as React.CSSProperties}>
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background">
+      <ThemeStyle event={event} />
       <PortalHeader event={event} />
       <main className="flex-1 px-4 py-4">
         <h1 className="sr-only">Registered</h1>
@@ -41,14 +43,14 @@ export default async function Done({ params, searchParams }: { params: Promise<{
           <CardContent className="flex flex-col items-center gap-4 text-center">
             <Badge variant="success">Registered</Badge>
             {/* The greeting is a paragraph, not a second h1: the sr-only heading above names the page. */}
-            <p className="text-2xl font-extrabold leading-tight text-balance">{copy.title}</p>
+            <p className={`text-2xl font-extrabold leading-tight text-balance ${TITLE_INK}`}>{copy.title}</p>
             {qr ? (
               <>
                 {/* The code is the point of this page, so it is the largest thing on it. The crew
                     scan this at the door; everything else here exists to make sure it can be found
                     again tomorrow. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qr} alt="Your QR code" width={224} height={224} /* theme-fixed: QR on white (D627) */ className="size-56 rounded-xl bg-white p-3" />
+                <img src={qr} alt="Your QR code" width={224} height={224} /* theme-fixed: QR on white (D627) */ className="box-content size-56 rounded-xl bg-white p-3" />
                 <p className="text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.message}</p>
               </>
             ) : (

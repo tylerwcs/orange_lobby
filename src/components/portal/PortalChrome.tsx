@@ -6,7 +6,7 @@ import { ChevronLeft, UserRound } from "lucide-react";
 import type { Event } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
-import { brandStyle } from "@/lib/brand";
+import { TITLE_INK } from "@/lib/ink";
 import { comingSoonMessage } from "@/lib/coming-soon";
 import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
 import type { ActivityNav } from "@/features/activities/client";
@@ -94,7 +94,6 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
   // `hero` and `dashboard` were only ever true together, on the home route.
   const home = isPortalHome(pathname, basePath);
 
-  const style = brandStyle(event.primary_color) as React.CSSProperties;
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
   const headerItems = nav(personal, hasInfo, activities);
@@ -102,11 +101,11 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
 
   if (event.status === "draft") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6" style={style}>
+      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
         {event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
         <div className="w-full rounded-xl border border-border bg-card p-6 text-center">
           <div className="mx-auto mb-4 w-fit"><Mark event={event} /></div>
-          <h1 className="text-xl font-extrabold">{event.name}</h1>
+          <h1 className={`text-xl font-extrabold ${TITLE_INK}`}>{event.name}</h1>
           {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
           {/* D617: the organiser's words, or the default. Line breaks are kept. */}
           <p className="mt-4 whitespace-pre-line text-sm text-muted-foreground">{comingSoonMessage(event)}</p>
@@ -123,7 +122,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
       Below md: a phone column. No bar: home is the launcher, other pages lead back to it (D209).
       From md:  the column widens and the sections are text links in the header (D210).
     */
-    <div className="flex min-h-screen flex-col bg-background" style={style}>
+    <div className="flex min-h-screen flex-col bg-background">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-feature focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-feature-foreground">Skip to content</a>
 
       <div className="bg-[color:var(--bar,var(--card))] shadow-[0_1px_0_rgba(17,24,39,.08)]">

@@ -2,6 +2,7 @@ import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { Card, CardContent } from "@/components/ui/card";
 import { floorPlanUrl } from "@/lib/modules";
 import { fieldValue } from "@/lib/attendee-values";
+import { TITLE_INK } from "@/lib/ink";
 
 export default async function PlanPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -12,7 +13,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
   const table = fieldValue(attendee, "table_no");
   return (
     <>
-      <h1 className="mb-3 text-xl font-extrabold">Floor plan</h1>
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>Floor plan</h1>
       {plan ? (
         <>
           {table && <div className="mb-3 rounded-[12px] bg-feature px-4 py-3 text-sm font-bold text-feature-foreground">You are at Table {table}</div>}

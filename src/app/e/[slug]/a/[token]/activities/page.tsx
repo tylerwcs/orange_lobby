@@ -1,5 +1,6 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, ActivitiesTab } from "@/features/activities";
+import { TITLE_INK } from "@/lib/ink";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ slu
   const entries = await loadActivityEntries(event, attendee);
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-extrabold">Activities</h1>
+      <h1 className={`text-xl font-extrabold ${TITLE_INK}`}>Activities</h1>
       <ActivitiesTab entries={entries} basePath={`/e/${slug}/a/${token}`} />
     </div>
   );

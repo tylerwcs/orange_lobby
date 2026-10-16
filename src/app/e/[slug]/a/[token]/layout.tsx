@@ -10,6 +10,7 @@ import { consentAction } from "./consent-actions";
 import { eventTermsHtml, portalAsks } from "@/lib/privacy";
 import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
+import { ThemeStyle } from "@/features/theme";
 
 /**
  * Home-screen install (D227): this attendee's own manifest, so the icon opens their page, and
@@ -53,13 +54,23 @@ export default async function PersonalLayout({ children, params }: {
   // D585: a cancelled registration sees only this, on every page under the link - before the
   // consent gate, which has nothing to ask them.
   if (attendee.cancelled_at) {
-    return <CancelledCard event={chromeEvent} registerHref={registrationOpenNow(event, new Date()) ? `/e/${slug}/register` : null} />;
+    return (
+      <>
+        <ThemeStyle event={event} />
+        <CancelledCard event={chromeEvent} registerHref={registrationOpenNow(event, new Date()) ? `/e/${slug}/register` : null} />
+      </>
+    );
   }
   // PDPA consent first (D410), for every page under the link, before anything personal is
   // shown; and the event's terms, for anyone the registration form never asked (D543).
   const asks = portalAsks(event, attendee);
   if (asks.consent || asks.terms) {
-    return <ConsentGate event={event} consent={asks.consent} termsHtml={asks.terms ? eventTermsHtml(event) : null} agree={consentAction.bind(null, slug, token)} />;
+    return (
+      <>
+        <ThemeStyle event={event} />
+        <ConsentGate event={event} consent={asks.consent} termsHtml={asks.terms ? eventTermsHtml(event) : null} agree={consentAction.bind(null, slug, token)} />
+      </>
+    );
   }
   const [activities, hasInfo] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category)]);
   // D585: a draft shows only Coming soon, so the cancel link rides in under it. Built here on
@@ -80,6 +91,7 @@ export default async function PersonalLayout({ children, params }: {
     : undefined;
   return (
     <>
+      <ThemeStyle event={event} />
       <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal activities={activities} hasInfo={hasInfo} draftExtra={draftExtra}>
         {children}
       </PortalChrome>

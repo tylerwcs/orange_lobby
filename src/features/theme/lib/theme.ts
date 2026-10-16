@@ -1,4 +1,5 @@
 import { brandStyle } from "@/lib/brand";
+import type { Event } from "@/lib/types";
 import { contrastRatio, hexToRgb, oklabToRgb, readableOn, rgbToOklab, toHex, type Rgb } from "@/lib/contrast";
 
 /** D623: the worked-out colours an organiser can override, each on its own picker. */
@@ -310,4 +311,10 @@ export function themeTokens(theme: EventTheme, primary: string | null): Built {
 export function themeCss(tokens: Record<string, string>, dark: boolean): string {
   const body = Object.entries(tokens).map(([k, v]) => `${k}:${v};`).join("");
   return `:root{${body}color-scheme:${dark ? "dark" : "light"}}`;
+}
+
+/** D625: the `:root` rule an attendee page of this event carries. No theme set: exactly today's brand tokens. */
+export function eventThemeCss(event: { theme?: Event["theme"]; primary_color: string | null }): string {
+  const { tokens, dark } = themeTokens(event.theme ?? EMPTY_THEME, event.primary_color);
+  return themeCss(tokens, dark);
 }
