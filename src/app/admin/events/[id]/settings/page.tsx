@@ -14,6 +14,7 @@ import { qrDataUrl } from "@/lib/qr";
 import { crewLinkLastDay } from "@/lib/crew";
 import { Field } from "@/components/admin/Field";
 import { ImageField } from "@/components/admin/ImageField";
+import { DEFAULT_HEADING_COLOR, DEFAULT_PAGE_BACKGROUND } from "@/lib/brand";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
@@ -306,7 +307,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.coming_soon_message, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.coming_soon_message, ev.registration_banner_url, ev.registration_heading_color, ev.registration_background_color, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -406,6 +407,13 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             <div className="@xl:col-span-2">
               <Field label="Line under the Register heading" name="registration_intro" defaultValue={ev.registration_intro ?? ""} placeholder={DEFAULT_REGISTRATION_INTRO} description="Leave blank to use the placeholder text." />
             </div>
+            {/* D618-D619: the registration page's own look. */}
+            <ImageField label="Banner above the form" name="registration_banner" url={ev.registration_banner_url}
+              description="Shown at the very top of the registration page, as wide as the page and at the image's own height - nothing is cropped." />
+            <Field label="Heading colour" name="registration_heading_color" type="color" defaultValue={ev.registration_heading_color ?? DEFAULT_HEADING_COLOR}
+              description="The event name, the Register heading and the form's section headings. A colour too pale to read on white is shown darker." />
+            <Field label="Background colour" name="registration_background_color" type="color" defaultValue={ev.registration_background_color ?? DEFAULT_PAGE_BACKGROUND}
+              description="Behind the form. The header and the form stay white; text on a dark background turns white so it can be read." />
           </div>
           <div className="flex flex-col gap-1.5">
           <h3 className="text-sm font-extrabold">Questions</h3>

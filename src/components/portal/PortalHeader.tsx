@@ -1,6 +1,7 @@
 import { HomeLink } from "./HomeLink";
 import type { Event } from "@/lib/types";
 import { initials, formatDateRange } from "@/lib/text";
+import { HEADING_INK } from "@/lib/brand";
 
 type HeaderEvent = Pick<Event, "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name">;
 
@@ -30,7 +31,8 @@ export function PortalHeader({ event, href, action, className = "" }: {
     <>
       <Mark event={event} />
       <div className="min-w-0 flex-1">
-        <div className="line-clamp-2 text-base font-extrabold leading-tight">{event.name}</div>
+        {/* HEADING_INK: the usual ink unless the page sets --heading (only registration does, D619). */}
+        <div className={`line-clamp-2 text-base font-extrabold leading-tight ${HEADING_INK}`}>{event.name}</div>
         {meta && <div className="truncate text-xs font-medium text-muted-foreground">{meta}</div>}
       </div>
     </>

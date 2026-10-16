@@ -10,14 +10,14 @@
 /** The one bucket every event image lives in. Public read; only the service role writes. */
 export const MEDIA_BUCKET = "event-media";
 
-/** Per file. Two images can post in one Settings save, under the 10 MB Server Action cap. */
+/** Per file. Three images can post in one Settings save (D618), under the 14 MB Server Action cap. */
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** What an uploaded image is for. Also the first half of its object name. */
 export type ImageKind =
   | "logo" | "banner" | "floor-plan" | "agenda" | "info" | "activity" | "tile-icon"
   | "game-background" | "game-video" | "game-prize" | "game-card-back"
-  | "polaroid-sticker" | "polaroid-background" | "group";
+  | "polaroid-sticker" | "polaroid-background" | "group" | "registration-banner";
 
 /**
  * The extension each accepted type is stored under. Browsers send `image/jpg` as well as

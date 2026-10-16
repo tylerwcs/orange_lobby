@@ -2,6 +2,51 @@ import { contrastRatio, darkenUntilReadable, hexToRgb, lightenUntilReadable, rea
 
 const DEFAULT_BRAND = "#F97316";
 
+/** D619: the ink headings use when the organiser has not picked a colour (globals.css --foreground). */
+export const DEFAULT_HEADING_COLOR = "#111827";
+/** D620: the page ground when the organiser has not picked one (globals.css --background). */
+export const DEFAULT_PAGE_BACKGROUND = "#F5F5F3";
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** D619/D620: a posted colour as stored - #RRGGBB lower-cased, or null for anything else or the default. */
+export function parseColor(raw: string | null | undefined, fallback: string): string | null {
+  const v = raw?.trim() ?? "";
+  if (!HEX.test(v) || v.toLowerCase() === fallback.toLowerCase()) return null;
+  return v.toLowerCase();
+}
+
+/**
+ * D619/D620: the registration page's colours, as variables on its root.
+ *  - `--heading`: headings on white (the header, the form card). Darkened, hue kept, until it
+ *    clears 4.5:1 on white - the move `--primary` makes (D72).
+ *  - `--background`: the organiser's ground, which `bg-background` reads.
+ *  - `--page-heading` / `--page-text`: what sits on that ground (the Register heading, the line
+ *    under it). The heading keeps its colour where it reads there; otherwise both become
+ *    whichever of white or ink reads on the ground, so a dark ground never hides them.
+ * Nothing chosen, nothing set: everything falls back to the usual tokens.
+ */
+export function registrationLook(heading: string | null | undefined, background: string | null | undefined): Record<string, string> {
+  const style: Record<string, string> = {};
+  const head = heading && HEX.test(heading) ? darkenUntilReadable(hexToRgb(heading)!) : null;
+  if (head) style["--heading"] = toHex(head);
+  const ground = background && HEX.test(background) ? hexToRgb(background)! : null;
+  if (ground) {
+    const onGround = readableOn(ground).hex;
+    style["--background"] = toHex(ground);
+    style["--page-text"] = onGround;
+    style["--page-heading"] = head && contrastRatio(head, ground) >= 4.5 ? toHex(head) : onGround;
+  }
+  return style;
+}
+
+/** D619: a heading on white follows `--heading` where it is set, and the usual ink elsewhere. */
+export const HEADING_INK = "text-[color:var(--heading,var(--foreground))]";
+/** D620: the Register heading, which sits on the page ground rather than on white. */
+export const PAGE_HEADING_INK = "text-[color:var(--page-heading,var(--heading,var(--foreground)))]";
+/** D620: body text on the page ground; the usual muted ink when the ground is the default. */
+export const PAGE_TEXT_INK = "text-[color:var(--page-text,var(--muted-foreground))]";
+
 /**
  * What a pinned value on the attendee's badge sits on: the card's #111827 under the tile's
  * 10% white wash, flattened. The badge is the one dark surface the brand colour is text on.

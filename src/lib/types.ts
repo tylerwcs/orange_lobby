@@ -67,6 +67,12 @@ export type Event = {
   registration_done_title: string | null;
   /** D537: the success page's message; null for the default, which follows check-in. */
   registration_done_message: string | null;
+  /** D618: the registration page's banner, full width at its own height; null/absent = none. Optional so old fixtures compile. */
+  registration_banner_url?: string | null;
+  /** D619: the registration page's heading colour (#RRGGBB); null/absent = the usual ink. */
+  registration_heading_color?: string | null;
+  /** D620: the registration page's background (#RRGGBB); null/absent = the usual ground. */
+  registration_background_color?: string | null;
   /** D617: what a draft event's links say; null/absent for DEFAULT_COMING_SOON. Optional so old fixtures compile. */
   coming_soon_message?: string | null;
   /** D536: Me page items the organiser hid (`meGroups` keys). Optional so old fixtures compile; hydrate always fills it. */

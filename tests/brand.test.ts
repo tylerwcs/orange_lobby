@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { brandContrast, brandStyle } from "@/lib/brand";
+import { brandContrast, brandStyle, DEFAULT_HEADING_COLOR, DEFAULT_PAGE_BACKGROUND, parseColor, registrationLook } from "@/lib/brand";
 import { contrastRatio, hexToRgb, readableOn, darkenUntilReadable, lightenUntilReadable, toHex } from "@/lib/contrast";
 import { BADGE_TILE } from "@/lib/brand";
 
@@ -124,5 +124,42 @@ describe("--brand-on-dark", () => {
     const start = rgb("#1D4ED8");
     const once = lightenUntilReadable(start, BADGE_TILE);
     expect(contrastRatio(once, BADGE_TILE)).toBeLessThan(7);
+  });
+});
+
+describe("registration page colours (D619, D620)", () => {
+  const WHITE: [number, number, number] = [255, 255, 255];
+  const ratio = (a: string, b: string) => contrastRatio(hexToRgb(a)!, hexToRgb(b)!);
+
+  it("stores a hex colour lower-cased, and null for the default or junk", () => {
+    expect(parseColor("#1D4ED8", DEFAULT_HEADING_COLOR)).toBe("#1d4ed8");
+    expect(parseColor(" #111827 ", DEFAULT_HEADING_COLOR)).toBeNull();
+    expect(parseColor(DEFAULT_PAGE_BACKGROUND.toLowerCase(), DEFAULT_PAGE_BACKGROUND)).toBeNull();
+    for (const raw of [null, undefined, "", "blue", "#12345", "#1234567"]) expect(parseColor(raw, DEFAULT_HEADING_COLOR)).toBeNull();
+  });
+
+  it("sets nothing when nothing is chosen", () => {
+    expect(registrationLook(null, null)).toEqual({});
+  });
+
+  it("keeps a readable heading colour and darkens a pale one until it reads on white", () => {
+    expect(registrationLook("#1d4ed8", null)).toEqual({ "--heading": "#1D4ED8" });
+    const pale = registrationLook("#ffd400", null)["--heading"];
+    expect(contrastRatio(hexToRgb(pale)!, WHITE)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("on a light ground, the heading keeps its colour and text stays readable", () => {
+    const look = registrationLook("#1d4ed8", "#fef3c7");
+    expect(look["--background"]).toBe("#FEF3C7");
+    expect(look["--page-heading"]).toBe("#1D4ED8");
+    expect(ratio(look["--page-text"], "#fef3c7")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("on a dark ground, what sits on it turns readable instead of vanishing", () => {
+    const look = registrationLook("#1d4ed8", "#0b1f4b");
+    expect(ratio(look["--page-heading"], "#0b1f4b")).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(look["--page-text"], "#0b1f4b")).toBeGreaterThanOrEqual(4.5);
+    // Headings on the white header and card are unaffected by the ground.
+    expect(look["--heading"]).toBe("#1D4ED8");
   });
 });

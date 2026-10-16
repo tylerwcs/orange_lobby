@@ -40,6 +40,7 @@ import { canSetStatus } from "@/lib/access-rules";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
+import { DEFAULT_HEADING_COLOR, DEFAULT_PAGE_BACKGROUND, parseColor } from "@/lib/brand";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { meGroups, meHiddenFromForm } from "@/lib/me-page";
 import { exportFieldsFromForm } from "@/lib/export-columns";
@@ -83,9 +84,11 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   // whole save unapplied rather than half of it.
   let logo: ImageChange = { url: ev.logo_url, stale: null };
   let banner: ImageChange = { url: ev.banner_url, stale: null };
+  let regBanner: ImageChange = { url: ev.registration_banner_url ?? null, stale: null };
   try {
     logo = await nextImage(formData, "logo", ev.logo_url, { orgId: ev.org_id, eventId, kind: "logo" });
     banner = await nextImage(formData, "banner", ev.banner_url, { orgId: ev.org_id, eventId, kind: "banner" });
+    regBanner = await nextImage(formData, "registration_banner", ev.registration_banner_url ?? null, { orgId: ev.org_id, eventId, kind: "registration-banner" }); // D618
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }
@@ -107,10 +110,14 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_done_title: str(formData, "registration_done_title"),
     registration_done_message: str(formData, "registration_done_message"),
     coming_soon_message: str(formData, "coming_soon_message"), // D617
+    registration_banner_url: regBanner.url, // D618
+    registration_heading_color: parseColor(str(formData, "registration_heading_color"), DEFAULT_HEADING_COLOR), // D619
+    registration_background_color: parseColor(str(formData, "registration_background_color"), DEFAULT_PAGE_BACKGROUND), // D620
     registration_questions: questions,
   });
   await deleteEventImage(logo.stale);
   await deleteEventImage(banner.stale);
+  await deleteEventImage(regBanner.stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(`/admin/events/${eventId}/settings`, "Settings saved."));
 }

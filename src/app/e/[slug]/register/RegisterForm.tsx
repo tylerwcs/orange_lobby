@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH, TERMS_FIELD } from "@/lib/privacy";
 import { Spinner } from "@/components/ui/spinner";
 import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
+import { HEADING_INK } from "@/lib/brand";
 import { problemsInFormOrder, registrationErrors } from "@/lib/registration-check";
 
 /**
@@ -142,7 +143,7 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
           they are the attendee's own columns: their inputs are fixed here, only their place,
           wording and help text come from the event. */}
       <FieldSet>
-        <FieldLegend>About you</FieldLegend>
+        <FieldLegend className={HEADING_INK}>About you</FieldLegend>
         <FieldGroup>
           {questions.map((q) => {
             const id = `reg-${q.key}`;
@@ -179,7 +180,7 @@ export function RegisterForm({ slug, questions, door = true, termsHtml = null }:
         // min-w-0: a fieldset is otherwise as wide as its widest unbreakable word.
         <FieldSet className="min-w-0">
           {/* Bold like the consent screen's heading (ConsentGate): it is a clause they are signing up to. */}
-          <FieldLegend className="font-extrabold">Event terms</FieldLegend>
+          <FieldLegend className={`font-extrabold ${HEADING_INK}`}>Event terms</FieldLegend>
           <EventTermsPanel html={termsHtml} />
           <Field orientation="horizontal" data-invalid={!!errors[TERMS_FIELD]}>
             <input id={`reg-${TERMS_FIELD}`} name={TERMS_FIELD} type="checkbox" value="yes" required
