@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { brandStyle } from "@/lib/brand";
-import { contrastRatio, hexToRgb } from "@/lib/contrast";
+import { contrastRatio, hexToRgb, toHex, type Rgb } from "@/lib/contrast";
 import { EMPTY_THEME, parseTheme, themeTokens, themeCss, workedOut, isDarkGround } from "@/features/theme/client";
 
 const r = (a: string, b: string) => contrastRatio(hexToRgb(a)!, hexToRgb(b)!);
@@ -54,6 +54,27 @@ describe("themeTokens (D622-D632)", () => {
     const { tokens: t } = themeTokens({ ...UOB, overrides: { card: "#ffffff" } }, "#d9b25f");
     expect(r(t["--foreground"], t["--background"])).toBeGreaterThanOrEqual(4.5);
     expect(r(t["--card-foreground"], "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+    expect(r(t["--primary-foreground"], t["--primary"])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("mixed polarity never gives up button text on the primary fill", () => {
+    for (const p of ["#F97316", "#ffb066"]) {
+      const { tokens: t } = themeTokens({ ...EMPTY_THEME, overrides: { card: "#0b1f4b" } }, p);
+      expect(r(t["--primary-foreground"], t["--primary"]), p).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("--brand-on-dark reads on the badge's pin tile (the feature panel under a 10% white wash)", () => {
+    const tile = (hex: string) => {
+      const [R, G, B] = hexToRgb(hex)!;
+      return toHex([R, G, B].map((c) => Math.round(c * 0.9 + 255 * 0.1)) as Rgb);
+    };
+    for (const bg of ["#fef3c7", "#FFFFFF", "#000c36"])
+      for (const p of ["#2563eb", "#7c3aed", "#d9b25f"]) {
+        const { tokens: t } = themeTokens({ ...EMPTY_THEME, background: bg }, p);
+        expect(r(t["--brand-on-dark"], t["--feature"]), `${bg}/${p} on feature`).toBeGreaterThanOrEqual(4.5);
+        expect(r(t["--brand-on-dark"], tile(t["--feature"])), `${bg}/${p} on tile`).toBeGreaterThanOrEqual(4.5);
+      }
   });
 
   it("an unreadable override is adjusted and flagged, never dropped", () => {

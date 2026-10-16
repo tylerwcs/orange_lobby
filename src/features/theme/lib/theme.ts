@@ -47,30 +47,41 @@ const chroma = (rgb: Rgb) => {
   return Math.hypot(A, B);
 };
 
-/** Walks Oklab L in 0.02 steps (hue and chroma kept) until `ok`, at most 50 steps; the best seen when nothing passes. */
-function walk(fg: Rgb, grounds: Rgb[], up: boolean, ok: (c: Rgb) => boolean): { rgb: Rgb; passed: boolean } {
+type Walked = { rgb: Rgb; passed: boolean; kept: boolean };
+
+/**
+ * Walks Oklab L in 0.02 steps (hue and chroma kept) until every ground passes and `also` holds,
+ * at most 50 steps. When nothing does, the best ground contrast among the steps that still keep
+ * `also` (`kept`) - the grounds are the best effort, `also` is not; any step only if none keeps it.
+ */
+function walk(fg: Rgb, grounds: Rgb[], min: number, up: boolean, also: (c: Rgb) => boolean): Walked {
   const [L0, A, B] = rgbToOklab(fg);
-  let best = fg;
+  const better = (c: Rgb, than: Rgb | null) => !than || worst(c, grounds) > worst(than, grounds);
+  let kept: Rgb | null = also(fg) ? fg : null;
+  let any = fg;
   for (let i = 1; i <= 50; i++) {
     const c = oklabToRgb([Math.max(0, Math.min(1, L0 + (up ? 0.02 : -0.02) * i)), A, B]);
-    if (ok(c)) return { rgb: c, passed: true };
-    if (worst(c, grounds) > worst(best, grounds)) best = c;
+    const holds = also(c);
+    if (holds && worst(c, grounds) >= min) return { rgb: c, passed: true, kept: true };
+    if (holds && better(c, kept)) kept = c;
+    if (better(c, any)) any = c;
   }
-  return { rgb: best, passed: false };
+  return kept ? { rgb: kept, passed: false, kept: true } : { rgb: any, passed: false, kept: false };
 }
 
 function ensure(fg: Rgb, grounds: Rgb[], min: number, also: (c: Rgb) => boolean = () => true): { rgb: Rgb; adjusted: boolean } {
-  const ok = (c: Rgb) => worst(c, grounds) >= min && also(c);
-  if (ok(fg)) return { rgb: fg, adjusted: false };
+  if (worst(fg, grounds) >= min && also(fg)) return { rgb: fg, adjusted: false };
   // Lighter on dark grounds, darker on light. The other way is tried when that fails: a ground
   // just on the dark side can fail even white, and mixed grounds (a white card on navy) may have
-  // no colour that passes on both, so the better of the two is kept.
+  // no colour that passes on both, so the better of the two is kept - one that keeps `also` first.
   const up = grounds.filter(dark).length * 2 >= grounds.length;
-  const first = walk(fg, grounds, up, ok);
+  const first = walk(fg, grounds, min, up, also);
   if (first.passed) return { rgb: first.rgb, adjusted: true };
-  const other = walk(fg, grounds, !up, ok);
-  const pick = other.passed || worst(other.rgb, grounds) > worst(first.rgb, grounds) ? other : first;
-  return { rgb: pick.rgb, adjusted: true };
+  const other = walk(fg, grounds, min, !up, also);
+  const rank = (w: Walked) => [w.passed ? 1 : 0, w.kept ? 1 : 0, worst(w.rgb, grounds)];
+  const [a, b] = [rank(first), rank(other)];
+  const otherWins = a[0] !== b[0] ? b[0] > a[0] : a[1] !== b[1] ? b[1] > a[1] : b[2] > a[2];
+  return { rgb: (otherWins ? other : first).rgb, adjusted: true };
 }
 
 /**
@@ -99,6 +110,11 @@ function lift(ground: Rgb, dL: number, ratio: number): Rgb {
   let c = oklabToRgb([Math.min(1, L + dL), A, B]);
   for (let i = 1; i <= 50 && contrastRatio(c, ground) < ratio; i++) c = oklabToRgb([Math.min(1, L + dL + 0.01 * i), A, B]);
   return c;
+}
+
+/** `bg-white/10` over a surface, flattened as the browser composites it (in sRGB). */
+function wash(surface: Rgb): Rgb {
+  return surface.map((c) => Math.round(c * 0.9 + 255 * 0.1)) as Rgb;
 }
 
 function shade(ground: Rgb, dL: number): Rgb {
@@ -245,7 +261,8 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
     "--accent-foreground": toHex(ensure(ink, [accent], MIN).rgb),
     "--brand": fill["--brand"],
     "--brand-foreground": fill["--brand-foreground"],
-    "--brand-on-dark": toHex(ensure(brandRgb, [s.feature], MIN).rgb),
+    // Its one reader is the badge's pin text, on a 10% white tile over the feature panel (BADGE_TILE's job in brand.ts).
+    "--brand-on-dark": toHex(ensure(brandRgb, [s.feature, wash(s.feature)], MIN).rgb),
   };
 
   // D632: headings default to the text colour (inherited); an override reaches titles, or cards too.
