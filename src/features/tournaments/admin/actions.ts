@@ -6,6 +6,7 @@ import { flashPath } from "@/lib/flash";
 import { getAttendee } from "@/lib/db/attendees";
 import { requireFeature } from "@/features/catalogue";
 import type { Activity, Event } from "@/lib/types";
+import { hasMatches } from "../db/results";
 import { addSquadMember, createSport, deleteSport, getTournamentActivity, listSports, moveSport, removeSquadMember, updateSport } from "../db/tournaments";
 import { readSport } from "../lib/sports";
 import { nameInEvent, refusalFlash, type TournamentSport } from "../lib/squads";
@@ -62,6 +63,10 @@ export async function saveSportAction(eventId: string, activityId: string, sport
   const { cup } = await tournament(eventId, activityId);
   const back = tabPath(eventId, cup.id, "sports");
   const sport = readOrBack(fd, back);
+  // D653: a sport with matches keeps its results settings until they're reset.
+  const was = (await listSports(cup.id)).find((s) => s.id === sportId);
+  const changed = !!was && (was.result_kind !== sport.result_kind || was.format !== sport.format || was.pool_size !== sport.pool_size);
+  if (changed && (await hasMatches(sportId))) redirect(flashPath(back, "Reset this sport's matches to change its format.", "error"));
   if ((await updateSport(cup.id, sportId, sport)) === "duplicate") redirect(flashPath(back, `There's already a sport called ${sport.name}.`, "error"));
   done(eventId, cup.id, back, "Sport saved.");
 }

@@ -68,6 +68,11 @@ export function TournamentSetupFields({ activity, categories, fields, uploadImag
           </div>
         </fieldset>
       )}
+      <Field
+        label="Points per place (optional)" name="place_points" defaultValue={activity?.place_points?.join(", ") ?? ""}
+        placeholder="40, 35, 30, 29, 28, 27, 26, 25, 24, 23, 22, 20"
+        description="1st first, separated by commas. Every sport uses this one table. Leave blank for no overall leaderboard."
+      />
       {activity && nobodyPicks(activity) && (
         <p className="text-sm font-bold text-warning">Nobody can pick squads yet. Tick at least one field, or let members join themselves.</p>
       )}

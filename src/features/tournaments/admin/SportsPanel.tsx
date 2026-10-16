@@ -5,6 +5,7 @@ import { Modal } from "@/components/admin/Modal";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { listSports } from "../db/tournaments";
+import { hasMatches } from "../db/results";
 import { addSportAction, deleteSportAction, moveSportAction, saveSportAction } from "./actions";
 import { SportFields } from "./SportFields";
 
@@ -13,6 +14,8 @@ const size = (s: { min_size: number; max_size: number }) => (s.min_size === s.ma
 /** D638, D648: the tournament's sports, in order, each with its squad size and a ⋯ menu. */
 export async function SportsPanel({ ev, activity }: { ev: Event; activity: Activity }) {
   const [sports, groups] = await Promise.all([listSports(activity.id), listGroups(ev.id)]);
+  const locked = new Map(await Promise.all(sports.map(async (s) => [s.id, await hasMatches(s.id)] as const)));
+  const format = (s: (typeof sports)[number]) => `${s.format === "manual" ? "By hand" : `Pools of ${s.pool_size}`} · ${s.result_kind === "time" ? "Time" : "Score"}`;
   const squads = (n: number) => `${n} squad${n === 1 ? "" : "s"}`;
   return (
     <div className="flex flex-col gap-3">
@@ -34,6 +37,7 @@ export async function SportsPanel({ ev, activity }: { ev: Event; activity: Activ
               <TableRow className="hover:bg-transparent">
                 <TableHead>Sport</TableHead>
                 <TableHead>Squad size</TableHead>
+                <TableHead>Format</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
@@ -42,6 +46,7 @@ export async function SportsPanel({ ev, activity }: { ev: Event; activity: Activ
                 <TableRow key={s.id}>
                   <TableCell className="font-semibold">{s.name}</TableCell>
                   <TableCell className="tabular-nums">{size(s)}</TableCell>
+                  <TableCell className="text-muted-foreground">{format(s)}</TableCell>
                   <TableCell className="w-12 text-right">
                     <RowActions
                       name={s.name}
@@ -50,7 +55,7 @@ export async function SportsPanel({ ev, activity }: { ev: Event; activity: Activ
                         hint: "A smaller size removes nobody: a squad over it shows as Over.",
                         form: (
                           <form action={saveSportAction.bind(null, ev.id, activity.id, s.id)} className="grid grid-cols-1 gap-4">
-                            <SportFields sport={s} />
+                            <SportFields sport={s} locked={locked.get(s.id)} />
                             <SubmitButton>Save sport</SubmitButton>
                           </form>
                         ),

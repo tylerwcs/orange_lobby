@@ -3,6 +3,7 @@ import { cleanRichText } from "@/lib/rich-text";
 import type { NewActivity } from "../../db/activities";
 import { scheduleAt } from "../../lib/schedule";
 import { categoryValues, type FormReader } from "../form";
+import { readPlacePoints } from "@/features/tournaments/client";
 
 export type TournamentKindSettings = {
   name: string;
@@ -14,6 +15,8 @@ export type TournamentKindSettings = {
   squad_fill: "captains" | "self";
   /** D640: the fields whose Yes makes a member a picker, as D392's. */
   proxy_fields: string[];
+  /** D654: points per place, 1st first; null is no overall leaderboard. */
+  place_points: number[] | null;
 };
 
 /** A tournament's add form and its Setup card (D420, D640, D641). Its sports save on their own tab. */
@@ -30,6 +33,7 @@ export function readTournamentKindSettings(form: FormReader): TournamentKindSett
     squad_fill: form.text("squad_fill") === "self" ? "self" : "captains",
     // As the submission reader: field keys, as ticked, once each.
     proxy_fields: [...new Set(form.all("proxy_fields").map((v) => v.trim()).filter(Boolean))].slice(0, 10),
+    place_points: readPlacePoints(form.text("place_points")),
   };
 }
 

@@ -106,7 +106,7 @@ describe("tournament settings (D640, D641)", () => {
     const r = readSettings("tournament", form({ ...base, squad_fill: "captains", proxy_fields: ["captain", "vice_captain"] }));
     expect(r).toEqual({ ok: true, settings: {
       name: "Sports Carnival", description: null, categories: null,
-      squads_close_at: "2026-10-24T18:00:00+08:00", squad_fill: "captains", proxy_fields: ["captain", "vice_captain"],
+      squads_close_at: "2026-10-24T18:00:00+08:00", squad_fill: "captains", proxy_fields: ["captain", "vice_captain"], place_points: null,
     } });
   });
   it("defaults to captains pick, and reads self", () => {
@@ -118,6 +118,13 @@ describe("tournament settings (D640, D641)", () => {
   it("needs a name and a deadline", () => {
     expect(readSettings("tournament", form({ ...base, name: "" }))).toEqual({ ok: false, error: "A tournament needs a name" });
     expect(readSettings("tournament", form({ name: "X" }))).toEqual({ ok: false, error: "Set the squad deadline" });
+  });
+  it("reads points per place (D654), and refuses a bad table", () => {
+    const r = readSettings("tournament", form({ ...base, place_points: "40, 35" }));
+    expect(r.ok && r.settings.place_points).toEqual([40, 35]);
+    const blank = readSettings("tournament", form({ ...base, place_points: " " }));
+    expect(blank.ok && blank.settings.place_points).toBeNull();
+    expect(readSettings("tournament", form({ ...base, place_points: "40, x" }))).toEqual({ ok: false, error: "Points per place must be whole numbers, 1st first, separated by commas." });
   });
   it("creates with no cap and no questions", () => {
     const r = readSettings("tournament", form(base));
