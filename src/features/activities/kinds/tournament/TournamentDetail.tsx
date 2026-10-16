@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Download } from "lucide-react";
 import { formKey } from "@/lib/form-key";
 import { listCategories } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
@@ -8,6 +10,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { ScheduleOpen } from "../../admin/ScheduleOpen";
 import { ActivityMenu } from "../../admin/ActivityMenu";
 import { ActivityTabs } from "../../admin/ActivityTabs";
@@ -42,6 +45,9 @@ export async function TournamentDetail({ ev, activity, tab, sport }: { ev: Event
               remove={removeScheduleAction.bind(null, ev.id, activity.id, "setup")}
             />
             <OpenSwitch open={activity.is_open} action={toggleOpenAction.bind(null, ev.id, activity.id, "setup", !activity.is_open)} name={activity.name} showLabel />
+            <Link href={`/admin/events/${ev.id}/export/squads.xlsx?activity=${activity.id}`} prefetch={false} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Download data-icon="inline-start" />Export squads
+            </Link>
             <ActivityMenu
               name={activity.name}
               pinned={activity.pinned}
