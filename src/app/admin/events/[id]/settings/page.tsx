@@ -28,6 +28,7 @@ import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction } from "../actions";
 import { meGroups } from "@/lib/me-page";
+import { DEFAULT_COMING_SOON } from "@/lib/coming-soon";
 import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
 import { CheckpointList } from "@/components/admin/CheckpointList";
 import { PinList } from "@/components/admin/PinList";
@@ -305,7 +306,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.coming_soon_message, ev.registration_form])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -317,6 +318,11 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               <div><Field label="Ends on" name="ends_on" type="date" defaultValue={ev.ends_on} /></div>
             </div>
             <Field label="Primary colour" name="primary_color" type="color" defaultValue={ev.primary_color} />
+            {/* D617: saved with Save settings, unlike the Status card it describes. */}
+            <div className="@xl:col-span-2">
+              <Field label="Coming soon message" name="coming_soon_message" textarea defaultValue={ev.coming_soon_message ?? ""} placeholder={DEFAULT_COMING_SOON}
+                description="What every link shows while the event is a draft. Line breaks are kept. Leave blank to use the placeholder text." />
+            </div>
           </Section>
 
           <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">

@@ -7,6 +7,7 @@ import type { Event } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { formatDateRange } from "@/lib/text";
 import { brandStyle } from "@/lib/brand";
+import { comingSoonMessage } from "@/lib/coming-soon";
 import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
 import type { ActivityNav } from "@/features/activities/client";
 import { Mark, PortalHeader } from "./PortalHeader";
@@ -72,7 +73,7 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
  */
 export type ChromeEvent = Pick<
   Event,
-  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url"
+  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "coming_soon_message"
 >;
 
 export function PortalChrome({ event, basePath, personal, activities, hasInfo, draftExtra, children }: {
@@ -107,7 +108,8 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
           <div className="mx-auto mb-4 w-fit"><Mark event={event} /></div>
           <h1 className="text-xl font-extrabold">{event.name}</h1>
           {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
-          <p className="mt-4 text-sm text-muted-foreground">Coming soon. Check back closer to the event.</p>
+          {/* D617: the organiser's words, or the default. Line breaks are kept. */}
+          <p className="mt-4 whitespace-pre-line text-sm text-muted-foreground">{comingSoonMessage(event)}</p>
           {draftExtra && <div className="mt-4">{draftExtra}</div>}
         </div>
       </main>

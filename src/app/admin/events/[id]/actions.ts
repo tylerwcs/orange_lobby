@@ -106,6 +106,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_terms: cleanRichText(str(formData, "registration_terms")),
     registration_done_title: str(formData, "registration_done_title"),
     registration_done_message: str(formData, "registration_done_message"),
+    coming_soon_message: str(formData, "coming_soon_message"), // D617
     registration_questions: questions,
   });
   await deleteEventImage(logo.stale);

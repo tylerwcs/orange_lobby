@@ -34,6 +34,7 @@ export async function PortalShell({ event, basePath, personal, children }: {
     status: event.status,
     primary_color: event.primary_color,
     banner_url: event.banner_url,
+    coming_soon_message: event.coming_soon_message ?? null,
   };
   return (
     <PortalChrome event={chromeEvent} basePath={basePath} personal={personal} hasInfo={await portalHasInfo(event.id, null)}>
