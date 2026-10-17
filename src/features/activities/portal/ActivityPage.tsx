@@ -70,7 +70,7 @@ export async function ActivityPage({ params, searchParams }: {
       case "polaroid":
         return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} />;
       case "tournament":
-        return <TournamentBody entry={found.entry} slug={slug} token={token} sport={one(sport)} view={one(view)} show={one(show)} />;
+        return <TournamentBody entry={found.entry} slug={slug} token={token} tab={one(tab)} sport={one(sport)} view={one(view)} show={one(show)} />;
       default: {
         const exhaustive: never = found;
         throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);

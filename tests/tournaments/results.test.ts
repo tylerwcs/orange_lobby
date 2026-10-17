@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  blockedBy, bracketName, defaultPlaying, pickerOptions, portalOpening, readResult, tournamentOverall, withChange, withForfeit, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
+  blockedBy, bracketName, defaultPlaying, pickerOptions, pickSport, readResult, tournamentTab, tournamentOverall, withChange, withForfeit, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
   pointsFor, poolName, poolPlaces, poolStandings, readPlacePoints, resolveSport, roundRobinPairs, sportPlaces,
   type MatchPlan, type Slot, type SportResults,
 } from "@/features/tournaments/lib/results";
@@ -445,9 +445,20 @@ describe("final review fixes", () => {
     expect(withForfeit(played, "g01", true).pools.find((p) => p.group_id === "g01")?.forfeit).toBe(true);
     expect(blockedBy(played, withForfeit(played, "g01", true), names)).toBe("Gold · Final");
   });
-  it("opens the portal on Squads before the deadline, and as asked after it (D663)", () => {
-    expect(portalOpening({ locked: false, sport: null, view: null })).toEqual({ sport: "squads", view: null });
-    expect(portalOpening({ locked: false, sport: "s2", view: "matches" })).toEqual({ sport: "s2", view: "matches" });
-    expect(portalOpening({ locked: true, sport: null, view: null })).toEqual({ sport: null, view: null });
+  it("opens on Squads before the deadline, then the Leaderboard or Results (D663)", () => {
+    const base = { tab: null, locked: false, leaderboard: true, about: true };
+    expect(tournamentTab(base)).toBe("squads");
+    expect(tournamentTab({ ...base, locked: true })).toBe("leaderboard");
+    expect(tournamentTab({ ...base, locked: true, leaderboard: false })).toBe("results");
+    expect(tournamentTab({ ...base, tab: "about" })).toBe("about");
+    expect(tournamentTab({ ...base, tab: "about", about: false })).toBe("squads");
+    expect(tournamentTab({ ...base, locked: true, tab: "leaderboard", leaderboard: false })).toBe("results");
+    expect(tournamentTab({ ...base, tab: "nonsense" })).toBe("squads");
+  });
+  it("keeps the last sport: the link's, else the remembered one, else the first", () => {
+    expect(pickSport("b", "c", ["a", "b", "c"])).toBe("b");
+    expect(pickSport(null, "c", ["a", "b", "c"])).toBe("c");
+    expect(pickSport("gone", "gone2", ["a", "b"])).toBe("a");
+    expect(pickSport(null, null, [])).toBeNull();
   });
 });

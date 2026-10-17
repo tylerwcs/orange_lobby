@@ -588,12 +588,26 @@ export function withForfeit(sr: SportResults, groupId: string, forfeit: boolean)
   return { ...sr, pools: sr.pools.map((p) => (p.group_id === groupId ? { ...p, forfeit } : p)) };
 }
 
+export type TournamentTab = "about" | "squads" | "results" | "leaderboard";
+const TABS: TournamentTab[] = ["about", "squads", "results", "leaderboard"];
+
 /**
- * D663: which page the portal opens on. Before the squad deadline, with nothing asked for, Squads
- * (pools may already be drawn, but squads are still the job); otherwise what the URL says (no
- * sport: Overall, or the first sport).
+ * D663: the portal tab to show. The one asked for, if the page has it (About needs a description,
+ * Leaderboard a points table the organiser isn't hiding); otherwise Squads before the deadline
+ * (squads are still the job), and the Leaderboard - or Results without one - from then on.
  */
-export function portalOpening(input: { locked: boolean; sport: string | null; view: string | null }): { sport: string | null; view: string | null } {
-  if (!input.locked && !input.sport) return { sport: "squads", view: null };
-  return { sport: input.sport, view: input.view };
+export function tournamentTab(input: { tab: string | null; locked: boolean; leaderboard: boolean; about: boolean }): TournamentTab {
+  const has = (t: TournamentTab) => (t === "about" ? input.about : t === "leaderboard" ? input.leaderboard : true);
+  const asked = TABS.find((t) => t === input.tab);
+  if (asked && has(asked)) return asked;
+  if (asked === "leaderboard") return "results";
+  if (!input.locked) return "squads";
+  return input.leaderboard ? "leaderboard" : "results";
+}
+
+/** The sport Results shows: the link's, else the one this phone last picked, else the first. */
+export function pickSport(asked: string | null, remembered: string | null, sportIds: string[]): string | null {
+  if (asked && sportIds.includes(asked)) return asked;
+  if (remembered && sportIds.includes(remembered)) return remembered;
+  return sportIds[0] ?? null;
 }

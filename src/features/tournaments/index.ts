@@ -12,5 +12,6 @@ export { OverallTable, pointsLine } from "./components/OverallTable";
 export * from "./admin/results-actions";
 export * from "./actions";
 export { SquadsPage } from "./components/SquadsPage";
-export { ResultsPage, type MatchFilter, type ResultsView } from "./components/ResultsPage";
+export { TournamentPage, type MatchFilter, type ResultsView } from "./components/TournamentPage";
+export { sportCookie } from "./lib/sport-cookie";
 export * from "./export";
