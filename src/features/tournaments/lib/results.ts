@@ -589,11 +589,11 @@ export function withForfeit(sr: SportResults, groupId: string, forfeit: boolean)
 }
 
 /**
- * D663: which sport and view the portal opens on. Before the squad deadline, with nothing asked
- * for, the first sport's Squads (pools may already be drawn, but squads are still the job);
- * otherwise what the URL says (no sport: Overall, or the first sport).
+ * D663: which page the portal opens on. Before the squad deadline, with nothing asked for, Squads
+ * (pools may already be drawn, but squads are still the job); otherwise what the URL says (no
+ * sport: Overall, or the first sport).
  */
-export function portalOpening(input: { locked: boolean; sport: string | null; view: string | null; firstSport: string | null }): { sport: string | null; view: string | null } {
-  if (!input.locked && !input.sport && input.firstSport) return { sport: input.firstSport, view: "squads" };
+export function portalOpening(input: { locked: boolean; sport: string | null; view: string | null }): { sport: string | null; view: string | null } {
+  if (!input.locked && !input.sport) return { sport: "squads", view: null };
   return { sport: input.sport, view: input.view };
 }

@@ -446,9 +446,8 @@ describe("final review fixes", () => {
     expect(blockedBy(played, withForfeit(played, "g01", true), names)).toBe("Gold · Final");
   });
   it("opens the portal on Squads before the deadline, and as asked after it (D663)", () => {
-    expect(portalOpening({ locked: false, sport: null, view: null, firstSport: "s1" })).toEqual({ sport: "s1", view: "squads" });
-    expect(portalOpening({ locked: false, sport: "s2", view: "matches", firstSport: "s1" })).toEqual({ sport: "s2", view: "matches" });
-    expect(portalOpening({ locked: true, sport: null, view: null, firstSport: "s1" })).toEqual({ sport: null, view: null });
-    expect(portalOpening({ locked: false, sport: null, view: null, firstSport: null })).toEqual({ sport: null, view: null });
+    expect(portalOpening({ locked: false, sport: null, view: null })).toEqual({ sport: "squads", view: null });
+    expect(portalOpening({ locked: false, sport: "s2", view: "matches" })).toEqual({ sport: "s2", view: "matches" });
+    expect(portalOpening({ locked: true, sport: null, view: null })).toEqual({ sport: null, view: null });
   });
 });

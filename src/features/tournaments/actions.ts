@@ -41,3 +41,8 @@ export async function pickSquadMemberAction(slug: string, token: string, activit
 export async function removeSquadMemberAction(slug: string, token: string, activityId: string, sportId: string, attendeeId: string) {
   await write("remove", slug, token, activityId, sportId, attendeeId);
 }
+
+/** The Add a member dropdown (D644): the same add, with the pick posted as `attendee`. */
+export async function addSquadMemberAction(slug: string, token: string, activityId: string, sportId: string, fd: FormData) {
+  await write("add", slug, token, activityId, sportId, String(fd.get("attendee") ?? ""));
+}

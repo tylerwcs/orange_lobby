@@ -3,7 +3,7 @@ import type { Activity } from "@/lib/types";
 import { poolStandings, resolveSport, tournamentOverall, type Resolved, type SportResults } from "../lib/results";
 import { MatchCard, OverallView, PlayoffsView, StandingsView } from "./ResultViews";
 
-export type ResultsView = "matches" | "standings" | "playoffs" | "squads";
+export type ResultsView = "matches" | "standings" | "playoffs";
 export type MatchFilter = "all" | "mine" | "left" | "done";
 
 const FILTERS: { key: MatchFilter; label: string }[] = [
@@ -11,10 +11,11 @@ const FILTERS: { key: MatchFilter; label: string }[] = [
 ];
 
 /**
- * D663: a tournament's portal page once results start - Overall and one chip per sport along the
- * top; under a sport, Matches · Standings · Playoffs · Squads (Reclub's layout). Every choice is
- * a URL (`?sport=`, `&view=`, `&show=`), so Back works and the server draws it. Overall shows only
- * with a points table and while the organiser hasn't hidden it (D662).
+ * D663: a tournament's portal page once results start - Overall, Squads (every sport's squad on
+ * one page, so a captain sees the whole group at a glance) and one chip per sport along the top;
+ * under a sport, Matches · Standings · Playoffs (Reclub's layout). Every choice is a URL
+ * (`?sport=`, `&view=`, `&show=`), so Back works and the server draws it. Overall shows only with a
+ * points table and while the organiser hasn't hidden it (D662).
  */
 export function ResultsPage({ activity, results, groups, groupId, sportId, view, show, path, squads }: {
   activity: Activity;
@@ -26,20 +27,20 @@ export function ResultsPage({ activity, results, groups, groupId, sportId, view,
   show: MatchFilter;
   /** The tournament's portal page, without a query. */
   path: string;
-  /** The layer 1 squads page for a sport, drawn by the caller. */
-  squads: (sport: SportResults["sport"]) => React.ReactNode;
+  /** The group's squads for every sport, drawn by the caller (`?sport=squads`). */
+  squads: React.ReactNode;
 }) {
   const names = new Map(groups.map((g) => [g.id, g.name]));
   const table = activity.place_points ?? [];
   const overall = table.length > 0 && activity.show_overall !== false;
+  const onSquads = sportId === "squads";
   const sr = results.find((r) => r.sport.id === sportId) ?? null;
-  const onOverall = !sr && overall;
-  const current = sr ?? (onOverall ? null : results[0] ?? null);
+  const onOverall = !sr && !onSquads && overall;
+  const current = onSquads ? null : sr ?? (onOverall ? null : results[0] ?? null);
   const manual = current?.sport.format === "manual";
   const views: { key: ResultsView; label: string }[] = [
     { key: "matches", label: "Matches" },
     ...(manual ? [] : [{ key: "standings" as const, label: "Standings" }, { key: "playoffs" as const, label: "Playoffs" }]),
-    { key: "squads", label: "Squads" },
   ];
   const tab = views.find((v) => v.key === view)?.key ?? "matches";
   const href = (q: Record<string, string>) => `${path}?${new URLSearchParams(q)}`;
@@ -54,19 +55,24 @@ export function ResultsPage({ activity, results, groups, groupId, sportId, view,
               Overall
             </PendingLink>
           )}
+          <PendingLink href={href({ sport: "squads" })} selected={onSquads}
+            className="shrink-0 rounded-full px-3 py-1.5 text-sm font-bold" selectedClassName="bg-primary text-primary-foreground" unselectedClassName="bg-muted text-foreground">
+            Squads
+          </PendingLink>
           {results.map((r) => (
-            <PendingLink key={r.sport.id} href={href({ sport: r.sport.id })} selected={!onOverall && current?.sport.id === r.sport.id}
+            <PendingLink key={r.sport.id} href={href({ sport: r.sport.id })} selected={current?.sport.id === r.sport.id}
               className="shrink-0 rounded-full px-3 py-1.5 text-sm font-bold" selectedClassName="bg-primary text-primary-foreground" unselectedClassName="bg-muted text-foreground">
               {r.sport.name}
             </PendingLink>
           ))}
         </nav>
 
+        {onSquads && squads}
         {onOverall && <OverallView rows={tournamentOverall(results, groups, table)} sports={results.map((r) => r.sport)} names={names} mine={groupId} table={table} />}
 
         {!onOverall && current && (
           <>
-            <nav aria-label={current.sport.name} className={`-mx-4 grid border-b border-border px-4 md:mx-0 md:px-0 ${views.length === 4 ? "grid-cols-4" : "grid-cols-2"}`}>
+            {views.length > 1 && <nav aria-label={current.sport.name} className="-mx-4 grid grid-cols-3 border-b border-border px-4 md:mx-0 md:px-0">
               {views.map((v) => (
                 <PendingLink key={v.key} href={href({ sport: current.sport.id, view: v.key })} selected={v.key === tab}
                   className="-mb-px flex min-h-11 items-center justify-center border-b-[3px] px-1 text-center text-sm"
@@ -74,24 +80,23 @@ export function ResultsPage({ activity, results, groups, groupId, sportId, view,
                   {v.label}
                 </PendingLink>
               ))}
-            </nav>
+            </nav>}
             <SportView sr={current} tab={tab} show={show} names={names} groupId={groupId} table={table.length ? table : null}
-              filterHref={(f) => href({ sport: current.sport.id, view: "matches", ...(f === "all" ? {} : { show: f }) })} squads={squads} />
+              filterHref={(f) => href({ sport: current.sport.id, view: "matches", ...(f === "all" ? {} : { show: f }) })} />
           </>
         )}
-        {!onOverall && !current && <p className="text-sm text-muted-foreground">The organisers haven&apos;t added any sports yet.</p>}
+        {!onOverall && !onSquads && !current && <p className="text-sm text-muted-foreground">The organisers haven&apos;t added any sports yet.</p>}
       </div>
     </PendingScope>
   );
 }
 
-function SportView({ sr, tab, show, names, groupId, table, filterHref, squads }: {
+function SportView({ sr, tab, show, names, groupId, table, filterHref }: {
   sr: SportResults; tab: ResultsView; show: MatchFilter; names: Map<string, string>; groupId: string; table: number[] | null;
-  filterHref: (f: MatchFilter) => string; squads: (sport: SportResults["sport"]) => React.ReactNode;
+  filterHref: (f: MatchFilter) => string;
 }) {
   const time = sr.sport.result_kind === "time";
   const resolved = resolveSport(sr, names);
-  if (tab === "squads") return <>{squads(sr.sport)}</>;
   if (tab === "standings") return <StandingsView tables={poolStandings(sr, resolved)} names={names} mine={groupId} time={time} />;
   if (tab === "playoffs") return <PlayoffsView sr={sr} resolved={resolved} names={names} mine={groupId} table={table} />;
 
