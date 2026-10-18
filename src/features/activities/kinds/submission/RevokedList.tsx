@@ -23,7 +23,7 @@ export function RevokedList({ entries, byline, canResend }: {
           <Card key={s.id} className="opacity-75">
             <CardHeader>
               <CardTitle className="text-[13px] font-bold text-muted-foreground line-through">{shortDateTime(s.created_at)}</CardTitle>
-              <CardDescription className="text-sm text-foreground">{attendeeRevokeLabel(s.revoke_reason, "history")}</CardDescription>
+              <CardDescription className="text-sm text-foreground">{attendeeRevokeLabel(s, "history")}</CardDescription>
               {by && <CardDescription className="text-[11px]">{by}</CardDescription>}
               {canResend && <CardDescription className="text-[11px]">You can send a new one.</CardDescription>}
             </CardHeader>

@@ -64,8 +64,12 @@ export function revokeCredit(s: RevokeStamp, names: { admins: Record<string, str
   return `Revoked by ${who}${s.revoked_at ? ` on ${shortDateTime(s.revoked_at)}` : ""}${s.revoke_reason ? ` · ${s.revoke_reason}` : ""}`;
 }
 
-/** D500: what the attendee reads on a revoked entry. A revoke from before 0077 has no reason and keeps the old line. */
-export function attendeeRevokeLabel(reason: string | null | undefined, where: "history" | "tracker"): string {
-  if (!reason) return "Removed by the organiser";
-  return where === "history" ? `Removed: ${reason}` : `Removed by the organiser: ${reason}`;
+/**
+ * D500: what the attendee reads on a revoked entry, with when it was removed. A revoke from
+ * before 0077 has no reason and keeps the old line.
+ */
+export function attendeeRevokeLabel(s: Pick<RevokeStamp, "revoke_reason" | "revoked_at">, where: "history" | "tracker"): string {
+  const when = s.revoked_at ? ` on ${shortDateTime(s.revoked_at)}` : "";
+  if (!s.revoke_reason) return `Removed by the organiser${when}`;
+  return where === "history" ? `Removed${when}: ${s.revoke_reason}` : `Removed by the organiser${when}: ${s.revoke_reason}`;
 }

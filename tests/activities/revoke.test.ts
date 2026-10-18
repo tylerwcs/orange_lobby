@@ -84,13 +84,19 @@ describe("revokeCredit (D492)", () => {
 });
 
 describe("attendeeRevokeLabel (D500)", () => {
-  it("says why in the history and the tracker", () => {
-    expect(attendeeRevokeLabel("Duplicate entry", "history")).toBe("Removed: Duplicate entry");
-    expect(attendeeRevokeLabel("Duplicate entry", "tracker")).toBe("Removed by the organiser: Duplicate entry");
+  const at = "2026-10-18T06:15:00Z"; // 14:15 in Malaysia
+
+  it("says why and when in the history and the tracker", () => {
+    expect(attendeeRevokeLabel({ revoke_reason: "Duplicate entry", revoked_at: at }, "history")).toBe("Removed on 18 Oct, 14:15: Duplicate entry");
+    expect(attendeeRevokeLabel({ revoke_reason: "Duplicate entry", revoked_at: at }, "tracker")).toBe("Removed by the organiser on 18 Oct, 14:15: Duplicate entry");
   });
 
-  it("keeps the old wording for revokes with no reason", () => {
-    expect(attendeeRevokeLabel(null, "history")).toBe("Removed by the organiser");
-    expect(attendeeRevokeLabel(undefined, "tracker")).toBe("Removed by the organiser");
+  it("keeps the old wording for revokes with no reason, still with when", () => {
+    expect(attendeeRevokeLabel({ revoke_reason: null, revoked_at: at }, "history")).toBe("Removed by the organiser on 18 Oct, 14:15");
+    expect(attendeeRevokeLabel({ revoked_at: at }, "tracker")).toBe("Removed by the organiser on 18 Oct, 14:15");
+  });
+
+  it("leaves the time out when there is none", () => {
+    expect(attendeeRevokeLabel({ revoke_reason: "Duplicate entry", revoked_at: null }, "history")).toBe("Removed: Duplicate entry");
   });
 });

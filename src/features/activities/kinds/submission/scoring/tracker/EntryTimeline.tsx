@@ -56,7 +56,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
               <div className={`font-extrabold tabular-nums ${revoked ? "line-through" : ""}`}>{km}</div>
               {choices && <div className="line-clamp-2 text-sm text-muted-foreground">{choices}</div>}
               <div className="text-xs text-muted-foreground">
-                {at}{revoked ? ` · ${attendeeRevokeLabel(s.revoke_reason, "tracker")}` : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}{added ? ` · ${added}` : ""}
+                {at}{revoked ? ` · ${attendeeRevokeLabel(s, "tracker")}` : s.edited_at ? " · Updated by the organiser" : s.attendee_edited_at ? " · Edited" : ""}{added ? ` · ${added}` : ""}
               </div>
             </div>
             {photos.length > 0 && <EntryPhotos title={`${km} at ${at}`} photos={photos} />}
