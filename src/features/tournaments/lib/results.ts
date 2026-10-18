@@ -103,6 +103,14 @@ export function readPlacePoints(text: string): number[] | null {
   return parts.map(Number);
 }
 
+/** D674: the full participation bonus. Blank or 0 is none. Throws the organiser's sentence. */
+export function readBonus(text: string): number | null {
+  const t = text.trim();
+  if (!t) return null;
+  if (!/^\d{1,4}$/.test(t)) throw new Error("The participation bonus must be a whole number of points, up to 9999.");
+  return Number(t) || null;
+}
+
 // ---------- pools and the plan ----------
 
 /** D655/D656: why these groups can't run as pools then placing brackets, or null. */
@@ -113,7 +121,6 @@ export function formatProblem(groups: number, poolSize: number, kind: ResultKind
   }
   const pools = groups / poolSize;
   if (kind === "score" && pools !== 2 && pools !== 4) return "Placing brackets need 2 or 4 pools. Use Matches I add by hand for this sport.";
-  if (pools < 2) return "Placing races need at least 2 pools. Use Matches I add by hand for this sport.";
   return null;
 }
 
@@ -155,10 +162,14 @@ export function roundRobinPairs(n: number): [number, number][][] {
 
 type PlanSlot = MatchPlan["matches"][number]["slots"][number];
 
+/** D673: a time sport's heats - every pool races this many times, the same groups each time. */
+export const HEATS = ["heat 1", "heat 2"] as const;
+
 /**
- * D655/D656: a sport's pools, pool matches (round robin, or one heat per pool for times) and
- * empty placing brackets - semis, then a final and 3rd-place match fed by pointers (4 pools), a
- * final (2 pools), or one final race (times). Every pool round comes before the brackets.
+ * D655/D656: a sport's pools, pool matches (round robin) and empty placing brackets - semis,
+ * then a final and 3rd-place match fed by pointers (4 pools), or a final (2 pools). Every pool
+ * round comes before the brackets. D673: times have no brackets - each pool races once per
+ * heat, and best times decide the places.
  */
 export function planPools(sport: Pick<TournamentSport, "result_kind">, pools: string[][], newId: () => string): MatchPlan {
   const plan: MatchPlan = { pools: pools.flatMap((ids, pool) => ids.map((group_id) => ({ group_id, pool, forfeit: false, manual_place: null }))), matches: [] };
@@ -175,8 +186,7 @@ export function planPools(sport: Pick<TournamentSport, "result_kind">, pools: st
   const p = pools.length;
 
   if (sport.result_kind === "time") {
-    pools.forEach((ids, pool) => add({ stage: "pool", pool, bracket: null, round: "race", slots: fixed(ids) }));
-    for (let b = 0; b < size; b++) add({ stage: "bracket", pool: null, bracket: b, round: "race", slots: fixed(Array(p).fill(null)) });
+    for (const round of HEATS) pools.forEach((ids, pool) => add({ stage: "pool", pool, bracket: null, round, slots: fixed(ids) }));
     return plan;
   }
   for (const round of roundRobinPairs(size)) {
@@ -229,7 +239,8 @@ function labels(sr: SportResults): Map<string, { label: string; short: string }>
   const semis = new Map<number, number>();
   for (const m of [...sr.matches].sort((a, b) => a.position - b.position)) {
     if (m.stage === "pool") {
-      const l = poolName(m.pool ?? 0);
+      // D673: a time sport's heat names its heat first, "Heat 2 · Pool A".
+      const l = m.round.startsWith("heat ") ? `Heat ${m.round.slice(5)} · ${poolName(m.pool ?? 0)}` : poolName(m.pool ?? 0);
       out.set(m.id, { label: l, short: l });
     } else if (m.stage === "bracket") {
       const b = m.bracket ?? 0;
@@ -376,6 +387,37 @@ export function poolStandings(sr: SportResults, resolved: Resolved[]): PoolTable
   });
 }
 
+/** D673: one group's line in a time sport's table - each swim in race order, and its best. */
+export type TimeRow = {
+  groupId: string; rank: number; tied: boolean;
+  swims: { timeMs: number | null; dnf: boolean }[];
+  /** The fastest swim, or null with none timed yet. */
+  bestMs: number | null;
+  /** DNF in every swim it has. */
+  dnf: boolean;
+  forfeit: boolean;
+};
+
+/**
+ * D673: a time sport's one table - every group playing it, ranked across all pools by its best
+ * time; a DNF in every swim after every finisher, no time yet after that, a forfeit last. Equal
+ * bests share a rank. Ranks are provisional until every race is in (`sportPlaces` waits for that).
+ */
+export function timeTable(sr: SportResults, resolved: Resolved[]): TimeRow[] {
+  const races = resolved.filter((r) => r.match.stage !== "manual");
+  const rows = sr.pools.map((p) => {
+    const swims = races.flatMap((r) => r.entries.filter((e) => e.groupId === p.group_id).map((e) => ({ timeMs: e.timeMs, dnf: e.dnf })));
+    const times = swims.flatMap((s) => (s.timeMs !== null ? [s.timeMs] : []));
+    const bestMs = times.length ? Math.min(...times) : null;
+    return { groupId: p.group_id, swims, bestMs, dnf: bestMs === null && swims.some((s) => s.dnf), forfeit: p.forfeit };
+  });
+  type Row = (typeof rows)[number];
+  const key = (r: Row) => raceKey({ forfeit: r.forfeit, dnf: r.dnf, timeMs: r.bestMs });
+  const order = new Map(sr.pools.map((p, i) => [p.group_id, i]));
+  return rankRows(rows, (a: Row, b: Row) => key(a) - key(b))
+    .sort((a, b) => a.rank - b.rank || (order.get(a.groupId) ?? 0) - (order.get(b.groupId) ?? 0));
+}
+
 /** D657: each group's pool place for the semi pickers, "A1", or "A1=" when level. */
 export function poolPlaces(tables: PoolTable[]): Map<string, string> {
   return new Map(tables.flatMap((t) => t.rows.map((r) => [r.groupId, `${t.name.slice(-1)}${r.rank}${r.tied ? "=" : ""}`] as const)));
@@ -387,8 +429,8 @@ export type Place = { place: number; groupId: string; forfeit: boolean };
 
 /**
  * D661: a sport's settled places. Brackets: final winner and loser, then the 3rd-place match,
- * each bracket from its first place on. Races: the final race's order, equal times sharing a place.
- * By hand (D665): the admin's numbers.
+ * each bracket from its first place on. Times (D673): once every race is in, the time table's
+ * ranks, equal bests sharing a place. By hand (D665): the admin's numbers.
  */
 export function sportPlaces(sr: SportResults, resolved: Resolved[]): Place[] {
   const forfeit = new Set(sr.pools.filter((p) => p.forfeit).map((p) => p.group_id));
@@ -400,14 +442,16 @@ export function sportPlaces(sr: SportResults, resolved: Resolved[]): Place[] {
     for (const p of sr.pools) if (p.manual_place !== null) put(p.manual_place, p.group_id);
     return places.sort((a, b) => a.place - b.place || a.groupId.localeCompare(b.groupId));
   }
+  if (sr.sport.result_kind === "time") {
+    if (resolved.length === 0 || resolved.some((r) => !r.played)) return [];
+    for (const row of timeTable(sr, resolved)) put(row.rank, row.groupId);
+    return places;
+  }
   const teams = new Set(sr.pools.map((p) => p.pool)).size;
   for (const r of resolved) {
     if (r.match.stage !== "bracket" || !r.played) continue;
     const base = (r.match.bracket ?? 0) * teams;
-    if (r.match.round === "race" || r.entries.length > 2) {
-      const key = (g: string) => raceKey(r.entries.find((e) => e.groupId === g)!);
-      for (const g of r.order) put(base + 1 + r.order.filter((o) => key(o) < key(g)).length, g);
-    } else if (r.match.round === "final") {
+    if (r.match.round === "final") {
       put(base + 1, r.winner);
       put(base + 2, r.loser);
     } else if (r.match.round === "third") {
@@ -424,11 +468,16 @@ export function pointsFor(place: Place, table: number[] | null | undefined): num
   return table[place.place - 1] ?? 0;
 }
 
-export type OverallRow = { groupId: string; rank: number; tied: boolean; total: number; bySport: (number | "F" | null)[] };
+/** `bonus`: D674's points for this group (0 when not earned); null when the tournament has no bonus. */
+export type OverallRow = { groupId: string; rank: number; tied: boolean; total: number; bySport: (number | "F" | null)[]; bonus: number | null };
+
+/** D674: the full participation bonus and the groups earning it now. */
+export type CupBonus = { points: number; earned: Set<string> };
 
 /**
- * D662: each group's points across sports (null: no place yet; "F": a forfeit, worth 0), ranked
- * by total, ties going to more 1st places, then more 2nd places…, and otherwise shared.
+ * D662: each group's points across sports (null: no place yet; "F": a forfeit, worth 0), plus
+ * D674's bonus, ranked by total, ties going to more 1st places, then more 2nd places…, and
+ * otherwise shared.
  */
 export function overallTable(input: {
   sports: TournamentSport[];
@@ -437,6 +486,7 @@ export function overallTable(input: {
   table: number[];
   /** Per sport, the groups marked forfeit: "F" even before they have a place (D660: they score 0 whatever happens). */
   forfeits?: Map<string, Set<string>>;
+  bonus?: CupBonus | null;
 }): OverallRow[] {
   const sports = [...input.sports].sort((a, b) => a.position - b.position);
   const depth = Math.max(input.table.length, ...[...input.places.values()].flat().map((p) => p.place), 0);
@@ -449,8 +499,9 @@ export function overallTable(input: {
       counts[p.place - 1] += 1;
       return pointsFor(p, input.table);
     });
-    const total = bySport.reduce<number>((n, v) => n + (typeof v === "number" ? v : 0), 0);
-    return { groupId, total, bySport, counts };
+    const bonus = input.bonus ? (input.bonus.earned.has(groupId) ? input.bonus.points : 0) : null;
+    const total = bySport.reduce<number>((n, v) => n + (typeof v === "number" ? v : 0), bonus ?? 0);
+    return { groupId, total, bySport, counts, bonus };
   });
   type Row = (typeof rows)[number];
   const better = (a: Row, b: Row) => {
@@ -461,7 +512,7 @@ export function overallTable(input: {
   const order = new Map(input.groupIds.map((g, i) => [g, i]));
   return rankRows(rows, better)
     .sort((a, b) => a.rank - b.rank || (order.get(a.groupId) ?? 0) - (order.get(b.groupId) ?? 0))
-    .map(({ groupId, rank, tied, total, bySport }) => ({ groupId, rank, tied, total, bySport }));
+    .map(({ groupId, rank, tied, total, bySport, bonus }) => ({ groupId, rank, tied, total, bySport, bonus }));
 }
 
 // ---------- guarding a change ----------
@@ -574,13 +625,13 @@ export function pickerOptions(sr: SportResults, resolved: Resolved[], tables: Po
     }));
 }
 
-/** D662: the overall table straight from every sport's results - the groups that play some sport, in `groups` order. */
-export function tournamentOverall(results: SportResults[], groups: { id: string; name: string }[], table: number[]): OverallRow[] {
+/** D662: the overall table straight from every sport's results - the groups that play some sport, in `groups` order - with D674's bonus. */
+export function tournamentOverall(results: SportResults[], groups: { id: string; name: string }[], table: number[], bonus: CupBonus | null = null): OverallRow[] {
   const names = new Map(groups.map((g) => [g.id, g.name]));
   const playing = new Set(results.flatMap((r) => r.pools.map((p) => p.group_id)));
   const places = new Map(results.map((r) => [r.sport.id, sportPlaces(r, resolveSport(r, names))]));
   const forfeits = new Map(results.map((r) => [r.sport.id, new Set(r.pools.filter((p) => p.forfeit).map((p) => p.group_id))]));
-  return overallTable({ sports: results.map((r) => r.sport), places, groupIds: groups.map((g) => g.id).filter((g) => playing.has(g)), table, forfeits });
+  return overallTable({ sports: results.map((r) => r.sport), places, groupIds: groups.map((g) => g.id).filter((g) => playing.has(g)), table, forfeits, bonus });
 }
 
 /** D660: a copy of the sport with one group's forfeit flag changed, for `blockedBy`. */

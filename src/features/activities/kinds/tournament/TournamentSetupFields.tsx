@@ -73,6 +73,11 @@ export function TournamentSetupFields({ activity, categories, fields, uploadImag
         placeholder="40, 35, 30, 29, 28, 27, 26, 25, 24, 23, 22, 20"
         description="1st first, separated by commas. Every sport uses this one table. Leave blank for no overall leaderboard."
       />
+      <Field
+        label="Full participation bonus (optional)" name="participation_bonus" type="number" defaultValue={activity?.participation_bonus ? String(activity.participation_bonus) : ""}
+        placeholder="100"
+        description="Points added to a group's overall total once every member is in at least one sport's squad. Leave blank for no bonus."
+      />
       {activity && nobodyPicks(activity) && (
         <p className="text-sm font-bold text-warning">Nobody can pick squads yet. Tick at least one field, or let members join themselves.</p>
       )}

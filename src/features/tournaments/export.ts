@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import type { ExportColumn } from "@/lib/export-columns";
 import { columnValues } from "@/lib/exports";
 import type { SquadExportRow } from "./lib/squads";
-import { formatTime, pointsFor, resolveSport, sportPlaces, tournamentOverall, type SportResults } from "./lib/results";
+import { formatTime, pointsFor, resolveSport, sportPlaces, tournamentOverall, type CupBonus, type SportResults } from "./lib/results";
 
 type Person = { name: string; email: string | null; extra?: Record<string, string> | null };
 
@@ -38,7 +38,7 @@ const TIME_HEADER = ["Sport", "Stage", "Team", "Time", "Place", "Note"];
  * with its points. Leaderboard: the overall table, only with a points table - and always, to
  * admins, whatever the reveal switch says.
  */
-export function resultSheets(input: { results: SportResults[]; groups: { id: string; name: string }[]; table: number[] | null }): {
+export function resultSheets(input: { results: SportResults[]; groups: { id: string; name: string }[]; table: number[] | null; bonus?: CupBonus | null }): {
   matches: string[][]; places: string[][]; leaderboard: string[][] | null;
 } {
   const names = new Map(input.groups.map((g) => [g.id, g.name]));
@@ -73,10 +73,11 @@ export function resultSheets(input: { results: SportResults[]; groups: { id: str
   if (!input.table?.length) return { matches, places, leaderboard: null };
   const sports = [...input.results].sort((a, b) => a.sport.position - b.sport.position);
   const leaderboard = [
-    ["Rank", "Group", ...sports.map((r) => r.sport.name), "Total"],
-    ...tournamentOverall(sports, input.groups, input.table).map((row) => [
+    ["Rank", "Group", ...sports.map((r) => r.sport.name), ...(input.bonus ? ["Bonus"] : []), "Total"],
+    ...tournamentOverall(sports, input.groups, input.table, input.bonus ?? null).map((row) => [
       `${row.rank}${row.tied ? "=" : ""}`, names.get(row.groupId) ?? "",
-      ...row.bySport.map((v) => (v === null ? "" : v === "F" ? "0 (forfeit)" : String(v))), String(row.total),
+      ...row.bySport.map((v) => (v === null ? "" : v === "F" ? "0 (forfeit)" : String(v))),
+      ...(row.bonus === null ? [] : [String(row.bonus)]), String(row.total),
     ]),
   ];
   return { matches, places, leaderboard };

@@ -58,7 +58,7 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
       activity, view: polaroidCard(), href: href(activity), emphasis: false, section: "open" as const,
     })),
     // D647: open to look at whatever its state; never ringed, a short squad is the captain's to chase.
-    tournament: (list) => list.map(({ activity, sports, rows, attendeeId, groupId, picker, results, groups }) => {
+    tournament: (list) => list.map(({ activity, sports, rows, attendeeId, groupId, picker, results, groups, bonus }) => {
       const ready = sports.filter((s) => {
         const n = squadMembers(rows, s.id, groupId).length;
         return n >= s.min_size && n <= s.max_size;
@@ -67,7 +67,7 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
       // D663: once any result is in, the card says how the group stands, if attendees may see it.
       const any = results.some((r) => r.matches.some((m) => hasResult(m, r.slots)) || r.pools.some((p) => p.manual_place !== null));
       const table = activity.place_points ?? [];
-      const mine = any && table.length && activity.show_overall !== false ? tournamentOverall(results, groups, table).find((r) => r.groupId === groupId) : undefined;
+      const mine = any && table.length && activity.show_overall !== false ? tournamentOverall(results, groups, table, bonus).find((r) => r.groupId === groupId) : undefined;
       const view = tournamentCard({
         role: picker ? "picker" : "member", ready, sports: sports.length, playing, locked: isLocked(activity.squads_close_at, new Date()),
         results: { any, overall: mine ? { rank: mine.rank, tied: mine.tied, total: mine.total } : null },

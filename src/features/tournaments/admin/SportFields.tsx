@@ -69,7 +69,7 @@ export function SportFields({ sport, locked = false }: { sport?: SportValues; lo
           <p className="text-xs text-muted-foreground">Reset this sport&apos;s matches to change its format.</p>
         </>
       ) : (
-        <p className="text-xs text-muted-foreground">Pools, then placing brackets: groups play a round robin in pools, then Gold, Silver and Bronze decide every place. By hand: you add each match and type the places.</p>
+        <p className="text-xs text-muted-foreground">Pools, then placing brackets: groups play a round robin in pools, then Gold, Silver and Bronze decide every place. With times, each pool races twice instead, and every group&apos;s best time decides its place. By hand: you add each match and type the places.</p>
       )}
     </div>
   );

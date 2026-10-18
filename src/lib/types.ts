@@ -383,6 +383,8 @@ export type Activity = {
   squad_fill?: "captains" | "self" | null;
   /** Tournament kind only (D654): points per place, 1st first; null is no overall leaderboard. */
   place_points?: number[] | null;
+  /** Tournament kind only (D674): points a group adds once every member is in some squad; null is none. */
+  participation_bonus?: number | null;
   /** Tournament kind only (D662): whether attendees see the overall leaderboard. */
   show_overall?: boolean | null;
   sort_order: number;

@@ -1,10 +1,10 @@
 import { Check, Crown, Medal, Trophy } from "lucide-react";
 import {
   bracketName, bracketPlaces, formatTime, ordinal, pointsFor, sportPlaces,
-  type OverallRow, type PoolTable, type Resolved, type SportResults,
+  type OverallRow, type Place, type PoolTable, type Resolved, type SportResults, type TimeRow,
 } from "../lib/results";
 import type { TournamentSport } from "../lib/squads";
-import { OverallTable, pointsLine } from "./OverallTable";
+import { bonusLine, OverallTable, pointsLine } from "./OverallTable";
 
 /**
  * D663: what an attendee sees of a tournament's results - Reclub's List, Standings and Playoffs
@@ -81,6 +81,55 @@ export function StandingsView({ tables, names, mine, time }: { tables: PoolTable
   );
 }
 
+/** "1:52.30", "DNF", or "—" for a swim not timed yet. */
+export const swimText = (s: { timeMs: number | null; dnf: boolean }) => (s.dnf ? "DNF" : s.timeMs !== null ? formatTime(s.timeMs) : "—");
+
+/**
+ * D673: a time sport's one table - every group's swims and best time, ranked across all pools,
+ * with its points once every race is in.
+ */
+export function TimeStandingsView({ rows, places, names, mine, table }: {
+  rows: TimeRow[]; places: Place[]; names: Map<string, string>; mine: string; table: number[] | null;
+}) {
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground">The pools haven&apos;t been drawn yet.</p>;
+  const heats = Math.max(...rows.map((r) => r.swims.length), 0);
+  const settled = new Map(places.map((p) => [p.groupId, p]));
+  const points = !!table?.length && places.length > 0;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="overflow-x-auto rounded-xl border bg-card">
+        <table className="w-full text-sm tabular-nums">
+          <thead className="text-xs text-muted-foreground">
+            <tr className="border-b">
+              <th className="px-3 py-2 text-left font-medium">#</th>
+              {Array.from({ length: heats }, (_, i) => <th key={i} className="px-1.5 py-2 text-right font-medium">Heat {i + 1}</th>)}
+              <th className="px-3 py-2 text-right font-medium">Best</th>
+              {points && <th className="px-3 py-2 text-right font-medium">Pts</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const place = settled.get(r.groupId);
+              return (
+                <tr key={r.groupId} className={`border-b last:border-0 ${r.groupId === mine ? "bg-primary/10 font-bold" : ""}`}>
+                  <td className="px-3 py-2">
+                    {r.rank}{r.tied ? "=" : ""} {names.get(r.groupId)}
+                    {r.forfeit && <span className="ml-1 text-xs font-bold text-warning">Forfeit</span>}
+                  </td>
+                  {Array.from({ length: heats }, (_, i) => <td key={i} className="px-1.5 py-2 text-right text-muted-foreground">{r.forfeit || !r.swims[i] ? "—" : swimText(r.swims[i])}</td>)}
+                  <td className="px-3 py-2 text-right font-extrabold">{r.forfeit ? "—" : r.bestMs !== null ? formatTime(r.bestMs) : r.dnf ? "DNF" : "—"}</td>
+                  {points && <td className="px-3 py-2 text-right">{place ? pointsFor(place, table) : ""}</td>}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">Every squad swims in each heat. Its best time counts, ranked across all pools{places.length ? "" : "; places are final once every heat is in"}.</p>
+    </div>
+  );
+}
+
 /** D656, D661: each placing bracket as a small drawing (semis, then final and 3rd place), and the places so far. */
 export function PlayoffsView({ sr, resolved, names, mine, table }: { sr: SportResults; resolved: Resolved[]; names: Map<string, string>; mine: string; table: number[] | null }) {
   const time = sr.sport.result_kind === "time";
@@ -142,8 +191,10 @@ const PODIUM = [
   { rank: 3, height: 48, tint: "bg-bronze-soft text-bronze-strong", Icon: Medal },
 ] as const;
 
-/** D662/D663: the week so far - a podium for the top three, then every group's points by sport. */
-export function OverallView({ rows, sports, names, mine, table }: { rows: OverallRow[]; sports: TournamentSport[]; names: Map<string, string>; mine: string; table: number[] }) {
+/** D662/D663: the week so far - a podium for the top three, then every group's points by sport and D674's bonus. */
+export function OverallView({ rows, sports, names, mine, table, bonus = null }: {
+  rows: OverallRow[]; sports: TournamentSport[]; names: Map<string, string>; mine: string; table: number[]; bonus?: number | null;
+}) {
   const scored = rows.some((r) => r.total > 0);
   const top = scored ? [rows[1], rows[0], rows[2]] : [];
   return (
@@ -171,7 +222,7 @@ export function OverallView({ rows, sports, names, mine, table }: { rows: Overal
       {rows.length === 0
         ? <p className="text-sm text-muted-foreground">No results yet.</p>
         : <OverallTable rows={rows} sports={sports} names={names} highlight={mine} />}
-      <p className="text-xs text-muted-foreground">{pointsLine(table)}. – is a sport not finished yet; 0 F is a forfeit.</p>
+      <p className="text-xs text-muted-foreground">{pointsLine(table)}. – is a sport not finished yet; 0 F is a forfeit.{bonus ? ` ${bonusLine(bonus)}` : ""}</p>
     </div>
   );
 }

@@ -11,8 +11,9 @@ import { loadResults, loadSportResults } from "../db/results";
 import { countedRows, isLocked, squadMembers } from "../lib/squads";
 import {
   bracketName, bracketPlaces, defaultPlaying, formatTime, hasResult, matchesLeft, ordinal, pickerOptions, pointsFor, poolName, poolStandings,
-  resolveSport, sportPlaces, type PoolTable, type Resolved, type SportResults,
+  resolveSport, sportPlaces, timeTable, type PoolTable, type Resolved, type SportResults,
 } from "../lib/results";
+import { swimText } from "../components/ResultViews";
 import { markForfeitsIfDue } from "./forfeits";
 import {
   addMatchAction, clearResultAction, deleteMatchAction, drawPoolsAction, pickTeamsAction, resetSportAction, savePlacesAction, savePoolsAction,
@@ -179,7 +180,7 @@ async function PoolsSport({ ev, activity, sr, names, groups }: Bound & { groups:
       {poolMatches.length > 0 && (
         <Section title={sport.result_kind === "time" ? "Heats" : "Pool matches"} aside={<span className="text-sm text-muted-foreground">{poolMatches.filter((r) => r.played).length} of {poolMatches.length} played</span>}>
           <div className={list}>{poolMatches.map((r) => <MatchRow key={r.match.id} r={r} b={{ ev, activity, sr, names }} tables={tables} resolved={resolved} />)}</div>
-          <Standings tables={tables} names={names} time={sport.result_kind === "time"} />
+          {sport.result_kind === "time" ? <TimeStandings sr={sr} resolved={resolved} names={names} /> : <Standings tables={tables} names={names} />}
         </Section>
       )}
 
@@ -196,7 +197,32 @@ async function PoolsSport({ ev, activity, sr, names, groups }: Bound & { groups:
   );
 }
 
-function Standings({ tables, names, time }: { tables: PoolTable[]; names: Map<string, string>; time: boolean }) {
+/** D673: a time sport's one table across every pool - each swim and the best, which ranks. */
+function TimeStandings({ sr, resolved, names }: { sr: SportResults; resolved: Resolved[]; names: Map<string, string> }) {
+  const rows = timeTable(sr, resolved);
+  const heats = Math.max(...rows.map((r) => r.swims.length), 0);
+  return (
+    <details className="rounded-xl border bg-card p-3 text-sm">
+      <summary className="cursor-pointer font-semibold">Best times</summary>
+      <table className="mt-2 w-full tabular-nums">
+        <thead className="text-xs text-muted-foreground">
+          <tr><th className="text-left font-medium">Group</th>{Array.from({ length: heats }, (_, i) => <th key={i} className="text-right font-medium">Heat {i + 1}</th>)}<th className="text-right font-medium">Best</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.groupId}>
+              <td>{r.rank}{r.tied ? "=" : ""} {names.get(r.groupId)}{r.forfeit && " · Forfeit"}</td>
+              {Array.from({ length: heats }, (_, i) => <td key={i} className="text-right">{r.forfeit || !r.swims[i] ? "—" : swimText(r.swims[i])}</td>)}
+              <td className="text-right font-bold">{r.forfeit ? "—" : r.bestMs !== null ? formatTime(r.bestMs) : r.dnf ? "DNF" : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+  );
+}
+
+function Standings({ tables, names }: { tables: PoolTable[]; names: Map<string, string> }) {
   return (
     <details className="rounded-xl border bg-card p-3 text-sm">
       <summary className="cursor-pointer font-semibold">Pool tables</summary>
@@ -205,15 +231,13 @@ function Standings({ tables, names, time }: { tables: PoolTable[]; names: Map<st
           <table key={t.pool} className="w-full tabular-nums">
             <caption className="text-left font-bold">{t.name}</caption>
             <thead className="text-xs text-muted-foreground">
-              <tr><th className="text-left font-medium">Group</th>{time ? <th className="text-right font-medium">Time</th> : ["P", "W", "D", "L", "Diff", "For"].map((h) => <th key={h} className="text-right font-medium">{h}</th>)}</tr>
+              <tr><th className="text-left font-medium">Group</th>{["P", "W", "D", "L", "Diff", "For"].map((h) => <th key={h} className="text-right font-medium">{h}</th>)}</tr>
             </thead>
             <tbody>
               {t.rows.map((r) => (
                 <tr key={r.groupId}>
                   <td>{r.rank}{r.tied ? "=" : ""} {names.get(r.groupId)}{r.forfeit && " · Forfeit"}</td>
-                  {time
-                    ? <td className="text-right">{r.forfeit ? "—" : r.dnf ? "DNF" : r.timeMs ? formatTime(r.timeMs) : "—"}</td>
-                    : [r.played, r.won, r.drawn, r.lost, r.diff > 0 ? `+${r.diff}` : r.diff, r.scored].map((v, i) => <td key={i} className="text-right">{v}</td>)}
+                  {[r.played, r.won, r.drawn, r.lost, r.diff > 0 ? `+${r.diff}` : r.diff, r.scored].map((v, i) => <td key={i} className="text-right">{v}</td>)}
                 </tr>
               ))}
             </tbody>
@@ -314,7 +338,7 @@ function Places({ sr, resolved, names, table }: { sr: SportResults; resolved: Re
   return (
     <Section title="Places">
       {places.length === 0 ? (
-        <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Places fill in as finals and 3rd-place matches finish.</p>
+        <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{sr.sport.result_kind === "time" ? "Places fill in once every heat has its times." : "Places fill in as finals and 3rd-place matches finish."}</p>
       ) : (
         <div className={list}>
           {places.map((p) => (

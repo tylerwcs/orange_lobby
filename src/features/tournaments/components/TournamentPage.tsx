@@ -1,8 +1,8 @@
 import { PendingLink, PendingScope } from "@/components/PendingNav";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import type { Activity } from "@/lib/types";
-import { poolStandings, resolveSport, tournamentOverall, type Resolved, type SportResults, type TournamentTab } from "../lib/results";
-import { MatchCard, OverallView, PlayoffsView, StandingsView } from "./ResultViews";
+import { poolStandings, resolveSport, sportPlaces, timeTable, tournamentOverall, type CupBonus, type Resolved, type SportResults, type TournamentTab } from "../lib/results";
+import { MatchCard, OverallView, PlayoffsView, StandingsView, TimeStandingsView } from "./ResultViews";
 import { SportSelect } from "./SportSelect";
 
 export type ResultsView = "matches" | "standings" | "playoffs";
@@ -22,11 +22,13 @@ const REFRESH_SECONDS = 15;
  * Playoffs. Every choice is a URL (`?tab=`, `&sport=`, `&view=`, `&show=`), and the tab links
  * carry the sport, so moving to About and back lands on the same sport.
  */
-export function TournamentPage({ activity, results, groups, groupId, tab, sportId, view, show, path, about, squads }: {
+export function TournamentPage({ activity, results, groups, groupId, bonus, tab, sportId, view, show, path, about, squads }: {
   activity: Activity;
   results: SportResults[];
   groups: { id: string; name: string }[];
   groupId: string;
+  /** D674: the participation bonus and who earns it now; null when there is none. */
+  bonus: CupBonus | null;
   /** Already resolved by `tournamentTab`. */
   tab: TournamentTab;
   /** Already resolved by `pickSport`. */
@@ -51,9 +53,12 @@ export function TournamentPage({ activity, results, groups, groupId, tab, sportI
   ];
   const current = results.find((r) => r.sport.id === sportId) ?? null;
   const manual = current?.sport.format === "manual";
+  // D673: a time sport has no playoffs - its Standings are the places.
+  const timed = current?.sport.result_kind === "time";
   const views: { key: ResultsView; label: string }[] = [
     { key: "matches", label: "Matches" },
-    ...(manual ? [] : [{ key: "standings" as const, label: "Standings" }, { key: "playoffs" as const, label: "Playoffs" }]),
+    ...(manual ? [] : [{ key: "standings" as const, label: "Standings" }]),
+    ...(manual || timed ? [] : [{ key: "playoffs" as const, label: "Playoffs" }]),
   ];
   const sub = views.find((v) => v.key === view)?.key ?? "matches";
   const href = (q: Record<string, string | undefined>) =>
@@ -79,7 +84,7 @@ export function TournamentPage({ activity, results, groups, groupId, tab, sportI
         {tab === "leaderboard" && (
           <>
             <div className="flex justify-end"><AutoRefresh seconds={REFRESH_SECONDS} /></div>
-            <OverallView rows={tournamentOverall(results, groups, table)} sports={results.map((r) => r.sport)} names={names} mine={groupId} table={table} />
+            <OverallView rows={tournamentOverall(results, groups, table, bonus)} sports={results.map((r) => r.sport)} names={names} mine={groupId} table={table} bonus={bonus?.points ?? null} />
           </>
         )}
 
@@ -91,7 +96,7 @@ export function TournamentPage({ activity, results, groups, groupId, tab, sportI
               <AutoRefresh seconds={REFRESH_SECONDS} />
             </div>
             {views.length > 1 && (
-              <nav aria-label={current.sport.name} className="grid grid-cols-3 rounded-xl bg-muted p-1">
+              <nav aria-label={current.sport.name} className={`grid ${views.length === 2 ? "grid-cols-2" : "grid-cols-3"} rounded-xl bg-muted p-1`}>
                 {views.map((v) => (
                   <PendingLink key={v.key} href={href({ tab: "results", sport: current.sport.id, view: v.key })} selected={v.key === sub}
                     className="flex min-h-9 items-center justify-center rounded-lg px-1 text-center text-sm"
@@ -116,8 +121,9 @@ function SportView({ sr, tab, show, names, groupId, table, filterHref }: {
 }) {
   const time = sr.sport.result_kind === "time";
   const resolved = resolveSport(sr, names);
+  if (tab === "standings" && time) return <TimeStandingsView rows={timeTable(sr, resolved)} places={sportPlaces(sr, resolved)} names={names} mine={groupId} table={table} />;
   if (tab === "standings") return <StandingsView tables={poolStandings(sr, resolved)} names={names} mine={groupId} time={time} />;
-  if (tab === "playoffs") return <PlayoffsView sr={sr} resolved={resolved} names={names} mine={groupId} table={table} />;
+  if (tab === "playoffs" && !time) return <PlayoffsView sr={sr} resolved={resolved} names={names} mine={groupId} table={table} />;
 
   const keep = (r: Resolved) =>
     show === "mine" ? r.entries.some((e) => e.groupId === groupId) : show === "left" ? !r.played : show === "done" ? r.played : true;

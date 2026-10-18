@@ -2,8 +2,9 @@ import type { Activity, Event } from "@/lib/types";
 import { listGroups } from "@/lib/db/groups";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { loadResults } from "../db/results";
+import { loadBonus } from "../db/tournaments";
 import { tournamentOverall } from "../lib/results";
-import { OverallTable, pointsLine } from "../components/OverallTable";
+import { bonusLine, OverallTable, pointsLine } from "../components/OverallTable";
 import { toggleOverallAction } from "./results-actions";
 
 /**
@@ -12,8 +13,8 @@ import { toggleOverallAction } from "./results-actions";
  */
 export async function LeaderboardPanel({ ev, activity }: { ev: Event; activity: Activity }) {
   const table = activity.place_points ?? [];
-  const [results, groups] = await Promise.all([loadResults(activity.id), listGroups(ev.id)]);
-  const rows = tournamentOverall(results, groups, table);
+  const [results, groups, bonus] = await Promise.all([loadResults(activity.id), listGroups(ev.id), loadBonus(activity)]);
+  const rows = tournamentOverall(results, groups, table, bonus);
   const shown = activity.show_overall !== false;
   return (
     <div className="flex flex-col gap-3">
@@ -27,7 +28,7 @@ export async function LeaderboardPanel({ ev, activity }: { ev: Event; activity: 
       {rows.length === 0
         ? <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No sport has its players yet. Draw pools, or add matches, on the Matches tab.</p>
         : <OverallTable rows={rows} sports={results.map((r) => r.sport)} names={new Map(groups.map((g) => [g.id, g.name]))} />}
-      {table.length > 0 && <p className="text-xs text-muted-foreground">{pointsLine(table)}. A forfeit scores 0 for that sport.</p>}
+      {table.length > 0 && <p className="text-xs text-muted-foreground">{pointsLine(table)}. A forfeit scores 0 for that sport.{bonus && ` ${bonusLine(bonus.points)}`}</p>}
     </div>
   );
 }

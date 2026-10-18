@@ -342,3 +342,22 @@ Calls made by the designer, not the user. Each is marked "My call" where it appe
 
 ecphub's sports start the week of 19 Oct. The user will set ecphub's sports up themselves once
 it ships. D671 sets the order to build in.
+
+## Amendment, 18 Oct 2026: the Rally Cup EDM (D673, D674)
+
+The ECP Rally Cup EDM set two rules the first build didn't have. The user picked both.
+
+- **D673 Swimming is best of 2 times.** A time sport in pools has no placing races. Each pool
+  races once per heat (`HEATS`: heat 1, heat 2) with the same groups, labelled "Heat 2 · Pool A".
+  Every group's best time ranks it across all pools: a DNF in every swim comes after all
+  finishers, a forfeit last, and equal bests share a place. Places and points settle once every
+  heat has its times. Any whole number of pools works. The portal's time sport shows Matches and
+  Standings, with one table of each heat's time and the best, and no Playoffs. ecphub's
+  already-drawn swim pools were kept and given their second heat.
+- **D674 Full participation bonus.** `activities.participation_bonus` (migration 0099), set in
+  Setup, blank for none. A group earns it once every registered member the tournament is for
+  (its categories) has a counted place in at least one sport, so it is live from squads. It adds
+  to the overall total and shows as a Bonus column on the leaderboard, in the portal and in the
+  export. It is not a tie-break. ecphub: 100.
+
+The EDM's limit of 2 sports per person is rule text only (the user's call). Squads stay free.

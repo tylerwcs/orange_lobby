@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  blockedBy, bracketName, defaultPlaying, pickerOptions, pickSport, readResult, tournamentTab, tournamentOverall, withChange, withForfeit, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
-  pointsFor, poolName, poolPlaces, poolStandings, readPlacePoints, resolveSport, roundRobinPairs, sportPlaces,
+  blockedBy, bracketName, defaultPlaying, pickerOptions, pickSport, readBonus, readResult, tournamentTab, tournamentOverall, withChange, withForfeit, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
+  pointsFor, poolName, poolPlaces, poolStandings, readPlacePoints, resolveSport, roundRobinPairs, sportPlaces, timeTable,
   type MatchPlan, type Slot, type SportResults,
 } from "@/features/tournaments/lib/results";
 import type { SquadRow, TournamentSport } from "@/features/tournaments/lib/squads";
@@ -140,15 +140,20 @@ describe("planPools (D655, D656)", () => {
     expect(slotsOf(sr, final.id)[0].source_match_id).toBe(semi1.id);
     expect(slotsOf(sr, matchOf(sr, "Gold · 3rd place").id).map((s) => s.source_outcome)).toEqual(["loser", "loser"]);
   });
-  it("makes heats and one final race per bracket for time sports", () => {
+  it("makes two heats per pool, the same groups each time, and no brackets for time sports (D673)", () => {
     const sr = twelve({ result_kind: "time" });
     const heats = sr.matches.filter((m) => m.stage === "pool");
-    expect(heats).toHaveLength(4);
+    expect(heats).toHaveLength(8);
     expect(heats.every((h) => slotsOf(sr, h.id).length === 3)).toBe(true);
-    const races = sr.matches.filter((m) => m.stage === "bracket");
-    expect(races).toHaveLength(3);
-    expect(races.every((r) => slotsOf(sr, r.id).length === 4)).toBe(true);
-    expect(resolveSport(sr, names).find((r) => r.match.id === races[0].id)?.label).toBe("Gold · Final race");
+    expect(sr.matches.filter((m) => m.stage === "bracket")).toHaveLength(0);
+    const labels = resolveSport(sr, names).map((r) => r.label);
+    expect(labels).toEqual(["Heat 1 · Pool A", "Heat 1 · Pool B", "Heat 1 · Pool C", "Heat 1 · Pool D", "Heat 2 · Pool A", "Heat 2 · Pool B", "Heat 2 · Pool C", "Heat 2 · Pool D"]);
+    const [a1, a2] = heats.filter((h) => h.pool === 0);
+    expect(slotsOf(sr, a2.id).map((s) => s.group_id)).toEqual(slotsOf(sr, a1.id).map((s) => s.group_id));
+  });
+  it("runs a time sport in any number of whole pools (D673)", () => {
+    expect(formatProblem(3, 3, "time")).toBeNull();
+    expect(formatProblem(4, 3, "time")).toBe("4 groups don't split into pools of 3. Change the pool size, or switch this sport to Matches I add by hand.");
   });
   it("makes one final per bracket for 2 pools", () => {
     const s = sport({ pool_size: 2 });
@@ -283,13 +288,23 @@ describe("brackets and places (D657, D658, D661)", () => {
     expect([semi.played, semi.winner, semi.note]).toEqual([true, "g03", "Both forfeit"]);
     expect(resolveSport(sr, names).find((r) => r.match.id === fin.id)?.entries[0].groupId).toBe("g03");
   });
-  it("shares a place on an equal time in a final race", () => {
+  it("places a time sport by best time across both heats, once every heat is in (D673)", () => {
     let sr = twelve({ result_kind: "time" });
-    const race = sr.matches.find((m) => m.stage === "bracket" && m.bracket === 0)!;
-    sr = pick(sr, race.id, ["g01", "g04", "g07", "g10"]);
-    const t: Record<string, Partial<Slot>> = { g01: { time_ms: 100000 }, g04: { time_ms: 100000 }, g07: { time_ms: 110000 }, g10: { dnf: true } };
-    sr = { ...sr, slots: sr.slots.map((s) => (s.match_id === race.id && s.group_id ? { ...s, ...t[s.group_id] } : s)) };
-    expect(sportPlaces(sr, resolveSport(sr, names)).map((p) => [p.place, p.groupId])).toEqual([[1, "g01"], [1, "g04"], [3, "g07"], [4, "g10"]]);
+    sr = { ...sr, pools: sr.pools.map((p) => (p.group_id === "g12" ? { ...p, forfeit: true } : p)) };
+    // Heat 1: g01 100.0s … g11 110.0s; heat 2: g05 swims 90.0s, g02 matches g01's 100.0s, g03 DNFs both.
+    const heat1 = (g: string) => (g === "g03" ? { dnf: true } : { time_ms: 100000 + (Number(g.slice(1)) - 1) * 1000 });
+    const heat2: Record<string, Partial<Slot>> = { g05: { time_ms: 90000 }, g02: { time_ms: 100000 }, g03: { dnf: true } };
+    const first = new Set(sr.matches.filter((m) => m.round === "heat 1").map((m) => m.id));
+    sr = { ...sr, slots: sr.slots.map((s) => (first.has(s.match_id) && s.group_id ? { ...s, ...heat1(s.group_id) } : s)) };
+    expect(sportPlaces(sr, resolveSport(sr, names))).toEqual([]);
+    sr = { ...sr, slots: sr.slots.map((s) => (!first.has(s.match_id) && s.group_id ? { ...s, ...(heat2[s.group_id] ?? { time_ms: 200000 }) } : s)) };
+    const resolved = resolveSport(sr, names);
+    const places = sportPlaces(sr, resolved).map((p) => [p.place, p.groupId]);
+    expect(places.slice(0, 4)).toEqual([[1, "g05"], [2, "g01"], [2, "g02"], [4, "g04"]]);
+    expect(places.slice(-2)).toEqual([[11, "g03"], [12, "g12"]]);
+    const row = timeTable(sr, resolved).find((r) => r.groupId === "g05")!;
+    expect([row.swims.map((x) => x.timeMs), row.bestMs]).toEqual([[104000, 90000], 90000]);
+    expect(timeTable(sr, resolved).find((r) => r.groupId === "g03")).toMatchObject({ dnf: true, bestMs: null });
   });
   it("reads a by-hand sport's places from the admin, ties allowed", () => {
     const s = sport({ format: "manual" });
@@ -423,6 +438,18 @@ describe("tournamentOverall (D662)", () => {
     expect(rows).toHaveLength(12);
     expect(rows.slice(0, 2).map((r) => [r.groupId, r.total, r.rank])).toEqual([["g01", 40, 1], ["g10", 35, 2]]);
     expect(rows[2]).toMatchObject({ groupId: "g02", total: 0, rank: 3, tied: true, bySport: [null] });
+  });
+  it("adds the participation bonus to the groups that earned it (D674)", () => {
+    const sr = twelve();
+    const groups = ids(12).map((id) => ({ id, name: names.get(id)! }));
+    const rows = tournamentOverall([sr], groups, [40], { points: 100, earned: new Set(["g07"]) });
+    expect(rows[0]).toMatchObject({ groupId: "g07", total: 100, bonus: 100, rank: 1 });
+    expect(rows[1]).toMatchObject({ bonus: 0, total: 0 });
+    expect(tournamentOverall([sr], groups, [40])[0].bonus).toBeNull();
+  });
+  it("reads the bonus: blank or 0 is none", () => {
+    expect([readBonus(""), readBonus(" 0 "), readBonus("100")]).toEqual([null, null, 100]);
+    expect(() => readBonus("-5")).toThrow("The participation bonus must be a whole number of points, up to 9999.");
   });
   it("shows a forfeit as 0 F before it has a place", () => {
     const sr = twelve();

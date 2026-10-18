@@ -21,7 +21,7 @@ const SHOWS: MatchFilter[] = ["all", "mine", "left", "done"];
 export async function TournamentBody({ entry, slug, token, tab = null, sport = null, view = null, show = null }: {
   entry: TournamentEntry; slug: string; token: string; tab?: string | null; sport?: string | null; view?: string | null; show?: string | null;
 }) {
-  const { activity, sports, rows, attendeeId, groupId, picker, results, groups } = entry;
+  const { activity, sports, rows, attendeeId, groupId, picker, results, groups, bonus } = entry;
   const [group, everyone, jar] = await Promise.all([getGroup(activity.event_id, groupId), groupMembers(activity.event_id, groupId), cookies()]);
   const { names, members } = portalSquadPeople(everyone, activity.categories);
   const captain = activity.proxy_fields.map((k) => everyone.find((m) => isYes(fieldValue(m, k)))).find(Boolean) ?? null;
@@ -31,7 +31,7 @@ export async function TournamentBody({ entry, slug, token, tab = null, sport = n
   const remembered = jar.get(sportCookie(activity.id))?.value ?? null;
   return (
     <TournamentPage
-      activity={activity} results={results} groups={groups} groupId={groupId}
+      activity={activity} results={results} groups={groups} groupId={groupId} bonus={bonus}
       tab={tournamentTab({ tab, locked, leaderboard, about: hasAbout })}
       sportId={pickSport(sport, remembered, sports.map((s) => s.id))}
       view={VIEWS.find((v) => v === view) ?? null} show={SHOWS.find((s) => s === show) ?? "all"}

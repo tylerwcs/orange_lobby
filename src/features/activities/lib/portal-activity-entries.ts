@@ -14,7 +14,7 @@ import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
-import { countedRows, isPicker, listSportsForActivities, loadResults, squadPeople, squadRows, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
+import { countedRows, isPicker, listSportsForActivities, loadBonus, loadResults, squadPeople, squadRows, type CupBonus, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
@@ -33,6 +33,8 @@ export type TournamentEntry = {
   activity: Activity; sports: TournamentSport[]; rows: SquadRow[]; attendeeId: string; groupId: string; picker: boolean;
   /** D663: every sport's pools, matches and slots, and the event's groups to name them. */
   results: SportResults[]; groups: { id: string; name: string }[];
+  /** D674: the participation bonus and who earns it now; null when the tournament has none. */
+  bonus: CupBonus | null;
 };
 
 /** Each kind's portal entry (D416). Its keys must be exactly ActivityKind: the check below fails the build otherwise. */
@@ -147,14 +149,17 @@ async function loadTournaments(eventId: string, cups: Activity[], attendee: Pick
     listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id))), Promise.all(cups.map((a) => loadResults(a.id))), listGroups(eventId),
   ]);
   const people = await squadPeople(eventId, rowsByCup.flat().map((r) => r.attendee_id));
+  const counted = rowsByCup.map((rows) => countedRows(rows, people));
+  const bonuses = await Promise.all(cups.map((a, i) => loadBonus(a, counted[i])));
   return cups.map((activity, i) => ({
     activity,
     sports: sports.filter((s) => s.activity_id === activity.id),
-    rows: countedRows(rowsByCup[i], people),
+    rows: counted[i],
     attendeeId: attendee.id,
     groupId,
     picker: isPicker(activity, attendee),
     results: resultsByCup[i],
     groups: groups.map((g) => ({ id: g.id, name: g.name })),
+    bonus: bonuses[i],
   }));
 }

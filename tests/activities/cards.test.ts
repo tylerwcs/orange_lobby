@@ -37,7 +37,7 @@ const wall = (id: string, posted = 0): PolaroidEntry => ({
 const carnival = (id: string, over: Partial<TournamentEntry> = {}): TournamentEntry => ({
   activity: activity(id, { kind: "tournament", squad_fill: "captains", squads_close_at: "2099-01-01T00:00:00.000Z" }),
   sports: [{ id: `${id}-s`, activity_id: id, name: "Badminton", min_size: 2, max_size: 2, position: 0, result_kind: "score", format: "pools", pool_size: 3, forfeits_marked_at: null }],
-  rows: [], attendeeId: "me", groupId: "g1", picker: false, results: [], groups: [], ...over,
+  rows: [], attendeeId: "me", groupId: "g1", picker: false, results: [], groups: [], bonus: null, ...over,
 });
 
 describe("activityCards", () => {

@@ -59,16 +59,19 @@ describe("resultSheets (D666)", () => {
     const heat = swim.matches[0];
     swim = setSlot(setSlot(swim, heat.id, 0, { time_ms: 112300 }), heat.id, 1, { dnf: true });
 
-    const sheets = resultSheets({ results: [futsal, swim], groups, table: [40, 35] });
+    const bonus = { points: 100, earned: new Set(["g3"]) };
+    const sheets = resultSheets({ results: [futsal, swim], groups, table: [40, 35], bonus });
     expect(sheets.matches[0]).toEqual(["Sport", "Stage", "Team 1", "Score 1", "Team 2", "Score 2", "Note"]);
     expect(sheets.matches[1]).toEqual(["Futsal", "Pool A", "Team 1", "3", "Team 2", "1", ""]);
     expect(sheets.matches).toContainEqual(["Futsal", "Gold · Final", "Team 1", "2", "Team 3", "0", ""]);
     expect(sheets.matches).toContainEqual(["Sport", "Stage", "Team", "Time", "Place", "Note"]);
-    expect(sheets.matches).toContainEqual(["Swimming", "Pool A", "Team 1", "1:52.30", "1", ""]);
-    expect(sheets.matches).toContainEqual(["Swimming", "Pool A", "Team 2", "DNF", "2", ""]);
+    expect(sheets.matches).toContainEqual(["Swimming", "Heat 1 · Pool A", "Team 1", "1:52.30", "1", ""]);
+    expect(sheets.matches).toContainEqual(["Swimming", "Heat 1 · Pool A", "Team 2", "DNF", "2", ""]);
+    expect(sheets.matches).toContainEqual(["Swimming", "Heat 2 · Pool B", "Team 4", "", "", ""]);
     expect(sheets.places).toEqual([["Sport", "Place", "Group", "Points"], ["Futsal", "1", "Team 1", "40"], ["Futsal", "2", "Team 3", "35"]]);
-    expect(sheets.leaderboard?.[0]).toEqual(["Rank", "Group", "Futsal", "Swimming", "Total"]);
-    expect(sheets.leaderboard?.[1]).toEqual(["1", "Team 1", "40", "", "40"]);
+    expect(sheets.leaderboard?.[0]).toEqual(["Rank", "Group", "Futsal", "Swimming", "Bonus", "Total"]);
+    expect(sheets.leaderboard?.[1]).toEqual(["1", "Team 3", "35", "", "100", "135"]);
+    expect(sheets.leaderboard?.[2]).toEqual(["2", "Team 1", "40", "", "0", "40"]);
     expect(resultSheets({ results: [futsal], groups, table: null }).leaderboard).toBeNull();
   });
 });

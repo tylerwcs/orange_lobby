@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  alsoIn, countedRows, isLocked, nameInEvent, namesLine, notInAnySport, overCount, portalSquadPeople, refusalFlash, shortCount, sizeLabel, squadExportRows, squadMembers, squadState,
+  alsoIn, countedRows, fullSquadGroups, isLocked, nameInEvent, namesLine, notInAnySport, overCount, portalSquadPeople, refusalFlash, shortCount, sizeLabel, squadExportRows, squadMembers, squadState,
   type SquadPerson, type SquadRow, type TournamentSport,
 } from "@/features/tournaments/lib/squads";
 
@@ -153,5 +153,23 @@ describe("nameInEvent (review #3)", () => {
     expect(nameInEvent({ name: "Aina", event_id: "e1" }, "e1")).toBe("Aina");
     expect(nameInEvent({ name: "Aina", event_id: "e2" }, "e1")).toBe("They");
     expect(nameInEvent(null, "e1")).toBe("They");
+  });
+});
+
+describe("fullSquadGroups (D674)", () => {
+  const row = (attendee_id: string, group_id: string, sport_id = "s1"): SquadRow => ({ sport_id, group_id, attendee_id, added_by: null, added_at: "2026-10-18T00:00:00Z" });
+  const people = [
+    { id: "a1", group_id: "A", category: "Wellness" }, { id: "a2", group_id: "A", category: "KOM, Wellness" },
+    { id: "b1", group_id: "B", category: "Wellness" }, { id: "b2", group_id: "B", category: "Wellness" },
+    { id: "c1", group_id: "C", category: "YEP" },
+    { id: "d1", group_id: "D", category: "Wellness" }, { id: "dx", group_id: "D", category: "YEP" },
+  ];
+  it("earns it when every member the tournament is for plays some sport", () => {
+    const counted = [row("a1", "A"), row("a2", "A", "s2"), row("b1", "B"), row("d1", "D")];
+    expect([...fullSquadGroups(people, counted, ["Wellness"])].sort()).toEqual(["A", "D"]);
+  });
+  it("counts every member when the tournament has no categories", () => {
+    expect([...fullSquadGroups(people, [row("d1", "D")], null)]).toEqual([]);
+    expect([...fullSquadGroups(people, [row("d1", "D"), row("dx", "D")], [])]).toEqual(["D"]);
   });
 });

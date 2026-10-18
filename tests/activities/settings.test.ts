@@ -106,7 +106,7 @@ describe("tournament settings (D640, D641)", () => {
     const r = readSettings("tournament", form({ ...base, squad_fill: "captains", proxy_fields: ["captain", "vice_captain"] }));
     expect(r).toEqual({ ok: true, settings: {
       name: "Sports Carnival", description: null, categories: null,
-      squads_close_at: "2026-10-24T18:00:00+08:00", squad_fill: "captains", proxy_fields: ["captain", "vice_captain"], place_points: null,
+      squads_close_at: "2026-10-24T18:00:00+08:00", squad_fill: "captains", proxy_fields: ["captain", "vice_captain"], place_points: null, participation_bonus: null,
     } });
   });
   it("defaults to captains pick, and reads self", () => {
@@ -125,6 +125,12 @@ describe("tournament settings (D640, D641)", () => {
     const blank = readSettings("tournament", form({ ...base, place_points: " " }));
     expect(blank.ok && blank.settings.place_points).toBeNull();
     expect(readSettings("tournament", form({ ...base, place_points: "40, x" }))).toEqual({ ok: false, error: "Points per place must be whole numbers, 1st first, separated by commas." });
+  });
+  it("reads the participation bonus (D674): blank or 0 is none, and refuses a bad one", () => {
+    const r = readSettings("tournament", form({ ...base, participation_bonus: " 100 " }));
+    expect(r.ok && r.settings.participation_bonus).toBe(100);
+    expect((r => r.ok && r.settings.participation_bonus)(readSettings("tournament", form({ ...base, participation_bonus: "0" })))).toBeNull();
+    expect(readSettings("tournament", form({ ...base, participation_bonus: "1.5" }))).toEqual({ ok: false, error: "The participation bonus must be a whole number of points, up to 9999." });
   });
   it("creates with no cap and no questions", () => {
     const r = readSettings("tournament", form(base));

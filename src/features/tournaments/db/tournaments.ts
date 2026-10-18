@@ -2,7 +2,8 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
 import type { Activity } from "@/lib/types";
-import type { SquadPerson, SquadRefusal, SquadRow, TournamentSport } from "../lib/squads";
+import { countedRows, fullSquadGroups, type SquadPerson, type SquadRefusal, type SquadRow, type TournamentSport } from "../lib/squads";
+import type { CupBonus } from "../lib/results";
 
 /** The tournament an id names in this event, or null (any other kind is null too). */
 export async function getTournamentActivity(id: string, eventId: string): Promise<Activity | null> {
@@ -101,7 +102,25 @@ export async function squadPeople(eventId: string, ids: string[]): Promise<Map<s
   return out;
 }
 
-type SquadWrite = { sportId: string; attendeeId: string; actorId: string | null; admin: boolean };
+/** D674: every registered attendee in one of the event's groups - who the participation bonus counts. Paged (D289). */
+export async function groupedPeople(eventId: string): Promise<{ id: string; group_id: string | null; category: string | null }[]> {
+  return selectAll((from, to) => serviceClient().from("attendees").select("id, group_id, category")
+    .eq("event_id", eventId).is("cancelled_at", null).not("group_id", "is", null).order("id").range(from, to));
+}
+
+/** D674: the tournament's participation bonus and who earns it now, from counted rows; null with no bonus. */
+export async function loadBonus(activity: Activity, counted?: SquadRow[]): Promise<CupBonus | null> {
+  if (!activity.participation_bonus) return null;
+  let rows = counted;
+  if (!rows) {
+    const all = await squadRows(activity.id);
+    rows = countedRows(all, await squadPeople(activity.event_id, all.map((r) => r.attendee_id)));
+  }
+  const people = await groupedPeople(activity.event_id);
+  return { points: activity.participation_bonus, earned: fullSquadGroups(people, rows, activity.categories) };
+}
+
+type SquadWrite ={ sportId: string; attendeeId: string; actorId: string | null; admin: boolean };
 
 /** D642: one checked add, through `add_squad_member`. */
 export async function addSquadMember(input: SquadWrite): Promise<"ok" | SquadRefusal> {

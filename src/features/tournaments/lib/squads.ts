@@ -75,6 +75,26 @@ export function notInAnySport(memberIds: string[], rows: SquadRow[]): string[] {
   return memberIds.filter((id) => !playing.has(id));
 }
 
+/**
+ * D674: the groups that earn the full participation bonus - every member the tournament is for
+ * (its categories) has a counted place in at least one sport. A group with no such member earns nothing.
+ */
+export function fullSquadGroups(
+  people: { id: string; group_id: string | null; category: string | null }[],
+  counted: SquadRow[],
+  categories: string[] | null,
+): Set<string> {
+  const playing = new Set(counted.map((r) => r.attendee_id));
+  const missing = new Set<string>();
+  const any = new Set<string>();
+  for (const p of people) {
+    if (!p.group_id || !categoryMatches(categories, p.category)) continue;
+    any.add(p.group_id);
+    if (!playing.has(p.id)) missing.add(p.group_id);
+  }
+  return new Set([...any].filter((g) => !missing.has(g)));
+}
+
 /** The picker's hint: the other sports this person is already in, in the organiser's order. */
 export function alsoIn(attendeeId: string, rows: SquadRow[], sports: TournamentSport[], exceptSportId: string): string[] {
   const theirs = new Set(rows.filter((r) => r.attendee_id === attendeeId && r.sport_id !== exceptSportId).map((r) => r.sport_id));
