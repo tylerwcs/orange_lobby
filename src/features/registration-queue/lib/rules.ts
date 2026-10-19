@@ -28,3 +28,13 @@ export function placesLabel(taken: number, limit: number | null): string | null 
 export function firstName(name: string): string {
   return displayName(name).split(" ")[0] ?? "";
 }
+
+/**
+ * The WhatsApp dedupe key for one admission (`whatsapp_sends.dedupe_key` is unique across the
+ * table). The entry row is reused when someone starts over (D702), so the entry id alone would make
+ * their second admission look already sent; `joined_at` changes on every start-over and is fixed
+ * within one admission, so a repeated call still sends once.
+ */
+export function queueDedupeKey(reason: "moved_in" | "approved", entryId: string, joinedAt: string): string {
+  return `${reason}:${entryId}:${joinedAt}`;
+}

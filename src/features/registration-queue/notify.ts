@@ -3,7 +3,8 @@ import { getAttendee } from "@/lib/db/attendees";
 import { eventFields } from "@/lib/attendee-fields";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
-import { firstName } from "./lib/rules";
+import { serviceClient } from "@/lib/supabase/service";
+import { firstName, queueDedupeKey } from "./lib/rules";
 import type { Moved } from "./db";
 import type { Event } from "@/lib/types";
 
@@ -14,8 +15,8 @@ import type { Event } from "@/lib/types";
  *
  * Rows that only became `pending` are skipped (D700, D701): nothing is said until they are in.
  * Runs after the move is saved and never throws: a missing phone, an unapproved template or the
- * API being down must not undo or fail the move (D684). Each send is keyed `<reason>:<entryId>`,
- * so a retried action cannot message anyone twice. `failed` counts people who could not be reached
+ * API being down must not undo or fail the move (D684). Each send is keyed per admission (`queueDedupeKey`: reason, entry and the entry's joined_at, which changes when someone starts over, D702),
+ * so a retried action cannot message anyone twice but a second admission of the same person still goes out. `failed` counts people who could not be reached
  * or whose send was refused; a send an earlier run already made counts as neither.
  */
 export async function notifyRegistered(
@@ -30,6 +31,10 @@ export async function notifyRegistered(
     try {
       const attendee = await getAttendee(m.attendeeId);
       if (!attendee) continue;
+      // D702: the entry row is reused when someone starts over, so the key carries its joined_at.
+      const { data: entry, error: entryError } = await serviceClient().from("registration_entries").select("joined_at").eq("id", m.entryId).maybeSingle();
+      if (entryError || !entry) { total.failed++; continue; }
+      const joinedAt = (entry as { joined_at: string }).joined_at;
       const { recipients } = splitAudience([attendee], eventFields(ev.registration_questions, ev.attendee_fields));
       if (recipients.length === 0) { total.failed++; continue; } // no usable number on file
       const res = await runSend({
@@ -38,7 +43,7 @@ export async function notifyRegistered(
         template,
         recipients,
         params: (a) => ({ bodyParams: [firstName(a.name), ev.name], buttonParam: a.token }),
-        dedupeKey: () => `${reason}:${m.entryId}`,
+        dedupeKey: () => queueDedupeKey(reason, m.entryId, joinedAt),
       });
       total.sent += res.sent;
       total.failed += res.failed;
