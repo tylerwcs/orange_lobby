@@ -20,6 +20,9 @@
 //  12. An organiser adding a waiting person closes their entry (D693).
 //  12a. A declined person registering again reuses their entry and token with a new joined_at (D702).
 //  13. The anon key cannot run register_or_queue, fill_free_places or registration_places.
+//  14. Someone already active (restored or added outside the queue) is never admitted from their
+//      open entry: it closes against their attendee row, which is left untouched, nothing is
+//      reported as moved, and the free place goes to the next in line.
 //
 // HOW TO RUN: npm run check:queue (node --env-file=.env.local scripts/registration-queue-db-check.mjs).
 // SAFE TO RE-RUN: it creates its own events with random slugs and deletes them (and, by cascade,
@@ -293,6 +296,52 @@ try {
     check("11. ... and changes nothing else", p.taken === 2 && p.waiting === 0 && p.pending === 0 && (await attendeeOf(ev, "v2")) === null, JSON.stringify(p));
     const removedAgain = must(await db.rpc("remove_entry", { p_entry_id: v2.entry_id }));
     check("11. removing twice does nothing", removedAgain === false, String(removedAgain));
+  }
+
+  // 14. Someone already active is never admitted again (review fix): their open entry closes against
+  // the attendee they already are, untouched, and the place goes to the next in line.
+  {
+    const ev = await makeEvent({ registration_limit: 1 });
+    const rs = must(await db.from("attendees").insert({ org_id: ev.org_id, event_id: ev.id, token: newToken(), name: "Imported RS", email: mail(ev, "rs"), source: "import", cancelled_at: new Date().toISOString(), extra: { keep: "yes" } }).select("id").single());
+    const f1 = await reg(ev, "f1");
+    const rsEntry = await reg(ev, "rs", { q: "queued" });
+    const n2 = await reg(ev, "n2");
+    check("14a. setup: the cancelled import and a newcomer wait at 1 and 2", rsEntry.outcome === "waiting" && rsEntry.position === 1 && n2.position === 2, `${rsEntry.position} ${n2.position}`);
+    // Restore (D588) outside the queue: today it does not call close_entry_for_attendee.
+    must(await db.from("attendees").update({ cancelled_at: null }).eq("id", rs.id));
+    await cancel(f1.attendee_id);
+    const moved = await fill(ev);
+    const rsRow = await attendeeOf(ev, "rs");
+    const rsAfter = await entryOf(ev, "rs");
+    check("14a. fill does not count the restored person as a move", moved.length === 1 && moved[0].entry_id === n2.entry_id && moved[0].new_state === "registered", JSON.stringify(moved));
+    check("14a. ... their entry closes, linked to their attendee row", rsAfter.state === "registered" && rsAfter.attendee_id === rs.id && rsAfter.decided_at !== null, `${rsAfter.state} ${rsAfter.attendee_id}`);
+    check("14a. ... and their attendee row is untouched", rsRow.source === "import" && rsRow.name === "Imported RS" && rsRow.extra.q === undefined && rsRow.extra.keep === "yes", JSON.stringify({ source: rsRow.source, name: rsRow.name, extra: rsRow.extra }));
+    check("14a. ... the next in line took the free place", (await places(ev)).taken === 1 && (await entryOf(ev, "n2")).state === "registered");
+
+    const g1 = await reg(ev, "g1");
+    check("14b. setup: a newcomer waits", g1.outcome === "waiting", g1.outcome);
+    must(await db.from("attendees").insert({ org_id: ev.org_id, event_id: ev.id, token: newToken(), name: "Added G1", email: mail(ev, "g1"), source: "import" }));
+    const g1Again = await reg(ev, "g1");
+    const g1Entry = await entryOf(ev, "g1");
+    const g1Row = await attendeeOf(ev, "g1");
+    check("14b. an active attendee with an open entry re-submitting is updated", g1Again.outcome === "updated" && g1Again.attendee_id === g1Row.id, JSON.stringify(g1Again));
+    check("14b. ... and the open entry closes against them", g1Entry.state === "registered" && g1Entry.attendee_id === g1Row.id && g1Entry.decided_at !== null, `${g1Entry.state} ${g1Entry.attendee_id}`);
+  }
+  {
+    // 14c. The same through Move in and Approve: nothing comes back to message, the entry closes.
+    const ev = await makeEvent({ registration_limit: 1 });
+    await reg(ev, "h0");
+    const h1 = await reg(ev, "h1");
+    const h1Att = must(await db.from("attendees").insert({ org_id: ev.org_id, event_id: ev.id, token: newToken(), name: "Added H1", email: mail(ev, "h1"), source: "import" }).select("id").single());
+    const mv = must(await db.rpc("move_in_entry", { p_entry_id: h1.entry_id }));
+    const h1Entry = await entryOf(ev, "h1");
+    check("14c. move in of someone already active returns no move and closes the entry", mv.length === 0 && h1Entry.state === "registered" && h1Entry.attendee_id === h1Att.id && (await attendeeOf(ev, "h1")).source === "import", JSON.stringify(mv));
+    await setEvent(ev, { registration_needs_approval: true, registration_limit: null });
+    const k1 = await reg(ev, "k1");
+    const k1Att = must(await db.from("attendees").insert({ org_id: ev.org_id, event_id: ev.id, token: newToken(), name: "Added K1", email: mail(ev, "k1"), source: "import" }).select("id").single());
+    const ap = must(await db.rpc("approve_entry", { p_entry_id: k1.entry_id }));
+    const k1Entry = await entryOf(ev, "k1");
+    check("14c. approve of someone already active returns nothing and closes the entry", k1.outcome === "pending" && ap.length === 0 && k1Entry.state === "registered" && k1Entry.attendee_id === k1Att.id && (await attendeeOf(ev, "k1")).source === "import", JSON.stringify(ap));
   }
 
   // Events with no limit and approval off behave as today.

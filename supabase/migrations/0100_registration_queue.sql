@@ -123,8 +123,35 @@ begin
 end;
 $$;
 
+-- D692, D693: an open entry whose email already has an ACTIVE attendee (restored or added outside
+-- the queue) is not a move: it closes as registered against that attendee, who is left exactly as
+-- they are (source, name, answers) and so spends no counted place. Returns that attendee's id if it
+-- closed the entry, else null. Caller holds the lock.
+create or replace function public.registration_close_if_active(p_entry_id uuid)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_att uuid;
+begin
+  select a.id into v_att
+    from public.registration_entries r
+    join public.attendees a on a.event_id = r.event_id and lower(a.email) = r.email and a.cancelled_at is null
+    where r.id = p_entry_id;
+  if v_att is null then return null; end if;
+  update public.registration_entries r
+    set state = 'registered', attendee_id = v_att, decided_at = now(), updated_at = now()
+    where r.id = p_entry_id;
+  return v_att;
+end;
+$$;
+
 -- D682, D699: an entry becomes a registered attendee with its own token, answers and consent, and
--- the entry closes as registered. Caller holds the lock and has checked the entry's state.
+-- the entry closes as registered. Caller holds the lock and has checked the entry's state. The one
+-- admission point: if the person is already active it only closes the entry (above) and returns
+-- null, which every caller treats as "nobody moved" (no row, no message).
 create or replace function public.registration_admit_entry(p_entry_id uuid)
 returns uuid
 language plpgsql
@@ -135,6 +162,7 @@ declare
   r public.registration_entries%rowtype;
   v_att uuid;
 begin
+  if public.registration_close_if_active(p_entry_id) is not null then return null; end if;
   select x.* into r from public.registration_entries x where x.id = p_entry_id;
   v_att := public.registration_admit(r.event_id, r.org_id, r.name, r.email, r.extra, r.token,
     coalesce(r.consented_at, now()), r.consent_notice, r.terms_agreed_at);
@@ -196,6 +224,10 @@ begin
       terms_agreed_at = coalesce(v_terms_at, a.terms_agreed_at),
       updated_at = v_now
     where a.id = v_att.id;
+    -- D693: an open entry left over for someone already active closes against them.
+    update public.registration_entries r
+      set state = 'registered', attendee_id = v_att.id, decided_at = v_now, updated_at = v_now
+      where r.event_id = p_event_id and lower(r.email) = v_email and r.state in ('waiting', 'pending');
     return query select 'updated'::text, v_att.token, v_att.id, null::uuid, null::int;
     return;
   end if;
@@ -279,7 +311,9 @@ $$;
 
 -- D682, D683, D691, D700, D701: while registration is open and places are free, the earliest
 -- waiting entry moves - to pending with approval on, else registered. With no limit, everyone
--- waiting moves (clearing the limit). Returns one row per entry moved, in queue order.
+-- waiting moves (clearing the limit). Returns one row per entry moved, in queue order. A waiting
+-- person who is already an active attendee is not a move: their entry closes and the loop goes on
+-- to the next in line (registration_close_if_active).
 create or replace function public.fill_free_places(p_event_id uuid)
 returns table(entry_id uuid, attendee_id uuid, new_state text)
 language plpgsql
@@ -290,6 +324,7 @@ declare
   v_event public.events%rowtype;
   v_places record;
   v_entry uuid;
+  v_att uuid;
 begin
   select e.* into v_event from public.events e where e.id = p_event_id for no key update;
   if not found then return; end if;
@@ -302,18 +337,23 @@ begin
       where r.event_id = p_event_id and r.state = 'waiting'
       order by r.joined_at, r.id limit 1 for update;
     exit when v_entry is null;
+    continue when public.registration_close_if_active(v_entry) is not null;
     if v_event.registration_needs_approval then
       update public.registration_entries r set state = 'pending', updated_at = now() where r.id = v_entry;
       return query select v_entry, null::uuid, 'pending'::text;
     else
-      return query select v_entry, public.registration_admit_entry(v_entry), 'registered'::text;
+      v_att := public.registration_admit_entry(v_entry);
+      if v_att is not null then
+        return query select v_entry, v_att, 'registered'::text;
+      end if;
     end if;
   end loop;
 end;
 $$;
 
 -- D685, D694, D701: the organiser's Move in, from waiting only. Ignores the limit and the open
--- test. Pending with approval on, else registered. One row, or none if the entry is not waiting.
+-- test. Pending with approval on, else registered. One row, or none if the entry is not waiting
+-- or the person is already an active attendee (their entry then just closes).
 create or replace function public.move_in_entry(p_entry_id uuid)
 returns table(entry_id uuid, attendee_id uuid, new_state text)
 language plpgsql
@@ -324,23 +364,29 @@ declare
   v_event_id uuid;
   v_needs boolean;
   v_state text;
+  v_att uuid;
 begin
   select r.event_id into v_event_id from public.registration_entries r where r.id = p_entry_id;
   if v_event_id is null then return; end if;
   select e.registration_needs_approval into v_needs from public.events e where e.id = v_event_id for no key update;
   select r.state into v_state from public.registration_entries r where r.id = p_entry_id for update;
   if v_state is distinct from 'waiting' then return; end if;
+  if public.registration_close_if_active(p_entry_id) is not null then return; end if;
   if v_needs then
     update public.registration_entries r set state = 'pending', updated_at = now() where r.id = p_entry_id;
     return query select p_entry_id, null::uuid, 'pending'::text;
   else
-    return query select p_entry_id, public.registration_admit_entry(p_entry_id), 'registered'::text;
+    v_att := public.registration_admit_entry(p_entry_id);
+    if v_att is not null then
+      return query select p_entry_id, v_att, 'registered'::text;
+    end if;
   end if;
 end;
 $$;
 
 -- D699: Approve, pending -> registered (source 'registration', same token). Works when closed.
--- One row, or none if the entry is not pending.
+-- One row, or none if the entry is not pending or the person is already an active attendee (their
+-- entry then just closes, and nobody is messaged).
 create or replace function public.approve_entry(p_entry_id uuid)
 returns table(attendee_id uuid)
 language plpgsql
@@ -350,13 +396,17 @@ as $$
 declare
   v_event_id uuid;
   v_state text;
+  v_att uuid;
 begin
   select r.event_id into v_event_id from public.registration_entries r where r.id = p_entry_id;
   if v_event_id is null then return; end if;
   perform 1 from public.events e where e.id = v_event_id for no key update;
   select r.state into v_state from public.registration_entries r where r.id = p_entry_id for update;
   if v_state is distinct from 'pending' then return; end if;
-  return query select public.registration_admit_entry(p_entry_id);
+  v_att := public.registration_admit_entry(p_entry_id);
+  if v_att is not null then
+    return query select v_att;
+  end if;
 end;
 $$;
 
@@ -455,6 +505,8 @@ revoke execute on function public.registration_entry_position(uuid) from public,
 grant execute on function public.registration_entry_position(uuid) to service_role;
 revoke execute on function public.registration_admit(uuid, uuid, text, text, jsonb, text, timestamptz, text, timestamptz) from public, anon, authenticated;
 grant execute on function public.registration_admit(uuid, uuid, text, text, jsonb, text, timestamptz, text, timestamptz) to service_role;
+revoke execute on function public.registration_close_if_active(uuid) from public, anon, authenticated;
+grant execute on function public.registration_close_if_active(uuid) to service_role;
 revoke execute on function public.registration_admit_entry(uuid) from public, anon, authenticated;
 grant execute on function public.registration_admit_entry(uuid) to service_role;
 revoke execute on function public.register_or_queue(uuid, text, text, jsonb, text, text, boolean) from public, anon, authenticated;
