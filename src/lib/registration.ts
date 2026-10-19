@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 import { isQuestionShown } from "@/lib/show-when";
 import { checkNumber, hasNumberLimits } from "@/lib/number-answer";
+import { checkPhone } from "@/lib/phone";
 
 export { isQuestionShown };
 
@@ -78,6 +79,12 @@ export function validateAnswers(
     if (!isQuestionShown(q, input, questions)) { answers[q.key] = ""; continue; }
     if (q.required && !v) errors[q.key] = `${q.label} is required`;
     else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = "Choose one of the listed options";
+    else if (q.type === "phone" && v) {
+      // D675: a Malaysian mobile or an international number, stored in one tidy spelling.
+      const p = checkPhone(v);
+      if (!p.ok) errors[q.key] = p.error;
+      else { answers[q.key] = p.value; continue; }
+    }
     else if (q.type === "number" && v && hasNumberLimits(q)) {
       // D370: checked and normalised here, server-side, for the portal's submit and the admin's edit alike.
       const n = checkNumber(q, v);

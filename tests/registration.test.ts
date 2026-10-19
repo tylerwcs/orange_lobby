@@ -52,6 +52,14 @@ describe("phone and number questions", () => {
   it("still rejects a type it does not know", () => {
     expect(() => parseQuestions([{ key: "x", label: "X", type: "file", required: false }])).toThrow();
   });
+
+  it("checks a phone answer's format and stores it tidied (D675)", () => {
+    const q = [{ key: "phone", label: "Mobile number", type: "phone" as const, required: true }];
+    expect(validateAnswers({ phone: "+60 12 345 6789" }, q)).toEqual({ ok: true, answers: { phone: "012-345 6789" } });
+    expect(validateAnswers({ phone: "12345" }, q)).toEqual({ ok: false, errors: { phone: "Enter a Malaysian mobile like 012-345 6789, or an international number starting with + and the country code" } });
+    // Optional and left blank: nothing to check.
+    expect(validateAnswers({ phone: "" }, [{ ...q[0], required: false }])).toEqual({ ok: true, answers: { phone: "" } });
+  });
 });
 
 describe("validateRegistration after unification", () => {
@@ -60,10 +68,10 @@ describe("validateRegistration after unification", () => {
 
   it("puts every answer in extra, including phone and company", () => {
     const r = validateRegistration(
-      { name: "Sam", email: "S@x.com", phone: "012", company: "Ecopia" },
+      { name: "Sam", email: "S@x.com", phone: "0123456789", company: "Ecopia" },
       [q("phone", "phone"), q("company")],
     );
-    expect(r).toEqual({ ok: true, data: { name: "Sam", email: "s@x.com", extra: { phone: "012", company: "Ecopia" } } });
+    expect(r).toEqual({ ok: true, data: { name: "Sam", email: "s@x.com", extra: { phone: "012-345 6789", company: "Ecopia" } } });
   });
 
   it("ignores a phone the event never asked for", () => {

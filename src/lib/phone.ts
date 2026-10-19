@@ -12,6 +12,36 @@
  * because it puts one attendee's personal link on a stranger's phone.
  */
 const MY_E164 = /^60\d{8,10}$/;
+/** A Malaysian mobile without the country code: 1, then 8 digits (or 9 on 011). */
+const MY_MOBILE = /^1(?:1\d{8}|[02-9]\d{7})$/;
+/** E.164: a country code and number, 8 to 15 digits in all. */
+const INTERNATIONAL = /^[1-9]\d{7,14}$/;
+
+export const PHONE_FORMAT_ERROR = "Enter a Malaysian mobile like 012-345 6789, or an international number starting with + and the country code";
+
+/**
+ * D675: a phone answer on a form (registration, activity forms). A Malaysian mobile - local
+ * (012-345 6789) or with +60 / 60 - is stored in that one local spelling; any other country is
+ * accepted with its + and code and stored as `+` and digits. Spaces, dashes, dots and brackets
+ * are ignored. Not used for imports or admin edits, which keep numbers as written (see above).
+ */
+export function checkPhone(raw: string): { ok: true; value: string } | { ok: false; error: string } {
+  const trimmed = raw.trim();
+  const plus = trimmed.startsWith("+");
+  if (/[^\d\s\-.()+]/.test(trimmed) || trimmed.indexOf("+", 1) !== -1) return { ok: false, error: PHONE_FORMAT_ERROR };
+  const digits = trimmed.replace(/\D/g, "");
+  // Malaysian: 0-led local, or 60 with or without the +.
+  const national = digits.startsWith("60") && (plus || digits.length >= 11) ? digits.slice(2)
+    : !plus && digits.startsWith("0") ? digits.slice(1)
+    : null;
+  if (national !== null) {
+    if (!MY_MOBILE.test(national)) return { ok: false, error: PHONE_FORMAT_ERROR };
+    const split = national.length - 4; // the last four digits stand apart: 12-345 6789, 11-2345 6789
+    return { ok: true, value: `0${national.slice(0, 2)}-${national.slice(2, split)} ${national.slice(split)}` };
+  }
+  if (plus && INTERNATIONAL.test(digits)) return { ok: true, value: `+${digits}` };
+  return { ok: false, error: PHONE_FORMAT_ERROR };
+}
 
 export function toE164My(raw: string | null | undefined): string | null {
   if (!raw) return null;

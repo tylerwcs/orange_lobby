@@ -25,6 +25,8 @@ const selectClass = "h-11 w-full rounded-lg border border-input bg-transparent p
 // and plain text needs neither an overridden type nor an inputMode.
 const INPUT_TYPE: Record<string, string> = { phone: "tel", number: "number" };
 const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMode"]> = { phone: "tel", number: "decimal" };
+/** D675: what a valid answer looks like, for types with a format. */
+const PLACEHOLDER: Record<string, string> = { phone: "012-345 6789 or +65 9123 4567" };
 
 /**
  * Autofill hints come from the question's type, the same as INPUT_TYPE above.
@@ -162,7 +164,7 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
                     {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 ) : (
-                  <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                  <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} placeholder={PLACEHOLDER[q.type]} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
                     className="h-11" {...invalid(q.key, help)} />
                 )}
                 <FieldError id={`${id}-error`}>{errors[q.key]}</FieldError>
