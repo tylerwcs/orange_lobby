@@ -136,14 +136,6 @@ export async function countEntries(eventId: string, state: "waiting" | "pending"
   return count ?? 0;
 }
 
-/** D680: the entry's 1-based place on the waiting list; null unless it is waiting. */
-export async function waitingPosition(entry: Pick<RegistrationEntry, "id" | "state">): Promise<number | null> {
-  if (entry.state !== "waiting") return null;
-  const { data, error } = await serviceClient().rpc("registration_entry_position", { p_entry_id: entry.id });
-  if (error) throw error;
-  return (data as number | null) ?? null;
-}
-
 /** One entry by id, in any state; the organiser's row actions check it belongs to their event. */
 export async function getEntry(entryId: string): Promise<RegistrationEntry | null> {
   const { data, error } = await serviceClient().from("registration_entries").select("*").eq("id", entryId).maybeSingle();

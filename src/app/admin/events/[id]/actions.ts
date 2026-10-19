@@ -123,6 +123,13 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_done_message: str(formData, "registration_done_message"),
     registration_done_page: formData.get("registration_done_page") === "on", // D634
     coming_soon_message: str(formData, "coming_soon_message"), // D617
+    // D708
+    registration_full_title: str(formData, "registration_full_title"),
+    registration_full_message: str(formData, "registration_full_message"),
+    registration_waiting_title: str(formData, "registration_waiting_title"),
+    registration_waiting_message: str(formData, "registration_waiting_message"),
+    registration_pending_title: str(formData, "registration_pending_title"),
+    registration_pending_message: str(formData, "registration_pending_message"),
     registration_banner_url: regBanner.url, // D618
     theme: themeFromForm(formData), // D622
     registration_questions: questions,

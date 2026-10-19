@@ -47,7 +47,7 @@ import { eventFields } from "@/lib/attendee-fields";
 import { MAX_SCAN_FIELDS } from "@/lib/scan";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { getPlaces, placesLabel } from "@/features/registration-queue";
+import { getPlaces, placesLabel, QUEUE_COPY_DEFAULTS } from "@/features/registration-queue";
 
 export const metadata = { title: "Settings" };
 
@@ -311,7 +311,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_limit, ev.registration_needs_approval, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.display_name_in_bar, ev.coming_soon_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_limit, ev.registration_needs_approval, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.display_name_in_bar, ev.coming_soon_message, ev.registration_full_title, ev.registration_full_message, ev.registration_waiting_title, ev.registration_waiting_message, ev.registration_pending_title, ev.registration_pending_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -478,6 +478,35 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                 ? "Shown under their QR code. Line breaks are kept."
                 : "Check-in is off, so there is no QR code on this page. Line breaks are kept."}
             />
+          </CardContent>
+        </Card>
+        {/* D708: shown always, so the wording can be ready before a limit or approval is switched on. */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Waiting list</CardTitle>
+            <CardDescription>
+              What people see when registration is full, while they wait, and while their registration waits for your approval. Leave any field blank to use the placeholder text.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4">
+              <h3 className="text-sm font-extrabold">Registration is full</h3>
+              <Field label="Heading" name="registration_full_title" defaultValue={ev.registration_full_title ?? ""} placeholder={QUEUE_COPY_DEFAULTS.fullTitle} />
+              <Field label="Message" name="registration_full_message" textarea defaultValue={ev.registration_full_message ?? ""} placeholder={QUEUE_COPY_DEFAULTS.fullMessage}
+                description="On the registration link once it is full, above the Join the waiting list button. Line breaks are kept." />
+            </div>
+            <div className="flex flex-col gap-4">
+              <h3 className="text-sm font-extrabold">On the waiting list</h3>
+              <Field label="Heading" name="registration_waiting_title" defaultValue={ev.registration_waiting_title ?? ""} placeholder={QUEUE_COPY_DEFAULTS.waitingTitle} />
+              <Field label="Message" name="registration_waiting_message" textarea defaultValue={ev.registration_waiting_message ?? ""} placeholder={QUEUE_COPY_DEFAULTS.waitingMessage}
+                description="On their own link while they wait, under the event name. Line breaks are kept." />
+            </div>
+            <div className="flex flex-col gap-4">
+              <h3 className="text-sm font-extrabold">Waiting for approval</h3>
+              <Field label="Heading" name="registration_pending_title" defaultValue={ev.registration_pending_title ?? ""} placeholder={QUEUE_COPY_DEFAULTS.pendingTitle} />
+              <Field label="Message" name="registration_pending_message" textarea defaultValue={ev.registration_pending_message ?? ""} placeholder={QUEUE_COPY_DEFAULTS.pendingMessage}
+                description="On their own link while you decide, when Registrations need approval is on. Line breaks are kept." />
+            </div>
           </CardContent>
         </Card>
         <SaveBar label="Save settings" note={SAVE_NOTE} />

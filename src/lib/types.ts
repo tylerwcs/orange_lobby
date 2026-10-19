@@ -84,6 +84,13 @@ export type Event = {
   theme?: EventTheme;
   /** D617: what a draft event's links say; null/absent for DEFAULT_COMING_SOON. Optional so old fixtures compile. */
   coming_soon_message?: string | null;
+  /** D708: the organiser's wording for the full, waiting and pending pages; null/absent for QUEUE_COPY_DEFAULTS. Optional so old fixtures compile. */
+  registration_full_title?: string | null;
+  registration_full_message?: string | null;
+  registration_waiting_title?: string | null;
+  registration_waiting_message?: string | null;
+  registration_pending_title?: string | null;
+  registration_pending_message?: string | null;
   /** D536: Me page items the organiser hid (`meGroups` keys). Optional so old fixtures compile; hydrate always fills it. */
   me_hidden?: string[];
   /**

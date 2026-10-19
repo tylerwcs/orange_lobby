@@ -154,7 +154,7 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
       {waitlist && (
         <div className="flex flex-col gap-1">
           <h2 className={`text-lg font-extrabold ${CARD_TITLE_INK}`}>You&apos;re joining the waiting list</h2>
-          <p className="text-sm text-muted-foreground">Every place has been taken. Send this form to join the waiting list: if a place opens up, people on it are next, in the order they joined.</p>
+          <p className="text-sm text-muted-foreground">Send this form to join the waiting list. If a place opens up, people on it are next, in the order they joined.</p>
         </div>
       )}
       {errors.form && (

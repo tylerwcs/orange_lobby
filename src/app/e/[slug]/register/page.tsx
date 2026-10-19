@@ -12,7 +12,7 @@ import { ThemeStyle } from "@/features/theme";
 import { shortDateTime } from "@/lib/text";
 import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
 import { eventTermsHtml } from "@/lib/privacy";
-import { getPlaces, registrationOpen } from "@/features/registration-queue";
+import { getPlaces, queueCopy, registrationOpen } from "@/features/registration-queue";
 
 export default async function RegisterPage({ params, searchParams }: {
   params: Promise<{ slug: string }>;
@@ -28,6 +28,7 @@ export default async function RegisterPage({ params, searchParams }: {
   // is free, ?waitlist=1 is just the form, and sending it registers them (D695).
   const full = !closed && (await getPlaces(event.id)).full;
   const joining = full && waitlist === "1";
+  const fullCopy = queueCopy(event);
   return (
     // D625: the theme is written on :root (ThemeStyle), so body's bg-background fills the window
     // and the column inside keeps the phone width.
@@ -46,11 +47,9 @@ export default async function RegisterPage({ params, searchParams }: {
             <Empty className="border border-dashed bg-card">
               <EmptyHeader>
                 <EmptyMedia variant="icon"><UsersRound /></EmptyMedia>
-                <EmptyTitle className={CARD_TITLE_INK}>Registration is full</EmptyTitle>
-                <EmptyDescription>
-                  Every place for this event has been taken. Join the waiting list to be next in line if a place opens up.
-                  {" "}If you have already registered, open the link you were sent.
-                </EmptyDescription>
+                {/* D708: the organiser's wording, or the default. */}
+                <EmptyTitle className={CARD_TITLE_INK}>{fullCopy.fullTitle}</EmptyTitle>
+                <EmptyDescription className="whitespace-pre-line">{fullCopy.fullMessage}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Link href="?waitlist=1" className={buttonVariants()}>Join the waiting list</Link>

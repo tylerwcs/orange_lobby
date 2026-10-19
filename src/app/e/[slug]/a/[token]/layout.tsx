@@ -12,7 +12,7 @@ import { eventTermsHtml, portalAsks } from "@/lib/privacy";
 import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
 import { ThemeStyle } from "@/features/theme";
-import { QueueCard, resolveTokenView, waitingPosition } from "@/features/registration-queue";
+import { QueueCard, resolveTokenView } from "@/features/registration-queue";
 
 /**
  * Home-screen install (D227): this attendee's own manifest, so the icon opens their page, and
@@ -53,11 +53,10 @@ export default async function PersonalLayout({ children, params }: {
   const view = resolveTokenView(linkAttendee, entry);
   if (view.kind === "missing") notFound();
   if (view.kind === "queue") {
-    const position = await waitingPosition(view.entry);
     return (
       <>
         <ThemeStyle event={event} />
-        <QueueCard event={event} entry={view.entry} position={position} />
+        <QueueCard event={event} entry={view.entry} />
         {/* Leave / Withdraw lands back here with a flash (D681). */}
         <Suspense fallback={null}><Flash /></Suspense>
         <Toaster />

@@ -6,6 +6,7 @@ import { formatDateRange } from "@/lib/text";
 import { buttonVariants } from "@/components/ui/button";
 import type { Event, RegistrationEntry } from "@/lib/types";
 import { registrationOpen } from "../lib/rules";
+import { queueCopy } from "../lib/copy";
 import { leaveQueueAction } from "./actions";
 import { FilledWhileRegistering, QueueLeaveButton } from "./QueueLeave";
 
@@ -17,12 +18,10 @@ import { FilledWhileRegistering, QueueLeaveButton } from "./QueueLeave";
  * Whether the event filled up while they were registering (D695) is read from `?filled=1` in the
  * browser: the personal layout draws this card, and a layout is never given the query.
  */
-export function QueueCard({ event, entry, position }: {
-  event: Event;
-  entry: RegistrationEntry;
-  /** 1-based place on the waiting list (D680); null unless waiting. */
-  position: number | null;
-}) {
+export function QueueCard({ event, entry }: { event: Event; entry: RegistrationEntry }) {
+  // D708: the waiting and pending wording is the organiser's, or the default. No queue number:
+  // the organiser sees the order in Attendees; the attendee is told only that they are on the list.
+  const copy = queueCopy(event);
   const when = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const leave = leaveQueueAction.bind(null, event.slug, entry.token);
   const registerHref = registrationOpen(event, new Date()) ? `/e/${event.slug}/register` : null;
@@ -31,26 +30,19 @@ export function QueueCard({ event, entry, position }: {
   if (entry.state === "waiting") {
     body = (
       <>
-        <h1 className={`text-xl font-extrabold text-balance ${TITLE_INK}`}>You&apos;re on the waiting list</h1>
+        <h1 className={`text-xl font-extrabold text-balance ${TITLE_INK}`}>{copy.waitingTitle}</h1>
         <Suspense fallback={null}><FilledWhileRegistering /></Suspense>
-        {position !== null && <p className="mt-4 text-3xl font-extrabold tabular-nums">You&apos;re number {position}</p>}
         <EventLine name={event.name} when={when} />
-        <p className="mt-4 text-sm text-muted-foreground text-balance">
-          {event.registration_needs_approval
-            ? "When a place opens up, the first person on the list goes to the organiser to confirm. Keep this link: it becomes your event page once you're in."
-            : "When a place opens up, the first person on the list is registered. Keep this link: it becomes your event page once you're in."}
-        </p>
+        <p className="mt-4 text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.waitingMessage}</p>
         <QueueLeaveButton eventName={event.name} waiting action={leave} />
       </>
     );
   } else if (entry.state === "pending") {
     body = (
       <>
-        <h1 className={`text-xl font-extrabold text-balance ${TITLE_INK}`}>Your registration is waiting for the organiser&apos;s approval</h1>
+        <h1 className={`text-xl font-extrabold text-balance ${TITLE_INK}`}>{copy.pendingTitle}</h1>
         <EventLine name={event.name} when={when} />
-        <p className="mt-4 text-sm text-muted-foreground text-balance">
-          Your place is held while they decide. Keep this link: it becomes your event page once they confirm.
-        </p>
+        <p className="mt-4 text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.pendingMessage}</p>
         <QueueLeaveButton eventName={event.name} waiting={false} action={leave} />
       </>
     );
