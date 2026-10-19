@@ -25,6 +25,31 @@ export const PHONE_FORMAT_ERROR = "Enter a Malaysian mobile like 012-345 6789, o
  * accepted with its + and code and stored as `+` and digits. Spaces, dashes, dots and brackets
  * are ignored. Not used for imports or admin edits, which keep numbers as written (see above).
  */
+/** D676: could these Malaysian digits (after the 0 or 60) still become a mobile, as `MY_MOBILE` reads it? */
+function couldBeMyMobile(n: string): boolean {
+  if (n === "") return true;
+  if (n[0] !== "1") return false;
+  return n.length <= (n.length < 2 || n[1] === "1" ? 10 : 9);
+}
+
+/**
+ * D676: the error to show while someone is still typing - only for what no more typing can fix
+ * (a letter, a landline, too many digits, no 0 / 60 / +). A number that is merely unfinished is
+ * left alone here; `checkPhone` judges it once they leave the field or press Register.
+ */
+export function phoneTypingError(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  if (/[^\d\s\-.()+]/.test(t) || t.indexOf("+", 1) !== -1) return PHONE_FORMAT_ERROR;
+  const plus = t.startsWith("+");
+  const d = t.replace(/\D/g, "");
+  if (d === "" || d === "6") return null;
+  if (d.startsWith("60")) return couldBeMyMobile(d.slice(2)) ? null : PHONE_FORMAT_ERROR;
+  if (plus) return d[0] !== "0" && d.length <= 15 ? null : PHONE_FORMAT_ERROR;
+  if (d.startsWith("0")) return couldBeMyMobile(d.slice(1)) ? null : PHONE_FORMAT_ERROR;
+  return PHONE_FORMAT_ERROR;
+}
+
 export function checkPhone(raw: string): { ok: true; value: string } | { ok: false; error: string } {
   const trimmed = raw.trim();
   const plus = trimmed.startsWith("+");

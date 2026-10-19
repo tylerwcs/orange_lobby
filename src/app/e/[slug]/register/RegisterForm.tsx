@@ -12,6 +12,7 @@ import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH, TERMS_FIELD } from "@/lib
 import { Spinner } from "@/components/ui/spinner";
 import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
 import { problemsInFormOrder, registrationErrors } from "@/lib/registration-check";
+import { checkPhone, phoneTypingError } from "@/lib/phone";
 
 /**
  * A select stays native. The rest of this form is shadcn's Field set, but the choices an
@@ -60,6 +61,16 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
   // state it was made against: once the server answers, its errors are the ones shown.
   const [checked, setChecked] = useState<{ against: RegisterState; errors: Record<string, string> } | null>(null);
   const errors = checked && checked.against === state ? checked.errors : (state.errors ?? {});
+  // D676: phone answers are judged as they are typed (only what no more typing can fix) and in
+  // full when the field is left; Register's own check still names everything else.
+  const [live, setLive] = useState<Record<string, string>>({});
+  const shown: Record<string, string> = { ...live, ...errors };
+  const judge = (k: string, err: string | null) => setLive((l) => {
+    const next = { ...l };
+    if (err) next[k] = err;
+    else delete next[k];
+    return next;
+  });
   const problems = problemsInFormOrder(errors, questions);
   const summaryRef = useRef<HTMLDivElement>(null);
   const valuesWith = (a: Record<string, string>, consent: boolean, terms: boolean) =>
@@ -79,6 +90,13 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
     const next = { ...answers, [k]: val };
     setAnswers(next);
     recheck(next, agreed, agreedTerms);
+    if (questions.find((q) => q.key === k)?.type === "phone") judge(k, phoneTypingError(val));
+  };
+  /** D676: leaving a phone field judges the whole number - an unfinished one is wrong by now. */
+  const leavePhone = (k: string) => {
+    const v = value(k).trim();
+    const full = v ? checkPhone(v) : null;
+    judge(k, full && !full.ok ? full.error : null);
   };
 
   /** Register with something missing: nothing is sent, and the list above the button says what is still needed. */
@@ -123,7 +141,7 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
   }, [state]);
 
   /** Invalid marks the control AND keeps pointing at its help text, which a reader needs most when the answer was wrong. */
-  const invalid = (k: string, help?: string) => (errors[k]
+  const invalid = (k: string, help?: string) => (shown[k]
     ? { "aria-invalid": true as const, "aria-describedby": [help, `reg-${k}-error`].filter(Boolean).join(" ") }
     : help ? { "aria-describedby": help } : {});
 
@@ -150,7 +168,7 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
             const help = q.description ? `${id}-help` : undefined;
             const identity = q.key === "name" || q.key === "email";
             return (
-              <Field key={q.key} data-invalid={!!errors[q.key]}>
+              <Field key={q.key} data-invalid={!!shown[q.key]}>
                 <FieldLabel htmlFor={id}>{q.label}{!identity && !q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
                 {q.description && <FieldDescription id={help}>{q.description}</FieldDescription>}
                 {q.key === "name" ? (
@@ -165,9 +183,10 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
                   </select>
                 ) : (
                   <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} placeholder={PLACEHOLDER[q.type]} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
+                    onBlur={q.type === "phone" ? () => leavePhone(q.key) : undefined}
                     className="h-11" {...invalid(q.key, help)} />
                 )}
-                <FieldError id={`${id}-error`}>{errors[q.key]}</FieldError>
+                <FieldError id={`${id}-error`}>{shown[q.key]}</FieldError>
               </Field>
             );
           })}

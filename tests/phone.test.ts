@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkPhone, PHONE_FORMAT_ERROR, toE164My } from "@/lib/phone";
+import { checkPhone, PHONE_FORMAT_ERROR, phoneTypingError, toE164My } from "@/lib/phone";
 
 describe("toE164My", () => {
   it("normalises the format the masterlist actually uses", () => {
@@ -54,5 +54,17 @@ describe("checkPhone (D675 registration format)", () => {
   it("refuses what is not a Malaysian mobile or an international number", () => {
     for (const raw of ["12345", "abc", "03-2345 6789", "+60 3-2345 6789", "0123", "91234567", "+12", "+1234567890123456", "0123456789012"])
       expect(checkPhone(raw), raw).toEqual({ ok: false, error: PHONE_FORMAT_ERROR });
+  });
+});
+
+describe("phoneTypingError (D676, as you type)", () => {
+  it("stays quiet while a number could still become valid", () => {
+    for (const t of ["", "0", "01", "012", "012-34", "012 345 678", "0123456789", "011-2345 678", "6", "60", "601", "6012345", "+", "+6", "+60", "+60 12", "+65", "+65 9123", "(012"])
+      expect(phoneTypingError(t), t).toBeNull();
+  });
+
+  it("flags at once what can never be valid", () => {
+    for (const t of ["a", "012a", "03", "03-2345", "+60 3", "0123456789 0", "011234567890", "9", "1234", "+0", "12+3", "+1234567890123456"])
+      expect(phoneTypingError(t), t).toBe(PHONE_FORMAT_ERROR);
   });
 });
