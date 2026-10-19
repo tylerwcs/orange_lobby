@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowRight, CalendarCheck } from "lucide-react";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
+import { findEntryByToken } from "@/features/registration-queue";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
@@ -23,7 +24,11 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   const event = await getEventBySlug(slug);
   if (!event || !t || !isValidToken(t)) notFound();
   const attendee = await findByToken(event.id, t);
-  if (!attendee) notFound();
+  // D690: a waiting or pending person never sees "Registered"; their link shows where they stand.
+  if (!attendee) {
+    if (await findEntryByToken(event.id, t)) redirect(attendeeLink(await eventAddress(event), t));
+    notFound();
+  }
   const link = attendeeLink(await eventAddress(event), attendee.token);
   // D581: a cancelled registration is not "Registered"; their personal link shows the cancelled card.
   // D634: with the page switched off (an old bookmark, say), the same - their event page is the answer.

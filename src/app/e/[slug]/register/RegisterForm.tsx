@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
 import { problemsInFormOrder, registrationErrors } from "@/lib/registration-check";
 import { checkPhone, phoneTypingError } from "@/lib/phone";
+import { CARD_TITLE_INK } from "@/lib/ink";
 
 /**
  * A select stays native. The rest of this form is shadcn's Field set, but the choices an
@@ -40,14 +41,16 @@ function autoCompleteFor(q: RegistrationQuestion): string | undefined {
   return q.type === "phone" ? "tel" : undefined;
 }
 
-export function RegisterForm({ slug, questions, termsHtml = null }: {
+export function RegisterForm({ slug, questions, termsHtml = null, waitlist = false }: {
   slug: string;
+  /** D678: the waiting-list form on a full event. Only the heading changes; the questions, ticks and checks are the same. */
+  waitlist?: boolean;
   /** The whole form in order, name and email included (`Event.registration_form`). */
   questions: RegistrationQuestion[];
   /** D540: the event's own terms, already sanitised. Null: none, and no second tick. */
   termsHtml?: string | null;
 }) {
-  const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug), {});
+  const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug, waitlist), {});
   // Every field is controlled, name and email included. They used to be uncontrolled
   // with a defaultValue echoed back from the server, which React ignores on re-render: after
   // a rejected submit the value the invitee could see and the value the component believed
@@ -148,6 +151,12 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
   return (
     // noValidate: the browser's own bubbles name one field at a time; the form's check names them all (D546).
     <form action={action} onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+      {waitlist && (
+        <div className="flex flex-col gap-1">
+          <h2 className={`text-lg font-extrabold ${CARD_TITLE_INK}`}>You&apos;re joining the waiting list</h2>
+          <p className="text-sm text-muted-foreground">Every place has been taken. Send this form to join the waiting list: if a place opens up, people on it are next, in the order they joined.</p>
+        </div>
+      )}
       {errors.form && (
         <Alert variant="destructive">
           <CircleAlert />

@@ -9,6 +9,9 @@ import { isValidToken } from "@/lib/tokens";
  * plus one variable, and an approved template cannot be edited — so the link that goes out is
  * /a/<token> for every event, and the slug is resolved here instead of being baked in.
  *
+ * The token may be an attendee's or a waiting-list/pending entry's (D689): the same link is
+ * theirs before and after they are moved in, and the event's personal layout decides what it shows.
+ *
  * Nothing renders: this segment only ever redirects or 404s.
  */
 

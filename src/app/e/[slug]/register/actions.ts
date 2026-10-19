@@ -2,7 +2,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getEventBySlug } from "@/lib/db/events";
-import { recordConsent, recordTermsAgreed, upsertByEmail } from "@/lib/db/attendees";
 import { validateRegistration } from "@/lib/registration";
 import { registrationErrors } from "@/lib/registration-check";
 import { isRichTextEmpty } from "@/lib/rich-text";
@@ -10,11 +9,16 @@ import { allow } from "@/lib/ratelimit";
 import { showsDonePage } from "@/lib/registration-done";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
-import { registrationOpen } from "@/features/registration-queue/client";
+import { fillFreePlaces, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
 
-export async function registerAction(slug: string, _prev: RegisterState, formData: FormData): Promise<RegisterState> {
+/**
+ * `waitlist` is true when the form was the waiting-list one (`?waitlist=1` on a full event, D678):
+ * a person it puts on the waiting list asked to be there, so their page does not say the event
+ * filled up while they were registering (D695).
+ */
+export async function registerAction(slug: string, waitlist: boolean, _prev: RegisterState, formData: FormData): Promise<RegisterState> {
   const event = await getEventBySlug(slug);
   if (!event || event.status === "archived") return { errors: { form: "Registration is not available." } };
   if (!registrationOpen(event, new Date())) return { errors: { form: "Registration is closed." } };
@@ -31,10 +35,22 @@ export async function registerAction(slug: string, _prev: RegisterState, formDat
   const result = validateRegistration(values, event.registration_questions);
   if (Object.keys(errors).length || !result.ok) return { errors, values };
 
-  const { attendee } = await upsertByEmail(event, result.data, "registration");
-  await recordConsent(attendee.id);
-  if (hasTerms) await recordTermsAgreed(attendee.id);
-  // D634: straight to their own event page unless the organiser wants the "You're in" page.
-  if (!showsDonePage(event)) redirect(attendeeLink(await eventAddress(event), attendee.token));
-  redirect(`/e/${slug}/register/done?t=${attendee.token}`);
+  // D678, D691, D692, D697: updates an active attendee, or registers, queues or holds for approval
+  // a new one, under the event lock; consent and the terms tick are stamped in the same write.
+  const { outcome, token } = await registerOrQueue(event, result.data, { terms: hasTerms });
+  // An active person who still had a pending entry has just had it closed, which frees the place
+  // it held; the SQL does not refill it, so this does (D682). A problem here - a fill error, a
+  // failed WhatsApp - never stands between the person and their link.
+  if (outcome === "updated") {
+    try {
+      await notifyRegistered(event, await fillFreePlaces(event.id), "moved_in");
+    } catch (e) {
+      console.error("registerAction: fill after update failed", e);
+    }
+  }
+  // D634, D690, D695: the "You're in" page, or their link (with the filled-up note when they lost the race).
+  const landing = registerLanding(outcome, { showsDone: showsDonePage(event), waitlistForm: waitlist });
+  if (landing.to === "done") redirect(`/e/${slug}/register/done?t=${token}`);
+  const link = attendeeLink(await eventAddress(event), token);
+  redirect(landing.filled ? `${link}?filled=1` : link);
 }

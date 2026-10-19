@@ -20,7 +20,8 @@ import { listActivities, bookingsForAttendee, shownToAttendees, comingSoonForAtt
 import { listInfoTabs } from "@/lib/db/info-tabs";
 import { isValidToken } from "@/lib/tokens";
 import { hasInfo } from "@/lib/info-tabs";
-import type { Attendee, Event } from "@/lib/types";
+import { findEntryByToken } from "@/features/registration-queue";
+import type { Attendee, Event, RegistrationEntry } from "@/lib/types";
 
 /** The same memo without the 404, for the event layout's metadata (D487), which shares its read with the page. */
 export const findPortalEvent = cache((slug: string) => getEventBySlug(slug));
@@ -59,14 +60,35 @@ export const portalInfoTabsFor = cache((eventId: string) => listInfoTabs(eventId
 /** Whether the Info button shows for this viewer: their category, or null on the public portal. */
 export const portalHasInfo = cache(async (eventId: string, category: string | null) => hasInfo(await portalInfoTabsFor(eventId), category));
 
-/** D585: the personal layout only - it shows the cancelled card. Everything else uses loadPortalAttendee. */
+/** One attendee read per request for the token, shared by the layout's loader and the page's (D118). */
+const portalFindByToken = cache((eventId: string, token: string) => findByToken(eventId, token));
+
+/** D585: a cancelled attendee too (the cancelled card). The personal layout now uses loadPortalLink; everything else uses loadPortalAttendee. */
 export const loadPortalAttendeeAny = cache(
   async (slug: string, token: string): Promise<{ event: Event; attendee: Attendee }> => {
     const event = await loadPortalEvent(slug);
     if (!isValidToken(token)) notFound();
-    const attendee = await findByToken(event.id, token);
+    const attendee = await portalFindByToken(event.id, token);
     if (!attendee) notFound();
     return { event, attendee };
+  },
+);
+
+/**
+ * D689: the personal layout and its metadata only - whatever the token is: an attendee (active or
+ * cancelled), a waiting-list or pending entry, or both (a returning cancelled person shares one
+ * token, D695). The entry is read only when no active attendee holds the token. 404 when neither.
+ * Every portal page and action still goes through loadPortalAttendee, which refuses all of these
+ * but an active attendee.
+ */
+export const loadPortalLink = cache(
+  async (slug: string, token: string): Promise<{ event: Event; attendee: Attendee | null; entry: RegistrationEntry | null }> => {
+    const event = await loadPortalEvent(slug);
+    if (!isValidToken(token)) notFound();
+    const attendee = await portalFindByToken(event.id, token);
+    const entry = attendee && !attendee.cancelled_at ? null : await findEntryByToken(event.id, token);
+    if (!attendee && !entry) notFound();
+    return { event, attendee, entry };
   },
 );
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarOff } from "lucide-react";
+import { CalendarOff, UsersRound } from "lucide-react";
 import { getEventBySlug } from "@/lib/db/events";
 import { RegisterForm } from "./RegisterForm";
 import { PortalHeader } from "@/components/portal/PortalHeader";
@@ -12,13 +12,22 @@ import { ThemeStyle } from "@/features/theme";
 import { shortDateTime } from "@/lib/text";
 import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
 import { eventTermsHtml } from "@/lib/privacy";
-import { registrationOpen } from "@/features/registration-queue/client";
+import { getPlaces, registrationOpen } from "@/features/registration-queue";
 
-export default async function RegisterPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function RegisterPage({ params, searchParams }: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ waitlist?: string | string[] }>;
+}) {
   const { slug } = await params;
+  const { waitlist } = await searchParams;
   const event = await getEventBySlug(slug);
   if (!event) notFound();
   const closed = !registrationOpen(event, new Date());
+  // D678, D691: full (every place taken, or anyone already waiting) shows "Registration is full"
+  // until they choose the waiting list. Only a full event shows the waiting-list form: once a place
+  // is free, ?waitlist=1 is just the form, and sending it registers them (D695).
+  const full = !closed && (await getPlaces(event.id)).full;
+  const joining = full && waitlist === "1";
   return (
     // D625: the theme is written on :root (ThemeStyle), so body's bg-background fills the window
     // and the column inside keeps the phone width.
@@ -31,7 +40,24 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
         <img src={event.registration_banner_url} alt="" className="block h-auto w-full" />
       )}
       <main className="flex-1 px-4 py-4">
-        {closed ? (
+        {full && !joining ? (
+          <>
+            <h1 className="sr-only">Registration</h1>
+            <Empty className="border border-dashed bg-card">
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><UsersRound /></EmptyMedia>
+                <EmptyTitle className={CARD_TITLE_INK}>Registration is full</EmptyTitle>
+                <EmptyDescription>
+                  Every place for this event has been taken. Join the waiting list to be next in line if a place opens up.
+                  {" "}If you have already registered, open the link you were sent.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Link href="?waitlist=1" className={buttonVariants()}>Join the waiting list</Link>
+              </EmptyContent>
+            </Empty>
+          </>
+        ) : closed ? (
           <>
             <h1 className="sr-only">Registration</h1>
             {/* A closed form used to be one grey sentence in an otherwise empty card. Say when
@@ -56,11 +82,11 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
           <>
             {/* Screen readers only, at the organiser's request: the intro line and the form say what
                 the page wants, and the event bar already names the event. */}
-            <h1 className="sr-only">Register</h1>
+            <h1 className="sr-only">{joining ? "Join the waiting list" : "Register"}</h1>
             <p className="text-sm text-muted-foreground">{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
             <Card className="mt-4">
               <CardContent>
-                <RegisterForm slug={slug} questions={event.registration_form} termsHtml={eventTermsHtml(event)} />
+                <RegisterForm slug={slug} questions={event.registration_form} termsHtml={eventTermsHtml(event)} waitlist={joining} />
               </CardContent>
             </Card>
           </>

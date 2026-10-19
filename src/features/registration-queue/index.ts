@@ -2,3 +2,5 @@
 export * from "./client";
 export * from "./db";
 export * from "./notify";
+export * from "./portal/actions";
+export * from "./portal/QueueCard";

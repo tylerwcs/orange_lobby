@@ -85,8 +85,14 @@ export async function getEventByCrewToken(token: string): Promise<Event | null> 
 export async function getEventByAttendeeToken(token: string): Promise<Event | null> {
   // any-status: the short link lands on the portal, which shows the cancelled card (D581)
   const { data: attendee } = await serviceClient().from("attendees").select("event_id").eq("token", token).maybeSingle();
-  if (!attendee) return null;
-  const { data } = await serviceClient().from("events").select("*").eq("id", attendee.event_id).maybeSingle();
+  // D689: a waiting-list or pending person's link (the WhatsApp button, a shared link) resolves too.
+  let eventId = (attendee as { event_id: string } | null)?.event_id;
+  if (!eventId) {
+    const { data: entry } = await serviceClient().from("registration_entries").select("event_id").eq("token", token).maybeSingle();
+    eventId = (entry as { event_id: string } | null)?.event_id;
+  }
+  if (!eventId) return null;
+  const { data } = await serviceClient().from("events").select("*").eq("id", eventId).maybeSingle();
   return data ? hydrate(data) : null;
 }
 
