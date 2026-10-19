@@ -34,6 +34,8 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
           .map((r) => ({ ...r, rank: r.void ? null : 1 + live.filter((o) => o.total > r.total).length }));
       })()
     : score.standings;
+  // D705: ad hoc points count in the season total only, so their column shows on All weeks.
+  const adjusted = !picked && rows.some((r) => r.adjust !== 0);
   const chip = (active: boolean) => `rounded-full border px-3 py-1 text-xs font-bold ${active ? "border-primary bg-primary/10 text-primary" : "border-border"}`;
   return (
     <div className="flex flex-col gap-3">
@@ -52,6 +54,7 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
             <TableHead className="w-10">#</TableHead><TableHead>Team</TableHead>
             <TableHead className="text-right" title={picked ? undefined : "Season total, with its Ultra-Effort rank"}>{unit}{!picked && " · Ultra-Effort"}</TableHead><TableHead className="text-right">Daily</TableHead>
             <TableHead className="text-right">Bonus</TableHead><TableHead className="text-right">Podium</TableHead>
+            {adjusted && <TableHead className="text-right" title="Ad hoc points from the organisers">Ad hoc</TableHead>}
             <TableHead className="text-right">Total</TableHead>
           </TableRow>
         </TableHeader>
@@ -67,6 +70,7 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
               <TableCell className="text-right tabular-nums">{r.tier1}</TableCell>
               <TableCell className="text-right tabular-nums">{r.bonus}</TableCell>
               <TableCell className="text-right tabular-nums">{r.podium}</TableCell>
+              {adjusted && <TableCell className="text-right tabular-nums">{r.adjust > 0 ? `+${r.adjust}` : r.adjust}</TableCell>}
               <TableCell className="text-right font-extrabold tabular-nums">{r.void ? "Void" : r.total}</TableCell>
             </TableRow>
           ))}

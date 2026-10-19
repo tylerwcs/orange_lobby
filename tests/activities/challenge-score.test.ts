@@ -249,3 +249,17 @@ describe("cancelled members (D582)", () => {
     expect(s.weeks[0].teams.A).toMatchObject({ tier1: 0, bonus: 0, void: true });
   });
 });
+
+describe("ad hoc points (D705)", () => {
+  it("adds an organiser's adjustment to the season total and ranks on it, but never to a void team", () => {
+    const totals = [t("a1", "A", "2026-10-05", 6), t("b1", "B", "2026-10-05", 3)];
+    const plain = scoreChallenge({ totals, teams: TEAMS, disqualified: new Map(), scoring: S, weeks: WEEKS, today: "2026-10-06" });
+    expect(plain.standings[0].id).toBe("A");
+    const s = scoreChallenge({ totals, teams: TEAMS, disqualified: new Map(), scoring: S, weeks: WEEKS, today: "2026-10-06", adjustments: new Map([["B", 20], ["C", -5]]) });
+    const b = s.standings.find((x) => x.id === "B")!;
+    expect([b.adjust, b.total, b.rank]).toEqual([20, 22, 1]);
+    expect(s.standings.find((x) => x.id === "C")!.total).toBe(-5);
+    const v = scoreChallenge({ totals, teams: TEAMS, disqualified: new Map([["b1", null]]), scoring: S, weeks: WEEKS, today: "2026-10-06", adjustments: new Map([["B", 20]]) });
+    expect(v.standings.find((x) => x.id === "B")!.adjust).toBe(0);
+  });
+});

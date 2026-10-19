@@ -489,3 +489,17 @@ describe("final review fixes", () => {
     expect(pickSport(null, null, [])).toBeNull();
   });
 });
+
+describe("ad hoc points in the overall table (D705)", () => {
+  it("adds adjustments into the Bonus column and the total, with or without a participation bonus", () => {
+    const sr = twelve();
+    const groups = ids(12).map((id) => ({ id, name: names.get(id)! }));
+    const plain = tournamentOverall([sr], groups, [40]);
+    expect(plain[0].bonus).toBeNull();
+    const adj = tournamentOverall([sr], groups, [40], { points: 0, earned: new Set(), extra: new Map([["g05", 25], ["g06", -10]]) });
+    expect(adj[0]).toMatchObject({ groupId: "g05", bonus: 25, total: 25, rank: 1 });
+    expect(adj.find((r) => r.groupId === "g06")).toMatchObject({ bonus: -10, total: -10, rank: 12 });
+    const both = tournamentOverall([sr], groups, [40], { points: 100, earned: new Set(["g05"]), extra: new Map([["g05", 25]]) });
+    expect(both[0]).toMatchObject({ groupId: "g05", bonus: 125, total: 125 });
+  });
+});

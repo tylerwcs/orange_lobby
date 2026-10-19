@@ -10,6 +10,7 @@ import { MissingPanel } from "./MissingPanel";
 import { GroupsNotDonePanel } from "./GroupsNotDonePanel";
 import { ParticipationPanel } from "./ParticipationPanel";
 import { LeaderboardPanel } from "./scoring/LeaderboardPanel";
+import { AdjustmentsCard, listAdjustments } from "@/features/adjustments";
 import { TeamGrid } from "./scoring/TeamGrid";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { ScheduleOpen } from "../../admin/ScheduleOpen";
@@ -246,6 +247,9 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
             )}
           </CardContent>
         </Card>
+      )}
+      {current === "leaderboard" && challenge && !(gridTeam && gridWeekShown) && (
+        <AdjustmentsCard eventId={ev.id} activityId={activity.id} groups={challenge.groups} adjustments={await listAdjustments(activity.id)} />
       )}
     </div>
   );

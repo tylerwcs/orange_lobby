@@ -41,7 +41,7 @@ export function OverallTable({ rows, sports, names, highlight = null }: {
                   {v === null ? <span className="text-muted-foreground">–</span> : v === "F" ? <span className="text-warning">0 F</span> : v}
                 </td>
               ))}
-              {bonus && <td className="px-1.5 py-2 text-right">{r.bonus ? `+${r.bonus}` : <span className="text-muted-foreground">0</span>}</td>}
+              {bonus && <td className="px-1.5 py-2 text-right">{r.bonus ? (r.bonus > 0 ? `+${r.bonus}` : r.bonus) : <span className="text-muted-foreground">0</span>}</td>}
               <td className="px-3 py-2 text-right font-extrabold">{r.total}</td>
             </tr>
           ))}

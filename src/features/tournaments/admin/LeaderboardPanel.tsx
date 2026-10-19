@@ -6,6 +6,7 @@ import { loadBonus } from "../db/tournaments";
 import { tournamentOverall } from "../lib/results";
 import { bonusLine, OverallTable, pointsLine } from "../components/OverallTable";
 import { toggleOverallAction } from "./results-actions";
+import { AdjustmentsCard, listAdjustments } from "@/features/adjustments";
 
 /**
  * D662, D664: the week's overall table, as attendees see it, and the reveal switch that hides it
@@ -13,7 +14,7 @@ import { toggleOverallAction } from "./results-actions";
  */
 export async function LeaderboardPanel({ ev, activity }: { ev: Event; activity: Activity }) {
   const table = activity.place_points ?? [];
-  const [results, groups, bonus] = await Promise.all([loadResults(activity.id), listGroups(ev.id), loadBonus(activity)]);
+  const [results, groups, bonus, adjustments] = await Promise.all([loadResults(activity.id), listGroups(ev.id), loadBonus(activity), listAdjustments(activity.id)]);
   const rows = tournamentOverall(results, groups, table, bonus);
   const shown = activity.show_overall !== false;
   return (
@@ -28,7 +29,8 @@ export async function LeaderboardPanel({ ev, activity }: { ev: Event; activity: 
       {rows.length === 0
         ? <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No sport has its players yet. Draw pools, or add matches, on the Matches tab.</p>
         : <OverallTable rows={rows} sports={results.map((r) => r.sport)} names={new Map(groups.map((g) => [g.id, g.name]))} />}
-      {table.length > 0 && <p className="text-xs text-muted-foreground">{pointsLine(table)}. A forfeit scores 0 for that sport.{bonus && ` ${bonusLine(bonus.points)}`}</p>}
+      {table.length > 0 && <p className="text-xs text-muted-foreground">{pointsLine(table)}. A forfeit scores 0 for that sport.{bonus?.points ? ` ${bonusLine(bonus.points)}` : ""}{bonus?.extra?.size ? " Bonus includes ad hoc points." : ""}</p>}
+      <AdjustmentsCard eventId={ev.id} activityId={activity.id} groups={groups} adjustments={adjustments} />
     </div>
   );
 }

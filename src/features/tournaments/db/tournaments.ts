@@ -1,4 +1,5 @@
 import "server-only";
+import { loadAdjustmentTotals } from "@/features/adjustments";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
 import type { Activity } from "@/lib/types";
@@ -110,14 +111,16 @@ export async function groupedPeople(eventId: string): Promise<{ id: string; grou
 
 /** D674: the tournament's participation bonus and who earns it now, from counted rows; null with no bonus. */
 export async function loadBonus(activity: Activity, counted?: SquadRow[]): Promise<CupBonus | null> {
-  if (!activity.participation_bonus) return null;
+  // D705: the organisers' ad hoc points share D674's Bonus column, so they travel together.
+  const extra = await loadAdjustmentTotals(activity.id);
+  if (!activity.participation_bonus) return extra.size ? { points: 0, earned: new Set(), extra } : null;
   let rows = counted;
   if (!rows) {
     const all = await squadRows(activity.id);
     rows = countedRows(all, await squadPeople(activity.event_id, all.map((r) => r.attendee_id)));
   }
   const people = await groupedPeople(activity.event_id);
-  return { points: activity.participation_bonus, earned: fullSquadGroups(people, rows, activity.categories) };
+  return { points: activity.participation_bonus, earned: fullSquadGroups(people, rows, activity.categories), extra };
 }
 
 type SquadWrite ={ sportId: string; attendeeId: string; actorId: string | null; admin: boolean };

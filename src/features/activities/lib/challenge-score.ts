@@ -23,7 +23,10 @@ export type Team = { id: string; name: string; memberIds: string[]; cancelledIds
 /** `void` is D467's week void: every tier is 0 that week and the team is off its podium. */
 export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; onTrack: number; members: number; void: boolean };
 export type WeekResult = { week: ChallengeWeek; ended: boolean; teams: Record<string, TeamWeek> };
-export type Standing = { id: string; name: string; km: number; tier1: number; bonus: number; podium: number; total: number; void: boolean; rank: number | null;
+export type Standing = { id: string; name: string; km: number; tier1: number; bonus: number; podium: number;
+  /** D705: the organisers' ad hoc points, already in `total`; 0 for a void team. */
+  adjust: number;
+  total: number; void: boolean; rank: number | null;
   /** D468: Ultra-Effort rank by season `km` (any unit); null for a season-void team or one with none. */
   volumeRank: number | null;
 };
@@ -48,6 +51,8 @@ export function scoreChallenge(input: {
   scoring: ChallengeScoring;
   weeks: ChallengeWeek[];
   today: string;
+  /** D705: each team's net ad hoc points, for the season total only. */
+  adjustments?: Map<string, number>;
 }): ChallengeScore {
   const { totals, teams, disqualified, scoring, weeks, today } = input;
   const steps = scoring.daily_steps ?? [];
@@ -113,7 +118,9 @@ export function scoreChallenge(input: {
     // A voided week's points are already 0; its km is left out too (D467, feeding D468's total).
     const sum = (k: "km" | "tier1" | "bonus" | "podium") => weekResults.reduce((n, w) => n + (w.teams[team.id].void ? 0 : w.teams[team.id][k]), 0);
     const [tier1, bonus, podium] = [sum("tier1"), sum("bonus"), sum("podium")];
-    return { id: team.id, name: team.name, km: round2(sum("km")), tier1, bonus, podium, total: tier1 + bonus + podium, void: isVoid.has(team.id), rank: null as number | null, volumeRank: null as number | null };
+    // D705: a void team stays void; ad hoc points don't count for it.
+    const adjust = isVoid.has(team.id) ? 0 : input.adjustments?.get(team.id) ?? 0;
+    return { id: team.id, name: team.name, km: round2(sum("km")), tier1, bonus, podium, adjust, total: tier1 + bonus + podium + adjust, void: isVoid.has(team.id), rank: null as number | null, volumeRank: null as number | null };
   });
   // D468: the Ultra-Effort award is the most season total. Void and zero teams are out of it, so
   // the teams behind them move up. It is the committee's ranking; attendees see points only (D379).

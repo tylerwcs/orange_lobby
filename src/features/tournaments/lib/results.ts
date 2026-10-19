@@ -468,11 +468,11 @@ export function pointsFor(place: Place, table: number[] | null | undefined): num
   return table[place.place - 1] ?? 0;
 }
 
-/** `bonus`: D674's points for this group (0 when not earned); null when the tournament has no bonus. */
+/** `bonus`: D674's points for this group (0 when not earned) plus D705's ad hoc points; null when the tournament has neither. */
 export type OverallRow = { groupId: string; rank: number; tied: boolean; total: number; bySport: (number | "F" | null)[]; bonus: number | null };
 
-/** D674: the full participation bonus and the groups earning it now. */
-export type CupBonus = { points: number; earned: Set<string> };
+/** D674: the full participation bonus (0 for none) and the groups earning it now; D705: each group's net ad hoc points. */
+export type CupBonus = { points: number; earned: Set<string>; extra?: Map<string, number> };
 
 /**
  * D662: each group's points across sports (null: no place yet; "F": a forfeit, worth 0), plus
@@ -499,7 +499,7 @@ export function overallTable(input: {
       counts[p.place - 1] += 1;
       return pointsFor(p, input.table);
     });
-    const bonus = input.bonus ? (input.bonus.earned.has(groupId) ? input.bonus.points : 0) : null;
+    const bonus = input.bonus ? (input.bonus.earned.has(groupId) ? input.bonus.points : 0) + (input.bonus.extra?.get(groupId) ?? 0) : null;
     const total = bySport.reduce<number>((n, v) => n + (typeof v === "number" ? v : 0), bonus ?? 0);
     return { groupId, total, bySport, counts, bonus };
   });
