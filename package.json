@@ -18,6 +18,7 @@
     "check:schedule": "node --env-file=.env.local scripts/scheduled-open-db-check.mjs",
     "check:squads": "node --env-file=.env.local scripts/squads-db-check.mjs",
     "check:results": "node --env-file=.env.local scripts/results-db-check.mjs",
+    "check:queue": "node --env-file=.env.local scripts/registration-queue-db-check.mjs",
     "load:games": "node --env-file=.env.local scripts/games-load.mjs",
     "load:polaroid": "node --env-file=.env.local scripts/polaroid-load.mjs"
   },
