@@ -1,6 +1,8 @@
-# Registration limit and waiting list — design
+# Registration limit, waiting list and approval — design
 
-Date: 19 Oct 2026. Decisions D677–D695. Migration 0100.
+Date: 19 Oct 2026. Decisions D677–D703. Migration 0100.
+**Amended the same day with an approval step (D696–D703)**: see the section at the end; where it
+differs from the earlier sections, the amendment wins.
 
 ## Intent
 
@@ -151,3 +153,43 @@ the organiser having to manage it by hand.
 - Test strategy beyond: the race on the last place, double-free, closed-registration (no auto
   move), raise/clear limit, cancelled-then-re-register, re-join keeps position, leave, purge, and
   every promotion trigger sending exactly one message.
+
+## Amendment: registrations that need approval (D696–D703)
+
+Some events want each registration confirmed by the organiser before the person is in.
+
+- **D696 — A per-event switch.** Settings → Registration gains **Registrations need approval**
+  (off by default). Off: everything above applies unchanged.
+- **D697 — Pending.** With it on, submitting the form (or the waiting-list form when a place is
+  free) makes the person **pending**, not registered. A pending person **holds a place**: the limit
+  counts form registrations **plus** pending people, so once registered + pending reaches the
+  limit, new people go to the waiting list. Their link shows **Your registration is waiting for
+  the organiser's approval**; they cannot use the portal yet. They can withdraw it themselves at
+  once (with a confirm), which frees the place.
+- **D698 — Admin "Pending approval (N)".** Attendees gains this view (oldest first: name, email,
+  mobile, applied date, their answers in the detail) with **Approve** and **Decline** per row.
+  The sidebar Attendees badge adds the pending count to the cancellation-request count. Admins and
+  committee alike.
+- **D699 — Approve.** The person becomes a registered attendee (`source = 'registration'`,
+  counted, can use the portal on the same link) and is sent a WhatsApp message: new Utility
+  template `ecphub_registration_approved`, {{1}} = first name, {{2}} = event name, URL button
+  `/a/{{1}}`. As with D684, a missing template or number never blocks the approval. Approve works
+  whether or not registration is still open.
+- **D700 — Decline.** No WhatsApp. Their link shows **The organiser couldn't confirm your place
+  for this event.** The place frees, and (while registration is open, D683) the first person on
+  the waiting list moves into **pending** for the organiser to approve — not straight into
+  registered, and with no message at that point; they get the D699 message when approved.
+- **D701 — With approval on, nothing becomes registered without an organiser.** Every automatic
+  move from the waiting list (D682, D691) goes to pending instead of registered, and the D684
+  "moved in" message is not sent; Move in by hand (D685) also goes to pending. Imported and
+  admin-added people never need approval (D677).
+- **D702 — Registering again.** A declined or withdrawn person who submits the form again starts
+  over: pending if a place is free, otherwise the waiting list. *(My call.)*
+- **D703 — Switching approval off or on.** Turning it off leaves anyone already pending as
+  pending until the organiser decides; turning it on never touches people already registered.
+  *(My call.)*
+- **Data (amends D687).** Pending people live in the same table as the waiting list, as a second
+  state of an entry (waiting, pending, declined, withdrawn/left, removed, registered), so no
+  existing `attendees` reader can see them. Approve creates or reactivates the attendee exactly
+  as moving in does. *(My call.)*
+
