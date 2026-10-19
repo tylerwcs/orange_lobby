@@ -4,7 +4,7 @@ import { eventFields } from "@/lib/attendee-fields";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
 import { serviceClient } from "@/lib/supabase/service";
-import { firstName, queueDedupeKey } from "./lib/rules";
+import { firstName, queueDedupeKey, type NotifyResult } from "./lib/rules";
 import type { Moved } from "./db";
 import type { Event } from "@/lib/types";
 
@@ -16,15 +16,15 @@ import type { Event } from "@/lib/types";
  * Rows that only became `pending` are skipped (D700, D701): nothing is said until they are in.
  * Runs after the move is saved and never throws: a missing phone, an unapproved template or the
  * API being down must not undo or fail the move (D684). Each send is keyed per admission (`queueDedupeKey`: reason, entry and the entry's joined_at, which changes when someone starts over, D702),
- * so a retried action cannot message anyone twice but a second admission of the same person still goes out. `failed` counts people who could not be reached
- * or whose send was refused; a send an earlier run already made counts as neither.
+ * so a retried action cannot message anyone twice but a second admission of the same person still goes out. `noNumber` counts people with no usable mobile
+ * (nothing reaches the Send log for them), `failed` sends that were refused or broke; a send an earlier run already made counts as none.
  */
 export async function notifyRegistered(
   ev: Event,
   moved: Moved[],
   reason: "moved_in" | "approved",
-): Promise<{ sent: number; failed: number }> {
-  const total = { sent: 0, failed: 0 };
+): Promise<NotifyResult> {
+  const total: NotifyResult = { sent: 0, failed: 0, noNumber: 0 };
   const template = reason === "approved" ? "ecphub_registration_approved" : "ecphub_waitlist_moved_in";
   for (const m of moved) {
     if (m.newState !== "registered" || !m.attendeeId) continue;
@@ -36,7 +36,7 @@ export async function notifyRegistered(
       if (entryError || !entry) { total.failed++; continue; }
       const joinedAt = (entry as { joined_at: string }).joined_at;
       const { recipients } = splitAudience([attendee], eventFields(ev.registration_questions, ev.attendee_fields));
-      if (recipients.length === 0) { total.failed++; continue; } // no usable number on file
+      if (recipients.length === 0) { total.noNumber++; continue; } // no usable number on file
       const res = await runSend({
         orgId: ev.org_id,
         eventId: ev.id,

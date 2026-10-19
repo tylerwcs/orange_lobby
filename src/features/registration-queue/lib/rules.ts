@@ -54,10 +54,16 @@ export function movedFlash(people: { name: string; newState: "pending" | "regist
   ].filter(Boolean).join(" ");
 }
 
-/** What `notifyRegistered` did, for the same flash (D684, D699). Empty when nobody was due a message. */
-export function whatsappNote({ sent, failed }: { sent: number; failed: number }): string {
-  if (failed === 0) return sent > 0 ? "WhatsApp sent." : "";
-  return sent > 0
-    ? `WhatsApp sent to ${sent}, not sent to ${failed}: see the Send log on the WhatsApp page.`
-    : "Not sent on WhatsApp: see the Send log on the WhatsApp page.";
+/**
+ * What `notifyRegistered` did. `failed` sends are in the event's Send log; `noNumber` people never
+ * reached it (no usable mobile on file), so the flash says that instead of pointing at the log.
+ */
+export type NotifyResult = { sent: number; failed: number; noNumber: number };
+
+/** The flash line for a `NotifyResult` (D684, D699). Empty when nobody was due a message. */
+export function whatsappNote({ sent, failed, noNumber }: NotifyResult): string {
+  const notSent = failed + noNumber;
+  if (notSent === 0) return sent > 0 ? "WhatsApp sent." : "";
+  const why = failed === 0 ? "no usable mobile number on file" : "see the Send log on the WhatsApp page";
+  return sent > 0 ? `WhatsApp sent to ${sent}, not sent to ${notSent}: ${why}.` : `Not sent on WhatsApp: ${why}.`;
 }

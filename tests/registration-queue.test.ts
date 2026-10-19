@@ -88,9 +88,15 @@ describe("movedFlash (D682, D701)", () => {
 
 describe("whatsappNote (D684, D699)", () => {
   it("says what WhatsApp did, and nothing when nothing was due", () => {
-    expect(whatsappNote({ sent: 0, failed: 0 })).toBe("");
-    expect(whatsappNote({ sent: 1, failed: 0 })).toBe("WhatsApp sent.");
-    expect(whatsappNote({ sent: 0, failed: 1 })).toBe("Not sent on WhatsApp: see the Send log on the WhatsApp page.");
-    expect(whatsappNote({ sent: 2, failed: 1 })).toBe("WhatsApp sent to 2, not sent to 1: see the Send log on the WhatsApp page.");
+    expect(whatsappNote({ sent: 0, failed: 0, noNumber: 0 })).toBe("");
+    expect(whatsappNote({ sent: 1, failed: 0, noNumber: 0 })).toBe("WhatsApp sent.");
+    expect(whatsappNote({ sent: 0, failed: 1, noNumber: 0 })).toBe("Not sent on WhatsApp: see the Send log on the WhatsApp page.");
+    expect(whatsappNote({ sent: 2, failed: 1, noNumber: 0 })).toBe("WhatsApp sent to 2, not sent to 1: see the Send log on the WhatsApp page.");
+  });
+
+  it("does not point at the Send log for people with no number, who are not in it", () => {
+    expect(whatsappNote({ sent: 0, failed: 0, noNumber: 1 })).toBe("Not sent on WhatsApp: no usable mobile number on file.");
+    expect(whatsappNote({ sent: 1, failed: 0, noNumber: 2 })).toBe("WhatsApp sent to 1, not sent to 2: no usable mobile number on file.");
+    expect(whatsappNote({ sent: 0, failed: 1, noNumber: 1 })).toBe("Not sent on WhatsApp: see the Send log on the WhatsApp page.");
   });
 });

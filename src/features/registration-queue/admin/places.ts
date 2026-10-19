@@ -2,14 +2,14 @@ import "server-only";
 import { getEvent } from "@/lib/db/events";
 import { entryNames, fillFreePlaces, type Moved } from "../db";
 import { notifyRegistered } from "../notify";
-import { movedFlash, whatsappNote } from "../lib/rules";
+import { movedFlash, whatsappNote, type NotifyResult } from "../lib/rules";
 
 /**
  * The flash line for rows a fill, Move in or Decline moved: who went where (one person by name,
  * several by count), then what WhatsApp did for the ones now registered. Only a group of one
  * needs its name, so at most two are read.
  */
-export async function movedLine(moved: Moved[], sent: { sent: number; failed: number }): Promise<string> {
+export async function movedLine(moved: Moved[], sent: NotifyResult): Promise<string> {
   if (moved.length === 0) return "";
   const single = (["registered", "pending"] as const).flatMap((s) => {
     const rows = moved.filter((m) => m.newState === s);
