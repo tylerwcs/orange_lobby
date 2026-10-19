@@ -5,6 +5,7 @@ import { requireEventAccess } from "@/lib/access";
 import { getAttendee } from "@/lib/db/attendees";
 import { hasAnyCheckin } from "@/lib/db/checkins";
 import { flashPath } from "@/lib/flash";
+import { afterPlacesChange } from "@/features/registration-queue";
 import { approveCancelRequest, declineCancelRequest, restoreAttendee, withdrawCancelRequest } from "../db";
 
 const requestsPath = (eventId: string) => `/admin/events/${eventId}/attendees?show=requests`;
@@ -23,8 +24,10 @@ export async function approveCancelRequestAction(eventId: string, attendeeId: st
     redirect(flashPath(requestsPath(ev.id), `${a.name} has checked in, so the request was withdrawn.`, "error"));
   }
   const ok = await approveCancelRequest(ev.id, a.id);
+  // D682: a form registrant's cancellation frees a counted place; the waiting list moves along.
+  const moved = ok && a.source === "registration" ? await afterPlacesChange(ev.id) : "";
   revalidatePath(`/admin/events/${ev.id}`, "layout");
-  redirect(flashPath(requestsPath(ev.id), ok ? `Cancelled ${a.name}.` : `${a.name} no longer has a waiting request.`, ok ? "ok" : "error"));
+  redirect(flashPath(requestsPath(ev.id), ok ? [`Cancelled ${a.name}.`, moved].filter(Boolean).join(" ") : `${a.name} no longer has a waiting request.`, ok ? "ok" : "error"));
 }
 
 /** D596/D598: decline - the attendee stays registered and is told on their next visit. Admins and committee alike. */

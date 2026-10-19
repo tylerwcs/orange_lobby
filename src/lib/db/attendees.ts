@@ -13,6 +13,9 @@ export type AttendeeInput = {
   name: string; email?: string | null; category?: string | null; extra?: Record<string, string>;
 };
 
+/** A new attendee; `token` only when they already have a link, from the waiting list or pending (D693). Never part of an update. */
+export type NewAttendee = AttendeeInput & { token?: string };
+
 export async function findByToken(eventId: string, token: string): Promise<Attendee | null> {
   // any-status: a personal link still resolves after cancelling, the caller decides what it may do (D581)
   const { data } = await serviceClient().from("attendees").select("*").eq("event_id", eventId).eq("token", token).maybeSingle();
@@ -112,9 +115,9 @@ export async function countCancelRequests(eventId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function createAttendee(event: Pick<Event, "id" | "org_id">, input: AttendeeInput, source: AttendeeSource): Promise<Attendee> {
+export async function createAttendee(event: Pick<Event, "id" | "org_id">, input: NewAttendee, source: AttendeeSource): Promise<Attendee> {
   const { data, error } = await serviceClient().from("attendees")
-    .insert({ org_id: event.org_id, event_id: event.id, token: generateToken(), source, extra: {}, ...input, email: input.email?.trim().toLowerCase() || null })
+    .insert({ org_id: event.org_id, event_id: event.id, source, extra: {}, ...input, token: input.token ?? generateToken(), email: input.email?.trim().toLowerCase() || null })
     .select("*").single();
   if (error) throw error;
   return data as Attendee;
@@ -123,12 +126,12 @@ export async function createAttendee(event: Pick<Event, "id" | "org_id">, input:
 const INSERT_CHUNK = 200;
 
 /** Bulk-inserts attendees (one round trip per 200 rows) and returns how many were inserted. */
-export async function createAttendees(event: Pick<Event, "id" | "org_id">, inputs: AttendeeInput[], source: AttendeeSource): Promise<number> {
+export async function createAttendees(event: Pick<Event, "id" | "org_id">, inputs: NewAttendee[], source: AttendeeSource): Promise<number> {
   if (inputs.length === 0) return 0;
   const db = serviceClient();
   const rows = inputs.map((input) => ({
-    org_id: event.org_id, event_id: event.id, token: generateToken(), source, extra: {},
-    ...input, email: input.email?.trim().toLowerCase() || null,
+    org_id: event.org_id, event_id: event.id, source, extra: {},
+    ...input, token: input.token ?? generateToken(), email: input.email?.trim().toLowerCase() || null,
   }));
   let inserted = 0;
   for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
@@ -151,14 +154,17 @@ export async function updateAttendee(id: string, patch: Partial<AttendeeInput> &
  * Insert or, if an attendee with this email exists for the event, update it. Returns the attendee and whether it was new.
  * An existing row that had cancelled is reactivated (D587): registration and the admin's Add attendee both come through here.
  */
-export async function upsertByEmail(event: Pick<Event, "id" | "org_id">, input: AttendeeInput & { email: string }, source: AttendeeSource) {
+export async function upsertByEmail(
+  event: Pick<Event, "id" | "org_id">, input: AttendeeInput & { email: string }, source: AttendeeSource, opts: { token?: string } = {},
+) {
   const existing = await findByEmail(event.id, input.email);
   if (existing) {
     const patch = reactivationPatch(existing, input);
     await updateAttendee(existing.id, patch);
     return { attendee: { ...existing, ...patch, email: input.email.toLowerCase() } as Attendee, created: false };
   }
-  return { attendee: await createAttendee(event, input, source), created: true };
+  // `opts.token` (D693) is used only for a new row: an existing one keeps the link it has.
+  return { attendee: await createAttendee(event, { ...input, token: opts.token }, source), created: true };
 }
 
 /**

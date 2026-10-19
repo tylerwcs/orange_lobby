@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registrationOpen, parseLimit, placesLabel, firstName, queueDedupeKey } from "@/features/registration-queue/lib/rules";
+import { registrationOpen, parseLimit, placesLabel, firstName, queueDedupeKey, movedFlash, whatsappNote } from "@/features/registration-queue/lib/rules";
 
 const now = new Date("2026-10-19T04:00:00Z");
 const ev = { status: "live" as const, registration_open: true, registration_closes_at: null as string | null };
@@ -66,5 +66,31 @@ describe("queueDedupeKey (D702)", () => {
     const k = queueDedupeKey("moved_in", "e1", "t");
     expect(queueDedupeKey("approved", "e1", "t")).not.toBe(k);
     expect(queueDedupeKey("moved_in", "e2", "t")).not.toBe(k);
+  });
+});
+
+describe("movedFlash (D682, D701)", () => {
+  it("says nothing when nobody moved", () => {
+    expect(movedFlash([])).toBe("");
+  });
+
+  it("names one person, and counts several", () => {
+    expect(movedFlash([{ name: "Aisyah Rahman", newState: "registered" }])).toBe("Moved in Aisyah Rahman from the waiting list.");
+    expect(movedFlash([{ name: "A", newState: "registered" }, { name: "B", newState: "registered" }])).toBe("Moved in 2 people from the waiting list.");
+  });
+
+  it("says pending people went to Pending approval, not in", () => {
+    expect(movedFlash([{ name: "Wei Jie", newState: "pending" }])).toBe("Wei Jie moved from the waiting list to Pending approval.");
+    expect(movedFlash([{ name: "A", newState: "pending" }, { name: "B", newState: "pending" }, { name: "C", newState: "registered" }]))
+      .toBe("Moved in C from the waiting list. 2 people moved from the waiting list to Pending approval.");
+  });
+});
+
+describe("whatsappNote (D684, D699)", () => {
+  it("says what WhatsApp did, and nothing when nothing was due", () => {
+    expect(whatsappNote({ sent: 0, failed: 0 })).toBe("");
+    expect(whatsappNote({ sent: 1, failed: 0 })).toBe("WhatsApp sent.");
+    expect(whatsappNote({ sent: 0, failed: 1 })).toBe("Not sent on WhatsApp: see the Send log on the WhatsApp page.");
+    expect(whatsappNote({ sent: 2, failed: 1 })).toBe("WhatsApp sent to 2, not sent to 1: see the Send log on the WhatsApp page.");
   });
 });

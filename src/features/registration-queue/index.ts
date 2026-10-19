@@ -4,3 +4,6 @@ export * from "./db";
 export * from "./notify";
 export * from "./portal/actions";
 export * from "./portal/QueueCard";
+export * from "./admin/actions";
+export * from "./admin/places";
+export * from "./admin/QueueTable";

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { requireEventAccess } from "@/lib/access";
 import { listAttendees, countAttendees, listCancelledAttendees, countCancelled, countCancelRequests, listCancelRequests } from "@/lib/db/attendees";
 import { CancelRequestsTable } from "@/features/cancel";
+import { getPlaces, listEntries, placesLabel, QueueTable } from "@/features/registration-queue";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { addAttendeeAction, addAttendeeFieldAction, assignFromColumnAction, deleteAttendeeFieldsAction, deleteAttendeesAction, importMasterlistAction, markCheckedInAction, renameAttendeeFieldAction, setColumnAction } from "../actions";
@@ -55,10 +56,13 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   // an empty `checkins` leaves every row simply un-scanned (D159).
   // D588: `?show=cancelled` lists the people who cancelled instead of the registered roster.
   // D598: `?show=requests` lists the cancellation requests waiting for an organiser, instead of the roster.
+  // D685/D698: `?show=waitlist` and `?show=pending` list the registration queue instead.
   const showCancelled = sp.show === "cancelled";
   const showRequests = sp.show === "requests";
-  const [everyone, total, cancelledCount, requestCount, checkins, cps, agenda, groups, jar] = await Promise.all([
-    showRequests ? [] : showCancelled ? listCancelledAttendees(ev.id) : listAttendees(ev.id), countAttendees(ev.id), countCancelled(ev.id), countCancelRequests(ev.id),
+  const queueView = sp.show === "waitlist" || sp.show === "pending" ? sp.show : null;
+  const otherView = showRequests || queueView !== null;
+  const [everyone, total, cancelledCount, requestCount, places, checkins, cps, agenda, groups, jar] = await Promise.all([
+    otherView ? [] : showCancelled ? listCancelledAttendees(ev.id) : listAttendees(ev.id), countAttendees(ev.id), countCancelled(ev.id), countCancelRequests(ev.id), getPlaces(ev.id),
     ev.check_in_enabled ? listCheckinsForEvent(ev.id) : [],
     ev.check_in_enabled ? listCheckpoints(ev.id) : [],
     listAgenda(ev.id), listGroups(ev.id), cookies(),
@@ -164,7 +168,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     return `/admin/events/${ev.id}/attendees?${qs.toString()}`;
   };
   // The toggle keeps the search and sort; it starts back on page 1 of the other list.
-  const viewHref = (view?: "cancelled" | "requests") => {
+  const viewHref = (view?: "cancelled" | "requests" | "waitlist" | "pending") => {
     const qs = new URLSearchParams();
     if (sp.q) qs.set("q", sp.q);
     if (sort) { qs.set("sort", sort.key); qs.set("dir", sort.dir); }
@@ -172,6 +176,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     const s = qs.toString();
     return `/admin/events/${ev.id}/attendees${s ? `?${s}` : ""}`;
   };
+  // D686: "12 of 50 places taken" while a limit is set.
+  const taken = placesLabel(places.taken, places.limit);
   const from = slice.length === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = (page - 1) * pageSize + slice.length;
 
@@ -179,12 +185,17 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     <div className="flex flex-col gap-4" data-wide>
       <AdminHeader
         title="Attendees"
-        subtitle={showRequests ? `${requestCount} waiting` : showCancelled ? `${everyone.length} cancelled` : `${total} registered · ${checkedInCount} checked in`}
+        subtitle={queueView === "waitlist" ? `${places.waiting} on the waiting list${taken ? ` · ${taken}` : ""}`
+          : queueView === "pending" ? `${places.pending} waiting for approval${taken ? ` · ${taken}` : ""}`
+          : showRequests ? `${requestCount} waiting` : showCancelled ? `${everyone.length} cancelled`
+          : [`${total} registered`, `${checkedInCount} checked in`, taken].filter(Boolean).join(" · ")}
         actions={
           <>
-            {showCancelled || showRequests
+            {showCancelled || otherView
               ? <PendingLink href={viewHref()} className={buttonVariants({ variant: "outline" })}>Back to registered</PendingLink>
               : <>
+                {places.pending > 0 && <PendingLink href={viewHref("pending")} className={buttonVariants({ variant: "outline" })}>Pending approval ({places.pending})</PendingLink>}
+                {places.waiting > 0 && <PendingLink href={viewHref("waitlist")} className={buttonVariants({ variant: "outline" })}>Waiting list ({places.waiting})</PendingLink>}
                 {requestCount > 0 && <PendingLink href={viewHref("requests")} className={buttonVariants({ variant: "outline" })}>Cancellation requests ({requestCount})</PendingLink>}
                 {cancelledCount > 0 && <PendingLink href={viewHref("cancelled")} className={buttonVariants({ variant: "outline" })}>Cancelled ({cancelledCount})</PendingLink>}
               </>}
@@ -240,7 +251,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           </>
         }
       />
-      {showRequests ? <CancelRequestsTable eventId={ev.id} rows={await listCancelRequests(ev.id)} archived={ev.status === "archived"} /> : (<>
+      {queueView ? <QueueTable eventId={ev.id} view={queueView} rows={await listEntries(ev.id, queueView === "waitlist" ? "waiting" : "pending")} fields={allFields} archived={ev.status === "archived"} />
+      : showRequests ? <CancelRequestsTable eventId={ev.id} rows={await listCancelRequests(ev.id)} archived={ev.status === "archived"} /> : (<>
       <SearchInput initial={sp.q ?? ""} matches={rows.length} total={showCancelled ? everyone.length : total} />
       {/* Previous and Next change only `?page=`, which the route's loading.tsx never sees.
           The scope swaps the table for its skeleton while the next page loads. Search keeps

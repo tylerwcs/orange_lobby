@@ -38,3 +38,26 @@ export function firstName(name: string): string {
 export function queueDedupeKey(reason: "moved_in" | "approved", entryId: string, joinedAt: string): string {
   return `${reason}:${entryId}:${joinedAt}`;
 }
+
+/**
+ * The organiser's flash line for who a fill or Move in moved (D682, D701): one person by name,
+ * several by count, and pending people said separately, since they are not in yet. Empty when
+ * nobody moved, so it can be appended to any other line.
+ */
+export function movedFlash(people: { name: string; newState: "pending" | "registered" }[]): string {
+  const registered = people.filter((p) => p.newState === "registered");
+  const pending = people.filter((p) => p.newState === "pending");
+  const who = (list: typeof people) => (list.length === 1 ? list[0].name : `${list.length} people`);
+  return [
+    registered.length > 0 ? `Moved in ${who(registered)} from the waiting list.` : "",
+    pending.length > 0 ? `${who(pending)} moved from the waiting list to Pending approval.` : "",
+  ].filter(Boolean).join(" ");
+}
+
+/** What `notifyRegistered` did, for the same flash (D684, D699). Empty when nobody was due a message. */
+export function whatsappNote({ sent, failed }: { sent: number; failed: number }): string {
+  if (failed === 0) return sent > 0 ? "WhatsApp sent." : "";
+  return sent > 0
+    ? `WhatsApp sent to ${sent}, not sent to ${failed}: see the Send log on the WhatsApp page.`
+    : "Not sent on WhatsApp: see the Send log on the WhatsApp page.";
+}

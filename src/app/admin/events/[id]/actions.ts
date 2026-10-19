@@ -10,7 +10,7 @@ import { REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
 import { normaliseRegistrationForm, STANDARD_COUNT } from "@/lib/registration-standard";
 import type { EventStatus } from "@/lib/types";
 import { importedCategory, importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
-import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput } from "@/lib/db/attendees";
+import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, findByEmail, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput, type NewAttendee } from "@/lib/db/attendees";
 import { addField, renameField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, keysToErase, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
 import { GROUP_COLUMN_KEY } from "@/lib/groups";
@@ -53,6 +53,7 @@ import { listTemplates } from "@/lib/whatsapp";
 import { isSource, readTemplate, sourceValue, type Source } from "@/lib/whatsapp-templates";
 import { inAudience, sendKey } from "@/lib/whatsapp-targets";
 import { formatDateRange, shortDate } from "@/lib/text";
+import { afterPlacesChange, closeEntryForAttendee, openEntriesByEmail, parseLimit } from "@/features/registration-queue";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -81,6 +82,12 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }
+  // D677: blank is no limit; anything else must be a whole number above 0, not quietly dropped.
+  const limitRaw = str(formData, "registration_limit");
+  const registrationLimit = parseLimit(limitRaw);
+  if (limitRaw !== null && registrationLimit === null) {
+    redirect(flashPath(`/admin/events/${eventId}/settings`, "Limit registrations to a whole number above 0, or leave it blank for no limit.", "error"));
+  }
   // The images go up before anything is written: a file we will not take must leave the
   // whole save unapplied rather than half of it.
   let logo: ImageChange = { url: ev.logo_url, stale: null };
@@ -108,6 +115,8 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     // D583
     self_cancel: formData.get("self_cancel") === "on",
     self_cancel_closes_at: localInputToIso(str(formData, "self_cancel_closes_at")),
+    registration_limit: registrationLimit, // D677
+    registration_needs_approval: formData.get("registration_needs_approval") === "on", // D696
     registration_intro: str(formData, "registration_intro"),
     registration_terms: cleanRichText(str(formData, "registration_terms")),
     registration_done_title: str(formData, "registration_done_title"),
@@ -121,8 +130,11 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   await deleteEventImage(logo.stale);
   await deleteEventImage(banner.stale);
   await deleteEventImage(regBanner.stale);
-  revalidatePath(`/admin/events/${eventId}`);
-  redirect(flashPath(`/admin/events/${eventId}/settings`, "Settings saved."));
+  // D682, D691: a raised or cleared limit, or registration reopened (switch on, close time moved
+  // later), lets the waiting list move along. Any save may be one of those; the fill is a no-op otherwise.
+  const moved = await afterPlacesChange(eventId);
+  revalidatePath(`/admin/events/${eventId}`, "layout");
+  redirect(flashPath(`/admin/events/${eventId}/settings`, ["Settings saved.", moved].filter(Boolean).join(" ")));
 }
 
 /** D536: what the attendee's Me page shows. Its own action: the tab sits outside the big settings form. */
@@ -205,6 +217,8 @@ export async function setStatusAction(eventId: string, status: EventStatus) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, "Only the Ecopia team can archive an event.", "error"));
   }
   await setEventStatus(eventId, status);
+  // D691: un-archiving reopens registration, so the waiting list moves first. Nothing to say: this action has no flash.
+  if (status !== "archived") await afterPlacesChange(eventId);
   revalidatePath(`/admin/events/${eventId}`);
 }
 
@@ -287,8 +301,10 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   // Cancelled people are in it (ruling 3): their row matches by email rather than being inserted twice
   // (unique index on event_id + lower(email)), and the update below never touches cancelled_at.
   const existingByEmail = new Map((await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
-  const queued = new Map<string, AttendeeInput>();
-  const toInsert: AttendeeInput[] = [];
+  const queued = new Map<string, NewAttendee>();
+  const toInsert: NewAttendee[] = [];
+  // D693: people waiting or pending who are on the sheet keep their link's token; their entries close below.
+  const openEntries = await openEntriesByEmail(ev.id);
   let updated = 0;
   for (const r of parsed.rows) {
     const key = r.email?.trim().toLowerCase();
@@ -307,10 +323,19 @@ export async function importMasterlistAction(eventId: string, formData: FormData
       updated++;
       continue;
     }
-    toInsert.push(input);
-    if (key) queued.set(key, input);
+    const entry = key ? openEntries.get(key) : undefined;
+    const row: NewAttendee = entry ? { ...input, token: entry.token } : input;
+    toInsert.push(row);
+    if (key) queued.set(key, row);
   }
   const inserted = await createAttendees(ev, toInsert, "import");
+  // Imported people are not counted (D677), so a pending entry closing here frees the place it held.
+  const closing = toInsert.flatMap((r) => (r.token && r.email ? [r.email] : []));
+  for (const email of closing) {
+    const a = await findByEmail(ev.id, email);
+    if (a) await closeEntryForAttendee(ev.id, email, a.id);
+  }
+  const moved = closing.some((e) => openEntries.get(e.trim().toLowerCase())?.state === "pending") ? await afterPlacesChange(ev.id) : "";
   // After the rows exist, not before: an assignment needs the attendee it belongs to.
   const assigned = await assignRoundsFromColumns(ev, null, false);
   const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
@@ -324,7 +349,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
       added.length > 0 ? `Added ${added.length} ${added.length === 1 ? "column" : "columns"} from the file.` : "",
       // Still stored on every attendee, so adding them by hand once there is room fills them in.
       leftOut.length > 0 ? `No room for ${leftOut.length} more (${leftOut.join(", ")}) — the limit is ${MAX_ATTENDEE_FIELDS} columns.` : "",
-      ...assigned, skipped ? `Skipped — ${skipped}` : "",
+      ...assigned, skipped ? `Skipped — ${skipped}` : "", moved,
     ].filter(Boolean).join(" "),
     problems ? "error" : "ok",
   ));
@@ -355,9 +380,15 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
   const input = attendeeInputFrom(ev, formData);
   if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees`, "An attendee needs a name.", "error"));
   const source = (str(formData, "source") ?? "walkin") as "walkin" | "import";
-  const a = input.email ? (await upsertByEmail(ev, { ...input, email: input.email }, source)).attendee : await createAttendee(ev, input, source);
-  revalidatePath(`/admin/events/${eventId}/attendees`);
-  redirect(flashPath(`/admin/events/${eventId}/attendees?attendee=${a.id}`, `Added ${a.name}.`));
+  // D693: someone on the waiting list or pending keeps their link's token, and their entry closes
+  // against the new attendee. They are added, not counted, and get no message.
+  const entry = input.email ? (await openEntriesByEmail(ev.id)).get(input.email.trim().toLowerCase()) : undefined;
+  const a = input.email ? (await upsertByEmail(ev, { ...input, email: input.email }, source, { token: entry?.token })).attendee : await createAttendee(ev, input, source);
+  if (entry && a.email) await closeEntryForAttendee(ev.id, a.email, a.id);
+  // A pending entry held a place, and an added attendee does not count, so that place is free now.
+  const moved = entry?.state === "pending" ? await afterPlacesChange(ev.id) : "";
+  revalidatePath(`/admin/events/${eventId}`, "layout");
+  redirect(flashPath(`/admin/events/${eventId}/attendees?attendee=${a.id}`, [`Added ${a.name}.`, moved].filter(Boolean).join(" ")));
 }
 
 export async function updateAttendeeAction(eventId: string, attendeeId: string, formData: FormData) {
@@ -374,13 +405,18 @@ export async function updateAttendeeAction(eventId: string, attendeeId: string, 
   redirect(flashPath(`/admin/events/${eventId}/attendees`, `Saved ${input.name}.`));
 }
 
+/** D677: an attendee who holds one of the limited places - registered through the form and not cancelled. */
+const isCountedPlace = (a: Pick<Attendee, "source" | "cancelled_at">) => a.source === "registration" && !a.cancelled_at;
+
 export async function deleteAttendeeAction(eventId: string, attendeeId: string) {
   await requireEventAccess(eventId);
   // Loaded before the delete, because the toast needs a name the row will no longer have.
   const gone = await requireEventAttendee(eventId, attendeeId);
   await deleteAttendee(attendeeId);
-  revalidatePath(`/admin/events/${eventId}/attendees`);
-  redirect(flashPath(`/admin/events/${eventId}/attendees`, `Deleted ${gone.name}.`));
+  // D682: deleting an active form registrant frees a counted place.
+  const moved = isCountedPlace(gone) ? await afterPlacesChange(eventId) : "";
+  revalidatePath(`/admin/events/${eventId}`, "layout");
+  redirect(flashPath(`/admin/events/${eventId}/attendees`, [`Deleted ${gone.name}.`, moved].filter(Boolean).join(" ")));
 }
 
 /**
@@ -394,12 +430,15 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
 export async function deleteAttendeesAction(eventId: string, formData: FormData): Promise<number> {
   const { ev } = await requireEventAccess(eventId);
   // D588: includeCancelled, so a bulk delete from the Cancelled view keeps its ids.
-  const allowed = new Set((await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })).map((a) => a.id));
-  const ids = parseIds(String(formData.get("ids") ?? ""), allowed);
+  const roster = await listAttendees(ev.id, undefined, "wide", { includeCancelled: true });
+  const ids = parseIds(String(formData.get("ids") ?? ""), new Set(roster.map((a) => a.id)));
   if (ids.length === 0) return 0;
   const deleted = await deleteAttendees(ev, ids);
-  revalidatePath(`/admin/events/${ev.id}/attendees`);
-  revalidatePath(`/admin/events/${ev.id}`);
+  // D682: any active form registrant among them freed a counted place. The bulk bar has no flash
+  // for who moved in; the Waiting list count and the WhatsApp log show it.
+  const chosen = new Set(ids);
+  if (roster.some((a) => chosen.has(a.id) && isCountedPlace(a))) await afterPlacesChange(ev.id);
+  revalidatePath(`/admin/events/${ev.id}`, "layout");
   return deleted;
 }
 

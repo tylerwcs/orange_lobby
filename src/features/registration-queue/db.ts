@@ -143,3 +143,25 @@ export async function waitingPosition(entry: Pick<RegistrationEntry, "id" | "sta
   if (error) throw error;
   return (data as number | null) ?? null;
 }
+
+/** One entry by id, in any state; the organiser's row actions check it belongs to their event. */
+export async function getEntry(entryId: string): Promise<RegistrationEntry | null> {
+  const { data, error } = await serviceClient().from("registration_entries").select("*").eq("id", entryId).maybeSingle();
+  if (error) throw error;
+  return (data as RegistrationEntry | null) ?? null;
+}
+
+/** D693: everyone waiting or pending, by lower-cased email, so Add attendee and the import can give them their link's token. */
+export async function openEntriesByEmail(eventId: string): Promise<Map<string, RegistrationEntry>> {
+  const rows = await selectAll<RegistrationEntry>((from, to) => serviceClient().from("registration_entries").select("*")
+    .eq("event_id", eventId).in("state", ["waiting", "pending"]).order("id").range(from, to));
+  return new Map(rows.map((r) => [r.email.toLowerCase(), r]));
+}
+
+/** The names behind a fill's rows, for the organiser's flash. */
+export async function entryNames(entryIds: string[]): Promise<Map<string, string>> {
+  if (entryIds.length === 0) return new Map();
+  const { data, error } = await serviceClient().from("registration_entries").select("id, name").in("id", entryIds);
+  if (error) throw error;
+  return new Map(((data ?? []) as { id: string; name: string }[]).map((r) => [r.id, r.name]));
+}
