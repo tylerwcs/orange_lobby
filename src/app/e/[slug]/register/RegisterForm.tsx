@@ -140,7 +140,7 @@ export function RegisterForm({ slug, questions, termsHtml = null }: {
           they are the attendee's own columns: their inputs are fixed here, only their place,
           wording and help text come from the event. */}
       <FieldSet>
-        <FieldLegend>About you</FieldLegend>
+        <FieldLegend className="font-extrabold">About you</FieldLegend>
         <FieldGroup>
           {questions.map((q) => {
             const id = `reg-${q.key}`;
