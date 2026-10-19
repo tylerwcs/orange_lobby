@@ -301,6 +301,9 @@ export async function purgeAttendeePersonalData(eventId: string, orgId: string):
     p_tokens: freshTokens((count ?? 0) + 8),
   });
   if (error) throw error;
+  // D687: waiting, pending and past entries hold names, emails and answers too; the purge is the one place they are deleted outright.
+  const { error: entriesError } = await db.from("registration_entries").delete().eq("event_id", eventId);
+  if (entriesError) throw entriesError;
   return data ?? 0;
 }
 

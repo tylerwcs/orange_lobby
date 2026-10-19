@@ -12,12 +12,13 @@ import { ThemeStyle } from "@/features/theme";
 import { shortDateTime } from "@/lib/text";
 import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
 import { eventTermsHtml } from "@/lib/privacy";
+import { registrationOpen } from "@/features/registration-queue/client";
 
 export default async function RegisterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
   if (!event) notFound();
-  const closed = !event.registration_open || (event.registration_closes_at && new Date(event.registration_closes_at) < new Date());
+  const closed = !registrationOpen(event, new Date());
   return (
     // D625: the theme is written on :root (ThemeStyle), so body's bg-background fills the window
     // and the column inside keeps the phone width.

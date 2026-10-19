@@ -60,6 +60,10 @@ export type Event = {
   /** D540: the event's own terms (a client's clauses), rich text. Null: none, and no second tick on the form. */
   registration_terms: string | null;
   registration_closes_at: string | null;
+  /** D677: most form registrations (active registration attendees plus pending entries); null/absent = no limit. Optional so old fixtures compile. */
+  registration_limit?: number | null;
+  /** D696: registrations wait for an organiser's approval; off/absent = people are registered straight away. Optional so old fixtures compile. */
+  registration_needs_approval?: boolean;
   /** D583: attendees may cancel their own registration. */
   self_cancel: boolean;
   /** D583: when self-cancel stops; null = until archived. */
@@ -166,6 +170,30 @@ export type Attendee = {
   cancel_declined_at?: string | null;
   /** D614: why they asked; kept once approved, cleared when the request ends any other way. */
   cancel_reason?: string | null;
+};
+
+/** D687: where an entry is. Waiting and pending are open; the rest ended (declined, left, removed, registered). */
+export type RegistrationEntryState = "waiting" | "pending" | "declined" | "left" | "removed" | "registered";
+
+/** D687: someone who is waiting, pending, or was once either, one row per person per event (D702). Their token is their link before and after they are moved in. */
+export type RegistrationEntry = {
+  id: string;
+  org_id: string;
+  event_id: string;
+  token: string;
+  name: string;
+  email: string;
+  extra: Record<string, string>;
+  consented_at: string | null;
+  consent_notice: string | null;
+  terms_agreed_at: string | null;
+  state: RegistrationEntryState;
+  /** D679: queue order; reset when they start over (D702). */
+  joined_at: string;
+  decided_at: string | null;
+  attendee_id: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 /** A day of the programme, made before anything is put on it (D193). */

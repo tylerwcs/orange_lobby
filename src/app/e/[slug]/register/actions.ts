@@ -10,14 +10,14 @@ import { allow } from "@/lib/ratelimit";
 import { showsDonePage } from "@/lib/registration-done";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
+import { registrationOpen } from "@/features/registration-queue/client";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
 
 export async function registerAction(slug: string, _prev: RegisterState, formData: FormData): Promise<RegisterState> {
   const event = await getEventBySlug(slug);
   if (!event || event.status === "archived") return { errors: { form: "Registration is not available." } };
-  const closed = !event.registration_open || (event.registration_closes_at && new Date(event.registration_closes_at) < new Date());
-  if (closed) return { errors: { form: "Registration is closed." } };
+  if (!registrationOpen(event, new Date())) return { errors: { form: "Registration is closed." } };
 
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   if (!allow(`reg:${event.id}:${ip}`, 10, 60_000)) return { errors: { form: "Too many attempts. Try again in a minute." } };

@@ -1,4 +1,5 @@
 import { MONTHS } from "@/lib/text";
+import { registrationOpen } from "@/features/registration-queue/client";
 import type { Attendee, Event } from "@/lib/types";
 
 const KL_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -51,8 +52,5 @@ export function canSelfCancel(
   return { ok: true };
 }
 
-/** D585/D587: whether "Register again" can be offered. Registration's own closed test (registerAction), plus archived. */
-export function registrationOpenNow(ev: Pick<Event, "status" | "registration_open" | "registration_closes_at">, now: Date): boolean {
-  if (ev.status === "archived" || !ev.registration_open) return false;
-  return !ev.registration_closes_at || Date.parse(ev.registration_closes_at) > now.getTime();
-}
+/** D585/D587: whether "Register again" can be offered. The single open test lives with the registration queue (D683). */
+export const registrationOpenNow = registrationOpen;
