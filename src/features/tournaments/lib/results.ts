@@ -505,12 +505,13 @@ export function overallTable(input: {
 }
 
 /**
- * D712: the podium's steps left to right - 2nd, 1st, 3rd - each with every group at that place,
- * so two groups level on top both stand on the gold step. A place a tie skips (no 2nd after two
- * 1sts) is an empty step.
+ * D712: the podium, left to right - one step per group in the top three places, the best in the
+ * middle and the rest alternating left and right (2nd, 1st, 3rd). Two groups level on top get a
+ * gold step each; a place a tie skips (no 2nd after two 1sts) has no step.
  */
-export function podium(rows: OverallRow[]): { rank: 1 | 2 | 3; rows: OverallRow[] }[] {
-  return ([2, 1, 3] as const).map((rank) => ({ rank, rows: rows.filter((r) => r.rank === rank) }));
+export function podium(rows: OverallRow[]): OverallRow[] {
+  const top = rows.filter((r) => r.rank <= 3).sort((a, b) => a.rank - b.rank);
+  return top.reduce<OverallRow[]>((out, r, i) => (i % 2 ? [r, ...out] : [...out, r]), []);
 }
 
 // ---------- guarding a change ----------

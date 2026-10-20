@@ -190,8 +190,9 @@ otherwise shared (`2=`). My call: an overall winner shouldn't be a coin toss, an
 extra input.
 
 **Amended 20 Oct 2026 (the user's call).** D711: equal totals share the place, with no count-back
-on 1st places: three groups on 48 are all `9=`. D712: the podium puts every group sharing a place
-on that step (two level 1sts both stand on gold), and a place a tie skips has no step. D713: a save
+on 1st places: three groups on 48 are all `9=`. D712: the podium gives every group in the top three
+places its own step, best in the middle (two level 1sts get a gold step each), and a place a tie
+skips has no step. D713: a save
 on the admin tournament tabs keeps the page where it was instead of scrolling to the top.
 
 **Reveal switch (the user's decision).** The admin Leaderboard tab has a switch, **Show the

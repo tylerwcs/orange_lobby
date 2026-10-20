@@ -191,7 +191,7 @@ const STEP = {
   3: { height: 48, tint: "bg-bronze-soft text-bronze-strong", Icon: Medal },
 } as const;
 
-/** D662/D663: the week so far - a podium for the top three places (D712: level groups share a step), then every group's points by sport and D674's bonus. */
+/** D662/D663: the week so far - a podium for the top three places (D712: a step per group, so level groups each get one), then every group's points by sport and D674's bonus. */
 export function OverallView({ rows, sports, names, mine, table, bonus = null }: {
   rows: OverallRow[]; sports: TournamentSport[]; names: Map<string, string>; mine: string; table: number[]; bonus?: number | null;
 }) {
@@ -200,20 +200,17 @@ export function OverallView({ rows, sports, names, mine, table, bonus = null }: 
     <div className="flex flex-col gap-4">
       {scored && (
         <ol aria-label="Podium" className="flex items-end justify-center gap-2 rounded-2xl border bg-card bg-[radial-gradient(ellipse_at_50%_0%,var(--gold-soft)_0%,transparent_70%)] px-3 pt-4">
-          {podium(rows).map((step) => {
-            const width = step.rank === 1 ? "w-[36%]" : "w-[29%]";
-            // D712: a place a tie skipped has no step; the space keeps gold in the middle.
-            if (step.rows.length === 0) return <li key={step.rank} aria-hidden className={width} />;
-            const { Icon, height, tint } = STEP[step.rank];
+          {podium(rows).map((r) => {
+            const { Icon, height, tint } = STEP[r.rank as 1 | 2 | 3];
             return (
-              <li key={step.rank} className={`flex min-w-0 flex-col items-center gap-0.5 text-center ${width}`}>
-                {step.rank === 1 && <Crown aria-hidden className="mb-0.5 size-6 text-gold-strong" />}
-                {step.rows.map((r) => <span key={r.groupId} className="w-full truncate text-sm font-extrabold">{names.get(r.groupId)}</span>)}
-                <span className="text-xs font-bold tabular-nums text-muted-foreground">{step.rows[0].total} pts{step.rows.length > 1 ? " each" : ""}</span>
-                {step.rows.some((r) => r.groupId === mine) && <span className="rounded-full bg-success-soft px-2 text-[11px] font-bold text-success-strong">Your group</span>}
+              <li key={r.groupId} className={`flex min-w-0 flex-col items-center gap-0.5 text-center ${r.rank === 1 ? "flex-[1.25]" : "flex-1"}`}>
+                {r.rank === 1 && <Crown aria-hidden className="mb-0.5 size-6 text-gold-strong" />}
+                <span className="w-full truncate text-sm font-extrabold">{names.get(r.groupId)}</span>
+                <span className="text-xs font-bold tabular-nums text-muted-foreground">{r.total} pts</span>
+                {r.groupId === mine && <span className="rounded-full bg-success-soft px-2 text-[11px] font-bold text-success-strong">Your group</span>}
                 <div className={`mt-1.5 flex w-full flex-col items-center gap-0.5 rounded-t-xl pt-2.5 ${tint}`} style={{ height }}>
                   <Icon aria-hidden className="size-5" />
-                  <span className="text-2xl font-extrabold leading-none tabular-nums"><span className="sr-only">Place </span>{step.rank}</span>
+                  <span className="text-2xl font-extrabold leading-none tabular-nums"><span className="sr-only">Place </span>{r.rank}</span>
                 </div>
               </li>
             );

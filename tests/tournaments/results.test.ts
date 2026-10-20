@@ -357,12 +357,13 @@ describe("points and the overall table (D660, D662)", () => {
     // D711: equal totals share the place, whoever has more 1st places.
     expect(firsts.map((r) => [r.groupId, r.total, r.rank, r.tied])).toEqual([["x", 70, 1, true], ["y", 70, 1, true]]);
   });
-  it("puts every group sharing a place on its podium step, and leaves a skipped place empty", () => {
+  it("gives every group in the top three places its own podium step, best in the middle", () => {
     const row = (groupId: string, rank: number) => ({ groupId, rank, tied: false, total: 0, bySport: [], bonus: null });
-    const steps = (rows: ReturnType<typeof row>[]) => podium(rows).map((s) => [s.rank, s.rows.map((r) => r.groupId)]);
-    expect(steps([row("a", 1), row("b", 2), row("c", 3), row("d", 4)])).toEqual([[2, ["b"]], [1, ["a"]], [3, ["c"]]]);
-    expect(steps([row("a", 1), row("b", 1), row("c", 3), row("d", 4)])).toEqual([[2, []], [1, ["a", "b"]], [3, ["c"]]]);
-    expect(steps([row("a", 1), row("b", 2), row("c", 2), row("d", 2)])).toEqual([[2, ["b", "c", "d"]], [1, ["a"]], [3, []]]);
+    const steps = (rows: ReturnType<typeof row>[]) => podium(rows).map((r) => `${r.groupId}${r.rank}`);
+    expect(steps([row("a", 1), row("b", 2), row("c", 3), row("d", 4)])).toEqual(["b2", "a1", "c3"]);
+    expect(steps([row("a", 1), row("b", 1), row("c", 3), row("d", 4)])).toEqual(["b1", "a1", "c3"]);
+    expect(steps([row("a", 1), row("b", 2), row("c", 3), row("d", 3)])).toEqual(["d3", "b2", "a1", "c3"]);
+    expect(steps([row("a", 1), row("b", 2)])).toEqual(["b2", "a1"]);
   });
 });
 
