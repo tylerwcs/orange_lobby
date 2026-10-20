@@ -22,9 +22,22 @@ describe("exports", () => {
     const cps = [{ id: "c1", name: "Day 1" }, { id: "c2", name: "Day 2" }] as never;
     const cis = [{ checkpoint_id: "c1", attendee_id: "a1", scanned_at: "2026-09-30T01:00:00Z", scanned_by: "u1" }] as never;
     const ws = buildAttendanceWorkbook(attendees, cps, cis, { u1: "crew@ecopia" }).getWorksheet("Attendance")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Phone", "Category", "Table", "Source", "Dietary", "Day 1 checked in", "Day 1 time", "Day 1 scanned by", "Day 2 checked in", "Day 2 time", "Day 2 scanned by", "Cancelled at", "Cancel reason"]);
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Phone", "Category", "Table", "Source", "Dietary", "Registered at", "Day 1 checked in", "Day 1 time", "Day 1 scanned by", "Day 2 checked in", "Day 2 time", "Day 2 scanned by", "Cancelled at", "Cancel reason"]);
     const r = ws.getRow(2).values as unknown[];
-    expect(r[8]).toBe("Yes"); expect(r[10]).toBe("crew@ecopia"); expect(r[11]).toBe("No");
+    expect(r[9]).toBe("Yes"); expect(r[11]).toBe("crew@ecopia"); expect(r[12]).toBe("No");
+  });
+
+  it("says when each person registered, in Malaysian time, blank when unknown (D710)", () => {
+    const base = { phone: null, company: null, category: null, table_no: null, source: "registration", extra: {} };
+    const attendees = [
+      { ...base, id: "a1", name: "Ann", email: "a@b.co", registered_at: "2026-10-14T17:30:05Z" },
+      { ...base, id: "a2", name: "Bob", email: "b@b.co" },
+    ] as never;
+    const ws = buildAttendanceWorkbook(attendees, [] as never, [] as never, {}).getWorksheet("Attendance")!;
+    expect(ws.getRow(1).getCell(7).value).toBe("Registered at");
+    // Year to the second, so the column sorts into the order people sent the form.
+    expect(ws.getRow(2).getCell(7).value).toBe("2026-10-15 01:30:05");
+    expect(ws.getRow(3).getCell(7).value).toBe("");
   });
 
   it("ends with Cancelled at and Cancel reason: filled for a cancelled row, blank for an active one (D588, D615)", () => {

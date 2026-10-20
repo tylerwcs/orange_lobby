@@ -169,6 +169,8 @@ export type Attendee = {
   consent_notice: string | null;
   /** D542: when they ticked the event's terms on the registration form. Null: never asked, or before the event had terms. */
   terms_agreed_at: string | null;
+  /** When the row was made: imported, walked in, or given a place. Optional so old fixtures compile; rows from the DB always carry it. */
+  created_at?: string;
   /** D580: when they cancelled; null/absent = active. Optional so old fixtures compile; rows from the DB always carry it. */
   cancelled_at?: string | null;
   /** D593: when they asked to cancel; null/absent = no waiting request. */

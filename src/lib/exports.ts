@@ -69,14 +69,27 @@ export function attendeeSheetRow(a: Pick<Attendee, "name" | "email" | "category"
   ];
 }
 
-export function buildAttendanceWorkbook(attendees: Attendee[], checkpoints: Pick<Checkpoint, "id" | "name">[], checkins: Pick<Checkin, "checkpoint_id" | "attendee_id" | "scanned_at" | "scanned_by">[], scannerNames: Record<string, string>, fields: AttendeeField[] = []): ExcelJS.Workbook {
+/** D710: Malaysian time to the second, year first, so a text column sorts in the order people registered. */
+export function klStamp(iso: string): string {
+  return new Date(new Date(iso).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
+}
+
+/**
+ * D710: `registered_at` is when they sent the form: the waiting list or approval entry's join
+ * time when they came in that way, otherwise when their row was made (registration, walk-in or
+ * import). Blank when the caller did not supply one.
+ */
+export type AttendanceRow = Attendee & { registered_at?: string | null };
+
+export function buildAttendanceWorkbook(attendees: AttendanceRow[], checkpoints: Pick<Checkpoint, "id" | "name">[], checkins: Pick<Checkin, "checkpoint_id" | "attendee_id" | "scanned_at" | "scanned_by">[], scannerNames: Record<string, string>, fields: AttendeeField[] = []): ExcelJS.Workbook {
   const extraColumns = attendanceExtraColumns(attendees, fields);
   const byKey = new Map(checkins.map((c) => [`${c.checkpoint_id}:${c.attendee_id}`, c]));
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Attendance");
-  ws.addRow(["Name", "Email", "Phone", "Category", "Table", "Source", ...extraColumns.map((c) => c.label), ...checkpoints.flatMap((c) => [`${c.name} checked in`, `${c.name} time`, `${c.name} scanned by`]), "Cancelled at", "Cancel reason"]);
+  ws.addRow(["Name", "Email", "Phone", "Category", "Table", "Source", ...extraColumns.map((c) => c.label), "Registered at", ...checkpoints.flatMap((c) => [`${c.name} checked in`, `${c.name} time`, `${c.name} scanned by`]), "Cancelled at", "Cancel reason"]);
   for (const a of attendees) {
     const row = attendeeSheetRow(a, extraColumns);
+    row.push(a.registered_at ? klStamp(a.registered_at) : "");
     for (const c of checkpoints) {
       const ci = byKey.get(`${c.id}:${a.id}`);
       row.push(ci ? "Yes" : "No", ci ? new Date(ci.scanned_at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" }) : "", ci?.scanned_by ? scannerNames[ci.scanned_by] ?? ci.scanned_by : "");

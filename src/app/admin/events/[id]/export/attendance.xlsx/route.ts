@@ -6,12 +6,14 @@ import { buildAttendanceWorkbook } from "@/lib/exports";
 import { scannerNames } from "@/lib/db/users";
 import { eventFields } from "@/lib/attendee-fields";
 import { parseIds } from "@/lib/bulk";
+import { registeredJoinTimes } from "@/features/registration-queue";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; const { ev } = await requireEventAccess(id);
   // D588: cancelled people follow the active ones, each carrying a Cancelled at date.
-  const [active, cancelled, cps, cis] = await Promise.all([listAttendees(ev.id), listCancelledAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id)]);
-  const attendees = [...active, ...cancelled];
+  const [active, cancelled, cps, cis, joined] = await Promise.all([listAttendees(ev.id), listCancelledAttendees(ev.id), listCheckpoints(ev.id), listCheckinsForEvent(ev.id), registeredJoinTimes(ev.id)]);
+  // D710: a place given from the waiting list or by approval is dated by when they sent the form.
+  const attendees = [...active, ...cancelled].map((a) => ({ ...a, registered_at: joined.get(a.id) ?? a.created_at ?? null }));
   // The posted list decides which rows are exported, so it is validated against this event's
   // own attendees exactly as the bulk server actions do — an id from another event never widens the export.
   const idsParam = new URL(req.url).searchParams.get("ids");

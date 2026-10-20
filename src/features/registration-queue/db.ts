@@ -129,6 +129,13 @@ export async function listEntries(eventId: string, state: "waiting" | "pending")
     .eq("event_id", eventId).eq("state", state).order("joined_at").order("id").range(from, to));
 }
 
+/** D710: attendee id → when they sent the form, for everyone who got their place through an entry. Paged (D401). */
+export async function registeredJoinTimes(eventId: string): Promise<Map<string, string>> {
+  const rows = await selectAll<{ attendee_id: string; joined_at: string }>((from, to) => serviceClient().from("registration_entries")
+    .select("attendee_id, joined_at").eq("event_id", eventId).eq("state", "registered").not("attendee_id", "is", null).order("id").range(from, to));
+  return new Map(rows.map((r) => [r.attendee_id, r.joined_at]));
+}
+
 export async function countEntries(eventId: string, state: "waiting" | "pending"): Promise<number> {
   const { count, error } = await serviceClient().from("registration_entries").select("id", { count: "exact", head: true })
     .eq("event_id", eventId).eq("state", state);

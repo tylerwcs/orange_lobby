@@ -32,7 +32,7 @@ export default async function ExportsPage({ params }: { params: Promise<{ id: st
   const files: { href: string; icon: IconName; name: string; what: string }[] = [
     ...(ev.check_in_enabled ? [{
       href: `${b}/attendance.xlsx`, icon: "file" as IconName, name: "Attendance",
-      what: "One row per attendee, with three columns for every checkpoint: whether they were checked in, the time, and which crew account scanned them. Includes any extra scan fields you configured.",
+      what: "One row per attendee, with when they registered and three columns for every checkpoint: whether they were checked in, the time, and which crew account scanned them. Includes any extra scan fields you configured.",
     }] : []),
     {
       href: `${b}/links.xlsx`, icon: "link", name: "Personal links",
