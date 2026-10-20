@@ -23,7 +23,7 @@ const ROOTS = [
   "src/components/ui/toaster.tsx",
   "src/components/ui/alert.tsx",
 ];
-const EXCLUDED = ["src/app/e/[slug]/polaroid/", "src/features/polaroid/"];
+const EXCLUDED = ["src/app/e/[slug]/(portal)/polaroid/", "src/features/polaroid/"];
 
 const norm = (p: string) => relative(ROOT, p).split("\\").join("/");
 function walk(path: string): string[] {
