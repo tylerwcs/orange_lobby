@@ -1,6 +1,6 @@
 import { Check, Crown, Medal, Trophy } from "lucide-react";
 import {
-  bracketName, bracketPlaces, formatTime, ordinal, pointsFor, sportPlaces,
+  bracketName, bracketPlaces, formatTime, ordinal, podium, pointsFor, sportPlaces,
   type OverallRow, type Place, type PoolTable, type Resolved, type SportResults, type TimeRow,
 } from "../lib/results";
 import type { TournamentSport } from "../lib/squads";
@@ -185,34 +185,35 @@ function Labelled({ r, names, mine, time }: { r: Resolved; names: Map<string, st
   );
 }
 
-const PODIUM = [
-  { rank: 2, height: 64, tint: "bg-silver-soft text-silver-strong", Icon: Medal },
-  { rank: 1, height: 92, tint: "bg-gold-soft text-gold-strong", Icon: Trophy },
-  { rank: 3, height: 48, tint: "bg-bronze-soft text-bronze-strong", Icon: Medal },
-] as const;
+const STEP = {
+  1: { height: 92, tint: "bg-gold-soft text-gold-strong", Icon: Trophy },
+  2: { height: 64, tint: "bg-silver-soft text-silver-strong", Icon: Medal },
+  3: { height: 48, tint: "bg-bronze-soft text-bronze-strong", Icon: Medal },
+} as const;
 
-/** D662/D663: the week so far - a podium for the top three, then every group's points by sport and D674's bonus. */
+/** D662/D663: the week so far - a podium for the top three places (D712: level groups share a step), then every group's points by sport and D674's bonus. */
 export function OverallView({ rows, sports, names, mine, table, bonus = null }: {
   rows: OverallRow[]; sports: TournamentSport[]; names: Map<string, string>; mine: string; table: number[]; bonus?: number | null;
 }) {
   const scored = rows.some((r) => r.total > 0);
-  const top = scored ? [rows[1], rows[0], rows[2]] : [];
   return (
     <div className="flex flex-col gap-4">
       {scored && (
         <ol aria-label="Podium" className="flex items-end justify-center gap-2 rounded-2xl border bg-card bg-[radial-gradient(ellipse_at_50%_0%,var(--gold-soft)_0%,transparent_70%)] px-3 pt-4">
-          {PODIUM.map((slot, i) => {
-            const r = top[i];
-            const { Icon } = slot;
+          {podium(rows).map((step) => {
+            const width = step.rank === 1 ? "w-[36%]" : "w-[29%]";
+            // D712: a place a tie skipped has no step; the space keeps gold in the middle.
+            if (step.rows.length === 0) return <li key={step.rank} aria-hidden className={width} />;
+            const { Icon, height, tint } = STEP[step.rank];
             return (
-              <li key={slot.rank} className={`flex min-w-0 flex-col items-center gap-0.5 text-center ${i === 1 ? "w-[36%]" : "w-[29%]"}`}>
-                {slot.rank === 1 && <Crown aria-hidden className="mb-0.5 size-6 text-gold-strong" />}
-                <span className="w-full truncate text-sm font-extrabold">{r ? names.get(r.groupId) : "–"}</span>
-                {r && <span className="text-xs font-bold tabular-nums text-muted-foreground">{r.total} pts</span>}
-                {r?.groupId === mine && <span className="rounded-full bg-success-soft px-2 text-[11px] font-bold text-success-strong">Your group</span>}
-                <div className={`mt-1.5 flex w-full flex-col items-center gap-0.5 rounded-t-xl pt-2.5 ${slot.tint}`} style={{ height: slot.height }}>
+              <li key={step.rank} className={`flex min-w-0 flex-col items-center gap-0.5 text-center ${width}`}>
+                {step.rank === 1 && <Crown aria-hidden className="mb-0.5 size-6 text-gold-strong" />}
+                {step.rows.map((r) => <span key={r.groupId} className="w-full truncate text-sm font-extrabold">{names.get(r.groupId)}</span>)}
+                <span className="text-xs font-bold tabular-nums text-muted-foreground">{step.rows[0].total} pts{step.rows.length > 1 ? " each" : ""}</span>
+                {step.rows.some((r) => r.groupId === mine) && <span className="rounded-full bg-success-soft px-2 text-[11px] font-bold text-success-strong">Your group</span>}
+                <div className={`mt-1.5 flex w-full flex-col items-center gap-0.5 rounded-t-xl pt-2.5 ${tint}`} style={{ height }}>
                   <Icon aria-hidden className="size-5" />
-                  <span className="text-2xl font-extrabold leading-none tabular-nums"><span className="sr-only">Place </span>{r ? r.rank : slot.rank}</span>
+                  <span className="text-2xl font-extrabold leading-none tabular-nums"><span className="sr-only">Place </span>{step.rank}</span>
                 </div>
               </li>
             );

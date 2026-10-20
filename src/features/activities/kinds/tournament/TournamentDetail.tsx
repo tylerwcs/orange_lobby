@@ -9,6 +9,7 @@ import { countedRows, isLocked, LeaderboardPanel, listSports, MatchesPanel, shor
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
+import { KeepScroll } from "@/components/admin/KeepScroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { ScheduleOpen } from "../../admin/ScheduleOpen";
@@ -63,6 +64,7 @@ export async function TournamentDetail({ ev, activity, tab, sport }: { ev: Event
         }
       />
       <ActivityTabs tabs={tabs} current={current} href={href} />
+      <KeepScroll />
       {current === "squads" && <SquadsPanel ev={ev} activity={activity} sportId={sport} />}
       {current === "sports" && <SportsPanel ev={ev} activity={activity} />}
       {current === "matches" && <MatchesPanel ev={ev} activity={activity} sportId={sport} />}

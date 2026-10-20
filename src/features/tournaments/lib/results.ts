@@ -476,8 +476,7 @@ export type CupBonus = { points: number; earned: Set<string>; extra?: Map<string
 
 /**
  * D662: each group's points across sports (null: no place yet; "F": a forfeit, worth 0), plus
- * D674's bonus, ranked by total, ties going to more 1st places, then more 2nd places…, and
- * otherwise shared.
+ * D674's bonus, ranked by total. D711: equal totals share the place (no count-back on 1st places).
  */
 export function overallTable(input: {
   sports: TournamentSport[];
@@ -489,30 +488,29 @@ export function overallTable(input: {
   bonus?: CupBonus | null;
 }): OverallRow[] {
   const sports = [...input.sports].sort((a, b) => a.position - b.position);
-  const depth = Math.max(input.table.length, ...[...input.places.values()].flat().map((p) => p.place), 0);
   const rows = input.groupIds.map((groupId) => {
-    const counts = Array<number>(depth).fill(0);
     const bySport = sports.map((s): number | "F" | null => {
       const p = (input.places.get(s.id) ?? []).find((x) => x.groupId === groupId);
       if (!p) return input.forfeits?.get(s.id)?.has(groupId) ? "F" : null;
       if (p.forfeit) return "F";
-      counts[p.place - 1] += 1;
       return pointsFor(p, input.table);
     });
     const bonus = input.bonus ? (input.bonus.earned.has(groupId) ? input.bonus.points : 0) + (input.bonus.extra?.get(groupId) ?? 0) : null;
     const total = bySport.reduce<number>((n, v) => n + (typeof v === "number" ? v : 0), bonus ?? 0);
-    return { groupId, total, bySport, counts, bonus };
+    return { groupId, total, bySport, bonus };
   });
-  type Row = (typeof rows)[number];
-  const better = (a: Row, b: Row) => {
-    if (a.total !== b.total) return b.total - a.total;
-    for (let i = 0; i < depth; i++) if (a.counts[i] !== b.counts[i]) return b.counts[i] - a.counts[i];
-    return 0;
-  };
   const order = new Map(input.groupIds.map((g, i) => [g, i]));
-  return rankRows(rows, better)
-    .sort((a, b) => a.rank - b.rank || (order.get(a.groupId) ?? 0) - (order.get(b.groupId) ?? 0))
-    .map(({ groupId, rank, tied, total, bySport, bonus }) => ({ groupId, rank, tied, total, bySport, bonus }));
+  return rankRows(rows, (a, b) => b.total - a.total)
+    .sort((a, b) => a.rank - b.rank || (order.get(a.groupId) ?? 0) - (order.get(b.groupId) ?? 0));
+}
+
+/**
+ * D712: the podium's steps left to right - 2nd, 1st, 3rd - each with every group at that place,
+ * so two groups level on top both stand on the gold step. A place a tie skips (no 2nd after two
+ * 1sts) is an empty step.
+ */
+export function podium(rows: OverallRow[]): { rank: 1 | 2 | 3; rows: OverallRow[] }[] {
+  return ([2, 1, 3] as const).map((rank) => ({ rank, rows: rows.filter((r) => r.rank === rank) }));
 }
 
 // ---------- guarding a change ----------

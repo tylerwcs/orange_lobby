@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  blockedBy, bracketName, defaultPlaying, pickerOptions, pickSport, readBonus, readResult, tournamentTab, tournamentOverall, withChange, withForfeit, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools,
+  blockedBy, bracketName, defaultPlaying, pickerOptions, pickSport, readBonus, readResult, tournamentTab, tournamentOverall, withChange, withForfeit, drawPools, formatProblem, formatTime, matchesLeft, ordinal, overallTable, parseTime, planPools, podium,
   pointsFor, poolName, poolPlaces, poolStandings, readPlacePoints, resolveSport, roundRobinPairs, sportPlaces, timeTable,
   type MatchPlan, type Slot, type SportResults,
 } from "@/features/tournaments/lib/results";
@@ -329,7 +329,7 @@ describe("points and the overall table (D660, D662)", () => {
     expect(pointsFor({ place: 13, groupId: "g", forfeit: false }, table)).toBe(0);
     expect(pointsFor({ place: 1, groupId: "g", forfeit: false }, null)).toBe(0);
   });
-  it("adds up sports, shows unplaced and forfeits, and breaks ties by 1st places", () => {
+  it("adds up sports, shows unplaced and forfeits, and shares a place on equal totals", () => {
     const a = sport({ id: "a", position: 0 });
     const b = sport({ id: "b", position: 1 });
     const c = sport({ id: "c", position: 2 });
@@ -354,7 +354,15 @@ describe("points and the overall table (D660, D662)", () => {
       places: new Map([["a", [{ place: 1, groupId: "y", forfeit: false }, { place: 2, groupId: "x", forfeit: false }]], ["b", [{ place: 3, groupId: "y", forfeit: false }, { place: 2, groupId: "x", forfeit: false }]]]),
       groupIds: ["x", "y"], table: [40, 35, 30],
     });
-    expect(firsts.map((r) => [r.groupId, r.total, r.rank])).toEqual([["y", 70, 1], ["x", 70, 2]]);
+    // D711: equal totals share the place, whoever has more 1st places.
+    expect(firsts.map((r) => [r.groupId, r.total, r.rank, r.tied])).toEqual([["x", 70, 1, true], ["y", 70, 1, true]]);
+  });
+  it("puts every group sharing a place on its podium step, and leaves a skipped place empty", () => {
+    const row = (groupId: string, rank: number) => ({ groupId, rank, tied: false, total: 0, bySport: [], bonus: null });
+    const steps = (rows: ReturnType<typeof row>[]) => podium(rows).map((s) => [s.rank, s.rows.map((r) => r.groupId)]);
+    expect(steps([row("a", 1), row("b", 2), row("c", 3), row("d", 4)])).toEqual([[2, ["b"]], [1, ["a"]], [3, ["c"]]]);
+    expect(steps([row("a", 1), row("b", 1), row("c", 3), row("d", 4)])).toEqual([[2, []], [1, ["a", "b"]], [3, ["c"]]]);
+    expect(steps([row("a", 1), row("b", 2), row("c", 2), row("d", 2)])).toEqual([[2, ["b", "c", "d"]], [1, ["a"]], [3, []]]);
   });
 });
 

@@ -189,6 +189,11 @@ Ranked by total. Ties go to whoever has more 1st places, then more 2nd places, a
 otherwise shared (`2=`). My call: an overall winner shouldn't be a coin toss, and this needs no
 extra input.
 
+**Amended 20 Oct 2026 (the user's call).** D711: equal totals share the place, with no count-back
+on 1st places: three groups on 48 are all `9=`. D712: the podium puts every group sharing a place
+on that step (two level 1sts both stand on gold), and a place a tie skips has no step. D713: a save
+on the admin tournament tabs keeps the page where it was instead of scrolling to the top.
+
 **Reveal switch (the user's decision).** The admin Leaderboard tab has a switch, **Show the
 overall leaderboard to attendees**, on by default. Off, the portal hides the Overall chip and
 the card's `3rd overall` line, so the week's winner can be revealed at a closing ceremony. Match
