@@ -71,6 +71,21 @@ export const requireEventAccess = cache(async (eventId: string): Promise<{ actor
 });
 
 /**
+ * D714: whether whoever is signed in may see this draft event's portal as it will look live -
+ * the same people `requireEventAccess` lets into its admin. Never redirects: an attendee has no
+ * session and simply gets false. The proxy keeps a staff session fresh on portal paths, so the
+ * claims read here need no refresh.
+ */
+export async function canPreviewDraft(ev: Pick<Event, "id" | "org_id" | "status">): Promise<boolean> {
+  const { data } = await (await sessionClient()).auth.getClaims();
+  const userId = data?.claims?.sub;
+  if (!userId) return false;
+  const adminOrgId = await adminOrgOf(userId);
+  const seats = adminOrgId === ev.org_id ? [] : await seatsOf(userId);
+  return decideAccess({ userId, adminOrgId, ev, seats }) !== null;
+}
+
+/**
  * The admin-only list inside an event (D553, D565): delete, purge, Features, Address, Committee,
  * Setup, Committee alerts, Verification. A signed-in non-admin (a committee member following an
  * old link) gets a 404 rather than requireAdmin's "no access" login page, which would wrongly tell

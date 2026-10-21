@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { loadPortalLink, portalHasInfo } from "@/lib/portal";
+import { isDraftPreview, loadPortalLink, portalHasInfo } from "@/lib/portal";
+import { PreviewBanner } from "@/components/portal/PreviewBanner";
 import { hasAnyCheckin } from "@/lib/db/checkins";
 import { CancelRequestNote, CancelSection, CancelledCard, canSelfCancel, klDayTime, registrationOpenNow, requestCancelAction, withdrawCancelRequestAction } from "@/features/cancel";
 import { loadActivityNav } from "@/lib/portal-home";
@@ -87,10 +88,13 @@ export default async function PersonalLayout({ children, params }: {
       </>
     );
   }
+  // D714: an admin or committee member previewing a draft. They are not this attendee, so they
+  // are never asked to consent or agree on the attendee's behalf.
+  const preview = await isDraftPreview(slug);
   // PDPA consent first (D410), for every page under the link, before anything personal is
   // shown; and the event's terms, for anyone the registration form never asked (D543).
   const asks = portalAsks(event, attendee);
-  if (asks.consent || asks.terms) {
+  if (!preview && (asks.consent || asks.terms)) {
     return (
       <>
         <ThemeStyle event={event} />
@@ -118,6 +122,7 @@ export default async function PersonalLayout({ children, params }: {
   return (
     <>
       <ThemeStyle event={event} />
+      {preview && <PreviewBanner personal />}
       <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal activities={activities} hasInfo={hasInfo} draftExtra={draftExtra}>
         {children}
       </PortalChrome>

@@ -1,7 +1,8 @@
 import type { Event } from "@/lib/types";
-import { isUnpublished, portalHasInfo } from "@/lib/portal";
+import { isDraftPreview, isUnpublished, portalHasInfo } from "@/lib/portal";
 import { ThemeStyle } from "@/features/theme";
 import { PortalChrome } from "./PortalChrome";
+import { PreviewBanner } from "./PreviewBanner";
 
 /**
  * The portal's chrome, for the pages that still render it themselves.
@@ -42,6 +43,7 @@ export async function PortalShell({ event, basePath, personal, children }: {
   return (
     <>
       <ThemeStyle event={event} />
+      {await isDraftPreview(event.slug) && <PreviewBanner personal={false} />}
       <PortalChrome event={chromeEvent} basePath={basePath} personal={personal} hasInfo={await portalHasInfo(event.id, null)}>
         {/* A draft shows only PortalChrome's "Coming soon". Dropped here, on the server, because
             anything handed to that client component is sent to the browser even when it is not

@@ -9,6 +9,7 @@ import { cache } from "react";
  * segment's output in the page's flight data whether or not the layout places it. So every
  * portal page returns nothing for a draft, and PortalShell drops the children it would have
  * wrapped, so that nothing unpublished - the agenda, the attendee's badge - reaches the browser.
+ * A staff preview never gets here as a draft: `findPortalEvent` already reads it as live (D714).
  */
 export function isUnpublished(event: Pick<Event, "status">): boolean {
   return event.status === "draft";
@@ -21,10 +22,29 @@ import { listInfoTabs } from "@/lib/db/info-tabs";
 import { isValidToken } from "@/lib/tokens";
 import { hasInfo } from "@/lib/info-tabs";
 import { findEntryByToken } from "@/features/registration-queue";
+import { canPreviewDraft } from "@/lib/access";
 import type { Attendee, Event, RegistrationEntry } from "@/lib/types";
 
-/** The same memo without the 404, for the event layout's metadata (D487), which shares its read with the page. */
-export const findPortalEvent = cache((slug: string) => getEventBySlug(slug));
+const portalEventRow = cache((slug: string) => getEventBySlug(slug));
+
+/**
+ * D714: this request is an admin or committee member of a draft event, so its portal shows as it
+ * will look live (with a banner saying so). Attendees still get "Coming soon". Only a draft pays
+ * for the session read; a live event never touches it.
+ */
+export const isDraftPreview = cache(async (slug: string): Promise<boolean> => {
+  const ev = await portalEventRow(slug);
+  return !!ev && ev.status === "draft" && (await canPreviewDraft(ev));
+});
+
+/**
+ * The same memo without the 404, for the event layout's metadata (D487), which shares its read with the page.
+ * A staff preview reads the draft as live (D714), so every page, action and check below treats it as it will be.
+ */
+export const findPortalEvent = cache(async (slug: string): Promise<Event | null> => {
+  const ev = await portalEventRow(slug);
+  return ev && (await isDraftPreview(slug)) ? { ...ev, status: "live" } : ev;
+});
 
 /**
  * Wrapped in `cache()` because the personal layout and the page it wraps both load the same

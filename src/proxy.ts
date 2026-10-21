@@ -18,8 +18,17 @@ export async function proxy(req: NextRequest) {
   }
   if (!main) return eventHost(req, host);
   const path = req.nextUrl.pathname;
-  if (!ADMIN_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) return NextResponse.next();
-  return adminSession(req);
+  if (ADMIN_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) return adminSession(req);
+  // D714: a signed-in admin or committee member previewing a draft portal. Their session is
+  // refreshed here because a page cannot write the new cookies. Attendees carry no session
+  // cookie, so their portal requests skip this.
+  if (path.startsWith("/e/") && hasSessionCookie(req)) return adminSession(req);
+  return NextResponse.next();
+}
+
+/** Supabase's session cookie, `sb-<ref>-auth-token` (split into `.0`, `.1` when long). */
+function hasSessionCookie(req: NextRequest): boolean {
+  return req.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
 }
 
 /** D425: an event's address answers only that event's attendee pages. */
@@ -49,7 +58,7 @@ async function eventHost(req: NextRequest, host: string) {
   }
 }
 
-/** Unchanged from before D425: the admin session check on /admin, /scan and /login. */
+/** Unchanged from before D425: the admin session check on /admin, /scan and /login (and a staff preview's refresh, D714). */
 async function adminSession(req: NextRequest) {
   let res = NextResponse.next({ request: req });
   const supabase = createServerClient(

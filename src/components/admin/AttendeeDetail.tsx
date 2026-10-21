@@ -5,7 +5,8 @@ import { listCheckinsForEvent } from "@/lib/db/checkins";
 import { attendeeCheckins } from "@/lib/checkins-stats";
 import { checkpointsByDay } from "@/lib/checkpoints";
 import { eventAddress } from "@/features/domains";
-import { attendeeLink } from "@/lib/links";
+import { attendeeLink, attendeePath } from "@/lib/links";
+import { Eye } from "lucide-react";
 import { qrDataUrl } from "@/lib/qr";
 import { isoToLocalInput } from "@/lib/time";
 import { shortDate } from "@/lib/text";
@@ -90,6 +91,13 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
             <a download={safeFileName(a.name, a.id)} href={qr} className={buttonVariants({ variant: "outline" })}>
               <Icon name="download" size={18} />Download QR
             </a>
+            {/* D714: a draft shows attendees "Coming soon"; this opens their page as it will
+                look live, on this host, where the admin session is. */}
+            {ev.status === "draft" && !a.cancelled_at && (
+              <a href={attendeePath(ev.slug, a.token)} target="_blank" rel="noopener" className={buttonVariants({ variant: "outline" })}>
+                <Eye aria-hidden className="size-[18px]" />Preview their page
+              </a>
+            )}
           </div>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -60,7 +60,7 @@ const input = "w-full h-9 rounded-md border border-input bg-transparent px-3 tex
 const ADMIN_ONLY_TABS: readonly string[] = ["features", "address", "alerts", "verification", "committee", "danger"];
 
 const STATUSES: { value: EventStatus; label: string; what: string }[] = [
-  { value: "draft", label: "Draft", what: "Every link shows “Coming soon”." },
+  { value: "draft", label: "Draft", what: "Attendees see “Coming soon” on every link." },
   { value: "live", label: "Live", what: "The portal is open to attendees." },
   { value: "archived", label: "Archived", what: "Read-only, and personal data can be purged." },
 ];
@@ -357,6 +357,14 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             </CardHeader>
             <CardContent>
               <StatusPicker current={ev.status} statuses={statuses} setStatus={setStatusAction.bind(null, ev.id)} />
+              {/* D714: on this host, not the event's own address - the preview needs the admin
+                  session, and its cookie belongs to this host. */}
+              {ev.status === "draft" && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  <a href={`/e/${ev.slug}`} target="_blank" rel="noopener" className="font-semibold text-primary underline-offset-4 hover:underline">Preview the portal</a>
+                  {" "}as it will look live. Only the Ecopia team and this event&apos;s committee see it, while signed in. To see one attendee&apos;s own page, open them in Attendees.
+                </p>
+              )}
             </CardContent>
           </Card>
 
