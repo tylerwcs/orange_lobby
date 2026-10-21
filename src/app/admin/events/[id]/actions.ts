@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireEventAccess, requireAdminEvent, requireOrgAdmin } from "@/lib/access";
-import { createEvent, deleteEvent, updateEvent, setEventStatus, rotateCrewToken } from "@/lib/db/events";
+import { createEvent, deleteEvent, updateEvent, setEventStatus, rotateCrewToken, rotatePreviewToken, clearPreviewToken } from "@/lib/db/events";
 import { confirmsDelete, deleteBlockedBecause } from "@/lib/event-delete";
 import { slugify } from "@/lib/slug";
 import { MAX_QUESTIONS, questionsFromForm } from "@/lib/questions-form";
@@ -240,6 +240,33 @@ export async function rotateCrewTokenAction(eventId: string) {
   const path = `/admin/events/${eventId}/settings`;
   revalidatePath(path);
   redirect(flashPath(path, "New crew link ready. The old one has stopped working."));
+}
+
+/**
+ * D715: the draft preview link - create, replace (the revocation) and turn off. Committee may
+ * manage it too: it is their portal they are showing their own people. No flash on create:
+ * the link appearing is the answer.
+ */
+export async function createPreviewLinkAction(eventId: string) {
+  const { ev } = await requireEventAccess(eventId);
+  if (!ev.preview_token) await rotatePreviewToken(ev.id);
+  revalidatePath(`/admin/events/${eventId}/settings`);
+}
+
+export async function replacePreviewLinkAction(eventId: string) {
+  const { ev } = await requireEventAccess(eventId);
+  await rotatePreviewToken(ev.id);
+  const path = `/admin/events/${eventId}/settings`;
+  revalidatePath(path);
+  redirect(flashPath(path, "New preview link ready. The old one has stopped working."));
+}
+
+export async function turnOffPreviewLinkAction(eventId: string) {
+  const { ev } = await requireEventAccess(eventId);
+  await clearPreviewToken(ev.id);
+  const path = `/admin/events/${eventId}/settings`;
+  revalidatePath(path);
+  redirect(flashPath(path, "Preview link turned off. Anyone who had it now sees Coming soon."));
 }
 
 // --- Attendees: masterlist import + admin CRUD ---

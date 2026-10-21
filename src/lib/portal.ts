@@ -23,18 +23,23 @@ import { isValidToken } from "@/lib/tokens";
 import { hasInfo } from "@/lib/info-tabs";
 import { findEntryByToken } from "@/features/registration-queue";
 import { canPreviewDraft } from "@/lib/access";
+import { PREVIEW_COOKIE, previewCookieMatches } from "@/lib/preview-link";
+import { cookies } from "next/headers";
 import type { Attendee, Event, RegistrationEntry } from "@/lib/types";
 
 const portalEventRow = cache((slug: string) => getEventBySlug(slug));
 
 /**
- * D714: this request is an admin or committee member of a draft event, so its portal shows as it
- * will look live (with a banner saying so). Attendees still get "Coming soon". Only a draft pays
- * for the session read; a live event never touches it.
+ * D714/D715: this request may see a draft event's portal as it will look live (with a banner
+ * saying so) - a browser that opened the event's preview link, or a signed-in admin or committee
+ * member. Attendees still get "Coming soon". Only a draft pays for the cookie and session reads;
+ * a live event never touches them.
  */
 export const isDraftPreview = cache(async (slug: string): Promise<boolean> => {
   const ev = await portalEventRow(slug);
-  return !!ev && ev.status === "draft" && (await canPreviewDraft(ev));
+  if (!ev || ev.status !== "draft") return false;
+  if (previewCookieMatches(ev.preview_token, (await cookies()).get(PREVIEW_COOKIE)?.value)) return true;
+  return canPreviewDraft(ev);
 });
 
 /**

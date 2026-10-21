@@ -128,6 +128,8 @@ export type Event = {
   crew_token: string | null;
   /** D441: the organiser setup link. Null when the link is off. */
   setup_token: string | null;
+  /** D715: a draft's preview link, for the client to see the portal as live without signing in. Null when off. */
+  preview_token?: string | null;
   /** The host console link's authority (D252). Null until an admin creates one on the Games page. */
   host_token: string | null;
   /** The LED display link's authority (D252). Show-only; separate from the host link. */

@@ -27,7 +27,9 @@ import { RememberedTabs } from "@/components/admin/RememberedTabs";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction } from "../actions";
+import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction, createPreviewLinkAction, replacePreviewLinkAction, turnOffPreviewLinkAction } from "../actions";
+import { previewLink } from "@/lib/preview-link";
+import { PreviewLinkButtons } from "@/components/admin/PreviewLinkButtons";
 import { meGroups } from "@/lib/me-page";
 import { DEFAULT_COMING_SOON } from "@/lib/coming-soon";
 import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
@@ -357,13 +359,20 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             </CardHeader>
             <CardContent>
               <StatusPicker current={ev.status} statuses={statuses} setStatus={setStatusAction.bind(null, ev.id)} />
-              {/* D714: on this host, not the event's own address - the preview needs the admin
-                  session, and its cookie belongs to this host. */}
+              {/* D715: the client's way to see the draft as live, no login. On this host, not the
+                  event's own address: the link's cookie belongs to the host that set it. */}
               {ev.status === "draft" && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  <a href={`/e/${ev.slug}`} target="_blank" rel="noopener" className="font-semibold text-primary underline-offset-4 hover:underline">Preview the portal</a>
-                  {" "}as it will look live. Only the Ecopia team and this event&apos;s committee see it, while signed in. To see one attendee&apos;s own page, open them in Attendees.
-                </p>
+                <div className="mt-4 flex flex-col gap-3 border-t pt-4">
+                  <div>
+                    <p className="text-sm font-semibold">Preview link</p>
+                    <p className="text-xs text-muted-foreground">
+                      Send this to the client to see the portal as it will look live, without logging in. Attendees still see “Coming soon”. Anyone with the link can open it, so replace it if it goes further than it should.
+                    </p>
+                  </div>
+                  {ev.preview_token && <ShareLink label="Preview" url={previewLink(base, ev.slug, ev.preview_token)} />}
+                  <PreviewLinkButtons exists={!!ev.preview_token} create={createPreviewLinkAction.bind(null, ev.id)}
+                    replace={replacePreviewLinkAction.bind(null, ev.id)} turnOff={turnOffPreviewLinkAction.bind(null, ev.id)} />
+                </div>
               )}
             </CardContent>
           </Card>

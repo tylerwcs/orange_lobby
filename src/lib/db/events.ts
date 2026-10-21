@@ -107,6 +107,17 @@ export async function rotateCrewToken(eventId: string): Promise<string> {
   return crew_token;
 }
 
+/** D715: mints or replaces the preview link. Replacing is the revocation: every old copy stops working. */
+export async function rotatePreviewToken(eventId: string): Promise<string> {
+  const preview_token = generateToken();
+  await updateEvent(eventId, { preview_token });
+  return preview_token;
+}
+
+export async function clearPreviewToken(eventId: string): Promise<void> {
+  await updateEvent(eventId, { preview_token: null });
+}
+
 /** The event behind a host console link (D252). Looked up by token alone, like the crew link. */
 export async function getEventByHostToken(token: string): Promise<Event | null> {
   const { data } = await serviceClient().from("events").select("*").eq("host_token", token).maybeSingle();
