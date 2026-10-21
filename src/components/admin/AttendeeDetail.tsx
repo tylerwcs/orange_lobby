@@ -22,7 +22,7 @@ import { DangerButton } from "@/components/admin/DangerButton";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { buttonVariants } from "@/components/ui/button";
-import { updateAttendeeAction, deleteAttendeeAction } from "@/app/admin/events/[id]/actions";
+import { updateAttendeeAction, deleteAttendeeAction, previewAsAttendeeAction } from "@/app/admin/events/[id]/actions";
 import { cancelledLabel, restoreAttendeeAction } from "@/features/cancel";
 
 const hhmm = (iso: string) => isoToLocalInput(iso).split("T")[1] ?? "";
@@ -98,7 +98,17 @@ export function AttendeeDetail({ data }: { data: AttendeeDetailData }) {
                 <Eye aria-hidden className="size-[18px]" />Preview their page
               </a>
             )}
+            {/* D716: the client's preview link opens as this person. Its own form: this band sits
+                outside the edit form below. */}
+            {ev.status === "draft" && !a.cancelled_at && ev.preview_attendee_id !== a.id && (
+              <form action={previewAsAttendeeAction.bind(null, ev.id, a.id)}>
+                <SubmitButton variant="outline">Use for preview link</SubmitButton>
+              </form>
+            )}
           </div>
+          {ev.status === "draft" && ev.preview_attendee_id === a.id && (
+            <p className="text-xs text-muted-foreground">The preview link in Settings opens as {a.name}. Anyone with it sees their page and details.</p>
+          )}
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qr} alt={`QR code for ${a.name}`} width={152} height={152} className="h-38 w-38 shrink-0 rounded-xl bg-card p-2.5" />

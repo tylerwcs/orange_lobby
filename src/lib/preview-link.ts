@@ -15,6 +15,20 @@ export function previewLink(base: string, slug: string, token: string): string {
   return `${base.replace(/\/+$/, "")}/e/${slug}/preview/${token}`;
 }
 
+/**
+ * D716: where the preview link lands - the chosen attendee's own page, or the general portal when
+ * none is chosen, or they have since cancelled or belong to another event (a stale id never
+ * opens someone else's page).
+ */
+export function previewLanding(
+  event: { id: string; slug: string },
+  attendee: { event_id: string; token: string; cancelled_at?: string | null } | null,
+): string {
+  return attendee && attendee.event_id === event.id && !attendee.cancelled_at
+    ? `/e/${event.slug}/a/${attendee.token}`
+    : `/e/${event.slug}`;
+}
+
 /** Whether a browser's cookie still opens this event's preview: the link is on, and it is that link. */
 export function previewCookieMatches(previewToken: string | null | undefined, cookie: string | undefined): boolean {
   return !!previewToken && !!cookie && isValidToken(cookie) && cookie === previewToken;

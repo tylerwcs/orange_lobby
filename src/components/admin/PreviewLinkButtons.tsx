@@ -13,11 +13,13 @@ import { Spinner } from "@/components/ui/spinner";
  * actions, like StatusPicker beside them: this sits inside Settings' one form, and a form may not
  * hold another. Replace and Turn off ask first - both stop every copy already sent.
  */
-export function PreviewLinkButtons({ exists, create, replace, turnOff }: {
+export function PreviewLinkButtons({ exists, create, replace, turnOff, general }: {
   exists: boolean;
   create: () => Promise<void>;
   replace: () => Promise<void>;
   turnOff: () => Promise<void>;
+  /** D716: present while the link opens as an attendee - back to the general portal. */
+  general?: () => Promise<void>;
 }) {
   const [pending, startTransition] = useTransition();
   if (!exists) {
@@ -31,6 +33,11 @@ export function PreviewLinkButtons({ exists, create, replace, turnOff }: {
   }
   return (
     <div className="flex flex-wrap gap-2">
+      {general && (
+        <Button type="button" variant="outline" disabled={pending} onClick={() => startTransition(() => general())}>
+          Use the general portal
+        </Button>
+      )}
       <Confirm label="Replace link" pending={pending} run={() => startTransition(() => replace())}
         message="Replace the preview link? The old one stops working at once, for everyone you sent it to." />
       <Confirm label="Turn off link" pending={pending} run={() => startTransition(() => turnOff())}

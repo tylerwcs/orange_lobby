@@ -269,6 +269,28 @@ export async function turnOffPreviewLinkAction(eventId: string) {
   redirect(flashPath(path, "Preview link turned off. Anyone who had it now sees Coming soon."));
 }
 
+/**
+ * D716: the preview link opens as this attendee - a test attendee or someone on the committee.
+ * Makes the link too when there is none yet, so choosing someone is one step. Back to their panel.
+ */
+export async function previewAsAttendeeAction(eventId: string, attendeeId: string) {
+  const { ev } = await requireEventAccess(eventId);
+  const a = await requireEventAttendee(ev.id, attendeeId);
+  const panel = `/admin/events/${ev.id}/attendees?attendee=${a.id}`;
+  if (a.cancelled_at) redirect(flashPath(panel, "A cancelled registration can't be used for the preview.", "error"));
+  await updateEvent(ev.id, { preview_attendee_id: a.id });
+  if (!ev.preview_token) await rotatePreviewToken(ev.id);
+  revalidatePath(`/admin/events/${ev.id}`, "layout");
+  redirect(flashPath(panel, `The preview link now opens as ${a.name}. Copy it from Settings.`));
+}
+
+/** D716: back to the general portal, with no one's badge. */
+export async function previewGeneralPortalAction(eventId: string) {
+  const { ev } = await requireEventAccess(eventId);
+  await updateEvent(ev.id, { preview_attendee_id: null });
+  revalidatePath(`/admin/events/${ev.id}/settings`);
+}
+
 // --- Attendees: masterlist import + admin CRUD ---
 
 /** Loads the attendee and confirms it belongs to eventId; redirects to the attendee list otherwise. */

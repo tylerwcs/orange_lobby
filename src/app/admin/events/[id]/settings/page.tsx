@@ -27,8 +27,9 @@ import { RememberedTabs } from "@/components/admin/RememberedTabs";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction, createPreviewLinkAction, replacePreviewLinkAction, turnOffPreviewLinkAction } from "../actions";
-import { previewLink } from "@/lib/preview-link";
+import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction, createPreviewLinkAction, replacePreviewLinkAction, turnOffPreviewLinkAction, previewGeneralPortalAction } from "../actions";
+import { previewLanding, previewLink } from "@/lib/preview-link";
+import { getAttendee } from "@/lib/db/attendees";
 import { PreviewLinkButtons } from "@/components/admin/PreviewLinkButtons";
 import { meGroups } from "@/lib/me-page";
 import { DEFAULT_COMING_SOON } from "@/lib/coming-soon";
@@ -121,6 +122,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
     return { url, qr: { src: await qrDataUrl(url), href: `/admin/events/${ev.id}/export/share-qr/${kind}` } };
   };
   const [portalShare, registrationShare] = await Promise.all([share("portal"), share("registration")]);
+  // D716: the attendee the preview link opens as, when it would still land on their page.
+  const previewPick = ev.status === "draft" && ev.preview_attendee_id ? await getAttendee(ev.preview_attendee_id) : null;
+  const previewAs = previewPick && previewLanding(ev, previewPick) !== `/e/${ev.slug}` ? previewPick : null;
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
   const tabs = (["features", "details", "registration", "me", "checkpoints", "address", "alerts", "verification", "committee", "danger"] as const)
@@ -370,8 +374,17 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                     </p>
                   </div>
                   {ev.preview_token && <ShareLink label="Preview" url={previewLink(base, ev.slug, ev.preview_token)} />}
+                  {/* D716: who it opens as. Chosen on the attendee's panel, where you already pick a person. */}
+                  {ev.preview_token && (
+                    <p className="text-xs text-muted-foreground">
+                      {previewAs
+                        ? <>Opens as <span className="font-semibold text-foreground">{previewAs.name}</span>, with their badge and details. To change who, choose Use for preview link on someone else in Attendees.</>
+                        : "Opens the general portal, with no one's badge. To open as one person, choose Use for preview link on them in Attendees: a test attendee you add, or someone on the committee."}
+                    </p>
+                  )}
                   <PreviewLinkButtons exists={!!ev.preview_token} create={createPreviewLinkAction.bind(null, ev.id)}
-                    replace={replacePreviewLinkAction.bind(null, ev.id)} turnOff={turnOffPreviewLinkAction.bind(null, ev.id)} />
+                    replace={replacePreviewLinkAction.bind(null, ev.id)} turnOff={turnOffPreviewLinkAction.bind(null, ev.id)}
+                    general={previewAs ? previewGeneralPortalAction.bind(null, ev.id) : undefined} />
                 </div>
               )}
             </CardContent>
