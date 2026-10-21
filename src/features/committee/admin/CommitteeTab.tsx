@@ -19,6 +19,8 @@ export async function CommitteeTab({ ev }: { ev: Event }) {
   const members = await listMembers(ev.id);
   const base = appBaseUrl();
   const now = new Date();
+  // The address they sign in at once the one-time link is spent: without the scheme, for reading aloud.
+  const loginUrl = `${base.replace(/^https?:\/\//, "")}/login`;
   return (
     <Card>
       <CardHeader>
@@ -26,7 +28,8 @@ export async function CommitteeTab({ ev }: { ev: Event }) {
         <CardDescription>
           People from the client who run this event with you. Each gets their own login and sees this event only — everything
           inside it, except Features, Address, this list, archiving and deleting, which stay with the Ecopia team.
-          Their access ends when the event is archived.
+          Their access ends when the event is archived. The link sets up their login once; after that they sign in
+          at {loginUrl} with their email and password, on any device.
         </CardDescription>
         <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
           <Modal title="Add a committee member" hint={`You'll get a one-time link to send them. It works for ${LINK_LIFETIME}.`} trigger="Add member" icon="plus">

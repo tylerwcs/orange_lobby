@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { getEvent } from "@/lib/db/events";
 import { isValidToken } from "@/lib/tokens";
 import { allow } from "@/lib/ratelimit";
@@ -12,7 +14,9 @@ import { linkIsLive, joinErrorCopy, MIN_PASSWORD } from "../lib/rules";
 import { memberByToken, userIdByEmail, isOrgAdmin } from "../db";
 import { joinAction } from "./actions";
 
-const DEAD = "This link no longer works. Ask the Ecopia team for a new one.";
+// A set-up link works once, so the person who used it on one device lands here on the next.
+// Still never says why the link is dead: used, expired or replaced all read the same.
+const DEAD = "This link has been used or has expired. If you've already set up your login, sign in with your email and password. Otherwise ask the Ecopia team for a new link.";
 const BUSY = "Too many tries at once. Wait a minute and try again.";
 
 /**
@@ -57,6 +61,11 @@ export async function JoinPage({ params, searchParams }: { params: Promise<{ tok
           <CardTitle className="text-base font-extrabold">{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
+        {!mode && !busy && (
+          <CardContent>
+            <Link href="/login" className={buttonVariants({ className: "h-11 w-full" })}>Sign in</Link>
+          </CardContent>
+        )}
         {mode && (
           <CardContent className="flex flex-col gap-4">
             {problem && (
