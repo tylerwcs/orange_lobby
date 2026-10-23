@@ -7,6 +7,7 @@ import { shortDateTime } from "@/lib/text";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import type { Activity, Event } from "@/lib/types";
 import { photoUrl, polaroidsForAdmin } from "../db/polaroids";
+import { cardLook } from "../lib/look";
 import { readPolaroidSettings } from "../lib/settings";
 import { stickerSources } from "../lib/stickers";
 import { PolaroidCard } from "../components/PolaroidCard";
@@ -21,7 +22,9 @@ export async function PolaroidFeed({ ev, activity, show }: { ev: Event; activity
   const people = new Map((await listAttendeesByIds(ev.id, [...new Set(shown.flatMap((r) => (r.attendee_id ? [r.attendee_id] : [])))])).map((a) => [a.id, a.name]));
   // scannerNames answers with a plain record (user id to email), not a Map.
   const removers = await scannerNames(shown.flatMap((r) => (r.removed_by?.startsWith("admin:") ? [r.removed_by.slice(6)] : [])));
-  const src = stickerSources(readPolaroidSettings(activity.polaroid));
+  const settings = readPolaroidSettings(activity.polaroid);
+  const src = stickerSources(settings);
+  const look = cardLook(settings.card);
   const base = `/admin/events/${ev.id}/activities/${activity.id}?tab=polaroids`;
   return (
     <div className="flex flex-col gap-4">
@@ -45,7 +48,7 @@ export async function PolaroidFeed({ ev, activity, show }: { ev: Event; activity
             const by = r.removed_by === "self" ? "the poster" : r.removed_by ? removers[r.removed_by.slice(6)] ?? "an admin" : null;
             return (
               <div key={r.id} className="flex flex-col items-center gap-2 pt-3">
-                <PolaroidCard width={180} stickerSrc={src} loading="lazy" className={r.status === "removed" ? "opacity-50 grayscale" : ""}
+                <PolaroidCard width={180} stickerSrc={src} look={look} loading="lazy" className={r.status === "removed" ? "opacity-50 grayscale" : ""}
                   card={{ src: r.status === "live" ? photoUrl(r.photo_path) : null, w: r.photo_w, h: r.photo_h, message: r.message, stickers: r.stickers, tilt: r.tilt }} />
                 <div className="w-full text-center text-xs">
                   <div className="font-bold">{who}</div>

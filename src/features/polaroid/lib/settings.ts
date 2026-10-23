@@ -12,6 +12,13 @@ const MAX_EVENT_STICKERS = 40;
 
 const eventSticker = z.object({ id: z.string().regex(/^ev-[a-z0-9]{8}$/), url: z.url(), name: z.string().min(1).max(60) });
 const background = z.object({ type: z.enum(["image", "video"]), url: z.url() });
+/** D718: the print look. Each part falls back on its own; null is the plain white polaroid's. */
+const card = z.object({
+  background: z.url().nullable().catch(null),
+  logo: z.url().nullable().catch(null),
+  ink: z.string().regex(/^#[0-9a-f]{6}$/i).nullable().catch(null),
+});
+export const PLAIN_CARD = { background: null, logo: null, ink: null };
 
 const schema = z.object({
   prompt: z.string().trim().min(1).max(MAX_PROMPT).catch(DEFAULT_PROMPT),
@@ -22,9 +29,11 @@ const schema = z.object({
   columns: z.union([z.literal("auto"), z.number().int().min(3).max(10)]).catch("auto"),
   speed: z.enum(WALL_SPEEDS).catch("medium"),
   background: background.nullable().catch(null),
+  card: card.catch(PLAIN_CARD),
 });
 
 export type PolaroidSettings = z.infer<typeof schema>;
+export type CardSettings = z.infer<typeof card>;
 export type EventSticker = z.infer<typeof eventSticker>;
 export type WallBackground = z.infer<typeof background>;
 

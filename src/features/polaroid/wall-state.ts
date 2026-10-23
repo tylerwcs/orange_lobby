@@ -6,6 +6,7 @@ import { polaroidWalkinLink } from "@/lib/links";
 import { eventAddress } from "@/features/domains";
 import type { Activity, Event } from "@/lib/types";
 import { livePolaroids, photoUrl } from "./db/polaroids";
+import { cardLook } from "./lib/look";
 import { readPolaroidSettings } from "./lib/settings";
 import { stickerSources } from "./lib/stickers";
 import type { WallState } from "./lib/wire";
@@ -26,6 +27,7 @@ export async function wallState(activity: Activity, event: Pick<Event, "id" | "s
       speed: settings.speed,
       background: settings.background,
       brand: event.primary_color,
+      look: cardLook(settings.card),
       qr: link ? await qrMemo.get(link, () => qrDataUrl(link)) : null,
       open: activity.is_open,
     };

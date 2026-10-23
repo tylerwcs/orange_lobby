@@ -834,7 +834,8 @@ export async function deletePolaroidActivityAction(eventId: string, activityId: 
   await sweepActivityPhotos(ev.org_id, ev.id, activityId);
   await deleteActivity(activityId, ev.id);
   const settings = readPolaroidSettings(doomed.polaroid);
-  for (const url of [doomed.image_url, settings.background?.url ?? null, ...settings.stickers.map((s) => s.url)]) await deleteEventImage(url);
+  const files = [doomed.image_url, settings.background?.url ?? null, settings.card.background, settings.card.logo, ...settings.stickers.map((s) => s.url)];
+  for (const url of files) await deleteEventImage(url);
   revalidatePath(listPath(eventId));
   redirect(flashPath(listPath(eventId), "Polaroid wall deleted."));
 }

@@ -7,6 +7,7 @@ import { browserStorage } from "@/lib/supabase/browser";
 import { POLAROID_BUCKET } from "@/lib/storage";
 import { handFont } from "../font";
 import { cardRatio } from "../lib/card";
+import { PLAIN_LOOK, type CardLook } from "../lib/look";
 import { checkMessage } from "../lib/message";
 import { MAX_STICKERS, newPlacement, type StickerPlacement } from "../lib/placement";
 import type { StickerDef } from "../lib/stickers";
@@ -42,9 +43,11 @@ export const STAGE_ROUND_BUTTON =
  * `blockEscape` leaves Escape to it. Until it has measured itself the stage is laid out for a
  * typical phone, so the server's HTML already shows the camera on a slow connection.
  */
-export function PolaroidComposer({ prompt, stickers, start, post, brand, eventName, onClose, corner, blockEscape = false }: {
+export function PolaroidComposer({ prompt, stickers, start, post, brand, look = PLAIN_LOOK, eventName, onClose, corner, blockEscape = false }: {
   prompt: string;
   stickers: StickerDef[];
+  /** The wall's print look (D718), so the print being made is the one the wall will show. */
+  look?: CardLook;
   start: () => Promise<StartResult>;
   post: (input: PostInput) => Promise<PostResult>;
   /** The event's colour, for the glow behind the camera. */
@@ -120,7 +123,8 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
   const wait = retryAt === null ? 0 : Math.max(0, Math.ceil((retryAt - now) / 1000));
   const srcs = Object.fromEntries(stickers.map((s) => [s.id, s.src]));
-  const ratio = photo ? cardRatio(photo.width, photo.height) : 1.2;
+  const logo = !!look.logo;
+  const ratio = photo ? cardRatio(photo.width, photo.height, logo) : 1.2;
   const editing = stage === "editing" || stage === "posting";
   const at = stageLayout(box, !!eventName, closable || !!corner, ratio);
 
@@ -178,7 +182,7 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
   const addSticker = (id: string) => {
     setTrayOpen(false);
     if (placed.length >= MAX_STICKERS) { setError(`Use up to ${MAX_STICKERS} stickers.`); return; }
-    setPlaced([...placed, newPlacement(id, ratio)]);
+    setPlaced([...placed, newPlacement(id, ratio, logo)]);
     setSelected(placed.length);
   };
 
@@ -224,10 +228,10 @@ export function PolaroidComposer({ prompt, stickers, start, post, brand, eventNa
                 {/* While ejecting, everything above the slot is clipped, so the print slides out of it. */}
                 <div className={stage === "ejecting" ? "overflow-hidden" : ""} style={{ height: at.cardH + PRINT_SLACK }}>
                   <motion.div initial={{ y: -at.cardH }} animate={{ y: 0 }} transition={{ duration: EJECT_MS / 1000, ease: [0.22, 1, 0.36, 1] }}>
-                    <PolaroidCard card={card} width={at.width} stickerSrc={srcs} developing hideMessage={editing}>
+                    <PolaroidCard card={card} width={at.width} stickerSrc={srcs} look={look} developing hideMessage={editing}>
                       {editing && (
                         <>
-                          <MessageField width={at.width} ratio={ratio} value={message} onChange={setMessage} disabled={stage === "posting"} />
+                          <MessageField width={at.width} ratio={ratio} logo={logo} ink={look.ink} value={message} onChange={setMessage} disabled={stage === "posting"} />
                           <StickerLayer placed={placed} onChange={setPlaced} selected={selected} onSelect={setSelected} width={at.width} ratio={ratio} srcs={srcs} />
                         </>
                       )}

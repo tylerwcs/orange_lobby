@@ -1,5 +1,5 @@
 import {
-  readPolaroidSettings, stickerTray, stickerSources, photoUrl, PortalCamera,
+  readPolaroidSettings, cardLook, stickerTray, stickerSources, photoUrl, PortalCamera,
   startPortalPolaroidAction, postPortalPolaroidAction, removeOwnPolaroidAction,
 } from "@/features/polaroid";
 import type { PolaroidEntry } from "../../lib/portal-activity-entries";
@@ -18,7 +18,7 @@ export function PolaroidBody({ entry: { activity, mine }, slug, token, brand }: 
 }) {
   const settings = readPolaroidSettings(activity.polaroid);
   return (
-    <PortalCamera prompt={settings.prompt} stickers={stickerTray(settings)} brand={brand}
+    <PortalCamera prompt={settings.prompt} stickers={stickerTray(settings)} brand={brand} look={cardLook(settings.card)}
       start={startPortalPolaroidAction.bind(null, slug, token, activity.id)}
       post={postPortalPolaroidAction.bind(null, slug, token, activity.id)}
       homePath={`/e/${slug}/a/${token}`} about={activity.description}

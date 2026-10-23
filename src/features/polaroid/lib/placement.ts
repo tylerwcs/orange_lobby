@@ -1,4 +1,4 @@
-import { CARD, PHOTO_INNER } from "./card";
+import { CARD, PHOTO_INNER, stripHeight } from "./card";
 
 /** D476: a sticker on a card, in card widths: centre (x, y), width (scale), angle in degrees. */
 export type StickerPlacement = { id: string; x: number; y: number; scale: number; rot: number };
@@ -27,8 +27,8 @@ export function clampPlacement(p: StickerPlacement, ratio: number): StickerPlace
 }
 
 /** Where a sticker lands when tapped in the tray: the middle of the photo, 22% of the card wide. */
-export function newPlacement(id: string, ratio: number): StickerPlacement {
-  const photoMiddle = CARD.border + (ratio - CARD.border - CARD.strip) / 2;
+export function newPlacement(id: string, ratio: number, logo = false): StickerPlacement {
+  const photoMiddle = CARD.border + (ratio - CARD.border - stripHeight(logo)) / 2;
   return { id, x: 0.5, y: round4(Math.max(PHOTO_INNER / 4, photoMiddle)), scale: 0.22, rot: 0 };
 }
 

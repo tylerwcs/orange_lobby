@@ -63,7 +63,7 @@ export async function postPolaroid(ctx: PostContext, input: PostInput): Promise<
   const settings = readPolaroidSettings(ctx.activity.polaroid);
   const message = checkMessage(typeof input.message === "string" ? input.message : "", settings.blocked_words);
   if (!message.ok) return refuse(message);
-  const placed = cleanPlacements(input.stickers, new Set(stickerTray(settings).map((s) => s.id)), cardRatio(size.w, size.h));
+  const placed = cleanPlacements(input.stickers, new Set(stickerTray(settings).map((s) => s.id)), cardRatio(size.w, size.h, !!settings.card.logo));
   if (!placed.ok) return refuse(placed);
 
   const keys = await posterKeys();

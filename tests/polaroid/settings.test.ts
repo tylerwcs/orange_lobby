@@ -5,7 +5,7 @@ describe("readPolaroidSettings (D475)", () => {
   it("fills every default from nothing", () => {
     expect(readPolaroidSettings(null)).toEqual({
       prompt: DEFAULT_PROMPT, public: false, hidden_builtin: [], stickers: [], blocked_words: [],
-      columns: "auto", speed: "medium", background: null,
+      columns: "auto", speed: "medium", background: null, card: { background: null, logo: null, ink: null },
     });
   });
   it("never throws on a non-object column, and fills the defaults", () => {
@@ -25,6 +25,18 @@ describe("readPolaroidSettings (D475)", () => {
     const s = readPolaroidSettings({ columns: 6, background: { type: "video", url: "https://x.supabase.co/v.mp4" } });
     expect(s.columns).toBe(6);
     expect(s.background).toEqual({ type: "video", url: "https://x.supabase.co/v.mp4" });
+  });
+});
+
+describe("the print look's settings (D718)", () => {
+  it("keeps a good look", () => {
+    const card = { background: "https://x.supabase.co/bg.webp", logo: "https://x.supabase.co/logo.png", ink: "#E8C38A" };
+    expect(readPolaroidSettings({ card }).card).toEqual(card);
+  });
+  it("defaults each damaged part on its own", () => {
+    expect(readPolaroidSettings({ card: { background: "not a url", logo: "https://x.supabase.co/l.png", ink: "gold" } }).card)
+      .toEqual({ background: null, logo: "https://x.supabase.co/l.png", ink: null });
+    expect(readPolaroidSettings({ card: "x" }).card).toEqual({ background: null, logo: null, ink: null });
   });
 });
 

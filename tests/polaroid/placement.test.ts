@@ -41,6 +41,10 @@ describe("newPlacement and clampPlacement", () => {
     // 0.055 + (1.2 − 0.055 − 0.27) / 2 = 0.4925
     expect(newPlacement("star", 1.2)).toEqual({ id: "star", x: 0.5, y: 0.4925, scale: 0.22, rot: 0 });
   });
+  it("still lands in the photo's middle when a print logo deepens the strip (D718)", () => {
+    // 0.055 + (1.28 − 0.055 − 0.35) / 2 = 0.4925
+    expect(newPlacement("star", 1.28, true).y).toBe(0.4925);
+  });
   it("rounds to four decimals", () => {
     expect(clampPlacement(p({ x: 0.123456 }), 1).x).toBe(0.1235);
   });

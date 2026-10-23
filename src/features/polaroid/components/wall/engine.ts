@@ -32,8 +32,6 @@ const SOFT_REBASE = 1_000_000;
 const HARD_REBASE = 8_000_000;
 const CARD_OF_COLUMN = 0.84;
 const GAP_OF_COLUMN = 0.08;
-/** The tallest card the 16:9 clamp allows, as a multiple of its width: a stable bound for padding. */
-const TALLEST = cardRatio(1, 10_000);
 
 const EMPTY: WallSnapshot = { colW: 0, cardW: 0, columns: [], spotlight: null };
 
@@ -49,6 +47,8 @@ export function createWallEngine() {
   let size = { w: 1920, h: 1080 };
   let columnsSetting: "auto" | number = "auto";
   let speed: WallSpeed = "medium";
+  /** D718: a print logo makes every card deeper. */
+  let logo = false;
   let cols: Col[] = [];
   let geometryKey = "";
   let serial = 0;
@@ -69,11 +69,13 @@ export function createWallEngine() {
     const colW = size.w / n;
     const cardW = colW * CARD_OF_COLUMN;
     const gap = colW * GAP_OF_COLUMN;
-    return { n, colW, cardW, gap, minCycle: minCycleFor(size.h, cardW * TALLEST, gap), key: `${n}:${cardW}:${size.h}` };
+    // The tallest card the 16:9 clamp allows: a stable bound for padding.
+    const tallest = cardW * cardRatio(1, 10_000, logo);
+    return { n, colW, cardW, gap, minCycle: minCycleFor(size.h, tallest, gap), key: `${n}:${cardW}:${size.h}:${logo}` };
   };
   const heightOf = (id: string) => {
     const c = known.get(id);
-    return c ? geometry().cardW * cardRatio(c.w, c.h) : 0;
+    return c ? geometry().cardW * cardRatio(c.w, c.h, logo) : 0;
   };
   const mint = (id: string): Entry => ({ id, key: `${id}#${serial++}` });
   const relayoutColumn = (col: Col) => { col.layout = layoutColumn(col.entries.map((e) => heightOf(e.id)), geometry().gap); };
@@ -290,6 +292,7 @@ export function createWallEngine() {
       for (const c of state.cards) known.set(c.id, c);
       columnsSetting = state.columns;
       speed = state.speed;
+      logo = !!state.look.logo;
       size = viewport;
       const live = new Set(cards.keys());
       queue = pruneQueue(queue, live);

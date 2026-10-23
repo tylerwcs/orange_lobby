@@ -1,3 +1,4 @@
+import type { CardLook } from "./look";
 import type { StickerPlacement } from "./placement";
 import type { WallBackground, WallSpeed } from "./settings";
 
@@ -16,6 +17,8 @@ export type WallState = {
   speed: WallSpeed;
   background: WallBackground | null;
   brand: string | null;
+  /** D718: how every card on the wall is printed. */
+  look: CardLook;
   qr: string | null;
   open: boolean;
 };

@@ -65,7 +65,7 @@ export function WallClient({ token, initial }: { token: string; initial: WallSta
 
   const [vw, vh] = sizeKey.split("x").map(Number);
   const spot = snap.spotlight;
-  const spotRatio = spot ? cardRatio(spot.card.w, spot.card.h) : 1;
+  const spotRatio = spot ? cardRatio(spot.card.w, spot.card.h, !!state.look.logo) : 1;
   const spotW = spot ? Math.min(vw * 0.4, (vh * 0.8) / spotRatio) : 0;
 
   const start = () => {
@@ -86,7 +86,7 @@ export function WallClient({ token, initial }: { token: string; initial: WallSta
               <div key={s.key} ref={s.from === undefined ? undefined : (el) => glide(el, s.from!, s.top)}
                 className="absolute transition-[top,opacity] duration-700 ease-out"
                 style={{ top: s.top, left: (snap.colW - snap.cardW) / 2, opacity: s.fading ? 0 : 1 }}>
-                <PolaroidCard card={s.card} width={snap.cardW} stickerSrc={state.stickerSrc} />
+                <PolaroidCard card={s.card} width={snap.cardW} stickerSrc={state.stickerSrc} look={state.look} />
               </div>
             ))}
           </div>
@@ -105,7 +105,7 @@ export function WallClient({ token, initial }: { token: string; initial: WallSta
               transition: { duration: 0.9, ease: "easeInOut" },
             }}
             transition={{ type: "spring", stiffness: 110, damping: 18 }}>
-            <PolaroidCard card={{ ...spot.card, tilt: 0 }} width={spotW} stickerSrc={state.stickerSrc} developing />
+            <PolaroidCard card={{ ...spot.card, tilt: 0 }} width={spotW} stickerSrc={state.stickerSrc} look={state.look} developing />
           </motion.div>
         )}
       </AnimatePresence>

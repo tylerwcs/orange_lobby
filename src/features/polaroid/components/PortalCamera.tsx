@@ -10,6 +10,7 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { isRichTextEmpty, toRichHtml } from "@/lib/rich-text";
 import { handFont } from "../font";
 import type { StickerDef } from "../lib/stickers";
+import type { CardLook } from "../lib/look";
 import type { CardData } from "../lib/wire";
 import type { PostInput, PostResult, RemoveResult, StartResult } from "../lib/post-types";
 import { PolaroidCard } from "./PolaroidCard";
@@ -35,6 +36,7 @@ export function PortalCamera({ homePath, about, items, stickerSrc, remove, ...co
   start: () => Promise<StartResult>;
   post: (input: PostInput) => Promise<PostResult>;
   brand?: string | null;
+  look?: CardLook;
   homePath: string;
   /** The activity's description, as stored. */
   about: string | null;
@@ -64,18 +66,19 @@ export function PortalCamera({ homePath, about, items, stickerSrc, remove, ...co
   return (
     <>
       {inBrowser ? createPortal(stage, document.body) : stage}
-      <YourPolaroidsDrawer open={drawerOpen} onOpenChange={setDrawerOpen} about={about} items={items} stickerSrc={stickerSrc} remove={remove} />
+      <YourPolaroidsDrawer open={drawerOpen} onOpenChange={setDrawerOpen} about={about} items={items} stickerSrc={stickerSrc} look={composer.look} remove={remove} />
     </>
   );
 }
 
 /** "Your polaroids": the organiser's About, then this attendee's posts two to a row, each removable. */
-function YourPolaroidsDrawer({ open, onOpenChange, about, items, stickerSrc, remove }: {
+function YourPolaroidsDrawer({ open, onOpenChange, about, items, stickerSrc, look, remove }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   about: string | null;
   items: Item[];
   stickerSrc: Record<string, string>;
+  look?: CardLook;
   remove: (id: string) => Promise<RemoveResult>;
 }) {
   const html = sanitizeHtml(toRichHtml(about));
@@ -109,7 +112,7 @@ function YourPolaroidsDrawer({ open, onOpenChange, about, items, stickerSrc, rem
               <ul className="grid grid-cols-2 pt-3" style={{ gap: GAP }}>
                 {items.map((p) => (
                   <li key={p.id} className="flex flex-col items-center gap-2">
-                    <PolaroidCard card={p} width={width} stickerSrc={stickerSrc} loading="lazy" />
+                    <PolaroidCard card={p} width={width} stickerSrc={stickerSrc} look={look} loading="lazy" />
                     <DangerButton size="sm" layer="z-[120]" message="This takes it off the wall and deletes the photo."
                       action={async () => {
                         const r = await remove(p.id);

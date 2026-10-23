@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWallEngine } from "@/features/polaroid/components/wall/engine";
 import { cardRatio } from "@/features/polaroid/lib/card";
+import { PLAIN_LOOK } from "@/features/polaroid/lib/look";
 import type { WallCard, WallState } from "@/features/polaroid/lib/wire";
 
 const LED = { w: 5504, h: 2322 };
@@ -13,7 +14,7 @@ const card = (i: number): WallCard => ({
 });
 const cards = (n: number) => Array.from({ length: n }, (_, i) => card(i));
 const state = (list: WallCard[]): WallState => ({
-  now: 0, key: String(list.length), cards: list, stickerSrc: {}, columns: "auto", speed: "medium", background: null, brand: null, qr: null, open: true,
+  now: 0, key: String(list.length), cards: list, stickerSrc: {}, columns: "auto", speed: "medium", background: null, brand: null, look: PLAIN_LOOK, qr: null, open: true,
 });
 
 type Track = { style: { transform: string } };

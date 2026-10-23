@@ -3,6 +3,7 @@
  * screens. Code outside this folder imports the feature only from here or from `index.ts`.
  */
 export * from "./lib/settings";
+export * from "./lib/look";
 export * from "./lib/stickers";
 export * from "./lib/message";
 export * from "./lib/card";

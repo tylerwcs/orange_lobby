@@ -4,7 +4,7 @@ import { formKey } from "@/lib/form-key";
 import { listCategories } from "@/lib/db/attendees";
 import { appBaseUrl, polaroidWalkinLink, polaroidWallLink } from "@/lib/links";
 import type { Activity, Event } from "@/lib/types";
-import { readPolaroidSettings, countByActivity, countLiveByActivity, PolaroidFeed, StickersPanel, WallSettingsCard, LinksCard } from "@/features/polaroid";
+import { readPolaroidSettings, countByActivity, countLiveByActivity, PolaroidFeed, StickersPanel, WallSettingsCard, PrintLookCard, LinksCard } from "@/features/polaroid";
 import { eventAddress } from "@/features/domains";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -82,6 +82,7 @@ export async function PolaroidDetail({ ev, activity, tab, show }: { ev: Event; a
             </CardContent>
           </Card>
           <LinksCard eventId={ev.id} activityId={activity.id} wall={wall} walkin={walkin} />
+          <PrintLookCard key={formKey(settings.card)} eventId={ev.id} activityId={activity.id} card={settings.card} />
           <WallSettingsCard eventId={ev.id} activityId={activity.id} settings={settings} />
         </>
       )}

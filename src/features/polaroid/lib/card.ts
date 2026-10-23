@@ -6,6 +6,23 @@
 export const CARD = { border: 0.055, strip: 0.27 } as const;
 export const PHOTO_INNER = 1 - 2 * CARD.border;
 
+/**
+ * D718: with a print logo the strip is deeper. The message keeps the top `message` of it (two
+ * lines of 80 characters still fit) and the logo sits under it, `top` below the message box,
+ * `height` tall and at most `width` wide.
+ */
+export const LOGO_STRIP = { strip: 0.35, message: 0.22, top: 0.01, height: 0.085, width: 0.7 } as const;
+
+/** The strip under the photo, as a fraction of the card's width. */
+export function stripHeight(logo: boolean): number {
+  return logo ? LOGO_STRIP.strip : CARD.strip;
+}
+
+/** The message's box at the top of the strip. */
+export function messageHeight(logo: boolean): number {
+  return logo ? LOGO_STRIP.message : CARD.strip;
+}
+
 /** D477: the photo box's height ÷ width stops at 16:9 either way; the photo is never cropped. */
 export const MIN_PHOTO_RATIO = 9 / 16;
 export const MAX_PHOTO_RATIO = 16 / 9;
@@ -15,9 +32,9 @@ export function photoBoxRatio(w: number, h: number): number {
   return Math.min(MAX_PHOTO_RATIO, Math.max(MIN_PHOTO_RATIO, h / w));
 }
 
-/** The whole card's height ÷ width. */
-export function cardRatio(w: number, h: number): number {
-  return CARD.border + PHOTO_INNER * photoBoxRatio(w, h) + CARD.strip;
+/** The whole card's height ÷ width; `logo` when the wall prints a logo under the message (D718). */
+export function cardRatio(w: number, h: number, logo = false): number {
+  return CARD.border + PHOTO_INNER * photoBoxRatio(w, h) + stripHeight(logo);
 }
 
 /** The message's size against its base (8.5% of the card width), so 80 characters still fit two lines. */

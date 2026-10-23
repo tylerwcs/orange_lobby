@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { photoBoxRatio, cardRatio, messageScale, randomTilt, stageCardWidth, MAX_PHOTO_RATIO, MIN_PHOTO_RATIO } from "@/features/polaroid/lib/card";
+import { photoBoxRatio, cardRatio, messageHeight, stripHeight, messageScale, randomTilt, stageCardWidth, MAX_PHOTO_RATIO, MIN_PHOTO_RATIO } from "@/features/polaroid/lib/card";
 
 describe("photoBoxRatio (D477)", () => {
   it("keeps an ordinary photo's own shape", () => {
@@ -18,6 +18,17 @@ describe("photoBoxRatio (D477)", () => {
 describe("cardRatio (D483)", () => {
   it("adds the top border and the message strip to the photo box", () => {
     expect(cardRatio(1, 1)).toBeCloseTo(0.055 + 0.89 + 0.27);
+  });
+  it("makes the strip deeper for a print logo (D718), and the message box a little shorter", () => {
+    expect(cardRatio(1, 1, true)).toBeCloseTo(0.055 + 0.89 + 0.35);
+    expect(stripHeight(false)).toBe(0.27);
+    expect(messageHeight(false)).toBe(0.27);
+    expect(messageHeight(true)).toBe(0.22);
+  });
+  it("leaves room in the logo strip for two lines of the longest message", () => {
+    // Two lines at the smallest message size, line height 1.05.
+    expect(2 * 1.05 * 0.085 * messageScale(80)).toBeLessThan(messageHeight(true));
+    expect(2 * 1.05 * 0.085 * messageScale(24)).toBeLessThan(messageHeight(true));
   });
 });
 

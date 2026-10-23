@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import type { Activity } from "@/lib/types";
 import {
-  walkinPage, readPolaroidSettings, stickerTray, PolaroidComposer, StageGlow, STAGE_BG, startWalkinPolaroidAction, postWalkinPolaroidAction,
+  walkinPage, readPolaroidSettings, cardLook, stickerTray, PolaroidComposer, StageGlow, STAGE_BG, startWalkinPolaroidAction, postWalkinPolaroidAction,
 } from "@/features/polaroid";
 
 // Never cached: whether the link is on, and whether posting is paused, can change at any moment.
@@ -44,7 +44,7 @@ function Composer({ eventName, brand, activity, slug, publicToken }: { eventName
   const settings = readPolaroidSettings(activity.polaroid);
   return (
     <PolaroidComposer prompt={settings.prompt} stickers={stickerTray(settings)} eventName={eventName} brand={brand}
-      start={startWalkinPolaroidAction.bind(null, slug, publicToken)}
+      look={cardLook(settings.card)} start={startWalkinPolaroidAction.bind(null, slug, publicToken)}
       post={postWalkinPolaroidAction.bind(null, slug, publicToken)} />
   );
 }

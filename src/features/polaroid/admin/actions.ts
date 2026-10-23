@@ -64,6 +64,48 @@ export async function saveWallSettingsAction(eventId: string, activityId: string
   redirect(flashPath(back, "Wall settings saved."));
 }
 
+/** The print look's two images (D718), each its own kind so a save can only adopt the right one. */
+const PRINT_KINDS = { background: "polaroid-card", logo: "polaroid-logo" } as const;
+const HEX6 = /^#[0-9a-f]{6}$/i;
+
+/** D718: the print's background image, logo and message colour, in one save. Replaced files are deleted after it. */
+export async function savePrintLookAction(eventId: string, activityId: string, fd: FormData) {
+  const back = pageOf(eventId, activityId);
+  const { ev, activity, settings } = await wallOf(eventId, activityId);
+  const picked = (part: keyof typeof PRINT_KINDS): string | null => {
+    const url = String(fd.get(`card_${part}`) ?? "");
+    if (!url) return null;
+    // A hidden field is client-controlled: only an image WE stored for this event, as this part, is taken (D300).
+    if (!isEventMediaFor(url, process.env.NEXT_PUBLIC_SUPABASE_URL!, ev.org_id, ev.id, [PRINT_KINDS[part]])) {
+      redirect(flashPath(back, "That image was not uploaded here. Upload it again.", "error"));
+    }
+    return url;
+  };
+  const ink = String(fd.get("card_ink") ?? "");
+  const card = { background: picked("background"), logo: picked("logo"), ink: HEX6.test(ink) ? ink.toLowerCase() : null };
+  await savePolaroidSettings(activity.id, ev.id, { ...settings, card });
+  for (const part of ["background", "logo"] as const) {
+    const old = settings.card[part];
+    if (old && old !== card[part]) await deleteEventImage(old);
+  }
+  revalidatePath(back);
+  redirect(flashPath(back, "Print look saved."));
+}
+
+/** One of the print look's images goes straight to the bucket on a signed URL (D300); Save then keeps its URL. */
+export async function printImageUploadAction(eventId: string, activityId: string, part: "background" | "logo", type: string, size: number):
+  Promise<{ ok: true; path: string; token: string; url: string } | { ok: false; error: string }> {
+  const { ev } = await wallOf(eventId, activityId);
+  let ext: string;
+  try {
+    ext = acceptImage({ type, size });
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  const up = await createMediaUpload({ orgId: ev.org_id, eventId: ev.id, kind: PRINT_KINDS[part === "logo" ? "logo" : "background"], ext });
+  return { ok: true, ...up };
+}
+
 /** A background image or video goes straight to the bucket on a signed URL (D300); Save then keeps its URL. */
 export async function wallBackgroundUploadAction(eventId: string, activityId: string, type: string, size: number):
   Promise<{ ok: true; path: string; token: string; url: string; kind: "image" | "video" } | { ok: false; error: string }> {
