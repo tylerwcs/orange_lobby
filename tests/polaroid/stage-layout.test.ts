@@ -42,6 +42,15 @@ describe("stageLayout (D482)", () => {
     }
   });
 
+  it("centres the print between the corner buttons and the controls bar when it has the room (D719)", () => {
+    // A landscape print on a 390×844 phone leaves room above and below it.
+    const at = stageLayout({ w: 390, h: 844 }, false, true, cardRatio(4, 3, true));
+    const above = at.printTop - UNDER_CLOSE;
+    const below = 844 - BAR_H - (at.printTop + at.cardH);
+    expect(above).toBeGreaterThan(0);
+    expect(Math.abs(above - below)).toBeLessThanOrEqual(1);
+  });
+
   it("puts the prompt just above the camera", () => {
     for (const box of PHONES) for (const eventLine of [true, false]) for (const closable of [true, false]) {
       const at = stageLayout(box, eventLine, closable, 1.2);

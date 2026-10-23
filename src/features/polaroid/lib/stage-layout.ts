@@ -28,7 +28,8 @@ export type StageLayout = ReturnType<typeof stageLayout>;
  * Where everything sits on a stage `box` wide and tall (D482): the prompt and the camera as one
  * group, the prompt just above the camera, centred in the room between the top (below the close
  * and corner buttons, where there are any) and the foot; the camera scaled with the phone; and the
- * print being edited as large as fits above the controls bar (and below the close button). The
+ * print being edited as large as fits above the controls bar (and below the close button), centred
+ * between the two (D719) as far as the room kept for a refusal above the bar allows. The
  * print ejects from the scaled camera's film slot. `closable` means the stage has buttons in its
  * top corners.
  */
@@ -44,7 +45,8 @@ export function stageLayout(box: StageBox, eventLine: boolean, closable: boolean
   // On a very short screen (a phone on its side) the 200 px floor can push the print into the bar.
   const width = stageCardWidth(box.w, box.h, ratio, top + PRINT_SLACK + ALERT_H + BAR_H);
   const cardH = width * ratio;
-  const printTop = Math.max(top, (box.h - BAR_H - ALERT_H - cardH - PRINT_SLACK) / 2);
+  const centred = top + (box.h - BAR_H - top - cardH) / 2;
+  const printTop = Math.max(top, Math.min(centred, box.h - BAR_H - ALERT_H - PRINT_SLACK - cardH));
   return {
     eventTop, promptTop, k, cameraTop, cameraLeft: (box.w - CAMERA_W * k) / 2, slotY: cameraTop + SLOT_IN_CAMERA * k,
     width, cardH, printTop,

@@ -11,7 +11,7 @@ export const PHOTO_INNER = 1 - 2 * CARD.border;
  * lines of 80 characters still fit) and the logo sits under it, `top` below the message box,
  * `height` tall and at most `width` wide.
  */
-export const LOGO_STRIP = { strip: 0.35, message: 0.22, top: 0.01, height: 0.085, width: 0.7 } as const;
+export const LOGO_STRIP = { strip: 0.35, message: 0.22, top: 0.01, height: 0.0935, width: 0.77 } as const;
 
 /** The strip under the photo, as a fraction of the card's width. */
 export function stripHeight(logo: boolean): number {

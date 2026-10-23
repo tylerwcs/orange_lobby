@@ -47,7 +47,8 @@ export function PolaroidCard({ card, width, stickerSrc, look = PLAIN_LOOK, devel
           backgroundColor: "rgba(216, 207, 191, 0.7)",
           backgroundImage: "linear-gradient(105deg, rgba(255,255,255,0.25), rgba(255,255,255,0) 45%, rgba(0,0,0,0.06))",
         }} />
-      <div className={`absolute overflow-hidden ${look.background ? "bg-black/25" : "bg-[#ece6da]"}`} style={{ left: border, top: border, width: PHOTO_INNER * w, height: photoH }}>
+      <div className={`absolute overflow-hidden ${look.background ? "bg-black/25" : "bg-[#ece6da]"}`}
+        style={{ left: border, top: border, width: PHOTO_INNER * w, height: photoH, borderRadius: w * 0.02 }}>
         {card.src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={card.src} alt="" draggable={false} decoding="async" loading={loading} className={`size-full object-contain ${developing ? styles.develop : styles.film}`} />
