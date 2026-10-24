@@ -463,6 +463,9 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
             {/* D618: the registration page's own banner. The colours live in the event theme (D625). */}
             <ImageField label="Banner above the form" name="registration_banner" url={ev.registration_banner_url}
               description="Shown on the registration page just under the event name bar, as wide as the page and at the image's own height - nothing is cropped." />
+            {/* D720: a client's disclaimer or sponsor strip, at the foot of the same page. */}
+            <ImageField label="Image under the form" name="registration_footer" url={ev.registration_footer_url}
+              description="Shown at the bottom of the registration page, such as a client's disclaimer - as wide as the page and at the image's own height." />
           </div>
           <div className="flex flex-col gap-1.5">
           <h3 className="text-sm font-extrabold">Questions</h3>

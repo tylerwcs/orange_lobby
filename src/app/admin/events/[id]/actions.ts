@@ -93,10 +93,12 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   let logo: ImageChange = { url: ev.logo_url, stale: null };
   let banner: ImageChange = { url: ev.banner_url, stale: null };
   let regBanner: ImageChange = { url: ev.registration_banner_url ?? null, stale: null };
+  let regFooter: ImageChange = { url: ev.registration_footer_url ?? null, stale: null };
   try {
     logo = await nextImage(formData, "logo", ev.logo_url, { orgId: ev.org_id, eventId, kind: "logo" });
     banner = await nextImage(formData, "banner", ev.banner_url, { orgId: ev.org_id, eventId, kind: "banner" });
     regBanner = await nextImage(formData, "registration_banner", ev.registration_banner_url ?? null, { orgId: ev.org_id, eventId, kind: "registration-banner" }); // D618
+    regFooter = await nextImage(formData, "registration_footer", ev.registration_footer_url ?? null, { orgId: ev.org_id, eventId, kind: "registration-footer" }); // D720
   } catch (e) {
     redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
   }
@@ -131,12 +133,14 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
     registration_pending_title: str(formData, "registration_pending_title"),
     registration_pending_message: str(formData, "registration_pending_message"),
     registration_banner_url: regBanner.url, // D618
+    registration_footer_url: regFooter.url, // D720
     theme: themeFromForm(formData), // D622
     registration_questions: questions,
   });
   await deleteEventImage(logo.stale);
   await deleteEventImage(banner.stale);
   await deleteEventImage(regBanner.stale);
+  await deleteEventImage(regFooter.stale);
   // D682, D691: a raised or cleared limit, or registration reopened (switch on, close time moved
   // later), lets the waiting list move along. Any save may be one of those; the fill is a no-op otherwise.
   const moved = await afterPlacesChange(eventId);

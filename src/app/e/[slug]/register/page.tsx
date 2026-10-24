@@ -91,6 +91,11 @@ export default async function RegisterPage({ params, searchParams }: {
           </>
         )}
       </main>
+      {/* D720: the organiser's footer image (a client's disclaimer), under every state of the page. */}
+      {event.registration_footer_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={event.registration_footer_url} alt="" className="block h-auto w-full" />
+      )}
     </div>
   );
 }

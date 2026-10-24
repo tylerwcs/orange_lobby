@@ -80,6 +80,8 @@ export type Event = {
   display_name_in_bar?: boolean;
   /** D618: the registration page's banner, full width at its own height; null/absent = none. Optional so old fixtures compile. */
   registration_banner_url?: string | null;
+  /** D720: the image under the registration page (a client's disclaimer), full width at its own height; null/absent = none. Optional so old fixtures compile. */
+  registration_footer_url?: string | null;
   /** D622: the event's colour theme; always present after hydrate, optional so old fixtures compile. */
   theme?: EventTheme;
   /** D617: what a draft event's links say; null/absent for DEFAULT_COMING_SOON. Optional so old fixtures compile. */
