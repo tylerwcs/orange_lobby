@@ -1,6 +1,6 @@
 import { isYes } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
-import { stepPoints, unitOf } from "@/features/activities/client";
+import { round2, stepPoints, unitOf } from "@/features/activities/client";
 import type { Activity, Attendee, ChallengeScoring } from "@/lib/types";
 import type { TrackPair, TrackRow, TrackStatus } from "./types";
 
@@ -77,4 +77,28 @@ export function trackTeamRows(input: {
   const none = split.none.map((m): TeamTrackRow => ({ id: m.id, name: m.name, self: m.id === input.selfId, state: "none", value: 0, unit: "", pts: null }))
     .sort((x, y) => x.name.localeCompare(y.name));
   return { a, b, none, logged: [...a, ...b].filter((r) => r.state === "logged").length };
+}
+
+/**
+ * D724: what a captain's tap means, from what their page SHOWED - tapping the side the person was
+ * shown on takes them off, the other side moves them there. Deciding from the server's current
+ * state instead would turn a tap on a stale page (someone else just moved them) into the opposite.
+ */
+export function intendedTrack(pair: TrackPair, side: "a" | "b", shownOnSide: boolean): string | null {
+  if (shownOnSide) return null;
+  return side === "a" ? pair.a_activity_id : pair.b_activity_id;
+}
+
+/** D724: each person's total on one day, from `challenge_daily_totals` rows (one per person, team and day), to two places. */
+export function dayTotals(rows: { attendeeId: string; day: string; km: number }[], day: string): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const r of rows) if (r.day === day) m.set(r.attendeeId, round2((m.get(r.attendeeId) ?? 0) + r.km));
+  return m;
+}
+
+/** D725: a captain sending for someone off this track is told about that person, not about themselves. Null for any other code. */
+export function memberTrackRefusal(code: string, memberName: string): string | null {
+  if (code === "notrack") return `${memberName} isn't on a track yet. Put them on one from My team first.`;
+  if (code === "othertrack") return `${memberName} is on the other track. Submit for them there instead.`;
+  return null;
 }

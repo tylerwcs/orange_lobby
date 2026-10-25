@@ -91,6 +91,10 @@ describe("bookingCard — checked in (D334)", () => {
 });
 
 describe("formCard", () => {
+  it("says No track yet or Other track on a track pair, not Closed (D725)", () => {
+    expect(formCard({ form: form(), state: { can: false, reason: "notrack", used: 0 } }).status).toEqual({ label: "No track yet", tone: "muted" });
+    expect(formCard({ form: form(), state: { can: false, reason: "othertrack", used: 0 } }).status).toEqual({ label: "Other track", tone: "muted" });
+  });
   const form = (over: Partial<FormCardInput["form"]> = {}): FormCardInput["form"] =>
     ({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: "Level 3 gym", action_label: null, ...over });
   const open = { can: true, reason: "ok" as const, used: 0 };

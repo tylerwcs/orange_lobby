@@ -23,7 +23,7 @@ import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
 import { dailyTotals } from "../../../db/challenge";
 import { getActivity } from "../../../db/activities";
-import { isTrackCaptain, setMyTeamTrackAction, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
+import { dayTotals, isTrackCaptain, setMyTeamTrackAction, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -107,7 +107,7 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
             {pairTeam && myTeam && (
               <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain}
                 day={t.selected} today={today} startsOn={scoring.starts_on}
-                switchAction={(id, s) => setMyTeamTrackAction.bind(null, slug, token, f.id, id, s, t.selected === today ? null : t.selected)} />
+                switchAction={(id, s, shown) => setMyTeamTrackAction.bind(null, slug, token, f.id, id, s, shown, t.selected === today ? null : t.selected)} />
             )}
             {!pairTeam && challenge && myTeam && shownWeek?.teams[myTeam.id] && (
               <MyTeam team={myTeam} week={shownWeek.teams[myTeam.id]} weekInfo={shownWeek.week} score={challenge.score} scoring={scoring}
@@ -148,10 +148,9 @@ async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awa
   const [rows, otherTotals, other] = await Promise.all([trackRows(pair.id), dailyTotals(track.other.id), getActivity(track.other.id, f.event_id)]);
   if (!other?.scoring) return null;
   const here = new Map<string, number>();
-  const there = new Map<string, number>();
   const members = challenge.attendees.filter((m) => m.group_id === teamId);
   for (const m of members) here.set(m.id, challenge.score.personKm(m.id, day));
-  for (const r of otherTotals) if (r.day === day) there.set(r.attendeeId, (there.get(r.attendeeId) ?? 0) + r.km);
+  const there = dayTotals(otherTotals, day);
   const isA = f.id === pair.a_activity_id;
   const [a, b] = isA ? [f, other] : [other, f];
   const self = challenge.attendees.find((m) => m.id === selfId);

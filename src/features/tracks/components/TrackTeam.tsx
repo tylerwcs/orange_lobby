@@ -18,7 +18,7 @@ const pill = (n: number, target: number) =>
 export function TrackTeam({ teamName, groups, pair, labels, captain, day, today, startsOn, switchAction }: {
   teamName: string; groups: Groups; pair: TrackPair; labels: { a: string; b: string }; captain: boolean;
   day: string; today: string; startsOn: string;
-  switchAction: (attendeeId: string, side: "a" | "b") => () => Promise<void>;
+  switchAction: (attendeeId: string, side: "a" | "b", shownOnSide: boolean) => () => Promise<void>;
 }) {
   const members = groups.a.length + groups.b.length + groups.none.length;
   const when = day === today ? "today" : `on ${shortDate(day)}`;
@@ -36,7 +36,7 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
       {captain && (
         <span className="inline-flex shrink-0 overflow-hidden rounded-md border border-border">
           {(["a", "b"] as const).map((s) => (
-            <form key={s} action={switchAction(r.id, s)} className={s === "b" ? "border-l border-border" : ""}>
+            <form key={s} action={switchAction(r.id, s, side === s)} className={s === "b" ? "border-l border-border" : ""}>
               <TrackSwitchButton side={s === "a" ? "A" : "B"} on={side === s}
                 label={side === s ? `Take ${r.name} off ${s === "a" ? "Track A" : "Track B"}` : `Put ${r.name} on ${s === "a" ? "Track A" : "Track B"}`} />
             </form>

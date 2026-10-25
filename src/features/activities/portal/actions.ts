@@ -15,6 +15,7 @@ import { bookingArrivalsFor } from "@/lib/db/checkins";
 import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles, deleteEntryFiles } from "../lib/submission-uploads";
 import { nowInKL } from "@/lib/time";
 import { flashPath } from "@/lib/flash";
+import { memberTrackRefusal } from "@/features/tracks/client";
 import { sessionLabel } from "../lib/activities";
 import { sessionArrivals } from "../lib/booking-door";
 import { allow } from "@/lib/ratelimit";
@@ -296,7 +297,9 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   }
   const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, member.id, form.answers, today, onBehalf ? attendee.id : null, form.hashes));
   if (result !== "ok") await discardUploads(form.uploaded);
-  const message = result === "ok" && onBehalf ? `Submitted for ${member.name}. Thanks!` : SUBMIT_RESULT_MESSAGES[result];
+  // D725: a captain refused for a member off this track is told about the member, not themselves.
+  const message = result === "ok" && onBehalf ? `Submitted for ${member.name}. Thanks!`
+    : (onBehalf && memberTrackRefusal(result, member.name)) || SUBMIT_RESULT_MESSAGES[result];
   redirect(flashPath(path, message, result === "ok" ? "ok" : "error"));
 }
 

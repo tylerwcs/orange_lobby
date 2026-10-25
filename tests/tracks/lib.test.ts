@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTrackCaptain, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { dayTotals, intendedTrack, isTrackCaptain, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -98,5 +98,34 @@ describe("trackTeamRows (D724)", () => {
     const g = run("2026-10-28");
     expect([...g.a, ...g.b].every((r) => r.state === "future")).toBe(true);
     expect(g.logged).toBe(0);
+  });
+});
+
+describe("intendedTrack (D724)", () => {
+  it("acts on what the page showed, not on what the server finds now", () => {
+    // The page showed Aina on B; tapping A means move her to A, even if someone already did.
+    expect(intendedTrack(PAIR, "a", false)).toBe("A");
+    // The page showed her on A; tapping A means take her off.
+    expect(intendedTrack(PAIR, "a", true)).toBeNull();
+    expect(intendedTrack(PAIR, "b", false)).toBe("B");
+  });
+});
+
+describe("dayTotals (D724)", () => {
+  it("sums one day per person, to two places, ignoring other days", () => {
+    const rows = [
+      { attendeeId: "x", groupId: "g1", day: "2026-10-27", km: 0.1 },
+      { attendeeId: "x", groupId: "g2", day: "2026-10-27", km: 0.2 },
+      { attendeeId: "x", groupId: "g1", day: "2026-10-26", km: 9 },
+    ];
+    expect(dayTotals(rows, "2026-10-27").get("x")).toBe(0.3);
+  });
+});
+
+describe("memberTrackRefusal (D725)", () => {
+  it("names the member when a captain sends for someone off this track", () => {
+    expect(memberTrackRefusal("notrack", "Wei")).toBe("Wei isn't on a track yet. Put them on one from My team first.");
+    expect(memberTrackRefusal("othertrack", "Wei")).toBe("Wei is on the other track. Submit for them there instead.");
+    expect(memberTrackRefusal("closed", "Wei")).toBeNull();
   });
 });
