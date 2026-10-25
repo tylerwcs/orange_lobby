@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { shortDate } from "@/lib/text";
 import { TrackSwitchButton } from "./TrackSwitchButton";
 import type { TeamTrackRow, trackTeamRows } from "../lib";
+import type { PairTeamWeek } from "../combined";
 import type { TrackPair } from "../types";
 
 type Groups = ReturnType<typeof trackTeamRows>;
@@ -15,10 +16,12 @@ const pill = (n: number, target: number) =>
  * My stats, the team grouped by track, each person on their own track's number for the shown day.
  * Captains get an A | B switch on every row, their own included; everyone else reads the same list.
  */
-export function TrackTeam({ teamName, groups, pair, labels, captain, day, today, startsOn, switchAction }: {
+export function TrackTeam({ teamName, groups, pair, labels, captain, day, today, startsOn, switchAction, bonus = null }: {
   teamName: string; groups: Groups; pair: TrackPair; labels: { a: string; b: string }; captain: boolean;
   day: string; today: string; startsOn: string;
   switchAction: (attendeeId: string, side: "a" | "b", shownOnSide: boolean) => () => Promise<void>;
+  /** D727: the pair's +10 for the week on show, in `MyTeam`'s Tier 2 words; null without one. */
+  bonus?: { week: PairTeamWeek; points: number; current: boolean; past: boolean } | null;
 }) {
   const members = groups.a.length + groups.b.length + groups.none.length;
   const when = day === today ? "today" : `on ${shortDate(day)}`;
@@ -68,6 +71,17 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
         <ChevronDown aria-hidden className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
       <div className="flex flex-col gap-3 border-t border-border p-3">
+        {bonus?.week.void && <p className="rounded-lg bg-muted px-3 py-2 text-sm font-bold">This week is void: a member was disqualified.</p>}
+        {bonus && !bonus.week.void && bonus.current && (
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm">
+            <span className="font-bold">{bonus.week.onTrack} of {bonus.week.members}</span> logged every day so far this week, on either track. Everyone logging every day earns +{bonus.points}.
+          </p>
+        )}
+        {bonus && !bonus.week.void && bonus.past && (
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm">
+            {bonus.week.bonus > 0 ? `Everyone logged every day: +${bonus.week.bonus}.` : "Not everyone logged every day this week."}
+          </p>
+        )}
         {group(`Track A · ${labels.a}`, groups.a, "a")}
         {group(`Track B · ${labels.b}`, groups.b, "b")}
         {groups.none.length > 0 && group("No track yet", groups.none, null)}

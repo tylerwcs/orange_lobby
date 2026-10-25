@@ -10,20 +10,19 @@ import { Leaderboard } from "./tracker/Leaderboard";
 import { TrackerTabs } from "./tracker/TrackerTabs";
 import { nowInKL } from "@/lib/time";
 import { buildTracker, trackerTabs, type TrackerTab } from "../../../lib/tracker";
-import { standingLine } from "../../../lib/leaderboard";
+import { pts, standingLine } from "../../../lib/leaderboard";
 import { allGroupCards, type GroupCard } from "@/lib/groups";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import { entriesForAttendee } from "../../../db/activities";
 import { RichSections } from "@/components/portal/RichSections";
 import { PendingScope, PendingSwap } from "@/components/PendingNav";
 import { Skeleton } from "@/components/ui/skeletons";
-import { loadChallenge } from "../../../lib/challenge-data";
+import { loadChallenge, loadPairScore } from "../../../lib/challenge-data";
 import { unitOf } from "../../../lib/challenge";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
-import { dailyTotals } from "../../../db/challenge";
 import { getActivity } from "../../../db/activities";
-import { dayTotals, isTrackCaptain, setMyTeamTrackAction, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
+import { isTrackCaptain, sameCalendar, scorePair, setMyTeamTrackAction, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -82,12 +81,14 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
     teamId ? loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today) : Promise.resolve(null),
   ]);
   const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day });
-  const addedBy = await addedByLine(f.event_id, t?.entries ?? []);
-  const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
   const myTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
-  const shownWeek = t && challenge ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
   // D724: on a track pair, My team is the team by track, each person on their own track's number.
-  const pairTeam = t && challenge && myTeam && track ? await loadTrackTeam(f, track, challenge, myTeam.id, attendeeId, t.selected, today) : null;
+  const [addedBy, pairTeam] = await Promise.all([
+    addedByLine(f.event_id, t?.entries ?? []),
+    t && challenge && myTeam && track ? loadTrackTeam(f, track, challenge, { teamId: myTeam.id, selfId: attendeeId, day: t.selected, today, eventStartsOn, week: t.week.number }) : Promise.resolve(null),
+  ]);
+  const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
+  const shownWeek = t && challenge ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
   return (
     <>
       <section className="flex flex-col gap-4 py-5">
@@ -105,7 +106,7 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
             {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
             {track && <TrackNote track={track} href={`/e/${slug}/a/${token}/activities/${track.other.id}`} />}
             {pairTeam && myTeam && (
-              <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain}
+              <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain} bonus={pairTeam.bonus}
                 day={t.selected} today={today} startsOn={scoring.starts_on}
                 switchAction={(id, s, shown) => setMyTeamTrackAction.bind(null, slug, token, f.id, id, s, shown, t.selected === today ? null : t.selected)} />
             )}
@@ -143,21 +144,30 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
  * the shown day (this track's come from the score already read), both activities' names, and
  * whether this attendee is a captain of the pair.
  */
-async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awaited<ReturnType<typeof loadChallenge>>, teamId: string, selfId: string, day: string, today: string) {
+async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awaited<ReturnType<typeof loadChallenge>>,
+  at: { teamId: string; selfId: string; day: string; today: string; eventStartsOn: string | null; week: number }) {
   const { pair } = track;
-  const [rows, otherTotals, other] = await Promise.all([trackRows(pair.id), dailyTotals(track.other.id), getActivity(track.other.id, f.event_id)]);
+  const [rows, other] = await Promise.all([trackRows(pair.id), getActivity(track.other.id, f.event_id)]);
   if (!other?.scoring) return null;
-  const here = new Map<string, number>();
-  const members = challenge.attendees.filter((m) => m.group_id === teamId);
-  for (const m of members) here.set(m.id, challenge.score.personKm(m.id, day));
-  const there = dayTotals(otherTotals, day);
+  const otherChallenge = await loadChallenge({ id: f.event_id, starts_on: at.eventStartsOn }, other, at.today);
+  const members = challenge.attendees.filter((m) => m.group_id === at.teamId);
+  const dayOf = (c: typeof challenge) => new Map(members.map((m) => [m.id, c.score.personKm(m.id, at.day)]));
   const isA = f.id === pair.a_activity_id;
   const [a, b] = isA ? [f, other] : [other, f];
-  const self = challenge.attendees.find((m) => m.id === selfId);
+  const [ca, cb] = isA ? [challenge, otherChallenge] : [otherChallenge, challenge];
+  const self = challenge.attendees.find((m) => m.id === at.selfId);
+  // D727: the +10 asks about both tracks, so it comes from the pair's score, for the week on show.
+  const pairWeek = pair.bonus > 0 && sameCalendar(a.scoring!, b.scoring!)
+    ? scorePair({ a: ca.score, b: cb.score, aScoring: a.scoring!, bScoring: b.scoring!, teams: challenge.teams, bonus: pair.bonus, today: at.today }).weeks.find((w) => w.week.number === at.week)
+    : undefined;
+  const days = pairWeek?.week.days ?? [];
   return {
-    groups: trackTeamRows({ pair, members, rows, totals: isA ? { a: here, b: there } : { a: there, b: here }, scoring: { a: a.scoring!, b: b.scoring! }, day, today, selfId }),
+    groups: trackTeamRows({ pair, members, rows, totals: { a: dayOf(ca), b: dayOf(cb) }, scoring: { a: a.scoring!, b: b.scoring! }, day: at.day, today: at.today, selfId: at.selfId }),
     labels: { a: a.name, b: b.name },
     captain: !!self && isTrackCaptain([a, b], self),
+    bonus: pairWeek?.teams[at.teamId]
+      ? { week: pairWeek.teams[at.teamId], points: pair.bonus, current: days[0] < at.today && at.today <= days[days.length - 1], past: days[days.length - 1] < at.today }
+      : null,
   };
 }
 
@@ -180,13 +190,22 @@ export type RosterRules = { groupFields: string[]; fields: AttendeeField[] };
  * D516/D517: with `rosters`, every team gets a row that opens to its members, built by the same rule
  * as All groups (names and tags only), from the rows the score was read from.
  */
-async function TrackerLeaderboard({ entry: { form: f }, teamId, attendeeId, eventStartsOn, rosters }: {
+async function TrackerLeaderboard({ entry: { form: f, track }, teamId, attendeeId, eventStartsOn, rosters }: {
   entry: SubmissionEntry; teamId: string | null; attendeeId: string; eventStartsOn: string | null; rosters: RosterRules | null;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
-  const challenge = await loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today);
-  const standings = challenge.score.standings;
+  const event = { id: f.event_id, starts_on: eventStartsOn };
+  // D728: on a track pair the board is the team's one score, both tracks and the bonus.
+  const paired = track ? await loadPairScore(event, track.pair, today) : null;
+  if (paired && !paired.ok) return <p className={`py-5 ${note}`}>{paired.reason}</p>;
+  const challenge = paired?.ok ? paired.a : await loadChallenge(event, f, today);
+  const standings = paired?.ok ? paired.score.standings : challenge.score.standings;
+  const byTeam = paired?.ok ? new Map(paired.score.standings.map((s) => [s.id, s])) : null;
+  const breakdown = byTeam ? (id: string) => {
+    const s = byTeam.get(id);
+    return s ? `${pts(s.a)} Track A · ${pts(s.b)} Track B · ${pts(s.bonus)} bonus` : null;
+  } : null;
   const members: Map<string, GroupCard["members"]> | null = rosters
     ? new Map(allGroupCards(challenge.groups, challenge.attendees, null, rosters.groupFields, rosters.fields).map((c) => [c.id, c.members]))
     : null;
@@ -194,7 +213,7 @@ async function TrackerLeaderboard({ entry: { form: f }, teamId, attendeeId, even
     <section className="flex flex-col gap-4 py-5">
       <Leaderboard standings={standings} mine={teamId} rosters={members} selfId={attendeeId}
         stand={standingLine(standings, teamId, { startsOn: scoring.starts_on, today })}
-        podiumPoints={(scoring.podium ?? []).some((p) => p > 0)} />
+        podiumPoints={(scoring.podium ?? []).some((p) => p > 0)} breakdown={breakdown} />
     </section>
   );
 }

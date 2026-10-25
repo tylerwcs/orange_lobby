@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayTotals, intendedTrack, isTrackCaptain, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { intendedTrack, isTrackCaptain, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -108,17 +108,6 @@ describe("intendedTrack (D724)", () => {
     // The page showed her on A; tapping A means take her off.
     expect(intendedTrack(PAIR, "a", true)).toBeNull();
     expect(intendedTrack(PAIR, "b", false)).toBe("B");
-  });
-});
-
-describe("dayTotals (D724)", () => {
-  it("sums one day per person, to two places, ignoring other days", () => {
-    const rows = [
-      { attendeeId: "x", groupId: "g1", day: "2026-10-27", km: 0.1 },
-      { attendeeId: "x", groupId: "g2", day: "2026-10-27", km: 0.2 },
-      { attendeeId: "x", groupId: "g1", day: "2026-10-26", km: 9 },
-    ];
-    expect(dayTotals(rows, "2026-10-27").get("x")).toBe(0.3);
   });
 });
 

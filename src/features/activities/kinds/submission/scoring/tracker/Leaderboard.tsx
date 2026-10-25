@@ -47,7 +47,7 @@ function Roster({ members, selfId }: { members: GroupCard["members"]; selfId: st
 
 type Column = { key: string; name: string; total: number | null; rank: number; mine: boolean };
 
-export function Leaderboard({ standings, mine, stand, podiumPoints, rosters = null, selfId = null }: {
+export function Leaderboard({ standings, mine, stand, podiumPoints, rosters = null, selfId = null, breakdown = null }: {
   standings: Standing[];
   /** The viewer's team id, null without one. */
   mine: string | null;
@@ -63,6 +63,8 @@ export function Leaderboard({ standings, mine, stand, podiumPoints, rosters = nu
   rosters?: Map<string, GroupCard["members"]> | null;
   /** The viewer, marked "(you)" in their team's roster. */
   selfId?: string | null;
+  /** D728: on a track pair, each row's points by track ("27 Track A · 13 Track B · 10 bonus"); null elsewhere. */
+  breakdown?: ((teamId: string) => string | null) | null;
 }) {
   const view = leaderboardView(standings, { everyTeam: !!rosters });
   // Before any points, the podium is its three empty places, so the page still shows the prize.
@@ -114,6 +116,8 @@ export function Leaderboard({ standings, mine, stand, podiumPoints, rosters = nu
             {/* Wraps rather than truncates, so a long team name never cuts off its points. */}
             <div className="line-clamp-2 break-words font-extrabold">{stand.title}</div>
             <div className="text-sm text-foreground/80">{stand.line}</div>
+            {/* D728: the viewer's own team by track, even when it sits on the podium above. */}
+            {breakdown && mine && breakdown(mine) && <div className="text-xs tabular-nums text-foreground/70">{breakdown(mine)}</div>}
           </div>
         </div>
       )}
@@ -134,6 +138,7 @@ export function Leaderboard({ standings, mine, stand, podiumPoints, rosters = nu
                   <span className={`truncate text-sm ${isMine ? "font-extrabold" : "font-bold"} ${s.void ? "text-muted-foreground" : ""}`}>
                     {s.name}{isMine ? " (your team)" : ""}
                   </span>
+                  {breakdown && !s.void && view.scored && <span className="truncate text-xs tabular-nums text-muted-foreground">{breakdown(s.id)}</span>}
                   {/* Before any points every bar is empty, so the tracks would only be noise. */}
                   {!s.void && view.scored && (
                     <span aria-hidden className={`h-1.5 overflow-hidden rounded-full ${isMine ? "bg-success/15" : "bg-muted"}`}>

@@ -1,6 +1,6 @@
 import { isYes } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
-import { round2, stepPoints, unitOf } from "@/features/activities/client";
+import { stepPoints, unitOf } from "@/features/activities/client";
 import type { Activity, Attendee, ChallengeScoring } from "@/lib/types";
 import type { TrackPair, TrackRow, TrackStatus } from "./types";
 
@@ -87,13 +87,6 @@ export function trackTeamRows(input: {
 export function intendedTrack(pair: TrackPair, side: "a" | "b", shownOnSide: boolean): string | null {
   if (shownOnSide) return null;
   return side === "a" ? pair.a_activity_id : pair.b_activity_id;
-}
-
-/** D724: each person's total on one day, from `challenge_daily_totals` rows (one per person, team and day), to two places. */
-export function dayTotals(rows: { attendeeId: string; day: string; km: number }[], day: string): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const r of rows) if (r.day === day) m.set(r.attendeeId, round2((m.get(r.attendeeId) ?? 0) + r.km));
-  return m;
 }
 
 /** D725: a captain sending for someone off this track is told about that person, not about themselves. Null for any other code. */
