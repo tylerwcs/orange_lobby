@@ -5,4 +5,5 @@ export * from "./context";
 export * from "./actions";
 export { TrackTeam } from "./components/TrackTeam";
 export { TracksAdmin } from "./admin/TracksAdmin";
+export { CombinedPanel } from "./admin/CombinedPanel";
 export * from "./admin/actions";

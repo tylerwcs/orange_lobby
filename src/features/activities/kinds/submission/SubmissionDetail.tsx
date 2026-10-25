@@ -11,7 +11,7 @@ import { GroupsNotDonePanel } from "./GroupsNotDonePanel";
 import { ParticipationPanel } from "./ParticipationPanel";
 import { LeaderboardPanel } from "./scoring/LeaderboardPanel";
 import { AdjustmentsCard, listAdjustments } from "@/features/adjustments";
-import { pairActivities, pairForActivity, trackRows, TracksAdmin } from "@/features/tracks";
+import { CombinedPanel, pairActivities, pairForActivity, trackRows, TracksAdmin } from "@/features/tracks";
 import { TeamGrid } from "./scoring/TeamGrid";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { ScheduleOpen } from "../../admin/ScheduleOpen";
@@ -24,7 +24,7 @@ import { withText } from "../../lib/pairs";
 import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } from "../../lib/submissions";
 import { nowInKL, dayNav } from "@/lib/time";
 import { shortDate } from "@/lib/text";
-import { loadChallenge } from "../../lib/challenge-data";
+import { loadChallenge, loadPairScore } from "../../lib/challenge-data";
 import { gridWeek, unitOf } from "../../lib/challenge";
 import { groupsNotDone } from "@/lib/groups";
 import { listGroups } from "@/lib/db/groups";
@@ -120,6 +120,8 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
   const challenge = current === "leaderboard" && scored ? await loadChallenge(ev, activity, today) : null;
   // D723: the committee's Tracks tab reads the pair's placements and both names, only when open.
   const tracks = current === "tracks" && pair ? await Promise.all([trackRows(pair.id), pairActivities(pair)]) : null;
+  // D728: a track pair's leaderboard tab leads with the one team score, above this track's own.
+  const combined = current === "leaderboard" && pair && !teamId ? await loadPairScore(ev, pair, today) : null;
   // A hand-edited ?week= that is not a number reads as every week.
   const weekNum = week && /^\d+$/.test(week) ? Number(week) : null;
   const gridTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) : undefined;
@@ -230,10 +232,22 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
           groups={groups} members={attendees} rows={tracks[0]} />
       )}
 
+      {combined && (
+        <Card className="overflow-hidden">
+          <CardHeader><CardTitle>Combined team score</CardTitle></CardHeader>
+          <CardContent>
+            {combined.ok
+              ? <CombinedPanel score={combined.score} labels={{ a: combined.activities[0].name, b: combined.activities[1].name }} week={weekNum} today={today}
+                  href={(extra) => activityHref(ev.id, activity.id, "leaderboard", extra)} />
+              : <p className="text-sm text-muted-foreground">{combined.reason}</p>}
+          </CardContent>
+        </Card>
+      )}
+
       {current === "leaderboard" && challenge && (
         <Card className="overflow-hidden">
           <CardHeader>
-            <CardTitle>Leaderboard</CardTitle>
+            <CardTitle>{pair ? "This track's leaderboard" : "Leaderboard"}</CardTitle>
             {/* D397: whether attendees get the Leaderboard tab. This one is the committee's, always. */}
             <CardAction>
               <OpenSwitch open={activity.show_leaderboard} action={toggleLeaderboardAction.bind(null, ev.id, activity.id)}

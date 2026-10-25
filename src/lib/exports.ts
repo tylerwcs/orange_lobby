@@ -7,6 +7,7 @@ import { fieldValue } from "@/lib/attendee-values";
 import { FORMER_BUILTIN_KEYS } from "@/lib/columns";
 import type { ExportColumn } from "@/lib/export-columns";
 import { klDayTime } from "@/features/cancel/client";
+import type { PairScore } from "@/features/tracks/client";
 
 const FORMER_BUILTIN_KEY_SET = new Set<string>(FORMER_BUILTIN_KEYS);
 
@@ -410,6 +411,26 @@ export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | n
       .sort((a, b) => Number(a.isVoid) - Number(b.isVoid) || (a.isVoid ? 0 : b.total - a.total) || a.s.name.localeCompare(b.s.name))
       .map(({ s, t, total, isVoid }) => [weekLabel(w.week), s.name, t.km, t.tier1, t.bonus, t.podium, isVoid ? "Void" : total, ""]));
   const totals = score.standings.map((s) => ["All weeks", s.name, s.km, s.tier1, s.bonus, s.podium, s.void ? "Void" : s.total, s.volumeRank ?? ""]);
+  return [header, ...weekly, ...totals];
+}
+
+/**
+ * D728: a track pair's one team score, as the committee's Combined panel shows it - each week's
+ * teams by that week's total (Void last), then every team's season total with its rank. "Void"
+ * stands in for the Total of a voided week or a void team, as in `leaderboardRows`.
+ */
+export function pairLeaderboardRows(score: PairScore): (string | number)[][] {
+  const header = ["Week", "Team", "Track A pts", "Track B pts", "Bonus", "Total", "Rank"];
+  const weekly = score.weeks
+    .filter((w) => w.ended || Object.values(w.teams).some((t) => t.a + t.b > 0))
+    .flatMap((w) => score.standings
+      .map((s) => {
+        const t = w.teams[s.id];
+        return { s, t, total: t.a + t.b + t.bonus, isVoid: s.void || t.void };
+      })
+      .sort((a, b) => Number(a.isVoid) - Number(b.isVoid) || (a.isVoid ? 0 : b.total - a.total) || a.s.name.localeCompare(b.s.name))
+      .map(({ s, t, total, isVoid }) => [weekLabel(w.week), s.name, t.a, t.b, t.bonus, isVoid ? "Void" : total, ""]));
+  const totals = score.standings.map((s) => ["All weeks", s.name, s.a, s.b, s.bonus, s.void ? "Void" : s.total, s.rank ?? ""]);
   return [header, ...weekly, ...totals];
 }
 

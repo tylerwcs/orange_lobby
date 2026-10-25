@@ -2,10 +2,11 @@ import { requireEventAccess } from "@/lib/access";
 import { eventFields } from "@/lib/attendee-fields";
 import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
-import { listActivities, listSubmissions, loadChallenge, unitOf, fileQuestionKeys, missingFrom, isGroupForm } from "@/features/activities";
+import { listActivities, listSubmissions, loadChallenge, loadPairScore, unitOf, fileQuestionKeys, missingFrom, isGroupForm } from "@/features/activities";
+import { pairsForEvent } from "@/features/tracks";
 import { listGroups } from "@/lib/db/groups";
 import { signedSubmissionUrls } from "@/lib/db/media";
-import { buildFormsWorkbook, leaderboardRows, addLeaderboardSheet, type FormSheet } from "@/lib/exports";
+import { buildFormsWorkbook, leaderboardRows, pairLeaderboardRows, addLeaderboardSheet, type FormSheet } from "@/lib/exports";
 import { nowInKL } from "@/lib/time";
 import { withGroupColumn, groupsNotDone, GROUP_EXPORT_KEY } from "@/lib/groups";
 
@@ -95,6 +96,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   for (const f of forms.filter((x) => x.scoring)) {
     const { score } = await loadChallenge(ev, f, nowInKL().date);
     addLeaderboardSheet(wb, `${f.name} leaderboard`, leaderboardRows(score, unitOf(f.scoring!)));
+  }
+  // D728: each track pair also gets its one team score, once per pair.
+  for (const pair of await pairsForEvent(ev.id)) {
+    const combined = await loadPairScore(ev, pair, nowInKL().date);
+    if (combined.ok) addLeaderboardSheet(wb, `${combined.activities[0].name} + ${combined.activities[1].name} combined`, pairLeaderboardRows(combined.score));
   }
   const buf = await wb.xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
