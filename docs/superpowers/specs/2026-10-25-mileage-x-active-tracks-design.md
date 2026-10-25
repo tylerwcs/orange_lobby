@@ -110,21 +110,32 @@ user says yes in chat.
 - **Where it's enforced:** the DB, as with squads (D642). An RPC checks that the actor is a
   captain in the same group as the target, and that the event and pair match.
 
-### D724 — The Tracks tab (the captain's page)
+### D724 — Tracks live inside My team (the user, 25 Oct; replaces a separate Tracks tab)
 
-- **Where:** a **Tracks** tab on both track activities' portal pages. It shows the same content
-  on each.
-- **Layout:** two cards, "Track A · Project Mileage (km)" and "Track B · Project Active (min)".
-  - **Count pill:** shows "4 of 5", "5 of 5" or "6 of 5" — amber when under, green at the target,
-    red when over. The target is a setting (5 for ecphub).
-  - **Members:** names show as chips. A captain gets ✕ to take someone off a track, and an
-    "Add a member" dropdown listing members of their group who aren't on that track.
-  - **Moving someone** means adding them to the other card. It needs no extra confirmation.
-- **Not on a track yet:** a list that captains see, like the squads page's "not in any sport"
-  warning.
-- **Non-captains** see the cards read-only, plus their own line. Either "You're on Track A —
-  submit under Project Mileage" with a link, or "Your captain X hasn't put you on a track yet."
-- Reuse the squads components where they fit.
+- **Where:** the existing **My team** dropdown at the foot of My stats (D387). The page keeps
+  Project Active's layout: Info, My stats, Leaderboard. There is no new tab.
+  - My team reads the same on both track pages.
+- **Layout:** the team's members are grouped under "Track A · Mileage", "Track B · Active" and
+  "No track yet".
+  - **Count pill** on each group: "4 of 5", "5 of 5" or "6 of 5" — amber when under, green at the
+    target, red when over. The target is a setting (5 for ecphub). "No track yet" shows its
+    count in amber.
+  - **Each person's row** shows the shown day on **their own** track, such as "5.2 km · 3 pts",
+    "45 min · 3 pts" or "Not logged". The no-track row says "Can't submit yet".
+    - So My team on a paired page reads the other activity's daily totals too.
+    - A row follows the person's current track.
+- **Summary line:** "{logged} of {members} logged today · A {n} · B {n}", where logged counts
+  either track.
+- **Captains** get a small A | B switch on every row, their own included. Tapping the other
+  letter moves the person. Tapping their current letter takes them off their track. No extra
+  confirmation.
+- **Non-captains** see the same list with no switches.
+- **Your own line:** above My team, a note: "You're on Track B — this is your track."
+  - On the other track's page, it reads "You're on Track A — submit under Project Mileage",
+    with a link, in place of the Add button (D725).
+  - With no track, it reads "Your captain hasn't put you on a track yet."
+- **The +10 line** in My team counts both tracks (D727). Until Phase 2 it is hidden, because the
+  per-activity `team_bonus` is cleared.
 
 ### D725 — Submitting is locked to your track
 
@@ -281,7 +292,7 @@ takes 12–18 Oct out of every board.
 
 - How the pair link is stored, and the exact schema of the assignment table and its RPCs, within
   D721–D723.
-- The Tracks tab's component reuse and copy, and the My team layout.
+- My team's exact markup and the A | B switch's form, within D724.
 - Tests: pure tests for the combined scorer (the bonus across tracks, void weeks, members with no
   track, moves mid-week) alongside `challenge-score.test.ts`, and an end-to-end check on a test
   event, never ecphub.

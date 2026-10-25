@@ -5,7 +5,7 @@
 **Goal:** Two linked scored challenges (Track A km, Track B minutes). Captains put each member on one track, members can submit only to their own track, and the teams get one combined score.
 
 **Architecture:**
-- **New feature folder:** a `src/features/tracks/` folder owns the pair, the assignments, the captain's Tracks tab, the admin Tracks tab and, in Phase 2, the combined scorer.
+- **New feature folder:** a `src/features/tracks/` folder owns the pair, the assignments, the captain's track switches in My team, the admin Tracks tab and, in Phase 2, the combined scorer.
 - **The database decides,** as with squads (D642). A `set_challenge_track` RPC does every assignment, and `submit_answers` refuses an entry from the wrong track.
 - **Each track still scores alone** through `scoreChallenge`. The combined board is a pure merge of the two `ChallengeScore`s plus the cross-track bonus.
 
@@ -204,56 +204,76 @@
 
 - [ ] **Step 5: Commit.** `feat(tracks): submit only under your own track (D725)`
 
-### Task 4: The captain's Tracks tab on the portal (D723, D724)
+### Task 4: Tracks inside My team (D723, D724)
 
 **Files:**
-- Create: `src/features/tracks/context.ts`, `src/features/tracks/actions.ts`, `src/features/tracks/components/TracksPanel.tsx`
-- Modify: `src/features/activities/lib/tracker.ts` (`TrackerTab`, `trackerTab`, `trackerTabs`), `src/features/activities/kinds/submission/scoring/TrackerBody.tsx` (render the tab), `src/features/activities/portal/ActivityPage.tsx` (pass `hasTracks`)
-- Test: `tests/activities/tracker.test.ts`
+- Create: `src/features/tracks/context.ts`, `src/features/tracks/actions.ts`, `src/features/tracks/components/TrackTeam.tsx`
+- Modify:
+  - `src/features/tracks/lib.ts`: add `trackTeamRows`
+  - `src/features/activities/kinds/submission/scoring/TrackerBody.tsx`: `TrackerStats` renders `TrackTeam` in place of `MyTeam` when `entry.track` is set, and the own-track note above it
+- Test: `tests/tracks/lib.test.ts`
 
 **Interfaces:**
-- Consumes: Task 2 (`pairForActivity`, `trackRows`, `splitTracks`, `isTrackCaptain`, `setTrack`, `trackLabel`), plus `groupMembers` and `findByToken` as in `src/features/tournaments/context.ts`.
+- Consumes:
+  - from Task 2: `TrackPair`, `TrackRow`, `trackOf`, `isTrackCaptain`, `setTrack`, `trackRows`, `pairForActivity`
+  - `dailyTotals(activityId)` from `src/features/activities/db/challenge.ts`
+  - `stepPoints` from `challenge.ts`
+  - `loadChallenge`'s `attendees` and `names`, which TrackerStats already reads
 - Produces:
-  - `TrackerTab = "info" | "stats" | "tracks" | "leaderboard"`
-  - `trackerTab(raw, showLeaderboard = true, hasTracks = false)`
-  - `trackerTabs(showLeaderboard: boolean, hasTracks = false): TrackerTab[]`. With tracks, the order is info, stats, tracks, then leaderboard when shown.
-  - `portalTrackContext(slug, token, activityId): Promise<TrackContext | null>`, where `TrackContext = { event; attendee; pair: TrackPair; activities: [Activity, Activity]; members: Attendee[]; rows: TrackRow[]; captain: boolean }`. It is null for a cancelled or groupless attendee, an unpaired activity, or one outside the attendee's category.
-  - Server actions:
-    - `assignTrackAction(slug, token, activityId, targetActivityId, fd: FormData)` reads `attendee` from the form.
-    - `unassignTrackAction(slug, token, activityId, attendeeId)`.
-    - Both redirect back to `?tab=tracks` with a flash, following the shape of `src/features/tournaments/actions.ts`'s `write()`.
-- Refusal copy:
-  - `not_allowed`: "Only your captains can change tracks."
-  - `not_member`: "They aren't in your team."
-  - `closed`: "Tracks can't be changed right now."
-  - `missing`: "That track no longer exists."
-- Success copy: "{Name} is on {Track X}." / "{Name} is off {Track X}." (or "You're on …").
+  - `type TeamTrackRow = { id: string; name: string; self: boolean; state: "logged" | "missing" | "future" | "none"; value: number; unit: string; pts: number | null }`
+  - `trackTeamRows(input: { pair: TrackPair; members: Pick<Attendee, "id" | "name" | "group_id" | "cancelled_at">[]; rows: TrackRow[]; totals: { a: Map<string, number>; b: Map<string, number> }; scoring: { a: ChallengeScoring; b: ChallengeScoring }; day: string; today: string; selfId: string }): { a: TeamTrackRow[]; b: TeamTrackRow[]; none: TeamTrackRow[]; logged: number }`
+    - `totals.a` and `totals.b` are each person's total for `day` on that activity.
+    - A row's `value` and `pts` come from the person's own track.
+    - `logged` counts members at or above their track's `daily_min`.
+    - The state is `"future"` when `day > today`, and `"none"` with no track.
+    - Within a group, "missing" rows come first (D379's nudge order), then members in input order.
+  - `portalTrackContext(slug, token, activityId): Promise<TrackContext | null>`, where `TrackContext = { event: Event; attendee: Attendee; pair: TrackPair; activities: [Activity, Activity]; captain: boolean }`.
+    - It is null for a cancelled or groupless attendee, an unpaired activity, or one outside the attendee's category.
+    - Model it on `src/features/tournaments/context.ts`.
+  - `setMyTeamTrackAction(slug: string, token: string, activityId: string, attendeeId: string, side: "a" | "b")`, a server action.
+    - It sets the track. If that person is already on `side`, it takes them off (`activityId: null`).
+    - It redirects back to the activity page (My stats), keeping `?day=` when present, with a flash, following the shape of `src/features/tournaments/actions.ts`'s `write()`.
+    - Success: "{Name} is on {Track X}." / "{Name} is off {Track X}." (or "You're on …" / "You're off …").
+    - Refusals:
+      - `not_allowed`: "Only your captains can change tracks."
+      - `not_member`: "They aren't in your team."
+      - `closed`: "Tracks can't be changed right now."
+      - `missing`: "That track no longer exists."
+  - `TrackTeam` props: `{ teamName: string; groups: ReturnType<typeof trackTeamRows>; pair: TrackPair; labels: { a: string; b: string }; captain: boolean; switchAction: (attendeeId: string, side: "a" | "b") => (() => Promise<void>) }`. The markup follows the D724 mockup.
+    - It uses the same `<details>` shell and classes as `MyTeam`.
+    - Summary: "My team · {name}" over "{logged} of {members} logged today · A {n} · B {n}".
+    - The group headers carry count pills, amber, green or red against `pair.target`.
+    - Rows show "{value} {unit} · {pts} pts", "Not logged" in warning ink, "–" for a future day, or "Can't submit yet" with no track.
+    - For captains, each row ends in an A | B segmented pair of submit buttons, the current side filled.
 
-- [ ] **Step 1: Write the failing tests** in `tracker.test.ts`:
-  - `trackerTabs(true, true)` gives `["info","stats","tracks","leaderboard"]`.
-  - `trackerTabs(false, true)` gives `["info","stats","tracks"]`.
-  - `trackerTab("tracks", false, false)` gives `"stats"`, and `trackerTab("tracks", false, true)` gives `"tracks"`.
+- [ ] **Step 1: Write the failing tests** in `tests/tracks/lib.test.ts` for `trackTeamRows`. Use a pair with A steps `1=1, 3=2, 5=3, 8=4, 10=5` (min 1) and B steps `20=1, 30=2, 45=3, 60=4, 120=5` (min 20).
+  1. A member on A with 5.2 km → `{ state: "logged", value: 5.2, unit: "km", pts: 3 }` in `a`.
+  2. A member on B with 45 min → `{ value: 45, unit: "min", pts: 3 }` in `b`.
+  3. A member on B with 0 min (even with km on A that day, from before a move) → `"missing"`, and listed first in `b`.
+  4. A member with no row → in `none` with state `"none"`.
+  5. `logged` is 2 for cases 1–4.
+  6. A day after today → every track row is `"future"`.
 
 - [ ] **Step 2: Run the tests to see them fail.**
-  - Run: `npx vitest run tests/activities/tracker.test.ts`
-  - Expected: FAIL.
+  - Run: `npx vitest run tests/tracks/lib.test.ts`
+  - Expected: the new cases FAIL.
 
-- [ ] **Step 3: Implement the tab.**
-  - **Tab helpers:** the changes in Interfaces.
-  - **`TracksPanel`:** a server component taking `ctx: TrackContext` and the paths.
-    - **Two cards,** "Track A · {name} ({unit})" and "Track B · …". Each has a count pill `{n} of {target}`: amber when under, green when equal, red when over.
-    - **Member chips.** A captain gets an ✕ (`unassignTrackAction`) and an "Add a member" select listing team members not on that card (`assignTrackAction`).
-    - **Captains** also see a "Not on a track yet" list.
-    - **Non-captains** see read-only cards, plus their own line: "You're on {Track X} — submit under {name}" with a link, or "Your captain {first captain's name} hasn't put you on a track yet."
-    - Reuse `src/features/tournaments/components/AddMemberSelect.tsx` and `FormButtons.tsx` (`ChipRemoveButton`) where their props fit. Otherwise copy their markup.
-  - **`ActivityPage`:** passes `hasTracks` from `found.entry.track !== null`.
-  - **`TrackerBody`:** renders `TracksPanel` for `tab === "tracks"`.
+- [ ] **Step 3: Implement `trackTeamRows`, `context.ts`, `actions.ts` and `TrackTeam`.**
+  - **In `TrackerStats`,** when `entry.track` is set and the attendee has a team:
+    - Read `pairForActivity`, `trackRows(pair.id)`, and `dailyTotals` of the **other** activity. This activity's totals come from `challenge.score.personKm`.
+    - Build `totals` for `t.selected`.
+    - Render `TrackTeam` in place of `MyTeam`.
+    - Bind `setMyTeamTrackAction` per row.
+    - `captain` is `isTrackCaptain([a, b], attendee)`.
+  - **The own-track note sits above My team:**
+    - `"this"` → "You're on {Track X} — this is your track."
+    - `"other"` and `"none"` → Task 3's notes. Move them here, so there is one note in one place.
 
 - [ ] **Step 4: Run the tests, typecheck and lint.**
-  - Run: `npx vitest run tests/activities && npx tsc --noEmit && npm run lint`
+  - Run: `npx vitest run tests/tracks tests/activities && npx tsc --noEmit && npm run lint`
   - Expected: PASS.
 
-- [ ] **Step 5: Commit.** `feat(tracks): the captain's Tracks tab (D724)`
+- [ ] **Step 5: Commit.** `feat(tracks): captains place their team on tracks from My team (D724)`
 
 ### Task 5: The admin Tracks tab (D723)
 
@@ -295,7 +315,7 @@
   - One group with a captain and three members, each with portal tokens and `consented_at` set ([[project-mileage]] gotchas).
 
 - [ ] **Step 2: Check it in the browser** on the dev server (`preview_start`).
-  - **Captain's Tracks tab:** the captain places two members on A and one on B. A 6th placement shows red "6 of 5".
+  - **Captain's My team:** the captain places two members on A and one on B with the A | B switches. A 6th placement shows red "6 of 5".
   - **Member on A:** opens B and sees the othertrack note with a link. Their own entry on A succeeds.
   - **Member with no track:** sees the notrack note.
   - **Admin Tracks tab:** moves someone, and the portal reflects it.
@@ -330,7 +350,7 @@
   - **Insert the pair:** a = Mileage, b = Active, `target 5`, `bonus 10`.
   - **Open and pin both.** Leave `show_leaderboard` **off** on both until Phase 2 ships.
 
-- [ ] **Step 7: Smoke-check ecphub read-only.** Load an ecphub captain's portal link and check that the Tracks tab shows. Do not submit or assign anything. Report to the user.
+- [ ] **Step 7: Smoke-check ecphub read-only.** Load an ecphub captain's portal link and check that My team shows the track groups and the A | B switches. Do not submit or assign anything. Report to the user.
 
 ---
 
@@ -390,19 +410,15 @@
 ### Task 8: The combined board on the portal (D728)
 
 **Files:**
-- Modify: `src/features/activities/kinds/submission/scoring/TrackerBody.tsx` (`TrackerLeaderboard` uses `loadPairScore` when paired; `TrackerStats` renders the pair card)
-- Create: `src/features/tracks/components/PairWeekCard.tsx`
+- Modify: `src/features/activities/kinds/submission/scoring/TrackerBody.tsx` (`TrackerLeaderboard` uses `loadPairScore` when paired), `src/features/tracks/components/TrackTeam.tsx` (the +10 line)
 
 **Interfaces:**
 - Consumes: Task 7's `loadPairScore` and `PairStanding`; the existing `Leaderboard` and `standingLine`, which take `Standing[]`, and `PairStanding` extends it.
-- Produces: `PairWeekCard({ week: PairTeamWeek; weekInfo: ChallengeWeek; split: TrackSplit; units: [string, string]; bonus: number })`.
-  - "This week: {km} km · {min} min"
-  - "Bonus: {onTrack} of {members} on track" ("+10 earned" once ended and earned)
-  - "Track A: names · Track B: names"
+- Produces: `TrackTeam` gains an optional `bonus: { week: PairTeamWeek; points: number; current: boolean; past: boolean } | null`, rendered with `MyTeam`'s Tier 2 wording: "{onTrack} of {members} logged every day so far this week. Everyone logging every day earns +{points}." and the settled-week lines.
 
 - [ ] **Step 1: Wire the board.**
   - **`TrackerLeaderboard`:** for a paired form, pass `score.standings` from `loadPairScore` to `Leaderboard`. Under each row, show a breakdown line: "{a} km pts · {b} min pts · {bonus} bonus". If `ok` is false, show the reason as a note.
-  - **`TrackerStats`:** for a paired form, render `PairWeekCard` under `MyTeam`. `MyTeam`'s own bonus line is already absent, because `team_bonus` is cleared.
+  - **`TrackerStats`:** for a paired form, pass the shown week's `PairTeamWeek` from `loadPairScore` to `TrackTeam` as `bonus`.
 
 - [ ] **Step 2: Check it in the browser** on the Task 6 test event, with entries on both tracks, using `execute_sql` inserts or real submits.
   - The board's totals equal the hand sum.
