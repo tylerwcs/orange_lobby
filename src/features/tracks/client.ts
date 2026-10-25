@@ -3,4 +3,5 @@
  * Code outside this folder imports the feature only from here or from `index.ts`.
  */
 export * from "./lib";
+export * from "./combined";
 export type * from "./types";
