@@ -24,7 +24,7 @@ export function TracksAdmin({ eventId, activityId, pair, labels, groups, members
   return (
     <section className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Track A is {labels.a}, Track B is {labels.b}. Aim for {pair.target} on each; going over is allowed. Captains change these from My team on their own page.
+        Track A is {labels.a}, Track B is {labels.b}. Aim for {pair.target} on each; going over is allowed. Moving someone, or taking them off a track, removes what they logged on their old track today. Captains change these from My team on their own page.
       </p>
       {teams.map(({ g, people }) => {
         const split = splitTracks(pair, rows, people);

@@ -1,5 +1,6 @@
 import { isYes } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
+import { isOwnSubmissionPath } from "@/lib/storage";
 import { stepPoints, unitOf } from "@/features/activities/client";
 import type { Activity, Attendee, ChallengeScoring } from "@/lib/types";
 import type { TrackPair, TrackRow, TrackStatus } from "./types";
@@ -67,8 +68,11 @@ export function trackTeamRows(input: {
   const split = splitTracks(pair, input.rows, input.members);
   const future = input.day > input.today;
   const rowsOf = (side: "a" | "b") => split[side].map((m): TeamTrackRow => {
-    const value = totals[side].get(m.id) ?? 0;
-    const s = scoring[side];
+    // D726: a day logged only on the other track (before a move) shows that track's numbers, not "Not logged".
+    const other = side === "a" ? "b" : "a";
+    const read = (totals[side].get(m.id) ?? 0) === 0 && (totals[other].get(m.id) ?? 0) > 0 ? other : side;
+    const value = totals[read].get(m.id) ?? 0;
+    const s = scoring[read];
     const steps = s.daily_steps ?? [];
     const state = future ? "future" : value >= s.daily_min ? "logged" : "missing";
     return { id: m.id, name: m.name, self: m.id === input.selfId, state, value, unit: unitOf(s), pts: steps.length ? stepPoints(value, steps) : null };
@@ -102,4 +106,18 @@ export function memberTrackRefusal(code: string, memberName: string): string | n
  */
 export function showTrackSwitch(input: { captain: boolean; placed: boolean; changing: boolean }): boolean {
   return input.captain && (!input.placed || input.changing);
+}
+
+/** An entry as read just before a track move, for `goneEntryFiles`. */
+export type MovedEntry = { id: string; activity_id: string; answers: Record<string, string>; pair_id: string | null };
+
+/**
+ * D726: the photos to delete after a track move removed the person's entries from today - only
+ * entries that are gone now (`stillThere` holds the ids that survived), only files in that
+ * activity's own folder, and never a pair entry's, whose files the partner's entry still shows.
+ */
+export function goneEntryFiles(before: MovedEntry[], stillThere: Set<string>, at: { orgId: string; eventId: string }): string[] {
+  return before
+    .filter((e) => !stillThere.has(e.id) && e.pair_id === null)
+    .flatMap((e) => Object.values(e.answers).filter((v) => isOwnSubmissionPath({ orgId: at.orgId, eventId: at.eventId, formId: e.activity_id }, v)));
 }

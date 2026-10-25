@@ -5,7 +5,7 @@ import { flashPath } from "@/lib/flash";
 import { allow } from "@/lib/ratelimit";
 import { getAttendee } from "@/lib/db/attendees";
 import { portalTrackContext } from "./context";
-import { setTrack } from "./db";
+import { moveTrack } from "./db";
 import { intendedTrack } from "./lib";
 import type { TrackRefusal } from "./types";
 
@@ -30,7 +30,7 @@ export async function setMyTeamTrackAction(slug: string, token: string, activity
   if (!ctx) redirect(flashPath(back, REFUSED.closed, "error"));
   const target = attendeeId === ctx.attendee.id ? ctx.attendee : await getAttendee(attendeeId);
   if (!target || target.event_id !== ctx.event.id) redirect(flashPath(back, REFUSED.not_member, "error"));
-  const r = await setTrack({ pairId: ctx.pair.id, attendeeId: target.id, activityId: intendedTrack(ctx.pair, side, shownOnSide), actorId: ctx.attendee.id, admin: false });
+  const r = await moveTrack({ pair: ctx.pair, orgId: ctx.attendee.org_id, attendeeId: target.id, activityId: intendedTrack(ctx.pair, side, shownOnSide), actorId: ctx.attendee.id, admin: false });
   if (r !== "ok") redirect(flashPath(back, REFUSED[r], "error"));
   // No redirect on success: a captain places ten people in a row, and a redirect would send the
   // page back to the top each time. The refreshed My team, with the person moved, is the answer.

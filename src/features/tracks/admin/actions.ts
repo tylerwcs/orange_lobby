@@ -5,7 +5,7 @@ import { requireEventAccess } from "@/lib/access";
 import { flashPath } from "@/lib/flash";
 import { getAttendee } from "@/lib/db/attendees";
 import { requireFeature } from "@/features/catalogue";
-import { pairForActivity, setTrack } from "../db";
+import { moveTrack, pairForActivity } from "../db";
 import { trackLabel } from "../lib";
 
 /**
@@ -23,7 +23,7 @@ export async function setTrackAdminAction(eventId: string, activityId: string, a
   if (!person || person.event_id !== ev.id) redirect(flashPath(back, "That person isn't in this event.", "error"));
   const side = String(fd.get("track") ?? "");
   const target = side === "a" ? pair.a_activity_id : side === "b" ? pair.b_activity_id : null;
-  const r = await setTrack({ pairId: pair.id, attendeeId: person.id, activityId: target, actorId: null, admin: true });
+  const r = await moveTrack({ pair, orgId: person.org_id, attendeeId: person.id, activityId: target, actorId: null, admin: true });
   if (r !== "ok") redirect(flashPath(back, r === "not_member" ? `${person.name} needs a group, and mustn't be cancelled, to be on a track.` : "Those tracks no longer exist.", "error"));
   revalidatePath(`${list}/${pair.a_activity_id}`);
   revalidatePath(`${list}/${pair.b_activity_id}`);

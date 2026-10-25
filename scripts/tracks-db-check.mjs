@@ -113,6 +113,21 @@ try {
   check("a closed pair refuses the portal", (await place("M2", "A", "C1")) === "closed");
   check("a closed pair still lets the admin place", (await place("M2", "A", null, true)) === "ok");
   check("a missing pair is missing", must(await db.rpc("set_challenge_track", { p_pair_id: randomUUID(), p_attendee_id: id.M2, p_activity_id: null, p_actor_id: id.C1, p_admin: false })) === "missing");
+
+  // 10. D726: a move removes what the person logged today on the track they leave - never another day's.
+  await setActivity("A", { is_open: true });
+  await setActivity("B", { is_open: true });
+  const onDay = async (who, act, day) => (await db.from("activity_submissions").select("id", { count: "exact", head: true })
+    .eq("activity_id", acts[act].id).eq("attendee_id", id[who]).eq("submitted_on", day)).count;
+  check("M2 logs on A today", (await place("M2", "A", "C1")) === "ok" && (await submit("M2", "A")) === "ok");
+  must(await db.from("activity_submissions").insert({ event_id: event.id, activity_id: acts.A.id, attendee_id: id.M2, group_id: g1.id, answers: { km: 3 }, submitted_on: klDay(-1), per_day: false }));
+  check("moving M2 to B is ok", (await place("M2", "B", "C1")) === "ok");
+  check("today's A entry is gone", (await onDay("M2", "A", today)) === 0);
+  check("yesterday's A entry stays", (await onDay("M2", "A", klDay(-1))) === 1);
+  check("M2 logs on B the same day", (await submit("M2", "B")) === "ok");
+  check("taking M2 off a track removes today's B entry too", (await place("M2", null, "C1")) === "ok" && (await onDay("M2", "B", today)) === 0);
+  check("placing someone with no track removes nothing", (await place("M3", "A", null, true)) === "ok" && (await onDay("M3", "B", today)) === 0);
+  check("placing someone on the track they're on removes nothing", (await submit("M3", "A")) === "ok" && (await place("M3", "A", null, true)) === "ok" && (await onDay("M3", "A", today)) === 1);
 } catch (e) {
   failures += 1;
   console.error("ERROR", e);

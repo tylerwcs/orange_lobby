@@ -22,7 +22,7 @@ import { unitOf } from "../../../lib/challenge";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
 import { getActivity } from "../../../db/activities";
-import { isTrackCaptain, sameCalendar, scorePair, setMyTeamTrackAction, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
+import { isTrackCaptain, sameCalendar, scorePair, setMyTeamTrackAction, trackOf, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -108,7 +108,7 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
             {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
             {track && <TrackNote track={track} href={`/e/${slug}/a/${token}/activities/${track.other.id}`} />}
             {pairTeam && myTeam && (
-              <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain} bonus={pairTeam.bonus}
+              <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain} bonus={pairTeam.bonus} loggedToday={pairTeam.loggedToday}
                 day={t.selected} today={today} startsOn={scoring.starts_on} changing={changingTracks}
                 changeHref={`${path}?${new URLSearchParams({ ...(t.selected === today ? {} : { day: t.selected }), tracks: "change" })}`}
                 doneHref={t.selected === today ? path : `${path}?day=${t.selected}`}
@@ -169,6 +169,11 @@ async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awa
     groups: trackTeamRows({ pair, members, rows, totals: { a: dayOf(ca), b: dayOf(cb) }, scoring: { a: a.scoring!, b: b.scoring! }, day: at.day, today: at.today, selfId: at.selfId }),
     labels: { a: a.name, b: b.name },
     captain: !!self && isTrackCaptain([a, b], self),
+    // D726: who logged today on their own track, so the captain's switch can warn before a move removes it.
+    loggedToday: new Set(members.filter((m) => {
+      const own = trackOf(rows, m);
+      return own !== null && (own === a.id ? ca : cb).score.personKm(m.id, at.today) > 0;
+    }).map((m) => m.id)),
     bonus: pairWeek?.teams[at.teamId]
       ? { week: pairWeek.teams[at.teamId], points: pair.bonus, current: days[0] < at.today && at.today <= days[days.length - 1], past: days[days.length - 1] < at.today }
       : null,

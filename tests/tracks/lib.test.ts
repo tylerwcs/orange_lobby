@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { intendedTrack, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { goneEntryFiles, intendedTrack, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -76,7 +76,7 @@ describe("trackTeamRows (D724)", () => {
     { id: "zul", name: "Zul", group_id: "g1", cancelled_at: null },
   ];
   const rows = [row("aina", "A"), row("farah", "B"), row("wei", "B")];
-  // Wei has km on A that day from before a move - it is not his track's number.
+  // Wei has km on A that day, from before his move to B: his row shows it (D726).
   const totals = { a: new Map([["aina", 5.2], ["wei", 4]]), b: new Map([["farah", 45]]) };
   const run = (day = "2026-10-27") => trackTeamRows({ pair: PAIR, members, rows, totals, scoring, day, today: "2026-10-27", selfId: "farah" });
 
@@ -85,14 +85,14 @@ describe("trackTeamRows (D724)", () => {
     expect(g.a).toEqual([{ id: "aina", name: "Aina", self: false, state: "logged", value: 5.2, unit: "km", pts: 3 }]);
     expect(g.b.find((r) => r.id === "farah")).toEqual({ id: "farah", name: "Farah", self: true, state: "logged", value: 45, unit: "min", pts: 3 });
   });
-  it("puts the ones still to log first, and ignores the other track's number", () => {
+  it("shows a moved member's day on the track they logged it on, in name order once all have logged", () => {
     const g = run();
-    expect(g.b.map((r) => [r.id, r.state, r.value])).toEqual([["wei", "missing", 0], ["farah", "logged", 45]]);
+    expect(g.b.map((r) => [r.id, r.state, r.value, r.unit])).toEqual([["farah", "logged", 45, "min"], ["wei", "logged", 4, "km"]]);
   });
   it("lists people with no track apart, and counts who logged across both tracks", () => {
     const g = run();
     expect(g.none.map((r) => [r.id, r.state])).toEqual([["zul", "none"]]);
-    expect(g.logged).toBe(2);
+    expect(g.logged).toBe(3);
   });
   it("shows a day still to come as future for everyone on a track", () => {
     const g = run("2026-10-28");
@@ -127,5 +127,34 @@ describe("showTrackSwitch (D724)", () => {
   });
   it("never offers it to a member who isn't a captain", () => {
     expect(showTrackSwitch({ captain: false, placed: false, changing: true })).toBe(false);
+  });
+});
+
+describe("trackTeamRows on a day logged on the other track (D726)", () => {
+  const scoring = {
+    a: { metric_key: "km", daily_min: 1, starts_on: "2026-10-26", ends_on: "2026-12-04", unit: "km", daily_steps: [{ at: 1, pts: 1 }, { at: 3, pts: 2 }, { at: 5, pts: 3 }] },
+    b: { metric_key: "minutes", daily_min: 20, starts_on: "2026-10-26", ends_on: "2026-12-04", unit: "min", daily_steps: [{ at: 20, pts: 1 }, { at: 30, pts: 2 }, { at: 45, pts: 3 }] },
+  };
+  it("shows what the person logged on the other track that day, so an earlier day of a moved member doesn't read as Not logged", () => {
+    // Wei is on B now, but logged 5 km on A on an earlier day, before his move.
+    const g = trackTeamRows({ pair: PAIR, members: [{ id: "wei", name: "Wei", group_id: "g1", cancelled_at: null }], rows: [row("wei", "B")],
+      totals: { a: new Map([["wei", 5]]), b: new Map() }, scoring, day: "2026-10-27", today: "2026-10-29", selfId: "x" });
+    expect(g.b).toEqual([{ id: "wei", name: "Wei", self: false, state: "logged", value: 5, unit: "km", pts: 3 }]);
+    expect(g.logged).toBe(1);
+  });
+});
+
+describe("goneEntryFiles (D726)", () => {
+  const folder = "org/ev/A/";
+  const entry = (id: string, answers: Record<string, string>, pair_id: string | null = null) => ({ id, activity_id: "A", answers, pair_id });
+  it("lists the photos of entries the move removed, and only those", () => {
+    const before = [entry("e1", { km: "5", strava: `${folder}s1.jpg` }), entry("e2", { strava: `${folder}s2.jpg` })];
+    expect(goneEntryFiles(before, new Set(["e2"]), { orgId: "org", eventId: "ev" })).toEqual([`${folder}s1.jpg`]);
+  });
+  it("keeps a pair entry's photos, which the partner's entry still shows", () => {
+    expect(goneEntryFiles([entry("e1", { strava: `${folder}s1.jpg` }, "p1")], new Set(), { orgId: "org", eventId: "ev" })).toEqual([]);
+  });
+  it("ignores anything outside the activity's own folder", () => {
+    expect(goneEntryFiles([entry("e1", { strava: "org/ev/OTHER/s1.jpg", note: "hello" })], new Set(), { orgId: "org", eventId: "ev" })).toEqual([]);
   });
 });

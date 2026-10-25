@@ -171,9 +171,13 @@ user says yes in chat.
   - **The team's whole week is voided: both tracks' points and the bonus** (the user, 25 Oct,
     replacing "its own track only"). It matches the eDM's "their team's points for that week
     are voided", for one team score.
-- **Moving within a day:** someone moved during a day could log km in the morning and minutes in
-  the evening, and earn Tier 1 in both. This is accepted, and the committee polices it (my call;
-  the 5-vs-5 split is the team's own rule).
+- **Moving within a day removes that day's entries on the old track** (the user, 25 Oct, replacing
+  "both count"). Moving someone, or taking them off a track, deletes the entries they logged today
+  (Malaysian date) on the track they leave, with their photos (a pair entry keeps its photos, which
+  the partner's entry still shows). `set_challenge_track` does it (0107); the captain's switch asks
+  first when that person logged today. So nobody scores on both tracks in one day.
+- **My team on an earlier day** shows a moved member's numbers from whichever track they logged
+  that day, rather than "Not logged".
 
 ### D727 — The combined team score
 

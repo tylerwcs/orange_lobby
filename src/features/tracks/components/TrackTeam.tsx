@@ -17,7 +17,7 @@ const pill = (n: number, target: number) =>
  * My stats, the team grouped by track, each person on their own track's number for the shown day.
  * Captains get an A | B switch on every row, their own included; everyone else reads the same list.
  */
-export function TrackTeam({ teamName, groups, pair, labels, captain, day, today, startsOn, switchAction, bonus = null, changing = false, changeHref, doneHref }: {
+export function TrackTeam({ teamName, groups, pair, labels, captain, day, today, startsOn, switchAction, bonus = null, changing = false, changeHref, doneHref, loggedToday = new Set<string>() }: {
   teamName: string; groups: Groups; pair: TrackPair; labels: { a: string; b: string }; captain: boolean;
   day: string; today: string; startsOn: string;
   switchAction: (attendeeId: string, side: "a" | "b", shownOnSide: boolean) => () => Promise<void>;
@@ -27,6 +27,8 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
   changing?: boolean;
   /** Where "Change tracks" and "Done" lead; the same page with and without `?tracks=change`. */
   changeHref: string; doneHref: string;
+  /** D726: who has logged today on their own track - a move would remove it, so the switch asks first. */
+  loggedToday?: Set<string>;
 }) {
   const placed = groups.a.length + groups.b.length;
   const members = groups.a.length + groups.b.length + groups.none.length;
@@ -47,6 +49,11 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
           {(["a", "b"] as const).map((s) => (
             <form key={s} action={switchAction(r.id, s, side === s)} className={s === "b" ? "border-l border-border" : ""}>
               <TrackSwitchButton side={s === "a" ? "A" : "B"} on={side === s}
+                confirm={side !== null && loggedToday.has(r.id)
+                  ? (side === s
+                    ? `Taking ${r.name} off ${side === "a" ? "Track A" : "Track B"} removes what they logged on it today.`
+                    : `Moving ${r.name} to ${s === "a" ? "Track A" : "Track B"} removes what they logged on ${side === "a" ? "Track A" : "Track B"} today.`)
+                  : null}
                 label={side === s ? `Take ${r.name} off ${s === "a" ? "Track A" : "Track B"}` : `Put ${r.name} on ${s === "a" ? "Track A" : "Track B"}`} />
             </form>
           ))}

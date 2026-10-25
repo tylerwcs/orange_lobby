@@ -1,5 +1,8 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { deleteSubmissionFiles } from "@/lib/db/media";
+import { nowInKL } from "@/lib/time";
+import { goneEntryFiles, type MovedEntry } from "./lib";
 import type { Activity } from "@/lib/types";
 import type { TrackPair, TrackRefusal, TrackRow } from "./types";
 
@@ -51,4 +54,31 @@ export async function setTrack(input: { pairId: string; attendeeId: string; acti
   });
   if (error) throw error;
   return data as "ok" | TrackRefusal;
+}
+
+/** D726: one person's entries today on either track of the pair, read just before a move. */
+async function entriesToday(pair: TrackPair, attendeeId: string): Promise<MovedEntry[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("id, activity_id, answers, pair_id")
+    .eq("attendee_id", attendeeId).eq("submitted_on", nowInKL().date).in("activity_id", [pair.a_activity_id, pair.b_activity_id]);
+  if (error) throw error;
+  return (data ?? []) as MovedEntry[];
+}
+
+/**
+ * D723/D726: a checked placement that also clears up after itself. `set_challenge_track` removes
+ * what the person logged today on the track they leave; the database can't delete files, so their
+ * photos go here - only for entries that are gone now. A failed file delete leaves an object
+ * nothing names, and is swallowed: the move itself has happened.
+ */
+export async function moveTrack(input: { pair: TrackPair; orgId: string; attendeeId: string; activityId: string | null; actorId: string | null; admin: boolean }): Promise<"ok" | TrackRefusal> {
+  const before = await entriesToday(input.pair, input.attendeeId);
+  const r = await setTrack({ pairId: input.pair.id, attendeeId: input.attendeeId, activityId: input.activityId, actorId: input.actorId, admin: input.admin });
+  if (r !== "ok" || before.length === 0) return r;
+  const after = new Set((await entriesToday(input.pair, input.attendeeId)).map((e) => e.id));
+  try {
+    await deleteSubmissionFiles(goneEntryFiles(before, after, { orgId: input.orgId, eventId: input.pair.event_id }));
+  } catch {
+    // Left behind; see above.
+  }
+  return r;
 }
