@@ -15,12 +15,19 @@ import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
 import { countedRows, isPicker, listSportsForActivities, loadBonus, loadResults, squadPeople, squadRows, type CupBonus, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
+import { otherActivityId, pairsForEvent, trackLabel, trackOf, trackRowsFor, trackStatus, type TrackPair, type TrackRow, type TrackStatus } from "@/features/tracks";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
 export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string> };
 /** D500: `revoked` is for display only - every count reads `mine` and `group`, which hold live rows (D501). */
-export type SubmissionEntry = { form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null; revoked: ActivitySubmission[] };
+export type SubmissionEntry = {
+  form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null; revoked: ActivitySubmission[];
+  /** D725: where this attendee stands on the form's track pair; null when the form is in none. Optional so old fixtures compile. */
+  track?: SubmissionTrack | null;
+};
+/** D724/D725: the attendee's own track ("Track A") and the pair's other activity, for the notes and link on My stats. */
+export type SubmissionTrack = { pair: TrackPair; status: TrackStatus; mine: string | null; label: string; other: { id: string; name: string; label: string } };
 /** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
 export type PassportEntry = { activity: Activity; passport: Passport };
 /** A polaroid wall this attendee may post to, and their own live polaroids on it (D482). */
@@ -60,10 +67,10 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   // Read first: whether any group reads are worth doing at all depends on it. Most attendees
   // are not in a group, and most events run no group form, so this keeps `groupMembers` and
   // `submissionsForGroup` off the hot path for every other page load.
-  const [activities, scheduled] = await Promise.all([portalActivities(event.id), portalComingSoon(event.id)]);
+  const [activities, scheduled, pairs] = await Promise.all([portalActivities(event.id), portalComingSoon(event.id), pairsForEvent(event.id)]);
   const hasGroupForm = attendee.group_id !== null && activities.some((a) => a.kind === "submission" && isGroupForm(a.group_mode));
 
-  const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs, revokedMine, revokedGroup] = await Promise.all([
+  const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs, revokedMine, revokedGroup, trackRows] = await Promise.all([
     listSessions(event.id),
     countBookingsBySession(event.id),
     portalBookings(attendee.id),
@@ -76,6 +83,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     hasGroupForm ? submissionsForGroup(attendee.group_id!) : Promise.resolve([]),
     revokedForAttendee(attendee.id),
     hasGroupForm ? revokedForGroup(attendee.group_id!) : Promise.resolve([]),
+    // D725: only an event with a track pair has placements to read.
+    pairs.length ? trackRowsFor(attendee.id) : Promise.resolve([] as TrackRow[]),
   ]);
 
   const mineBySession = new Set(mine.map((b) => b.session_id));
@@ -99,7 +108,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     const sent = submissions.filter((s) => s.activity_id === form.id);
     // D353: on a group form every member reads the same progress, built from the group's rows.
     const group = isGroupForm(form.group_mode) && attendee.group_id ? groupProgress(form, attendee.group_id, members, groupSubs) : null;
-    return { form, state: canSubmit(form, sent, attendee.category, today, group, attendee.group_id), mine: sent, group, revoked: revokedFor(form, revokedMine, revokedGroup) };
+    const track = trackFor(form, pairs, trackRows, attendee, activities);
+    return { form, state: canSubmit(form, sent, attendee.category, today, group, attendee.group_id, track?.status ?? null), mine: sent, group, revoked: revokedFor(form, revokedMine, revokedGroup), track };
   });
 
   // Names for every entry on show. A former member (D355) is not in `members`, so they are
@@ -162,4 +172,16 @@ async function loadTournaments(eventId: string, cups: Activity[], attendee: Pick
     groups: groups.map((g) => ({ id: g.id, name: g.name })),
     bonus: bonuses[i],
   }));
+}
+
+/** D725: the form's pair, if any, and where this attendee stands on it. The other activity's name falls back when it is hidden. */
+function trackFor(form: Activity, pairs: TrackPair[], rows: TrackRow[], attendee: Pick<Attendee, "id" | "group_id">, activities: Activity[]): SubmissionTrack | null {
+  const pair = pairs.find((p) => p.a_activity_id === form.id || p.b_activity_id === form.id);
+  if (!pair) return null;
+  const mine = trackOf(rows.filter((r) => r.pair_id === pair.id), attendee);
+  const otherId = otherActivityId(pair, form.id);
+  return {
+    pair, mine, status: trackStatus(pair, form.id, mine)!, label: trackLabel(pair, form.id),
+    other: { id: otherId, name: activities.find((a) => a.id === otherId)?.name ?? "the other track", label: trackLabel(pair, otherId) },
+  };
 }

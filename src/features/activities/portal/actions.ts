@@ -209,6 +209,9 @@ const SUBMIT_RESULT_MESSAGES: Record<SubmitCode, string> = {
   missing: "This submission is no longer available.",
   closed: "Submissions for this are closed.",
   ineligible: "This is not open to your group.",
+  // D725: the person the entry is for is on no track, or on the other one.
+  notrack: "You're not on a track yet. Ask your captain to put you on one.",
+  othertrack: "This entry belongs to the other track. Submit it there instead.",
   limit: "Submission done. There is nothing more to send.",
   today: "You have already submitted today. Come back tomorrow.",
   nogroup: "You need to be in a group to submit this.",

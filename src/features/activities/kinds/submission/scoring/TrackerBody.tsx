@@ -1,4 +1,5 @@
-import { type SubmissionEntry } from "../../../lib/portal-activity-entries";
+import Link from "next/link";
+import { type SubmissionEntry, type SubmissionTrack } from "../../../lib/portal-activity-entries";
 import { type EditEntry } from "../SubmissionHistory";
 import { ActivityActionDialog } from "../../../portal/ActivityActionDialog";
 import { WeekStrip } from "./tracker/WeekStrip";
@@ -65,7 +66,7 @@ function TrackerInfo({ html }: { html: string | null }) {
  * held inside the challenge's dates) and that day's week. The team's scores are only read for
  * someone who has a team.
  */
-async function TrackerStats({ entry: { form: f, state }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing, edit, proxy }: {
+async function TrackerStats({ entry: { form: f, state, track }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing, edit, proxy }: {
   entry: SubmissionEntry; slug: string; token: string; path: string; attendeeId: string; teamId: string | null;
   eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry; proxy: Proxy | null;
 }) {
@@ -96,6 +97,7 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
             <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key} unit={unit}
               empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} addedBy={addedBy} />
             {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
+            {track && <TrackNote track={track} href={`/e/${slug}/a/${token}/activities/${track.other.id}`} />}
             {challenge && myTeam && shownWeek?.teams[myTeam.id] && (
               <MyTeam team={myTeam} week={shownWeek.teams[myTeam.id]} weekInfo={shownWeek.week} score={challenge.score} scoring={scoring}
                 day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />
@@ -122,6 +124,17 @@ async function TrackerStats({ entry: { form: f, state }, slug, token, path, atte
         </ActivityActionDialog>
       )}
     </>
+  );
+}
+
+/** D724/D725: which track this attendee is on, above My team - and, off this track, where to submit instead of the Add button. */
+function TrackNote({ track, href }: { track: SubmissionTrack; href: string }) {
+  if (track.status === "none") return <p className={note}>Your captain hasn&apos;t put you on a track yet.</p>;
+  if (track.status === "this") return <p className={note}>You&apos;re on {track.label} — this is your track.</p>;
+  return (
+    <p className={note}>
+      You&apos;re on {track.other.label} — <Link href={href} className="font-bold underline underline-offset-2">submit under {track.other.name}</Link>.
+    </p>
   );
 }
 

@@ -4,11 +4,13 @@ import { lastDays, daysBetween } from "@/lib/time";
 import type { Activity, ActivitySubmission, Attendee, RegistrationQuestion, GroupMode } from "@/lib/types";
 import { isYes, type GroupProgress } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
+import type { TrackStatus } from "@/features/tracks/types";
 
 /** How many questions a submission activity's editor offers, mirroring `MAX_QUESTIONS` for registration. */
 export const MAX_SUBMISSION_QUESTIONS = 20;
 
-export type SubmitReason = "ok" | "closed" | "ineligible" | "limit" | "today" | "nogroup" | "groupdone";
+/** D725: `notrack` and `othertrack` only on an activity that is one of a track pair. */
+export type SubmitReason = "ok" | "closed" | "ineligible" | "notrack" | "othertrack" | "limit" | "today" | "nogroup" | "groupdone";
 export type SubmitState = {
   can: boolean;
   reason: SubmitReason;
@@ -104,6 +106,8 @@ export function canSubmit(
   group: GroupProgress | null = null,
   /** D369: the attendee's current team, for `members` mode. */
   teamId: string | null = null,
+  /** D725: where they stand on a track pair; null when this activity is in none. */
+  track: TrackStatus | null = null,
 ): SubmitState {
   const used = mine.length;
   if (!activity.is_open) return { can: false, reason: "closed", used };
@@ -112,6 +116,8 @@ export function canSubmit(
     return { can: false, reason: "closed", used, ...(today < activity.scoring.starts_on ? { startsOn: activity.scoring.starts_on } : {}) };
   }
   if (!categoryMatches(activity.categories, category)) return { can: false, reason: "ineligible", used };
+  if (track === "none") return { can: false, reason: "notrack", used };
+  if (track === "other") return { can: false, reason: "othertrack", used };
   if (activity.group_mode === "members") {
     return teamId ? { can: true, reason: "ok", used } : { can: false, reason: "nogroup", used };
   }

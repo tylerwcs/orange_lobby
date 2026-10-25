@@ -22,6 +22,7 @@ import { submitAnswersAction, editMySubmissionAction, deleteMySubmissionAction }
 import { portalFileHref } from "@/lib/file-links";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { hasHealthConsent } from "@/lib/db/health-consents";
+import { pairForActivity, trackOf, trackRows } from "@/features/tracks";
 import { RichSections } from "@/components/portal/RichSections";
 import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
 
@@ -59,11 +60,15 @@ export type Proxy = { members: Attendee[]; added: ActivitySubmission[] };
 
 export async function proxyFor(f: Activity, attendee: Attendee): Promise<Proxy | null> {
   if (!attendee.group_id || !isProxy(f, attendee)) return null;
-  const [members, added] = await Promise.all([
+  const [members, added, pair] = await Promise.all([
     groupMembers(f.event_id, attendee.group_id),
     submissionsAddedBy(f.id, attendee.id, nowInKL().date),
+    pairForActivity(f.id),
   ]);
-  return { members: members.filter((m) => m.id !== attendee.id), added };
+  // D725: on a track, a captain sends only for the members on this track - whatever their own is.
+  const rows = pair ? await trackRows(pair.id) : [];
+  const onThis = (m: Attendee) => !pair || trackOf(rows, m) === f.id;
+  return { members: members.filter((m) => m.id !== attendee.id && onThis(m)), added };
 }
 
 /**

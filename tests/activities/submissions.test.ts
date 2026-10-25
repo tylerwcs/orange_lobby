@@ -406,3 +406,25 @@ describe("submitting for the group (D392)", () => {
     expect(canEditOwn(editable, added, "x9", null, TODAY)).toBe(false);
   });
 });
+
+describe("canSubmit on a track pair (D725)", () => {
+  const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-26", ends_on: "2026-12-04" };
+  const track = form({ group_mode: "members", scoring });
+  const on = (status: "this" | "other" | "none" | null, today = "2026-10-27", category: string | null = null, activity = track) =>
+    canSubmit(activity, [], category, today, null, "g1", status);
+
+  it("refuses someone with no track, and someone on the other track", () => {
+    expect(on("none")).toEqual({ can: false, reason: "notrack", used: 0 });
+    expect(on("other").reason).toBe("othertrack");
+  });
+  it("takes someone on this track, and an activity in no pair as before", () => {
+    expect(on("this")).toEqual({ can: true, reason: "ok", used: 0 });
+    expect(on(null)).toEqual({ can: true, reason: "ok", used: 0 });
+  });
+  it("says closed before the start, not notrack", () => {
+    expect(on("none", "2026-10-25")).toEqual({ can: false, reason: "closed", used: 0, startsOn: "2026-10-26" });
+  });
+  it("says ineligible before notrack", () => {
+    expect(on("none", "2026-10-27", "KOM", form({ group_mode: "members", scoring, categories: ["Wellness"] })).reason).toBe("ineligible");
+  });
+});
