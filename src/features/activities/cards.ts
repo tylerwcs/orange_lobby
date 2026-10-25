@@ -18,6 +18,8 @@ export type ActivityCardItem = {
   /** Required and not yet chosen: ringed in the brand colour so it is the card the eye lands on. */
   emphasis: boolean;
   section: CardSection;
+  /** D724: the other track of a pair is not pinned for this attendee, though the organiser pinned it. Absent is the organiser's pin. */
+  unpinned?: boolean;
 };
 
 const SECTION_ORDER: readonly Exclude<CardSection, "pinned">[] = ["choose", "booked", "open", "coming", "done"];
@@ -49,7 +51,11 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
     // Only "ineligible" hides a form here; a closed one never arrives (D384, `shownToAttendees`).
     submission: (list) => list
       .filter((s) => s.state.reason !== "ineligible")
-      .map(({ form, state }) => ({ activity: form, view: formCard({ form, state }), href: href(form), emphasis: false, section: "open" as const })),
+      .map(({ form, state, track }) => ({
+        activity: form, view: formCard({ form, state }), href: href(form), emphasis: false, section: "open" as const,
+        // D724: each attendee's own track stays pinned; the other one sits in the list with "Other track".
+        unpinned: track?.status === "other",
+      })),
     passport: (list) => list.map(({ activity, passport }) => ({
       activity, view: passportCard({ passport, open: activity.is_open }), href: href(activity), emphasis: false, section: passportSection(passport),
     })),
@@ -87,10 +93,11 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
   // then forms, then passports, as the tab has always listed them.
   const rank = (s: CardSection) => SECTION_ORDER.indexOf(s as Exclude<CardSection, "pinned">);
   const ordered = [...ACTIVITY_KINDS.flatMap((k) => cardsOf(k)), ...coming].sort((a, b) => rank(a.section) - rank(b.section));
-  const pinned = ordered.filter((c) => c.activity.pinned)
+  const isPinned = (c: ActivityCardItem) => c.activity.pinned && !c.unpinned;
+  const pinned = ordered.filter(isPinned)
     .sort((a, b) => a.activity.sort_order - b.activity.sort_order)
     .map((c) => ({ ...c, section: "pinned" as const }));
-  return [...pinned, ...ordered.filter((c) => !c.activity.pinned)];
+  return [...pinned, ...ordered.filter((c) => !isPinned(c))];
 }
 
 /** The entry behind one activity page, with its kind, for an exhaustive switch over what to draw (D416). */

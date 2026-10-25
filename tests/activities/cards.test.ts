@@ -166,3 +166,23 @@ describe("activityCards — Coming soon (D605)", () => {
     expect(activityCards({ booking: [booking("b")], submission: [], passport: [], polaroid: [], tournament: [] }, "/p")).toHaveLength(1);
   });
 });
+
+describe("activityCards on a track pair (D724)", () => {
+  const pair = { id: "p", event_id: "e", a_activity_id: "mileage", b_activity_id: "active", target: 5, bonus: 10 };
+  const tracked = (id: string, status: "this" | "other" | "none"): SubmissionEntry => ({
+    ...form(id, status === "this" ? "ok" : status === "other" ? "othertrack" : "notrack"),
+    form: activity(id, { kind: "submission", pinned: true, sort_order: id === "mileage" ? 1 : 2 }),
+    track: { pair, status, mine: status === "none" ? null : status === "this" ? id : id === "mileage" ? "active" : "mileage", label: "", other: { id: "", name: "", label: "" } },
+  });
+  const sections = (mileage: "this" | "other" | "none", active: "this" | "other" | "none") =>
+    activityCards({ booking: [], submission: [tracked("mileage", mileage), tracked("active", active)], passport: [], polaroid: [], tournament: [] }, "/p")
+      .map((c) => [c.activity.id, c.section]);
+
+  it("pins only the attendee's own track; the other drops into the list", () => {
+    expect(sections("this", "other")).toEqual([["mileage", "pinned"], ["active", "open"]]);
+    expect(sections("other", "this")).toEqual([["active", "pinned"], ["mileage", "open"]]);
+  });
+  it("keeps both pinned for someone with no track yet", () => {
+    expect(sections("none", "none")).toEqual([["mileage", "pinned"], ["active", "pinned"]]);
+  });
+});
