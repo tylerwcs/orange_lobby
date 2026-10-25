@@ -100,7 +100,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // D728: each track pair also gets its one team score, once per pair.
   for (const pair of await pairsForEvent(ev.id)) {
     const combined = await loadPairScore(ev, pair, nowInKL().date);
-    if (combined.ok) addLeaderboardSheet(wb, `${combined.activities[0].name} + ${combined.activities[1].name} combined`, pairLeaderboardRows(combined.score));
+    if (combined.ok) addLeaderboardSheet(wb, "Combined leaderboard", pairLeaderboardRows(combined.score));
   }
   const buf = await wb.xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {

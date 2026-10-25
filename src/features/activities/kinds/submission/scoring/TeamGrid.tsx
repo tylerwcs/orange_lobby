@@ -5,17 +5,19 @@ import { mondayOf, weekLabel, type ChallengeWeek } from "../../../lib/challenge"
 import type { Disqualification } from "../../../db/challenge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { DisqualifyForm } from "./DisqualifyForm";
+import { gridDisqualification, type GridElsewhere } from "../../../lib/team-grid";
 
 /** D381: one team's members against the week's days, km in each cell, with Disqualify and Undo (D380). */
-export function TeamGrid({ team, week, score, names, dq, dailyMin, weekVoid, back, disqualify, undo }: {
+export function TeamGrid({ team, week, score, names, dq, dailyMin, weekVoid, back, disqualify, undo, elsewhere = null }: {
   team: Team; week: ChallengeWeek; score: ChallengeScore; names: Map<string, string>; dq: Disqualification[]; dailyMin: number;
   /** D467: a disqualification voids the grid's week, not the season. */
   weekVoid: boolean;
   back: string;
   disqualify: (attendeeId: string) => (fd: FormData) => Promise<void>;
   undo: (attendeeId: string) => (fd: FormData) => Promise<void>;
+  /** D726: on a track pair, the other track's disqualifications - they count here too, but are undone there. */
+  elsewhere?: GridElsewhere | null;
 }) {
-  const dqBy = new Map(dq.map((d) => [d.attendee_id, d]));
   // A disqualified member voids the whole team (D380), which the heading says rather than leaving it to the table.
   const isVoid = score.standings.find((x) => x.id === team.id)?.void ?? false;
   // D467: under a week void only the voided week says so, and each disqualification names its week.
@@ -37,19 +39,22 @@ export function TeamGrid({ team, week, score, names, dq, dailyMin, weekVoid, bac
           </tr></thead>
           <tbody>
             {team.memberIds.map((id) => {
-              const d = dqBy.get(id);
+              const found = gridDisqualification(id, dq, elsewhere);
+              const d = found?.d;
               const name = names.get(id) ?? "Unknown";
               const from = d && weekVoid ? weekOf(d.week_of) : undefined;
               return (
                 <tr key={id} className="border-t border-border align-top">
-                  <td className="py-2 pr-3 font-bold">{name}{d && <span className="block text-xs font-normal text-destructive">Disqualified{from ? ` from Week ${from}` : ""}: {d.reason}</span>}</td>
+                  <td className="py-2 pr-3 font-bold">{name}{d && <span className="block text-xs font-normal text-destructive">Disqualified{found?.where ? ` on ${found.where}` : ""}{from ? ` from Week ${from}` : ""}: {d.reason}</span>}</td>
                   {week.days.map((day) => {
                     const km = score.personKm(id, day);
                     // D467: a disqualified member's days from their week on count for nothing, so they are dimmed.
                     return <td key={day} className={`px-1.5 py-2 text-right tabular-nums ${km >= dailyMin && score.counts(id, day) ? "" : "text-muted-foreground/60"}`}>{km || "–"}</td>;
                   })}
                   <td className="py-2 pl-3">
-                    {d ? (
+                    {found?.where ? (
+                      <span className="text-xs text-muted-foreground">Undo on {found.where}</span>
+                    ) : d ? (
                       <form action={undo(id)}><input type="hidden" name="team" value={team.id} /><input type="hidden" name="week" value={week.number} /><SubmitButton size="sm" variant="outline">Undo</SubmitButton></form>
                     ) : (
                       <DisqualifyForm action={disqualify(id)} teamId={team.id} week={week.number} name={name} teamName={team.name} weekVoid={weekVoid} />

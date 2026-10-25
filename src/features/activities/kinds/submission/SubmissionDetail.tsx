@@ -25,6 +25,7 @@ import { capSummary, missingFrom, participation, liveSubmissions, isGroupForm } 
 import { nowInKL, dayNav } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { loadChallenge, loadPairScore } from "../../lib/challenge-data";
+import { listDisqualifications } from "../../db/challenge";
 import { gridWeek, unitOf } from "../../lib/challenge";
 import { groupsNotDone } from "@/lib/groups";
 import { listGroups } from "@/lib/db/groups";
@@ -126,6 +127,11 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
   const weekNum = week && /^\d+$/.test(week) ? Number(week) : null;
   const gridTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) : undefined;
   const gridWeekShown = challenge && gridTeam ? gridWeek(challenge.weeks, weekNum, today) : undefined;
+  // D726: on a track pair the grid shows the other track's disqualifications too, named, since they count here.
+  const otherId = pair ? (pair.a_activity_id === activity.id ? pair.b_activity_id : pair.a_activity_id) : null;
+  const elsewhere = gridTeam && pair && otherId
+    ? await Promise.all([listDisqualifications(otherId), pairActivities(pair)]).then(([dq, both]) => ({ dq, name: both?.find((x) => x.id === otherId)?.name ?? "the other track" }))
+    : null;
   const href = (t: ActivityTab) => activityHref(ev.id, activity.id, t);
 
   return (
@@ -263,6 +269,7 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
                 back={activityHref(ev.id, activity.id, "leaderboard", week ? { week } : {})}
                 disqualify={(aid) => disqualifyAction.bind(null, ev.id, activity.id, aid)}
                 undo={(aid) => undoDisqualifyAction.bind(null, ev.id, activity.id, aid)}
+                elsewhere={elsewhere}
               />
             ) : (
               <LeaderboardPanel score={challenge.score} unit={unitOf(activity.scoring!)} week={weekNum} today={today}
