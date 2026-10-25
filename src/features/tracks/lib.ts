@@ -1,6 +1,7 @@
 import { isYes } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
-import type { Activity, Attendee } from "@/lib/types";
+import { stepPoints, unitOf } from "@/features/activities/client";
+import type { Activity, Attendee, ChallengeScoring } from "@/lib/types";
 import type { TrackPair, TrackRow, TrackStatus } from "./types";
 
 /** The pure rules of a track pair (D722-D725). The database decides what is allowed; these decide what the page draws. */
@@ -42,4 +43,38 @@ export function splitTracks<T extends Person>(pair: TrackPair, rows: TrackRow[],
 /** D723: a Yes in a field ticked on either activity of the pair - D392's `isProxy` over both. */
 export function isTrackCaptain(activities: Pick<Activity, "proxy_fields">[], attendee: Pick<Attendee, "extra">): boolean {
   return activities.some((a) => a.proxy_fields.some((k) => isYes(fieldValue(attendee, k))));
+}
+
+/** D724: one row of My team on a track pair - the shown day on the person's OWN track. */
+export type TeamTrackRow = { id: string; name: string; self: boolean; state: "logged" | "missing" | "future" | "none"; value: number; unit: string; pts: number | null };
+
+/**
+ * D724: My team on a track pair, by track. Each person reads their own track's total for the day,
+ * so km left on A from before a move to B is not shown as theirs. As `teamDayRows`, the ones still
+ * to log come first (D379) and a day still to come is "future" for everyone (D383). `logged` counts
+ * members on either track who reached their track's daily minimum.
+ */
+export function trackTeamRows(input: {
+  pair: TrackPair;
+  members: (Pick<Attendee, "id" | "name" | "group_id"> & { cancelled_at?: string | null })[];
+  rows: TrackRow[];
+  /** Each person's total for `day` on Track A and on Track B. */
+  totals: { a: Map<string, number>; b: Map<string, number> };
+  scoring: { a: ChallengeScoring; b: ChallengeScoring };
+  day: string; today: string; selfId: string;
+}): { a: TeamTrackRow[]; b: TeamTrackRow[]; none: TeamTrackRow[]; logged: number } {
+  const { pair, totals, scoring } = input;
+  const split = splitTracks(pair, input.rows, input.members);
+  const future = input.day > input.today;
+  const rowsOf = (side: "a" | "b") => split[side].map((m): TeamTrackRow => {
+    const value = totals[side].get(m.id) ?? 0;
+    const s = scoring[side];
+    const steps = s.daily_steps ?? [];
+    const state = future ? "future" : value >= s.daily_min ? "logged" : "missing";
+    return { id: m.id, name: m.name, self: m.id === input.selfId, state, value, unit: unitOf(s), pts: steps.length ? stepPoints(value, steps) : null };
+  }).sort((x, y) => Number(x.state === "logged") - Number(y.state === "logged") || x.name.localeCompare(y.name));
+  const a = rowsOf("a"), b = rowsOf("b");
+  const none = split.none.map((m): TeamTrackRow => ({ id: m.id, name: m.name, self: m.id === input.selfId, state: "none", value: 0, unit: "", pts: null }))
+    .sort((x, y) => x.name.localeCompare(y.name));
+  return { a, b, none, logged: [...a, ...b].filter((r) => r.state === "logged").length };
 }

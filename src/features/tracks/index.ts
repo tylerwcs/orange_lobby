@@ -1,4 +1,6 @@
-/** Mileage x Active tracks (D721-D730), server entry: reads and writes. Pure rules are in `./lib`, types in `./types`. */
+/** Mileage x Active tracks (D721-D730), server entry: everything in `client.ts`, plus its reads, writes, portal action and My team screen. */
+export * from "./client";
 export * from "./db";
-export * from "./lib";
-export type * from "./types";
+export * from "./context";
+export * from "./actions";
+export { TrackTeam } from "./components/TrackTeam";

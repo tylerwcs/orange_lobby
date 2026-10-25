@@ -4,7 +4,7 @@ import { lastDays, daysBetween } from "@/lib/time";
 import type { Activity, ActivitySubmission, Attendee, RegistrationQuestion, GroupMode } from "@/lib/types";
 import { isYes, type GroupProgress } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
-import type { TrackStatus } from "@/features/tracks/types";
+import type { TrackStatus } from "@/features/tracks/client";
 
 /** How many questions a submission activity's editor offers, mirroring `MAX_QUESTIONS` for registration. */
 export const MAX_SUBMISSION_QUESTIONS = 20;

@@ -21,6 +21,10 @@ import { loadChallenge } from "../../../lib/challenge-data";
 import { unitOf } from "../../../lib/challenge";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
+import { dailyTotals } from "../../../db/challenge";
+import { getActivity } from "../../../db/activities";
+import { isTrackCaptain, setMyTeamTrackAction, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
+import type { Activity } from "@/lib/types";
 
 /**
  * D374/D385: a scored challenge's page, in three tabs under the name. My stats - the week strip,
@@ -82,6 +86,8 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
   const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
   const myTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
   const shownWeek = t && challenge ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
+  // D724: on a track pair, My team is the team by track, each person on their own track's number.
+  const pairTeam = t && challenge && myTeam && track ? await loadTrackTeam(f, track, challenge, myTeam.id, attendeeId, t.selected, today) : null;
   return (
     <>
       <section className="flex flex-col gap-4 py-5">
@@ -98,7 +104,12 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
               empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} addedBy={addedBy} />
             {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
             {track && <TrackNote track={track} href={`/e/${slug}/a/${token}/activities/${track.other.id}`} />}
-            {challenge && myTeam && shownWeek?.teams[myTeam.id] && (
+            {pairTeam && myTeam && (
+              <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain}
+                day={t.selected} today={today} startsOn={scoring.starts_on}
+                switchAction={(id, s) => setMyTeamTrackAction.bind(null, slug, token, f.id, id, s, t.selected === today ? null : t.selected)} />
+            )}
+            {!pairTeam && challenge && myTeam && shownWeek?.teams[myTeam.id] && (
               <MyTeam team={myTeam} week={shownWeek.teams[myTeam.id]} weekInfo={shownWeek.week} score={challenge.score} scoring={scoring}
                 day={t.selected} today={today} selfId={attendeeId} names={challenge.names} />
             )}
@@ -125,6 +136,30 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
       )}
     </>
   );
+}
+
+/**
+ * D724: what My team needs on a track pair - the pair's placements, the other track's totals for
+ * the shown day (this track's come from the score already read), both activities' names, and
+ * whether this attendee is a captain of the pair.
+ */
+async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awaited<ReturnType<typeof loadChallenge>>, teamId: string, selfId: string, day: string, today: string) {
+  const { pair } = track;
+  const [rows, otherTotals, other] = await Promise.all([trackRows(pair.id), dailyTotals(track.other.id), getActivity(track.other.id, f.event_id)]);
+  if (!other?.scoring) return null;
+  const here = new Map<string, number>();
+  const there = new Map<string, number>();
+  const members = challenge.attendees.filter((m) => m.group_id === teamId);
+  for (const m of members) here.set(m.id, challenge.score.personKm(m.id, day));
+  for (const r of otherTotals) if (r.day === day) there.set(r.attendeeId, (there.get(r.attendeeId) ?? 0) + r.km);
+  const isA = f.id === pair.a_activity_id;
+  const [a, b] = isA ? [f, other] : [other, f];
+  const self = challenge.attendees.find((m) => m.id === selfId);
+  return {
+    groups: trackTeamRows({ pair, members, rows, totals: isA ? { a: here, b: there } : { a: there, b: here }, scoring: { a: a.scoring!, b: b.scoring! }, day, today, selfId }),
+    labels: { a: a.name, b: b.name },
+    captain: !!self && isTrackCaptain([a, b], self),
+  };
 }
 
 /** D724/D725: which track this attendee is on, above My team - and, off this track, where to submit instead of the Add button. */

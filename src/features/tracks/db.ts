@@ -1,5 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import type { Activity } from "@/lib/types";
 import type { TrackPair, TrackRefusal, TrackRow } from "./types";
 
 const PAIR = "id, event_id, a_activity_id, b_activity_id, target, bonus";
@@ -17,6 +18,16 @@ export async function pairsForEvent(eventId: string): Promise<TrackPair[]> {
   const { data, error } = await serviceClient().from("challenge_track_pairs").select(PAIR).eq("event_id", eventId);
   if (error) throw error;
   return (data ?? []) as TrackPair[];
+}
+
+/** D721: the pair's two activities, Track A then Track B; null if either is gone. Read here so this feature never imports activities' server entry, which imports it. */
+export async function pairActivities(pair: TrackPair): Promise<[Activity, Activity] | null> {
+  const { data, error } = await serviceClient().from("activities").select("*")
+    .eq("event_id", pair.event_id).in("id", [pair.a_activity_id, pair.b_activity_id]);
+  if (error) throw error;
+  const rows = (data ?? []) as Activity[];
+  const a = rows.find((r) => r.id === pair.a_activity_id), b = rows.find((r) => r.id === pair.b_activity_id);
+  return a && b ? [a, b] : null;
 }
 
 /** D722: every placement in a pair, stale ones included - `trackOf` decides which count. */

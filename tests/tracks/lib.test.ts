@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTrackCaptain, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus } from "@/features/tracks/lib";
+import { isTrackCaptain, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -61,5 +61,42 @@ describe("isTrackCaptain (D723)", () => {
     const acts = [{ proxy_fields: [] }, { proxy_fields: ["captain"] }];
     expect(isTrackCaptain(acts, { extra: { captain: " Yes " } })).toBe(true);
     expect(isTrackCaptain(acts, { extra: { captain: "no" } })).toBe(false);
+  });
+});
+
+describe("trackTeamRows (D724)", () => {
+  const scoring = {
+    a: { metric_key: "km", daily_min: 1, starts_on: "2026-10-26", ends_on: "2026-12-04", unit: "km", daily_steps: [{ at: 1, pts: 1 }, { at: 3, pts: 2 }, { at: 5, pts: 3 }, { at: 8, pts: 4 }, { at: 10, pts: 5 }] },
+    b: { metric_key: "minutes", daily_min: 20, starts_on: "2026-10-26", ends_on: "2026-12-04", unit: "min", daily_steps: [{ at: 20, pts: 1 }, { at: 30, pts: 2 }, { at: 45, pts: 3 }, { at: 60, pts: 4 }, { at: 120, pts: 5 }] },
+  };
+  const members = [
+    { id: "aina", name: "Aina", group_id: "g1", cancelled_at: null },
+    { id: "farah", name: "Farah", group_id: "g1", cancelled_at: null },
+    { id: "wei", name: "Wei", group_id: "g1", cancelled_at: null },
+    { id: "zul", name: "Zul", group_id: "g1", cancelled_at: null },
+  ];
+  const rows = [row("aina", "A"), row("farah", "B"), row("wei", "B")];
+  // Wei has km on A that day from before a move - it is not his track's number.
+  const totals = { a: new Map([["aina", 5.2], ["wei", 4]]), b: new Map([["farah", 45]]) };
+  const run = (day = "2026-10-27") => trackTeamRows({ pair: PAIR, members, rows, totals, scoring, day, today: "2026-10-27", selfId: "farah" });
+
+  it("reads each person on their own track, with that track's unit and points", () => {
+    const g = run();
+    expect(g.a).toEqual([{ id: "aina", name: "Aina", self: false, state: "logged", value: 5.2, unit: "km", pts: 3 }]);
+    expect(g.b.find((r) => r.id === "farah")).toEqual({ id: "farah", name: "Farah", self: true, state: "logged", value: 45, unit: "min", pts: 3 });
+  });
+  it("puts the ones still to log first, and ignores the other track's number", () => {
+    const g = run();
+    expect(g.b.map((r) => [r.id, r.state, r.value])).toEqual([["wei", "missing", 0], ["farah", "logged", 45]]);
+  });
+  it("lists people with no track apart, and counts who logged across both tracks", () => {
+    const g = run();
+    expect(g.none.map((r) => [r.id, r.state])).toEqual([["zul", "none"]]);
+    expect(g.logged).toBe(2);
+  });
+  it("shows a day still to come as future for everyone on a track", () => {
+    const g = run("2026-10-28");
+    expect([...g.a, ...g.b].every((r) => r.state === "future")).toBe(true);
+    expect(g.logged).toBe(0);
   });
 });
