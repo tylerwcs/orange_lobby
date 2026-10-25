@@ -33,10 +33,10 @@ import { TITLE_INK } from "@/lib/ink";
  */
 export async function ActivityPage({ params, searchParams }: {
   params: Promise<{ slug: string; token: string; activityId: string }>;
-  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[]; sport?: string | string[]; view?: string | string[]; show?: string | string[] }>;
+  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[]; sport?: string | string[]; view?: string | string[]; show?: string | string[]; tracks?: string | string[] }>;
 }) {
   const { slug, token, activityId } = await params;
-  const { new: writing, day, tab, sport, view, show } = await searchParams;
+  const { new: writing, day, tab, sport, view, show, tracks } = await searchParams;
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : null);
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
@@ -60,7 +60,7 @@ export async function ActivityPage({ params, searchParams }: {
           ? <TrackerBody entry={form} slug={slug} token={token} attendeeId={attendee.id} teamId={attendee.group_id} eventStartsOn={event.starts_on} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy}
               // D517: rosters follow the All groups switch - one switch for seeing other teams' members.
               rosters={event.all_groups ? { groupFields: event.group_fields, fields: eventFields(event.registration_questions, event.attendee_fields) } : null}
-              day={typeof day === "string" ? day : null} writing={writing === "1"}
+              day={typeof day === "string" ? day : null} writing={writing === "1"} changingTracks={one(tracks) === "change"}
               // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
               tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined, form.form.show_leaderboard)} />
           : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={entries.people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />;

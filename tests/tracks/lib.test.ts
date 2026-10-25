@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { intendedTrack, isTrackCaptain, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { intendedTrack, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -116,5 +116,16 @@ describe("memberTrackRefusal (D725)", () => {
     expect(memberTrackRefusal("notrack", "Wei")).toBe("Wei isn't on a track yet. Put them on one from My team first.");
     expect(memberTrackRefusal("othertrack", "Wei")).toBe("Wei is on the other track. Submit for them there instead.");
     expect(memberTrackRefusal("closed", "Wei")).toBeNull();
+  });
+});
+
+describe("showTrackSwitch (D724)", () => {
+  it("offers a captain the switch only for someone with no track, unless they are changing tracks", () => {
+    expect(showTrackSwitch({ captain: true, placed: false, changing: false })).toBe(true);
+    expect(showTrackSwitch({ captain: true, placed: true, changing: false })).toBe(false);
+    expect(showTrackSwitch({ captain: true, placed: true, changing: true })).toBe(true);
+  });
+  it("never offers it to a member who isn't a captain", () => {
+    expect(showTrackSwitch({ captain: false, placed: false, changing: true })).toBe(false);
   });
 });

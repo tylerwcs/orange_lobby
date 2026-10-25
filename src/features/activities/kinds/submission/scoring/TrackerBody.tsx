@@ -31,11 +31,13 @@ import type { Activity } from "@/lib/types";
  * opens this page for every day, with My team at its foot (D387); Info holds the About and rules;
  * Leaderboard the standings (D386). Each tab reads only what it draws.
  */
-export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit, proxy, rosters }: {
+export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit, proxy, rosters, changingTracks = false }: {
   entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
   day: string | null; writing: boolean; tab: TrackerTab; edit?: EditEntry; proxy: Proxy | null;
   /** D517: the event shows all groups, so the Leaderboard's teams open to their rosters; null keeps rows closed. */
   rosters: RosterRules | null;
+  /** D724: `?tracks=change` - a captain's My team shows the A | B switch on every row, not just the unplaced. */
+  changingTracks?: boolean;
 }) {
   const path = `/e/${slug}/a/${token}/activities/${entry.form.id}`;
   return (
@@ -48,7 +50,7 @@ export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStart
           ? <TrackerInfo html={entry.form.description} />
           : tab === "leaderboard"
             ? <TrackerLeaderboard entry={entry} teamId={teamId} attendeeId={attendeeId} eventStartsOn={eventStartsOn} rosters={rosters} />
-            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} edit={edit} proxy={proxy} />}
+            : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} edit={edit} proxy={proxy} changingTracks={changingTracks} />}
       </PendingSwap>
     </PendingScope>
   );
@@ -69,9 +71,9 @@ function TrackerInfo({ html }: { html: string | null }) {
  * held inside the challenge's dates) and that day's week. The team's scores are only read for
  * someone who has a team.
  */
-async function TrackerStats({ entry: { form: f, state, track }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing, edit, proxy }: {
+async function TrackerStats({ entry: { form: f, state, track }, slug, token, path, attendeeId, teamId, eventStartsOn, day, writing, edit, proxy, changingTracks }: {
   entry: SubmissionEntry; slug: string; token: string; path: string; attendeeId: string; teamId: string | null;
-  eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry; proxy: Proxy | null;
+  eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry; proxy: Proxy | null; changingTracks: boolean;
 }) {
   const scoring = f.scoring!;
   const unit = unitOf(scoring);
@@ -107,7 +109,9 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
             {track && <TrackNote track={track} href={`/e/${slug}/a/${token}/activities/${track.other.id}`} />}
             {pairTeam && myTeam && (
               <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain} bonus={pairTeam.bonus}
-                day={t.selected} today={today} startsOn={scoring.starts_on}
+                day={t.selected} today={today} startsOn={scoring.starts_on} changing={changingTracks}
+                changeHref={`${path}?${new URLSearchParams({ ...(t.selected === today ? {} : { day: t.selected }), tracks: "change" })}`}
+                doneHref={t.selected === today ? path : `${path}?day=${t.selected}`}
                 switchAction={(id, s, shown) => setMyTeamTrackAction.bind(null, slug, token, f.id, id, s, shown, t.selected === today ? null : t.selected)} />
             )}
             {!pairTeam && challenge && myTeam && shownWeek?.teams[myTeam.id] && (

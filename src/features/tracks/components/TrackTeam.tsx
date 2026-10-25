@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { shortDate } from "@/lib/text";
 import { TrackSwitchButton } from "./TrackSwitchButton";
-import type { TeamTrackRow, trackTeamRows } from "../lib";
+import { showTrackSwitch, type TeamTrackRow, type trackTeamRows } from "../lib";
 import type { PairTeamWeek } from "../combined";
 import type { TrackPair } from "../types";
 
@@ -16,13 +17,18 @@ const pill = (n: number, target: number) =>
  * My stats, the team grouped by track, each person on their own track's number for the shown day.
  * Captains get an A | B switch on every row, their own included; everyone else reads the same list.
  */
-export function TrackTeam({ teamName, groups, pair, labels, captain, day, today, startsOn, switchAction, bonus = null }: {
+export function TrackTeam({ teamName, groups, pair, labels, captain, day, today, startsOn, switchAction, bonus = null, changing = false, changeHref, doneHref }: {
   teamName: string; groups: Groups; pair: TrackPair; labels: { a: string; b: string }; captain: boolean;
   day: string; today: string; startsOn: string;
   switchAction: (attendeeId: string, side: "a" | "b", shownOnSide: boolean) => () => Promise<void>;
   /** D727: the pair's +10 for the week on show, in `MyTeam`'s Tier 2 words; null without one. */
   bonus?: { week: PairTeamWeek; points: number; current: boolean; past: boolean } | null;
+  /** Whether a captain is changing tracks: then every row, not just the unplaced, has its switch. */
+  changing?: boolean;
+  /** Where "Change tracks" and "Done" lead; the same page with and without `?tracks=change`. */
+  changeHref: string; doneHref: string;
 }) {
+  const placed = groups.a.length + groups.b.length;
   const members = groups.a.length + groups.b.length + groups.none.length;
   const when = day === today ? "today" : `on ${shortDate(day)}`;
   const summary = day > today
@@ -36,7 +42,7 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
         : r.state === "future" ? <span className="text-muted-foreground"><span aria-hidden>–</span><span className="sr-only">Not yet</span></span>
           : r.state === "logged" ? <span className="tabular-nums text-muted-foreground">{r.value} {r.unit}{r.pts !== null ? ` · ${r.pts} pts` : ""}</span>
             : <span className="font-bold text-warning">Not logged</span>}
-      {captain && (
+      {showTrackSwitch({ captain, placed: side !== null, changing }) && (
         <span className="inline-flex shrink-0 overflow-hidden rounded-md border border-border">
           {(["a", "b"] as const).map((s) => (
             <form key={s} action={switchAction(r.id, s, side === s)} className={s === "b" ? "border-l border-border" : ""}>
@@ -85,6 +91,12 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
         {group(`Track A · ${labels.a}`, groups.a, "a")}
         {group(`Track B · ${labels.b}`, groups.b, "b")}
         {groups.none.length > 0 && group("No track yet", groups.none, null)}
+        {/* A placed row keeps its space for the day's numbers; moving someone is one tap away. */}
+        {captain && placed > 0 && (
+          <Link href={changing ? doneHref : changeHref} scroll={false} className="self-end px-1 text-sm font-bold text-primary underline-offset-2 hover:underline">
+            {changing ? "Done" : "Change tracks"}
+          </Link>
+        )}
       </div>
     </details>
   );

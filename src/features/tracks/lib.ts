@@ -95,3 +95,11 @@ export function memberTrackRefusal(code: string, memberName: string): string | n
   if (code === "othertrack") return `${memberName} is on the other track. Submit for them there instead.`;
   return null;
 }
+
+/**
+ * D724: a row's A | B switch. A placed member's row keeps its space for their day's numbers, so a
+ * captain sees the switch only on someone with no track - or on every row while changing tracks.
+ */
+export function showTrackSwitch(input: { captain: boolean; placed: boolean; changing: boolean }): boolean {
+  return input.captain && (!input.placed || input.changing);
+}
