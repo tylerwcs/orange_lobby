@@ -168,8 +168,9 @@ user says yes in chat.
     on. The combined scorer merges the two activities' disqualifications, earliest week winning,
     before applying D467's `counts`.
   - They are also off the bonus member list from that week.
-  - The team-week void stays on the track where the disqualification was made. D727's
-    no-bonus-that-week rule still applies.
+  - **The team's whole week is voided: both tracks' points and the bonus** (the user, 25 Oct,
+    replacing "its own track only"). It matches the eDM's "their team's points for that week
+    are voided", for one team score.
 - **Moving within a day:** someone moved during a day could log km in the morning and minutes in
   the evening, and earn Tier 1 in both. This is accepted, and the committee polices it (my call;
   the 5-vs-5 split is the team's own rule).
