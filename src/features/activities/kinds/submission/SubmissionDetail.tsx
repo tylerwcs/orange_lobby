@@ -11,6 +11,7 @@ import { GroupsNotDonePanel } from "./GroupsNotDonePanel";
 import { ParticipationPanel } from "./ParticipationPanel";
 import { LeaderboardPanel } from "./scoring/LeaderboardPanel";
 import { AdjustmentsCard, listAdjustments } from "@/features/adjustments";
+import { pairActivities, pairForActivity, trackRows, TracksAdmin } from "@/features/tracks";
 import { TeamGrid } from "./scoring/TeamGrid";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { ScheduleOpen } from "../../admin/ScheduleOpen";
@@ -38,8 +39,9 @@ import { toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAc
 export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId }: {
   ev: Event; activity: Activity; requestedDay?: string; tab?: string; week?: string; teamId?: string;
 }) {
-  const [submissions, everyone, categories, groups] = await Promise.all([
+  const [submissions, everyone, categories, groups, pair] = await Promise.all([
     submissionsForActivity(activity.id), listAttendees(ev.id, undefined, "wide", { includeCancelled: true }), listCategories(ev.id), listGroups(ev.id),
+    pairForActivity(activity.id),
   ]);
   // D582: cancelled people keep their names on past entries, but are not chased, counted or grouped.
   const attendees = everyone.filter((a) => !a.cancelled_at);
@@ -112,10 +114,12 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
   const tableRows = (grouped ? bySubmission : submissions).filter((s) => !shownDay || s.submitted_on === shownDay.day);
   const dayLive = liveSubmissions(tableRows).length;
   const dayRevoked = tableRows.length - dayLive;
-  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: daily, grouped, scored });
+  const tabs = activityTabs("submission", { submissions: live.length, notSubmitted: grouped ? notDone.length : missing.length, perDay: daily, grouped, scored, tracks: pair !== null });
   const current = resolveTab(tabs, tab);
   // Scored from the same read the portal and the export use (D375), and only when its tab is open.
   const challenge = current === "leaderboard" && scored ? await loadChallenge(ev, activity, today) : null;
+  // D723: the committee's Tracks tab reads the pair's placements and both names, only when open.
+  const tracks = current === "tracks" && pair ? await Promise.all([trackRows(pair.id), pairActivities(pair)]) : null;
   // A hand-edited ?week= that is not a number reads as every week.
   const weekNum = week && /^\d+$/.test(week) ? Number(week) : null;
   const gridTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) : undefined;
@@ -219,6 +223,11 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
             <ParticipationPanel people={drifting} windowDays={PARTICIPATION_DAYS} today={today} />
           </CardContent>
         </Card>
+      )}
+
+      {current === "tracks" && pair && tracks?.[1] && (
+        <TracksAdmin eventId={ev.id} activityId={activity.id} pair={pair} labels={{ a: tracks[1][0].name, b: tracks[1][1].name }}
+          groups={groups} members={attendees} rows={tracks[0]} />
       )}
 
       {current === "leaderboard" && challenge && (

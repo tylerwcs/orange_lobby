@@ -31,6 +31,10 @@ describe("activityTabs on a group form (D360)", () => {
 });
 
 describe("activityTabs on a scored challenge (D381)", () => {
+  it("adds a Tracks tab straight after Submissions on a track pair (D723)", () => {
+    const tabs = activityTabs("submission", { submissions: 3, notSubmitted: 1, perDay: false, scored: true, tracks: true });
+    expect(tabs.map((t) => t.tab)).toEqual(["setup", "submissions", "tracks", "not-submitted", "leaderboard"]);
+  });
   it("adds a Leaderboard tab to a scored submission (D381)", () => {
     const tabs = activityTabs("submission", { submissions: 3, notSubmitted: 1, perDay: true, scored: true });
     expect(tabs.map((t) => t.tab)).toEqual(["setup", "submissions", "not-submitted", "participation", "leaderboard"]);

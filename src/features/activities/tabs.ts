@@ -5,7 +5,7 @@ import type { ActivityKind } from "@/lib/types";
  * to them uses (D239). Setup is the default, so its URL carries no `tab` at all: a bare link
  * to an activity is a link to its setup, which is what the organiser comes back for.
  */
-export type ActivityTab = "setup" | "bookings" | "not-booked" | "submissions" | "not-submitted" | "participation" | "leaderboard" | "polaroids" | "stickers" | "squads" | "sports" | "matches";
+export type ActivityTab = "setup" | "bookings" | "not-booked" | "submissions" | "not-submitted" | "participation" | "leaderboard" | "tracks" | "polaroids" | "stickers" | "squads" | "sports" | "matches";
 
 export type TabCounts = {
   booked?: number;
@@ -20,6 +20,8 @@ export type TabCounts = {
   grouped?: boolean;
   /** D381: a scored challenge has a Leaderboard tab. D664: so does a tournament with points per place. */
   scored?: boolean;
+  /** D723: a track pair's activity has a Tracks tab, where the committee places anyone. */
+  tracks?: boolean;
   /** D485: a polaroid wall's live count, for its Polaroids tab. */
   polaroids?: number;
   /** D648: squads below their sport's minimum, for the dot on a tournament's Squads tab. */
@@ -36,7 +38,7 @@ const TABS: Record<ActivityKind, (c: TabCounts) => TabItem[]> = {
   // The dot, because pending requests left the landing view when Setup became it (D235).
   booking: (c) => [setup(), item("bookings", "Bookings", c.booked ?? 0, (c.pendingRequests ?? 0) > 0), item("not-booked", "Not booked", c.notBooked ?? 0)],
   submission: (c) => {
-    const tabs = [setup(), item("submissions", "Submissions", c.submissions ?? 0), item("not-submitted", c.grouped ? "Not done" : "Not submitted", c.notSubmitted ?? 0)];
+    const tabs = [setup(), item("submissions", "Submissions", c.submissions ?? 0), ...(c.tracks ? [item("tracks", "Tracks")] : []), item("not-submitted", c.grouped ? "Not done" : "Not submitted", c.notSubmitted ?? 0)];
     if (c.grouped) return tabs;
     const withDaily = c.perDay ? [...tabs, item("participation", "Participation")] : tabs;
     return c.scored ? [...withDaily, item("leaderboard", "Leaderboard")] : withDaily;
