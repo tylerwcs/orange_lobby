@@ -6,7 +6,7 @@ import { allow } from "@/lib/ratelimit";
 import { getAttendee } from "@/lib/db/attendees";
 import { portalTrackContext } from "./context";
 import { setTrack, trackRows } from "./db";
-import { trackLabel, trackOf } from "./lib";
+import { trackOf } from "./lib";
 import type { TrackRefusal } from "./types";
 
 const REFUSED: Record<TrackRefusal, string> = {
@@ -19,8 +19,8 @@ const REFUSED: Record<TrackRefusal, string> = {
 /**
  * D724: a captain's A | B switch on My team. Tapping the other side moves the person; tapping the
  * side they are already on takes them off their track. The page only offers it to captains;
- * `set_challenge_track` decides (D723), and its answer is the flash. Lands back on My stats, on
- * the day that was showing.
+ * `set_challenge_track` decides (D723); a refusal is the flash, back on My stats on the day that
+ * was showing.
  */
 export async function setMyTeamTrackAction(slug: string, token: string, activityId: string, attendeeId: string, side: "a" | "b", day: string | null) {
   const page = `/e/${slug}/a/${token}/activities/${activityId}`;
@@ -35,9 +35,7 @@ export async function setMyTeamTrackAction(slug: string, token: string, activity
   const off = current === wanted;
   const r = await setTrack({ pairId: ctx.pair.id, attendeeId: target.id, activityId: off ? null : wanted, actorId: ctx.attendee.id, admin: false });
   if (r !== "ok") redirect(flashPath(back, REFUSED[r], "error"));
+  // No redirect on success: a captain places ten people in a row, and a redirect would send the
+  // page back to the top each time. The refreshed My team, with the person moved, is the answer.
   revalidatePath(page);
-  const label = trackLabel(ctx.pair, wanted);
-  const self = target.id === ctx.attendee.id;
-  const who = self ? "You're" : `${target.name} is`;
-  redirect(flashPath(back, `${who} ${off ? "off" : "on"} ${label}.`));
 }
