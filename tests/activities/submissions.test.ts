@@ -428,3 +428,15 @@ describe("canSubmit on a track pair (D725)", () => {
     expect(on("none", "2026-10-27", "KOM", form({ group_mode: "members", scoring, categories: ["Wellness"] })).reason).toBe("ineligible");
   });
 });
+
+describe("canSubmit when the team's track is full today (D730)", () => {
+  const scoring = { metric_key: "km", daily_min: 1, starts_on: "2026-10-26", ends_on: "2026-12-04" };
+  const track = form({ group_mode: "members", scoring });
+  it("refuses someone new once the team's places on the track are taken today", () => {
+    expect(canSubmit(track, [], null, "2026-10-27", null, "g1", "this", true)).toEqual({ can: false, reason: "trackfull", used: 0 });
+  });
+  it("takes them when there's a place, and says the track first when it isn't theirs", () => {
+    expect(canSubmit(track, [], null, "2026-10-27", null, "g1", "this", false).reason).toBe("ok");
+    expect(canSubmit(track, [], null, "2026-10-27", null, "g1", "other", true).reason).toBe("othertrack");
+  });
+});

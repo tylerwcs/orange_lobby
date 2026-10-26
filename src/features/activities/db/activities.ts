@@ -361,7 +361,7 @@ export async function cancelBooking(sessionId: string, attendeeId: string): Prom
 
 /** Every answer `submit_answers` can give. Mirrors BookResult; `today` replaces `full`. */
 /** D392 adds `proxy`: the sender may not submit for that member. */
-export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "notrack" | "othertrack" | "limit" | "today" | "nogroup" | "groupdone" | "proxy" | "duplicate";
+export type SubmitCode = "ok" | "missing" | "closed" | "ineligible" | "notrack" | "othertrack" | "trackfull" | "limit" | "today" | "nogroup" | "groupdone" | "proxy" | "duplicate";
 
 // revoked rows never count and never reach an attendee's history (D339, D341); they are shown apart, with their reason, via revokedForAttendee (D500).
 // Paged (D289): a daily challenge passes 1,000 rows within days, and newest-first would drop the

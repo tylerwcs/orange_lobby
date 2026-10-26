@@ -57,6 +57,10 @@ export function pairRefusal(code: PairCode, who: PairWho, partner: string): stri
     case "duplicate": return `${partner} already sent this photo in another entry.`;
     case "pairself": return "Pick someone other than the person this entry is for.";
     case "pairoff": return "Tagging someone isn't on for this activity.";
+    // D725/D730: on a track pair the partner must be on this track, with a place free in their team today.
+    case "notrack": return `${partner} isn't on a track yet, so they can't be tagged.`;
+    case "othertrack": return `${partner} is on the other track. Tag someone on your track.`;
+    case "trackfull": return `${partner}'s team already has its places on this track taken today.`;
     default: return `Couldn't add ${partner}. Try again.`;
   }
 }

@@ -66,3 +66,11 @@ describe("withText (D531)", () => {
     expect(withText(undefined)).toBeNull();
   });
 });
+
+describe("pairRefusal on a track pair (D725, D730)", () => {
+  it("says why the partner can't be tagged", () => {
+    expect(pairRefusal("notrack", "partner", "Wei")).toBe("Wei isn't on a track yet, so they can't be tagged.");
+    expect(pairRefusal("othertrack", "partner", "Wei")).toBe("Wei is on the other track. Tag someone on your track.");
+    expect(pairRefusal("trackfull", "partner", "Wei")).toBe("Wei's team already has its places on this track taken today.");
+  });
+});

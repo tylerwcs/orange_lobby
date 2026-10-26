@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goneEntryFiles, intendedTrack, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { goneEntryFiles, intendedTrack, trackFullFor, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -115,6 +115,7 @@ describe("memberTrackRefusal (D725)", () => {
   it("names the member when a captain sends for someone off this track", () => {
     expect(memberTrackRefusal("notrack", "Wei")).toBe("Wei isn't on a track yet. Put them on one from My team first.");
     expect(memberTrackRefusal("othertrack", "Wei")).toBe("Wei is on the other track. Submit for them there instead.");
+    expect(memberTrackRefusal("trackfull", "Wei")).toBe("Wei's team already has its places on this track taken today.");
     expect(memberTrackRefusal("closed", "Wei")).toBeNull();
   });
 });
@@ -156,5 +157,19 @@ describe("goneEntryFiles (D726)", () => {
   });
   it("ignores anything outside the activity's own folder", () => {
     expect(goneEntryFiles([entry("e1", { strava: "org/ev/OTHER/s1.jpg", note: "hello" })], new Set(), { orgId: "org", eventId: "ev" })).toEqual([]);
+  });
+});
+
+describe("trackFullFor (D730)", () => {
+  const logged = (ids: string[], activity_id = "A") => ids.map((attendee_id) => ({ attendee_id, activity_id }));
+  it("is full for someone new once the team has the target number of people on the track today", () => {
+    expect(trackFullFor(logged(["a", "b", "c", "d", "e"]), "A", "f", 5)).toBe(true);
+    expect(trackFullFor(logged(["a", "b", "c", "d"]), "A", "f", 5)).toBe(false);
+  });
+  it("is never full for someone already counted today, who may add another session", () => {
+    expect(trackFullFor(logged(["a", "b", "c", "d", "e"]), "A", "c", 5)).toBe(false);
+  });
+  it("counts people, not entries, and only on this track", () => {
+    expect(trackFullFor([...logged(["a", "a", "a", "b"]), ...logged(["c", "d", "e"], "B")], "A", "f", 5)).toBe(false);
   });
 });

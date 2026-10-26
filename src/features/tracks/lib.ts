@@ -97,6 +97,7 @@ export function intendedTrack(pair: TrackPair, side: "a" | "b", shownOnSide: boo
 export function memberTrackRefusal(code: string, memberName: string): string | null {
   if (code === "notrack") return `${memberName} isn't on a track yet. Put them on one from My team first.`;
   if (code === "othertrack") return `${memberName} is on the other track. Submit for them there instead.`;
+  if (code === "trackfull") return `${memberName}'s team already has its places on this track taken today.`;
   return null;
 }
 
@@ -120,4 +121,14 @@ export function goneEntryFiles(before: MovedEntry[], stillThere: Set<string>, at
   return before
     .filter((e) => !stillThere.has(e.id) && e.pair_id === null)
     .flatMap((e) => Object.values(e.answers).filter((v) => isOwnSubmissionPath({ orgId: at.orgId, eventId: at.eventId, formId: e.activity_id }, v)));
+}
+
+/**
+ * D730: whether this attendee's team has its places on this track taken today - `target` people
+ * have logged on it - and this attendee isn't one of them. Someone already counted may log again.
+ * `logged` is the team's live entries today on the pair, one row per entry.
+ */
+export function trackFullFor(logged: { attendee_id: string; activity_id: string }[], activityId: string, attendeeId: string, target: number): boolean {
+  const people = new Set(logged.filter((r) => r.activity_id === activityId).map((r) => r.attendee_id));
+  return !people.has(attendeeId) && people.size >= target;
 }

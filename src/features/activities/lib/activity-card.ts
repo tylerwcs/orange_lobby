@@ -92,6 +92,7 @@ export function formCard({ form, state }: FormCardInput): CardView {
   // D725: a track pair's card is open, just not to this person - "Closed" would read as shut for everyone.
   if (state.reason === "notrack") return { status: { label: "No track yet", tone: "muted" }, meta, action: view };
   if (state.reason === "othertrack") return { status: { label: "Other track", tone: "muted" }, meta, action: view };
+  if (state.reason === "trackfull") return { status: { label: "Full today", tone: "muted" }, meta, action: view };
   // D390: a challenge before its first day is not over, it is coming - "Closed" read as the end.
   if (state.startsOn) return { status: { label: `Starts ${shortDate(state.startsOn).split(" ").slice(1).join(" ")}`, tone: "muted" }, meta, action: view };
   return { status: { label: "Closed", tone: "muted" }, meta, action: view };

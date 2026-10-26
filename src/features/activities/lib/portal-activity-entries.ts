@@ -15,7 +15,7 @@ import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
 import { countedRows, isPicker, listSportsForActivities, loadBonus, loadResults, squadPeople, squadRows, type CupBonus, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
-import { otherActivityId, pairsForEvent, trackLabel, trackOf, trackRowsFor, trackStatus, type TrackPair, type TrackRow, type TrackStatus } from "@/features/tracks";
+import { otherActivityId, pairsForEvent, teamEntriesToday, trackFullFor, trackLabel, trackOf, trackRowsFor, trackStatus, type TrackPair, type TrackRow, type TrackStatus } from "@/features/tracks";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 
@@ -27,7 +27,11 @@ export type SubmissionEntry = {
   track?: SubmissionTrack | null;
 };
 /** D724/D725: the attendee's own track ("Track A") and the pair's other activity, for the notes and link on My stats. */
-export type SubmissionTrack = { pair: TrackPair; status: TrackStatus; mine: string | null; label: string; other: { id: string; name: string; label: string } };
+export type SubmissionTrack = {
+  pair: TrackPair; status: TrackStatus; mine: string | null; label: string; other: { id: string; name: string; label: string };
+  /** D730: the team's places on this track are all taken today, and this attendee isn't one of them. */
+  full: boolean;
+};
 /** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
 export type PassportEntry = { activity: Activity; passport: Passport };
 /** A polaroid wall this attendee may post to, and their own live polaroids on it (D482). */
@@ -86,6 +90,10 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     // D725: only an event with a track pair has placements to read.
     pairs.length ? trackRowsFor(attendee.id) : Promise.resolve([] as TrackRow[]),
   ]);
+  // D730: who from the team has taken a place on each track today - only with a pair and a team.
+  const teamToday = pairs.length && attendee.group_id
+    ? (await Promise.all(pairs.map((p) => teamEntriesToday(p, attendee.group_id!)))).flat()
+    : [];
 
   const mineBySession = new Set(mine.map((b) => b.session_id));
   const bookings = activities.filter((a) => a.kind === "booking").map((activity) => {
@@ -108,8 +116,8 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     const sent = submissions.filter((s) => s.activity_id === form.id);
     // D353: on a group form every member reads the same progress, built from the group's rows.
     const group = isGroupForm(form.group_mode) && attendee.group_id ? groupProgress(form, attendee.group_id, members, groupSubs) : null;
-    const track = trackFor(form, pairs, trackRows, attendee, activities);
-    return { form, state: canSubmit(form, sent, attendee.category, today, group, attendee.group_id, track?.status ?? null), mine: sent, group, revoked: revokedFor(form, revokedMine, revokedGroup), track };
+    const track = trackFor(form, pairs, trackRows, attendee, activities, teamToday);
+    return { form, state: canSubmit(form, sent, attendee.category, today, group, attendee.group_id, track?.status ?? null, track?.full ?? false), mine: sent, group, revoked: revokedFor(form, revokedMine, revokedGroup), track };
   });
 
   // Names for every entry on show. A former member (D355) is not in `members`, so they are
@@ -175,7 +183,7 @@ async function loadTournaments(eventId: string, cups: Activity[], attendee: Pick
 }
 
 /** D725: the form's pair, if any, and where this attendee stands on it. The other activity's name falls back when it is hidden. */
-function trackFor(form: Activity, pairs: TrackPair[], rows: TrackRow[], attendee: Pick<Attendee, "id" | "group_id">, activities: Activity[]): SubmissionTrack | null {
+function trackFor(form: Activity, pairs: TrackPair[], rows: TrackRow[], attendee: Pick<Attendee, "id" | "group_id">, activities: Activity[], teamToday: { attendee_id: string; activity_id: string }[]): SubmissionTrack | null {
   const pair = pairs.find((p) => p.a_activity_id === form.id || p.b_activity_id === form.id);
   if (!pair) return null;
   const mine = trackOf(rows.filter((r) => r.pair_id === pair.id), attendee);
@@ -183,5 +191,6 @@ function trackFor(form: Activity, pairs: TrackPair[], rows: TrackRow[], attendee
   return {
     pair, mine, status: trackStatus(pair, form.id, mine)!, label: trackLabel(pair, form.id),
     other: { id: otherId, name: activities.find((a) => a.id === otherId)?.name ?? "the other track", label: trackLabel(pair, otherId) },
+    full: trackFullFor(teamToday, form.id, attendee.id, pair.target),
   };
 }

@@ -213,6 +213,8 @@ const SUBMIT_RESULT_MESSAGES: Record<SubmitCode, string> = {
   // D725: the person the entry is for is on no track, or on the other one.
   notrack: "You're not on a track yet. Ask your captain to put you on one.",
   othertrack: "This entry belongs to the other track. Submit it there instead.",
+  // D730: five people from the team have already logged on this track today.
+  trackfull: "Your team's places on this track are all taken today. Try again tomorrow.",
   limit: "Submission done. There is nothing more to send.",
   today: "You have already submitted today. Come back tomorrow.",
   nogroup: "You need to be in a group to submit this.",

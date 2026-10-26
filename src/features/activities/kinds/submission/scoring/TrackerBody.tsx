@@ -183,6 +183,9 @@ async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awa
 /** D724/D725: which track this attendee is on, above My team - and, off this track, where to submit instead of the Add button. */
 function TrackNote({ track, href }: { track: SubmissionTrack; href: string }) {
   if (track.status === "none") return <p className={note}>Your captain hasn&apos;t put you on a track yet.</p>;
+  if (track.status === "this" && track.full) {
+    return <p className={note}>You&apos;re on {track.label}, but your team&apos;s {track.pair.target} places on it are taken today. Try again tomorrow.</p>;
+  }
   if (track.status === "this") return <p className={note}>You&apos;re on {track.label} — this is your track.</p>;
   return (
     <p className={note}>

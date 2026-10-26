@@ -82,3 +82,11 @@ export async function moveTrack(input: { pair: TrackPair; orgId: string; attende
   }
   return r;
 }
+
+/** D730: one team's live entries today on either track of the pair - who has taken a place. */
+export async function teamEntriesToday(pair: TrackPair, groupId: string): Promise<{ attendee_id: string; activity_id: string }[]> {
+  const { data, error } = await serviceClient().from("activity_submissions").select("attendee_id, activity_id")
+    .eq("group_id", groupId).eq("submitted_on", nowInKL().date).eq("status", "submitted").in("activity_id", [pair.a_activity_id, pair.b_activity_id]);
+  if (error) throw error;
+  return (data ?? []) as { attendee_id: string; activity_id: string }[];
+}

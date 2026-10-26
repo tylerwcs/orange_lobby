@@ -124,8 +124,11 @@ async function PairAsk({ f, slug, token }: { f: Activity; slug: string; token: s
   if (!f.allow_pair) return null;
   const { attendee } = await loadPortalAttendee(slug, token);
   if (!attendee.group_id) return null;
-  const [groups, attendees] = await Promise.all([listGroups(f.event_id), listAttendees(f.event_id)]);
-  const teams = pairCandidates(groups, attendees, attendee.group_id, f.categories);
+  const [groups, attendees, pair] = await Promise.all([listGroups(f.event_id), listAttendees(f.event_id), pairForActivity(f.id)]);
+  // D725: on a track pair only people on this track can be tagged; `submit_answers` refuses anyone else.
+  const rows = pair ? await trackRows(pair.id) : [];
+  const onThis = pair ? attendees.filter((a) => trackOf(rows, a) === f.id) : attendees;
+  const teams = pairCandidates(groups, onThis, attendee.group_id, f.categories);
   return teams.length > 0 ? <PairPicker teams={teams} /> : null;
 }
 

@@ -128,6 +128,33 @@ try {
   check("taking M2 off a track removes today's B entry too", (await place("M2", null, "C1")) === "ok" && (await onDay("M2", "B", today)) === 0);
   check("placing someone with no track removes nothing", (await place("M3", "A", null, true)) === "ok" && (await onDay("M3", "B", today)) === 0);
   check("placing someone on the track they're on removes nothing", (await submit("M3", "A")) === "ok" && (await place("M3", "A", null, true)) === "ok" && (await onDay("M3", "A", today)) === 1);
+
+  // 11. D730: at most `target` (5) people from one team log on one track per day; people already in may log again.
+  const more = must(await db.from("attendees").insert([
+    ...["P1", "P2", "P3", "P4", "P5", "P6"].map((n) => person(n, g1.id)), person("Q1", g2.id), person("R1", g2.id),
+  ]).select("id, name"));
+  for (const r of more) id[r.name] = r.id;
+  for (const n of ["P1", "P2", "P3", "P4", "P5", "P6", "R1"]) await place(n, "A", null, true);
+  await place("Q1", "B", null, true);
+  const five = await Promise.all(["P1", "P2", "P3", "P4", "P5"].map((n) => submit(n, "A")));
+  check("five people from one team log on A", five.every((r) => r === "ok"), five.join(","));
+  check("a sixth from the same team is trackfull", (await submit("P6", "A")) === "trackfull");
+  check("someone already in logs another session", (await submit("P1", "A")) === "ok");
+  check("another team's people aren't counted", (await submit("R1", "A")) === "ok");
+  must(await db.from("activity_submissions").update({ status: "revoked" }).eq("activity_id", acts.A.id).eq("attendee_id", id.P2));
+  check("a revoked entry frees its place", (await submit("P6", "A")) === "ok");
+
+  // 12. D725/D730: a tagged partner must be on the same track, with a place free - or nothing goes in.
+  await setActivity("A", { allow_pair: true });
+  const pairSubmit = async (who, partner) => must(await db.rpc("submit_answers_pair", {
+    p_activity_id: acts.A.id, p_attendee_id: id[who], p_partner_id: id[partner], p_answers: { km: 2 }, p_today: today, p_submitted_by: null, p_file_hashes: {},
+  }))[0];
+  const p3Before = await onDay("P3", "A", today);
+  const offTrack = await pairSubmit("P3", "Q1");
+  check("tagging someone on the other track is refused as theirs", offTrack.code === "othertrack" && offTrack.who === "partner", JSON.stringify(offTrack));
+  check("and the member's own entry is not kept either", (await onDay("P3", "A", today)) === p3Before);
+  const sameTrack = await pairSubmit("P3", "R1");
+  check("tagging someone on the same track goes through", sameTrack.code === "ok", JSON.stringify(sameTrack));
 } catch (e) {
   failures += 1;
   console.error("ERROR", e);

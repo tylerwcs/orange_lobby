@@ -179,6 +179,14 @@ user says yes in chat.
 - **My team on an earlier day** shows a moved member's numbers from whichever track they logged
   that day, rather than "Not logged".
 
+- **Five places a day per team per track** (the user, 26 Oct; replaces "5 is a target, never
+  enforced" for submitting). Any number can be placed on a track, but `submit_answers` (0108) takes
+  entries from at most the pair's `target` (5) people per team per track per day. Someone already
+  logged today may add more sessions; a revoked entry frees its place. The page says "Full today".
+- **Tagging a partner** (D524) can't get round either rule: the partner is checked by the same
+  `submit_answers` - their own track, their own team's places - and any refusal drops the whole
+  entry. The partner picker lists only people on this track.
+
 ### D727 — The combined team score
 
 - **Season total for a team:**

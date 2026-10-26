@@ -9,8 +9,8 @@ import type { TrackStatus } from "@/features/tracks/client";
 /** How many questions a submission activity's editor offers, mirroring `MAX_QUESTIONS` for registration. */
 export const MAX_SUBMISSION_QUESTIONS = 20;
 
-/** D725: `notrack` and `othertrack` only on an activity that is one of a track pair. */
-export type SubmitReason = "ok" | "closed" | "ineligible" | "notrack" | "othertrack" | "limit" | "today" | "nogroup" | "groupdone";
+/** D725/D730: `notrack`, `othertrack` and `trackfull` only on an activity that is one of a track pair. */
+export type SubmitReason = "ok" | "closed" | "ineligible" | "notrack" | "othertrack" | "trackfull" | "limit" | "today" | "nogroup" | "groupdone";
 export type SubmitState = {
   can: boolean;
   reason: SubmitReason;
@@ -108,6 +108,8 @@ export function canSubmit(
   teamId: string | null = null,
   /** D725: where they stand on a track pair; null when this activity is in none. */
   track: TrackStatus | null = null,
+  /** D730: the team's places on this track are all taken today, and this attendee isn't one of them. */
+  trackFull = false,
 ): SubmitState {
   const used = mine.length;
   if (!activity.is_open) return { can: false, reason: "closed", used };
@@ -118,6 +120,7 @@ export function canSubmit(
   if (!categoryMatches(activity.categories, category)) return { can: false, reason: "ineligible", used };
   if (track === "none") return { can: false, reason: "notrack", used };
   if (track === "other") return { can: false, reason: "othertrack", used };
+  if (track === "this" && trackFull) return { can: false, reason: "trackfull", used };
   if (activity.group_mode === "members") {
     return teamId ? { can: true, reason: "ok", used } : { can: false, reason: "nogroup", used };
   }

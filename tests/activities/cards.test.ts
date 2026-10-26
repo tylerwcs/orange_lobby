@@ -172,7 +172,7 @@ describe("activityCards on a track pair (D724)", () => {
   const tracked = (id: string, status: "this" | "other" | "none"): SubmissionEntry => ({
     ...form(id, status === "this" ? "ok" : status === "other" ? "othertrack" : "notrack"),
     form: activity(id, { kind: "submission", pinned: true, sort_order: id === "mileage" ? 1 : 2 }),
-    track: { pair, status, mine: status === "none" ? null : status === "this" ? id : id === "mileage" ? "active" : "mileage", label: "", other: { id: "", name: "", label: "" } },
+    track: { pair, status, mine: status === "none" ? null : status === "this" ? id : id === "mileage" ? "active" : "mileage", label: "", other: { id: "", name: "", label: "" }, full: false },
   });
   const sections = (mileage: "this" | "other" | "none", active: "this" | "other" | "none") =>
     activityCards({ booking: [], submission: [tracked("mileage", mileage), tracked("active", active)], passport: [], polaroid: [], tournament: [] }, "/p")
