@@ -24,5 +24,5 @@ export type TrackStatus = "this" | "other" | "none";
 /** What `set_challenge_track` can refuse with (D723). */
 export type TrackRefusal = "missing" | "not_member" | "not_allowed" | "closed";
 
-/** D731: one track change and the Malaysian day it happened; a null activity is "taken off a track". */
+/** D734: one track change and the Malaysian day it happened; a null activity is "taken off a track". */
 export type TrackHistoryRow = { pair_id: string; attendee_id: string; group_id: string; activity_id: string | null; day: string; at: string };

@@ -187,7 +187,7 @@ user says yes in chat.
   `submit_answers` - their own track, their own team's places - and any refusal drops the whole
   entry. The partner picker lists only people on this track.
 
-### D731 — Track history: every view follows the day (the user, 27 Oct)
+### D734 — Track history: every view follows the day (the user, 27 Oct)
 
 - **History:** `challenge_track_history` (0109) keeps every track change with its Malaysian day.
   It was filled in from the placements of the time, and `set_challenge_track` adds a row on each

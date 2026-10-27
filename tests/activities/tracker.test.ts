@@ -190,7 +190,7 @@ describe("entryChoices (D469)", () => {
   });
 });
 
-describe("buildTracker across a track pair (D731)", () => {
+describe("buildTracker across a track pair (D734)", () => {
   // This page is Track B (minutes); the person logged km on Track A before moving.
   const MIN: ChallengeScoring = { metric_key: "minutes", daily_min: 20, starts_on: "2026-10-05", ends_on: "2026-12-04", unit: "min",
     daily_steps: [{ at: 20, pts: 1 }, { at: 30, pts: 2 }, { at: 45, pts: 3 }] };

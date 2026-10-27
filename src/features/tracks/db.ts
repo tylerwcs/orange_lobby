@@ -91,7 +91,7 @@ export async function teamEntriesToday(pair: TrackPair, groupId: string): Promis
   return (data ?? []) as { attendee_id: string; activity_id: string }[];
 }
 
-/** D731: every track change in a pair, with its day - `placementsOn` turns it into one day's tracks. */
+/** D734: every track change in a pair, with its day - `placementsOn` turns it into one day's tracks. */
 export async function trackHistory(pairId: string): Promise<TrackHistoryRow[]> {
   const { data, error } = await serviceClient().from("challenge_track_history").select("pair_id, attendee_id, group_id, activity_id, day, at").eq("pair_id", pairId);
   if (error) throw error;

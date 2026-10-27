@@ -106,7 +106,7 @@ export function memberTrackRefusal(code: string, memberName: string): string | n
  * captain sees the switch only on someone with no track - or on every row while changing tracks.
  */
 export function showTrackSwitch(input: { captain: boolean; placed: boolean; changing: boolean; isToday: boolean }): boolean {
-  // D731: another day's view shows how the team stood then, so it offers no changes.
+  // D734: another day's view shows how the team stood then, so it offers no changes.
   return input.captain && input.isToday && (!input.placed || input.changing);
 }
 
@@ -135,7 +135,7 @@ export function trackFullFor(logged: { attendee_id: string; activity_id: string 
 }
 
 /**
- * D731: everyone's track on one day, as placement rows `trackOf` reads - each person's latest
+ * D734: everyone's track on one day, as placement rows `trackOf` reads - each person's latest
  * change on or before the day (the day's last change wins), leaving out anyone taken off. Someone
  * with no known track that day but an entry on one (placed before this history began) is put on
  * the track they logged on.

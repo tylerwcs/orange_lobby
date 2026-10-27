@@ -156,7 +156,7 @@ try {
   const sameTrack = await pairSubmit("P3", "R1");
   check("tagging someone on the same track goes through", sameTrack.code === "ok", JSON.stringify(sameTrack));
 
-  // 13. D731: every track change is kept with its day, so My team can show any day as it was.
+  // 13. D734: every track change is kept with its day, so My team can show any day as it was.
   const history = async (who) => must(await db.from("challenge_track_history").select("activity_id, day").eq("pair_id", pair.id).eq("attendee_id", id[who]).order("at"));
   check("a placement leaves one history row, dated today", (await history("P4")).length === 1 && (await history("P4"))[0].day === today && (await history("P4"))[0].activity_id === acts.A.id);
   await place("P4", "A", null, true);

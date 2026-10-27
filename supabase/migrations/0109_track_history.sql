@@ -1,9 +1,9 @@
--- Mileage x Active (spec 2026-10-25-mileage-x-active-tracks-design.md, D731, the user's ask on
+-- Mileage x Active (spec 2026-10-25-mileage-x-active-tracks-design.md, D734, the user's ask on
 -- 27 Oct): My team shows each day's tracks as they were, so every track change is kept with the
 -- Malaysian day it happened. Adds one table (filled from today's placements) and replaces
 -- set_challenge_track (as 0107, plus the history row).
 
--- D731: one row per change. A null activity is "taken off a track". The latest row on or before a
+-- D734: one row per change. A null activity is "taken off a track". The latest row on or before a
 -- day is the person's track that day; a row counts only while its group is the person's group.
 create table if not exists public.challenge_track_history (
   id          uuid primary key default gen_random_uuid(),
@@ -82,7 +82,7 @@ begin
       set group_id = excluded.group_id, activity_id = excluded.activity_id, assigned_by = excluded.assigned_by, assigned_at = now();
   end if;
 
-  -- D731: keep the change with its day, so My team can show any day's tracks as they were.
+  -- D734: keep the change with its day, so My team can show any day's tracks as they were.
   if v_old is distinct from p_activity_id then
     insert into public.challenge_track_history (pair_id, attendee_id, group_id, activity_id, day)
     values (p_pair_id, p_attendee_id, v_att.group_id, p_activity_id, v_today);

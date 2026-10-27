@@ -129,7 +129,7 @@ describe("showTrackSwitch (D724)", () => {
   it("never offers it to a member who isn't a captain", () => {
     expect(showTrackSwitch({ captain: false, placed: false, changing: true, isToday: true })).toBe(false);
   });
-  it("offers it only on today's view; another day shows how the team stood (D731)", () => {
+  it("offers it only on today's view; another day shows how the team stood (D734)", () => {
     expect(showTrackSwitch({ captain: true, placed: false, changing: true, isToday: false })).toBe(false);
   });
 });
@@ -177,7 +177,7 @@ describe("trackFullFor (D730)", () => {
   });
 });
 
-describe("placementsOn (D731)", () => {
+describe("placementsOn (D734)", () => {
   const h = (attendee_id: string, activity_id: string | null, day: string, at = `${day}T01:00:00Z`) => ({ pair_id: "p", attendee_id, group_id: "g1", activity_id, day, at });
   const history = [h("x", "A", "2026-10-25"), h("x", "B", "2026-10-28"), h("y", "B", "2026-10-26"), h("y", null, "2026-10-27"), h("z", "A", "2026-10-27", "2026-10-27T01:00:00Z"), h("z", "B", "2026-10-27", "2026-10-27T05:00:00Z")];
   const on = (day: string, logged: { attendee_id: string; activity_id: string; group_id: string }[] = []) =>

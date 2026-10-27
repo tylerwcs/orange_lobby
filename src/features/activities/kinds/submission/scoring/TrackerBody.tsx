@@ -80,7 +80,7 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
   const [all, challenge, other, otherEntries] = await Promise.all([
     entriesForAttendee(f.id, attendeeId),
     teamId ? loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today) : Promise.resolve(null),
-    // D731: on a track pair, the other track and this person's entries on it, so My stats counts both.
+    // D734: on a track pair, the other track and this person's entries on it, so My stats counts both.
     track ? getActivity(track.other.id, f.event_id) : Promise.resolve(null),
     track ? entriesForAttendee(track.other.id, attendeeId) : Promise.resolve([]),
   ]);
@@ -177,7 +177,7 @@ async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awa
     : undefined;
   const days = pairWeek?.week.days ?? [];
   return {
-    // D731: today is the team as it stands; another day is the team as it stood then.
+    // D734: today is the team as it stands; another day is the team as it stood then.
     groups: trackTeamRows({ pair, members, rows: at.day === at.today ? rows : placementsOn(history, at.day, loggedOn(at.day)), totals: { a: dayOf(ca), b: dayOf(cb) }, scoring: { a: a.scoring!, b: b.scoring! }, day: at.day, today: at.today, selfId: at.selfId }),
     labels: { a: a.name, b: b.name },
     captain: !!self && isTrackCaptain([a, b], self),

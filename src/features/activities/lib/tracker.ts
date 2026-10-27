@@ -30,7 +30,7 @@ export type Tracker = {
   weekPts: number | null;
   /** The selected day's entries, oldest first, revoked ones included so the attendee sees what was removed. */
   entries: ActivitySubmission[];
-  /** D731: on a track pair, whether the selected day was logged on the other track - its numbers, unit and entries are that track's. */
+  /** D734: on a track pair, whether the selected day was logged on the other track - its numbers, unit and entries are that track's. */
   dayTrack: "this" | "other";
 };
 
@@ -67,7 +67,7 @@ export function buildTracker(input: {
   entries: ActivitySubmission[];
   today: string;
   requested: string | null;
-  /** D731: on a track pair, the other track and this person's entries on it - a day logged there counts here too. */
+  /** D734: on a track pair, the other track and this person's entries on it - a day logged there counts here too. */
   other?: { scoring: ChallengeScoring; entries: ActivitySubmission[] };
 }): Tracker | null {
   const { scoring, entries, today, other } = input;
@@ -83,7 +83,7 @@ export function buildTracker(input: {
   const week = weekFor(weeks, selected) ?? weeks[0];
   const i = weeks.indexOf(week);
 
-  // D731: a day is read on the track it was logged on - here, or (before a move) the other track.
+  // D734: a day is read on the track it was logged on - here, or (before a move) the other track.
   // A track move removes that day's entries on the old track (D726), so a day is never on both.
   const own = dailyKm(entries, scoring.metric_key);
   const theirs = other ? dailyKm(other.entries, other.scoring.metric_key) : new Map<string, number>();
