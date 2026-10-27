@@ -10,9 +10,9 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { listActivities, pairPartnerIds } from "../db/activities";
 import { openVerifierLink, submissionsForVerify, verifierNames } from "../db/verifiers";
 import { approveCredit, verifyQuery, verifyQueryString } from "../lib/verifier";
-import { reasonsOf, revokeCredit } from "../lib/revoke";
+import { reasonsOf, restoreCredit, revokeCredit } from "../lib/revoke";
 import { withText } from "../lib/pairs";
-import { approveAsVerifierAction, revokeAsVerifierAction, unapproveAsVerifierAction } from "./actions";
+import { approveAsVerifierAction, restoreAsVerifierAction, revokeAsVerifierAction, unapproveAsVerifierAction } from "./actions";
 import { VerifyCard } from "./VerifyCard";
 
 const select = "h-11 rounded-md border border-input bg-background px-3 text-sm";
@@ -55,7 +55,7 @@ export async function VerifyPage({ token, search }: { token: string; search: Rec
   const [people, groups, verifiers] = await Promise.all([
     listAttendeesByIds(ev.id, [...new Set([...rows.map((r) => r.attendee_id), ...partners.values()])]),
     listGroups(ev.id),
-    verifierNames(rows.flatMap((r) => [r.revoked_by_verifier, r.approved_by_verifier])),
+    verifierNames(rows.flatMap((r) => [r.revoked_by_verifier, r.approved_by_verifier, r.restored_by_verifier])),
   ]);
   const nameOf = new Map(people.map((a) => [a.id, a.name]));
   const groupOf = new Map(groups.map((g) => [g.id, g.name]));
@@ -68,7 +68,7 @@ export async function VerifyPage({ token, search }: { token: string; search: Rec
       <header className="flex flex-col gap-1">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{ev.name}</p>
         <h1 className="text-xl font-extrabold">Verifying as {link.name}</h1>
-        <p className="text-sm text-muted-foreground">Check each entry&apos;s proof. Approve one that checks out, so it leaves To check. Revoke one that doesn&apos;t qualify and pick why; the attendee sees the reason and can send a new one.</p>
+        <p className="text-sm text-muted-foreground">Check each entry&apos;s proof. Approve one that checks out, so it leaves To check. Revoke one that doesn&apos;t qualify and pick why; the attendee sees the reason and can send a new one. If an appeal shows a revoke was wrong, find it under Revoked and undo it.</p>
       </header>
 
       {forms.length === 0 ? (
@@ -106,6 +106,8 @@ export async function VerifyPage({ token, search }: { token: string; search: Rec
                   credit={s.status === "revoked" ? revokeCredit(s, { admins: {}, verifiers }) : null}
                   reasons={reasons}
                   revoke={revokeAsVerifierAction.bind(null, token, query, s.id)}
+                  restore={restoreAsVerifierAction.bind(null, token, query, s.id)}
+                  restored={s.status === "submitted" ? restoreCredit(s, { admins: {}, verifiers }) : null}
                   approved={approveCredit(s, verifiers)}
                   approve={approveAsVerifierAction.bind(null, token, query, s.id)}
                   unapprove={unapproveAsVerifierAction.bind(null, token, query, s.id)}

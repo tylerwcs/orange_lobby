@@ -4,10 +4,10 @@ import { redirect } from "next/navigation";
 import { getEvent } from "@/lib/db/events";
 import { flashPath } from "@/lib/flash";
 import { allow } from "@/lib/ratelimit";
-import { approveSubmission, getActivity, getSubmission, revokeSubmission, unapproveSubmission } from "../db/activities";
+import { approveSubmission, getActivity, getSubmission, restoreSubmission, revokeSubmission, unapproveSubmission } from "../db/activities";
 import { openVerifierLink } from "../db/verifiers";
 import { belongsToLink, verifyQuery, verifyQueryString } from "../lib/verifier";
-import { parseRevokeReason, reasonsOf } from "../lib/revoke";
+import { parseRevokeReason, reasonsOf, restoreRefusal } from "../lib/revoke";
 
 const INVALID = "This link isn't valid. Ask the organiser for the right one.";
 
@@ -42,6 +42,19 @@ export async function revokeAsVerifierAction(token: string, query: string, submi
   // D523: redrawn in place like Approve (D522), so the verifier keeps their spot. The dialog
   // closes with it: its Revoke button only renders on a live entry's card, so the redraw
   // unmounts it - the card leaves To check, or turns Revoked under All.
+  refresh();
+}
+
+/**
+ * D735: Undo revoke after an appeal - any of the event's verifiers, any revoke, as with Undo
+ * approval (D521). It comes back approved in this link's name, and redraws in place like Revoke.
+ */
+export async function restoreAsVerifierAction(token: string, query: string, submissionId: string) {
+  const { back, link, submission, activity } = await verifierEntry(token, query, submissionId);
+  const code = await restoreSubmission(submission.id, activity.id, { verifierId: link.id });
+  if (code !== "ok") redirect(flashPath(back, restoreRefusal(code), "error"));
+  revalidatePath(`/admin/events/${link.event_id}/activities`, "layout");
+  revalidatePath(`/verify/${token}`);
   refresh();
 }
 

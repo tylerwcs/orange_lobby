@@ -102,6 +102,10 @@ describe("approveCredit (D518)", () => {
     expect(approveCredit({ status: "submitted", approved_at: at, approved_by_verifier: null }, {})).toBe("Approved by a verifier on 14 Oct, 10:05");
   });
 
+  it("says an admin for an admin's Undo revoke, never their email (D735)", () => {
+    expect(approveCredit({ status: "submitted", approved_at: at, approved_by_verifier: null, approved_by: "u1" }, {})).toBe("Approved by an admin on 14 Oct, 10:05");
+  });
+
   it("is null for an entry nobody approved", () => {
     expect(approveCredit({ status: "submitted", approved_at: null, approved_by_verifier: null }, {})).toBeNull();
   });

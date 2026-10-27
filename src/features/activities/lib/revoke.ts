@@ -64,6 +64,28 @@ export function revokeCredit(s: RevokeStamp, names: { admins: Record<string, str
   return `Revoked by ${who}${s.revoked_at ? ` on ${shortDateTime(s.revoked_at)}` : ""}${s.revoke_reason ? ` · ${s.revoke_reason}` : ""}`;
 }
 
+export type RestoreStamp = Pick<ActivitySubmission, "restored_at" | "restored_by" | "restored_by_verifier">;
+
+/** D735: "Restored by X on <when>" for a live entry whose revoke was undone; null otherwise. Named as `revokeCredit` names. */
+export function restoreCredit(s: RestoreStamp, names: { admins: Record<string, string>; verifiers: Record<string, string> }): string | null {
+  if (!s.restored_at) return null;
+  const who = s.restored_by_verifier
+    ? (names.verifiers[s.restored_by_verifier] ? `${names.verifiers[s.restored_by_verifier]} (verifier)` : "a verifier")
+    : (s.restored_by ? names.admins[s.restored_by] : undefined) ?? "an admin";
+  return `Restored by ${who} on ${shortDateTime(s.restored_at)}`;
+}
+
+/** D735: why Undo revoke was refused - each a limit a new entry meets too, so revoking the newer entry frees it. */
+export function restoreRefusal(code: "missing" | "today" | "limit" | "groupdone" | "trackfull"): string {
+  switch (code) {
+    case "missing": return "That entry isn't revoked any more.";
+    case "today": return "They already have a live entry on that day. Revoke it first, then undo this one.";
+    case "limit": return "They're already at this form's limit. Revoke one of their newer entries first.";
+    case "groupdone": return "Their group already has all its entries. Revoke one of the group's newer entries first.";
+    case "trackfull": return "Their team's track already has its full number of people logged that day. Revoke one of them first.";
+  }
+}
+
 /**
  * D500: what the attendee reads on a revoked entry, with when it was removed. A revoke from
  * before 0077 has no reason and keeps the old line.

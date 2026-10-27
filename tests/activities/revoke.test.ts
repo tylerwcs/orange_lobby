@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   OTHER, PICK_ERROR, TOO_LONG_ERROR, reasonsOf, parseRevokeReason, parseReasonList, revokeCredit, attendeeRevokeLabel,
+  restoreCredit, restoreRefusal,
 } from "@/features/activities/lib/revoke";
 
 const T = ["Photo or file is unclear", "Duplicate entry"];
@@ -80,6 +81,33 @@ describe("revokeCredit (D492)", () => {
   it("falls back when a name can't be resolved", () => {
     expect(revokeCredit({ revoked_at: null, revoked_by: "gone", revoked_by_verifier: null }, names)).toBe("Revoked by an admin");
     expect(revokeCredit({ revoked_at: null, revoked_by: null, revoked_by_verifier: "gone" }, names)).toBe("Revoked by a verifier");
+  });
+});
+
+describe("restoreCredit (D735)", () => {
+  const names = { admins: { u1: "cs.wong@ecopiaevents.com" }, verifiers: { v1: "Aisyah" } };
+  const at = "2026-10-27T03:30:00Z"; // 11:30 in Malaysia
+
+  it("names who undid the revoke and when", () => {
+    expect(restoreCredit({ restored_at: at, restored_by: "u1", restored_by_verifier: null }, names)).toBe("Restored by cs.wong@ecopiaevents.com on 27 Oct, 11:30");
+    expect(restoreCredit({ restored_at: at, restored_by: null, restored_by_verifier: "v1" }, names)).toBe("Restored by Aisyah (verifier) on 27 Oct, 11:30");
+  });
+
+  it("falls back when a name can't be resolved", () => {
+    expect(restoreCredit({ restored_at: at, restored_by: null, restored_by_verifier: "gone" }, names)).toBe("Restored by a verifier on 27 Oct, 11:30");
+    expect(restoreCredit({ restored_at: at, restored_by: null, restored_by_verifier: null }, names)).toBe("Restored by an admin on 27 Oct, 11:30");
+  });
+
+  it("is null for an entry never restored", () => {
+    expect(restoreCredit({ restored_at: null }, names)).toBeNull();
+    expect(restoreCredit({}, names)).toBeNull();
+  });
+});
+
+describe("restoreRefusal (D735)", () => {
+  it("says what to revoke first for each limit", () => {
+    for (const code of ["today", "limit", "groupdone", "trackfull"] as const) expect(restoreRefusal(code)).toMatch(/Revoke/);
+    expect(restoreRefusal("missing")).toBe("That entry isn't revoked any more.");
   });
 });
 

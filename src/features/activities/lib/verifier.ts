@@ -71,13 +71,14 @@ export function verifyQueryString(q: VerifyQuery, patch: Partial<VerifyQuery> = 
 
 /**
  * D518: the verify card's "Approved by …" line, or null when there is nothing to say - never
- * approved, or revoked since (the card then shows the revoke instead).
+ * approved, or revoked since (the card then shows the revoke instead). D735: an admin's Undo
+ * revoke approves too, shown as "an admin" since a verifier is not shown organisers' emails.
  */
 export function approveCredit(
-  s: Pick<ActivitySubmission, "status" | "approved_at" | "approved_by_verifier">,
+  s: Pick<ActivitySubmission, "status" | "approved_at" | "approved_by_verifier" | "approved_by">,
   verifiers: Record<string, string>,
 ): string | null {
   if (s.status !== "submitted" || !s.approved_at) return null;
-  const who = (s.approved_by_verifier && verifiers[s.approved_by_verifier]) || "a verifier";
+  const who = s.approved_by ? "an admin" : (s.approved_by_verifier && verifiers[s.approved_by_verifier]) || "a verifier";
   return `Approved by ${who} on ${shortDateTime(s.approved_at)}`;
 }

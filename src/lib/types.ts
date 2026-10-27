@@ -528,6 +528,13 @@ export type ActivitySubmission = {
   approved_at?: string | null;
   /** D518: the verifier link that approved it; null once that link row is gone. */
   approved_by_verifier?: string | null;
+  /** D735: the admin whose Undo revoke approved it; verifier approvals use `approved_by_verifier`. */
+  approved_by?: string | null;
+  /** D735: when a revoke was undone; kept while the entry is live, as the trail. */
+  restored_at?: string | null;
+  /** D735: the admin who undid the revoke; null for a verifier's (see `restored_by_verifier`). */
+  restored_by?: string | null;
+  restored_by_verifier?: string | null;
   /** D525: shared by the two rows of one tagged submit; null otherwise. Optional so old fixtures compile. */
   pair_id?: string | null;
 };

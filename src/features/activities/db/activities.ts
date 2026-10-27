@@ -440,7 +440,7 @@ export async function getSubmission(id: string): Promise<ActivitySubmission | nu
  * D520: what every edit writes besides the answers. A verifier approved the answer they saw;
  * once it changes, the entry is back in their To check list.
  */
-const UNAPPROVED = { approved_at: null, approved_by_verifier: null };
+const UNAPPROVED = { approved_at: null, approved_by_verifier: null, approved_by: null };
 
 /**
  * D532/D533: what a write to one entry acts on - both rows of a tagged pair, or just this row.
@@ -587,6 +587,23 @@ export async function revokeSubmission(id: string, activityId: string, reason: s
     .eq(s.col, s.val).eq("activity_id", activityId).eq("status", "submitted").select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+/** D735: why `restore_submission` refused; `missing` is gone or no longer revoked. */
+export type RestoreCode = "ok" | "missing" | "today" | "limit" | "groupdone" | "trackfull";
+
+/**
+ * D735: Undo revoke. The entry comes back as it was and approved, both rows of a pair (D533). The
+ * limits a new entry meets are re-checked on the entry's own day, in one transaction.
+ */
+export async function restoreSubmission(id: string, activityId: string, by: RevokedBy): Promise<RestoreCode> {
+  const { data, error } = await serviceClient().rpc("restore_submission", {
+    p_id: id, p_activity_id: activityId,
+    p_user_id: "userId" in by ? by.userId : null,
+    p_verifier_id: "verifierId" in by ? by.verifierId : null,
+  });
+  if (error) throw error;
+  return data as RestoreCode;
 }
 
 /**

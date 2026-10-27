@@ -6,7 +6,7 @@ import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { SubmissionFields } from "./SubmissionFields";
 import { RevokeForm } from "./RevokeForm";
-import { revokeCredit } from "../../lib/revoke";
+import { restoreCredit, revokeCredit } from "../../lib/revoke";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -23,16 +23,19 @@ export type SubmitterInfo = { name: string; email: string | null; category: stri
  * (D399), which signs a fresh link at the click: one minted here at render time was dead a
  * minute later, long before a committee working down the table clicked it.
  *
- * Every row stays, revoked ones too (D340): greyed, marked Revoked, and with no menu, since a
- * revoked row cannot be edited. A live row's ⋯ menu edits its answers in the portal's own
- * fields (D337) or revokes it with a reason (D498). The page's count is of live rows only (D339).
+ * Every row stays, revoked ones too (D340): greyed and marked Revoked. A revoked row cannot be
+ * edited, so its ⋯ menu only undoes the revoke (D735). A live row's ⋯ menu edits its answers in
+ * the portal's own fields (D337) or revokes it with a reason (D498). The page's count is of live
+ * rows only (D339).
  */
-export function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, reasons, adminNames, verifierNames, groupFor, withFor }: {
+export function SubmissionTable({ submissions, questions, submitterFor, edit, revoke, restore, reasons, adminNames, verifierNames, groupFor, withFor }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   submitterFor: (attendeeId: string) => SubmitterInfo;
   edit: (submissionId: string, fd: FormData) => Promise<void>;
   revoke: (submissionId: string, fd: FormData) => Promise<void>;
+  /** D735: Undo revoke. */
+  restore: (submissionId: string) => Promise<void>;
   /** D497: the event's templates for the revoke dialog. */
   reasons: string[];
   /** `edited_by`/`revoked_by` resolved to an email via `scannerNames`; unresolved ids are missing. */
@@ -96,13 +99,15 @@ export function SubmissionTable({ submissions, questions, submitterFor, edit, re
       <TableBody>
         {rows.map(({ submission, who, cells, retiredCells, fileLinks }) => {
           const revoked = submission.status === "revoked";
+          const restored = revoked ? null : restoreCredit(submission, { admins: adminNames, verifiers: verifierNames });
           return (
             <TableRow key={submission.id} className={revoked ? "opacity-60" : undefined}>
               <TableCell className="whitespace-nowrap text-muted-foreground">
                 <div>{shortDate(submission.submitted_on)}</div>
-                {(revoked || submission.edited_at || submission.attendee_edited_at) && (
+                {(revoked || restored || submission.edited_at || submission.attendee_edited_at) && (
                   <div className="mt-1 flex gap-1">
                     {revoked && <Badge variant="secondary" title={revokeCredit(submission, { admins: adminNames, verifiers: verifierNames })}>Revoked</Badge>}
+                    {restored && <Badge variant="outline" title={restored}>Restored</Badge>}
                     {(submission.edited_at || submission.attendee_edited_at) && (
                       <Badge variant="outline" title={[
                         submission.edited_at && stamp("Edited", submission.edited_by, submission.edited_at),
@@ -139,6 +144,21 @@ export function SubmissionTable({ submissions, questions, submitterFor, edit, re
                 <TableCell key={key} className="text-muted-foreground">{value || "—"}</TableCell>
               ))}
               <TableCell className="text-right">
+                {revoked && (
+                  <RowActions
+                    name={`${who.name}'s submission`}
+                    dialog={{
+                      label: "Undo revoke",
+                      title: `Bring back ${who.name}'s submission?`,
+                      hint: "It counts again exactly as it was sent, marked approved, and leaves their Removed list.",
+                      form: (
+                        <form action={restore.bind(null, submission.id)} className="flex justify-end p-1">
+                          <SubmitButton>Undo revoke</SubmitButton>
+                        </form>
+                      ),
+                    }}
+                  />
+                )}
                 {!revoked && (
                   <RowActions
                     name={`${who.name}'s submission`}

@@ -5,7 +5,7 @@ import { requireEventAccess } from "@/lib/access";
 import {
   createActivity, updateActivity, scheduleOpening, deleteActivity, deletePassportIfUnstamped, getActivity,
   createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
-  syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission, pairPartnerIds,
+  syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission, restoreSubmission, pairPartnerIds,
   type BookResult, type DecisionResult,
 } from "../db/activities";
 import { getRequest, decideRequest } from "../db/activity-requests";
@@ -26,7 +26,7 @@ import { challengeWeeks, mondayOf } from "../lib/challenge";
 import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots";
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
-import { parseRevokeReason, reasonsOf } from "../lib/revoke";
+import { parseRevokeReason, reasonsOf, restoreRefusal } from "../lib/revoke";
 import { scheduleAt, scheduleCheck, opensLabel, openSwitchPatch, scheduleResultFlash } from "../lib/schedule";
 import { shortDate } from "@/lib/text";
 import { generateToken } from "@/lib/tokens";
@@ -454,6 +454,33 @@ export async function revokeSubmissionAction(eventId: string, activityId: string
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(back, `${who} revoked. They'll see why, and can submit again${activity.is_open ? "." : " once it's open."}`));
+}
+
+/**
+ * D735: Undo revoke, after an appeal. The entry comes back as it was, approved, and counts again;
+ * refused by name when a newer entry has taken its place. Scoped as `revokeSubmissionAction` is.
+ */
+export async function restoreSubmissionAction(eventId: string, activityId: string, submissionId: string) {
+  const { ev, actor: { userId } } = await requireEventAccess(eventId);
+  const activity = await submissionOf(ev, activityId);
+  const current = await getSubmission(submissionId);
+  const back = submissionsBack(eventId, activity, current);
+  if (!current || current.activity_id !== activity.id) {
+    revalidatePath(detailPath(eventId, activityId));
+    redirect(flashPath(back, "That submission no longer exists.", "error"));
+  }
+  const code = await restoreSubmission(submissionId, activity.id, { userId });
+  if (code !== "ok") {
+    revalidatePath(detailPath(eventId, activityId));
+    redirect(flashPath(back, restoreRefusal(code), "error"));
+  }
+  const name = (await getAttendee(current.attendee_id))?.name ?? "Someone";
+  const partnerId = current.pair_id ? (await pairPartnerIds([current])).get(current.id) : undefined;
+  const partnerName = partnerId ? (await getAttendee(partnerId))?.name : undefined;
+  const who = partnerName ? `${name}'s and ${partnerName}'s submissions are` : `${name}'s submission is`;
+  revalidatePath(listPath(eventId));
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(back, `${who} back and counting again, marked approved.`));
 }
 
 /**

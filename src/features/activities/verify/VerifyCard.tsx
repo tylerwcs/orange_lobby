@@ -11,9 +11,10 @@ import { RevokeForm } from "../kinds/submission/RevokeForm";
  * D495: one entry on the verifier's page - who, which activity, when, the answers, and the
  * photos inline, since checking proof is the whole job. A live entry has Revoke; a revoked
  * one shows who did it and why instead. D518: a live entry also has Approve, and an approved
- * one says who approved it, with Undo (D521).
+ * one says who approved it, with Undo (D521). D735: a revoked one has Undo revoke, and a
+ * restored one says who brought it back.
  */
-export function VerifyCard({ s, activity, who, together, group, token, credit, reasons, revoke, approved, approve, unapprove }: {
+export function VerifyCard({ s, activity, who, together, group, token, credit, reasons, revoke, restore, restored, approved, approve, unapprove }: {
   s: ActivitySubmission;
   activity: Activity;
   who: string;
@@ -25,6 +26,9 @@ export function VerifyCard({ s, activity, who, together, group, token, credit, r
   credit: string | null;
   reasons: string[];
   revoke: (fd: FormData) => Promise<void>;
+  restore: () => Promise<void>;
+  /** `restoreCredit` for a live entry whose revoke was undone; null otherwise. */
+  restored: string | null;
   /** `approveCredit`: "Approved by …" for an approved live entry; null otherwise. */
   approved: string | null;
   approve: () => Promise<void>;
@@ -43,6 +47,7 @@ export function VerifyCard({ s, activity, who, together, group, token, credit, r
         {together && <CardDescription className="text-xs">{together}</CardDescription>}
         {credit && <CardDescription className="text-xs">{credit}</CardDescription>}
         {approved && <CardDescription className="text-xs">{approved}</CardDescription>}
+        {restored && <CardDescription className="text-xs">{restored}</CardDescription>}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {answered.map((q) => {
@@ -66,6 +71,16 @@ export function VerifyCard({ s, activity, who, together, group, token, credit, r
             </div>
           );
         })}
+        {credit && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {/* The dialog closes on the redraw: this button only renders on a revoked card, as Revoke's on a live one (D523). */}
+            <Modal title={`Bring back ${who}'s entry?`} hint="It counts again exactly as it was sent, marked approved in your name." trigger="Undo revoke" variant="outline">
+              <form action={restore} className="flex justify-end">
+                <SubmitButton>Undo revoke</SubmitButton>
+              </form>
+            </Modal>
+          </div>
+        )}
         {!credit && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {approved ? (

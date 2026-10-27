@@ -35,7 +35,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { DayNav } from "@/components/admin/DayNav";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, toggleLeaderboardAction, saveSubmissionActivityAction, deleteSubmissionActivityAction, uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction, disqualifyAction, undoDisqualifyAction } from "../../admin/actions";
+import { toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, toggleLeaderboardAction, saveSubmissionActivityAction, deleteSubmissionActivityAction, uploadActivityImageAction, editSubmissionAction, revokeSubmissionAction, restoreSubmissionAction, disqualifyAction, undoDisqualifyAction } from "../../admin/actions";
 
 export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, teamId }: {
   ev: Event; activity: Activity; requestedDay?: string; tab?: string; week?: string; teamId?: string;
@@ -62,10 +62,10 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
   // A revoked row stays for the record (D340, so SubmissionTable below still gets `submissions`
   // whole) but never counts toward anything this activity decides from (D339).
   const live = liveSubmissions(submissions);
-  // Who edited or revoked a row, for its badge's title. Only the ids actually stamped.
-  const adminNames = await scannerNames(submissions.flatMap((s) => [s.edited_by, s.revoked_by]));
+  // Who edited, revoked or restored a row (D735), for its badge's title. Only the ids actually stamped.
+  const adminNames = await scannerNames(submissions.flatMap((s) => [s.edited_by, s.revoked_by, s.restored_by ?? null]));
   // D492: a verifier's revoke names the link, not an auth user.
-  const verifiers = await verifierNames(submissions.map((s) => s.revoked_by_verifier));
+  const verifiers = await verifierNames(submissions.flatMap((s) => [s.revoked_by_verifier, s.restored_by_verifier]));
 
   // D359/D360: a group form is chased by group, and its rows carry the group they were sent for.
   const grouped = isGroupForm(activity.group_mode);
@@ -194,6 +194,7 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
               withFor={withFor}
               edit={editSubmissionAction.bind(null, ev.id, activity.id)}
               revoke={revokeSubmissionAction.bind(null, ev.id, activity.id)}
+              restore={restoreSubmissionAction.bind(null, ev.id, activity.id)}
               adminNames={adminNames}
               reasons={reasonsOf(ev)}
               verifierNames={verifiers}
