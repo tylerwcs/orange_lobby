@@ -187,6 +187,17 @@ user says yes in chat.
   `submit_answers` - their own track, their own team's places - and any refusal drops the whole
   entry. The partner picker lists only people on this track.
 
+### D731 — Track history: every view follows the day (the user, 27 Oct)
+
+- **History:** `challenge_track_history` (0109) keeps every track change with its Malaysian day.
+  It was filled in from the placements of the time, and `set_challenge_track` adds a row on each
+  change. This replaces D722's "no history" non-goal.
+- **My team** shows the tracks as they stood on the day picked; for anyone placed before the
+  history began, the track they logged on that day. Captains' switches show on today's view only.
+- **My stats** on a track page counts both tracks: a day logged on the other track (before a move)
+  is logged in the week strip and the streak, scores its own points into the week, and reads in
+  that track's unit and entries, read-only, with "Logged on <track>, before your track changed."
+
 ### D727 — The combined team score
 
 - **Season total for a team:**

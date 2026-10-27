@@ -30,6 +30,8 @@ export type Tracker = {
   weekPts: number | null;
   /** The selected day's entries, oldest first, revoked ones included so the attendee sees what was removed. */
   entries: ActivitySubmission[];
+  /** D731: on a track pair, whether the selected day was logged on the other track - its numbers, unit and entries are that track's. */
+  dayTrack: "this" | "other";
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -65,8 +67,10 @@ export function buildTracker(input: {
   entries: ActivitySubmission[];
   today: string;
   requested: string | null;
+  /** D731: on a track pair, the other track and this person's entries on it - a day logged there counts here too. */
+  other?: { scoring: ChallengeScoring; entries: ActivitySubmission[] };
 }): Tracker | null {
-  const { scoring, entries, today } = input;
+  const { scoring, entries, today, other } = input;
   const weeks = challengeWeeks(scoring, input.eventStartsOn);
   if (weeks.length === 0) return null;
   const first = weeks[0].days[0];
@@ -79,8 +83,15 @@ export function buildTracker(input: {
   const week = weekFor(weeks, selected) ?? weeks[0];
   const i = weeks.indexOf(week);
 
-  const km = dailyKm(entries, scoring.metric_key);
-  const logged = (d: string) => (km.get(d) ?? 0) >= scoring.daily_min;
+  // D731: a day is read on the track it was logged on - here, or (before a move) the other track.
+  // A track move removes that day's entries on the old track (D726), so a day is never on both.
+  const own = dailyKm(entries, scoring.metric_key);
+  const theirs = other ? dailyKm(other.entries, other.scoring.metric_key) : new Map<string, number>();
+  const onOther = (d: string) => !!other && (own.get(d) ?? 0) === 0 && (theirs.get(d) ?? 0) > 0;
+  const scoringOf = (d: string) => (onOther(d) ? other!.scoring : scoring);
+  const valueOf = (d: string) => (onOther(d) ? theirs : own).get(d) ?? 0;
+  const ptsOf = (d: string) => stepPoints(valueOf(d), scoringOf(d).daily_steps ?? []);
+  const logged = (d: string) => valueOf(d) >= scoringOf(d).daily_min;
   const days = week.days.map((day): TrackerDay => ({
     day,
     label: WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()],
@@ -88,10 +99,12 @@ export function buildTracker(input: {
     state: day === today ? "today" : day < today ? (logged(day) ? "logged" : "missed") : "future",
   }));
 
-  const steps = scoring.daily_steps ?? [];
-  const selKm = km.get(selected) ?? 0;
-  const step = steps.length ? nextStep(selKm, steps) : selKm < scoring.daily_min ? { at: scoring.daily_min, pts: 0 } : null;
-  const marks = steps.length ? steps.map((s) => s.at) : [scoring.daily_min];
+  const sel = scoringOf(selected);
+  const steps = sel.daily_steps ?? [];
+  const selKm = valueOf(selected);
+  const step = steps.length ? nextStep(selKm, steps) : selKm < sel.daily_min ? { at: sel.daily_min, pts: 0 } : null;
+  const marks = steps.length ? steps.map((s) => s.at) : [sel.daily_min];
+  const scored = (scoring.daily_steps ?? []).length > 0 || (other?.scoring.daily_steps ?? []).length > 0;
 
   // D374: the streak ends today, or yesterday while today is still to be logged - an evening
   // walker should not see their streak read 0 every morning.
@@ -111,8 +124,9 @@ export function buildTracker(input: {
     marks,
     full: marks[marks.length - 1],
     streak,
-    weekPts: steps.length ? week.days.filter((d) => d <= today).reduce((t, d) => t + stepPoints(km.get(d) ?? 0, steps), 0) : null,
-    entries: entries.filter((s) => s.submitted_on === selected).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    weekPts: scored ? week.days.filter((d) => d <= today).reduce((t, d) => t + ptsOf(d), 0) : null,
+    entries: (onOther(selected) ? other!.entries : entries).filter((s) => s.submitted_on === selected).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    dayTrack: onOther(selected) ? "other" : "this",
   };
 }
 

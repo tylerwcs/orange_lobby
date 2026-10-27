@@ -189,3 +189,31 @@ describe("entryChoices (D469)", () => {
     expect(entryChoices({ answers: { minutes: "30" } }, qs)).toBe("");
   });
 });
+
+describe("buildTracker across a track pair (D731)", () => {
+  // This page is Track B (minutes); the person logged km on Track A before moving.
+  const MIN: ChallengeScoring = { metric_key: "minutes", daily_min: 20, starts_on: "2026-10-05", ends_on: "2026-12-04", unit: "min",
+    daily_steps: [{ at: 20, pts: 1 }, { at: 30, pts: 2 }, { at: 45, pts: 3 }] };
+  const m = (day: string, minutes: string) => e(day, "0", { activity_id: "b", answers: { minutes } });
+  const pair = (mine: ActivitySubmission[], other: ActivitySubmission[], today: string, requested: string | null = null) =>
+    buildTracker({ scoring: MIN, eventStartsOn: "2026-09-28", entries: mine, today, requested, other: { scoring: S, entries: other } })!;
+
+  it("counts a day logged on the other track as logged, in the week strip and the streak", () => {
+    const t = pair([m("2026-10-07", "30")], [e("2026-10-05", "5"), e("2026-10-06", "1")], "2026-10-07");
+    expect(t.days.slice(0, 3).map((d) => d.state)).toEqual(["logged", "logged", "today"]);
+    expect(t.streak).toBe(3);
+  });
+  it("adds both tracks' daily points into the week", () => {
+    // 5 km = 4 pts on Track A, 1 km = 1 pt, then 30 min = 2 pts on Track B.
+    expect(pair([m("2026-10-07", "30")], [e("2026-10-05", "5"), e("2026-10-06", "1")], "2026-10-07").weekPts).toBe(7);
+  });
+  it("shows a day logged on the other track in that track's numbers and entries", () => {
+    const t = pair([m("2026-10-07", "30")], [e("2026-10-05", "5")], "2026-10-07", "2026-10-05");
+    expect([t.km, t.pts, t.dayTrack, t.entries.length]).toEqual([5, 4, "other", 1]);
+  });
+  it("shows this track's numbers on a day logged here, and on an empty day", () => {
+    const t = pair([m("2026-10-07", "30")], [e("2026-10-05", "5")], "2026-10-07");
+    expect([t.km, t.pts, t.dayTrack]).toEqual([30, 2, "this"]);
+    expect(pair([], [], "2026-10-07").dayTrack).toBe("this");
+  });
+});

@@ -76,18 +76,23 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
   eventStartsOn: string | null; day: string | null; writing: boolean; edit?: EditEntry; proxy: Proxy | null; changingTracks: boolean;
 }) {
   const scoring = f.scoring!;
-  const unit = unitOf(scoring);
   const today = nowInKL().date;
-  const [all, challenge] = await Promise.all([
+  const [all, challenge, other, otherEntries] = await Promise.all([
     entriesForAttendee(f.id, attendeeId),
     teamId ? loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today) : Promise.resolve(null),
+    // D731: on a track pair, the other track and this person's entries on it, so My stats counts both.
+    track ? getActivity(track.other.id, f.event_id) : Promise.resolve(null),
+    track ? entriesForAttendee(track.other.id, attendeeId) : Promise.resolve([]),
   ]);
-  const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day });
+  const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day,
+    ...(other?.scoring ? { other: { scoring: other.scoring, entries: otherEntries } } : {}) });
+  // A day logged on the other track reads in that track's unit and questions, and is edited on its own page.
+  const dayForm = t?.dayTrack === "other" && other?.scoring ? other : f;
   const myTeam = challenge && teamId ? challenge.teams.find((x) => x.id === teamId) ?? null : null;
   // D724: on a track pair, My team is the team by track, each person on their own track's number.
   const [addedBy, pairTeam] = await Promise.all([
     addedByLine(f.event_id, t?.entries ?? []),
-    t && challenge && myTeam && track ? loadTrackTeam(f, track, challenge, { teamId: myTeam.id, selfId: attendeeId, day: t.selected, today, eventStartsOn, week: t.week.number }) : Promise.resolve(null),
+    t && challenge && myTeam && track && other ? loadTrackTeam(f, track, challenge, other, { teamId: myTeam.id, selfId: attendeeId, day: t.selected, today, eventStartsOn, week: t.week.number }) : Promise.resolve(null),
   ]);
   const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
   const shownWeek = t && challenge ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
@@ -98,13 +103,14 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
           <>
             {/* No `tab` param on a day's link: a day belongs to My stats, the tab without one. */}
             <WeekStrip t={t} href={(d) => (d === today ? path : `${path}?day=${d}`)} />
-            <DayRing t={t} unit={unit} />
+            <DayRing t={t} unit={unitOf(dayForm.scoring!)} />
             <div className="flex items-baseline justify-between">
               <h2 className="text-lg font-extrabold">{t.isToday ? "Today's entries" : "Entries"}</h2>
               <span className="text-xs text-muted-foreground">{workouts} workout{workouts === 1 ? "" : "s"}</span>
             </div>
-            <EntryTimeline entries={t.entries} questions={f.questions} metricKey={scoring.metric_key} unit={unit}
-              empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={edit} addedBy={addedBy} />
+            <EntryTimeline entries={t.entries} questions={dayForm.questions} metricKey={dayForm.scoring!.metric_key} unit={unitOf(dayForm.scoring!)}
+              empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={dayForm === f ? edit : undefined} addedBy={addedBy} />
+            {dayForm !== f && <p className={note}>Logged on {dayForm.name}, before your track changed.</p>}
             {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
             {track && <TrackNote track={track} href={`/e/${slug}/a/${token}/activities/${track.other.id}`} />}
             {pairTeam && myTeam && (
@@ -148,11 +154,11 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
  * the shown day (this track's come from the score already read), both activities' names, and
  * whether this attendee is a captain of the pair.
  */
-async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awaited<ReturnType<typeof loadChallenge>>,
+async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awaited<ReturnType<typeof loadChallenge>>, other: Activity,
   at: { teamId: string; selfId: string; day: string; today: string; eventStartsOn: string | null; week: number }) {
   const { pair } = track;
-  const [rows, other, history] = await Promise.all([trackRows(pair.id), getActivity(track.other.id, f.event_id), at.day === at.today ? Promise.resolve([]) : trackHistory(pair.id)]);
-  if (!other?.scoring) return null;
+  const [rows, history] = await Promise.all([trackRows(pair.id), at.day === at.today ? Promise.resolve([]) : trackHistory(pair.id)]);
+  if (!other.scoring) return null;
   const otherChallenge = await loadChallenge({ id: f.event_id, starts_on: at.eventStartsOn }, other, at.today);
   const members = challenge.attendees.filter((m) => m.group_id === at.teamId);
   const dayOf = (c: typeof challenge) => new Map(members.map((m) => [m.id, c.score.personKm(m.id, at.day)]));
