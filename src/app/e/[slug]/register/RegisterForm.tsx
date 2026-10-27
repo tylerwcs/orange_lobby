@@ -201,13 +201,15 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
                   // D732: the boxes carry no name - the hidden input posts the answer as one
                   // string, the same shape every other question posts. The group takes the id,
                   // so the problem list's link still lands on the question.
-                  <div id={id} role="group" tabIndex={-1} aria-labelledby={`${id}-label`} {...invalid(q.key, help)} className="flex flex-col gap-1 outline-none">
+                  <div id={id} role="group" tabIndex={-1} aria-labelledby={`${id}-label`} {...invalid(q.key, help)} className="flex flex-col outline-none">
                     <input type="hidden" name={q.key} value={value(q.key)} />
                     {q.options!.map((o) => (
-                      <label key={o} className="flex min-h-11 items-start gap-3 py-2 text-base">
+                      // The question's own size (text-sm), so a choice does not outweigh the question it
+                      // answers; py-3 keeps a one-line row a 44px tap.
+                      <label key={o} className="flex items-start gap-3 py-3 text-sm">
                         <input type="checkbox" value={o} data-multi={q.key} checked={multiParts(value(q.key)).includes(o)}
                           onChange={(e) => set(q.key, toggleMulti(value(q.key), o, e.target.checked, q.options!))}
-                          className="mt-0.5 size-5 shrink-0 accent-primary" />
+                          className="size-5 shrink-0 accent-primary" />
                         <span>{o}</span>
                       </label>
                     ))}
