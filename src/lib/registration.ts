@@ -3,11 +3,12 @@ import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 import { isQuestionShown } from "@/lib/show-when";
 import { checkNumber, hasNumberLimits } from "@/lib/number-answer";
 import { checkPhone } from "@/lib/phone";
+import { multiParts } from "@/lib/multi-answer";
 
 export { isQuestionShown };
 
-/** What registration may ask. A file has no attendee row to attach to yet (D164). */
-export const REGISTRATION_QUESTION_TYPES = ["text", "phone", "number", "select"] as const satisfies readonly QuestionType[];
+/** What registration may ask. A file has no attendee row to attach to yet (D164). Tick boxes, D732. */
+export const REGISTRATION_QUESTION_TYPES = ["text", "phone", "number", "select", "multi"] as const satisfies readonly QuestionType[];
 /** What a form may ask. */
 export const FORM_QUESTION_TYPES = ["text", "phone", "number", "select", "textarea", "file"] as const satisfies readonly QuestionType[];
 
@@ -24,7 +25,7 @@ const schemaFor = (allowed: readonly QuestionType[]) => z.object({
   decimals: z.number().int().min(0).max(4).optional(),
   // D395: shown to attendees as a link and an <img>, so only ever a web address.
   sample_url: z.string().regex(/^https?:\/\//, "sample must be a web link").optional(),
-}).refine((q) => q.type !== "select" || (q.options && q.options.length > 0), { message: "select questions need options" })
+}).refine((q) => (q.type !== "select" && q.type !== "multi") || (q.options && q.options.length > 0), { message: "select questions need options" })
   .refine((q) => q.min === undefined || q.max === undefined || q.min <= q.max, { message: "the smallest number allowed is above the largest" });
 
 export function parseQuestions(
@@ -79,6 +80,12 @@ export function validateAnswers(
     if (!isQuestionShown(q, input, questions)) { answers[q.key] = ""; continue; }
     if (q.required && !v) errors[q.key] = `${q.label} is required`;
     else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = "Choose one of the listed options";
+    else if (q.type === "multi" && v) {
+      // D732: every tick must be one of the choices; stored in the question's order.
+      const ticked = multiParts(v);
+      if (ticked.some((t) => !q.options!.includes(t))) errors[q.key] = "Tick only the listed options";
+      else { answers[q.key] = q.options!.filter((o) => ticked.includes(o)).join(", "); continue; }
+    }
     else if (q.type === "phone" && v) {
       // D675: a Malaysian mobile or an international number, stored in one tidy spelling.
       const p = checkPhone(v);

@@ -13,7 +13,7 @@ import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 import type { StandardRule } from "@/lib/registration-standard";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-const TYPE_LABELS: Record<QuestionType, string> = { text: "Text", phone: "Phone", number: "Number", select: "Choice", textarea: "Long text", file: "File" };
+const TYPE_LABELS: Record<QuestionType, string> = { text: "Text", phone: "Phone", number: "Number", select: "Choice", multi: "Tick boxes", textarea: "Long text", file: "File" };
 
 type Card = QuestionDraft & { id: number };
 const blank = (): QuestionDraft => ({ key: "", label: "", type: "text", required: false, options: [], description: "", showKey: "", showValue: "", min: "", max: "", decimals: "", sample: "" });
@@ -113,7 +113,7 @@ export function QuestionCards({ questions, types, max, uploadImage, standard = {
                       Required
                     </label>
                   </div>
-                  {c.type === "select" && (
+                  {(c.type === "select" || c.type === "multi") && (
                     <label className="grid gap-1.5 text-sm"><span className="font-bold">Choices</span>
                       <textarea rows={4} value={c.options.join("\n")} className={`${input} h-auto py-2`}
                         onChange={(e) => update(c.id, { options: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
@@ -149,7 +149,7 @@ export function QuestionCards({ questions, types, max, uploadImage, standard = {
                           </option>
                         )}
                       </select>
-                      {c.showKey && (target?.type === "select" ? (
+                      {c.showKey && (target?.type === "select" || target?.type === "multi" ? (
                         <select aria-label="Answer" value={c.showValue} onChange={(e) => update(c.id, { showValue: e.target.value })} className={`${input} w-auto min-w-40 flex-1`}>
                           <option value="">Pick an answer</option>
                           {target.options.map((o) => <option key={o} value={o}>{o}</option>)}

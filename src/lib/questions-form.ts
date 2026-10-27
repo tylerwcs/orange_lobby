@@ -31,7 +31,7 @@ export function questionsFromForm(
     const sample = type === "file" ? t(`q_${n}_sample`) : "";
     raw.push({
       key, label, type, required: get(`q_${n}_required`) === "on",
-      ...(type === "select" ? { options } : {}),
+      ...(type === "select" || type === "multi" ? { options } : {}),
       ...(t(`q_${n}_description`) ? { description: t(`q_${n}_description`) } : {}),
       ...(showKey && showValue ? { show_when: { key: keyFor(showKey), includes: showValue } } : {}),
       ...limits,

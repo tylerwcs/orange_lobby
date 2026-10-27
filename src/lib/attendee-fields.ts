@@ -257,6 +257,8 @@ function attendeeFieldTypeFor(type: QuestionType): AttendeeFieldType {
     // table — so they fall back to text the same way an emptied-out select does below.
     case "textarea":
     case "file":
+    // D732: tick boxes' answer is one comma-joined string, edited in the table as text.
+    case "multi":
       return "text";
     default: {
       const exhaustive: never = type;

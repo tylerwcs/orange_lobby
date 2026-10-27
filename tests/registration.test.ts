@@ -181,3 +181,24 @@ describe("number limits (D370)", () => {
     expect(validateAnswers({ km: "" }, [{ ...km, required: false }])).toEqual({ ok: true, answers: { km: "" } });
   });
 });
+
+describe("tick boxes (D732)", () => {
+  const q = { key: "chronic", label: "Chronic diseases", type: "multi" as const, required: true, options: ["Diabetes", "Obesity", "Not sure"] };
+  const other = { key: "other", label: "Other", type: "text" as const, required: false, show_when: { key: "chronic", includes: "Obesity" } };
+
+  it("parses with choices and refuses one without", () => {
+    expect(parseQuestions([q])[0].type).toBe("multi");
+    expect(() => parseQuestions([{ ...q, options: [] }])).toThrow(/need options/);
+  });
+
+  it("keeps the ticks in the question's order, and refuses one that is not a choice", () => {
+    expect(validateAnswers({ chronic: "Not sure, Diabetes" }, [q])).toEqual({ ok: true, answers: { chronic: "Diabetes, Not sure" } });
+    expect(validateAnswers({ chronic: "Diabetes, Cancer" }, [q])).toMatchObject({ ok: false, errors: { chronic: "Tick only the listed options" } });
+    expect(validateAnswers({ chronic: "" }, [q])).toMatchObject({ ok: false, errors: { chronic: "Chronic diseases is required" } });
+  });
+
+  it("opens a follow-up when one of the ticks matches", () => {
+    expect(isQuestionShown(other, { chronic: "Diabetes, Obesity" }, [q, other])).toBe(true);
+    expect(isQuestionShown(other, { chronic: "Diabetes" }, [q, other])).toBe(false);
+  });
+});

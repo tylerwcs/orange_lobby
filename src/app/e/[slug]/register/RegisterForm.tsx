@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
 import { problemsInFormOrder, registrationErrors } from "@/lib/registration-check";
 import { checkPhone, phoneTypingError } from "@/lib/phone";
+import { multiParts, toggleMulti } from "@/lib/multi-answer";
 import { CARD_TITLE_INK } from "@/lib/ink";
 
 /**
@@ -135,6 +136,12 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
     if (box instanceof HTMLInputElement) box.checked = agreed;
     const termsBox = document.getElementById(`reg-${TERMS_FIELD}`);
     if (termsBox instanceof HTMLInputElement) termsBox.checked = agreedTerms;
+    // Tick boxes (D732) are reset the same way: each box back to what the answer holds.
+    for (const q of questions) {
+      if (q.type !== "multi") continue;
+      const ticked = multiParts(value(q.key));
+      document.querySelectorAll<HTMLInputElement>(`input[data-multi="${q.key}"]`).forEach((b) => { b.checked = ticked.includes(b.value); });
+    }
 
     // A rejected form is read from wherever the submit button was — the bottom, on a phone.
     // The list of what to fix sits right above that button (D546), so it is the one to show.
@@ -178,7 +185,7 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
             const identity = q.key === "name" || q.key === "email";
             return (
               <Field key={q.key} data-invalid={!!shown[q.key]}>
-                <FieldLabel htmlFor={id}>{q.label}{!identity && !q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
+                <FieldLabel id={`${id}-label`} htmlFor={q.type === "multi" ? undefined : id}>{q.label}{!identity && !q.required && <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
                 {q.description && <FieldDescription id={help}>{q.description}</FieldDescription>}
                 {q.key === "name" ? (
                   <Input id={id} name="name" required autoComplete="name" enterKeyHint="next" value={value("name")} onChange={(e) => set("name", e.target.value)} className="h-11" {...invalid("name", help)} />
@@ -190,6 +197,21 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
                     <option value="">Select…</option>
                     {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
+                ) : q.type === "multi" ? (
+                  // D732: the boxes carry no name - the hidden input posts the answer as one
+                  // string, the same shape every other question posts. The group takes the id,
+                  // so the problem list's link still lands on the question.
+                  <div id={id} role="group" tabIndex={-1} aria-labelledby={`${id}-label`} {...invalid(q.key, help)} className="flex flex-col gap-1 outline-none">
+                    <input type="hidden" name={q.key} value={value(q.key)} />
+                    {q.options!.map((o) => (
+                      <label key={o} className="flex min-h-11 items-start gap-3 py-2 text-base">
+                        <input type="checkbox" value={o} data-multi={q.key} checked={multiParts(value(q.key)).includes(o)}
+                          onChange={(e) => set(q.key, toggleMulti(value(q.key), o, e.target.checked, q.options!))}
+                          className="mt-0.5 size-5 shrink-0 accent-primary" />
+                        <span>{o}</span>
+                      </label>
+                    ))}
+                  </div>
                 ) : (
                   <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} placeholder={PLACEHOLDER[q.type]} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
                     onBlur={q.type === "phone" ? () => leavePhone(q.key) : undefined}

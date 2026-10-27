@@ -5,7 +5,8 @@ import type { EventTheme } from "@/features/theme/client";
 
 export type EventStatus = "draft" | "live" | "archived";
 
-export type QuestionType = "text" | "phone" | "number" | "select" | "textarea" | "file";
+/** `multi` (D732): tick boxes, any number of `options`; see multi-answer.ts for how the answer is kept. */
+export type QuestionType = "text" | "phone" | "number" | "select" | "multi" | "textarea" | "file";
 
 export type RegistrationQuestion = {
   key: string;
