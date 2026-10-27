@@ -3,7 +3,7 @@ import { fieldValue } from "@/lib/attendee-values";
 import { isOwnSubmissionPath } from "@/lib/storage";
 import { stepPoints, unitOf } from "@/features/activities/client";
 import type { Activity, Attendee, ChallengeScoring } from "@/lib/types";
-import type { TrackPair, TrackRow, TrackStatus } from "./types";
+import type { TrackHistoryRow, TrackPair, TrackRow, TrackStatus } from "./types";
 
 /** The pure rules of a track pair (D722-D725). The database decides what is allowed; these decide what the page draws. */
 
@@ -105,8 +105,9 @@ export function memberTrackRefusal(code: string, memberName: string): string | n
  * D724: a row's A | B switch. A placed member's row keeps its space for their day's numbers, so a
  * captain sees the switch only on someone with no track - or on every row while changing tracks.
  */
-export function showTrackSwitch(input: { captain: boolean; placed: boolean; changing: boolean }): boolean {
-  return input.captain && (!input.placed || input.changing);
+export function showTrackSwitch(input: { captain: boolean; placed: boolean; changing: boolean; isToday: boolean }): boolean {
+  // D731: another day's view shows how the team stood then, so it offers no changes.
+  return input.captain && input.isToday && (!input.placed || input.changing);
 }
 
 /** An entry as read just before a track move, for `goneEntryFiles`. */
@@ -131,4 +132,25 @@ export function goneEntryFiles(before: MovedEntry[], stillThere: Set<string>, at
 export function trackFullFor(logged: { attendee_id: string; activity_id: string }[], activityId: string, attendeeId: string, target: number): boolean {
   const people = new Set(logged.filter((r) => r.activity_id === activityId).map((r) => r.attendee_id));
   return !people.has(attendeeId) && people.size >= target;
+}
+
+/**
+ * D731: everyone's track on one day, as placement rows `trackOf` reads - each person's latest
+ * change on or before the day (the day's last change wins), leaving out anyone taken off. Someone
+ * with no known track that day but an entry on one (placed before this history began) is put on
+ * the track they logged on.
+ */
+export function placementsOn(history: TrackHistoryRow[], day: string, loggedThatDay: { attendee_id: string; activity_id: string; group_id: string }[] = []): TrackRow[] {
+  const latest = new Map<string, TrackHistoryRow>();
+  for (const h of [...history].sort((x, y) => x.day.localeCompare(y.day) || x.at.localeCompare(y.at))) {
+    if (h.day <= day) latest.set(h.attendee_id, h);
+  }
+  const rows: TrackRow[] = [...latest.values()]
+    .filter((h) => h.activity_id !== null)
+    .map((h) => ({ pair_id: h.pair_id, attendee_id: h.attendee_id, group_id: h.group_id, activity_id: h.activity_id! }));
+  const pairId = history[0]?.pair_id ?? "";
+  for (const l of loggedThatDay) {
+    if (!latest.has(l.attendee_id)) rows.push({ pair_id: pairId, attendee_id: l.attendee_id, group_id: l.group_id, activity_id: l.activity_id });
+  }
+  return rows;
 }

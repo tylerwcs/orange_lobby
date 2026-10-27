@@ -4,7 +4,7 @@ import { deleteSubmissionFiles } from "@/lib/db/media";
 import { nowInKL } from "@/lib/time";
 import { goneEntryFiles, type MovedEntry } from "./lib";
 import type { Activity } from "@/lib/types";
-import type { TrackPair, TrackRefusal, TrackRow } from "./types";
+import type { TrackHistoryRow, TrackPair, TrackRefusal, TrackRow } from "./types";
 
 const PAIR = "id, event_id, a_activity_id, b_activity_id, target, bonus";
 const ROW = "pair_id, attendee_id, group_id, activity_id";
@@ -89,4 +89,11 @@ export async function teamEntriesToday(pair: TrackPair, groupId: string): Promis
     .eq("group_id", groupId).eq("submitted_on", nowInKL().date).eq("status", "submitted").in("activity_id", [pair.a_activity_id, pair.b_activity_id]);
   if (error) throw error;
   return (data ?? []) as { attendee_id: string; activity_id: string }[];
+}
+
+/** D731: every track change in a pair, with its day - `placementsOn` turns it into one day's tracks. */
+export async function trackHistory(pairId: string): Promise<TrackHistoryRow[]> {
+  const { data, error } = await serviceClient().from("challenge_track_history").select("pair_id, attendee_id, group_id, activity_id, day, at").eq("pair_id", pairId);
+  if (error) throw error;
+  return (data ?? []) as TrackHistoryRow[];
 }

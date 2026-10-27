@@ -22,7 +22,7 @@ import { unitOf } from "../../../lib/challenge";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
 import { getActivity } from "../../../db/activities";
-import { isTrackCaptain, sameCalendar, scorePair, setMyTeamTrackAction, trackOf, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
+import { isTrackCaptain, placementsOn, sameCalendar, scorePair, setMyTeamTrackAction, trackHistory, trackOf, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -151,7 +151,7 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
 async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awaited<ReturnType<typeof loadChallenge>>,
   at: { teamId: string; selfId: string; day: string; today: string; eventStartsOn: string | null; week: number }) {
   const { pair } = track;
-  const [rows, other] = await Promise.all([trackRows(pair.id), getActivity(track.other.id, f.event_id)]);
+  const [rows, other, history] = await Promise.all([trackRows(pair.id), getActivity(track.other.id, f.event_id), at.day === at.today ? Promise.resolve([]) : trackHistory(pair.id)]);
   if (!other?.scoring) return null;
   const otherChallenge = await loadChallenge({ id: f.event_id, starts_on: at.eventStartsOn }, other, at.today);
   const members = challenge.attendees.filter((m) => m.group_id === at.teamId);
@@ -160,13 +160,19 @@ async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awa
   const [a, b] = isA ? [f, other] : [other, f];
   const [ca, cb] = isA ? [challenge, otherChallenge] : [otherChallenge, challenge];
   const self = challenge.attendees.find((m) => m.id === at.selfId);
+  // Who logged on which track that day - for anyone placed before the track history began.
+  const loggedOn = (day: string) => members.flatMap((m) => {
+    const where = ca.score.personKm(m.id, day) > 0 ? a.id : cb.score.personKm(m.id, day) > 0 ? b.id : null;
+    return where && m.group_id ? [{ attendee_id: m.id, activity_id: where, group_id: m.group_id }] : [];
+  });
   // D727: the +10 asks about both tracks, so it comes from the pair's score, for the week on show.
   const pairWeek = pair.bonus > 0 && sameCalendar(a.scoring!, b.scoring!)
     ? scorePair({ a: ca.score, b: cb.score, aScoring: a.scoring!, bScoring: b.scoring!, teams: challenge.teams, bonus: pair.bonus, today: at.today }).weeks.find((w) => w.week.number === at.week)
     : undefined;
   const days = pairWeek?.week.days ?? [];
   return {
-    groups: trackTeamRows({ pair, members, rows, totals: { a: dayOf(ca), b: dayOf(cb) }, scoring: { a: a.scoring!, b: b.scoring! }, day: at.day, today: at.today, selfId: at.selfId }),
+    // D731: today is the team as it stands; another day is the team as it stood then.
+    groups: trackTeamRows({ pair, members, rows: at.day === at.today ? rows : placementsOn(history, at.day, loggedOn(at.day)), totals: { a: dayOf(ca), b: dayOf(cb) }, scoring: { a: a.scoring!, b: b.scoring! }, day: at.day, today: at.today, selfId: at.selfId }),
     labels: { a: a.name, b: b.name },
     captain: !!self && isTrackCaptain([a, b], self),
     // D726: who logged today on their own track, so the captain's switch can warn before a move removes it.

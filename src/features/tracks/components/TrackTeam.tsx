@@ -44,7 +44,7 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
         : r.state === "future" ? <span className="text-muted-foreground"><span aria-hidden>–</span><span className="sr-only">Not yet</span></span>
           : r.state === "logged" ? <span className="tabular-nums text-muted-foreground">{r.value} {r.unit}{r.pts !== null ? ` · ${r.pts} pts` : ""}</span>
             : <span className="font-bold text-warning">Not logged</span>}
-      {showTrackSwitch({ captain, placed: side !== null, changing }) && (
+      {showTrackSwitch({ captain, placed: side !== null, changing, isToday: day === today }) && (
         <span className="inline-flex shrink-0 overflow-hidden rounded-md border border-border">
           {(["a", "b"] as const).map((s) => (
             <form key={s} action={switchAction(r.id, s, side === s)} className={s === "b" ? "border-l border-border" : ""}>
@@ -99,7 +99,7 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
         {group(`Track B · ${labels.b}`, groups.b, "b")}
         {groups.none.length > 0 && group("No track yet", groups.none, null)}
         {/* A placed row keeps its space for the day's numbers; moving someone is one tap away. */}
-        {captain && placed > 0 && (
+        {captain && placed > 0 && day === today && (
           <Link href={changing ? doneHref : changeHref} scroll={false} className="self-end px-1 text-sm font-bold text-primary underline-offset-2 hover:underline">
             {changing ? "Done" : "Change tracks"}
           </Link>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goneEntryFiles, intendedTrack, trackFullFor, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { goneEntryFiles, intendedTrack, placementsOn, trackFullFor, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -122,12 +122,15 @@ describe("memberTrackRefusal (D725)", () => {
 
 describe("showTrackSwitch (D724)", () => {
   it("offers a captain the switch only for someone with no track, unless they are changing tracks", () => {
-    expect(showTrackSwitch({ captain: true, placed: false, changing: false })).toBe(true);
-    expect(showTrackSwitch({ captain: true, placed: true, changing: false })).toBe(false);
-    expect(showTrackSwitch({ captain: true, placed: true, changing: true })).toBe(true);
+    expect(showTrackSwitch({ captain: true, placed: false, changing: false, isToday: true })).toBe(true);
+    expect(showTrackSwitch({ captain: true, placed: true, changing: false, isToday: true })).toBe(false);
+    expect(showTrackSwitch({ captain: true, placed: true, changing: true, isToday: true })).toBe(true);
   });
   it("never offers it to a member who isn't a captain", () => {
-    expect(showTrackSwitch({ captain: false, placed: false, changing: true })).toBe(false);
+    expect(showTrackSwitch({ captain: false, placed: false, changing: true, isToday: true })).toBe(false);
+  });
+  it("offers it only on today's view; another day shows how the team stood (D731)", () => {
+    expect(showTrackSwitch({ captain: true, placed: false, changing: true, isToday: false })).toBe(false);
   });
 });
 
@@ -171,5 +174,24 @@ describe("trackFullFor (D730)", () => {
   });
   it("counts people, not entries, and only on this track", () => {
     expect(trackFullFor([...logged(["a", "a", "a", "b"]), ...logged(["c", "d", "e"], "B")], "A", "f", 5)).toBe(false);
+  });
+});
+
+describe("placementsOn (D731)", () => {
+  const h = (attendee_id: string, activity_id: string | null, day: string, at = `${day}T01:00:00Z`) => ({ pair_id: "p", attendee_id, group_id: "g1", activity_id, day, at });
+  const history = [h("x", "A", "2026-10-25"), h("x", "B", "2026-10-28"), h("y", "B", "2026-10-26"), h("y", null, "2026-10-27"), h("z", "A", "2026-10-27", "2026-10-27T01:00:00Z"), h("z", "B", "2026-10-27", "2026-10-27T05:00:00Z")];
+  const on = (day: string, logged: { attendee_id: string; activity_id: string; group_id: string }[] = []) =>
+    placementsOn(history, day, logged).map((r) => [r.attendee_id, r.activity_id]).sort();
+
+  it("is each person's latest track on or before the day", () => {
+    expect(on("2026-10-26")).toEqual([["x", "A"], ["y", "B"]]);
+    expect(on("2026-10-28")).toEqual([["x", "B"], ["z", "B"]]);
+  });
+  it("leaves out someone taken off a track, and takes a day's last change", () => {
+    expect(on("2026-10-27")).toEqual([["x", "A"], ["z", "B"]]);
+  });
+  it("places someone with no known track that day on the track they logged on", () => {
+    expect(on("2026-10-24", [{ attendee_id: "w", activity_id: "B", group_id: "g1" }])).toEqual([["w", "B"]]);
+    expect(on("2026-10-26", [{ attendee_id: "x", activity_id: "B", group_id: "g1" }])).toEqual([["x", "A"], ["y", "B"]]);
   });
 });
