@@ -26,7 +26,18 @@ function textOf(html: string): string {
   return decodeEntities(html.replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim();
 }
 
-const LOOKS_LIKE_HTML = /<(p|h2|h3|ul|ol|li|blockquote|img|br|strong|em|a)\b[^>]*>/i;
+const LOOKS_LIKE_HTML = /<(p|h2|h3|ul|ol|li|blockquote|img|br|strong|em|a|details)\b[^>]*>/i;
+
+/**
+ * A dropdown as the editor reads it (D733). Stored and shown as a bare
+ * `<details><summary>…</summary>…</details>`, since sanitizeHtml keeps no div; the editor's
+ * dropdown wants its content inside `<div data-type="detailsContent">`, so it goes back here.
+ */
+function wrapDropdowns(html: string): string {
+  return html
+    .replace(/<\/summary>/gi, '</summary><div data-type="detailsContent">')
+    .replace(/<\/details>/gi, "</div></details>");
+}
 
 /**
  * Anything stored in a rich text column, as HTML the editor and the pages can use.
@@ -38,7 +49,7 @@ const LOOKS_LIKE_HTML = /<(p|h2|h3|ul|ol|li|blockquote|img|br|strong|em|a)\b[^>]
 export function toRichHtml(stored: string | null | undefined): string {
   const text = (stored ?? "").trim();
   if (!text) return "";
-  if (LOOKS_LIKE_HTML.test(text)) return text;
+  if (LOOKS_LIKE_HTML.test(text)) return wrapDropdowns(text);
   return text
     .split(/\n\s*\n/)
     .map((para) => `<p>${para.split("\n").map((line) => escapeHtml(line.trim())).join("<br>")}</p>`)

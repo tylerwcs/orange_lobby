@@ -22,6 +22,10 @@ describe("sanitizeHtml", () => {
   it("keeps a highlight box, which the editor writes as a blockquote", () => {
     expect(sanitizeHtml('<blockquote class="x"><p>3,000 = 1 point</p></blockquote>')).toBe("<blockquote><p>3,000 = 1 point</p></blockquote>");
   });
+  it("keeps a dropdown, dropping the editor's wrapper div and its attributes", () => {
+    expect(sanitizeHtml('<details open class="x"><summary>Kepong</summary><div data-type="detailsContent"><p>Klinik A</p></div></details>'))
+      .toBe("<details><summary>Kepong</summary><p>Klinik A</p></details>");
+  });
   it("opens every link in a new tab, whatever target the editor wrote", () => {
     expect(sanitizeHtml('<a target="_self" rel="nofollow" href="https://ok.com">x</a>')).toBe('<a href="https://ok.com" target="_blank" rel="noopener noreferrer">x</a>');
   });

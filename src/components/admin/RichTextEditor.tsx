@@ -4,7 +4,8 @@ import { useId, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { Bold, Heading2, Heading3, ImagePlus, Italic, Link2, Link2Off, List, ListOrdered, Redo2, SquareDashedText, Undo2 } from "lucide-react";
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
+import { Bold, Heading2, Heading3, ImagePlus, Italic, Link2, Link2Off, List, ListCollapse, ListOrdered, Redo2, SquareDashedText, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { acceptImage, IMAGE_ACCEPT } from "@/lib/storage";
@@ -36,13 +37,18 @@ const field = "h-8 w-full min-w-0 rounded-md border border-input bg-transparent 
  *
  * Images are offered only when `uploadImage` is: the upload goes up on its own, and the image
  * lands where the cursor was rather than at the end of the text.
+ *
+ * Dropdowns (D733) are offered only when `dropdowns` is: a heading attendees tap to open what
+ * sits under it, for a long list split into groups - clinics by area. Only the info page has
+ * them; the other pages that show this text split it with sections instead.
  */
-export function RichTextEditor({ name, label, defaultValue, description, uploadImage, minHeight = 180 }: {
+export function RichTextEditor({ name, label, defaultValue, description, uploadImage, dropdowns = false, minHeight = 180 }: {
   name: string;
   label: string;
   defaultValue?: string | null;
   description?: string;
   uploadImage?: UploadImage;
+  dropdowns?: boolean;
   minHeight?: number;
 }) {
   const id = useId();
@@ -65,6 +71,7 @@ export function RichTextEditor({ name, label, defaultValue, description, uploadI
         link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
       }),
       ...(uploadImage ? [Image.configure({ inline: false })] : []),
+      ...(dropdowns ? [Details, DetailsSummary, DetailsContent] : []),
     ],
     content: initial,
     editorProps: {
@@ -89,7 +96,7 @@ export function RichTextEditor({ name, label, defaultValue, description, uploadI
       {description && <p className="text-xs text-muted-foreground">{description}</p>}
       <div className="overflow-hidden rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
         {editor ? (
-          <Toolbar editor={editor} panel={panel} setPanel={setPanel} images={Boolean(uploadImage)} />
+          <Toolbar editor={editor} panel={panel} setPanel={setPanel} images={Boolean(uploadImage)} dropdowns={dropdowns} />
         ) : (
           <div className="h-10 border-b border-border bg-muted/40" />
         )}
@@ -102,11 +109,12 @@ export function RichTextEditor({ name, label, defaultValue, description, uploadI
   );
 }
 
-function Toolbar({ editor, panel, setPanel, images }: {
+function Toolbar({ editor, panel, setPanel, images, dropdowns }: {
   editor: Editor;
   panel: "link" | "image" | null;
   setPanel: (p: "link" | "image" | null) => void;
   images: boolean;
+  dropdowns: boolean;
 }) {
   const s = useEditorState({
     editor,
@@ -118,6 +126,7 @@ function Toolbar({ editor, panel, setPanel, images }: {
       bullet: e.isActive("bulletList"),
       ordered: e.isActive("orderedList"),
       box: e.isActive("blockquote"),
+      dropdown: e.isActive("details"),
       link: e.isActive("link"),
       undo: e.can().undo(),
       redo: e.can().redo(),
@@ -135,6 +144,7 @@ function Toolbar({ editor, panel, setPanel, images }: {
       <Tool label="Bulleted list" on={s.bullet} onClick={() => run().toggleBulletList().run()}><List /></Tool>
       <Tool label="Numbered list" on={s.ordered} onClick={() => run().toggleOrderedList().run()}><ListOrdered /></Tool>
       <Tool label="Highlight box" text on={s.box} onClick={() => run().toggleBlockquote().run()}><SquareDashedText /></Tool>
+      {dropdowns && <Tool label="Dropdown" text on={s.dropdown} onClick={() => (s.dropdown ? run().unsetDetails() : run().setDetails()).run()}><ListCollapse /></Tool>}
       <Sep />
       <Tool label={s.link ? "Edit link" : "Link"} on={s.link || panel === "link"} onClick={() => setPanel(panel === "link" ? null : "link")}><Link2 /></Tool>
       {images && <Tool label="Image" on={panel === "image"} onClick={() => setPanel(panel === "image" ? null : "image")}><ImagePlus /></Tool>}

@@ -240,6 +240,23 @@ input, textarea { touch-action: manipulation; }
 .rich-text li > p { margin-top: 0; margin-bottom: 0; }
 .rich-text li { margin-top: 0.25em; margin-bottom: 0.25em; }
 .rich-text a { color: var(--primary); }
+/* D733: a dropdown - a bordered row attendees tap to open what is under it. The page draws the
+   stored <details>; the editor draws its own div with a toggle button, styled to match. */
+.rich-text details, .rich-text [data-type="details"] { border: 1px solid var(--rich-rule, var(--border)); border-radius: var(--radius-lg); margin: 0.5rem 0; }
+.rich-text summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 2.75rem; padding: 0.5rem 1rem; font-weight: 700; color: var(--tw-prose-headings); }
+.rich-text summary::-webkit-details-marker { display: none; }
+.rich-text details > summary::after { content: ""; flex: none; width: 0.5rem; height: 0.5rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); opacity: 0.6; transition: transform 150ms; }
+.rich-text details[open] > summary::after { transform: rotate(225deg) translate(-2px, 0); }
+.rich-text details[open] > summary { border-bottom: 1px solid var(--rich-rule, var(--border)); }
+.rich-text details > :not(summary) { padding-left: 1rem; padding-right: 1rem; }
+.rich-text details > :last-child:not(summary) { margin-bottom: 1rem; }
+.rich-text [data-type="details"] { display: flex; align-items: flex-start; }
+.rich-text [data-type="details"] > button { flex: none; width: 2.25rem; height: 2.75rem; display: grid; place-items: center; }
+.rich-text [data-type="details"] > button::before { content: ""; width: 0.45rem; height: 0.45rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); opacity: 0.6; transition: transform 150ms; }
+.rich-text [data-type="details"].is-open > button::before { transform: rotate(45deg); }
+.rich-text [data-type="details"] > div { flex: 1; min-width: 0; padding-right: 1rem; }
+.rich-text [data-type="details"] summary { padding-left: 0; }
+.rich-text [data-type="detailsContent"] > :last-child { margin-bottom: 1rem; }
 
 /* D386: the leaderboard's podium blocks rise from the floor and its bars fill from the left,
    once, as the tab opens. Used through `motion-safe:` so reduced motion draws them still. */

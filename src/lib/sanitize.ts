@@ -1,4 +1,6 @@
-const ALLOWED = new Set(["p", "h2", "h3", "ul", "ol", "li", "a", "img", "strong", "em", "br", "blockquote"]);
+// details/summary are the editor's dropdowns (D733): a heading attendees tap to open what is
+// under it. The editor wraps their content in a div, which goes here and comes back in toRichHtml.
+const ALLOWED = new Set(["p", "h2", "h3", "ul", "ol", "li", "a", "img", "strong", "em", "br", "blockquote", "details", "summary"]);
 const SAFE_URL = /^(https?:\/\/|mailto:|tel:)/i;
 
 export function sanitizeHtml(html: string): string {

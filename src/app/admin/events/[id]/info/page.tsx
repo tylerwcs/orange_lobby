@@ -133,8 +133,9 @@ export default async function InfoAdmin({ params, searchParams }: {
                     label="Content"
                     defaultValue={sanitizeHtml(editing.html ?? "")}
                     minHeight={420}
-                    description="Use Section for headings attendees can scan, and Image to put a picture where your cursor is."
+                    description="Use Section for headings attendees can scan, Dropdown for a long list attendees open one group at a time, and Image to put a picture where your cursor is."
                     uploadImage={uploadInfoImageAction.bind(null, ev.id)}
+                    dropdowns
                   />
                 </CardContent>
               </Card>

@@ -11,6 +11,10 @@ describe("toRichHtml", () => {
   it("leaves HTML the editor wrote as it is", () => {
     expect(toRichHtml("<p>Hi <strong>there</strong></p>")).toBe("<p>Hi <strong>there</strong></p>");
   });
+  it("puts a stored dropdown's content back in the div the editor reads it from", () => {
+    expect(toRichHtml("<details><summary>Kepong</summary><ul><li><p>Klinik A</p></li></ul></details>"))
+      .toBe('<details><summary>Kepong</summary><div data-type="detailsContent"><ul><li><p>Klinik A</p></li></ul></div></details>');
+  });
   it("gives nothing for nothing", () => {
     expect(toRichHtml(null)).toBe("");
     expect(toRichHtml("   ")).toBe("");
