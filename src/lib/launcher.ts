@@ -65,6 +65,8 @@ export function launcherItems(input: {
   /** Kept for the callers' sake; the row is the same on both portals since Me left it (D236). */
   personal: boolean;
   hasInfo: boolean;
+  /** The organiser's name for the Info section (`events.info_page_title`, e.g. "Event Info"). */
+  infoLabel?: string;
   /** D348/D508: the attendee has a Groups tab (their own group, or All groups), so Groups has a tile. */
   hasGroup?: boolean;
   /** No longer read here: Activities has no button of its own in the row (D221, D237). */
@@ -74,14 +76,14 @@ export function launcherItems(input: {
   /** D488: the event's primary colour. The portal's own pictures are drawn in it; uploads are untouched. */
   tint?: string | null;
 }): LauncherItem[] {
-  const { basePath, hasInfo, hasGroup, tiles, icons, tint } = input;
+  const { basePath, hasInfo, infoLabel, hasGroup, tiles, icons, tint } = input;
   const section = (key: string, label: string, path: string, icon: IconName, image: string | null = null): LauncherItem => ({
     id: `builtin:${key}`, label, href: `${basePath}${path}`, icon, image: tintedIcon(image, tint), external: false, dot: false, builtin: true,
   });
 
   const items: LauncherItem[] = [
     section("agenda", "Agenda", "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda),
-    ...(hasInfo ? [section("info", "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
+    ...(hasInfo ? [section("info", infoLabel || "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
     ...(hasGroup ? [section("group", "Groups", "/group", "users", icons?.group ?? DEFAULT_SECTION_ICONS.group)] : []),
   ];
 

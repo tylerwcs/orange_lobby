@@ -39,6 +39,7 @@ export async function PortalShell({ event, basePath, personal, children }: {
     coming_soon_message: event.coming_soon_message ?? null,
     display_name: event.display_name ?? null,
     display_name_in_bar: event.display_name_in_bar ?? false,
+    info_page_title: event.info_page_title,
   };
   return (
     <>

@@ -25,7 +25,7 @@ export default async function GenericHome({ params, searchParams }: {
     loadHomeData(event, null, basePath, requestedDay),
     portalHasInfo(event.id, null),
   ]);
-  const launcher = launcherItems({ basePath, personal: false, hasInfo, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
+  const launcher = launcherItems({ basePath, personal: false, hasInfo, infoLabel: event.info_page_title, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
 
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="" hero dashboard>

@@ -99,7 +99,11 @@ export default async function PersonalHome({ params, searchParams }: {
     activities.show ? loadActivityEntries(event, attendee).then((entries) => activityCards(entries, basePath)) : [],
     gameBanner(event, attendee, games > 0),
   ]);
-  const launcher = launcherItems({ basePath, personal: true, hasInfo, hasGroup: groupTabs({ tile: event.group_tile, inGroup: !!attendee.group_id, allGroups: event.all_groups }).length > 0, activities, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
+  const launcher = launcherItems({ basePath, personal: true, hasInfo, infoLabel: event.info_page_title, hasGroup: groupTabs({ tile: event.group_tile, inGroup: !!attendee.group_id, allGroups: event.all_groups }).length > 0, activities, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
+
+  // The header covers Agenda (D731) and Info (D216) - only those two are dropped from the desktop
+  // tiles. Groups has no header link (F3), so it stays.
+  const tileItems = launcher.filter((i) => i.id !== "builtin:agenda" && i.id !== "builtin:info");
 
   return (
     <>
@@ -107,16 +111,17 @@ export default async function PersonalHome({ params, searchParams }: {
       <AddToHomeScreen appName={shortName(event.name)} />
 
       {/*
-        Three columns from xl: who you are and what changed, the whole day, what to do.
-        Two at md, one on a phone. On a phone this page is the whole navigation (D209): badge,
-        the latest announcement, the launcher, breakouts, then the activity cards (D215). The
-        phone-only pieces live in the first column, hidden from md, where the header carries
-        the sections and the other columns carry the agenda, the activities and the tiles (D210).
-        Desktop's announcements sit under the badge and its activity cards fill the third column
-        under the tiles (D490), so the first screen shows what is owed without a trip to the
-        Activities page.
+        Three columns from xl: who you are and what changed, what to do, the tiles. Two at md,
+        one on a phone. On a phone this page is the whole navigation (D209): badge, the latest
+        announcement, the launcher, breakouts, then the activity cards (D215). The phone-only
+        pieces live in the first column, hidden from md, where the header carries the sections
+        and the other columns carry the activities and the tiles (D210).
+        D731: the activity cards hold the centre - they are what the attendee is asked to act on,
+        a pre-event wall most of all - and the agenda moved up to the header's Agenda link. An
+        event with no activity for this attendee keeps the "Today" agenda there instead, so the
+        centre is never empty. With no tiles either, the third column is dropped.
       */}
-      <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
+      <div className={`flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-5 ${tileItems.length ? "xl:grid-cols-[300px_minmax(0,1fr)_300px]" : "xl:grid-cols-[300px_minmax(0,1fr)]"}`}>
 
         <div className="flex flex-col gap-4 md:gap-5">
           {game && <GameBanner token={token} basePath={basePath} initial={game} />}
@@ -139,37 +144,36 @@ export default async function PersonalHome({ params, searchParams }: {
         </div>
 
         <div className="hidden md:flex md:flex-col md:gap-5">
-          <Card>
-            <CardHeader>
-              <CardTitle>Today</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Day tabs stay on this page rather than jumping to /agenda - the point of
-                  the dashboard is that you do not have to leave it. */}
-              <AgendaList
-                items={agenda}
-                day={day}
-                days={days}
-                basePath={basePath}
-                now={now}
-                dayHref={(d) => `${basePath}?day=${d}`}
-                calendarHref={(sessionId) => {
-                  const activityId = bookedActivity.get(sessionId);
-                  return activityId ? `${basePath}/activities/${activityId}/calendar.ics?session=${sessionId}` : null;
-                }}
-              />
-            </CardContent>
-          </Card>
+          {cards.length > 0 ? <HomeActivities cards={cards} basePath={basePath} desktop /> : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Today</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Day tabs stay on this page rather than jumping to /agenda - the point of
+                    the dashboard is that you do not have to leave it. */}
+                <AgendaList
+                  items={agenda}
+                  day={day}
+                  days={days}
+                  basePath={basePath}
+                  now={now}
+                  dayHref={(d) => `${basePath}?day=${d}`}
+                  calendarHref={(sessionId) => {
+                    const activityId = bookedActivity.get(sessionId);
+                    return activityId ? `${basePath}/activities/${activityId}/calendar.ics?session=${sessionId}` : null;
+                  }}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
-          {/* The header covers Agenda (via Home's Today column, D223) and Info (D216) - only
-              those two are dropped here. Groups has no header link (F3), so it stays.
-              The tiles go first: a row or two of circles, where four activity cards run a
-              screen tall and would push them out of sight (D490). */}
-          <LauncherGrid items={launcher.filter((i) => i.id !== "builtin:agenda" && i.id !== "builtin:info")} />
-          <HomeActivities cards={cards} basePath={basePath} desktop />
-        </div>
+        {tileItems.length > 0 && (
+          <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
+            <LauncherGrid items={tileItems} />
+          </div>
+        )}
 
       </div>
     </>

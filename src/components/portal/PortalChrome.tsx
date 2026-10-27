@@ -20,16 +20,18 @@ type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
  * is the navigation, and every other page leads back to it (D209). The same rules pick the
  * launcher's sections - see `launcherItems`.
  *
- * No Agenda link (D223): the desktop home's "Today" column is the whole agenda, day tabs and
- * all, and Home is one click away from any page. Info is its own link (D216).
+ * Agenda is back as a link (D731): the desktop home's centre column went to the activity cards,
+ * so the agenda is a click away up here rather than a column of its own. Info is its own link
+ * (D216), under the organiser's name for it (`info_page_title`, e.g. "Event Info").
  *
  * Activities is a slot only for somebody who can see at least one, the same rule Info always
  * followed: a slot leading to an empty screen is worse than no slot. Its dot is the "Pick
  * one" nag the home card used to carry, moved to where the choosing happens.
  */
-const nav = (personal: boolean, hasInfo: boolean, activities: ActivityNav | undefined): NavItem[] => [
+const nav = (personal: boolean, hasInfo: boolean, infoLabel: string, activities: ActivityNav | undefined): NavItem[] => [
   { href: "", label: "Home", icon: "grid" },
-  ...(hasInfo ? [{ href: "/info", label: "Info", icon: "info" as IconName }] : []),
+  { href: "/agenda", label: "Agenda", icon: "calendar" },
+  ...(hasInfo ? [{ href: "/info", label: infoLabel, icon: "info" as IconName }] : []),
   ...(personal && activities?.show
     ? [{ href: "/activities", label: "Activities", icon: "ticket" as IconName, dot: activities.owed }]
     : []),
@@ -74,7 +76,7 @@ const Banner = ({ url, className }: { url: string; className: string }) => (
  */
 export type ChromeEvent = Pick<
   Event,
-  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "coming_soon_message" | "display_name" | "display_name_in_bar"
+  "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "status" | "primary_color" | "banner_url" | "coming_soon_message" | "display_name" | "display_name_in_bar" | "info_page_title"
 >;
 
 export function PortalChrome({ event, basePath, personal, activities, hasInfo, draftExtra, children }: {
@@ -97,7 +99,7 @@ export function PortalChrome({ event, basePath, personal, activities, hasInfo, d
 
   const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
-  const headerItems = nav(personal, hasInfo, activities);
+  const headerItems = nav(personal, hasInfo, event.info_page_title || "Info", activities);
   const shellWidth = home ? "max-w-md md:max-w-4xl xl:max-w-[1200px]" : "max-w-md md:max-w-4xl";
 
   if (event.status === "draft") {

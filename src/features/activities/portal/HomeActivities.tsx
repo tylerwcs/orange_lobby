@@ -12,9 +12,8 @@ const HOME_CARDS = 5;
  * The card that is owed a pick comes first and wears the ring, so it is on the first screen
  * rather than behind a dot.
  *
- * The desktop home has them too (D490), as a grid with no swipe: two across where its third
- * column spans the page at md, one under another in that column's 300px at xl. The page
- * renders that copy as well as the phone's, so each takes its own heading id.
+ * The desktop home has them too (D490), in its centre column since D731: one under another, no
+ * swipe. The page renders that copy as well as the phone's, so each takes its own heading id.
  */
 export function HomeActivities({ cards, basePath, desktop = false }: {
   cards: ActivityCardItem[];
@@ -34,7 +33,7 @@ export function HomeActivities({ cards, basePath, desktop = false }: {
         </Link>
       </div>
       {desktop ? (
-        <ul aria-label="Your activities" className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+        <ul aria-label="Your activities" className="grid gap-4">
           {shown.map((card) => <li key={card.key} className="flex">{card}</li>)}
         </ul>
       ) : (

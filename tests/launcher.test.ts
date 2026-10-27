@@ -20,6 +20,11 @@ describe("launcherItems", () => {
     expect(items[1]).toMatchObject({ icon: "info", href: `${BASE}/info`, builtin: true });
   });
 
+  it("names the Info button what the organiser calls the section (info_page_title)", () => {
+    expect(launcherItems({ ...base, hasInfo: true, infoLabel: "Event Info" })[1]).toMatchObject({ label: "Event Info", href: `${BASE}/info` });
+    expect(launcherItems({ ...base, hasInfo: true, infoLabel: "" })[1].label).toBe("Info");
+  });
+
   it("draws Agenda and Info with the portal's own pictures", () => {
     const items = launcherItems({ ...base, hasInfo: true });
     expect(items.map((i) => i.image)).toEqual(["/portal-icons/agenda.webp", "/portal-icons/info.webp"]);
