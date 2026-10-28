@@ -87,3 +87,22 @@ describe("elapsed, timestamps ahead of now", () => {
     expect(elapsed("2026-10-01T00:30:00+08:00", now)).toBe("Thu 1 Oct");
   });
 });
+
+describe("dates in Bahasa Malaysia (D737)", () => {
+  it("formats ranges with Malay months", () => {
+    expect(formatDateRange("2026-11-01", "2026-11-30", "ms")).toBe("1 Nov – 30 Nov 2026");
+    expect(formatDateRange("2026-12-31", "2026-12-31", "ms")).toBe("31 Dis 2026");
+  });
+  it("formats a single day with a Malay weekday", () => {
+    expect(shortDate("2026-11-01", "ms")).toBe("Ahd 1 Nov");
+    expect(shortDate("2026-08-05", "ms")).toBe("Rab 5 Ogo");
+    expect(shortDate("2026-03-02", "ms")).toBe("Isn 2 Mac");
+  });
+  it("formats an instant with a Malay month, 24-hour", () => {
+    expect(shortDateTime("2026-08-08T09:13:00Z", "ms")).toBe("8 Ogo, 17:13");
+  });
+  it("stays English without a language", () => {
+    expect(shortDate("2026-09-30")).toBe("Wed 30 Sep");
+    expect(formatDateRange("2026-12-31", null)).toBe("31 Dec 2026");
+  });
+});

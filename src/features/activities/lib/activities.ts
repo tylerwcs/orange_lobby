@@ -4,6 +4,7 @@ import { byAgendaOrder, isSession, timeSlot } from "@/lib/agenda-order";
 import type { BookResult } from "../db/activities";
 import type { FlashTone } from "@/lib/flash";
 import { shortDate } from "@/lib/text";
+import type { Lang } from "@/features/language/lang";
 import { cleanRichText } from "@/lib/rich-text";
 
 /**
@@ -23,14 +24,14 @@ export type SessionSeats = { session: ActivitySession; booked: number; left: num
  * or invented a label the time already gave. Where the activity is not obvious from context,
  * the caller puts its name in front.
  */
-export function sessionLabel(s: Pick<ActivitySession, "day" | "starts_at">, { weekday = true } = {}): string {
-  const date = shortDate(s.day);
+export function sessionLabel(s: Pick<ActivitySession, "day" | "starts_at">, { weekday = true, lang = "en" as Lang } = {}): string {
+  const date = shortDate(s.day, lang);
   return `${weekday ? date : date.slice(date.indexOf(" ") + 1)} · ${s.starts_at}`;
 }
 
 /** A session as a person reads it: the day and time, then the place when it has one. */
-export function sessionPlaceLabel(s: Pick<ActivitySession, "day" | "starts_at" | "location">): string {
-  const when = sessionLabel(s);
+export function sessionPlaceLabel(s: Pick<ActivitySession, "day" | "starts_at" | "location">, lang: Lang = "en"): string {
+  const when = sessionLabel(s, { lang });
   return s.location?.trim() ? `${when}, ${s.location.trim()}` : when;
 }
 

@@ -3,6 +3,7 @@ import { submitLabel, type SubmitState } from "./submissions";
 import type { Activity } from "@/lib/types";
 import type { Passport } from "./booths";
 import { shortDate } from "@/lib/text";
+import type { Lang } from "@/features/language/lang";
 import { opensLabel } from "./schedule";
 import { ordinal } from "@/features/tournaments/client";
 
@@ -26,13 +27,13 @@ export type CardView = {
 const view = { label: "View", primary: false };
 
 /** The days something runs, as few words as says it: "Mon 28 Sep", "28 – 30 Sep", "28 Sep – 2 Oct". */
-export function dayRange(days: string[]): string | null {
+export function dayRange(days: string[], lang: Lang = "en"): string | null {
   const sorted = [...new Set(days)].sort();
   if (sorted.length === 0) return null;
-  if (sorted.length === 1) return shortDate(sorted[0]);
+  if (sorted.length === 1) return shortDate(sorted[0], lang);
   // shortDate is "Mon 28 Sep"; the range drops the weekday, which says nothing across days.
-  const [, d1, m1] = shortDate(sorted[0]).split(" ");
-  const [, d2, m2] = shortDate(sorted[sorted.length - 1]).split(" ");
+  const [, d1, m1] = shortDate(sorted[0], lang).split(" ");
+  const [, d2, m2] = shortDate(sorted[sorted.length - 1], lang).split(" ");
   return m1 === m2 ? `${d1} – ${d2} ${m2}` : `${d1} ${m1} – ${d2} ${m2}`;
 }
 

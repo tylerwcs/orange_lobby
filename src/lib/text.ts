@@ -1,4 +1,5 @@
 import { MY_TZ, isoToLocalInput } from "@/lib/time";
+import type { Lang } from "@/features/language/lang";
 
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -11,34 +12,38 @@ export function initials(name: string): string {
 // across environments and breaks the Malaysia-style rendering below.
 export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// D737: the portal in Bahasa Malaysia. Same order and shape; only the names change.
+const MONTHS_MS = ["Jan", "Feb", "Mac", "Apr", "Mei", "Jun", "Jul", "Ogo", "Sep", "Okt", "Nov", "Dis"];
+const WEEKDAYS_MS = ["Ahd", "Isn", "Sel", "Rab", "Kha", "Jum", "Sab"];
+const months = (lang: Lang) => (lang === "ms" ? MONTHS_MS : MONTHS);
 
-const fmt = (d: string, withYear: boolean) => {
+const fmt = (d: string, withYear: boolean, lang: Lang) => {
   const dt = new Date(d + "T00:00:00Z");
   const day = dt.getUTCDate();
-  const month = MONTHS[dt.getUTCMonth()];
+  const month = months(lang)[dt.getUTCMonth()];
   return withYear ? `${day} ${month} ${dt.getUTCFullYear()}` : `${day} ${month}`;
 };
 
-export function formatDateRange(starts: string | null, ends: string | null): string {
+export function formatDateRange(starts: string | null, ends: string | null, lang: Lang = "en"): string {
   if (!starts && !ends) return "";
   const a = starts ?? ends!, b = ends ?? starts!;
-  if (a === b) return fmt(a, true);
-  return `${fmt(a, false)} – ${fmt(b, true)}`;
+  if (a === b) return fmt(a, true, lang);
+  return `${fmt(a, false, lang)} – ${fmt(b, true, lang)}`;
 }
 
 /** `YYYY-MM-DD` as `"Wed 30 Sep"`. Read as a calendar date, so UTC accessors keep it stable. */
-export function shortDate(d: string): string {
+export function shortDate(d: string, lang: Lang = "en"): string {
   const dt = new Date(d + "T00:00:00Z");
-  return `${WEEKDAYS[dt.getUTCDay()]} ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]}`;
+  return `${(lang === "ms" ? WEEKDAYS_MS : WEEKDAYS)[dt.getUTCDay()]} ${dt.getUTCDate()} ${months(lang)[dt.getUTCMonth()]}`;
 }
 
 /** An ISO instant as `"8 Sep, 17:13"` in Malaysian time. The month comes from MONTHS, not ICU. */
-export function shortDateTime(iso: string): string {
+export function shortDateTime(iso: string, lang: Lang = "en"): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: MY_TZ, day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).formatToParts(new Date(iso));
   const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${Number(g("day"))} ${MONTHS[Number(g("month")) - 1]}, ${g("hour")}:${g("minute")}`;
+  return `${Number(g("day"))} ${months(lang)[Number(g("month")) - 1]}, ${g("hour")}:${g("minute")}`;
 }
 
 /** An ISO instant as `"09:05"` in Malaysian time; empty string when unparseable. */
