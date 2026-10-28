@@ -58,7 +58,7 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
           { icon: Users, text: forGroups(activity, lang) },
         ]}
       />
-      <RichSections html={activity.description} />
+      <RichSections html={activity.description} lang={lang} />
       <section className={`${block} flex flex-col gap-3`}>
         <h2 className="text-lg font-extrabold">{d.yourSession}</h2>
         <ActivityBooking

@@ -1,5 +1,6 @@
 import { shortDateTime } from "@/lib/text";
 import type { ActivitySubmission } from "@/lib/types";
+import { t, type Lang } from "@/features/language/client";
 
 /**
  * Revoke reasons (spec 2026-10-13, D497–D500). Pure and client-safe: the admin table, the
@@ -90,8 +91,10 @@ export function restoreRefusal(code: "missing" | "today" | "limit" | "groupdone"
  * D500: what the attendee reads on a revoked entry, with when it was removed. A revoke from
  * before 0077 has no reason and keeps the old line.
  */
-export function attendeeRevokeLabel(s: Pick<RevokeStamp, "revoke_reason" | "revoked_at">, where: "history" | "tracker"): string {
-  const when = s.revoked_at ? ` on ${shortDateTime(s.revoked_at)}` : "";
-  if (!s.revoke_reason) return `Removed by the organiser${when}`;
-  return where === "history" ? `Removed${when}: ${s.revoke_reason}` : `Removed by the organiser${when}: ${s.revoke_reason}`;
+export function attendeeRevokeLabel(s: Pick<RevokeStamp, "revoke_reason" | "revoked_at">, where: "history" | "tracker", lang: Lang = "en"): string {
+  // D750: the words around the organiser's reason follow the portal's language; the reason stays as typed.
+  const d = t(lang).submission.revoked;
+  const when = s.revoked_at ? d.on(shortDateTime(s.revoked_at, lang)) : "";
+  if (!s.revoke_reason) return d.byOrganiser(when);
+  return where === "history" ? d.withReason(when, s.revoke_reason) : d.byOrganiserReason(when, s.revoke_reason);
 }

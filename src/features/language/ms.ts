@@ -113,6 +113,7 @@ export const ms = {
   },
   activities: {
     back: "Aktiviti",
+    about: "Tentang",
     none: "Belum ada apa-apa di sini untuk acara ini.",
     forGroups: (groups: string) => `Untuk ${groups}`,
     sections: {
@@ -216,6 +217,14 @@ export const ms = {
     editHelp: "Ubah jawapan anda dan simpan. Anda boleh menyuntingnya sehingga hujung hari ini.",
     deleteTitle: "Padam penghantaran ini?",
     yesDelete: "Ya, padam",
+    revoked: {
+      title: "Dibuang oleh penganjur",
+      canResend: "Anda boleh menghantar yang baharu.",
+      on: (when: string) => ` pada ${when}`,
+      byOrganiser: (on: string) => `Dibuang oleh penganjur${on}`,
+      withReason: (on: string, reason: string) => `Dibuang${on}: ${reason}`,
+      byOrganiserReason: (on: string, reason: string) => `Dibuang oleh penganjur${on}: ${reason}`,
+    },
     deleteBody: "Penghantaran ini dan gambarnya akan dibuang terus, dan tidak lagi dikira. Tindakan ini tidak boleh dibatalkan.",
     select: "Pilih…",
     optional: "(pilihan)",

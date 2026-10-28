@@ -115,6 +115,7 @@ export const en = {
   },
   activities: {
     back: "Activities",
+    about: "About",
     none: "There is nothing here for this event yet.",
     forGroups: (groups: string) => `For ${groups}`,
     sections: {
@@ -218,6 +219,14 @@ export const en = {
     editHelp: "Change your answers and save. You can edit this until the end of today.",
     deleteTitle: "Delete this entry?",
     yesDelete: "Yes, delete",
+    revoked: {
+      title: "Removed by the organiser",
+      canResend: "You can send a new one.",
+      on: (when: string) => ` on ${when}`,
+      byOrganiser: (on: string) => `Removed by the organiser${on}`,
+      withReason: (on: string, reason: string) => `Removed${on}: ${reason}`,
+      byOrganiserReason: (on: string, reason: string) => `Removed by the organiser${on}: ${reason}`,
+    },
     deleteBody: "It and its photos are removed for good, and it stops counting. This can't be undone.",
     select: "Select…",
     optional: "(optional)",

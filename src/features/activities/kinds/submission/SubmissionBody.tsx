@@ -166,14 +166,14 @@ export async function SubmissionBody({ entry: { form: f, state, mine, group, rev
   return (
     <>
       <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f, lang) }]} />
-      <RichSections html={f.description} />
+      <RichSections html={f.description} lang={lang} />
       <section className={block}>
         {/* D369: members mode is per-person, so it shows the person's own history like "off". */}
         {!isGroupForm(f.group_mode) && (
           <>
             {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} lang={lang} />}
             <SubmissionHistory lang={lang} submissions={mine} questions={f.questions} fileHref={filesFor(slug, token)} edit={edit} addedBy={addedBy} />
-            <div className="mt-4"><RevokedList entries={revoked} canResend={state.can} /></div>
+            <div className="mt-4"><RevokedList lang={lang} entries={revoked} canResend={state.can} /></div>
             <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />
           </>
         )}
