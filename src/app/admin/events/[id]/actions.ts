@@ -27,7 +27,7 @@ import { recordCheckins } from "@/lib/db/checkins";
 import { requireFeature } from "@/features/catalogue";
 import { purgeSetupFiles } from "@/features/setup";
 import { purgePolaroids } from "@/features/polaroid";
-import { attendeeValues, bulkSetChange, deleteChange, deleteChangesForEvent, editChange, importChange, loadLabels, people, recordChange, type PersonChange } from "@/features/attendee-log";
+import { attendeeValues, bulkSetChange, deleteChange, deleteChangesForEvent, editChange, importChange, loadLabels, logRoundRename, people, recordChange, roomLossChange, type PersonChange } from "@/features/attendee-log";
 import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
@@ -72,7 +72,7 @@ export async function createEventAction(formData: FormData) {
 }
 
 export async function updateSettingsAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   let questions;
   try {
     // The list carries the four standard questions too (name, email, mobile, department), which
@@ -146,7 +146,7 @@ export async function updateSettingsAction(eventId: string, formData: FormData) 
   await deleteEventImage(regFooter.stale);
   // D682, D691: a raised or cleared limit, or registration reopened (switch on, close time moved
   // later), lets the waiting list move along. Any save may be one of those; the fill is a no-op otherwise.
-  const moved = await afterPlacesChange(eventId);
+  const moved = await afterPlacesChange(eventId, actor, "a Settings change");
   revalidatePath(`/admin/events/${eventId}`, "layout");
   redirect(flashPath(`/admin/events/${eventId}/settings`, ["Settings saved.", moved].filter(Boolean).join(" ")));
 }
@@ -232,7 +232,7 @@ export async function setStatusAction(eventId: string, status: EventStatus) {
   }
   await setEventStatus(eventId, status);
   // D691: un-archiving reopens registration, so the waiting list moves first. Nothing to say: this action has no flash.
-  if (status !== "archived") await afterPlacesChange(eventId);
+  if (status !== "archived") await afterPlacesChange(eventId, actor, "reopening the event");
   revalidatePath(`/admin/events/${eventId}`);
 }
 
@@ -421,7 +421,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
     const a = await findByEmail(ev.id, email);
     if (a) await closeEntryForAttendee(ev.id, email, a.id);
   }
-  const moved = closing.some((e) => openEntries.get(e.trim().toLowerCase())?.state === "pending") ? await afterPlacesChange(ev.id) : "";
+  const moved = closing.some((e) => openEntries.get(e.trim().toLowerCase())?.state === "pending") ? await afterPlacesChange(ev.id, actor, "the masterlist import") : "";
   // After the rows exist, not before: an assignment needs the attendee it belongs to.
   const assigned = await assignRoundsFromColumns(ev, null, false, actor);
   const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
@@ -486,7 +486,7 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
   }
   if (entry && a.email) await closeEntryForAttendee(ev.id, a.email, a.id);
   // A pending entry held a place, and an added attendee does not count, so that place is free now.
-  const moved = entry?.state === "pending" ? await afterPlacesChange(ev.id) : "";
+  const moved = entry?.state === "pending" ? await afterPlacesChange(ev.id, actor, "adding an attendee") : "";
   revalidatePath(`/admin/events/${eventId}`, "layout");
   redirect(flashPath(`/admin/events/${eventId}/attendees?attendee=${a.id}`, [`Added ${a.name}.`, moved].filter(Boolean).join(" ")));
 }
@@ -520,7 +520,7 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
   await deleteAttendee(attendeeId);
   await recordChange(ev.id, actor, deleteChange([gone], labels));
   // D682: deleting an active form registrant frees a counted place.
-  const moved = isCountedPlace(gone) ? await afterPlacesChange(eventId) : "";
+  const moved = isCountedPlace(gone) ? await afterPlacesChange(eventId, actor, `deleting ${people(1)}`) : "";
   revalidatePath(`/admin/events/${eventId}`, "layout");
   redirect(flashPath(`/admin/events/${eventId}/attendees`, [`Deleted ${gone.name}.`, moved].filter(Boolean).join(" ")));
 }
@@ -547,7 +547,7 @@ export async function deleteAttendeesAction(eventId: string, formData: FormData)
   await recordChange(ev.id, actor, deleteChange(gone, labels));
   // D682: any active form registrant among them freed a counted place. The bulk bar has no flash
   // for who moved in; the Waiting list count and the WhatsApp log show it.
-  if (roster.some((a) => chosen.has(a.id) && isCountedPlace(a))) await afterPlacesChange(ev.id);
+  if (roster.some((a) => chosen.has(a.id) && isCountedPlace(a))) await afterPlacesChange(ev.id, actor, `deleting ${people(gone.length)}`);
   revalidatePath(`/admin/events/${ev.id}`, "layout");
   return deleted;
 }
@@ -796,11 +796,14 @@ export async function updateAgendaDayAction(eventId: string, dayId: string, form
  * from the bucket after, in the D160 order: nothing leaves storage until no row names it.
  */
 export async function deleteAgendaDayAction(eventId: string, dayId: string) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const day = await dayOf(ev.id, dayId);
   if (!day) redirect(flashPath(agendaBack(eventId), "That day no longer exists.", "error"));
   const doomed = (await listAgenda(ev.id)).filter((i) => i.day_id === day.id);
+  // D745: who is in the day's breakout rooms is read before the delete; the cascade takes the assignments.
+  const lost = await roomLossChange(ev, doomed, `Deleted ${dayLabel(day)}`);
   await deleteAgendaDay(day.id, ev.id);
+  await recordChange(ev.id, actor, lost);
   for (const i of doomed) await deleteEventImage(i.image_url);
   revalidatePath(agendaBack(eventId));
   redirect(flashPath(agendaBack(eventId), `${dayLabel(day)} removed.`));
@@ -854,10 +857,13 @@ export async function addAgendaItemAction(eventId: string, formData: FormData) {
 }
 
 export async function deleteAgendaItemAction(eventId: string, itemId: string) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   // Read before the delete, because afterwards there is no row to ask.
   const doomed = (await listAgenda(ev.id)).find((i) => i.id === itemId);
+  // D745: a breakout room (it has a slot) takes its assignments with it, so who held it is read first.
+  const lost = doomed?.slot ? await roomLossChange(ev, [doomed], `Deleted room ${doomed.code ?? ""} (${doomed.slot})`) : null;
   await deleteAgendaItem(itemId, eventId);
+  await recordChange(ev.id, actor, lost);
   await deleteEventImage(doomed?.image_url);
   revalidatePath(`/admin/events/${eventId}/agenda`);
 }
@@ -1269,7 +1275,7 @@ export async function addBreakoutRoundAction(eventId: string, formData: FormData
  * safe here and dangerous one room at a time — this cannot split a round.
  */
 export async function updateBreakoutRoundAction(eventId: string, slot: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const back = `/admin/events/${eventId}/agenda`;
 
   const current = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
@@ -1308,6 +1314,8 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
   const wanted = new Map(rooms.map((r) => [r.toLowerCase(), r]));
   const removeMissing = formData.get("remove_missing") === "on";
   let removed = 0;
+  // Rooms whose people followed the rename: logged once for the round, even if a later room fails.
+  const renamed: string[] = [];
 
   for (const room of current.items) {
     const code = room.code?.trim() ?? "";
@@ -1315,7 +1323,14 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
     // — so its absence from that list is not a decision anybody made, and removing it (and
     // everybody assigned to it) on the strength of that would be silent data loss.
     const keep = code === "" || wanted.has(code.toLowerCase());
-    if (!keep && removeMissing) { await deleteAgendaItem(room.id, ev.id); removed++; continue; }
+    if (!keep && removeMissing) {
+      // D745: read before the delete, which takes the room's assignments with it.
+      const lost = await roomLossChange(ev, [room], `Removed room ${code} from ${slot}`);
+      await deleteAgendaItem(room.id, ev.id);
+      await recordChange(ev.id, actor, lost);
+      removed++;
+      continue;
+    }
     // `wanted` never holds a "" key, so a codeless room must keep what it has rather than
     // be handed an undefined that `updateAgendaItem` would drop from the payload — the one
     // place that function is documented to send every column explicitly.
@@ -1327,12 +1342,16 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
     if (nextSlot !== slot) {
       try {
         await renameSlotAssignments(room.id, nextSlot);
+        renamed.push(room.id);
       } catch {
+        await logRoundRename(ev, actor, renamed, slot, nextSlot);
         redirect(flashPath(back, `Renamed, but the people in ${code} could not follow — somebody there is already in “${nextSlot}”.`, "error"));
       }
     }
     wanted.delete(code.toLowerCase());
   }
+
+  await logRoundRename(ev, actor, renamed, slot, nextSlot);
 
   for (const code of wanted.values()) await createAgendaItem(ev, { ...shared, code });
 
@@ -1347,9 +1366,12 @@ export async function updateBreakoutRoundAction(eventId: string, slot: string, f
 
 /** Deletes a round and every room in it. Assignments go with the rooms, by cascade. */
 export async function deleteBreakoutRoundAction(eventId: string, slot: string) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const round = breakoutSlots(await listAgenda(ev.id)).find((s) => s.slot === slot);
+  // D745: who was in the round's rooms is read before the first delete takes their assignments.
+  const lost = round ? await roomLossChange(ev, round.items, `Deleted ${slot}`) : null;
   if (round) for (const room of round.items) await deleteAgendaItem(room.id, ev.id);
+  await recordChange(ev.id, actor, lost);
   revalidatePath(`/admin/events/${eventId}/agenda`);
   redirect(flashPath(`/admin/events/${eventId}/agenda`, `“${slot}” removed.`));
 }
@@ -1369,7 +1391,7 @@ export async function deleteBreakoutRoundAction(eventId: string, slot: string) {
  * violates that unique index.
  */
 export async function updateAgendaItemAction(eventId: string, itemId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const back = `/admin/events/${eventId}/agenda`;
 
   const item = (await listAgenda(ev.id)).find((i) => i.id === itemId);
@@ -1428,6 +1450,8 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
     }
   }
 
+  // D745: after the catch above, so a log failure is not reported as the people failing to follow.
+  if (isBreakout && slot && slot !== item.slot) await logRoundRename(ev, actor, [itemId], item.slot ?? "", slot);
   revalidatePath(back);
   redirect(flashPath(back, `“${title ?? slot}” saved.`));
 }
