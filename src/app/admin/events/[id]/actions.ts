@@ -26,6 +26,7 @@ import { recordCheckins } from "@/lib/db/checkins";
 import { requireFeature } from "@/features/catalogue";
 import { purgeSetupFiles } from "@/features/setup";
 import { purgePolaroids } from "@/features/polaroid";
+import { deleteChangesForEvent } from "@/features/attendee-log";
 import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
@@ -970,6 +971,7 @@ export async function purgeEventAction(eventId: string) {
   await purgeSetupFiles(ev.org_id, eventId);
   await purgePolaroids(ev.org_id, eventId);
   await purgeAttendeePersonalData(eventId, ev.org_id);
+  await deleteChangesForEvent(eventId);
   revalidatePath(`/admin/events/${eventId}`); redirect(flashPath(`/admin/events/${eventId}/settings`, "Personal data purged."));
 }
 
