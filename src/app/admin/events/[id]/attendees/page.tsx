@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { requireEventAccess } from "@/lib/access";
 import { listAttendees, countAttendees, listCancelledAttendees, countCancelled, countCancelRequests, listCancelRequests } from "@/lib/db/attendees";
 import { CancelRequestsTable } from "@/features/cancel";
+import { ChangeLogView, listChanges } from "@/features/attendee-log";
 import { getPlaces, listEntries, placesLabel, QueueTable } from "@/features/registration-queue";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -60,7 +61,9 @@ export default async function Attendees({ params, searchParams }: { params: Prom
   const showCancelled = sp.show === "cancelled";
   const showRequests = sp.show === "requests";
   const queueView = sp.show === "waitlist" || sp.show === "pending" ? sp.show : null;
-  const otherView = showRequests || queueView !== null;
+  // D746: `?show=log` is the change log, which has its own filters and paging inside `ChangeLogView`.
+  const showLog = sp.show === "log";
+  const otherView = showRequests || showLog || queueView !== null;
   const [everyone, total, cancelledCount, requestCount, places, checkins, cps, agenda, groups, jar] = await Promise.all([
     otherView ? [] : showCancelled ? listCancelledAttendees(ev.id) : listAttendees(ev.id), countAttendees(ev.id), countCancelled(ev.id), countCancelRequests(ev.id), getPlaces(ev.id),
     ev.check_in_enabled ? listCheckinsForEvent(ev.id) : [],
@@ -168,14 +171,18 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     return `/admin/events/${ev.id}/attendees?${qs.toString()}`;
   };
   // The toggle keeps the search and sort; it starts back on page 1 of the other list.
-  const viewHref = (view?: "cancelled" | "requests" | "waitlist" | "pending") => {
+  const viewHref = (view?: "cancelled" | "requests" | "waitlist" | "pending" | "log") => {
     const qs = new URLSearchParams();
-    if (sp.q) qs.set("q", sp.q);
-    if (sort) { qs.set("sort", sort.key); qs.set("dir", sort.dir); }
+    // The log has its own search, so the roster's search and sort do not carry into it (or back out).
+    if (view !== "log") {
+      if (sp.q) qs.set("q", sp.q);
+      if (sort) { qs.set("sort", sort.key); qs.set("dir", sort.dir); }
+    }
     if (view) qs.set("show", view);
     const s = qs.toString();
     return `/admin/events/${ev.id}/attendees${s ? `?${s}` : ""}`;
   };
+  const logTotal = showLog ? (await listChanges(ev.id, {}, 1, 1)).total : 0;
   // D686: "12 of 50 places taken" while a limit is set.
   const taken = placesLabel(places.taken, places.limit);
   const from = slice.length === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -187,18 +194,20 @@ export default async function Attendees({ params, searchParams }: { params: Prom
         title="Attendees"
         subtitle={queueView === "waitlist" ? `${places.waiting} on the waiting list${taken ? ` · ${taken}` : ""}`
           : queueView === "pending" ? `${places.pending} waiting for approval${taken ? ` · ${taken}` : ""}`
+          : showLog ? `Change log · ${logTotal} ${logTotal === 1 ? "change" : "changes"}`
           : showRequests ? `${requestCount} waiting` : showCancelled ? `${everyone.length} cancelled`
           : [`${total} registered`, `${checkedInCount} checked in`, taken].filter(Boolean).join(" · ")}
         actions={
           <>
             {showCancelled || otherView
-              ? <PendingLink href={viewHref()} className={buttonVariants({ variant: "outline" })}>Back to registered</PendingLink>
+              ? <PendingLink href={showLog ? `/admin/events/${ev.id}/attendees` : viewHref()} className={buttonVariants({ variant: "outline" })}>Back to registered</PendingLink>
               : <>
                 {places.pending > 0 && <PendingLink href={viewHref("pending")} className={buttonVariants({ variant: "outline" })}>Pending approval ({places.pending})</PendingLink>}
                 {places.waiting > 0 && <PendingLink href={viewHref("waitlist")} className={buttonVariants({ variant: "outline" })}>Waiting list ({places.waiting})</PendingLink>}
                 {requestCount > 0 && <PendingLink href={viewHref("requests")} className={buttonVariants({ variant: "outline" })}>Cancellation requests ({requestCount})</PendingLink>}
                 {cancelledCount > 0 && <PendingLink href={viewHref("cancelled")} className={buttonVariants({ variant: "outline" })}>Cancelled ({cancelledCount})</PendingLink>}
               </>}
+            {!(showCancelled || otherView) && <PendingLink href={viewHref("log")} className={buttonVariants({ variant: "outline" })}>Change log</PendingLink>}
             <Modal title="Add an attendee" hint="For someone who is not on the masterlist and is not registering themselves." trigger="Add attendee" icon="plus">
               <form action={addAttendeeAction.bind(null, ev.id)} className="grid gap-3 md:grid-cols-2">
                 <Field label="Name" name="name" /><Field label="Email" name="email" />
@@ -251,7 +260,8 @@ export default async function Attendees({ params, searchParams }: { params: Prom
           </>
         }
       />
-      {queueView ? <QueueTable eventId={ev.id} view={queueView} rows={await listEntries(ev.id, queueView === "waitlist" ? "waiting" : "pending")} fields={allFields} archived={ev.status === "archived"} />
+      {showLog ? <ChangeLogView eventId={ev.id} sp={sp} />
+      : queueView ? <QueueTable eventId={ev.id} view={queueView} rows={await listEntries(ev.id, queueView === "waitlist" ? "waiting" : "pending")} fields={allFields} archived={ev.status === "archived"} />
       : showRequests ? <CancelRequestsTable eventId={ev.id} rows={await listCancelRequests(ev.id)} archived={ev.status === "archived"} /> : (<>
       <SearchInput initial={sp.q ?? ""} matches={rows.length} total={showCancelled ? everyone.length : total} />
       {/* Previous and Next change only `?page=`, which the route's loading.tsx never sees.

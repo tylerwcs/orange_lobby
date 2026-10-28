@@ -3,3 +3,4 @@ export * from "./client";
 export * from "./db";
 export * from "./labels";
 export * from "./rooms";
+export * from "./admin/ChangeLogView";

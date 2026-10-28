@@ -10,7 +10,11 @@ import { Spinner } from "@/components/ui/spinner";
  * has to be visible: without a pending state the list simply sits there for a moment and
  * the box looks broken. The spinner marks the trip and the count says what came back.
  */
-export function SearchInput({ initial, matches, total }: { initial: string; matches: number; total: number }) {
+export function SearchInput({ initial, matches, total, noun = "attendees", placeholder = "Search any column", label = "Search attendees" }: {
+  initial: string; matches: number; total: number;
+  /** What is being counted, plural: "attendees" on the roster, "changes" in the change log. */
+  noun?: string; placeholder?: string; label?: string;
+}) {
   const [value, setValue] = useState(initial);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -36,14 +40,14 @@ export function SearchInput({ initial, matches, total }: { initial: string; matc
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <label htmlFor="attendee-search" className="sr-only">Search attendees</label>
+      <label htmlFor="attendee-search" className="sr-only">{label}</label>
       <InputGroup className="min-w-64 flex-1 sm:max-w-sm">
         <InputGroupAddon>
           <Search />
         </InputGroupAddon>
         <InputGroupInput
           id="attendee-search" type="search" value={value} onChange={(e) => setValue(e.target.value)}
-          placeholder="Search any column"
+          placeholder={placeholder}
         />
         {pending && (
           <InputGroupAddon align="inline-end">
@@ -54,7 +58,7 @@ export function SearchInput({ initial, matches, total }: { initial: string; matc
       <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
         {pending ? "Searching…" : typed && settled
           ? `${matches} ${matches === 1 ? "match" : "matches"} for “${value.trim()}”`
-          : `${total} attendees`}
+          : `${total} ${noun}`}
       </p>
     </div>
   );
