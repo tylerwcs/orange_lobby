@@ -47,7 +47,7 @@ try {
 
   const actor = { actor_email: `actor.${runId}@log-check.test`, actor_name: "Committee Actor", actor_kind: "committee" };
   const person = (n) => ({ attendeeId: randomUUID(), name: `Person ${n}`, email: `p${n}.${runId}@log-check.test` });
-  const search = (summary, people) => [summary, ...people.flatMap((p) => [p.name, p.email])].join(" ").toLowerCase();
+  const search = (summary, people) => [summary, actor.actor_name, actor.actor_email, ...people.flatMap((p) => [p.name, p.email])].join(" ").toLowerCase();
   const insert = (fields) => db.from("attendee_changes").insert({ event_id: eventId, ...actor, ...fields }).select("*").single();
 
   // 1. Round trip.
@@ -93,7 +93,7 @@ try {
       && pairAfter.detail.people.length === 1 && pairAfter.detail.people[0].attendeeId === c.attendeeId
       && pairAfter.attendee_ids.length === 1 && pairAfter.attendee_ids[0] === c.attendeeId
       && !pairAfter.search.includes(b.email) && !pairAfter.search.includes("person b")
-      && pairAfter.search.includes(c.email) && pairAfter.search.includes("set table to 5 for 2 people"),
+      && pairAfter.search.includes(c.email) && pairAfter.search.includes(actor.actor_email.toLowerCase()) && pairAfter.search.includes(actor.actor_name.toLowerCase()) && pairAfter.search.includes("set table to 5 for 2 people"),
     JSON.stringify({ search: pairAfter?.search, touched }),
   );
   check("6c. erasure reports the rows it touched", touched === 2, String(touched));

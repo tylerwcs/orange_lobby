@@ -28,7 +28,7 @@ alter table public.attendee_changes enable row level security;
 
 -- D744: the developer's by-hand PDPA erasure; no app code calls it. A row about only this person
 -- is deleted. A row about several keeps the others: the person leaves attendee_ids and
--- detail.people, and search is rebuilt from the summary and the people who remain.
+-- detail.people, and search is rebuilt from the summary, the actor and the people who remain.
 -- Returns the number of rows deleted or rewritten.
 create or replace function public.erase_from_attendee_changes(p_attendee_id uuid) returns integer
 language plpgsql
@@ -48,7 +48,7 @@ begin
         when jsonb_typeof(c.detail -> 'people') = 'array' then jsonb_set(c.detail, '{people}', r.people)
         else c.detail
       end,
-      search = lower(btrim(c.summary || ' ' || r.names))
+      search = lower(btrim(c.summary || ' ' || c.actor_name || ' ' || c.actor_email || ' ' || r.names))
   from (
     select
       x.id,
