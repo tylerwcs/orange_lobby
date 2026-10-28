@@ -2,3 +2,4 @@
 export * from "./client";
 export * from "./db";
 export * from "./portal";
+export * from "./admin/PopupsPage";

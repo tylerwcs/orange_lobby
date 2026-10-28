@@ -27,7 +27,7 @@ describe("groupsFor", () => {
     const labels = groupsFor({ id: "e1", check_in_enabled: true }).map((g) => [g.title, g.items.map((i) => i.label)]);
     expect(labels).toEqual([
       ["Onsite", ["Overview", "Attendees", "Groups", "Games", "Scanner"]],
-      ["Portal", ["Agenda", "Info page", "Announcements", "Modules", "Activities"]],
+      ["Portal", ["Agenda", "Info page", "Announcements", "Popups", "Modules", "Activities"]],
       ["Event", ["Setup", "WhatsApp", "Settings", "Exports"]],
     ]);
   });
@@ -54,7 +54,7 @@ describe("groupsFor", () => {
 
   it("hides Activities on request, keeping the rest of Portal in order", () => {
     const portal = groupsFor({ id: "e1", check_in_enabled: true }, ["activities"]).find((g) => g.title === "Portal");
-    expect(portal?.items.map((i) => i.label)).toEqual(["Agenda", "Info page", "Announcements", "Modules"]);
+    expect(portal?.items.map((i) => i.label)).toEqual(["Agenda", "Info page", "Announcements", "Popups", "Modules"]);
   });
 
   it("puts Setup first under Event, with the waiting count as its badge (D448)", () => {
