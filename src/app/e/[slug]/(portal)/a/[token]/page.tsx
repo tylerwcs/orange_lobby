@@ -27,6 +27,7 @@ import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { portalLang, t } from "@/features/language";
+import { portalPopupFor } from "@/features/popups";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,7 @@ export default async function PersonalHome({ params, searchParams }: {
     activities,
     games,
     lang,
+    popup,
   ] = await Promise.all([
     loadHomeData(event, attendee, basePath, requestedDay),
     checkinPill(event, attendee.id),
@@ -95,6 +97,8 @@ export default async function PersonalHome({ params, searchParams }: {
     loadActivityNav(event, attendee),
     countGames(event.id),
     portalLang(event),
+    // D755: the layout's answer again (memoised): when its popup applies, the home-screen one waits.
+    event.status === "draft" ? null : portalPopupFor(event.id, attendee.id, attendee.category),
   ]);
   const d = t(lang);
   // Only an attendee who can see an activity pays for the cards' queries (D214), and only an
@@ -112,7 +116,7 @@ export default async function PersonalHome({ params, searchParams }: {
   return (
     <>
       <h1 className="sr-only">{event.name}</h1>
-      <AddToHomeScreen appName={shortName(event.name)} />
+      <AddToHomeScreen appName={shortName(event.name)} hold={popup !== null} />
 
       {/*
         Three columns from xl: who you are and what changed, what to do, the tiles. Two at md,

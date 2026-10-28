@@ -285,6 +285,10 @@ export const en = {
     ],
     notNow: "Not now",
   },
+  // D751: the organiser's popup. Its heading, message and button are theirs, as typed; only the close is ours.
+  popup: {
+    notNow: "Not now",
+  },
 };
 
 /** The dictionary's shape, with every string widened so the Malay can say something else. */

@@ -15,6 +15,7 @@ import { Flash } from "@/components/admin/Flash";
 import { ThemeStyle } from "@/features/theme";
 import { QueueCard, resolveTokenView } from "@/features/registration-queue";
 import { portalLang } from "@/features/language";
+import { PopupDialog, portalPopupFor } from "@/features/popups";
 
 /**
  * Home-screen install (D227): this attendee's own manifest, so the icon opens their page, and
@@ -104,7 +105,11 @@ export default async function PersonalLayout({ children, params }: {
       </>
     );
   }
-  const [activities, hasInfo, lang] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category), portalLang(event)]);
+  // D752: a draft shows only Coming soon, so it has no popup to decide.
+  const [activities, hasInfo, lang, popup] = await Promise.all([
+    loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category), portalLang(event),
+    event.status === "draft" ? null : portalPopupFor(event.id, attendee.id, attendee.category),
+  ]);
   // D585: a draft shows only Coming soon, so the cancel link rides in under it. Built here on
   // the server (the chrome is a client component). D595/D596: a waiting request shows its note with
   // Withdraw instead of the link; a decline shows its note above the link. The check-in read happens
@@ -129,6 +134,9 @@ export default async function PersonalLayout({ children, params }: {
         lang={lang} languageSwitch={!!event.language_switch}>
         {children}
       </PortalChrome>
+      {/* D753: here, not in a page, so it stays mounted across tabs and shows once per open. A
+          sibling of PortalChrome for the same reason as Flash below. */}
+      <PopupDialog popup={popup} basePath={`/e/${slug}/a/${token}`} />
       {/* This is the only part of the portal that announces results through flashPath() today
           (registration writes too, but from a page outside this layout), so it is the only
           portal layout that needs to turn a flashPath() redirect into something on screen.

@@ -283,4 +283,7 @@ export const ms = {
     ],
     notNow: "Bukan sekarang",
   },
+  popup: {
+    notNow: "Bukan sekarang",
+  },
 } satisfies Dict;

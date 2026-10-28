@@ -108,8 +108,12 @@ const strong = (children: React.ReactNode) => <Strong>{children}</Strong>;
  *   walks through Chrome's menu, starting with getting the link into Chrome.
  * Nothing opens by itself on a desktop or when the page is already running from the home
  * screen. Whenever it is open, the numbered steps show (D233), with an iPhone / Android switch.
+ *
+ * `hold` (D755): the organiser's portal popup applies on this open, so this one does not open by
+ * itself - two popups in a row is one too many. Nothing is marked dismissed, so it gets its turn
+ * on a later open; the row and banner still open it on request.
  */
-export function AddToHomeScreen({ appName }: { appName: string }) {
+export function AddToHomeScreen({ appName, hold = false }: { appName: string; hold?: boolean }) {
   const device = useDevice();
   const d = useT().install;
   const [canPrompt, setCanPrompt] = useState(false);
@@ -128,13 +132,13 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
       e.preventDefault();
       prompt.current = e as InstallPrompt;
       setCanPrompt(true);
-      if (!wasDismissed()) setOpen(true);
+      if (!hold && !wasDismissed()) setOpen(true);
     };
     const onInstalled = () => setOpen(false);
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     // A desktop browser with no prompt gets nothing: it is not where the day happens.
-    const auto = (device === "ios" || device === "android") && !wasDismissed();
+    const auto = !hold && (device === "ios" || device === "android") && !wasDismissed();
     const timer = auto ? window.setTimeout(() => setOpen(true), OPEN_AFTER_MS) : undefined;
     return () => {
       window.clearTimeout(timer);
@@ -142,7 +146,7 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, [device]);
+  }, [device, hold]);
 
   // However it closes - Not now, a tap outside, Escape - it stays closed on this phone.
   const close = () => {
