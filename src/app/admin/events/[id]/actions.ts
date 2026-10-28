@@ -475,7 +475,12 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
   const a = result ? result.attendee : await createAttendee(ev, input, source);
   if (result && !result.created && before) {
     const edit = editChange(before, a, labels);
-    await recordChange(ev.id, actor, edit && { ...edit, summary: `Updated ${a.name} (already on the list)` });
+    // Adding a cancelled person's email again puts them back on the roster, so that is logged even if no field changed.
+    if (before.cancelled_at) {
+      await recordChange(ev.id, actor, { kind: "restore", summary: `Restored ${a.name} (added again)`, people: [{ attendeeId: a.id, name: a.name, email: a.email, fields: edit?.people[0]?.fields ?? [] }] });
+    } else {
+      await recordChange(ev.id, actor, edit && { ...edit, summary: `Updated ${a.name} (already on the list)` });
+    }
   } else {
     await recordChange(ev.id, actor, { kind: "add", summary: `Added ${a.name}`, people: [{ attendeeId: a.id, name: a.name, email: a.email, snapshot: attendeeValues(a, labels) }] });
   }
