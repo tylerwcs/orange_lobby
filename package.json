@@ -21,7 +21,8 @@
     "check:queue": "node --env-file=.env.local scripts/registration-queue-db-check.mjs",
     "load:games": "node --env-file=.env.local scripts/games-load.mjs",
     "load:polaroid": "node --env-file=.env.local scripts/polaroid-load.mjs",
-    "check:tracks": "node --env-file=.env.local scripts/tracks-db-check.mjs"
+    "check:tracks": "node --env-file=.env.local scripts/tracks-db-check.mjs",
+    "check:log": "node --env-file=.env.local scripts/attendee-log-db-check.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
