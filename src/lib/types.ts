@@ -79,6 +79,8 @@ export type Event = {
   display_name?: string | null;
   /** D635: also use display_name's line breaks in the top bar; off by default. */
   display_name_in_bar?: boolean;
+  /** D738: the portal offers an EN | BM switch; off by default. Optional so old fixtures compile. */
+  language_switch?: boolean;
   /** D618: the registration page's banner, full width at its own height; null/absent = none. Optional so old fixtures compile. */
   registration_banner_url?: string | null;
   /** D720: the image under the registration page (a client's disclaimer), full width at its own height; null/absent = none. Optional so old fixtures compile. */

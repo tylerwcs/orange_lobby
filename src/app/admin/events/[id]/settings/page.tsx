@@ -317,7 +317,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           safe: an unmounted panel posts no fields, and this action writes every column. */}
       {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
           click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_limit, ev.registration_needs_approval, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.display_name_in_bar, ev.coming_soon_message, ev.registration_full_title, ev.registration_full_message, ev.registration_waiting_title, ev.registration_waiting_message, ev.registration_pending_title, ev.registration_pending_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
+      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_limit, ev.registration_needs_approval, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.display_name_in_bar, ev.language_switch, ev.coming_soon_message, ev.registration_full_title, ev.registration_full_message, ev.registration_waiting_title, ev.registration_waiting_message, ev.registration_pending_title, ev.registration_pending_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
         <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Event">
@@ -341,6 +341,14 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
               <Field label="Coming soon message" name="coming_soon_message" textarea defaultValue={ev.coming_soon_message ?? ""} placeholder={DEFAULT_COMING_SOON}
                 description="What every link shows while the event is a draft. Line breaks are kept. Leave blank to use the placeholder text." />
             </div>
+          </Section>
+
+          {/* D738: an EN | BM switch on the attendee portal. Saved with Save settings like every other field here. */}
+          <Section title="Portal language" hint="Only the app's own wording changes. Anything you type for the event shows as you typed it.">
+            <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
+              <input type="checkbox" name="language_switch" defaultChecked={ev.language_switch ?? false} className="size-4 accent-primary" />
+              Let attendees switch the portal to Bahasa Malaysia
+            </label>
           </Section>
 
           <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
