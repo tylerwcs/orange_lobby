@@ -78,6 +78,14 @@ export async function listChanges(
   return { rows, total: count ?? 0 };
 }
 
+/** How many changes the event's log holds, without fetching a row. */
+export async function countChanges(eventId: string): Promise<number> {
+  const { count, error } = await serviceClient().from("attendee_changes")
+    .select("id", { count: "exact", head: true }).eq("event_id", eventId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** Everyone who has made a change at this event, once each, by name: the "done by" filter's choices. */
 export async function listChangeActors(eventId: string): Promise<{ email: string; name: string; kind: "admin" | "committee" }[]> {
   const rows = await selectAll<{ actor_email: string; actor_name: string; actor_kind: "admin" | "committee" }>((from, to) =>

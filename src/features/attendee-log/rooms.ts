@@ -58,9 +58,10 @@ export async function logRoomLoss(ev: Ev, by: Actor, items: Pick<AgendaItem, "id
 
 /**
  * A round renamed: everyone in any of these rooms is now in a round with a new name. Call
- * after `renameSlotAssignments` has worked. No row when nobody is assigned.
+ * after `renameSlotAssignments` has worked. No row when nobody is assigned. `movedRoom` (a room
+ * code) is for the one-room path: that room moved to another round, the round itself was not renamed.
  */
-export async function logRoundRename(ev: Ev, by: Actor, itemIds: string[], from: string, to: string): Promise<void> {
+export async function logRoundRename(ev: Ev, by: Actor, itemIds: string[], from: string, to: string, movedRoom?: string): Promise<void> {
   if (itemIds.length === 0) return;
   const ids = new Set(itemIds);
   const held = new Set<string>();
@@ -72,5 +73,5 @@ export async function logRoundRename(ev: Ev, by: Actor, itemIds: string[], from:
     return p ? [{ ...p, fields: [{ label: "Round", before: from, after: to }] }] : [];
   });
   if (list.length === 0) return;
-  await recordChange(ev.id, by, { kind: "round_rename", summary: `Renamed ${from} → ${to} (${people(list.length)})`, people: list });
+  await recordChange(ev.id, by, { kind: "round_rename", summary: movedRoom ? `Moved room ${movedRoom} from ${from} to ${to} (${people(list.length)})` : `Renamed ${from} → ${to} (${people(list.length)})`, people: list });
 }

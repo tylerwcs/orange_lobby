@@ -1,6 +1,7 @@
 import { Modal } from "@/components/admin/Modal";
 import type { AttendeeChange } from "../types";
 import { VERB } from "../lib/kinds";
+import { Delta } from "./Delta";
 
 /** A bulk change can touch thousands of people; the dialog shows this many and says how many it left out. */
 const MAX_PEOPLE = 200;
@@ -24,9 +25,7 @@ export function ChangeDetail({ change }: { change: AttendeeChange }) {
                 {p.fields.map((f, j) => (
                   <li key={j}>
                     <span className="font-semibold">{f.label}:</span>{" "}
-                    <span className="text-muted-foreground">{f.before || "(blank)"}</span>
-                    <span aria-hidden="true"> → </span><span className="sr-only"> to </span>
-                    {f.after || "(blank)"}
+                    <Delta before={f.before} after={f.after} />
                   </li>
                 ))}
               </ul>

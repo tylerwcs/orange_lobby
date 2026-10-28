@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { requireEventAccess } from "@/lib/access";
 import { listAttendees, countAttendees, listCancelledAttendees, countCancelled, countCancelRequests, listCancelRequests } from "@/lib/db/attendees";
 import { CancelRequestsTable } from "@/features/cancel";
-import { ChangeLogView, listChanges } from "@/features/attendee-log";
+import { ChangeLogView, countChanges } from "@/features/attendee-log";
 import { getPlaces, listEntries, placesLabel, QueueTable } from "@/features/registration-queue";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -182,7 +182,7 @@ export default async function Attendees({ params, searchParams }: { params: Prom
     const s = qs.toString();
     return `/admin/events/${ev.id}/attendees${s ? `?${s}` : ""}`;
   };
-  const logTotal = showLog ? (await listChanges(ev.id, {}, 1, 1)).total : 0;
+  const logTotal = showLog ? await countChanges(ev.id) : 0;
   // D686: "12 of 50 places taken" while a limit is set.
   const taken = placesLabel(places.taken, places.limit);
   const from = slice.length === 0 ? 0 : (page - 1) * pageSize + 1;

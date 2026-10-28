@@ -1451,7 +1451,7 @@ export async function updateAgendaItemAction(eventId: string, itemId: string, fo
   }
 
   // D745: after the catch above, so a log failure is not reported as the people failing to follow.
-  if (isBreakout && slot && slot !== item.slot) await logRoundRename(ev, actor, [itemId], item.slot ?? "", slot);
+  if (isBreakout && slot && slot !== item.slot) await logRoundRename(ev, actor, [itemId], item.slot ?? "", slot, code || undefined);
   revalidatePath(back);
   redirect(flashPath(back, `“${title ?? slot}” saved.`));
 }

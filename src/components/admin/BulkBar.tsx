@@ -106,7 +106,7 @@ export function BulkBar({
         setConfirmingDelete(false);
         onClear();
       } catch {
-        toast("Could not delete them. Nothing was removed; try again.", "error");
+        toast("Something went wrong. Reload to see what was removed.", "error");
       }
     });
   };

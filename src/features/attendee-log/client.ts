@@ -3,3 +3,4 @@ export * from "./types";
 export * from "./lib/values";
 export * from "./lib/changes";
 export * from "./lib/kinds";
+export * from "./lib/what-changed";
