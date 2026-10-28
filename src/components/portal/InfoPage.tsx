@@ -5,13 +5,14 @@ import { Skeleton } from "@/components/ui/skeletons";
 import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
 import { PortalTabStrip } from "./PortalTabStrip";
 import { TITLE_INK } from "@/lib/ink";
+import { portalLang, t } from "@/features/language";
 
 /**
  * The Info page, for both portals (D206): the section's heading, the tab strip, and the
  * chosen tab.
  */
-export function InfoPage({ event, tabs, selected, basePath }: {
-  event: Pick<Event, "info_page_title">;
+export async function InfoPage({ event, tabs, selected, basePath }: {
+  event: Pick<Event, "info_page_title" | "language_switch">;
   tabs: PortalInfoTab[];
   selected: PortalInfoTab | null;
   basePath: string;
@@ -25,7 +26,7 @@ export function InfoPage({ event, tabs, selected, basePath }: {
     <>
       <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>{event.info_page_title}</h1>
       {!selected ? (
-        <p className="text-sm text-muted-foreground">More information will be published soon.</p>
+        <p className="text-sm text-muted-foreground">{t(await portalLang(event)).info.soon}</p>
       ) : (
         // `?tab=` changes no route segment, so no loading.tsx sees it; the scope moves the
         // underline at once and swaps the content for a skeleton until the tab arrives.

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/features/language/client";
 
 /**
  * A picture on the agenda: a session's thumbnail, or an image row shown whole (D160, D196).
@@ -23,6 +24,7 @@ export function AgendaImage({ src, title, variant = "thumb" }: {
    */
   variant?: "thumb" | "full";
 }) {
+  const d = useT();
   const [open, setOpen] = useState(false);
   const full = variant === "full";
   return (
@@ -36,7 +38,7 @@ export function AgendaImage({ src, title, variant = "thumb" }: {
         /* The row already shows the title as text, so the button names its ACTION rather
            than repeating it — a screen reader hears "Show picture for Opening keynote"
            instead of the title twice in a row. */
-        aria-label={full ? `Open ${title} full size` : `Show picture for ${title}`}
+        aria-label={full ? d.picture.open(title) : d.picture.show(title)}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="" className={full ? "h-auto w-full object-contain" : "size-full object-cover"} />

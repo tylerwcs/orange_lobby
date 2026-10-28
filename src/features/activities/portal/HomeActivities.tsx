@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ActivityCardItem } from "../cards";
 import { ActivityCard, cardProps } from "./ActivitiesTab";
 import { SwipeRow } from "@/components/portal/SwipeRow";
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 
 /** More than this and the row stops being a glance; the Activities page has the rest. */
 const HOME_CARDS = 5;
@@ -15,29 +17,31 @@ const HOME_CARDS = 5;
  * The desktop home has them too (D490), in its centre column since D731: one under another, no
  * swipe. The page renders that copy as well as the phone's, so each takes its own heading id.
  */
-export function HomeActivities({ cards, basePath, desktop = false }: {
+export function HomeActivities({ cards, basePath, desktop = false, lang = "en" }: {
   cards: ActivityCardItem[];
+  lang?: Lang;
   basePath: string;
   /** The desktop home's copy: a grid rather than the swipe row. */
   desktop?: boolean;
 }) {
   if (cards.length === 0) return null;
+  const d = t(lang);
   const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} className="w-full" />);
   const headingId = desktop ? "home-activities-desktop" : "home-activities";
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between px-0.5">
-        <h2 id={headingId} className="text-base font-extrabold">Activities</h2>
+        <h2 id={headingId} className="text-base font-extrabold">{d.home.activities}</h2>
         <Link href={`${basePath}/activities`} className="-my-2 inline-flex min-h-11 items-center text-sm font-bold text-primary">
-          See all{cards.length > HOME_CARDS ? ` ${cards.length}` : ""} ›
+          {d.home.seeAll}{cards.length > HOME_CARDS ? ` ${cards.length}` : ""} ›
         </Link>
       </div>
       {desktop ? (
-        <ul aria-label="Your activities" className="grid gap-4">
+        <ul aria-label={d.home.yourActivities} className="grid gap-4">
           {shown.map((card) => <li key={card.key} className="flex">{card}</li>)}
         </ul>
       ) : (
-        <SwipeRow label="Your activities">{shown}</SwipeRow>
+        <SwipeRow label={d.home.yourActivities}>{shown}</SwipeRow>
       )}
     </section>
   );

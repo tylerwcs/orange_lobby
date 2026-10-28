@@ -29,7 +29,11 @@ const at = (o: Node, path: string) => path.split(".").reduce<Node>((n, k) => (n 
  * every other function gets distinct marker strings, so a Malay sentence that drops or
  * rewrites an organiser-typed name fails.
  */
-const SAMPLES: Record<string, unknown[]> = {};
+const SAMPLES: Record<string, unknown[]> = {
+  "home.slide": [7, 13],
+  "home.showSlide": [7, 13],
+  "cards.seatsLeft": ["«R»", 7],
+};
 const argsFor = (path: string, arity: number) => SAMPLES[path] ?? Array.from({ length: arity }, (_, i) => `«X${i}»`);
 
 describe("dictionaries", () => {
@@ -54,6 +58,15 @@ describe("dictionaries", () => {
       for (const a of args) {
         if (typeof a === "string" || typeof a === "number") expect(out, path).toContain(String(a));
       }
+    }
+  });
+  it("keep every icon and bold marker in rich lines", () => {
+    const marks = (s: string) => [...s.matchAll(/\{\w+\}/g)].map((m) => m[0]).sort();
+    for (const [path, v] of enLeaves) {
+      if (typeof v !== "string") continue;
+      const m = at(ms, path) as string;
+      expect(marks(m), path).toEqual(marks(v));
+      expect((m.match(/\*\*/g) ?? []).length % 2, path).toBe(0);
     }
   });
   it("have no empty Malay wording", () => {

@@ -11,16 +11,20 @@ import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
 import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
 import { PortalTabStrip } from "./PortalTabStrip";
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 
 /** What a day looks like while the next one loads: the shape of a few sessions. */
-const DaySkeleton = () => (
-  <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label="Loading the day">
+const DaySkeleton = ({ label }: { label: string }) => (
+  <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label={label}>
     {["h-[76px]", "h-[116px]", "h-[76px]"].map((h, i) => <Skeleton key={i} className={`${h} rounded-[14px]`} />)}
   </div>
 );
 
-export function AgendaList({ items, day, days, basePath, now, dayHref, calendarHref }: {
+export function AgendaList({ items, day, days, basePath, now, dayHref, calendarHref, lang = "en" }: {
   items: AgendaItem[];
+  /** D740: the list's own words and the day tabs' dates follow the portal's language. */
+  lang?: Lang;
   day: string | null;
   days: DayTab[];
   basePath: string;
@@ -34,7 +38,8 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
   calendarHref?: (sessionId: string) => string | null;
 }) {
   const hrefForDay = dayHref ?? ((d: string) => `${basePath}/agenda?day=${d}`);
-  if (!day) return <p className="text-sm text-muted-foreground">Agenda will be published soon.</p>;
+  const w = t(lang).agenda;
+  if (!day) return <p className="text-sm text-muted-foreground">{w.soon}</p>;
   const todays = items.filter((i) => i.day === day);
   // The days either side, for a swipe across the sessions (D234).
   const at = days.findIndex((d) => d.date === day);
@@ -46,14 +51,14 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
     <PendingScope>
     <div className="flex flex-col gap-3">
       <PortalTabStrip
-        tabs={days.map((d) => ({ key: d.date, href: hrefForDay(d.date), label: d.name ?? shortDate(d.date), sub: d.name ? shortDate(d.date) : null }))}
+        tabs={days.map((d) => ({ key: d.date, href: hrefForDay(d.date), label: d.name ?? shortDate(d.date, lang), sub: d.name ? shortDate(d.date, lang) : null }))}
         selected={day}
       />
       {/* A floor under an empty or short day, so there is always somewhere to swipe. */}
       <PendingSwipe prevHref={prevHref} nextHref={nextHref} className="min-h-[50dvh] md:min-h-0" paneClassName="flex flex-col gap-3">
-      <PendingSwap fallback={<DaySkeleton />}>
+      <PendingSwap fallback={<DaySkeleton label={w.loadingDay} />}>
       {todays.map((i) => {
-        if (i.kind === "image") return <ImageRow key={i.id} item={i} />;
+        if (i.kind === "image") return <ImageRow key={i.id} item={i} fallbackTitle={w.imageAlt} />;
         const live = isNow(i, now.date, now.time);
         const accent = agendaAccentClass(i.color);
         // A booked session's own calendar file, when the page can address it (personal portal only).
@@ -68,7 +73,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
             {accent && <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${accent}`} />}
             <div className="w-11 shrink-0">
               <div className={`text-[13px] font-extrabold ${live ? "text-primary" : "text-muted-foreground"}`}>{i.starts_at}</div>
-              {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-primary">NOW</div> : i.ends_at && <div className="text-[11px] text-muted-foreground">{i.ends_at}</div>}
+              {live ? <div className="text-[11px] font-extrabold tracking-[0.08em] text-primary">{w.now}</div> : i.ends_at && <div className="text-[11px] text-muted-foreground">{i.ends_at}</div>}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[15px] font-bold">{i.title}</div>
@@ -80,14 +85,14 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
               {i.description && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{i.description}</p>}
               {i.categories && i.categories.length > 0 && <div className="mt-1.5"><Badge variant="secondary">{i.categories.join(", ")}</Badge></div>}
               {/* Green, the colour of "you're booked" on the activity's own page. */}
-              {isBookedRow(i) && <div className="mt-1.5"><Badge variant="success">Booked</Badge></div>}
+              {isBookedRow(i) && <div className="mt-1.5"><Badge variant="success">{w.booked}</Badge></div>}
             </div>
             {/* On the right, centred on the row, as a soft pill: it belongs to the whole session,
                 not to the Booked badge. */}
             {ics && (
               <AddToCalendar href={ics} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 self-center rounded-full bg-accent px-3.5 text-[13px] font-bold text-primary outline-none transition-colors hover:bg-primary/15 focus-visible:ring-3 focus-visible:ring-ring/50">
                 <CalendarPlus className="size-[15px]" aria-hidden="true" />
-                Add to calendar
+                {w.addToCalendar}
               </AddToCalendar>
             )}
             {/* Trailing edge, after the text: the leading edge already belongs to the time
@@ -96,7 +101,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
           </div>
         );
       })}
-      {todays.length === 0 && <p className="text-sm text-muted-foreground">Nothing scheduled on this day.</p>}
+      {todays.length === 0 && <p className="text-sm text-muted-foreground">{w.nothingToday}</p>}
       </PendingSwap>
       </PendingSwipe>
     </div>
@@ -109,11 +114,11 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
  * caption beneath. A row with no URL cannot exist (the database requires one), but rendering
  * nothing beats rendering a broken image if one ever does.
  */
-function ImageRow({ item }: { item: AgendaItem }) {
+function ImageRow({ item, fallbackTitle }: { item: AgendaItem; fallbackTitle: string }) {
   if (!item.image_url) return null;
   return (
     <figure data-item-id={item.id} className="flex flex-col gap-2">
-      <AgendaImage src={item.image_url} title={item.title || "Agenda image"} variant="full" />
+      <AgendaImage src={item.image_url} title={item.title || fallbackTitle} variant="full" />
       {item.title && <figcaption className="px-1 text-sm text-muted-foreground">{item.title}</figcaption>}
     </figure>
   );

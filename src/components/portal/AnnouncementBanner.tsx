@@ -6,6 +6,8 @@ import { Icon } from "@/components/ui/icon";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AnnouncementList } from "./AnnouncementList";
 import { HomeScreenRow } from "./AddToHomeScreen";
+import { useLang } from "@/features/language/client";
+import { t } from "@/features/language/dict";
 
 /** How long each announcement holds before the next slides up. */
 const HOLD_MS = 4000;
@@ -30,6 +32,8 @@ const HOLD_MS = 4000;
  * dialog is open, while the tab is hidden, and always under reduced motion.
  */
 export function AnnouncementBanner({ a, items }: { a: Announcement; items: Announcement[] }) {
+  const lang = useLang();
+  const d = t(lang);
   const [open, setOpen] = useState(false);
   const slides = useMemo(() => [a, ...items.filter((i) => i.id !== a.id)], [a, items]);
   const [index, setIndex] = useState(0);
@@ -88,9 +92,9 @@ export function AnnouncementBanner({ a, items }: { a: Announcement; items: Annou
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[85vh] flex-col gap-3">
-          <DialogTitle className="text-lg font-extrabold">Announcements</DialogTitle>
+          <DialogTitle className="text-lg font-extrabold">{d.announcements.title}</DialogTitle>
           <div className="-mx-1 min-h-0 overflow-y-auto px-1 pb-1">
-            <AnnouncementList items={items} />
+            <AnnouncementList lang={lang} items={items} />
             {/* The home-screen guide stays reachable here after its first popup (D232). */}
             <HomeScreenRow variant="row" onOpen={() => setOpen(false)} />
           </div>

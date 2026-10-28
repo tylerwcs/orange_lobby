@@ -5,6 +5,7 @@ import { allCheckedIn } from "./lib/booking-door";
 import type { ActivityEntries, EntryMap } from "./lib/portal-activity-entries";
 import type { Activity, ActivityKind } from "@/lib/types";
 import { ACTIVITY_KINDS } from "./kinds/meta";
+import type { Lang } from "@/features/language/lang";
 
 /** The Activities tab's headings: the organiser's pins (D387), then where each card sits for the attendee; Coming soon is D605's. */
 export type CardSection = "pinned" | "coming" | ActivitySection;
@@ -35,7 +36,7 @@ const SECTION_ORDER: readonly Exclude<CardSection, "pinned">[] = ["choose", "boo
  * one leading the page. Each kind builds its own cards (D416); the order is section first,
  * then kind.
  */
-export function activityCards(entries: ActivityEntries & { coming?: Activity[] }, basePath: string): ActivityCardItem[] {
+export function activityCards(entries: ActivityEntries & { coming?: Activity[] }, basePath: string, lang: Lang = "en"): ActivityCardItem[] {
   const href = (a: Activity) => `${basePath}/activities/${a.id}`;
 
   /** One card builder per kind (D416): a kind added to ActivityKind does not build until it has one. */
@@ -46,13 +47,13 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
       const section = bookingSection(entry.state, pending, checkedIn);
       if (!section) return [];
       const activity = entry.state.activity;
-      return [{ activity, view: bookingCard({ state: entry.state, pending, checkedIn }), href: href(activity), emphasis: section === "choose", section }];
+      return [{ activity, view: bookingCard({ state: entry.state, pending, checkedIn }, lang), href: href(activity), emphasis: section === "choose", section }];
     }),
     // Only "ineligible" hides a form here; a closed one never arrives (D384, `shownToAttendees`).
     submission: (list) => list
       .filter((s) => s.state.reason !== "ineligible")
       .map(({ form, state, track }) => ({
-        activity: form, view: formCard({ form, state }), href: href(form), emphasis: false, section: "open" as const,
+        activity: form, view: formCard({ form, state }, lang), href: href(form), emphasis: false, section: "open" as const,
         // D724: each attendee's own track stays pinned; the other one sits in the list with "Other track".
         unpinned: track?.status === "other",
       })),
@@ -86,7 +87,7 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
   // D605: scheduled, not yet open - after everything open, before Done. Not a link, never ringed:
   // a required one owes nothing until it opens (D606).
   const coming: ActivityCardItem[] = (entries.coming ?? []).flatMap((activity) =>
-    activity.opens_at ? [{ activity, view: comingSoonCard(activity.opens_at), href: null, emphasis: false, section: "coming" as const }] : [],
+    activity.opens_at ? [{ activity, view: comingSoonCard(activity.opens_at, lang), href: null, emphasis: false, section: "coming" as const }] : [],
   );
 
   // Kinds in ACTIVITY_KINDS order, then a stable sort by section: within a section, bookings,

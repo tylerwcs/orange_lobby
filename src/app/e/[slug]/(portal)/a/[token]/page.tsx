@@ -26,6 +26,7 @@ import { countGames, phoneState, GameBanner } from "@/features/games";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
+import { portalLang, t } from "@/features/language";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,7 @@ export default async function PersonalHome({ params, searchParams }: {
     hasInfo,
     activities,
     games,
+    lang,
   ] = await Promise.all([
     loadHomeData(event, attendee, basePath, requestedDay),
     checkinPill(event, attendee.id),
@@ -92,14 +94,16 @@ export default async function PersonalHome({ params, searchParams }: {
     // Activities button, and whether it carries the dot.
     loadActivityNav(event, attendee),
     countGames(event.id),
+    portalLang(event),
   ]);
+  const d = t(lang);
   // Only an attendee who can see an activity pays for the cards' queries (D214), and only an
   // event with a game for the banner's first state; the two do not wait on each other.
   const [cards, game] = await Promise.all([
-    activities.show ? loadActivityEntries(event, attendee).then((entries) => activityCards(entries, basePath)) : [],
+    activities.show ? loadActivityEntries(event, attendee).then((entries) => activityCards(entries, basePath, lang)) : [],
     gameBanner(event, attendee, games > 0),
   ]);
-  const launcher = launcherItems({ basePath, personal: true, hasInfo, infoLabel: event.info_page_title, hasGroup: groupTabs({ tile: event.group_tile, inGroup: !!attendee.group_id, allGroups: event.all_groups }).length > 0, activities, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
+  const launcher = launcherItems({ basePath, personal: true, hasInfo, infoLabel: event.info_page_title, hasGroup: groupTabs({ tile: event.group_tile, inGroup: !!attendee.group_id, allGroups: event.all_groups }).length > 0, activities, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color, lang });
 
   // The header covers Agenda (D731) and Info (D216) - only those two are dropped from the desktop
   // tiles. Groups has no header link (F3), so it stays.
@@ -125,34 +129,35 @@ export default async function PersonalHome({ params, searchParams }: {
 
         <div className="flex flex-col gap-4 md:gap-5">
           {game && <GameBanner token={token} basePath={basePath} initial={game} />}
-          <BadgeCard attendee={attendee} qr={qr} checkin={checkin} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields), groupName)} />
+          <BadgeCard lang={lang} attendee={attendee} qr={qr} checkin={checkin} pins={resolvePins(event.pinned_fields, attendee, eventFields(event.registration_questions, event.attendee_fields), groupName)} />
           <div className="md:hidden">
             {/* No announcements yet: the banner's place holds the home-screen guide instead (D232). */}
             {banner ? <AnnouncementBanner a={banner} items={announcements} /> : <HomeScreenRow variant="banner" />}
           </div>
           <Card className="hidden md:flex">
             <CardHeader>
-              <CardTitle className={caption}>Announcements</CardTitle>
+              <CardTitle className={caption}>{d.home.announcements}</CardTitle>
             </CardHeader>
             <CardContent>
-              <AnnouncementList items={announcements.slice(0, 4)} />
+              <AnnouncementList lang={lang} items={announcements.slice(0, 4)} />
             </CardContent>
           </Card>
-          <LauncherGrid items={launcher} layout="row" className="md:hidden" />
+          <LauncherGrid lang={lang} items={launcher} layout="row" className="md:hidden" />
           <BreakoutCard breakouts={myBreakouts(categoryVisibleBreakoutItems(allAgenda, attendee.category), assignedItemIds)} />
-          <div className="md:hidden"><HomeActivities cards={cards} basePath={basePath} /></div>
+          <div className="md:hidden"><HomeActivities lang={lang} cards={cards} basePath={basePath} /></div>
         </div>
 
         <div className="hidden md:flex md:flex-col md:gap-5">
-          {cards.length > 0 ? <HomeActivities cards={cards} basePath={basePath} desktop /> : (
+          {cards.length > 0 ? <HomeActivities lang={lang} cards={cards} basePath={basePath} desktop /> : (
             <Card>
               <CardHeader>
-                <CardTitle>Today</CardTitle>
+                <CardTitle>{d.home.today}</CardTitle>
               </CardHeader>
               <CardContent>
                 {/* Day tabs stay on this page rather than jumping to /agenda - the point of
                     the dashboard is that you do not have to leave it. */}
                 <AgendaList
+                  lang={lang}
                   items={agenda}
                   day={day}
                   days={days}
@@ -171,7 +176,7 @@ export default async function PersonalHome({ params, searchParams }: {
 
         {tileItems.length > 0 && (
           <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
-            <LauncherGrid items={tileItems} />
+            <LauncherGrid lang={lang} items={tileItems} />
           </div>
         )}
 

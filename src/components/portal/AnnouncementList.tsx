@@ -1,8 +1,12 @@
 import type { Announcement } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 
-export function AnnouncementList({ items }: { items: Announcement[] }) {
-  if (items.length === 0) return <p className="text-sm text-muted-foreground">No announcements yet.</p>;
+/** Rendered on the server and inside the banner's dialog alike, so the language comes in as a prop (D739). */
+export function AnnouncementList({ items, lang = "en" }: { items: Announcement[]; lang?: Lang }) {
+  const d = t(lang);
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">{d.announcements.none}</p>;
   return (
     <div className="flex flex-col gap-3">
       {items.map((a) => (
@@ -11,7 +15,7 @@ export function AnnouncementList({ items }: { items: Announcement[] }) {
               timestamp on a notice written days ahead only read as stale. */}
           <div className="flex items-start justify-between gap-2">
             <div className="text-[15px] font-bold">{a.title}</div>
-            {a.pinned && <Badge className="shrink-0">Pinned</Badge>}
+            {a.pinned && <Badge className="shrink-0">{d.announcements.pinned}</Badge>}
           </div>
           <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{a.body}</p>
         </div>

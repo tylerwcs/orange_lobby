@@ -4,15 +4,17 @@ import { categoryMatches } from "@/lib/agenda";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { TITLE_INK } from "@/lib/ink";
+import { portalLang, t } from "@/features/language";
 
 export default async function GenericNews({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await loadPortalEvent(slug);
+  const lang = await portalLang(event);
   return (
     <PortalShell event={event} basePath={`/e/${slug}`} personal={false}>
-      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>Announcements</h1>
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>{t(lang).announcements.title}</h1>
       {/* The public portal knows nobody, so it shows only announcements for everyone. */}
-      <AnnouncementList items={(await listAnnouncements(event.id)).filter((a) => categoryMatches(a.categories, null))} />
+      <AnnouncementList lang={lang} items={(await listAnnouncements(event.id)).filter((a) => categoryMatches(a.categories, null))} />
     </PortalShell>
   );
 }

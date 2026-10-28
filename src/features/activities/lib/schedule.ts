@@ -1,3 +1,4 @@
+import type { Lang } from "@/features/language/lang";
 import { isoToLocalInput, localInputToIso } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import type { Activity } from "@/lib/types";
@@ -30,9 +31,9 @@ function clock(hhmm: string): string {
 }
 
 /** When it opens, in Malaysia time: "Sat 17 Oct, 10:00am" (D604, D607). */
-export function opensLabel(iso: string): string {
+export function opensLabel(iso: string, lang: Lang = "en"): string {
   const [day, time] = isoToLocalInput(iso).split("T");
-  return `${shortDate(day)}, ${clock(time)}`;
+  return `${shortDate(day, lang)}, ${clock(time)}`;
 }
 
 /** The same without the weekday, for the list's narrow Status column: "17 Oct, 10:00am" (D608). */

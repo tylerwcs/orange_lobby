@@ -3,6 +3,8 @@ import type { Event } from "@/lib/types";
 import { initials, formatDateRange } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
 import { barName } from "@/lib/event-name";
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 
 type HeaderEvent = Pick<Event, "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "display_name" | "display_name_in_bar">;
 
@@ -17,9 +19,11 @@ export function Mark({ event }: { event: HeaderEvent }) {
   return <div className="flex size-10 items-center justify-center rounded-[10px] bg-brand text-sm font-extrabold text-brand-foreground">{initials(event.name)}</div>;
 }
 
-export function PortalHeader({ event, href, action, className = "" }: {
+export function PortalHeader({ event, href, action, className = "", lang = "en" }: {
   event: HeaderEvent;
   href?: string;
+  /** D739: the dates and the home link's label follow the portal's language. */
+  lang?: Lang;
   /**
    * Something at the right-hand end, e.g. the phone home's Me button (D236). With `href` it
    * sits under the home link's overlay, so it must lift itself above it (`relative z-10`).
@@ -27,7 +31,7 @@ export function PortalHeader({ event, href, action, className = "" }: {
   action?: React.ReactNode;
   className?: string;
 }) {
-  const meta = [formatDateRange(event.starts_on, event.ends_on), event.venue_name].filter(Boolean).join(" · ");
+  const meta = [formatDateRange(event.starts_on, event.ends_on, lang), event.venue_name].filter(Boolean).join(" · ");
   const identity = (
     <>
       <Mark event={event} />
@@ -49,7 +53,7 @@ export function PortalHeader({ event, href, action, className = "" }: {
     <header className={`bg-[color:var(--bar,var(--card))] text-[color:var(--bar-foreground,var(--card-foreground))] px-4 py-4 ${href ? "relative" : ""} ${className}`}>
       <div className="flex items-center gap-3">
         {href ? (
-          <HomeLink href={href} label={`Home: ${event.name}`} className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-[12px] p-1 outline-none transition-opacity after:absolute after:inset-0 focus-visible:ring-3 focus-visible:ring-ring/50">
+          <HomeLink href={href} label={t(lang).nav.homeOf(event.name)} className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-[12px] p-1 outline-none transition-opacity after:absolute after:inset-0 focus-visible:ring-3 focus-visible:ring-ring/50">
             {identity}
           </HomeLink>
         ) : identity}

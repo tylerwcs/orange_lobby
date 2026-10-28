@@ -8,6 +8,7 @@ import { AgendaList } from "@/components/portal/AgendaList";
 import { AnnouncementList } from "@/components/portal/AnnouncementList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QrCode } from "lucide-react";
+import { portalLang, t } from "@/features/language";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,13 @@ export default async function GenericHome({ params, searchParams }: {
   const { day: requestedDay } = await searchParams;
   const event = await loadPortalEvent(slug);
   const basePath = `/e/${slug}`;
-  const [{ tiles, banner, agenda, days, day, announcements, now }, hasInfo] = await Promise.all([
+  const [{ tiles, banner, agenda, days, day, announcements, now }, hasInfo, lang] = await Promise.all([
     loadHomeData(event, null, basePath, requestedDay),
     portalHasInfo(event.id, null),
+    portalLang(event),
   ]);
-  const launcher = launcherItems({ basePath, personal: false, hasInfo, infoLabel: event.info_page_title, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color });
+  const d = t(lang);
+  const launcher = launcherItems({ basePath, personal: false, hasInfo, infoLabel: event.info_page_title, tiles, icons: sectionIcons(event.section_icons), tint: event.primary_color, lang });
 
   return (
     <PortalShell event={event} basePath={basePath} personal={false} current="" hero dashboard>
@@ -39,24 +42,23 @@ export default async function GenericHome({ params, searchParams }: {
           <Card>
             <CardContent className="flex flex-col gap-2">
               <QrCode className="size-6 text-primary" />
-              <div className="font-extrabold">Open your own badge link</div>
-              <p className="text-sm text-muted-foreground">
-                Scan the QR code on your badge to see your table and check-in status.
-              </p>
+              <div className="font-extrabold">{d.home.ownBadgeTitle}</div>
+              <p className="text-sm text-muted-foreground">{d.home.ownBadgeBody}</p>
             </CardContent>
           </Card>
           {/* Phone: the latest announcement and the launcher, which is the navigation there (D209). */}
           {banner && <div className="md:hidden"><AnnouncementBanner a={banner} items={announcements} /></div>}
-          <LauncherGrid items={launcher} layout="row" className="md:hidden" />
+          <LauncherGrid lang={lang} items={launcher} layout="row" className="md:hidden" />
         </div>
 
         <div className="hidden md:flex md:flex-col md:gap-5">
           <Card>
             <CardHeader>
-              <CardTitle>Today</CardTitle>
+              <CardTitle>{d.home.today}</CardTitle>
             </CardHeader>
             <CardContent>
               <AgendaList
+                lang={lang}
                 items={agenda}
                 day={day}
                 days={days}
@@ -71,13 +73,13 @@ export default async function GenericHome({ params, searchParams }: {
         <div className="hidden md:col-span-2 md:flex md:flex-col md:gap-5 xl:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className={caption}>Announcements</CardTitle>
+              <CardTitle className={caption}>{d.home.announcements}</CardTitle>
             </CardHeader>
             <CardContent>
-              <AnnouncementList items={announcements.slice(0, 4)} />
+              <AnnouncementList lang={lang} items={announcements.slice(0, 4)} />
             </CardContent>
           </Card>
-          <LauncherGrid items={launcher.filter((i) => !i.builtin)} />
+          <LauncherGrid lang={lang} items={launcher.filter((i) => !i.builtin)} />
         </div>
 
       </div>

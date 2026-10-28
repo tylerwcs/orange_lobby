@@ -7,6 +7,7 @@ import { dayTabs, pickDay } from "@/lib/agenda";
 import { nowInKL } from "@/lib/time";
 import { AgendaList } from "@/components/portal/AgendaList";
 import { TITLE_INK } from "@/lib/ink";
+import { portalLang, t } from "@/features/language";
 
 export default async function PersonalAgenda({ params, searchParams }: { params: Promise<{ slug: string; token: string }>; searchParams: Promise<{ day?: string }> }) {
   const { slug, token } = await params; const { day: requested } = await searchParams;
@@ -43,10 +44,11 @@ export default async function PersonalAgenda({ params, searchParams }: { params:
   const days = dayTabs(agendaDays, items);
   const now = nowInKL();
   const day = pickDay(days.map((d) => d.date), requested, now.date);
+  const lang = await portalLang(event);
   return (
     <>
-      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>Agenda</h1>
-      <AgendaList items={items} day={day} days={days} basePath={basePath} now={now} calendarHref={calendarHref} />
+      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>{t(lang).agenda.title}</h1>
+      <AgendaList lang={lang} items={items} day={day} days={days} basePath={basePath} now={now} calendarHref={calendarHref} />
     </>
   );
 }

@@ -223,3 +223,20 @@ describe("tournamentCard (D647)", () => {
     expect(tournamentCard({ ...base, results: { overall: null, any: false } }).status?.label).toBe("Squads locked");
   });
 });
+
+describe("cards in Bahasa Malaysia (D739)", () => {
+  it("a booking card speaks Malay, dates included", () => {
+    const v = bookingCard(booking(), "ms");
+    expect(v.meta?.text).toBe("28 Sep – 2 Okt · 5 tempat lagi");
+    expect(v.action?.label).toBe("Tempah");
+    expect(bookingCard(booking({ held: 1, sessions: [seat("2026-10-02", "09:00", 2, true)] }), "ms").status?.label).toBe("Sudah ditempah");
+  });
+  it("a form card speaks Malay but keeps the organiser's button label", () => {
+    const form = { starts_on: null, ends_on: null, venue: null, action_label: null };
+    expect(formCard({ form, state: { can: true } } as FormCardInput, "ms").action?.label).toBe("Hantar");
+    expect(formCard({ form: { ...form, action_label: "Submit" }, state: { can: true } } as FormCardInput, "ms").action?.label).toBe("Submit");
+  });
+  it("stays English without a language", () => {
+    expect(bookingCard(booking()).action?.label).toBe("Book");
+  });
+});

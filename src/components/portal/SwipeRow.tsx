@@ -1,6 +1,7 @@
 "use client";
 
 import { Children, useEffect, useRef, useState } from "react";
+import { useT } from "@/features/language/client";
 
 /**
  * A row that shows one item at a time, full width, and swipes to the next (D219). Nothing
@@ -14,6 +15,7 @@ export function SwipeRow({ label, stackOnDesktop = false, children }: {
   children: React.ReactNode;
 }) {
   const items = Children.toArray(children);
+  const d = useT();
   const row = useRef<HTMLUListElement>(null);
   const [at, setAt] = useState(0);
 
@@ -43,7 +45,7 @@ export function SwipeRow({ label, stackOnDesktop = false, children }: {
       >
         {items.map((child, i) => (
           // p-0.5: the row clips at its edges, and a card's ring is drawn just outside the card.
-          <li key={i} className="flex w-full shrink-0 snap-start p-0.5" aria-roledescription="slide" aria-label={`${i + 1} of ${items.length}`}>
+          <li key={i} className="flex w-full shrink-0 snap-start p-0.5" aria-roledescription="slide" aria-label={d.home.slide(i + 1, items.length)}>
             {child}
           </li>
         ))}
@@ -55,7 +57,7 @@ export function SwipeRow({ label, stackOnDesktop = false, children }: {
               key={i}
               type="button"
               onClick={() => go(i)}
-              aria-label={`Show ${i + 1} of ${items.length}`}
+              aria-label={d.home.showSlide(i + 1, items.length)}
               aria-current={i === at ? "true" : undefined}
               className="flex h-6 items-center rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >

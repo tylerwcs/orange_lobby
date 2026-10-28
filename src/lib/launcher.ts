@@ -1,4 +1,6 @@
 import type { IconName } from "@/components/ui/icon";
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 import type { Tile, TileRoute } from "@/lib/modules";
 import type { ActivityNav } from "@/features/activities/client";
 import { tintedIcon } from "@/lib/tint";
@@ -75,16 +77,19 @@ export function launcherItems(input: {
   icons?: SectionIcons;
   /** D488: the event's primary colour. The portal's own pictures are drawn in it; uploads are untouched. */
   tint?: string | null;
+  /** D739: the built-in buttons' names follow the portal's language. The organiser's tiles keep their own. */
+  lang?: Lang;
 }): LauncherItem[] {
-  const { basePath, hasInfo, infoLabel, hasGroup, tiles, icons, tint } = input;
+  const { basePath, hasInfo, infoLabel, hasGroup, tiles, icons, tint, lang = "en" } = input;
+  const d = t(lang);
   const section = (key: string, label: string, path: string, icon: IconName, image: string | null = null): LauncherItem => ({
     id: `builtin:${key}`, label, href: `${basePath}${path}`, icon, image: tintedIcon(image, tint), external: false, dot: false, builtin: true,
   });
 
   const items: LauncherItem[] = [
-    section("agenda", "Agenda", "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda),
-    ...(hasInfo ? [section("info", infoLabel || "Info", "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
-    ...(hasGroup ? [section("group", "Groups", "/group", "users", icons?.group ?? DEFAULT_SECTION_ICONS.group)] : []),
+    section("agenda", d.nav.agenda, "/agenda", "calendar", icons?.agenda ?? DEFAULT_SECTION_ICONS.agenda),
+    ...(hasInfo ? [section("info", infoLabel || d.nav.info, "/info", "info", icons?.info ?? DEFAULT_SECTION_ICONS.info)] : []),
+    ...(hasGroup ? [section("group", d.nav.groups, "/group", "users", icons?.group ?? DEFAULT_SECTION_ICONS.group)] : []),
   ];
 
   const covered = new Set<TileRoute>(["agenda"]);

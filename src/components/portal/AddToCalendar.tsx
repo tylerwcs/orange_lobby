@@ -1,6 +1,7 @@
 "use client";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useT } from "@/features/language/client";
 
 /**
  * D393: Add to calendar as a choice. On an iPhone, Safari gives a .ics file to Apple Calendar
@@ -18,6 +19,7 @@ export function AddToCalendar({ href, className, children, align = "end" }: {
   children: React.ReactNode;
   align?: "start" | "center" | "end";
 }) {
+  const d = useT().calendar;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={className}>{children}</DropdownMenuTrigger>
@@ -26,15 +28,15 @@ export function AddToCalendar({ href, className, children, align = "end" }: {
             `download` on the file - iOS would save it instead of offering the calendar. */}
         <DropdownMenuItem render={<a href={href} />} className="flex-col items-start gap-0 py-2">
           <span className="font-bold">Apple Calendar</span>
-          <span className="text-xs text-muted-foreground">iPhone, iPad or Mac</span>
+          <span className="text-xs text-muted-foreground">{d.appleSub}</span>
         </DropdownMenuItem>
         <DropdownMenuItem render={<a href={`${href}&app=google`} target="_blank" rel="noopener noreferrer" />} className="flex-col items-start gap-0 py-2">
           <span className="font-bold">Google Calendar</span>
-          <span className="text-xs text-muted-foreground">Android or Gmail</span>
+          <span className="text-xs text-muted-foreground">{d.googleSub}</span>
         </DropdownMenuItem>
         <DropdownMenuItem render={<a href={`${href}&app=outlook`} target="_blank" rel="noopener noreferrer" />} className="flex-col items-start gap-0 py-2">
           <span className="font-bold">Outlook</span>
-          <span className="text-xs text-muted-foreground">Your work Microsoft 365 account</span>
+          <span className="text-xs text-muted-foreground">{d.outlookSub}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

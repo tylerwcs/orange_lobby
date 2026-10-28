@@ -4,6 +4,8 @@ import { pinScale, type ResolvedPin } from "@/lib/pinned-fields";
 import { Icon } from "@/components/ui/icon";
 import { displayName } from "@/lib/text";
 import { BadgeQrDialog } from "./BadgeQrDialog";
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 
 /**
  * Am I in, who am I, and the handful of facts this event decided matter.
@@ -20,28 +22,31 @@ import { BadgeQrDialog } from "./BadgeQrDialog";
  * an event whose badges should carry it pins it in Settings, and `pinnableFields` offers it
  * the moment the event defines the column.
  */
-export function BadgeCard({ attendee, checkin, pins, qr }: {
+export function BadgeCard({ attendee, checkin, pins, qr, lang = "en" }: {
   attendee: Attendee;
+  /** D739: the card's own words; the pins are the organiser's and stay as typed. */
+  lang?: Lang;
   /** The running checkpoint and when they came through it (D388); null shows no pill at all. */
   checkin: BadgeCheckin | null;
   pins: ResolvedPin[];
   /** The attendee's QR as a data URL; the square button opens it in place (was a link to Me). */
   qr: string;
 }) {
+  const d = t(lang);
   return (
     <section className="@container flex flex-col gap-3 rounded-xl bg-feature p-4 text-feature-foreground">
       <div className="flex items-center gap-3.5">
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
           {checkin && (checkin.at
-            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-feature-success"><span aria-hidden="true" className="size-1.5 rounded-full bg-feature-success" /><span className="sr-only">Checked in: </span>{checkin.name} · {checkin.at}</span>
-            : <span /* theme-fixed: on --feature */ className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-feature-foreground/70">Not checked in to {checkin.name} yet</span>)}
+            ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success/25 px-2.5 py-1 text-xs font-extrabold text-feature-success"><span aria-hidden="true" className="size-1.5 rounded-full bg-feature-success" /><span className="sr-only">{d.badge.checkedIn}</span>{checkin.name} · {checkin.at}</span>
+            : <span /* theme-fixed: on --feature */ className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-feature-foreground/70">{d.badge.notCheckedIn(checkin.name)}</span>)}
           <div className="text-lg font-extrabold leading-tight text-balance @2xs:text-xl">{displayName(attendee.name)}</div>
         </div>
         <BadgeQrDialog
           qr={qr}
           name={attendee.name}
           trigger={
-            <button type="button" aria-label="Show my QR code" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-background text-foreground outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95">
+            <button type="button" aria-label={d.badge.showQr} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-background text-foreground outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95">
               <Icon name="qr" size={28} />
             </button>
           }

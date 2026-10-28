@@ -14,6 +14,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
 import { ThemeStyle } from "@/features/theme";
 import { QueueCard, resolveTokenView } from "@/features/registration-queue";
+import { portalLang } from "@/features/language";
 
 /**
  * Home-screen install (D227): this attendee's own manifest, so the icon opens their page, and
@@ -103,7 +104,7 @@ export default async function PersonalLayout({ children, params }: {
       </>
     );
   }
-  const [activities, hasInfo] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category)]);
+  const [activities, hasInfo, lang] = await Promise.all([loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category), portalLang(event)]);
   // D585: a draft shows only Coming soon, so the cancel link rides in under it. Built here on
   // the server (the chrome is a client component). D595/D596: a waiting request shows its note with
   // Withdraw instead of the link; a decline shows its note above the link. The check-in read happens
@@ -124,7 +125,8 @@ export default async function PersonalLayout({ children, params }: {
     <>
       <ThemeStyle event={event} />
       {preview && <PreviewBanner personal />}
-      <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal activities={activities} hasInfo={hasInfo} draftExtra={draftExtra}>
+      <PortalChrome event={chromeEvent} basePath={`/e/${slug}/a/${token}`} personal activities={activities} hasInfo={hasInfo} draftExtra={draftExtra}
+        lang={lang} languageSwitch={!!event.language_switch}>
         {children}
       </PortalChrome>
       {/* This is the only part of the portal that announces results through flashPath() today

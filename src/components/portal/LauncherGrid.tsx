@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { LauncherItem } from "@/lib/launcher";
 import { Icon } from "@/components/ui/icon";
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 
-function Button({ item, large }: { item: LauncherItem; large: boolean }) {
+function Button({ item, large, waiting }: { item: LauncherItem; large: boolean; waiting: string }) {
   return (
     <>
       <span className={`relative flex items-center justify-center rounded-full bg-accent text-primary transition-transform group-active:scale-95 ${large ? "size-16" : "size-14"}`}>
@@ -14,7 +16,7 @@ function Button({ item, large }: { item: LauncherItem; large: boolean }) {
         {item.dot && (
           <>
             <span aria-hidden className="absolute right-0.5 top-0.5 size-3 rounded-full bg-primary ring-2 ring-background" />
-            <span className="sr-only">, a choice is waiting</span>
+            <span className="sr-only">{waiting}</span>
           </>
         )}
       </span>
@@ -33,24 +35,26 @@ function Button({ item, large }: { item: LauncherItem; large: boolean }) {
  * gutter and a 64px circle, 4.5 columns span the content width plus 28px, at any phone width.
  * `grid` wraps four to a line, at the smaller size, and is the desktop column's.
  */
-export function LauncherGrid({ items, layout = "grid", className = "" }: {
+export function LauncherGrid({ items, layout = "grid", className = "", lang = "en" }: {
   items: LauncherItem[];
   layout?: "row" | "grid";
   className?: string;
+  lang?: Lang;
 }) {
   if (items.length === 0) return null;
+  const d = t(lang);
   const cls = "group flex flex-col items-center gap-1.5 rounded-xl px-0.5 py-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const list = layout === "row"
     ? "-mx-4 flex snap-x scroll-px-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>li]:w-[calc((100%_+_28px)/4.5)] [&>li]:shrink-0 [&>li]:snap-start"
     : "grid grid-cols-4 gap-x-1 gap-y-3 @xl:grid-cols-6";
   return (
-    <nav aria-label="Sections" className={`@container ${className}`}>
+    <nav aria-label={d.nav.sections} className={`@container ${className}`}>
       <ul className={list}>
         {items.map((item) => (
           <li key={item.id}>
             {item.external
-              ? <a href={item.href} target="_blank" rel="noopener noreferrer" className={cls}><Button item={item} large={layout === "row"} /></a>
-              : <Link href={item.href} className={cls}><Button item={item} large={layout === "row"} /></Link>}
+              ? <a href={item.href} target="_blank" rel="noopener noreferrer" className={cls}><Button item={item} large={layout === "row"} waiting={d.nav.choiceWaiting} /></a>
+              : <Link href={item.href} className={cls}><Button item={item} large={layout === "row"} waiting={d.nav.choiceWaiting} /></Link>}
           </li>
         ))}
       </ul>

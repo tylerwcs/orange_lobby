@@ -12,6 +12,8 @@ import { initials } from "@/lib/text";
 import { hasAnyCheckin } from "@/lib/db/checkins";
 import { CancelRequestNote, CancelSection, canSelfCancel, klDayTime, requestCancelAction, withdrawCancelRequestAction } from "@/features/cancel";
 import { TITLE_INK } from "@/lib/ink";
+import { portalLang, t } from "@/features/language";
+import { LangSwitch } from "@/features/language/LangSwitch";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
@@ -36,6 +38,8 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
   // D536: what the organiser chose to hide. Name and avatar are not on the list.
+  const lang = await portalLang(event);
+  const d = t(lang);
   const hidden = new Set(event.me_hidden ?? []);
   const shows = (key: string) => !hidden.has(key);
   const qr = shows(ME_BADGE) ? await qrDataUrl(attendeeLink(await eventAddress(event), attendee.token)) : null;
@@ -58,7 +62,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   // Company, phone and table are ordinary fields now, so they surface once, in the
   // "answered" list above (table as a badge on the card) — the contact block keeps only what
   // is not: the address this attendee's link was sent to.
-  const contactDetails = attendee.email && shows(ME_EMAIL) ? [{ label: "Email", value: attendee.email }] : [];
+  const contactDetails = attendee.email && shows(ME_EMAIL) ? [{ label: d.me.email, value: attendee.email }] : [];
 
   // D585: the cancel card, last and outside the show/hide checklist. Only while the rules allow
   // it; the check-in read is skipped when the event has no self-cancel, or a request is waiting (D595).
@@ -86,17 +90,27 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {attendee.category && shows(ME_CATEGORY) && <Badge variant="secondary">{attendee.category}</Badge>}
-              {fieldValue(attendee, ME_TABLE) && shows(ME_TABLE) && <Badge>Table {fieldValue(attendee, ME_TABLE)}</Badge>}
+              {fieldValue(attendee, ME_TABLE) && shows(ME_TABLE) && <Badge>{d.me.table(fieldValue(attendee, ME_TABLE))}</Badge>}
             </div>
 
-            {qr && <BadgeQrDialog qr={qr} name={attendee.name} trigger={<Button className="mt-1 w-full sm:w-64">Show my badge</Button>} />}
+            {qr && <BadgeQrDialog qr={qr} name={attendee.name} trigger={<Button className="mt-1 w-full sm:w-64">{d.me.showBadge}</Button>} />}
           </CardContent>
         </Card>
+
+        {/* D739: the language switch, findable from the profile as well as the home's header. */}
+        {event.language_switch && (
+          <Card>
+            <CardContent className="flex items-center justify-between gap-4">
+              <span className="text-sm font-bold">{d.common.languageRow}</span>
+              <LangSwitch />
+            </CardContent>
+          </Card>
+        )}
 
         {contactDetails.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className={caption}>Your details</CardTitle>
+              <CardTitle className={caption}>{d.me.yourDetails}</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="divide-y text-sm">
@@ -109,7 +123,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
         {answered.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className={caption}>What you told us</CardTitle>
+              <CardTitle className={caption}>{d.me.toldUs}</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="divide-y text-sm">

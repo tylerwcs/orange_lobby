@@ -1,3 +1,5 @@
+import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/lang";
 import { categoryMatches } from "@/lib/agenda";
 import { inChallenge } from "./challenge";
 import { lastDays, daysBetween } from "@/lib/time";
@@ -273,8 +275,8 @@ export function fileQuestionKeys(questions: RegistrationQuestion[]): string[] {
 }
 
 /** What a submission activity's button says: the organiser's words, or "Submit". */
-export function submitLabel(activity: Pick<Activity, "action_label">): string {
-  return activity.action_label?.trim() || "Submit";
+export function submitLabel(activity: Pick<Activity, "action_label">, lang: Lang = "en"): string {
+  return activity.action_label?.trim() || t(lang).cards.submit;
 }
 
 /** Long enough for "Upload my results", short enough to stay one line on a phone's button. */

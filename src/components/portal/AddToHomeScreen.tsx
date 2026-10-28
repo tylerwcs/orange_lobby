@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronRight, Ellipsis, EllipsisVertical, Menu, MonitorDown, Share, Smartphone, SquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/features/language/client";
+import { RichLine } from "@/features/language/RichLine";
 
 /** The Chrome/Android event that carries the install prompt. Not in the DOM typings. */
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
@@ -49,6 +51,7 @@ export function openHomeScreenGuide() {
  */
 export function HomeScreenRow({ variant, onOpen }: { variant: "banner" | "row"; onOpen?: () => void }) {
   const device = useDevice();
+  const d = useT();
   if (device === "installed") return null;
   const open = () => { onOpen?.(); openHomeScreenGuide(); };
   return (
@@ -61,7 +64,7 @@ export function HomeScreenRow({ variant, onOpen }: { variant: "banner" | "row"; 
         : "mt-2 flex w-full items-center gap-3 rounded-[10px] border border-dashed border-primary/30 px-3 py-2.5 text-left text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50"}
     >
       <Smartphone aria-hidden className="size-5 shrink-0" />
-      <span className="min-w-0 flex-1 text-sm font-bold">Add this page to your home screen</span>
+      <span className="min-w-0 flex-1 text-sm font-bold">{d.install.row}</span>
       <ChevronRight aria-hidden className="size-4.5 shrink-0" />
     </button>
   );
@@ -80,6 +83,17 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
 const Strong = ({ children }: { children: React.ReactNode }) => <span className="font-bold">{children}</span>;
 const inlineIcon = "mx-0.5 inline size-4 align-[-3px] text-primary";
 
+/** The icons a guide step can name with {key} (D739); the steps themselves live in the dictionary. */
+const STEP_ICONS: Record<string, React.ReactNode> = {
+  menu: <Menu aria-hidden className={inlineIcon} />,
+  ellipsis: <Ellipsis aria-hidden className={inlineIcon} />,
+  share: <Share aria-hidden className={inlineIcon} />,
+  squarePlus: <SquarePlus aria-hidden className={inlineIcon} />,
+  dots: <EllipsisVertical aria-hidden className={inlineIcon} />,
+  install: <MonitorDown aria-hidden className={inlineIcon} />,
+};
+const strong = (children: React.ReactNode) => <Strong>{children}</Strong>;
+
 /**
  * A popup asking the attendee to keep their page on the home screen (D227, D230), so on the day
  * it is one tap away instead of buried in a WhatsApp chat. It opens by itself on the first
@@ -97,6 +111,7 @@ const inlineIcon = "mx-0.5 inline size-4 align-[-3px] text-primary";
  */
 export function AddToHomeScreen({ appName }: { appName: string }) {
   const device = useDevice();
+  const d = useT().install;
   const [canPrompt, setCanPrompt] = useState(false);
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<"ios" | "android" | null>(null);
@@ -152,22 +167,20 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
             <img src="/app-icons/icon-192.png" alt="" width={64} height={64} className="size-16 rounded-2xl shadow-[0_2px_10px_rgba(17,24,39,.15)]" />
             <span className="max-w-24 truncate text-[11px] font-semibold text-muted-foreground">{appName}</span>
           </div>
-          <DialogTitle className="text-lg font-extrabold leading-tight text-balance">Add your event page to your home screen</DialogTitle>
-          <DialogDescription className="text-balance">
-            One tap to your badge, agenda and updates.
-          </DialogDescription>
+          <DialogTitle className="text-lg font-extrabold leading-tight text-balance">{d.title}</DialogTitle>
+          <DialogDescription className="text-balance">{d.description}</DialogDescription>
         </div>
 
         {/* Chrome's own install sheet, where it offers one: a shortcut above the steps, never
             instead of them (D233). */}
         {canPrompt && (
-          <Button className="h-11 w-full text-base font-bold" onClick={install}>Add to home screen</Button>
+          <Button className="h-11 w-full text-base font-bold" onClick={install}>{d.add}</Button>
         )}
 
         <div className="flex flex-col gap-3">
           {/* The steps always show, for the phone we think this is; the switch is for when we
               guessed wrong, or for reading them on a computer before picking up the phone. */}
-          <div role="group" aria-label="Your phone" className="flex rounded-[10px] bg-muted p-1">
+          <div role="group" aria-label={d.yourPhone} className="flex rounded-[10px] bg-muted p-1">
             {(["ios", "android"] as const).map((k) => (
               <button
                 key={k}
@@ -181,31 +194,23 @@ export function AddToHomeScreen({ appName }: { appName: string }) {
             ))}
           </div>
           {device === "other" && (
-            <p className="text-center text-xs text-muted-foreground text-balance">Do this on your phone: open your event link there first.</p>
+            <p className="text-center text-xs text-muted-foreground text-balance">{d.otherDevice}</p>
           )}
           {guide === "ios" ? (
-            <ol className="flex flex-col gap-3" aria-label="How to add it on iPhone">
-              <Step n={1}>Open this page in <Strong>Safari</Strong>. Came from WhatsApp? Tap <Strong>Share</Strong> or the <Strong>compass</Strong> icon, then <Strong>Open in Safari</Strong>.</Step>
-              {/* iOS 26 moved Share off the toolbar into the menu beside the address bar;
-                  older Safari still shows it in the bottom bar, so step 2 says both. */}
-              <Step n={2}>Tap the menu button <Menu aria-hidden className={inlineIcon} /> or <Ellipsis aria-hidden className={inlineIcon} /> beside the address bar. On older iPhones, skip to the next step: the Share button is in the bar at the bottom.</Step>
-              <Step n={3}>Tap <Strong>Share</Strong> <Share aria-hidden className={inlineIcon} />.</Step>
-              <Step n={4}>Scroll down the list and tap <Strong>Add to Home Screen</Strong> <SquarePlus aria-hidden className={inlineIcon} />.</Step>
-              <Step n={5}>Tap <Strong>Add</Strong>. The icon appears on your home screen.</Step>
+            // iOS 26 moved Share off the toolbar into the menu beside the address bar; older
+            // Safari still shows it in the bottom bar, so step 2 says both. On Android, current
+            // Chrome names it "Install and create shortcut"; older ones say an earlier name.
+            <ol className="flex flex-col gap-3" aria-label={d.iosLabel}>
+              {d.ios.map((line, i) => <Step key={i} n={i + 1}><RichLine text={line} bold={strong} icons={STEP_ICONS} /></Step>)}
             </ol>
           ) : (
-            <ol className="flex flex-col gap-3" aria-label="How to add it on Android">
-              <Step n={1}>Open this page in <Strong>Chrome</Strong>. Came from WhatsApp? Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} />, then <Strong>Open in Chrome</Strong>.</Step>
-              <Step n={2}>Tap the menu <EllipsisVertical aria-hidden className={inlineIcon} /> at the top right.</Step>
-              {/* Current Chrome names it "Install and create shortcut", low in the menu; older
-                  versions and other phones' Chrome still say one of the earlier names. */}
-              <Step n={3}>Scroll down the menu and tap <Strong>Install and create shortcut</Strong> <MonitorDown aria-hidden className={inlineIcon} />. On some phones it says <Strong>Add to Home screen</Strong> or <Strong>Install app</Strong>.</Step>
-              <Step n={4}>Tap <Strong>Install</Strong> or <Strong>Add</Strong>. The icon appears on your home screen.</Step>
+            <ol className="flex flex-col gap-3" aria-label={d.androidLabel}>
+              {d.android.map((line, i) => <Step key={i} n={i + 1}><RichLine text={line} bold={strong} icons={STEP_ICONS} /></Step>)}
             </ol>
           )}
         </div>
 
-        <Button variant="ghost" className="-mt-2 w-full text-muted-foreground" onClick={close}>Not now</Button>
+        <Button variant="ghost" className="-mt-2 w-full text-muted-foreground" onClick={close}>{d.notNow}</Button>
       </DialogContent>
     </Dialog>
   );

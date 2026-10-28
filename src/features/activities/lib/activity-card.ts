@@ -4,6 +4,7 @@ import type { Activity } from "@/lib/types";
 import type { Passport } from "./booths";
 import { shortDate } from "@/lib/text";
 import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/dict";
 import { opensLabel } from "./schedule";
 import { ordinal } from "@/features/tournaments/client";
 
@@ -45,28 +46,30 @@ export type BookingCardInput = {
   checkedIn: boolean;
 };
 
-export function bookingCard({ state, pending, checkedIn }: BookingCardInput): CardView {
+export function bookingCard({ state, pending, checkedIn }: BookingCardInput, lang: Lang = "en"): CardView {
   const { sessions } = state;
-  if (sessions.length === 0) return { status: null, meta: { icon: "clock", text: "Sessions coming soon" }, action: view };
+  const d = t(lang).cards;
+  const view = { label: t(lang).common.view, primary: false };
+  if (sessions.length === 0) return { status: null, meta: { icon: "clock", text: d.sessionsSoon }, action: view };
 
-  const range = dayRange(sessions.map((s) => s.session.day))!;
+  const range = dayRange(sessions.map((s) => s.session.day), lang)!;
   const left = sessions.reduce((n, s) => n + s.left, 0);
   const mine = sessions.find((s) => s.mine);
   const booked = mine
-    ? { icon: "calendar" as const, text: [sessionLabel(mine.session), mine.session.location].filter(Boolean).join(" · ") }
+    ? { icon: "calendar" as const, text: [sessionLabel(mine.session, { lang }), mine.session.location].filter(Boolean).join(" · ") }
     : null;
   const dates = { icon: "calendar" as const, text: range };
-  const withSeats = { icon: "calendar" as const, text: `${range} · ${left} seat${left === 1 ? "" : "s"} left` };
+  const withSeats = { icon: "calendar" as const, text: d.seatsLeft(range, left) };
 
   // Attended outranks a waiting request: once they have been, the request is moot (D334).
-  if (checkedIn && state.held > 0) return { status: { label: "Checked in", tone: "success" }, meta: booked, action: view };
+  if (checkedIn && state.held > 0) return { status: { label: d.checkedIn, tone: "success" }, meta: booked, action: view };
   // Order is priority: a waiting request is the thing to know, even over "Booked".
-  if (pending) return { status: { label: "Waiting for the committee", tone: "warning" }, meta: booked ?? dates, action: view };
-  if (state.held > 0) return { status: { label: "Booked", tone: "success" }, meta: booked, action: view };
-  if (state.closed) return { status: { label: "Closed", tone: "muted" }, meta: dates, action: view };
-  if (state.mustPick) return { status: { label: "Pick one", tone: "primary" }, meta: withSeats, action: { label: "Choose", primary: true } };
-  if (left === 0) return { status: { label: "Full", tone: "muted" }, meta: dates, action: view };
-  return { status: null, meta: withSeats, action: { label: "Book", primary: true } };
+  if (pending) return { status: { label: d.waiting, tone: "warning" }, meta: booked ?? dates, action: view };
+  if (state.held > 0) return { status: { label: d.booked, tone: "success" }, meta: booked, action: view };
+  if (state.closed) return { status: { label: d.closed, tone: "muted" }, meta: dates, action: view };
+  if (state.mustPick) return { status: { label: d.pickOne, tone: "primary" }, meta: withSeats, action: { label: d.choose, primary: true } };
+  if (left === 0) return { status: { label: d.full, tone: "muted" }, meta: dates, action: view };
+  return { status: null, meta: withSeats, action: { label: d.book, primary: true } };
 }
 
 export type FormCardInput = {
@@ -78,25 +81,27 @@ export type FormCardInput = {
  * A submission activity's card. Its line says when and where, like a booking's - how many the
  * attendee has sent is theirs to see on the page, not something the list needs to shout.
  */
-export function formCard({ form, state }: FormCardInput): CardView {
-  const dates = form.starts_on ? dayRange([form.starts_on, form.ends_on ?? form.starts_on]) : null;
+export function formCard({ form, state }: FormCardInput, lang: Lang = "en"): CardView {
+  const d = t(lang).cards;
+  const view = { label: t(lang).common.view, primary: false };
+  const dates = form.starts_on ? dayRange([form.starts_on, form.ends_on ?? form.starts_on], lang) : null;
   const where = [dates, form.venue].filter(Boolean).join(" · ");
   const meta = where ? { icon: dates ? ("calendar" as const) : ("pin" as const), text: where } : null;
 
-  if (state.can) return { status: { label: "Open", tone: "primary" }, meta, action: { label: submitLabel(form), primary: true } };
-  if (state.reason === "today") return { status: { label: "Done for today", tone: "success" }, meta, action: view };
-  if (state.reason === "limit") return { status: { label: "Submission done", tone: "success" }, meta, action: view };
+  if (state.can) return { status: { label: d.open, tone: "primary" }, meta, action: { label: submitLabel(form, lang), primary: true } };
+  if (state.reason === "today") return { status: { label: d.doneToday, tone: "success" }, meta, action: view };
+  if (state.reason === "limit") return { status: { label: d.submissionDone, tone: "success" }, meta, action: view };
   // A group form's own reasons (F1): a finished group reads like any other finished cap, and an
   // ungrouped attendee is told what to do about it rather than being told the form is shut.
-  if (state.reason === "groupdone") return { status: { label: "Group done", tone: "success" }, meta, action: view };
-  if (state.reason === "nogroup") return { status: { label: "Needs a group", tone: "muted" }, meta, action: view };
+  if (state.reason === "groupdone") return { status: { label: d.groupDone, tone: "success" }, meta, action: view };
+  if (state.reason === "nogroup") return { status: { label: d.needsGroup, tone: "muted" }, meta, action: view };
   // D725: a track pair's card is open, just not to this person - "Closed" would read as shut for everyone.
-  if (state.reason === "notrack") return { status: { label: "No track yet", tone: "muted" }, meta, action: view };
-  if (state.reason === "othertrack") return { status: { label: "Other track", tone: "muted" }, meta, action: view };
-  if (state.reason === "trackfull") return { status: { label: "Full today", tone: "muted" }, meta, action: view };
+  if (state.reason === "notrack") return { status: { label: d.noTrack, tone: "muted" }, meta, action: view };
+  if (state.reason === "othertrack") return { status: { label: d.otherTrack, tone: "muted" }, meta, action: view };
+  if (state.reason === "trackfull") return { status: { label: d.fullToday, tone: "muted" }, meta, action: view };
   // D390: a challenge before its first day is not over, it is coming - "Closed" read as the end.
-  if (state.startsOn) return { status: { label: `Starts ${shortDate(state.startsOn).split(" ").slice(1).join(" ")}`, tone: "muted" }, meta, action: view };
-  return { status: { label: "Closed", tone: "muted" }, meta, action: view };
+  if (state.startsOn) return { status: { label: d.starts(shortDate(state.startsOn, lang).split(" ").slice(1).join(" ")), tone: "muted" }, meta, action: view };
+  return { status: { label: d.closed, tone: "muted" }, meta, action: view };
 }
 
 export type PassportCardInput = {
@@ -163,6 +168,7 @@ export function tournamentCard(input: {
  * A scheduled activity's card before it opens (D604): when it opens, and nothing to press -
  * the card is not a link, because nothing on its page is open yet. Every kind uses this one.
  */
-export function comingSoonCard(opensAt: string): CardView {
-  return { status: { label: "Coming soon", tone: "muted" }, meta: { icon: "clock", text: `Opens ${opensLabel(opensAt)}` }, action: null };
+export function comingSoonCard(opensAt: string, lang: Lang = "en"): CardView {
+  const d = t(lang).cards;
+  return { status: { label: d.comingSoon, tone: "muted" }, meta: { icon: "clock", text: d.opens(opensLabel(opensAt, lang)) }, action: null };
 }
