@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireEventAccess, requireAdminEvent, requireOrgAdmin } from "@/lib/access";
+import { requireEventAccess, requireAdminEvent, requireOrgAdmin, type Actor } from "@/lib/access";
 import { createEvent, deleteEvent, updateEvent, setEventStatus, rotateCrewToken, rotatePreviewToken, clearPreviewToken } from "@/lib/db/events";
 import { confirmsDelete, deleteBlockedBecause } from "@/lib/event-delete";
 import { slugify } from "@/lib/slug";
@@ -13,6 +13,7 @@ import { importedCategory, importedColumns, parseMasterlist, type MasterlistResu
 import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, findByEmail, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput, type NewAttendee } from "@/lib/db/attendees";
 import { addField, renameField, fieldValuesFromForm, adoptValue, eventFields, coerceFieldValue, keysToErase, MAX_ATTENDEE_FIELDS } from "@/lib/attendee-fields";
 import { bulkFields, BULK_BUILTIN_KEYS } from "@/lib/columns";
+import { fieldValue } from "@/lib/attendee-values";
 import { GROUP_COLUMN_KEY } from "@/lib/groups";
 import { listGroups, setGroupMembers } from "@/lib/db/groups";
 import { parseIds } from "@/lib/bulk";
@@ -26,7 +27,7 @@ import { recordCheckins } from "@/lib/db/checkins";
 import { requireFeature } from "@/features/catalogue";
 import { purgeSetupFiles } from "@/features/setup";
 import { purgePolaroids } from "@/features/polaroid";
-import { deleteChangesForEvent } from "@/features/attendee-log";
+import { attendeeValues, bulkSetChange, deleteChange, deleteChangesForEvent, editChange, importChange, loadLabels, people, recordChange, type PersonChange } from "@/features/attendee-log";
 import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
@@ -319,11 +320,17 @@ async function requireEventAttendee(eventId: string, attendeeId: string): Promis
  *
  * `existing` is read BEFORE the write so "already had a room" is computed from data we hold
  * rather than inferred from what an ignoreDuplicates upsert reports having written.
+ *
+ * D742: each round that wrote anyone leaves its own room_assign row in the attendee log, with
+ * every person's room before and after. `existing` is that "before", read ahead of the write.
  */
-async function assignRoundsFromColumns(ev: Event, only: string | null, overwrite: boolean, overwriteHint?: string): Promise<string[]> {
-  const rounds = breakoutSlots(await listAgenda(ev.id)).filter((s) => only === null || s.slot === only);
+async function assignRoundsFromColumns(ev: Event, only: string | null, overwrite: boolean, by: Actor, overwriteHint?: string): Promise<string[]> {
+  const agenda = await listAgenda(ev.id);
+  const rounds = breakoutSlots(agenda).filter((s) => only === null || s.slot === only);
   if (rounds.length === 0) return [];
   const [attendees, existing] = await Promise.all([listAttendees(ev.id), listAssignments(ev.id)]);
+  const codeOf = new Map(agenda.filter((i) => i.code).map((i) => [i.id, i.code as string]));
+  const attendeeOf = new Map(attendees.map((a) => [a.id, a]));
   const lines: string[] = [];
   for (const slot of rounds) {
     const report = matchAssignments(attendees, slot);
@@ -331,7 +338,17 @@ async function assignRoundsFromColumns(ev: Event, only: string | null, overwrite
     // Overwrite sends the disagreements back too, because moving those people is the point
     // of ticking it; the ones already in the right room are a no-op either way.
     const rows = overwrite ? [...fresh, ...conflicting] : fresh;
-    if (rows.length > 0) await assignMany(ev.id, rows, overwrite);
+    if (rows.length > 0) {
+      await assignMany(ev.id, rows, overwrite);
+      const was = new Map(existing.filter((e) => e.slot === slot.slot).map((e) => [e.attendee_id, e.agenda_item_id]));
+      const touched = rows.flatMap((m): PersonChange[] => {
+        const a = attendeeOf.get(m.attendeeId);
+        if (!a) return [];
+        const old = was.get(m.attendeeId);
+        return [{ attendeeId: a.id, name: a.name, email: a.email, fields: [{ label: `${slot.slot} room`, before: (old && codeOf.get(old)) || "", after: codeOf.get(m.itemId) ?? "" }] }];
+      });
+      await recordChange(ev.id, by, touched.length === 0 ? null : { kind: "room_assign", summary: `Assigned ${slot.slot} rooms for ${people(touched.length)}`, people: touched });
+    }
     const line = describeAssignment(slot.slot, {
       fresh: rows.length,
       unchanged: unchanged.length,
@@ -344,7 +361,7 @@ async function assignRoundsFromColumns(ev: Event, only: string | null, overwrite
 }
 
 export async function importMasterlistAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const file = formData.get("file");
   if (!(file instanceof File)) redirect(flashPath(`/admin/events/${eventId}/attendees`, "Choose a file first.", "error"));
   let parsed: MasterlistResult | null = null;
@@ -363,6 +380,10 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   // Cancelled people are in it (ruling 3): their row matches by email rather than being inserted twice
   // (unique index on event_id + lower(email)), and the update below never touches cancelled_at.
   const existingByEmail = new Map((await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })).flatMap((a) => (a.email ? [[a.email.trim().toLowerCase(), a] as const] : [])));
+  // Labels after the new columns exist and before any attendee is written (D742). A person who
+  // appears twice in the file is one change: the row as it was, the row as last written.
+  const labels = await loadLabels({ ...ev, attendee_fields: [...ev.attendee_fields, ...added] });
+  const touched = new Map<string, { before: Attendee; after: Attendee }>();
   const queued = new Map<string, NewAttendee>();
   const toInsert: NewAttendee[] = [];
   // D693: people waiting or pending who are on the sheet keep their link's token; their entries close below.
@@ -374,7 +395,9 @@ export async function importMasterlistAction(eventId: string, formData: FormData
     // Category from the sheet, else its "Joining X" columns, else what the attendee already has.
     const input: AttendeeInput = { name: r.name, email: r.email, category: importedCategory(r.category ?? null, r.extra, existing?.category ?? null), extra: r.extra };
     if (existing) {
-      await updateAttendee(existing.id, { ...input, extra: mergeExtra(existing.extra, input.extra) });
+      const extra = mergeExtra(existing.extra, input.extra);
+      await updateAttendee(existing.id, { ...input, extra });
+      touched.set(existing.id, { before: touched.get(existing.id)?.before ?? existing, after: { ...existing, ...input, email: input.email?.toLowerCase() ?? null, extra } });
       updated++;
       continue;
     }
@@ -391,6 +414,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
     if (key) queued.set(key, row);
   }
   const inserted = await createAttendees(ev, toInsert, "import");
+  await recordChange(ev.id, actor, importChange(inserted, [...touched.values()], labels));
   // Imported people are not counted (D677), so a pending entry closing here frees the place it held.
   const closing = toInsert.flatMap((r) => (r.token && r.email ? [r.email] : []));
   for (const email of closing) {
@@ -399,7 +423,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   }
   const moved = closing.some((e) => openEntries.get(e.trim().toLowerCase())?.state === "pending") ? await afterPlacesChange(ev.id) : "";
   // After the rows exist, not before: an assignment needs the attendee it belongs to.
-  const assigned = await assignRoundsFromColumns(ev, null, false);
+  const assigned = await assignRoundsFromColumns(ev, null, false, actor);
   const skipped = parsed.skipped.map((s) => `row ${s.row}: ${s.reason}`).join("; ");
   const problems = parsed.skipped.length > 0 || leftOut.length > 0 || assigned.some((l) => l.includes("No room matches"));
   revalidatePath(`/admin/events/${eventId}/attendees`);
@@ -407,7 +431,7 @@ export async function importMasterlistAction(eventId: string, formData: FormData
   redirect(flashPath(
     `/admin/events/${eventId}/attendees`,
     [
-      `Imported ${inserted}, updated ${updated}.`,
+      `Imported ${inserted.length}, updated ${updated}.`,
       added.length > 0 ? `Added ${added.length} ${added.length === 1 ? "column" : "columns"} from the file.` : "",
       // Still stored on every attendee, so adding them by hand once there is room fills them in.
       leftOut.length > 0 ? `No room for ${leftOut.length} more (${leftOut.join(", ")}) — the limit is ${MAX_ATTENDEE_FIELDS} columns.` : "",
@@ -438,14 +462,23 @@ function attendeeInputFrom(ev: Event, formData: FormData, existingExtra: Record<
 }
 
 export async function addAttendeeAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const input = attendeeInputFrom(ev, formData);
   if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees`, "An attendee needs a name.", "error"));
   const source = (str(formData, "source") ?? "walkin") as "walkin" | "import";
   // D693: someone on the waiting list or pending keeps their link's token, and their entry closes
   // against the new attendee. They are added, not counted, and get no message.
   const entry = input.email ? (await openEntriesByEmail(ev.id)).get(input.email.trim().toLowerCase()) : undefined;
-  const a = input.email ? (await upsertByEmail(ev, { ...input, email: input.email }, source, { token: entry?.token })).attendee : await createAttendee(ev, input, source);
+  // D742: an email already on the list is updated, not added, so the row as it was is read first.
+  const [labels, before] = await Promise.all([loadLabels(ev), input.email ? findByEmail(ev.id, input.email) : null]);
+  const result = input.email ? await upsertByEmail(ev, { ...input, email: input.email }, source, { token: entry?.token }) : null;
+  const a = result ? result.attendee : await createAttendee(ev, input, source);
+  if (result && !result.created && before) {
+    const edit = editChange(before, a, labels);
+    await recordChange(ev.id, actor, edit && { ...edit, summary: `Updated ${a.name} (already on the list)` });
+  } else {
+    await recordChange(ev.id, actor, { kind: "add", summary: `Added ${a.name}`, people: [{ attendeeId: a.id, name: a.name, email: a.email, snapshot: attendeeValues(a, labels) }] });
+  }
   if (entry && a.email) await closeEntryForAttendee(ev.id, a.email, a.id);
   // A pending entry held a place, and an added attendee does not count, so that place is free now.
   const moved = entry?.state === "pending" ? await afterPlacesChange(ev.id) : "";
@@ -454,13 +487,16 @@ export async function addAttendeeAction(eventId: string, formData: FormData) {
 }
 
 export async function updateAttendeeAction(eventId: string, attendeeId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const existing = await requireEventAttendee(eventId, attendeeId);
   const input = attendeeInputFrom(ev, formData, existing.extra);
   // Back to the panel the edit was made in, not a page of its own - there is no longer a
   // standalone attendee route to land on.
   if (!input.name) redirect(flashPath(`/admin/events/${eventId}/attendees?attendee=${attendeeId}`, "An attendee needs a name.", "error"));
+  const labels = await loadLabels(ev);
   await updateAttendee(attendeeId, input);
+  // The email is stored lower-cased, so the "after" is too, or a capital letter would log as a change (D742).
+  await recordChange(ev.id, actor, editChange(existing, { ...existing, ...input, email: input.email?.toLowerCase() ?? null }, labels));
   revalidatePath(`/admin/events/${eventId}/attendees`);
   // Back to the list rather than to the panel: saving is the end of the task, so the panel
   // opened to do it closes, and the toast carries the result out with it.
@@ -471,10 +507,13 @@ export async function updateAttendeeAction(eventId: string, attendeeId: string, 
 const isCountedPlace = (a: Pick<Attendee, "source" | "cancelled_at">) => a.source === "registration" && !a.cancelled_at;
 
 export async function deleteAttendeeAction(eventId: string, attendeeId: string) {
-  await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   // Loaded before the delete, because the toast needs a name the row will no longer have.
   const gone = await requireEventAttendee(eventId, attendeeId);
+  // Labels before the delete too: the person's rooms go with the row by cascade (D742).
+  const labels = await loadLabels(ev);
   await deleteAttendee(attendeeId);
+  await recordChange(ev.id, actor, deleteChange([gone], labels));
   // D682: deleting an active form registrant frees a counted place.
   const moved = isCountedPlace(gone) ? await afterPlacesChange(eventId) : "";
   revalidatePath(`/admin/events/${eventId}`, "layout");
@@ -490,15 +529,19 @@ export async function deleteAttendeeAction(eventId: string, attendeeId: string) 
  * event's attendee.
  */
 export async function deleteAttendeesAction(eventId: string, formData: FormData): Promise<number> {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   // D588: includeCancelled, so a bulk delete from the Cancelled view keeps its ids.
   const roster = await listAttendees(ev.id, undefined, "wide", { includeCancelled: true });
   const ids = parseIds(String(formData.get("ids") ?? ""), new Set(roster.map((a) => a.id)));
   if (ids.length === 0) return 0;
+  const chosen = new Set(ids);
+  // Labels and snapshots before the delete: rooms go with the rows by cascade (D742).
+  const labels = await loadLabels(ev);
+  const gone = roster.filter((a) => chosen.has(a.id));
   const deleted = await deleteAttendees(ev, ids);
+  await recordChange(ev.id, actor, deleteChange(gone, labels));
   // D682: any active form registrant among them freed a counted place. The bulk bar has no flash
   // for who moved in; the Waiting list count and the WhatsApp log show it.
-  const chosen = new Set(ids);
   if (roster.some((a) => chosen.has(a.id) && isCountedPlace(a))) await afterPlacesChange(ev.id);
   revalidatePath(`/admin/events/${ev.id}`, "layout");
   return deleted;
@@ -537,10 +580,12 @@ export async function markCheckedInAction(eventId: string, formData: FormData) {
  * confirmation the bar puts in front of a clear, which is the honest place for it.
  */
 export async function setColumnAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const attendees = await listAttendees(ev.id);
   const ids = parseIds(String(formData.get("ids") ?? ""), new Set(attendees.map((a) => a.id)));
   if (ids.length === 0) return;
+  const chosen = new Set(ids);
+  const picked = attendees.filter((a) => chosen.has(a.id));
 
   const key = String(formData.get("column") ?? "");
   const raw = String(formData.get("value") ?? "");
@@ -555,8 +600,12 @@ export async function setColumnAction(eventId: string, formData: FormData) {
     const room = wanted ? rooms.items.find((i) => i.code?.trim().toLowerCase() === wanted) : undefined;
     // Blank clears the round. An unrecognised code writes nothing rather than guessing.
     if (wanted && !room) return;
+    // D742: each person's current room, read before the write replaces it.
+    const labels = await loadLabels(ev);
+    const before = picked.map((a) => ({ a, old: labels.roomsOf.get(a.id)?.[slot] ?? "" }));
     if (room) await assignMany(ev.id, ids.map((attendeeId) => ({ attendeeId, itemId: room.id, slot })), true);
     else for (const id of ids) await unassign(ev.id, id, slot);
+    await recordChange(ev.id, actor, bulkSetChange(`${slot} room`, room?.code ?? "", before));
     revalidatePath(`/admin/events/${ev.id}/attendees`);
     return;
   }
@@ -567,7 +616,10 @@ export async function setColumnAction(eventId: string, formData: FormData) {
     const wanted = raw.trim().toLowerCase();
     const group = wanted ? (await listGroups(ev.id)).find((g) => g.name.trim().toLowerCase() === wanted) : undefined;
     if (wanted && !group) return;
+    const labels = await loadLabels(ev);
+    const before = picked.map((a) => ({ a, old: (a.group_id && labels.groupName.get(a.group_id)) || "" }));
     await setGroupMembers(ev.id, ids, group?.id ?? null);
+    await recordChange(ev.id, actor, bulkSetChange("Group", group?.name ?? "", before));
     revalidatePath(`/admin/events/${ev.id}/attendees`);
     revalidatePath(`/admin/events/${ev.id}/groups`);
     return;
@@ -577,12 +629,14 @@ export async function setColumnAction(eventId: string, formData: FormData) {
   if (!field) return; // a posted key that is not an editable column writes nothing
 
   const value = coerceFieldValue(field, raw);
-  const chosen = new Set(ids);
-  for (const a of attendees) {
-    if (!chosen.has(a.id)) continue;
-    if (BULK_BUILTIN_KEYS.includes(key)) await updateAttendee(a.id, { [key]: value || null });
+  // D742: the old value is on the rows already held; nothing is re-read.
+  const builtin = BULK_BUILTIN_KEYS.includes(key);
+  const before = picked.map((a) => ({ a, old: builtin ? String((a as unknown as Record<string, unknown>)[key] ?? "") : fieldValue(a, key) }));
+  for (const a of picked) {
+    if (builtin) await updateAttendee(a.id, { [key]: value || null });
     else await updateAttendee(a.id, { extra: mergeExtra(a.extra ?? {}, { [key]: value }) });
   }
+  await recordChange(ev.id, actor, bulkSetChange(field.label, value, before));
   revalidatePath(`/admin/events/${ev.id}/attendees`);
 }
 
@@ -594,7 +648,7 @@ export async function setColumnAction(eventId: string, formData: FormData) {
 const columnsBack = (eventId: string) => `/admin/events/${eventId}/attendees`;
 
 export async function addAttendeeFieldAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const result = addField(ev.attendee_fields, {
     label: String(formData.get("label") ?? ""),
     type: String(formData.get("type") ?? "text"),
@@ -608,12 +662,18 @@ export async function addAttendeeFieldAction(eventId: string, formData: FormData
   // own data.
   const field = result.fields[result.fields.length - 1];
   let adopted = 0;
+  const filled: PersonChange[] = [];
   // Everyone, cancelled included, so a person restored later has the same columns as the rest.
   for (const a of await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })) {
     const next = adoptValue(a.extra ?? {}, field);
     if (!next) continue;
     await updateAttendee(a.id, { extra: next });
     adopted++;
+    filled.push({ attendeeId: a.id, name: a.name, email: a.email, snapshot: [{ label: field.label, value: next[field.key] ?? "" }] });
+  }
+  // D742: a new, empty column is not a change to anyone; one that arrived filled is.
+  if (adopted > 0) {
+    await recordChange(ev.id, actor, { kind: "column_add", summary: `Added column ${field.label}, filled for ${people(adopted)}`, people: filled });
   }
 
   revalidatePath(columnsBack(eventId));
@@ -645,7 +705,7 @@ export async function renameAttendeeFieldAction(eventId: string, formData: FormD
  * which the "add a column" suggestions still offer back — the recoverable side to fail on.
  */
 export async function deleteAttendeeFieldsAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const asked = new Set(formData.getAll("key").map(String));
   const questionKeys = new Set(ev.registration_questions.map((q) => q.key));
   const doomed = ev.attendee_fields.filter((f) => asked.has(f.key) && !questionKeys.has(f.key));
@@ -660,8 +720,17 @@ export async function deleteAttendeeFieldsAction(eventId: string, formData: Form
     pinned_fields: ev.pinned_fields.filter((p) => !gone.has(p.key)),
     export_fields: ev.export_fields.filter((k) => !gone.has(k)),
   });
-  const keys = keysToErase((await listAttendees(ev.id, undefined, "wide", { includeCancelled: true })).map((a) => a.extra ?? {}), doomed, eventFields(ev.registration_questions, kept));
+  const roster = await listAttendees(ev.id, undefined, "wide", { includeCancelled: true });
+  const keys = keysToErase(roster.map((a) => a.extra ?? {}), doomed, eventFields(ev.registration_questions, kept));
   await eraseExtraKeys(ev.id, keys);
+  // D742: what the column held is kept in the log, since the delete erases it. Nobody held a value, no row.
+  const held = roster.flatMap((a): PersonChange[] => {
+    const snapshot = doomed.flatMap((f) => { const value = fieldValue(a, f.key); return value ? [{ label: f.label, value }] : []; });
+    return snapshot.length > 0 ? [{ attendeeId: a.id, name: a.name, email: a.email, snapshot }] : [];
+  });
+  if (held.length > 0) {
+    await recordChange(ev.id, actor, { kind: "column_delete", summary: doomed.length === 1 ? `Deleted column ${doomed[0].label}` : `Deleted ${doomed.length} columns`, people: held });
+  }
 
   revalidatePath(columnsBack(eventId));
   redirect(flashPath(columnsBack(eventId), doomed.length === 1
@@ -1442,7 +1511,7 @@ export async function updateAgendaImageAction(eventId: string, itemId: string, f
  * day 2 does not undo what the desk did at breakfast.
  */
 export async function assignFromColumnAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
+  const { ev, actor } = await requireEventAccess(eventId);
   const wanted = String(formData.get("slot") ?? "").trim();
   const overwrite = formData.get("overwrite") === "on";
   // Back to the attendee list, which is where this is run from and where the result is
@@ -1455,7 +1524,7 @@ export async function assignFromColumnAction(eventId: string, formData: FormData
   // Same runner and same wording as the import, so one round cannot be described two ways
   // depending on which button placed the people in it.
   // Read from inside Assign from column, so the hint names the tick rather than the dialog.
-  const lines = await assignRoundsFromColumns(ev, wanted, overwrite, "tick Overwrite to move them");
+  const lines = await assignRoundsFromColumns(ev, wanted, overwrite, actor, "tick Overwrite to move them");
   const message = lines.join(" ") || `${wanted}: nothing to assign — no attendee has a room code in that column.`;
   revalidatePath(`/admin/events/${eventId}/agenda`);
   redirect(flashPath(back, message, message.includes("No room matches") ? "error" : "ok"));

@@ -125,20 +125,20 @@ export async function createAttendee(event: Pick<Event, "id" | "org_id">, input:
 
 const INSERT_CHUNK = 200;
 
-/** Bulk-inserts attendees (one round trip per 200 rows) and returns how many were inserted. */
-export async function createAttendees(event: Pick<Event, "id" | "org_id">, inputs: NewAttendee[], source: AttendeeSource): Promise<number> {
-  if (inputs.length === 0) return 0;
+/** Bulk-inserts attendees (one round trip per 200 rows) and returns the rows inserted, for the change log (D742). */
+export async function createAttendees(event: Pick<Event, "id" | "org_id">, inputs: NewAttendee[], source: AttendeeSource): Promise<Attendee[]> {
+  if (inputs.length === 0) return [];
   const db = serviceClient();
   const rows = inputs.map((input) => ({
     org_id: event.org_id, event_id: event.id, source, extra: {},
     ...input, token: input.token ?? generateToken(), email: input.email?.trim().toLowerCase() || null,
   }));
-  let inserted = 0;
+  const inserted: Attendee[] = [];
   for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
     const chunk = rows.slice(i, i + INSERT_CHUNK);
-    const { error } = await db.from("attendees").insert(chunk);
+    const { data, error } = await db.from("attendees").insert(chunk).select("*");
     if (error) throw error;
-    inserted += chunk.length;
+    inserted.push(...((data ?? []) as Attendee[]));
   }
   return inserted;
 }
