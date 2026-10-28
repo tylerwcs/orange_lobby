@@ -4,7 +4,7 @@ import { byAgendaOrder, isSession, timeSlot } from "@/lib/agenda-order";
 import type { BookResult } from "../db/activities";
 import type { FlashTone } from "@/lib/flash";
 import { shortDate } from "@/lib/text";
-import type { Lang } from "@/features/language/lang";
+import type { Lang } from "@/features/language/client";
 import { cleanRichText } from "@/lib/rich-text";
 
 /**

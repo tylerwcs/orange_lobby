@@ -11,8 +11,8 @@ import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
 import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
 import { PortalTabStrip } from "./PortalTabStrip";
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 /** What a day looks like while the next one loads: the shape of a few sessions. */
 const DaySkeleton = ({ label }: { label: string }) => (

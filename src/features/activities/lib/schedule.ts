@@ -1,4 +1,4 @@
-import type { Lang } from "@/features/language/lang";
+import type { Lang } from "@/features/language/client";
 import { isoToLocalInput, localInputToIso } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import type { Activity } from "@/lib/types";

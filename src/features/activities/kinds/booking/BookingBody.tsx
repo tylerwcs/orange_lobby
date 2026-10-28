@@ -11,9 +11,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { AddToCalendar } from "@/components/portal/AddToCalendar";
 import { RichSections } from "@/components/portal/RichSections";
 import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
-export function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token }: { entry: ActivityEntry; slug: string; token: string }) {
+export function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token, lang = "en" }: { entry: ActivityEntry; slug: string; token: string; lang?: Lang }) {
   const { activity } = state;
+  const d = t(lang).booking;
   const grid = sessionGrid(state.sessions);
   const left = state.sessions.reduce((n, s) => n + s.left, 0);
   const n = state.sessions.length;
@@ -35,9 +38,9 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
     <ActivityActionDialog
       key={`${state.held}:${pendingId ?? ""}`}
       inline={inline}
-      label={holding ? "Change session" : "Book your session"}
+      label={holding ? d.changeSession : d.bookYourSession}
       title={activity.name}
-      description={holding ? "Pick another time. The committee approves the move." : state.mustPick ? "Choose one session. The committee can move you later." : "Pick a time."}
+      description={holding ? d.pickAnother : state.mustPick ? d.chooseOne : d.pickTime}
     >
       <ActivitySessions
         entry={{ state, controls }}
@@ -49,15 +52,15 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
     <>
       <InfoRows
         rows={[
-          { icon: CalendarDays, text: dayRange(state.sessions.map((s) => s.session.day)) },
-          { icon: MapPin, text: [grid.location, grid.minutes ? `${grid.minutes} min each` : null].filter(Boolean).join(" · ") || null },
-          { icon: Armchair, text: n ? `${left} seat${left === 1 ? "" : "s"} left across ${n} session${n === 1 ? "" : "s"}` : null },
-          { icon: Users, text: forGroups(activity) },
+          { icon: CalendarDays, text: dayRange(state.sessions.map((s) => s.session.day), lang) },
+          { icon: MapPin, text: [grid.location, grid.minutes ? d.minEach(grid.minutes) : null].filter(Boolean).join(" · ") || null },
+          { icon: Armchair, text: n ? d.seatsAcross(left, n) : null },
+          { icon: Users, text: forGroups(activity, lang) },
         ]}
       />
       <RichSections html={activity.description} />
       <section className={`${block} flex flex-col gap-3`}>
-        <h2 className="text-lg font-extrabold">Your session</h2>
+        <h2 className="text-lg font-extrabold">{d.yourSession}</h2>
         <ActivityBooking
           controls={controls}
           pendingId={pendingId}
@@ -66,14 +69,15 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
           requestCancel={requestCancelAction.bind(null, slug, token)}
           withdraw={withdrawRequestAction.bind(null, slug, token)}
           arrivals={arrivals}
+          lang={lang}
         />
         {!holding && !controls.pending && (
           <p className={note}>
-            {n === 0 ? "Sessions will be added soon."
-              : state.closed ? "Booking is closed. Speak to the registration desk."
-              : left === 0 ? "Every session is full."
-              : state.mustPick ? "Everyone needs one session. Tap Book your session to pick yours."
-              : "You have not booked a session yet."}
+            {n === 0 ? d.soon
+              : state.closed ? d.closed
+              : left === 0 ? d.allFull
+              : state.mustPick ? d.mustPick
+              : d.notYet}
           </p>
         )}
       </section>
@@ -86,7 +90,7 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
               className={`${buttonVariants({ size: "lg" })} h-12 w-full gap-2 rounded-full text-base font-bold shadow-lg`}
             >
               <CalendarPlus data-icon="inline-start" />
-              Add to calendar
+              {d.addToCalendar}
             </AddToCalendar>
           </div>
         )

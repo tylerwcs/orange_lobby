@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { loadPortalAttendee } from "@/lib/portal";
 import {
   bookSession, getActivity, listSessions, bookingsForAttendee,
-  submitAnswers, submitAnswersPair, pairPartnerIds, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type BookResult, type SubmitCode,
+  submitAnswers, submitAnswersPair, pairPartnerIds, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type SubmitCode,
 } from "../db/activities";
 import { nextFileHashes, sharesFile } from "@/lib/file-hashes";
 import { canEditOwn } from "../lib/submissions";
@@ -20,7 +20,8 @@ import { sessionLabel } from "../lib/activities";
 import { sessionArrivals } from "../lib/booking-door";
 import { allow } from "@/lib/ratelimit";
 import { hasHealthConsent, recordHealthConsent } from "@/lib/db/health-consents";
-import { HEALTH_CONSENT_REFUSED, healthConsentTicked } from "@/lib/privacy";
+import { healthConsentTicked } from "@/lib/privacy";
+import { portalLang, t, type Dict } from "@/features/language";
 
 /**
  * What the attendee is told when the database refuses (D134, D140).
@@ -28,15 +29,7 @@ import { HEALTH_CONSENT_REFUSED, healthConsentTicked } from "@/lib/privacy";
  * Losing the race is a normal outcome and reads as one: the counts on the page were true when
  * it rendered, somebody else was faster, here is the list again with fresh numbers.
  */
-const REFUSALS: Record<Exclude<BookResult, "ok">, string> = {
-  full: "That session filled up while you were looking. Pick another one.",
-  closed: "Booking for this activity is closed. Speak to the registration desk.",
-  limit: "You already have as many sessions of this activity as you can take.",
-  ineligible: "That session is not open to you.",
-  missing: "That session is no longer on the programme.",
-};
 
-const ARCHIVED = "This event is archived, so booking is closed.";
 
 /**
  * Where a booking action sends the attendee back to: the activity's own page once the session
@@ -49,6 +42,9 @@ const activityPathFor = (slug: string, token: string, activityId: string) => `${
 
 export async function bookAction(slug: string, token: string, sessionId: string) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // D741: what this action says back, in the language the page was read in.
+  const lang = await portalLang(event);
+  const d = t(lang);
   let path = listPathFor(slug, token);
 
   // A link into an archived event still resolves - only `draft` gets the portal's "coming
@@ -56,17 +52,17 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   // an event that is over. Draft is deliberately NOT blocked here: organisers test draft
   // events through the portal, and `is_open` is the designed control for whether a
   // *live* event's activity accepts bookings yet.
-  if (event.status === "archived") redirect(flashPath(path, ARCHIVED, "error"));
+  if (event.status === "archived") redirect(flashPath(path, d.booking.archived, "error"));
 
   // The route is reachable by anyone holding a personal link, and a tight loop against it is
   // a denial of seats (D137). Keyed on the token, which is the identity being spent.
   if (!allow(`book:${token}`, 20, 60_000)) {
-    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
   }
 
   const sessions = await listSessions(event.id);
   const session = sessions.find((s) => s.id === sessionId);
-  if (!session) redirect(flashPath(path, REFUSALS.missing, "error"));
+  if (!session) redirect(flashPath(path, d.booking.refused.missing, "error"));
   path = activityPathFor(slug, token, session.activity_id);
 
   // A pending request on this activity means its meaning is no longer settled — taking a
@@ -78,7 +74,7 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   if (hasPending) {
     redirect(flashPath(
       path,
-      "You have a change waiting for approval, so you cannot book another session of this activity yet.",
+      d.booking.pendingBlocks,
       "error",
     ));
   }
@@ -89,24 +85,20 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   // activity, so it is the one place the layout has to be told its dot may be stale.
   if (result === "ok") revalidatePath(`/e/${slug}/a/${token}`, "layout");
   redirect(result === "ok"
-    ? flashPath(path, `Booked: ${sessionLabel(session)}.`)
-    : flashPath(path, REFUSALS[result], "error"));
+    ? flashPath(path, d.booking.booked(sessionLabel(session, { lang })))
+    : flashPath(path, d.booking.refused[result], "error"));
 }
 
-const ASK_REFUSALS = {
-  duplicate: "You already have a change waiting for approval. Withdraw it first.",
-  missing: "That session is no longer on the programme.",
-  notYours: "You are not booked on that session.",
-  required: "This activity needs a choice. Ask to switch instead.",
-  checkedIn: "You've already checked in to this session.",
-} as const;
 
 export async function requestSwitchAction(slug: string, token: string, fromSessionId: string, fd: FormData) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // D741: what this action says back, in the language the page was read in.
+  const lang = await portalLang(event);
+  const d = t(lang);
   let path = listPathFor(slug, token);
-  if (event.status === "archived") redirect(flashPath(path, ARCHIVED, "error"));
+  if (event.status === "archived") redirect(flashPath(path, d.booking.archived, "error"));
   if (!allow(`book:${token}`, 20, 60_000)) {
-    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
   }
 
   // The target comes from the form's own select, not from a bound argument: a form action
@@ -122,67 +114,71 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
   // the attendee's one open-request slot forever doing nothing, and block their real request
   // as a duplicate until somebody withdrew the nonsense one.
   if (!from || !to || from.activity_id !== to.activity_id || to.id === from.id) {
-    redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
+    redirect(flashPath(path, d.booking.askRefused.missing, "error"));
   }
   path = activityPathFor(slug, token, from.activity_id);
 
   // Re-checked rather than trusted from the page: a second tab still has a live button.
   const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
-  if (!holds) redirect(flashPath(path, ASK_REFUSALS.notYours, "error"));
+  if (!holds) redirect(flashPath(path, d.booking.askRefused.notYours, "error"));
 
   // D336: a session they have attended is finished; a stale page must not reopen it.
   const arrived = sessionArrivals([from], event.check_in_enabled ? await bookingArrivalsFor(attendee.id) : []);
-  if (arrived[from.id]) redirect(flashPath(path, ASK_REFUSALS.checkedIn, "error"));
+  if (arrived[from.id]) redirect(flashPath(path, d.booking.askRefused.checkedIn, "error"));
 
   const result = await createRequest({
     eventId: event.id, activityId: from.activity_id, attendeeId: attendee.id,
     fromSessionId: from.id, toSessionId: to.id,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to move to ${sessionLabel(to)}. The committee will decide.`)
-    : flashPath(path, ASK_REFUSALS.duplicate, "error"));
+    ? flashPath(path, d.booking.askedMove(sessionLabel(to, { lang })))
+    : flashPath(path, d.booking.askRefused.duplicate, "error"));
 }
 
 export async function requestCancelAction(slug: string, token: string, fromSessionId: string) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // D741: what this action says back, in the language the page was read in.
+  const lang = await portalLang(event);
+  const d = t(lang);
   let path = listPathFor(slug, token);
-  if (event.status === "archived") redirect(flashPath(path, ARCHIVED, "error"));
+  if (event.status === "archived") redirect(flashPath(path, d.booking.archived, "error"));
   if (!allow(`book:${token}`, 20, 60_000)) {
-    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
   }
 
   const sessions = await listSessions(event.id);
   const from = sessions.find((s) => s.id === fromSessionId);
-  if (!from) redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
+  if (!from) redirect(flashPath(path, d.booking.askRefused.missing, "error"));
   path = activityPathFor(slug, token, from.activity_id);
 
   const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
-  if (!holds) redirect(flashPath(path, ASK_REFUSALS.notYours, "error"));
+  if (!holds) redirect(flashPath(path, d.booking.askRefused.notYours, "error"));
 
   // D336: a session they have attended is finished; a stale page must not reopen it.
   const arrived = sessionArrivals([from], event.check_in_enabled ? await bookingArrivalsFor(attendee.id) : []);
-  if (arrived[from.id]) redirect(flashPath(path, ASK_REFUSALS.checkedIn, "error"));
+  if (arrived[from.id]) redirect(flashPath(path, d.booking.askRefused.checkedIn, "error"));
 
   // D148: a required activity's cancel never reaches the queue. The control is hidden, and
   // this is the check that makes hiding it enforcement rather than decoration.
   const activity = await getActivity(from.activity_id, event.id);
-  if (!activity) redirect(flashPath(path, ASK_REFUSALS.missing, "error"));
-  if (activity.required) redirect(flashPath(path, ASK_REFUSALS.required, "error"));
+  if (!activity) redirect(flashPath(path, d.booking.askRefused.missing, "error"));
+  if (activity.required) redirect(flashPath(path, d.booking.askRefused.required, "error"));
 
   const result = await createRequest({
     eventId: event.id, activityId: activity.id, attendeeId: attendee.id,
     fromSessionId: from.id, toSessionId: null,
   });
   redirect(result === "ok"
-    ? flashPath(path, `Asked to cancel ${sessionLabel(from)}. The committee will decide.`)
-    : flashPath(path, ASK_REFUSALS.duplicate, "error"));
+    ? flashPath(path, d.booking.askedCancel(sessionLabel(from, { lang })))
+    : flashPath(path, d.booking.askRefused.duplicate, "error"));
 }
 
 export async function withdrawRequestAction(slug: string, token: string, requestId: string) {
-  const { attendee } = await loadPortalAttendee(slug, token);
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const d = t(await portalLang(event));
   let path = listPathFor(slug, token);
   if (!allow(`book:${token}`, 20, 60_000)) {
-    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
   }
   // Read first only to know which activity's page to return to; the withdraw below is still
   // what decides, scoped by attendee inside the query, so a posted id belonging to somebody
@@ -191,12 +187,11 @@ export async function withdrawRequestAction(slug: string, token: string, request
   if (request) path = activityPathFor(slug, token, request.activity_id);
   const gone = await withdrawRequest(requestId, attendee.id);
   redirect(gone
-    ? flashPath(path, "Request withdrawn.")
-    : flashPath(path, "That request is no longer waiting.", "error"));
+    ? flashPath(path, d.booking.withdrawn)
+    : flashPath(path, d.booking.notWaiting, "error"));
 }
 
 /** D396: the same file is already in one of this person's live entries. */
-const DUPLICATE = "This photo was already sent in another entry. Check your entries before sending it again.";
 
 /**
  * What the attendee is told for every `SubmitCode` the database can return (D167). `canSubmit`
@@ -205,47 +200,34 @@ const DUPLICATE = "This photo was already sent in another entry. Check your entr
  * the time it runs. Every code has an entry, `ok` included, so a result this action forgot to
  * think about is a compile error rather than a silently swallowed refusal.
  */
-const SUBMIT_RESULT_MESSAGES: Record<SubmitCode, string> = {
-  ok: "Submitted. Thanks!",
-  missing: "This submission is no longer available.",
-  closed: "Submissions for this are closed.",
-  ineligible: "This is not open to your group.",
-  // D725: the person the entry is for is on no track, or on the other one.
-  notrack: "You're not on a track yet. Ask your captain to put you on one.",
-  othertrack: "This entry belongs to the other track. Submit it there instead.",
-  // D730: five people from the team have already logged on this track today.
-  trackfull: "Your team's places on this track are all taken today. Try again tomorrow.",
-  limit: "Submission done. There is nothing more to send.",
-  today: "You have already submitted today. Come back tomorrow.",
-  nogroup: "You need to be in a group to submit this.",
-  groupdone: "Your group has already sent everything this needs.",
-  proxy: "You can only submit for members of your own group.",
-  duplicate: DUPLICATE,
-};
+const submitMessages = (d: Dict): Record<SubmitCode, string> => d.submission.result;
 
 /** Renamed from submitFormAction: there is no `forms` route left for it to be named after (D178). */
 export async function submitAnswersAction(slug: string, token: string, activityId: string, fd: FormData) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // D741: what this action says back, in the language the page was read in.
+  const lang = await portalLang(event);
+  const d = t(lang);
   const listPath = `/e/${slug}/a/${token}/activities`;
   const path = `${listPath}/${activityId}`;
 
   // The route is reachable by anyone holding a personal link, keyed on the token, which is the
   // identity being spent, the same as `book:${token}` on the booking actions above.
   if (!allow(`form:${token}`, 20, 60_000)) {
-    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
   }
 
   // Re-loaded rather than trusted from a hidden field: the page's copy of this activity is
   // stale by definition, and a direct POST could name an activity from another event entirely.
   const activity = await getActivity(activityId, event.id);
-  if (!activity) redirect(flashPath(listPath, SUBMIT_RESULT_MESSAGES.missing, "error"));
+  if (!activity) redirect(flashPath(listPath, submitMessages(d).missing, "error"));
 
   // D392: `:for` names the group member this is sent for (a colon, so no question key can be it).
   // Only checked to be in this event here; `submit_answers` decides whether they may, below.
   const forId = String(fd.get(":for") ?? "") || attendee.id;
   const member = forId === attendee.id ? attendee : await getAttendee(forId);
   // D581: a cancelled member is treated like a missing one; `getAttendee` still returns them.
-  if (!member || member.event_id !== event.id || member.cancelled_at) redirect(flashPath(path, SUBMIT_RESULT_MESSAGES.proxy, "error"));
+  if (!member || member.event_id !== event.id || member.cancelled_at) redirect(flashPath(path, submitMessages(d).proxy, "error"));
   const onBehalf = member.id !== attendee.id;
 
   // D412: health data needs the explicit consent of the person it is about, had before any of
@@ -257,7 +239,7 @@ export async function submitAnswersAction(slug: string, token: string, activityI
         redirect(flashPath(path, `${member.name} needs to agree to the health-information consent on their own page before anyone can submit this for them.`, "error"));
       }
     } else if (!(await hasHealthConsent(attendee.id, activity.id))) {
-      if (!healthConsentTicked(fd)) redirect(flashPath(path, HEALTH_CONSENT_REFUSED, "error"));
+      if (!healthConsentTicked(fd)) redirect(flashPath(path, d.submission.healthConsent, "error"));
       await recordHealthConsent(attendee, activity.id);
     }
   }
@@ -281,7 +263,7 @@ export async function submitAnswersAction(slug: string, token: string, activityI
   // returns (D168), and anything this request uploaded that does not end up in a stored
   // submission is discarded by path — never by activity or by attendee, which could reach a
   // previous submission.
-  const form = await readAnswers(activity, fd);
+  const form = await readAnswers(activity, fd, {}, lang);
   if (!form.ok) redirect(flashPath(path, form.error, "error"));
 
   // `canSubmit` decided what the page drew; it is never consulted here. Only `submit_answers`
@@ -294,14 +276,14 @@ export async function submitAnswersAction(slug: string, token: string, activityI
     const refused = pairRefusal(code, who, partner.name);
     const message = code === "ok"
       ? `Submitted${onBehalf ? ` for ${member.name}` : ""} with ${partner.name}. Thanks!`
-      : refused ?? SUBMIT_RESULT_MESSAGES[code as SubmitCode] ?? SUBMIT_RESULT_MESSAGES.missing;
+      : refused ?? submitMessages(d)[code as SubmitCode] ?? submitMessages(d).missing;
     redirect(flashPath(path, message, code === "ok" ? "ok" : "error"));
   }
   const result = await saveOrDiscard(form.uploaded, () => submitAnswers(activity.id, member.id, form.answers, today, onBehalf ? attendee.id : null, form.hashes));
   if (result !== "ok") await discardUploads(form.uploaded);
   // D725: a captain refused for a member off this track is told about the member, not themselves.
   const message = result === "ok" && onBehalf ? `Submitted for ${member.name}. Thanks!`
-    : (onBehalf && memberTrackRefusal(result, member.name)) || SUBMIT_RESULT_MESSAGES[result];
+    : (onBehalf && memberTrackRefusal(result, member.name)) || submitMessages(d)[result];
   redirect(flashPath(path, message, result === "ok" ? "ok" : "error"));
 }
 
@@ -314,12 +296,15 @@ export async function submitAnswersAction(slug: string, token: string, activityI
  */
 export async function editMySubmissionAction(slug: string, token: string, activityId: string, submissionId: string, fd: FormData) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // D741: what this action says back, in the language the page was read in.
+  const lang = await portalLang(event);
+  const d = t(lang);
   const path = `/e/${slug}/a/${token}/activities/${activityId}`;
-  const gone = "That entry can no longer be edited.";
+  const gone = d.submission.cantEdit;
 
   // Shares the submit action's budget: both spend the same token on the same kind of work.
   if (!allow(`form:${token}`, 20, 60_000)) {
-    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
   }
 
   const [activity, current] = await Promise.all([getActivity(activityId, event.id), getSubmission(submissionId)]);
@@ -335,7 +320,7 @@ export async function editMySubmissionAction(slug: string, token: string, activi
     if (current.attendee_id !== attendee.id) {
       redirect(flashPath(path, "This member needs to agree to the health-information consent on their own page before their entry can be changed.", "error"));
     }
-    if (!healthConsentTicked(fd)) redirect(flashPath(path, HEALTH_CONSENT_REFUSED, "error"));
+    if (!healthConsentTicked(fd)) redirect(flashPath(path, d.submission.healthConsent, "error"));
     await recordHealthConsent(attendee, activity.id);
   }
 
@@ -353,7 +338,7 @@ export async function editMySubmissionAction(slug: string, token: string, activi
     }
   }
 
-  const form = await readAnswers(activity, fd, current.answers);
+  const form = await readAnswers(activity, fd, current.answers, lang);
   if (!form.ok) redirect(flashPath(path, form.error, "error"));
 
   const keys = new Set(activity.questions.map((q) => q.key));
@@ -368,7 +353,7 @@ export async function editMySubmissionAction(slug: string, token: string, activi
       .filter((e) => e.id !== current.id && (!current.pair_id || e.pair_id !== current.pair_id));
     if (sharesFile(form.hashes, others)) {
       await discardUploads(form.uploaded);
-      redirect(flashPath(path, DUPLICATE, "error"));
+      redirect(flashPath(path, d.submission.duplicatePhoto, "error"));
     }
   }
   const hashes = nextFileHashes(activity.questions, current.answers, current.file_hashes, answers, form.hashes);
@@ -379,7 +364,7 @@ export async function editMySubmissionAction(slug: string, token: string, activi
   }
 
   await deleteReplacedFiles(activity, current.answers, answers, form.uploaded);
-  redirect(flashPath(path, "Changes saved."));
+  redirect(flashPath(path, d.submission.changesSaved));
 }
 
 /**
@@ -390,11 +375,14 @@ export async function editMySubmissionAction(slug: string, token: string, activi
  */
 export async function deleteMySubmissionAction(slug: string, token: string, activityId: string, submissionId: string) {
   const { event, attendee } = await loadPortalAttendee(slug, token);
+  // D741: what this action says back, in the language the page was read in.
+  const lang = await portalLang(event);
+  const d = t(lang);
   const path = `/e/${slug}/a/${token}/activities/${activityId}`;
-  const gone = "That entry can no longer be deleted.";
+  const gone = d.submission.cantDelete;
 
   if (!allow(`form:${token}`, 20, 60_000)) {
-    redirect(flashPath(path, "Too many attempts. Try again in a minute.", "error"));
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
   }
 
   const [activity, current] = await Promise.all([getActivity(activityId, event.id), getSubmission(submissionId)]);
@@ -408,5 +396,5 @@ export async function deleteMySubmissionAction(slug: string, token: string, acti
   if (!removed) redirect(flashPath(path, gone, "error"));
 
   await deleteEntryFiles(activity, removed.answers);
-  redirect(flashPath(path, "Entry deleted."));
+  redirect(flashPath(path, d.submission.entryDeleted));
 }

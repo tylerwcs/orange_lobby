@@ -1,5 +1,6 @@
 import { sessionLabel, type ActivityState, type SeatsForViewer } from "./activities";
 import type { ActivityChangeRequest, ActivityRequestStatus, Checkpoint } from "@/lib/types";
+import type { Lang } from "@/features/language/client";
 
 /**
  * What an attendee's Activities card offers, given what they hold and what they have asked
@@ -104,10 +105,11 @@ export function activityControls(
   state: ActivityState,
   pending: ActivityChangeRequest | null,
   lastDeclined: ActivityChangeRequest | null = null,
+  lang: Lang = "en",
 ): ActivityControls {
   const labelOf = (id: string | null): string | null => {
     const s = id ? state.sessions.find((x) => x.session.id === id) : undefined;
-    return s ? sessionLabel(s.session) : null;
+    return s ? sessionLabel(s.session, { lang }) : null;
   };
   const summarise = (r: ActivityChangeRequest): PendingSummary =>
     ({ kind: r.kind, fromLabel: labelOf(r.from_session_id), toLabel: labelOf(r.to_session_id) });

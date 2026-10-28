@@ -6,6 +6,7 @@ import type { ActivityEntry } from "../../lib/portal-activity-entries";
 import type { ActivityControls } from "../../lib/activity-requests";
 import { sessionGrid, startDay } from "../../lib/session-grid";
 import { shortDate } from "@/lib/text";
+import { t, useLang } from "@/features/language/client";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
 
@@ -40,6 +41,8 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
   actions: Pick<BookingActions, "book" | "requestSwitch">;
 }) {
   const grid = useMemo(() => sessionGrid(state.sessions), [state.sessions]);
+  const lang = useLang();
+  const d = t(lang).booking;
   const [day, setDay] = useState(() => startDay(grid.days));
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -53,28 +56,28 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
 
   return (
     <div className="flex flex-col gap-3">
-      {grid.days.length === 0 && <p className="text-sm text-muted-foreground">No sessions have been added yet.</p>}
+      {grid.days.length === 0 && <p className="text-sm text-muted-foreground">{d.noSessions}</p>}
 
       {grid.days.length > 0 && (
-        <div role="tablist" aria-label="Day" className="flex gap-2 overflow-x-auto pb-0.5">
-          {grid.days.map((d) => {
-            const [weekday, date, month] = shortDate(d.day).split(" ");
-            const on = d.day === current?.day;
+        <div role="tablist" aria-label={d.day} className="flex gap-2 overflow-x-auto pb-0.5">
+          {grid.days.map((g) => {
+            const [weekday, date, month] = shortDate(g.day, lang).split(" ");
+            const on = g.day === current?.day;
             return (
               <button
-                key={d.day}
+                key={g.day}
                 type="button"
                 role="tab"
                 aria-selected={on}
-                onClick={() => setDay(d.day)}
+                onClick={() => setDay(g.day)}
                 className={`flex min-w-16 flex-1 flex-col items-center rounded-[12px] border px-2 py-1.5 text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
               >
                 <span>{weekday}</span>
                 <span className={`text-base font-extrabold leading-tight ${on ? "" : "text-foreground"}`}>{date}</span>
                 <span>{month}</span>
                 {/* Where your seat is, when it is not on the day in front of you. */}
-                <span aria-hidden className={`mt-0.5 size-1.5 rounded-full ${d.mine ? (on ? "bg-primary-foreground" : "bg-success") : "bg-transparent"}`} />
-                {d.mine && <span className="sr-only">, your booking</span>}
+                <span aria-hidden className={`mt-0.5 size-1.5 rounded-full ${g.mine ? (on ? "bg-primary-foreground" : "bg-success") : "bg-transparent"}`} />
+                {g.mine && <span className="sr-only">{d.yourBookingSr}</span>}
               </button>
             );
           })}
@@ -83,7 +86,7 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
 
       {current?.periods.map(({ period, slots }) => (
         <section key={period} className="flex flex-col gap-2">
-          <h3 className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{period}</h3>
+          <h3 className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{d.periods[period]}</h3>
           <div className="grid grid-cols-4 gap-2">
             {slots.map((s) => {
               const pickable = canPick(s);
@@ -102,13 +105,13 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
                   disabled={!pickable}
                   aria-pressed={on}
                   onClick={() => setPicked(on ? null : s.session.id)}
-                  aria-label={`${s.session.starts_at}${s.mine ? ", your booking" : s.full ? ", full" : `, ${s.left} left`}`}
+                  aria-label={`${s.session.starts_at}${s.mine ? d.yourBookingSr : s.full ? d.fullSr : d.leftSr(s.left)}`}
                   className={`relative flex min-h-11 flex-col items-center justify-center rounded-[10px] border px-1 py-1.5 tabular-nums outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 ${look}`}
                 >
                   <span className="text-sm font-extrabold">{s.session.starts_at}</span>
                   {few && (
                     <span className="absolute -top-2 -right-1 rounded-full bg-warning-soft px-1.5 text-[10px] font-bold text-warning no-underline">
-                      {s.left} left
+                      {d.fewLeft(s.left)}
                     </span>
                   )}
                 </button>
@@ -136,8 +139,10 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
   requestSwitch: BookingActions["requestSwitch"];
 }) {
   const { session } = seat;
-  const when = `${shortDate(session.day)} · ${session.starts_at}${session.ends_at ? `–${session.ends_at}` : ""}`;
-  const detail = [showRoom ? session.location : null, `${seat.left} seat${seat.left === 1 ? "" : "s"} left`]
+  const lang = useLang();
+  const d = t(lang).booking;
+  const when = `${shortDate(session.day, lang)} · ${session.starts_at}${session.ends_at ? `–${session.ends_at}` : ""}`;
+  const detail = [showRoom ? session.location : null, d.seatsLeft(seat.left)]
     .filter(Boolean).join(" · ");
   const isBook = controls.bookable.some((s) => s.session.id === session.id);
   const [from, setFrom] = useState(controls.held[0]?.session.id ?? "");
@@ -148,7 +153,7 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
     // margins cancel the dialog's own padding so the bar sits flush with its edge.
     <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border bg-popover px-4 py-3">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-extrabold">{isBook ? when : `Move to ${when}`}</div>
+        <div className="text-sm font-extrabold">{isBook ? when : d.moveTo(when)}</div>
         <div className="truncate text-xs text-muted-foreground">{detail}</div>
       </div>
       {isBook ? (
@@ -156,10 +161,10 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
           <ConfirmButton
             tone="default"
             triggerVariant="default"
-            confirmLabel="Book"
-            message={`Book ${when}${session.location ? `, ${session.location}` : ""}?`}
+            confirmLabel={d.book}
+            message={d.confirmBook(`${when}${session.location ? `, ${session.location}` : ""}`)}
           >
-            Book
+            {d.book}
           </ConfirmButton>
         </form>
       ) : (
@@ -169,19 +174,19 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
               seats, and the request has to say which one moves. */}
           {controls.held.length > 1 && (
             <>
-              <label htmlFor={`from-${session.id}`} className="sr-only">Move which booking</label>
+              <label htmlFor={`from-${session.id}`} className="sr-only">{d.moveWhich}</label>
               <select id={`from-${session.id}`} value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-md border border-input bg-transparent px-2 text-sm">
-                {controls.held.map((h) => <option key={h.session.id} value={h.session.id}>{sessionLabel(h.session)}</option>)}
+                {controls.held.map((h) => <option key={h.session.id} value={h.session.id}>{sessionLabel(h.session, { lang })}</option>)}
               </select>
             </>
           )}
           <ConfirmButton
             tone="default"
             triggerVariant="default"
-            confirmLabel="Send request"
-            message={`Ask the committee to move you from ${fromSeat ? sessionLabel(fromSeat.session) : "your session"} to ${when}? Your current seat is held until they agree, so nothing changes yet.`}
+            confirmLabel={d.sendRequest}
+            message={d.confirmMove(fromSeat ? sessionLabel(fromSeat.session, { lang }) : d.yourSessionLower, when)}
           >
-            Request switch
+            {d.requestSwitch}
           </ConfirmButton>
         </form>
       )}

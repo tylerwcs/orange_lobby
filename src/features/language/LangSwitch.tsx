@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useLang, useT } from "./client";
+import { useLang, useT } from "./LangProvider";
 import { setLangAction } from "./actions";
 import type { Lang } from "./lang";
 

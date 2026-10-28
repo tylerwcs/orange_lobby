@@ -1,12 +1,14 @@
 import { Clock } from "lucide-react";
 import { type Activity } from "@/lib/types";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 export const block = "-mx-4 border-t-8 border-muted px-4 py-5 md:mx-0 md:px-0";
 export const note = "text-sm text-muted-foreground";
 
 /** "For VIP, Management" when only some groups may take part; nothing when everyone may. */
-export function forGroups(activity: Pick<Activity, "categories">): string | null {
-  return activity.categories?.length ? `For ${activity.categories.join(", ")}` : null;
+export function forGroups(activity: Pick<Activity, "categories">, lang: Lang = "en"): string | null {
+  return activity.categories?.length ? t(lang).activities.forGroups(activity.categories.join(", ")) : null;
 }
 
 export function InfoRows({ rows }: { rows: { icon: typeof Clock; text: string | null }[] }) {

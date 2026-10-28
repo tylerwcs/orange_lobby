@@ -25,6 +25,8 @@ import { hasHealthConsent } from "@/lib/db/health-consents";
 import { pairForActivity, trackOf, trackRows } from "@/features/tracks";
 import { RichSections } from "@/components/portal/RichSections";
 import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
+import { t, type Lang } from "@/features/language";
+import { Say } from "@/features/language/client";
 
 /**
  * D391/D398: Edit and Delete on each entry this attendee may still change (`canEditOwn`) - the
@@ -44,7 +46,7 @@ export function editorFor(f: Activity, slug: string, token: string, attendee: Pi
           <form action={editMySubmissionAction.bind(null, slug, token, f.id, s.id)} className="flex flex-col gap-6">
             {s.attendee_id === attendee.id && <HealthConsentAsk f={f} slug={slug} token={token} id={`health-consent-${s.id}`} />}
             <SubmissionFields questions={f.questions} defaults={s.answers} fileLinks={fileLinks} />
-            <SubmitButton className="h-12 w-full text-base font-bold">Save changes</SubmitButton>
+            <SubmitButton className="h-12 w-full text-base font-bold"><Say k="submission.save" /></SubmitButton>
           </form>
         } />
     );
@@ -100,7 +102,7 @@ export function SubmitForm({ f, slug, token, state, proxy }: { f: Activity; slug
       <PairAsk f={f} slug={slug} token={token} />
       <HealthConsentAsk f={f} slug={slug} token={token} id="health-consent" />
       {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
-      <SubmitButton className="h-12 w-full text-base font-bold">Submit</SubmitButton>
+      <SubmitButton className="h-12 w-full text-base font-bold"><Say k="submission.submit" /></SubmitButton>
     </form>
   );
 }
@@ -147,8 +149,9 @@ export function AddedForGroup({ f, slug, token, proxy, edit }: { f: Activity; sl
   );
 }
 
-export async function SubmissionBody({ entry: { form: f, state, mine, group, revoked }, slug, token, writing, people, selfId, edit, proxy }: {
+export async function SubmissionBody({ entry: { form: f, state, mine, group, revoked }, slug, token, writing, people, selfId, edit, proxy, lang = "en" }: {
   entry: SubmissionEntry;
+  lang?: Lang;
   slug: string;
   token: string;
   writing: boolean;
@@ -157,18 +160,19 @@ export async function SubmissionBody({ entry: { form: f, state, mine, group, rev
   edit?: EditEntry;
   proxy: Proxy | null;
 }) {
-  const dates = f.starts_on ? dayRange([f.starts_on, f.ends_on ?? f.starts_on]) : null;
+  const d = t(lang).submission;
+  const dates = f.starts_on ? dayRange([f.starts_on, f.ends_on ?? f.starts_on], lang) : null;
   const addedBy = await addedByLine(f.event_id, mine);
   return (
     <>
-      <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f) }]} />
+      <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f, lang) }]} />
       <RichSections html={f.description} />
       <section className={block}>
         {/* D369: members mode is per-person, so it shows the person's own history like "off". */}
         {!isGroupForm(f.group_mode) && (
           <>
-            {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} />}
-            <SubmissionHistory submissions={mine} questions={f.questions} fileHref={filesFor(slug, token)} edit={edit} addedBy={addedBy} />
+            {(state.reason === "limit" || state.reason === "today") && <Done today={state.reason === "today"} lang={lang} />}
+            <SubmissionHistory lang={lang} submissions={mine} questions={f.questions} fileHref={filesFor(slug, token)} edit={edit} addedBy={addedBy} />
             <div className="mt-4"><RevokedList entries={revoked} canResend={state.can} /></div>
             <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />
           </>
@@ -192,12 +196,12 @@ export async function SubmissionBody({ entry: { form: f, state, mine, group, rev
           </>
         )}
         {f.group_mode === "members" && state.reason === "nogroup" && <p className={`mt-3 ${note}`}>You need to be in a team to submit this.</p>}
-        {state.reason === "closed" && <p className={`mt-3 ${note}`}>Submissions for this are closed.</p>}
-        {state.reason === "ineligible" && <p className={`mt-3 ${note}`}>This is not open to your group.</p>}
+        {state.reason === "closed" && <p className={`mt-3 ${note}`}>{d.closed}</p>}
+        {state.reason === "ineligible" && <p className={`mt-3 ${note}`}>{d.ineligible}</p>}
       </section>
       {canAdd(state, proxy) && (
         // D392: what a proxy sent for others counts too, so their submit also remounts it closed.
-        <ActivityActionDialog key={`${group ? group.entries.length : mine.length}:${proxy?.added.length ?? 0}`} label={submitLabel(f)} title={f.name} defaultOpen={writing}>
+        <ActivityActionDialog key={`${group ? group.entries.length : mine.length}:${proxy?.added.length ?? 0}`} label={submitLabel(f, lang)} title={f.name} defaultOpen={writing}>
           <SubmitForm f={f} slug={slug} token={token} state={state} proxy={proxy} />
         </ActivityActionDialog>
       )}
@@ -206,13 +210,14 @@ export async function SubmissionBody({ entry: { form: f, state, mine, group, rev
 }
 
 /** The good news where the button was: a green tick, and for a daily one, when to come back. */
-function Done({ today }: { today: boolean }) {
+function Done({ today, lang }: { today: boolean; lang: Lang }) {
+  const d = t(lang).submission;
   return (
     <div className="mb-4 flex items-start gap-3 rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-success-strong">
       <CircleCheck aria-hidden className="mt-0.5 size-5 shrink-0" />
       <div>
-        <div className="font-bold">{today ? "Submission done for today" : "Submission done"}</div>
-        {today && <div className="text-sm">Come back tomorrow to send the next one.</div>}
+        <div className="font-bold">{today ? d.doneToday : d.done}</div>
+        {today && <div className="text-sm">{d.comeBack}</div>}
       </div>
     </div>
   );

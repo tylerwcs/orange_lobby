@@ -1,6 +1,7 @@
 import { CalendarDays, Clock, MapPin, Ticket } from "lucide-react";
 import type { CardTone, CardView } from "../lib/activity-card";
-import { KIND_META } from "../kinds/meta";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -21,10 +22,10 @@ export function StatusChip({ status }: { status: NonNullable<CardView["status"]>
 
 
 /** What kind of activity this is, in the words an attendee would use. */
-export function KindTag({ kind }: { kind: Activity["kind"] }) {
+export function KindTag({ kind, lang = "en" }: { kind: Activity["kind"]; lang?: Lang }) {
   return (
     <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.04em] text-muted-foreground">
-      {KIND_META[kind].label}
+      {t(lang).activities.kinds[kind]}
     </span>
   );
 }

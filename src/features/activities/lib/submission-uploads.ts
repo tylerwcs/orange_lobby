@@ -1,4 +1,6 @@
 import "server-only";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 import { uploadSubmissionFile, deleteSubmissionFiles } from "@/lib/db/media";
 import { validateAnswers } from "@/lib/registration";
 import { isQuestionShown } from "@/lib/show-when";
@@ -58,7 +60,7 @@ export async function discardUploads(paths: string[]): Promise<void> {
  * and with allSettled, so a throw from one never hides that another already landed. On any
  * refusal the fresh uploads are discarded here, and the first reason comes back.
  */
-export async function readAnswers(activity: FormActivity, fd: FormData, stored: Record<string, string> = {}): Promise<ReadAnswers> {
+export async function readAnswers(activity: FormActivity, fd: FormData, stored: Record<string, string> = {}, lang: Lang = "en"): Promise<ReadAnswers> {
   const input: Record<string, string> = {};
   for (const q of activity.questions) {
     if (q.type !== "file") input[q.key] = String(fd.get(q.key) ?? "");
@@ -91,10 +93,10 @@ export async function readAnswers(activity: FormActivity, fd: FormData, stored: 
     return { ok: false, error: uploadError };
   }
 
-  const validated = validateAnswers(input, activity.questions);
+  const validated = validateAnswers(input, activity.questions, lang);
   if (!validated.ok) {
     await discardUploads(uploaded);
-    return { ok: false, error: Object.values(validated.errors)[0] ?? "Check your answers and try again." };
+    return { ok: false, error: Object.values(validated.errors)[0] ?? t(lang).submission.checkAnswers };
   }
   return { ok: true, answers: validated.answers, uploaded, hashes };
 }

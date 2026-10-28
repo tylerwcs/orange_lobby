@@ -1,6 +1,8 @@
 import type { ActivityControls } from "../../lib/activity-requests";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 import { Icon } from "@/components/ui/icon";
 import { AddToCalendar } from "@/components/portal/AddToCalendar";
 import { sessionLabel } from "../../lib/activities";
@@ -21,7 +23,7 @@ import { shortTime } from "@/lib/text";
  * stay per-activity, not per-seat, because D146's index allows only one open request per
  * attendee per activity: while one is open, no seat offers controls.
  */
-export function ActivityBooking({ controls, pendingId, calendarPath, change, requestCancel, withdraw, arrivals }: {
+export function ActivityBooking({ controls, pendingId, calendarPath, change, requestCancel, withdraw, arrivals, lang = "en" }: {
   controls: ActivityControls;
   /**
    * With a single seat, the page's big button is Add to calendar, so the seat's line carries
@@ -40,8 +42,10 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
   withdraw: (requestId: string) => Promise<void>;
   /** D333: this session's arrival, by session id, when the attendee was checked in at a door for it. */
   arrivals: Record<string, string>;
+  lang?: Lang;
 }) {
   const { held, pending, declined, switchTargets, canRequestCancel } = controls;
+  const d = t(lang).booking;
   const allIn = held.length > 0 && held.every((s) => arrivals[s.session.id]);
   if (held.length === 0 && !pending && !declined) return null;
 
@@ -50,14 +54,14 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
       <div className="rounded-[12px] bg-accent p-3 text-sm">
         <p className="font-bold text-accent-foreground">
           {pending.kind === "cancel"
-            ? `Waiting for approval: cancel ${pending.fromLabel ?? "your session"}`
-            : `Waiting for approval: move to ${pending.toLabel ?? "another session"}`}
+            ? d.waitingCancel(pending.fromLabel ?? d.yourSessionLower)
+            : d.waitingMove(pending.toLabel ?? d.anotherSession)}
         </p>
         <p className="mt-1 text-muted-foreground">
-          Your seat is held until the committee agrees, so nothing has changed yet.
+          {d.heldNote}
         </p>
         <form action={pendingId ? withdraw.bind(null, pendingId) : undefined} className="mt-2">
-          <SubmitButton variant="outline">Withdraw request</SubmitButton>
+          <SubmitButton variant="outline">{d.withdraw}</SubmitButton>
         </form>
       </div>
     );
@@ -70,8 +74,8 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
       {declined && (
         <p className="text-sm text-warning">
           {declined.kind === "cancel"
-            ? `The committee declined your request to cancel ${declined.fromLabel ?? "that session"}.`
-            : `The committee declined your request to move to ${declined.toLabel ?? "another session"}.`}
+            ? d.declinedCancel(declined.fromLabel ?? d.thatSession)
+            : d.declinedMove(declined.toLabel ?? d.anotherSession)}
         </p>
       )}
       {held.map((seat) => {
@@ -80,14 +84,14 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
           <div key={seat.session.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-success-soft px-3 py-2 text-sm text-success-strong">
             <span className="flex items-center gap-1.5 font-bold">
               <Icon name="check" size={16} />
-              {arrivedAt ? `Checked in at ${shortTime(arrivedAt)} · ${sessionLabel(seat.session)}` : <>You&apos;re booked {sessionLabel(seat.session)}</>}
+              {arrivedAt ? d.checkedInAt(shortTime(arrivedAt), sessionLabel(seat.session, { lang })) : d.youreBooked(sessionLabel(seat.session, { lang }))}
             </span>
             {/* D336: a checked-in session is finished - no calendar link, no change, no cancel. */}
             <span className="flex items-center gap-4">
               {arrivedAt ? null : change !== undefined ? change : (
                 <AddToCalendar href={`${calendarPath}?session=${seat.session.id}`} className="flex items-center gap-1 underline">
                   <Icon name="calendar" size={16} />
-                  Add to calendar
+                  {d.addToCalendar}
                 </AddToCalendar>
               )}
               {!arrivedAt && canRequestCancel && (
@@ -96,10 +100,10 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
                     tone="default"
                     triggerVariant="link"
                     className="h-auto p-0 text-success-strong underline"
-                    confirmLabel="Send request"
-                    message={`Ask the committee to cancel ${sessionLabel(seat.session)}? Your seat is held until they agree.`}
+                    confirmLabel={d.sendRequest}
+                    message={d.confirmCancel(sessionLabel(seat.session, { lang }))}
                   >
-                    Ask to cancel
+                    {d.askCancel}
                   </ConfirmButton>
                 </form>
               )}
@@ -112,7 +116,7 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
           left to move to that means anything. */}
       {held.length > 0 && !allIn && (
         <p className="text-xs text-muted-foreground">
-          {switchTargets.length > 0 ? "To move, tap Change session and pick another time. The committee approves it." : "No other session has room right now."}
+          {switchTargets.length > 0 ? d.moveHint : d.noRoom}
         </p>
       )}
     </div>

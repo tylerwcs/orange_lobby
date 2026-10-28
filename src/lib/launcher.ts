@@ -1,6 +1,6 @@
 import type { IconName } from "@/components/ui/icon";
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 import type { Tile, TileRoute } from "@/lib/modules";
 import type { ActivityNav } from "@/features/activities/client";
 import { tintedIcon } from "@/lib/tint";

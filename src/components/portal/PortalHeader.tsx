@@ -3,8 +3,8 @@ import type { Event } from "@/lib/types";
 import { initials, formatDateRange } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
 import { barName } from "@/lib/event-name";
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 type HeaderEvent = Pick<Event, "name" | "logo_url" | "starts_on" | "ends_on" | "venue_name" | "display_name" | "display_name_in_bar">;
 

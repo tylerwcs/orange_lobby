@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { LauncherItem } from "@/lib/launcher";
 import { Icon } from "@/components/ui/icon";
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 function Button({ item, large, waiting }: { item: LauncherItem; large: boolean; waiting: string }) {
   return (

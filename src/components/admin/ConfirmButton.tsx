@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { useT } from "@/features/language/client";
 
 /**
  * A submit guarded by a confirmation. It used to be window.confirm, which cannot be
@@ -44,6 +45,8 @@ export function ConfirmButton({
   triggerVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
+  // D741: in the portal, the attendee's language; anywhere without the provider (admin), English.
+  const d = useT().common;
   const { pending } = useFormStatus();
   // Controlled so confirming can close it. The action is a plain Button, not a Close, so the
   // dialog used to stay up - with its confirm still live - until the redirect unmounted it,
@@ -53,15 +56,15 @@ export function ConfirmButton({
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger render={<Button ref={trigger} type="button" variant={triggerVariant} className={className} disabled={pending} aria-busy={pending} />}>
         {pending && <Spinner data-icon="inline-start" />}
-        {pending ? "Working…" : children}
+        {pending ? d.working : children}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>{d.areYouSure}</AlertDialogTitle>
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{d.cancel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => { setOpen(false); trigger.current?.form?.requestSubmit(); }}
             className={tone === "destructive" ? "bg-destructive text-white hover:bg-destructive/90" : undefined}

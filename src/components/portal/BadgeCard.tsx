@@ -4,8 +4,8 @@ import { pinScale, type ResolvedPin } from "@/lib/pinned-fields";
 import { Icon } from "@/components/ui/icon";
 import { displayName } from "@/lib/text";
 import { BadgeQrDialog } from "./BadgeQrDialog";
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 /**
  * Am I in, who am I, and the handful of facts this event decided matter.

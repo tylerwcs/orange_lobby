@@ -5,7 +5,7 @@ import { allCheckedIn } from "./lib/booking-door";
 import type { ActivityEntries, EntryMap } from "./lib/portal-activity-entries";
 import type { Activity, ActivityKind } from "@/lib/types";
 import { ACTIVITY_KINDS } from "./kinds/meta";
-import type { Lang } from "@/features/language/lang";
+import type { Lang } from "@/features/language/client";
 
 /** The Activities tab's headings: the organiser's pins (D387), then where each card sits for the attendee; Coming soon is D605's. */
 export type CardSection = "pinned" | "coming" | ActivitySection;

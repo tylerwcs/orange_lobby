@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { ActivityCardItem } from "../cards";
 import { ActivityCard, cardProps } from "./ActivitiesTab";
 import { SwipeRow } from "@/components/portal/SwipeRow";
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 /** More than this and the row stops being a glance; the Activities page has the rest. */
 const HOME_CARDS = 5;
@@ -26,7 +26,7 @@ export function HomeActivities({ cards, basePath, desktop = false, lang = "en" }
 }) {
   if (cards.length === 0) return null;
   const d = t(lang);
-  const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} className="w-full" />);
+  const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} lang={lang} className="w-full" />);
   const headingId = desktop ? "home-activities-desktop" : "home-activities";
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">

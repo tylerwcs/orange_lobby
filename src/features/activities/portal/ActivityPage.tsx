@@ -14,6 +14,7 @@ import { PassportBody } from "../kinds/passport/PassportBody";
 import { PolaroidBody } from "../kinds/polaroid/PolaroidBody";
 import { TournamentBody } from "../kinds/tournament/TournamentBody";
 import { TITLE_INK } from "@/lib/ink";
+import { portalLang, t } from "@/features/language";
 
 /**
  * One activity's own page, the same shape for every kind (D178): the picture whole, the
@@ -41,7 +42,7 @@ export async function ActivityPage({ params, searchParams }: {
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const entries = await loadActivityEntries(event, attendee);
+  const [entries, lang] = await Promise.all([loadActivityEntries(event, attendee), portalLang(event)]);
   const basePath = `/e/${slug}/a/${token}`;
 
   const found = findEntry(entries, activityId);
@@ -53,7 +54,7 @@ export async function ActivityPage({ params, searchParams }: {
   function body(found: FoundEntry) {
     switch (found.kind) {
       case "booking":
-        return <BookingBody entry={found.entry} slug={slug} token={token} />;
+        return <BookingBody entry={found.entry} slug={slug} token={token} lang={lang} />;
       case "submission": {
         const form = found.entry;
         return form.form.scoring
@@ -63,7 +64,7 @@ export async function ActivityPage({ params, searchParams }: {
               day={typeof day === "string" ? day : null} writing={writing === "1"} changingTracks={one(tracks) === "change"}
               // An old `?new=1` link opens the add dialog, which lives on My stats (D385).
               tab={writing === "1" ? "stats" : trackerTab(typeof tab === "string" ? tab : undefined, form.form.show_leaderboard)} />
-          : <SubmissionBody entry={form} slug={slug} token={token} writing={writing === "1"} people={entries.people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />;
+          : <SubmissionBody lang={lang} entry={form} slug={slug} token={token} writing={writing === "1"} people={entries.people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />;
       }
       case "passport":
         return <PassportBody entry={found.entry} attendeeName={attendee.name} />;
@@ -83,7 +84,7 @@ export async function ActivityPage({ params, searchParams }: {
   return (
     <div className="flex flex-col">
       <Link href={`${basePath}/activities`} className="mb-3 inline-flex items-center gap-1.5 self-start text-sm font-bold text-muted-foreground hover:text-foreground">
-        <ArrowLeft aria-hidden className="size-4" />Activities
+        <ArrowLeft aria-hidden className="size-4" />{t(lang).activities.back}
       </Link>
       <ActivityCover activity={activity} variant="hero" />
       <h1 className={`py-4 text-xl font-extrabold leading-tight ${TITLE_INK}`}>{activity.name}</h1>

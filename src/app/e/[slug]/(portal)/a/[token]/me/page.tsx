@@ -13,7 +13,7 @@ import { hasAnyCheckin } from "@/lib/db/checkins";
 import { CancelRequestNote, CancelSection, canSelfCancel, klDayTime, requestCancelAction, withdrawCancelRequestAction } from "@/features/cancel";
 import { TITLE_INK } from "@/lib/ink";
 import { portalLang, t } from "@/features/language";
-import { LangSwitch } from "@/features/language/LangSwitch";
+import { LangSwitch } from "@/features/language/client";
 
 const caption = "text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 

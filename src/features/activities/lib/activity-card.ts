@@ -3,8 +3,8 @@ import { submitLabel, type SubmitState } from "./submissions";
 import type { Activity } from "@/lib/types";
 import type { Passport } from "./booths";
 import { shortDate } from "@/lib/text";
-import type { Lang } from "@/features/language/lang";
-import { t } from "@/features/language/dict";
+import type { Lang } from "@/features/language/client";
+import { t } from "@/features/language/client";
 import { opensLabel } from "./schedule";
 import { ordinal } from "@/features/tournaments/client";
 

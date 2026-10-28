@@ -1,6 +1,7 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { loadActivityEntries, ActivitiesTab } from "@/features/activities";
 import { TITLE_INK } from "@/lib/ink";
+import { portalLang, t } from "@/features/language";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,11 @@ export default async function ActivitiesPage({ params }: { params: Promise<{ slu
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const entries = await loadActivityEntries(event, attendee);
+  const [entries, lang] = await Promise.all([loadActivityEntries(event, attendee), portalLang(event)]);
   return (
     <div className="flex flex-col gap-4">
-      <h1 className={`text-xl font-extrabold ${TITLE_INK}`}>Activities</h1>
-      <ActivitiesTab entries={entries} basePath={`/e/${slug}/a/${token}`} />
+      <h1 className={`text-xl font-extrabold ${TITLE_INK}`}>{t(lang).activities.back}</h1>
+      <ActivitiesTab entries={entries} basePath={`/e/${slug}/a/${token}`} lang={lang} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 import { categoryMatches } from "@/lib/agenda";
 import { inChallenge } from "./challenge";
 import { lastDays, daysBetween } from "@/lib/time";

@@ -1,7 +1,7 @@
 import type { Announcement } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { t } from "@/features/language/dict";
-import type { Lang } from "@/features/language/lang";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 /** Rendered on the server and inside the banner's dialog alike, so the language comes in as a prop (D739). */
 export function AnnouncementList({ items, lang = "en" }: { items: Announcement[]; lang?: Lang }) {

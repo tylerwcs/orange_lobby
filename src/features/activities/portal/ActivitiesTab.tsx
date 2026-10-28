@@ -4,17 +4,13 @@ import type { CardView } from "../lib/activity-card";
 import type { ActivityEntries } from "../lib/portal-activity-entries";
 import type { Activity } from "@/lib/types";
 import { ActivityCover, KindTag, MetaLine, StatusChip } from "./ActivityParts";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 
 const caption = "px-0.5 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground";
 
-const SECTIONS: { key: CardSection; title: string }[] = [
-  { key: "pinned", title: "Pinned" },
-  { key: "choose", title: "To choose" },
-  { key: "booked", title: "Booked" },
-  { key: "open", title: "Open to you" },
-  { key: "coming", title: "Coming soon" },
-  { key: "done", title: "Done" },
-];
+/** In order; each heading's words are the dictionary's (D741). */
+const SECTIONS: CardSection[] = ["pinned", "choose", "booked", "open", "coming", "done"];
 
 /**
  * The Activities tab: every activity this attendee can see, as a card with its picture, sorted
@@ -29,17 +25,18 @@ const SECTIONS: { key: CardSection; title: string }[] = [
  *
  * A stacked list here; the home page is where they run as a swipeable row (D214).
  */
-export function ActivitiesTab({ entries, basePath }: { entries: ActivityEntries & { coming?: Activity[] }; basePath: string }) {
-  const cards = activityCards(entries, basePath);
+export function ActivitiesTab({ entries, basePath, lang = "en" }: { entries: ActivityEntries & { coming?: Activity[] }; basePath: string; lang?: Lang }) {
+  const d = t(lang).activities;
+  const cards = activityCards(entries, basePath, lang);
   if (cards.length === 0) {
-    return <p className="text-sm text-muted-foreground">There is nothing here for this event yet.</p>;
+    return <p className="text-sm text-muted-foreground">{d.none}</p>;
   }
 
   return (
     <div className="flex flex-col gap-6">
-      {SECTIONS.map(({ key, title }) => {
+      {SECTIONS.map((key) => {
         const inSection = cards.filter((c) => c.section === key);
-        return inSection.length > 0 && <Section key={key} title={title}>{inSection.map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} />)}</Section>;
+        return inSection.length > 0 && <Section key={key} title={d.sections[key]}>{inSection.map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} lang={lang} />)}</Section>;
       })}
     </div>
   );
@@ -64,8 +61,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  * A Coming soon card (D604) has no link and no pill: a plain block with the same outline, and
  * no press effect, because there is nothing to open yet.
  */
-export function ActivityCard({ activity, view, href, emphasis = false, className = "" }: {
+export function ActivityCard({ activity, view, href, emphasis = false, className = "", lang = "en" }: {
   activity: Activity;
+  lang?: Lang;
   view: CardView;
   /** Null for a Coming soon card. */
   href: string | null;
@@ -79,7 +77,7 @@ export function ActivityCard({ activity, view, href, emphasis = false, className
       <ActivityCover activity={activity} variant="card" />
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <KindTag kind={activity.kind} />
+          <KindTag kind={activity.kind} lang={lang} />
           {view.status && <StatusChip status={view.status} />}
         </div>
         <div className="text-[15px] font-bold leading-snug">{activity.name}</div>

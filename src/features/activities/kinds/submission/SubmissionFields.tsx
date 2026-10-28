@@ -7,6 +7,7 @@ import { numberInputAttrs } from "@/lib/number-answer";
 import type { RegistrationQuestion } from "@/lib/types";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useT, type Dict } from "@/features/language/client";
 
 const inputClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
 
@@ -17,11 +18,11 @@ const inputClass = "h-11 w-full rounded-lg border border-input bg-transparent px
  * stays invalid with the server's own sentence, instead of reaching Vercel's 413 and the error
  * page. A browser without DataTransfer keeps the original, and the size check still applies.
  */
-async function prepareFile(input: HTMLInputElement) {
+async function prepareFile(input: HTMLInputElement, preparing: string) {
   const picked = input.files?.[0];
   input.setCustomValidity("");
   if (!picked) return;
-  input.setCustomValidity("Preparing your file… try again in a moment.");
+  input.setCustomValidity(preparing);
   const file = await shrinkImage(picked);
   // Picked again while this one was shrinking: that newer change owns the input now.
   if (input.files?.[0] !== picked) return;
@@ -44,12 +45,12 @@ async function prepareFile(input: HTMLInputElement) {
  * form): the other types start from it, while a file input cannot be pre-filled, so a stored
  * file instead stops it being required - left empty, it keeps that file.
  */
-function renderQuestion(q: RegistrationQuestion, current: string) {
+function renderQuestion(q: RegistrationQuestion, current: string, d: Dict["submission"]) {
   const id = `q-${q.key}`;
   if (q.type === "select") {
     return (
       <select id={id} name={q.key} required={q.required} defaultValue={current} className={inputClass}>
-        <option value="">Select…</option>
+        <option value="">{d.select}</option>
         {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     );
@@ -65,7 +66,7 @@ function renderQuestion(q: RegistrationQuestion, current: string) {
         type="file"
         accept={UPLOAD_ACCEPT}
         required={q.required && !current}
-        onChange={(e) => void prepareFile(e.currentTarget)}
+        onChange={(e) => void prepareFile(e.currentTarget, d.preparingFile)}
         /* Centred by arithmetic, not flex: Chrome ignores `display: flex` inside a file input and
            lays its button on the text baseline, which left it ~5px high in the 44px box. With the
            input's own text matching the button's (14px on a 20px line), the 32px button (20px +
@@ -103,6 +104,7 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
   /** Question key to a signed link for its current file; null when it could not be signed. */
   fileLinks?: Record<string, string | null>;
 }) {
+  const { submission: d, common } = useT();
   const [answers, setAnswers] = useState<Record<string, string>>(defaults ?? {});
   const onChange = (e: React.FormEvent<HTMLFieldSetElement>) => {
     const t = e.target as HTMLInputElement;
@@ -120,7 +122,7 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
             <Field key={q.key}>
               <FieldLabel htmlFor={`q-${q.key}`}>
                 {q.label}
-                {!q.required && <span className="font-normal text-muted-foreground">(optional)</span>}
+                {!q.required && <span className="font-normal text-muted-foreground">{d.optional}</span>}
               </FieldLabel>
               {q.description && <FieldDescription>{q.description}</FieldDescription>}
               {q.type === "file" && q.sample_url && <SampleLink src={q.sample_url} label={q.label} />}
@@ -128,12 +130,12 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
                 <p className="text-sm">
                   Current file:{" "}
                   {link
-                    ? <a href={link} target="_blank" rel="noreferrer" className="text-primary underline">View file</a>
-                    : <span className="text-muted-foreground">Unavailable</span>}
+                    ? <a href={link} target="_blank" rel="noreferrer" className="text-primary underline">{common.viewFile}</a>
+                    : <span className="text-muted-foreground">{common.unavailable}</span>}
                 </p>
               )}
-              {renderQuestion(q, current)}
-              {storedFile && <FieldDescription>Choose a file only to replace it.</FieldDescription>}
+              {renderQuestion(q, current, d)}
+              {storedFile && <FieldDescription>{d.replaceFile}</FieldDescription>}
             </Field>
           );
         })}
@@ -148,17 +150,18 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
  * a new tab on a phone is easy to lose, and leaving the page loses an uncontrolled form.
  */
 function SampleLink({ src, label }: { src: string; label: string }) {
+  const d = useT().submission;
   const [open, setOpen] = useState(false);
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="w-fit rounded-md text-left text-sm font-medium text-primary underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-        See a sample
+        {d.seeSample}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[min(92vw,900px)] p-2">
-          <DialogTitle className="px-2 pt-1 text-sm">Sample: {label}</DialogTitle>
+          <DialogTitle className="px-2 pt-1 text-sm">{d.sampleTitle(label)}</DialogTitle>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={`A sample of what to upload for ${label}`} className="max-h-[80vh] w-full rounded-[10px] object-contain" />
+          <img src={src} alt={d.sampleAlt(label)} className="max-h-[80vh] w-full rounded-[10px] object-contain" />
         </DialogContent>
       </Dialog>
     </>

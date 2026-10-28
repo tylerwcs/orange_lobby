@@ -4,10 +4,7 @@ import { createContext, useContext } from "react";
 import type { Lang } from "./lang";
 import { t } from "./dict";
 import type { Dict } from "./en";
-
-export type { Lang } from "./lang";
-export type { Dict } from "./en";
-export { t } from "./dict";
+import { say, type SayKey } from "./say";
 
 const LangContext = createContext<Lang>("en");
 
@@ -18,3 +15,11 @@ export function LangProvider({ lang, children }: { lang: Lang; children: React.R
 
 export const useLang = (): Lang => useContext(LangContext);
 export const useT = (): Dict => t(useContext(LangContext));
+
+/**
+ * A plain wording from a server component that has no language to hand (D741): the client
+ * reads it from the portal's provider, so a sync helper deep in a page need not be threaded.
+ */
+export function Say({ k }: { k: SayKey }) {
+  return <>{say(useT(), k)}</>;
+}

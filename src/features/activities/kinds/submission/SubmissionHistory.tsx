@@ -1,5 +1,7 @@
 import type { ActivitySubmission, RegistrationQuestion } from "@/lib/types";
 import { shortDate } from "@/lib/text";
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
@@ -19,7 +21,7 @@ export type EditEntry = (s: ActivitySubmission, fileLinks: Record<string, string
  * goes to `fileHref` - the portal's file route (D399), which signs a fresh link at the click.
  * One signed here at render time was dead a minute later.
  */
-export function SubmissionHistory({ submissions, questions, fileHref, title = "Your submissions", empty = "You have not submitted anything yet.", byline, addedBy, edit }: {
+export function SubmissionHistory({ submissions, questions, fileHref, title, empty, byline, addedBy, edit, lang = "en" }: {
   submissions: ActivitySubmission[];
   questions: RegistrationQuestion[];
   /** D399: where "View file" for this entry's answer to `key` goes; null shows "Unavailable". */
@@ -30,15 +32,17 @@ export function SubmissionHistory({ submissions, questions, fileHref, title = "Y
   /** D392: "Added by Adrian" on an entry a group member sent for this attendee. */
   addedBy?: (s: ActivitySubmission) => string | null;
   edit?: EditEntry;
+  lang?: Lang;
 }) {
+  const w = t(lang);
   if (submissions.length === 0) {
-    return <p className="text-sm text-muted-foreground">{empty}</p>;
+    return <p className="text-sm text-muted-foreground">{empty ?? w.submission.historyEmpty}</p>;
   }
   const labelFor = (key: string) => questions.find((q) => q.key === key)?.label ?? key;
   const isFile = (key: string) => questions.find((q) => q.key === key)?.type === "file";
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-extrabold">{title}</h2>
+      <h2 className="text-sm font-extrabold">{title ?? w.submission.historyTitle}</h2>
       {submissions.map((s) => {
         // A show_when-hidden question stores "" rather than being omitted (see validateAnswers),
         // which would otherwise print as an empty line for every conditional question an
@@ -51,12 +55,12 @@ export function SubmissionHistory({ submissions, questions, fileHref, title = "Y
         return (
           <Card key={s.id}>
             <CardHeader>
-              <CardTitle className="text-[13px] font-bold text-muted-foreground">{shortDate(s.submitted_on)}</CardTitle>
+              <CardTitle className="text-[13px] font-bold text-muted-foreground">{shortDate(s.submitted_on, lang)}</CardTitle>
               {/* D341: their history shows an edited submission's new answers, plus this note - */}
               {/* nothing is sent to them, so the note is the only sign anything changed. */}
               {s.edited_at
-                ? <CardDescription className="text-[11px]">Updated by the organiser</CardDescription>
-                : s.attendee_edited_at && <CardDescription className="text-[11px]">Edited</CardDescription>}
+                ? <CardDescription className="text-[11px]">{w.submission.updatedByOrganiser}</CardDescription>
+                : s.attendee_edited_at && <CardDescription className="text-[11px]">{w.submission.edited}</CardDescription>}
               {by && <CardDescription className="text-[11px]">{by}</CardDescription>}
               {added && <CardDescription className="text-[11px]">{added}</CardDescription>}
               {editor && <div className="text-xs font-bold text-primary">{editor}</div>}
@@ -68,9 +72,9 @@ export function SubmissionHistory({ submissions, questions, fileHref, title = "Y
                     <span className="font-bold">{labelFor(key)}: </span>
                     {isFile(key) ? (
                       href ? (
-                        <a href={href} target="_blank" rel="noreferrer" className="text-primary underline">View file</a>
+                        <a href={href} target="_blank" rel="noreferrer" className="text-primary underline">{w.common.viewFile}</a>
                       ) : (
-                        <span className="text-muted-foreground">Unavailable</span>
+                        <span className="text-muted-foreground">{w.common.unavailable}</span>
                       )
                     ) : (
                       <span className="text-muted-foreground">{value}</span>

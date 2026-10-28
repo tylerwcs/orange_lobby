@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AnnouncementList } from "./AnnouncementList";
 import { HomeScreenRow } from "./AddToHomeScreen";
 import { useLang } from "@/features/language/client";
-import { t } from "@/features/language/dict";
+import { t } from "@/features/language/client";
 
 /** How long each announcement holds before the next slides up. */
 const HOLD_MS = 4000;

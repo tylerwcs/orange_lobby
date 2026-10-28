@@ -33,6 +33,11 @@ const SAMPLES: Record<string, unknown[]> = {
   "home.slide": [7, 13],
   "home.showSlide": [7, 13],
   "cards.seatsLeft": ["«R»", 7],
+  "booking.minEach": [45],
+  "booking.seatsAcross": [7, 13],
+  "booking.leftSr": [7],
+  "booking.fewLeft": [7],
+  "booking.seatsLeft": [7],
 };
 const argsFor = (path: string, arity: number) => SAMPLES[path] ?? Array.from({ length: arity }, (_, i) => `«X${i}»`);
 
@@ -71,5 +76,14 @@ describe("dictionaries", () => {
   });
   it("have no empty Malay wording", () => {
     for (const [path, v] of msLeaves) if (typeof v === "string") expect(v.trim(), path).not.toBe("");
+  });
+});
+
+import { say } from "@/features/language/say";
+
+describe("say (D741)", () => {
+  it("reads a wording by its path in either language", () => {
+    expect(say(en, "nav.home")).toBe("Home");
+    expect(say(ms, "nav.home")).toBe("Utama");
   });
 });

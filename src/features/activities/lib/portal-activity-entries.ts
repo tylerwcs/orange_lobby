@@ -18,6 +18,7 @@ import { countedRows, isPicker, listSportsForActivities, loadBonus, loadResults,
 import { otherActivityId, pairsForEvent, teamEntriesToday, trackFullFor, trackLabel, trackOf, trackRowsFor, trackStatus, type TrackPair, type TrackRow, type TrackStatus } from "@/features/tracks";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
+import { portalLang } from "@/features/language";
 
 export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string> };
 /** D500: `revoked` is for display only - every count reads `mine` and `group`, which hold live rows (D501). */
@@ -63,7 +64,7 @@ void covers;
  * and one shape for both pages is worth more than the rows it saves; `portalActivities` and
  * `portalBookings` are memoised, so the layout's nav dot costs nothing extra.
  */
-export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled">, attendee: Pick<Attendee, "id" | "category" | "group_id" | "extra">): Promise<ActivityEntries & {
+export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_enabled" | "language_switch">, attendee: Pick<Attendee, "id" | "category" | "group_id" | "extra">): Promise<ActivityEntries & {
   people: Record<string, { name: string; movedTo: string | null }>;
   /** D603: scheduled activities this attendee's category could use, for their Coming soon cards. */
   coming: Activity[];
@@ -71,7 +72,7 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   // Read first: whether any group reads are worth doing at all depends on it. Most attendees
   // are not in a group, and most events run no group form, so this keeps `groupMembers` and
   // `submissionsForGroup` off the hot path for every other page load.
-  const [activities, scheduled, pairs] = await Promise.all([portalActivities(event.id), portalComingSoon(event.id), pairsForEvent(event.id)]);
+  const [activities, scheduled, pairs, lang] = await Promise.all([portalActivities(event.id), portalComingSoon(event.id), pairsForEvent(event.id), portalLang(event)]);
   const hasGroupForm = attendee.group_id !== null && activities.some((a) => a.kind === "submission" && isGroupForm(a.group_mode));
 
   const [sessions, counts, mine, requests, submissions, booths, stamps, found, members, groupSubs, revokedMine, revokedGroup, trackRows] = await Promise.all([
@@ -105,7 +106,7 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
       category: attendee.category,
     });
     const pending = pendingFor(requests, activity.id);
-    const controls = activityControls(state, pending, lastDeclinedFor(requests, activity.id));
+    const controls = activityControls(state, pending, lastDeclinedFor(requests, activity.id), lang);
     // `PendingSummary` deliberately carries no id (it is for rendering, not addressing), so
     // the raw pending request's id travels alongside `controls` for `withdraw` to bind to.
     return { state, controls, pendingId: pending?.id ?? null, arrivals: sessionArrivals(controls.held.map((h) => h.session), found) };

@@ -1,5 +1,5 @@
 import { MY_TZ, isoToLocalInput } from "@/lib/time";
-import type { Lang } from "@/features/language/lang";
+import type { Lang } from "@/features/language/client";
 
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);

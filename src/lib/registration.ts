@@ -1,3 +1,5 @@
+import { t } from "@/features/language/client";
+import type { Lang } from "@/features/language/client";
 import { z } from "zod";
 import type { QuestionType, RegistrationQuestion } from "@/lib/types";
 import { isQuestionShown } from "@/lib/show-when";
@@ -71,19 +73,22 @@ export type AnswersResult =
 export function validateAnswers(
   input: Record<string, string>,
   questions: RegistrationQuestion[],
+  lang: Lang = "en",
 ): AnswersResult {
+  // D741: the portal's survey speaks the attendee's language; the registration form keeps English.
+  const d = t(lang).submission;
   const errors: Record<string, string> = {};
   const answers: Record<string, string> = {};
   const get = (k: string) => (input[k] ?? "").trim();
   for (const q of questions) {
     const v = get(q.key);
     if (!isQuestionShown(q, input, questions)) { answers[q.key] = ""; continue; }
-    if (q.required && !v) errors[q.key] = `${q.label} is required`;
-    else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = "Choose one of the listed options";
+    if (q.required && !v) errors[q.key] = d.required(q.label);
+    else if (q.type === "select" && v && !q.options!.includes(v)) errors[q.key] = d.chooseListed;
     else if (q.type === "multi" && v) {
       // D732: every tick must be one of the choices; stored in the question's order.
       const ticked = multiParts(v);
-      if (ticked.some((t) => !q.options!.includes(t))) errors[q.key] = "Tick only the listed options";
+      if (ticked.some((t) => !q.options!.includes(t))) errors[q.key] = d.tickListed;
       else { answers[q.key] = q.options!.filter((o) => ticked.includes(o)).join(", "); continue; }
     }
     else if (q.type === "phone" && v) {

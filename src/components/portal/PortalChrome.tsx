@@ -13,7 +13,7 @@ import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
 import type { ActivityNav } from "@/features/activities/client";
 import { Mark, PortalHeader } from "./PortalHeader";
 import { LangProvider, t, type Dict, type Lang } from "@/features/language/client";
-import { LangSwitch } from "@/features/language/LangSwitch";
+import { LangSwitch } from "@/features/language/client";
 
 type NavItem = { href: string; label: string; icon: IconName; dot?: boolean };
 

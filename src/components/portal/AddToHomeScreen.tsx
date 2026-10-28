@@ -5,7 +5,7 @@ import { ChevronRight, Ellipsis, EllipsisVertical, Menu, MonitorDown, Share, Sma
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useT } from "@/features/language/client";
-import { RichLine } from "@/features/language/RichLine";
+import { RichLine } from "@/features/language/client";
 
 /** The Chrome/Android event that carries the install prompt. Not in the DOM typings. */
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
