@@ -56,8 +56,8 @@ export function importChange(added: Attendee[], updated: { before: Attendee; aft
 export function searchText(change: NewChange, actorName: string, actorEmail: string): string {
   const parts = [change.summary, actorName, actorEmail];
   for (const p of change.people) {
-    parts.push(p.name);
-    if (p.email) parts.push(p.email);
+    // A missing email still takes its slot (and its space): the SQL joins name || ' ' || coalesce(email, '').
+    parts.push(p.name, p.email ?? "");
   }
   return parts.join(" ").trim().toLowerCase();
 }

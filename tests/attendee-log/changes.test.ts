@@ -101,4 +101,20 @@ describe("attendee log change builders", () => {
     };
     expect(searchText(c, "CS Wong", "CS@ecopia.com")).toBe("deleted 2 people cs wong cs@ecopia.com lee mei ling mei@example.com tan ah kow");
   });
+
+  it("searchText matches the erasure SQL for a person with no email in the middle", () => {
+    const c = {
+      kind: "bulk_delete" as const,
+      summary: "Deleted 3 people",
+      people: [
+        { attendeeId: "a", name: "Lee Mei Ling", email: "mei@example.com" },
+        { attendeeId: "b", name: "Tan Ah Kow", email: null },
+        { attendeeId: "c", name: "Sam Ng", email: "sam@example.com" },
+      ],
+    };
+    // 0112: each person is name || ' ' || coalesce(email, ''), people joined by ' ' - so the gap is two spaces.
+    expect(searchText(c, "CS Wong", "cs@ecopia.com")).toBe(
+      "deleted 3 people cs wong cs@ecopia.com lee mei ling mei@example.com tan ah kow  sam ng sam@example.com",
+    );
+  });
 });
