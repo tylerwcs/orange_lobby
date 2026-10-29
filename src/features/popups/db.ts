@@ -1,5 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { selectAll } from "@/lib/db/select-all";
 import type { ActivitySession, Event } from "@/lib/types";
 import type { PopupInput, PortalPopup } from "./types";
 
@@ -45,23 +46,26 @@ export async function setPopupOrder(eventId: string, orderedIds: string[]) {
   }
 }
 
-/** Only the popups' activities' sessions, not the whole event's (D752). Times as `HH:MM`, like `listSessions`. */
+/**
+ * Only the popups' activities' sessions, not the whole event's (D752). Times as `HH:MM`, like
+ * `listSessions`. Paged (D289): a month of five-minute slots passes 1,000 rows.
+ */
 export async function sessionsForActivities(activityIds: string[]): Promise<ActivitySession[]> {
   if (activityIds.length === 0) return [];
-  const { data, error } = await serviceClient().from("activity_sessions").select("*").in("activity_id", activityIds);
-  if (error) throw error;
-  return (data as ActivitySession[]).map((s) => ({
+  const rows = await selectAll<ActivitySession>((from, to) => serviceClient().from("activity_sessions")
+    .select("*").in("activity_id", activityIds).order("id").range(from, to));
+  return rows.map((s) => ({
     ...s, starts_at: s.starts_at.slice(0, 5), ends_at: s.ends_at?.slice(0, 5) ?? null,
   }));
 }
 
-/** Bookings per session id, for the same activities only. */
+/** Bookings per session id, for the same activities only. Paged, or a full session past row 1,000 would look open. */
 export async function bookingCountsForActivities(activityIds: string[]): Promise<Record<string, number>> {
   if (activityIds.length === 0) return {};
-  const { data, error } = await serviceClient().from("activity_bookings").select("session_id").in("activity_id", activityIds);
-  if (error) throw error;
-  return (data ?? []).reduce<Record<string, number>>((acc, r) => {
-    acc[r.session_id as string] = (acc[r.session_id as string] ?? 0) + 1;
+  const rows = await selectAll<{ session_id: string }>((from, to) => serviceClient().from("activity_bookings")
+    .select("session_id").in("activity_id", activityIds).order("id").range(from, to));
+  return rows.reduce<Record<string, number>>((acc, r) => {
+    acc[r.session_id] = (acc[r.session_id] ?? 0) + 1;
     return acc;
   }, {});
 }

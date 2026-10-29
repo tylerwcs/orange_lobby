@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickPopup, onTargetPage, readPopupForm, type PickInput, type PortalPopup } from "@/features/popups/client";
+import { pickPopup, onTargetPage, opensThisVisit, readPopupForm, type PickInput, type PortalPopup } from "@/features/popups/client";
 import type { Activity, ActivitySession } from "@/lib/types";
 
 const activity = (id: string, over: Partial<Activity> = {}): Activity => ({
@@ -97,6 +97,22 @@ describe("onTargetPage", () => {
     expect(onTargetPage("/e/x/a/t", base, "a1")).toBe(false);
     expect(onTargetPage("/e/x/a/t/activities", base, "a1")).toBe(false);
     expect(onTargetPage("/e/x/a/t/activities/a2", base, "a1")).toBe(false);
+  });
+});
+
+describe("opensThisVisit", () => {
+  it("opens a popup when none has shown on this open", () => {
+    expect(opensThisVisit({ popupId: "p1", onTarget: false, shownThisOpen: false })).toBe(true);
+  });
+  it("opens nothing when there is no popup", () => {
+    expect(opensThisVisit({ popupId: null, onTarget: false, shownThisOpen: false })).toBe(false);
+  });
+  it("waits while they are on the page its button leads to", () => {
+    expect(opensThisVisit({ popupId: "p1", onTarget: true, shownThisOpen: false })).toBe(false);
+  });
+  // Booking from popup A hands the layout popup B; B must wait for the next open (D754).
+  it("opens no second popup on the same open, even a different one", () => {
+    expect(opensThisVisit({ popupId: "p2", onTarget: false, shownThisOpen: true })).toBe(false);
   });
 });
 

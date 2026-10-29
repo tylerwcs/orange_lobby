@@ -47,6 +47,14 @@ export function onTargetPage(pathname: string, basePath: string, activityId: str
   return pathname.replace(/\/+$/, "") === `${basePath}/activities/${activityId}`;
 }
 
+/**
+ * Whether the dialog opens now (D753, D754): one popup per open of the portal, whichever it
+ * was. Booking from one popup can hand the layout the next one; that one waits for the next open.
+ */
+export function opensThisVisit({ popupId, onTarget, shownThisOpen }: { popupId: string | null; onTarget: boolean; shownThisOpen: boolean }): boolean {
+  return popupId !== null && !onTarget && !shownThisOpen;
+}
+
 export type PopupFormResult =
   | { ok: true; input: Omit<PopupInput, "message_html"> & { message: string } }
   | { ok: false; error: string };
