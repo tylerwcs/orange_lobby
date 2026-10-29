@@ -16,6 +16,7 @@ import { ThemeStyle } from "@/features/theme";
 import { QueueCard, resolveTokenView } from "@/features/registration-queue";
 import { portalLang } from "@/features/language";
 import { PopupDialog, portalPopupFor } from "@/features/popups";
+import { LangProvider } from "@/features/language/client";
 
 /**
  * Home-screen install (D227): this attendee's own manifest, so the icon opens their page, and
@@ -135,8 +136,11 @@ export default async function PersonalLayout({ children, params }: {
         {children}
       </PortalChrome>
       {/* D753: here, not in a page, so it stays mounted across tabs and shows once per open. A
-          sibling of PortalChrome for the same reason as Flash below. */}
-      <PopupDialog popup={popup} basePath={`/e/${slug}/a/${token}`} />
+          sibling of PortalChrome for the same reason as Flash below, so it needs the language
+          handed to it again: PortalChrome's provider does not reach out here. */}
+      <LangProvider lang={lang}>
+        <PopupDialog popup={popup} basePath={`/e/${slug}/a/${token}`} />
+      </LangProvider>
       {/* This is the only part of the portal that announces results through flashPath() today
           (registration writes too, but from a page outside this layout), so it is the only
           portal layout that needs to turn a flashPath() redirect into something on screen.
