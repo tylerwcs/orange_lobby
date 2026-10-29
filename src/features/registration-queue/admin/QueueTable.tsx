@@ -12,8 +12,9 @@ import { approveEntryAction, declineEntryAction, moveInAction, removeEntryAction
  * CancelRequestsTable, so the buttons work before the page has hydrated. Admins and committee
  * alike. An archived event is read-only: the rows show, the buttons do not.
  *
- * `fields` are the event's columns; the phone one is shown as Mobile, and the rest label the
- * answers on a pending row.
+ * `fields` are the event's columns; the phone one is shown as Mobile. On the waiting list the
+ * rest get a column each, like the registered table, so people can be compared before one is
+ * moved in; a pending row folds them into its answers to open.
  */
 export function QueueTable({ eventId, view, rows, fields, archived = false }: {
   eventId: string;
@@ -28,6 +29,8 @@ export function QueueTable({ eventId, view, rows, fields, archived = false }: {
   }
   const phone = fields.find((f) => f.type === "phone");
   const answerFields = fields.filter((f) => f !== phone);
+  // The waiting list's columns can run past the edge; the buttons stay pinned on the right.
+  const pinned = waiting ? "sticky right-0 bg-card" : undefined;
   return (
     <div className="rounded-xl border bg-card">
       <Table>
@@ -38,8 +41,9 @@ export function QueueTable({ eventId, view, rows, fields, archived = false }: {
             <TableHead>Email</TableHead>
             <TableHead>Mobile</TableHead>
             <TableHead>{waiting ? "Joined on" : "Applied on"}</TableHead>
+            {waiting && answerFields.map((f) => <TableHead key={f.key} className="whitespace-nowrap">{f.label}</TableHead>)}
             {!waiting && <TableHead>Answers</TableHead>}
-            <TableHead><span className="sr-only">Actions</span></TableHead>
+            <TableHead className={pinned}><span className="sr-only">Actions</span></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -54,7 +58,10 @@ export function QueueTable({ eventId, view, rows, fields, archived = false }: {
                 <TableCell className="font-semibold">{e.name}</TableCell>
                 <TableCell className="text-muted-foreground">{e.email}</TableCell>
                 <TableCell className="text-muted-foreground">{(phone && e.extra?.[phone.key]?.trim()) || "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{klDayTime(e.joined_at)}</TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">{klDayTime(e.joined_at)}</TableCell>
+                {waiting && answerFields.map((f) => (
+                  <TableCell key={f.key} className="min-w-32 max-w-64 whitespace-pre-line text-muted-foreground">{e.extra?.[f.key]?.trim() || "—"}</TableCell>
+                ))}
                 {!waiting && (
                   <TableCell className="min-w-48 max-w-md">
                     {answers.length === 0 ? <span className="text-muted-foreground">—</span> : (
@@ -69,7 +76,7 @@ export function QueueTable({ eventId, view, rows, fields, archived = false }: {
                     )}
                   </TableCell>
                 )}
-                <TableCell>
+                <TableCell className={pinned}>
                   {!archived && (
                     <div className="flex justify-end gap-2">
                       {waiting ? (<>
