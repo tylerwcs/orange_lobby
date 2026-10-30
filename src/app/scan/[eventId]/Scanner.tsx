@@ -2,11 +2,13 @@
 import { PendingLink } from "@/components/PendingNav";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Html5Qrcode } from "html5-qrcode";
-import { Camera, CameraOff, ChevronLeft, CircleAlert, CircleCheck, CircleX, History, LogIn, ScanBarcode, Search, Undo2, X, type LucideIcon } from "lucide-react";
+import { Camera, CameraOff, ChevronLeft, CircleAlert, CircleCheck, CircleX, ClipboardList, History, LogIn, ScanBarcode, Search, Undo2, X, type LucideIcon } from "lucide-react";
 import { checkInByTokenAction, checkInByIdAction, loadBoardAction, searchAttendeesAction, undoCheckinAction, type ScanResult, type SearchHit } from "./actions";
 import type { Checkpoint } from "@/lib/types";
 import type { Board } from "@/features/activities/client";
 import { ExpectedList } from "./ExpectedList";
+import { DoorSurvey, type DoorSurveyForm } from "./DoorSurvey";
+import { offersSurvey } from "@/lib/door-survey";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -102,7 +104,7 @@ const RECENT: Record<Recent["status"], string> = {
   ok: "in", duplicate: "already in", undone: "undone", not_booked: "not booked", notfound: "", error: "",
 };
 
-export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, board }: { eventId: string; checkpoint: Checkpoint; initialCount: number; total: number; crewToken?: string; board?: Board }) {
+export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, board, survey }: { eventId: string; checkpoint: Checkpoint; initialCount: number; total: number; crewToken?: string; board?: Board; survey?: DoorSurveyForm }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [count, setCount] = useState(initialCount);
   const [recent, setRecent] = useState<Recent[]>([]);
@@ -110,6 +112,12 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
   const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState<CameraState>({ phase: "starting" });
   const [undoLeft, setUndoLeft] = useState(0);
+  // D763: the door's survey, open over the scanner for the person just scanned. While it is,
+  // nothing is read off a badge: a scan landing under an open form would check in the next
+  // person behind the one still answering.
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const surveyOpenRef = useRef(false);
+  const openSurvey = (open: boolean) => { surveyOpenRef.current = open; setSurveyOpen(open); };
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
   const busyRef = useRef(false);
@@ -188,6 +196,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
 
   /** One decoded code, from either the camera or the hand scanner. */
   const scanText = useCallback(async (first: string, queueIfBusy: boolean) => {
+    if (surveyOpenRef.current) return;
     if (busyRef.current) { if (queueIfBusy) queuedRef.current = first; return; }
     for (let text: string | null = first; text; text = queuedRef.current, queuedRef.current = null) {
       const now = Date.now();
@@ -233,7 +242,8 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
     if (mode !== "wedge") return;
     const reader = createWedgeReader();
     const onKey = (e: KeyboardEvent) => {
-      if (e.repeat || e.isComposing) return;
+      // D763: typing into the open survey is answers, not a badge.
+      if (surveyOpenRef.current || e.repeat || e.isComposing) return;
       const scanned = reader.feed(e.key, e.timeStamp);
       if (scanned === null) return;
       e.preventDefault(); // the Enter (or Tab) that ended it must not also act on the page
@@ -276,6 +286,17 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
   const walkIns = liveBoard?.walkIns.length ?? 0;
 
   const named = result?.attendee && result.status !== "error" && result.status !== "notfound";
+  // D763: whether this result offers the door's survey, or says it is already done.
+  const surveyHere = !!(survey && result?.attendee && result.survey && offersSurvey(result.status));
+  const owesSurvey = surveyHere && !result!.survey!.done;
+  const surveyDone = surveyHere && result!.survey!.done;
+  /** Skip, on the card or in the form: nothing is recorded, and the card stops offering it. */
+  const dropSurvey = () => { openSurvey(false); setResult((r) => (r ? { ...r, survey: undefined } : r)); };
+  const surveySaved = () => {
+    openSurvey(false);
+    setResult((r) => (r?.survey ? { ...r, survey: { ...r.survey, done: true } } : r));
+    if (navigator.vibrate) navigator.vibrate(100);
+  };
 
   // The door is also the way back to the door list: one tap, where the thumb is. This
   // component serves two doors — an admin's session and a crew token — and each must land
@@ -365,13 +386,37 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
                 ))}
               </dl>
             )}
-            {result.status === "ok" && undoLeft > 0 && (
-              <Button type="button" variant="outline" disabled={busy}
-                className={cn("mt-auto w-fit border-current/30 bg-transparent font-bold text-current hover:bg-background/60", hero ? "h-12 px-5 text-base" : "h-11 px-4")}
-                onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id, crewToken))}>
-                <Undo2 data-icon="inline-start" />
-                Undo · {undoLeft}s
-              </Button>
+            {/* D763: the door's survey - offered, or already done - with Undo beside it. */}
+            {(owesSurvey || surveyDone || (result.status === "ok" && undoLeft > 0)) && (
+              <div className="mt-auto flex flex-wrap items-center gap-2">
+                {owesSurvey && (
+                  <>
+                    <Button type="button" disabled={busy} onClick={() => openSurvey(true)}
+                      className={cn("font-bold", hero ? "h-12 px-5 text-base" : "h-11 px-4")}>
+                      <ClipboardList data-icon="inline-start" />
+                      Fill survey
+                    </Button>
+                    <Button type="button" variant="outline" disabled={busy} onClick={dropSurvey}
+                      className={cn("border-current/30 bg-transparent font-bold text-current hover:bg-background/60", hero ? "h-12 px-5 text-base" : "h-11 px-4")}>
+                      Skip
+                    </Button>
+                  </>
+                )}
+                {surveyDone && (
+                  <p className={cn("flex items-center gap-2 font-extrabold", hero ? "text-lg" : "text-base")}>
+                    <CircleCheck className="size-5" aria-hidden="true" />
+                    Survey done
+                  </p>
+                )}
+                {result.status === "ok" && undoLeft > 0 && (
+                  <Button type="button" variant="outline" disabled={busy}
+                    className={cn("w-fit border-current/30 bg-transparent font-bold text-current hover:bg-background/60", hero ? "h-12 px-5 text-base" : "h-11 px-4")}
+                    onClick={() => handle(() => undoCheckinAction(eventId, checkpoint.id, result.attendee!.id, crewToken))}>
+                    <Undo2 data-icon="inline-start" />
+                    Undo · {undoLeft}s
+                  </Button>
+                )}
+              </div>
             )}
             {result.status === "not_booked" && (
               // D326: nothing was recorded. Letting them in is one deliberate tap, and it records
@@ -523,6 +568,11 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
           )}
         </div>
       </div>
+      {surveyOpen && survey && owesSurvey && (
+        <DoorSurvey key={result!.attendee!.id} eventId={eventId} checkpointId={checkpoint.id} crewToken={crewToken} form={survey}
+          attendee={{ id: result!.attendee!.id, name: result!.attendee!.name }} needsConsent={result!.survey!.needsConsent}
+          onSaved={surveySaved} onSkip={dropSurvey} />
+      )}
     </main>
   );
 }

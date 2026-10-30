@@ -8,6 +8,7 @@ import { isValidToken } from "@/lib/tokens";
 import { nowInKL } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { Scanner } from "@/app/scan/[eventId]/Scanner";
+import { loadDoorSurvey } from "@/app/scan/[eventId]/door-survey-form";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { ChevronRight, Flag } from "lucide-react";
@@ -111,6 +112,6 @@ export default async function CrewPage({ params, searchParams }: { params: Promi
   }
 
   const tally = tallies[active.id] ?? { arrived: 0, expected: doors.registered, walkIns: 0 };
-  const board = await loadBoard(ev.id, active, nowInKL());
-  return <Scanner eventId={ev.id} checkpoint={active} initialCount={tally.arrived} total={tally.expected} crewToken={token} board={board ?? undefined} />;
+  const [board, survey] = await Promise.all([loadBoard(ev.id, active, nowInKL()), loadDoorSurvey(active)]);
+  return <Scanner eventId={ev.id} checkpoint={active} initialCount={tally.arrived} total={tally.expected} crewToken={token} board={board ?? undefined} survey={survey} />;
 }

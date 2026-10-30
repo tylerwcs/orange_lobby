@@ -25,3 +25,8 @@ export * from "./lib/submissions";
 export * from "./lib/tracker";
 export * from "./lib/revoke";
 export * from "./lib/schedule";
+
+// D763: the submit form's parts, for the door survey on the crew scanner - a client screen
+// outside this folder that must not pull in the server entry's database reads.
+export * from "./kinds/submission/SubmissionFields";
+export * from "./kinds/submission/HealthConsentField";
