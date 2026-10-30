@@ -12,6 +12,7 @@ import { getRequest, decideRequest } from "../db/activity-requests";
 import { notifyRequestDecision, decisionFlash } from "../lib/request-notify";
 import { describePlacement, sessionLabel } from "../lib/activities";
 import { listAttendees, getAttendee } from "@/lib/db/attendees";
+import { updateEvent } from "@/lib/db/events";
 import { parseIds } from "@/lib/bulk";
 import { flashPath } from "@/lib/flash";
 import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
@@ -117,6 +118,11 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
     redirect(flashPath(back, (e as Error).message, "error"));
   }
   await updateActivity(activityId, ev.id, { ...policy, image_url: image.url });
+  // D766: one booking per event opens right after registering, so ticking it here moves it here,
+  // and unticking clears it only when it was this one's.
+  const afterRegister = fd.get("after_register") === "on";
+  if (afterRegister && ev.after_register_activity_id !== activityId) await updateEvent(ev.id, { after_register_activity_id: activityId });
+  else if (!afterRegister && ev.after_register_activity_id === activityId) await updateEvent(ev.id, { after_register_activity_id: null });
   // Only once the row names the new picture (or none) is the old one safe to throw away.
   await deleteEventImage(image.stale);
   revalidatePath(`/admin/events/${eventId}/activities`);

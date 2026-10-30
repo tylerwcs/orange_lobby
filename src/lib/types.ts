@@ -75,6 +75,8 @@ export type Event = {
   registration_done_message: string | null;
   /** D634: show the "You're in" page after registering; off by default (they land on their event page). Optional so old fixtures compile. */
   registration_done_page?: boolean;
+  /** D766: the booking activity a new registrant is sent straight to, when they can book it. Optional so old fixtures compile. */
+  after_register_activity_id?: string | null;
   /** D633: the name with the organiser's line breaks, for the Coming soon card (and the bar if D635 is on); null/absent = name. */
   display_name?: string | null;
   /** D635: also use display_name's line breaks in the top bar; off by default. */

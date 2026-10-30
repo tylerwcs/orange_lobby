@@ -1,4 +1,5 @@
-import type { RegistrationEntryState } from "@/lib/types";
+import { eligible, seatsFor } from "@/features/activities/client";
+import type { Activity, ActivitySession, RegistrationEntryState } from "@/lib/types";
 
 /** The entry states a personal link shows the queue card for (D680, D681, D697, D700). `registered` is not one: that person is an attendee. */
 export const QUEUE_CARD_STATES: readonly RegistrationEntryState[] = ["waiting", "pending", "declined", "left", "removed"];
@@ -25,19 +26,45 @@ export function resolveTokenView<A extends { cancelled_at?: string | null }, E e
   return { kind: "missing" };
 }
 
-export type RegisterLanding = { to: "done" } | { to: "link"; filled: boolean };
+export type RegisterLanding = { to: "done" } | { to: "link"; filled: boolean } | { to: "activity"; id: string };
 
 /**
  * Where the registration form sends someone. Registered or updated: the "You're in" page when the
  * organiser has it on (D634), else their link. Waiting or pending: always their link (D690); a
  * waiting person who sent the normal form, not the waiting-list one, lost the race for the last
  * place and their page says so (D695).
+ *
+ * D766: `booking` is the activity the organiser set to open right after registering, when this
+ * person can book it now (`bookableAfterRegister`). It wins over the "You're in" page for anyone
+ * now registered; someone waiting or pending can't book yet and lands as before.
  */
 export function registerLanding(
   outcome: "updated" | "waiting" | "pending" | "registered",
-  opts: { showsDone: boolean; waitlistForm: boolean },
+  opts: { showsDone: boolean; waitlistForm: boolean; booking?: string | null },
 ): RegisterLanding {
   if (outcome === "waiting") return { to: "link", filled: !opts.waitlistForm };
   if (outcome === "pending") return { to: "link", filled: false };
+  if (opts.booking) return { to: "activity", id: opts.booking };
   return opts.showsDone ? { to: "done" } : { to: "link", filled: false };
+}
+
+/**
+ * D766: whether the activity set to open after registering is worth opening for this person now -
+ * an open booking they can see, with a slot that hasn't started and still has room. Otherwise
+ * they land as before, rather than on a page with nothing to book.
+ */
+export function bookableAfterRegister(x: {
+  activity: Pick<Activity, "id" | "kind" | "is_open" | "categories">;
+  sessions: ActivitySession[];
+  /** Bookings per session id. */
+  counts: Record<string, number>;
+  category: string | null;
+  /** `nowInKL()`. */
+  now: { date: string; time: string };
+}): boolean {
+  const { activity, sessions, counts, category, now } = x;
+  if (activity.kind !== "booking" || !activity.is_open || !eligible(activity, category)) return false;
+  return sessions.some((s) => s.activity_id === activity.id
+    && (s.day > now.date || (s.day === now.date && s.starts_at > now.time))
+    && !seatsFor(s, counts[s.id] ?? 0).full);
 }

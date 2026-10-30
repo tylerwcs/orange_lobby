@@ -9,7 +9,11 @@ import { allow } from "@/lib/ratelimit";
 import { showsDonePage } from "@/lib/registration-done";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
-import { fillFreePlaces, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
+import { bookableAfterRegister, fillFreePlaces, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
+import { countBookingsBySession, getActivity, listSessions } from "@/features/activities";
+import { findByToken } from "@/lib/db/attendees";
+import { nowInKL } from "@/lib/time";
+import type { Event } from "@/lib/types";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
 
@@ -49,8 +53,32 @@ export async function registerAction(slug: string, waitlist: boolean, _prev: Reg
     }
   }
   // D634, D690, D695: the "You're in" page, or their link (with the filled-up note when they lost the race).
-  const landing = registerLanding(outcome, { showsDone: showsDonePage(event), waitlistForm: waitlist });
+  // D766: or straight to the booking the organiser set to open after registering.
+  const booking = outcome === "registered" || outcome === "updated" ? await bookingToOpen(event, token) : null;
+  const landing = registerLanding(outcome, { showsDone: showsDonePage(event), waitlistForm: waitlist, booking });
   if (landing.to === "done") redirect(`/e/${slug}/register/done?t=${token}`);
   const link = attendeeLink(await eventAddress(event), token);
+  if (landing.to === "activity") redirect(`${link}/activities/${landing.id}`);
   redirect(landing.filled ? `${link}?filled=1` : link);
+}
+
+/**
+ * D766: the booking to open right after registering, when this person can book it now - or null,
+ * and they land as before. A failed read is a null too: it never stands between someone and their link.
+ */
+async function bookingToOpen(event: Event, token: string): Promise<string | null> {
+  if (!event.after_register_activity_id) return null;
+  try {
+    const [activity, attendee, sessions, counts] = await Promise.all([
+      getActivity(event.after_register_activity_id, event.id),
+      findByToken(event.id, token),
+      listSessions(event.id),
+      countBookingsBySession(event.id),
+    ]);
+    if (!activity || !attendee) return null;
+    return bookableAfterRegister({ activity, sessions, counts, category: attendee.category, now: nowInKL() }) ? activity.id : null;
+  } catch (e) {
+    console.error("registerAction: could not check the booking to open", e);
+    return null;
+  }
 }

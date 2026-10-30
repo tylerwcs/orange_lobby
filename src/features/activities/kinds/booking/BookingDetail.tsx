@@ -135,7 +135,7 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
           <Card className="overflow-hidden">
             <CardHeader><CardTitle>Details and rules</CardTitle></CardHeader>
             <CardContent>
-              <form key={formKey({ ...activity, is_open: undefined })} action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
+              <form key={formKey({ ...activity, is_open: undefined, after_register: ev.after_register_activity_id === activity.id })} action={saveActivityAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
                 <Field label="Name" name="name" defaultValue={activity.name} />
                 <RichTextEditor name="description" label="Description (optional)" defaultValue={activity.description} description={SECTIONS_HINT} uploadImage={uploadActivityImageAction.bind(null, ev.id)} />
                 <ImageField label="Image (optional)" name="image" url={activity.image_url} description={COVER_HINT} />
@@ -149,6 +149,14 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
                   <input type="checkbox" name="required" className="size-4" defaultChecked={activity.required} />
                   Everyone must pick one
                 </label>
+                {/* D766: one per event - ticking it here moves it from any other booking. */}
+                <div className="flex flex-col gap-1">
+                  <label className={check}>
+                    <input type="checkbox" name="after_register" className="size-4" defaultChecked={ev.after_register_activity_id === activity.id} />
+                    Open this right after registering
+                  </label>
+                  <p className="text-xs text-muted-foreground">New registrants go straight to this activity&apos;s slots instead of their home page, ahead of the You&apos;re in page. Only one activity can do this; anyone who can&apos;t book it yet (closed, full, not their category) lands as usual.</p>
+                </div>
                 <SaveBar inCard />
               </form>
             </CardContent>
