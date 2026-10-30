@@ -80,3 +80,57 @@ describe("aroundWindow", () => {
     expect(aroundWindow(22)).toEqual({ offset: 20, limit: 3 });
   });
 });
+
+import { confirmedBoard, type RankedRow } from "@/features/qualifier/board";
+
+const ranked = (rank: number, id = `p${rank}`): RankedRow => ({ rank, id, label: id.toUpperCase(), skin: null, wpm: 100 - rank });
+const snapshot = (n: number) => Array.from({ length: n }, (_, i) => ranked(i + 1));
+const confirmed = (o: Partial<Parameters<typeof confirmedBoard>[0]>) =>
+  confirmedBoard({ finalists: snapshot(10), live: Array.from({ length: 20 }, (_, i) => ranked(i + 1)), myId: "me", myLiveRank: null, liveTotal: 40, ...o });
+const shown = (r: ReturnType<typeof confirmedBoard>) => r.entries.map((e) => `${e.rank}:${e.label}`).sort((a, b) => parseInt(a) - parseInt(b));
+
+describe("confirmedBoard (D769)", () => {
+  it("is the live board when nothing changed since the confirm", () => {
+    const r = confirmed({ myId: "p14", myLiveRank: 14 });
+    expect(shown(r)).toEqual(Array.from({ length: 20 }, (_, i) => `${i + 1}:P${i + 1}`));
+    expect(r).toMatchObject({ rank: 14, total: 40, cut: 10 });
+  });
+
+  it("keeps a finalist who left the live board; the live #11 stays below the cut", () => {
+    // P3 cancelled after the confirm: the live board closes up beneath them.
+    const live = Array.from({ length: 21 }, (_, i) => ranked(i + 1)).filter((r) => r.id !== "p3").map((r, i) => ({ ...r, rank: i + 1 }));
+    const r = confirmed({ live: live.slice(0, 20), myId: "p11", myLiveRank: 10, liveTotal: 39 });
+    expect(r.entries.find((e) => e.label === "P3")?.rank).toBe(3);
+    expect(r.entries.filter((e) => e.rank <= r.cut).map((e) => e.label).sort()).toEqual(snapshot(10).map((f) => f.label).sort());
+    expect(r.entries.find((e) => e.label === "P11")).toMatchObject({ rank: 11, me: true });
+    expect(r).toMatchObject({ rank: 11, total: 40, cut: 10 });
+  });
+
+  it("gives a finalist their snapshot rank whatever the live board says", () => {
+    expect(confirmed({ myId: "p3", myLiveRank: null }).rank).toBe(3);
+    expect(confirmed({ myId: "p3", myLiveRank: 7 }).rank).toBe(3);
+  });
+
+  it("puts someone placed above the finalists after the confirm below the cut", () => {
+    const live = [ranked(1, "late"), ...Array.from({ length: 19 }, (_, i) => ranked(i + 2, `p${i + 1}`))];
+    const r = confirmed({ live, myId: "late", myLiveRank: 1, liveTotal: 41 });
+    expect(r.entries.find((e) => e.label === "LATE")).toMatchObject({ rank: 11, me: true });
+    expect(r.entries.find((e) => e.label === "P11")?.rank).toBe(12);
+    expect(r).toMatchObject({ rank: 11, total: 41 });
+  });
+
+  it("numbers on from the snapshot's last rank past the top 20", () => {
+    const top = Array.from({ length: 20 }, (_, i) => ranked(i + 1)).filter((r) => r.id !== "p2").map((r, i) => ({ ...r, rank: i + 1 }));
+    const live = [...top, ranked(29, "x"), ranked(30, "me"), ranked(31, "y")];
+    const r = confirmed({ live, myLiveRank: 30, liveTotal: 50 });
+    // P2 is off the live board, so everyone past the cut is one further down than live.
+    expect(r.rank).toBe(31);
+    expect(r.total).toBe(51);
+  });
+
+  it("puts the cut under the snapshot's last rank when fewer than 10 were through", () => {
+    const r = confirmed({ finalists: snapshot(4), live: [...snapshot(4), ranked(5, "late")], liveTotal: 5 });
+    expect(r.cut).toBe(4);
+    expect(r.entries.find((e) => e.label === "LATE")?.rank).toBe(5);
+  });
+});

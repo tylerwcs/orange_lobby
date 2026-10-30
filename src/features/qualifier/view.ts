@@ -5,8 +5,9 @@ import { createMemo } from "@/lib/memo";
 import { eventAddress } from "@/features/domains";
 import { genericLink } from "@/lib/links";
 import { nowInKL } from "@/lib/time";
-import { boardSize, getPlayer, getSettings, listBoard, listFinalists, rankOf, runOffsets, type BoardRow } from "./db";
-import { BOARD_TOP, aroundWindow, boardSlices, needsFreshSlice, type BoardEntry } from "./board";
+import { listAttendeesByIds } from "@/lib/db/attendees";
+import { boardSize, getPlayer, getSettings, listBoard, listFinalists, rankOf, runOffsets, type BoardRow, type Finalist } from "./db";
+import { BOARD_TOP, aroundWindow, boardSlices, confirmedBoard, needsFreshSlice, type BoardEntry } from "./board";
 import { ineligibility, phaseOf, type Ineligible, type Phase, type QualifierSettings } from "./phase";
 import { streakDays, streakDots, tierOf, unlockedSkins, type SkinId, type Tier } from "./progress";
 import { FINALISTS } from "./scoring";
@@ -45,6 +46,16 @@ const aroundFor = (eventId: string, myRank: number, fresh = false) => {
   return aroundMemo.get(key, () => listBoard(eventId, w.limit, w.offset));
 };
 
+type Person = { id: string; name: string; extra: Record<string, unknown> | null };
+type Finale = { finalists: Finalist[]; people: Person[] };
+// The finale list never changes once confirmed (D769), so it and its names are read once a minute.
+const finaleMemo = createMemo<Finale>(60_000);
+const finaleFor = (eventId: string) => finaleMemo.get(eventId, async () => {
+  const finalists = await listFinalists(eventId);
+  const people = finalists.length > 0 ? await listAttendeesByIds(eventId, finalists.map((f) => f.attendee_id)) : [];
+  return { finalists, people: people.map((a) => ({ id: a.id, name: a.name, extra: a.extra ?? null })) };
+});
+
 export type QualifierView = {
   phase: Phase;
   opensAt: string | null;
@@ -70,7 +81,8 @@ export type QualifierView = {
   cutWpm: number | null;
   /** True or false once the finalists are confirmed; null before. */
   finalist: boolean | null;
-  board: { top: BoardEntry[]; around: BoardEntry[] };
+  /** `cut`: the last rank above the finale cut (10, or once confirmed the snapshot's last rank). */
+  board: { top: BoardEntry[]; around: BoardEntry[]; cut: number };
 };
 
 /** Fell out of place since the rank last seen: lower on the board, or off it. */
@@ -84,6 +96,8 @@ export function droppedOf(seen: number | null, rank: number | null): { from: num
  * The shared board copy may be a few seconds old, so the caller's own row is reconciled with
  * their fresh rank (needsFreshSlice): only when it disagrees is that slice read again, and the
  * shared copy is refreshed with it for everyone after.
+ * Once the finalists are confirmed, the top of the board, the cut and a finalist's rank come
+ * from the snapshot, not the live board (confirmedBoard).
  */
 export async function qualifierView(ctx: PlayContext, now: number, known?: { rank: number | null }): Promise<QualifierView> {
   const { event, attendee } = ctx;
@@ -91,36 +105,57 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
   const phase = phaseOf(settings, now);
   const ineligible = ineligibility({ ...attendee, cancelled_at: attendee.cancelled_at ?? null }, event.preview_attendee_id, settings?.excluded_categories ?? []);
 
-  const [player, rank, board0, finalists, shareUrl] = await Promise.all([
+  const [player, liveRank, board0, finale, shareUrl] = await Promise.all([
     getPlayer(event.id, attendee.id),
     // Someone who may not play is off the board whatever their old runs say.
     ineligible ? Promise.resolve(null) : known ? Promise.resolve(known.rank) : rankOf(event.id, attendee.id),
     boardFor(event.id),
-    phase === "confirmed" ? listFinalists(event.id) : Promise.resolve(null),
+    phase === "confirmed" ? finaleFor(event.id) : Promise.resolve(null),
     shareUrlFor(event),
   ]);
   let board = board0;
-  let aroundRows = rank !== null && rank > BOARD_TOP ? await aroundFor(event.id, rank) : [];
+  // A finalist's place is the snapshot's: no live rows around it are needed.
+  const myFinalist = finale?.finalists.find((f) => f.attendee_id === attendee.id) ?? null;
+  const aroundRank = liveRank !== null && liveRank > BOARD_TOP && !myFinalist ? liveRank : null;
+  let aroundRows = aroundRank !== null ? await aroundFor(event.id, aroundRank) : [];
 
   const seen = (r: BoardRow) => ({ rank: r.rank, id: r.attendee_id, wpm: r.best_wpm });
   const stale = needsFreshSlice({
-    top: board.top.map(seen), around: aroundRows.map(seen), myId: attendee.id, myRank: rank,
+    top: board.top.map(seen), around: aroundRows.map(seen), myId: attendee.id, myRank: liveRank,
     myWpm: player?.best_wpm ?? null, total: board.total,
   });
   if (stale.board) board = await boardFor(event.id, true);
-  if (stale.around && rank !== null) aroundRows = await aroundFor(event.id, rank, true);
+  if (stale.around && aroundRank !== null) aroundRows = await aroundFor(event.id, aroundRank, true);
 
   // Top and around are disjoint by rank (around starts at 21), so a person can't appear twice.
   const rows = new Map<number, BoardRow>();
   for (const r of [...board.top, ...aroundRows]) rows.set(r.rank, r);
-  const tags = tagsFor([...rows.values()].map((r) => ({ id: r.attendee_id, name: r.name, extra: r.extra })));
-  const entries: BoardEntry[] = [...rows.values()].map((r) => ({
-    rank: r.rank,
-    label: tags.get(r.attendee_id)?.label ?? r.name,
-    skin: r.skin,
-    wpm: r.best_wpm,
-    me: r.attendee_id === attendee.id,
-  }));
+  // One naming pass over everyone drawn, finalists no longer on the live board included.
+  const people = new Map<string, Person>();
+  for (const r of rows.values()) people.set(r.attendee_id, { id: r.attendee_id, name: r.name, extra: r.extra });
+  for (const p of finale?.people ?? []) if (!people.has(p.id)) people.set(p.id, p);
+  const tags = tagsFor([...people.values()]);
+  const labelOf = (id: string) => tags.get(id)?.label ?? people.get(id)?.name ?? "?";
+  const live = [...rows.values()].map((r) => ({ rank: r.rank, id: r.attendee_id, label: labelOf(r.attendee_id), skin: r.skin, wpm: r.best_wpm }));
+
+  let entries: BoardEntry[];
+  let rank: number | null;
+  let total: number;
+  let cut: number;
+  let cutWpm: number | null;
+  if (finale) {
+    ({ entries, rank, total, cut } = confirmedBoard({
+      finalists: finale.finalists.map((f) => ({ rank: f.rank, id: f.attendee_id, label: labelOf(f.attendee_id), skin: f.skin, wpm: f.best_wpm })),
+      live, myId: attendee.id, myLiveRank: liveRank, liveTotal: board.total,
+    }));
+    cutWpm = finale.finalists.find((f) => f.rank === FINALISTS)?.best_wpm ?? null;
+  } else {
+    entries = live.map(({ id, ...r }) => ({ ...r, me: id === attendee.id }));
+    rank = liveRank;
+    total = board.total;
+    cut = FINALISTS;
+    cutWpm = board.top.length >= FINALISTS ? board.top[FINALISTS - 1].best_wpm : null;
+  }
 
   const today = nowInKL(new Date(now)).date;
   const days = player?.run_days ?? [];
@@ -137,7 +172,7 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
       best,
       accuracy: player?.best_accuracy ?? null,
       rank,
-      total: board.total,
+      total,
       tier: tierOf(best),
       streak,
       dots: streakDots(settings?.opens_at ?? null, settings?.closes_at ?? null, today, days),
@@ -146,9 +181,9 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
       runs: player?.runs_played ?? 0,
       dropped: ineligible ? null : droppedOf(player?.last_seen_rank ?? null, rank),
     },
-    cutWpm: board.top.length >= FINALISTS ? board.top[FINALISTS - 1].best_wpm : null,
-    finalist: finalists ? finalists.some((f) => f.attendee_id === attendee.id) : null,
-    board: boardSlices(entries, rank),
+    cutWpm,
+    finalist: finale ? myFinalist !== null : null,
+    board: { ...boardSlices(entries, rank), cut },
   };
 }
 

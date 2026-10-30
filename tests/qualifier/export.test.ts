@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { exportCsv } from "@/features/qualifier/export";
-import type { BoardRow, Finalist } from "@/features/qualifier/db";
+import { exportCsv, type FinalistRow } from "@/features/qualifier/export";
+import type { BoardRow } from "@/features/qualifier/db";
 
 const row = (rank: number, over: Partial<BoardRow> = {}): BoardRow => ({
   rank, attendee_id: `a${rank}`, name: `Person ${rank}`, extra: null, best_wpm: 100 - rank,
@@ -8,8 +8,8 @@ const row = (rank: number, over: Partial<BoardRow> = {}): BoardRow => ({
   runs_played: 3, flagged: false, device: "keyboard", ...over,
 });
 const board = (n: number) => Array.from({ length: n }, (_, i) => row(i + 1));
-const finalistsOf = (rows: BoardRow[]): Finalist[] =>
-  rows.slice(0, 10).map((r) => ({ rank: r.rank, attendee_id: r.attendee_id, best_wpm: r.best_wpm, best_accuracy: r.best_accuracy, skin: null }));
+const finalistsOf = (rows: BoardRow[]): FinalistRow[] =>
+  rows.slice(0, 10).map((r) => ({ rank: r.rank, attendee_id: r.attendee_id, name: r.name, best_wpm: r.best_wpm, best_accuracy: r.best_accuracy, skin: null }));
 const lines = (csv: string) => csv.split("\r\n");
 
 describe("exportCsv", () => {
@@ -48,6 +48,33 @@ describe("exportCsv", () => {
     expect(out[9].endsWith(",yes")).toBe(true);
     expect(out[10].endsWith(",")).toBe(true);
     expect(out[11].endsWith(",")).toBe(true);
+  });
+
+  it("keeps a finalist who left the live board after the confirm, and no one else moves up", () => {
+    const confirmed = board(12);
+    const finalists = finalistsOf(confirmed);
+    // #3 cancelled after the confirm: off the live board, which re-ranks everyone below.
+    const live = confirmed.filter((r) => r.rank !== 3).map((r, i) => ({ ...r, rank: i + 1 }));
+    const out = lines(exportCsv(live, finalists)).slice(1);
+    expect(out).toHaveLength(12);
+    expect(out.filter((l) => l.endsWith(",yes"))).toHaveLength(10);
+    // The snapshot's own rank and figures; nothing live to show for runs, device or flags.
+    expect(out[2]).toBe("3,Person 3,97,97%,,,,yes");
+    expect(out[9]).toBe("10,Person 10,90,97%,3,keyboard,,yes");
+    // The live #10 (the old #11) stays below the cut.
+    expect(out[10]).toBe("11,Person 11,89,97%,3,keyboard,,");
+    expect(out[11]).toBe("12,Person 12,88,97%,3,keyboard,,");
+  });
+
+  it("lists the finalists in snapshot order even when the live board has someone new above them", () => {
+    const confirmed = board(11);
+    const finalists = finalistsOf(confirmed);
+    const newcomer = row(0, { attendee_id: "late", name: "Late Comer", best_wpm: 150 });
+    const live = [newcomer, ...confirmed].map((r, i) => ({ ...r, rank: i + 1 }));
+    const out = lines(exportCsv(live, finalists)).slice(1);
+    expect(out.slice(0, 10).every((l, i) => l.startsWith(`${i + 1},Person ${i + 1},`) && l.endsWith(",yes"))).toBe(true);
+    expect(out[10]).toBe("11,Late Comer,150,97%,3,keyboard,,");
+    expect(out[11]).toBe("12,Person 11,89,97%,3,keyboard,,");
   });
 
   it("leaves the Finalist column empty without finalists", () => {

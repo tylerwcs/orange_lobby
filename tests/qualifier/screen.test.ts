@@ -138,3 +138,10 @@ describe("skinColour", () => {
     expect(skinColour("gold")).not.toBe(skinColour("violet"));
   });
 });
+
+describe("boardLayout with a confirmed cut", () => {
+  it("puts the cut under the snapshot's last rank", () => {
+    const items = boardLayout([row(1), row(2), row(3), row(4), row(5)], [], 3);
+    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, 3, "cut", 4, 5]);
+  });
+});

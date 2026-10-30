@@ -49,8 +49,9 @@ const subscribeLoaded = (fn: () => void) => { loadedListeners.add(fn); return ()
 
 /**
  * Warm the 3D chunk: fetch it and check WebGL, drawing nothing. The client calls it in idle time
- * while no run is on (`running` false); it does nothing during a run, for reduced motion, or
- * once 3D has proved too slow.
+ * while no run is on (`running` false), the first time only after a run or 5 s of an idle ready
+ * screen (warmDelayMs); it does nothing during a run, for reduced motion, or once 3D has proved
+ * too slow.
  */
 export function preloadTunnel3D(running: boolean) {
   if (chunkLoaded || !mayPreload({ running, reducedMotion: reducedMotion(), slow: slowSeen })) return;

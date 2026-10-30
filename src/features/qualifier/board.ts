@@ -44,6 +44,44 @@ export function needsFreshSlice(p: {
   return { board, around };
 }
 
+/** A board row before the player's own flag is set: who, at which rank, and what is shown. */
+export type RankedRow = { rank: number; id: string; label: string; skin: SkinId | null; wpm: number };
+
+/**
+ * The board once the finalists are confirmed (D769, spec "When the window closes"). The finale
+ * list is the snapshot, not the live board: a finalist cancelled, moved into a left-out category
+ * or deleted after the confirm stays on it, and no one moves up above the cut. Finalists keep
+ * their snapshot ranks (1 to `cut`, the snapshot's last rank); everyone else on the live board
+ * follows below the cut in live order, numbered from cut + 1.
+ *
+ * `live` is what was read of the live board (its first rows, and the rows around the player),
+ * with live ranks; `myLiveRank` and `liveTotal` are live too. The numbering is exact while every
+ * finalist still on the live board is among the rows read, which only fails once 11 or more
+ * people have been placed above a finalist after the confirm.
+ */
+export function confirmedBoard(p: {
+  finalists: readonly RankedRow[]; live: readonly RankedRow[];
+  myId: string; myLiveRank: number | null; liveTotal: number;
+}): { entries: BoardEntry[]; rank: number | null; total: number; cut: number } {
+  const through = new Set(p.finalists.map((f) => f.id));
+  const cut = p.finalists.reduce((m, f) => Math.max(m, f.rank), 0);
+  const finalistsLive = p.live.filter((r) => through.has(r.id)).map((r) => r.rank);
+  // Everyone ahead on the live board who is not a finalist, after the whole snapshot.
+  const finalRank = (liveRank: number) => liveRank + cut - finalistsLive.filter((r) => r < liveRank).length;
+  const entry = (r: RankedRow, rank: number): BoardEntry =>
+    ({ rank, label: r.label, skin: r.skin, wpm: r.wpm, me: r.id === p.myId });
+  const mine = p.finalists.find((f) => f.id === p.myId);
+  return {
+    entries: [
+      ...p.finalists.map((f) => entry(f, f.rank)),
+      ...p.live.filter((r) => !through.has(r.id)).map((r) => entry(r, finalRank(r.rank))),
+    ],
+    rank: mine ? mine.rank : p.myLiveRank === null ? null : finalRank(p.myLiveRank),
+    total: finalRank(p.liveTotal + 1) - 1,
+    cut,
+  };
+}
+
 /** The ranks to fetch beside a caller past rank 20, never reaching into the top 20. */
 export function aroundWindow(myRank: number): { offset: number; limit: number } {
   const first = Math.max(myRank - 1, BOARD_TOP + 1);

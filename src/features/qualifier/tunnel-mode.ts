@@ -26,6 +26,20 @@ export function mayPreload(s: { running: boolean; reducedMotion: boolean; slow: 
   return !s.running && !s.reducedMotion && !s.slow;
 }
 
+/** How long the ready screen must sit idle, with no run started, before the first warm-up. */
+export const FIRST_WARM_IDLE_MS = 5000;
+
+/**
+ * How long to wait before warming the 3D chunk, counted from when the ready screen shows (a run
+ * starting cancels the wait). A first visit often taps Fly within seconds, and on a slow network
+ * a fetch begun at load could land, and evaluate three, mid-run; so the first warm-up waits for
+ * the end of a run on this page (`ranBefore`), or for the ready screen to sit idle 5 s. Between
+ * runs it may start at once (still in idle time).
+ */
+export function warmDelayMs(s: { ranBefore: boolean }): number {
+  return s.ranBefore ? 0 : FIRST_WARM_IDLE_MS;
+}
+
 /**
  * May the 3D canvas be mounted now? Creating the canvas and compiling its shaders is a long task
  * too, so only before the sprint, and only once the chunk is already loaded. Once mounted it

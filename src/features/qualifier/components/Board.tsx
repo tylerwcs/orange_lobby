@@ -10,7 +10,7 @@ import { boardLayout, droppedText, skinColour, untilText } from "../screen";
  * sees the "you dropped" banner above it.
  */
 export function Board({ view, phase, now }: { view: QualifierView; phase: Phase; now: number }) {
-  const items = boardLayout(view.board.top, view.board.around);
+  const items = boardLayout(view.board.top, view.board.around, view.board.cut);
   const open = phase === "open";
   const dropped = droppedText(view.me.dropped, { best: view.me.best, cutWpm: view.cutWpm, open });
   const closes = view.closesAt ? Date.parse(view.closesAt) : null;

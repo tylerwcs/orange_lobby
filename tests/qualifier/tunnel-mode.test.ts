@@ -111,3 +111,15 @@ describe("mayMount3D (D773)", () => {
     expect(mayMount3D({ sprint: true, loaded: true, mounted: true })).toBe(true);
   });
 });
+
+import { FIRST_WARM_IDLE_MS, warmDelayMs } from "@/features/qualifier/tunnel-mode";
+
+describe("warmDelayMs (D773)", () => {
+  it("holds the first warm-up until the ready screen has sat idle 5 s", () => {
+    expect(FIRST_WARM_IDLE_MS).toBe(5000);
+    expect(warmDelayMs({ ranBefore: false })).toBe(5000);
+  });
+  it("warms at once (in idle time) once a run has ended on the page", () => {
+    expect(warmDelayMs({ ranBefore: true })).toBe(0);
+  });
+});

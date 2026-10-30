@@ -7,7 +7,7 @@ import { FINALISTS } from "../scoring";
 export type FinaleEntry = { rank: number; attendeeId: string; label: string; name: string; wpm: number; accuracy: number; flagged: boolean };
 
 const needReview = (n: number) =>
-  n === 0 ? "None of the top 10 need review." : `${n} of the top 10 ${n === 1 ? "needs" : "need"} review.`;
+  n === 0 ? "None flagged — open each finalist's runs before confirming." : `${n} of the top 10 ${n === 1 ? "needs" : "need"} review.`;
 
 function List({ entries }: { entries: FinaleEntry[] }) {
   return (

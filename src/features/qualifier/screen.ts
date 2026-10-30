@@ -91,14 +91,16 @@ export type BoardItem = { kind: "row"; entry: BoardEntry } | { kind: "cut" } | {
 /**
  * The board top to bottom: the top 10, the finale cut (under the last row when fewer than 10
  * have flown), 11-20, then a gap row when the player's own rows don't follow on, and those rows.
+ * `cut` is the last rank inside the cut: 10, or once confirmed the snapshot's last rank
+ * (confirmedBoard), so no one placed after the confirm shows above it.
  */
-export function boardLayout(top: readonly BoardEntry[], around: readonly BoardEntry[]): BoardItem[] {
+export function boardLayout(top: readonly BoardEntry[], around: readonly BoardEntry[], cut: number = FINALISTS): BoardItem[] {
   if (top.length === 0 && around.length === 0) return [];
   const items: BoardItem[] = [];
-  const inside = top.filter((r) => r.rank <= FINALISTS);
+  const inside = top.filter((r) => r.rank <= cut);
   for (const entry of inside) items.push({ kind: "row", entry });
   items.push({ kind: "cut" });
-  for (const entry of top.filter((r) => r.rank > FINALISTS)) items.push({ kind: "row", entry });
+  for (const entry of top.filter((r) => r.rank > cut)) items.push({ kind: "row", entry });
   if (around.length > 0) {
     const last = top.length > 0 ? top[top.length - 1].rank : 0;
     if (around[0].rank > last + 1) items.push({ kind: "gap" });

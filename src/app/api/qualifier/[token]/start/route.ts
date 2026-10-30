@@ -24,10 +24,16 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
   if (phaseOf(settings, Date.now()) !== "open") return json({ error: "The qualifier isn't open right now." }, 403);
 
   const words = drawWords(WORDS_PER_RUN);
+  // The countdown is already running on the database's clock once startRun returns, so the
+  // ghosts are read alongside it rather than after it, and the clock reading for the phone's
+  // offset (serverNow) is taken as soon as the run exists. Ghosts are decoration: if they can't
+  // be read the run starts without them.
+  const ghostsP = ghostsFor(event.id, attendee.id).catch(() => ({ best: null, cut: null }));
   const started = await startRun(event.id, attendee.id, words);
+  const serverNow = Date.now();
   if ("refused" in started) {
     return json({ error: started.refused === "closed" ? "The qualifier isn't open right now." : "This challenge isn't open to you." }, 403);
   }
-  const ghosts = await ghostsFor(event.id, attendee.id);
-  return json({ runId: started.runId, startsAt: started.startsAt, serverNow: Date.now(), words, ghosts });
+  const ghosts = await ghostsP;
+  return json({ runId: started.runId, startsAt: started.startsAt, serverNow, words, ghosts });
 }

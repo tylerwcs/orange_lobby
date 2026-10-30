@@ -16,6 +16,7 @@ import { qualifierFont } from "../font";
 import { TypingInput, type TypingInputHandle } from "./TypingInput";
 import { RunHud } from "./RunHud";
 import { Tunnel, preloadTunnel3D } from "./Tunnel";
+import { warmDelayMs } from "../tunnel-mode";
 import { ResultCard } from "./ResultCard";
 import { Board } from "./Board";
 import { Progress } from "./Progress";
@@ -37,7 +38,7 @@ const MAYBE_COUNTED = "That run may already have counted — reload to see the b
 const SWIPE = "Type letter by letter — swipe typing may be disqualified";
 /** Clock ticks during a run: the HUD's seconds, the ghosts, and the end of the sprint. */
 const TICK_MS = 100;
-/** A key held from the sprint must not fly again the moment the result shows. */
+/** A key held from the sprint must not fly again the moment the result (or a failure) shows. */
 const ENTER_GUARD_MS = 400;
 /** The server judged the run early (this phone's clock is ahead): ask once more after this. */
 const EARLY_RETRY_MS = 1500;
@@ -112,20 +113,25 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
   const swipeShown = useRef(false);
   const resultAt = useRef(0);
   const seen = useRef(false);
+  /** A run has ended on this page (a result or a failure): the 3D warm-up need not wait. */
+  const ranBefore = useRef(false);
 
   const running = stage.kind === "run" || stage.kind === "landing";
   const now = useServerNow(offset, 1000, !running);
   const phase = livePhase(view.phase, view.opensAt, view.closesAt, now);
 
   // The page has shown the player where they stand: that is the next "you dropped" baseline.
+  // The server already ranked them for this render; that rank is recorded, not read again.
+  const shownRank = initial.me.rank;
   useEffect(() => {
     if (seen.current) return;
     seen.current = true;
-    markSeenAction(slug, token).catch(() => {});
-  }, [slug, token]);
+    markSeenAction(slug, token, shownRank).catch(() => {});
+  }, [slug, token, shownRank]);
 
   const fly = useCallback(async () => {
-    if (busy.current) return;
+    // A run already on (a held Enter, a second tap) must not start another.
+    if (busy.current || runRef.current) return;
     busy.current = true;
     input.current?.focus(); // inside the tap or key press, so a phone opens its keyboard
     setStarting(true);
@@ -165,11 +171,14 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
     const device = input.current?.device() ?? "unknown";
     const body = JSON.stringify({ runId: run.runId, ...submissionOf(typingRef.current, run.words, device) });
     const answer = await submitRun(token, body, run.origin + RUN_MS + GRACE_MS);
+    // A run has ended on this page: the 3D warm-up may now run, and a key still held from the
+    // sprint must not fly again the moment the result (or the failure) shows.
+    ranBefore.current = true;
+    resultAt.current = performance.now();
     if ("message" in answer) {
       setStage({ kind: "failed", message: answer.message });
     } else if (answer.ok) {
       setView(answer.view);
-      resultAt.current = performance.now();
       setStage({ kind: "result", landed: { wpm: answer.wpm, accuracy: answer.accuracy, line: answer.line } });
     } else {
       setStage({ kind: "failed", message: failMessage(answer.reason) });
@@ -241,11 +250,13 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
         else if (!ours && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) input.current?.focus();
         return;
       }
-      if (e.key !== "Enter" || phase !== "open") return;
+      // A held key repeats: only a fresh press flies.
+      if (e.key !== "Enter" || e.repeat || phase !== "open") return;
       const el = e.target as HTMLElement | null;
       // Another field's or a button's own Enter (a focused Fly button clicks itself).
       if (!ours && el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(el.tagName))) return;
-      if (stage.kind === "result" && performance.now() - resultAt.current < ENTER_GUARD_MS) return;
+      const ended = stage.kind === "result" || stage.kind === "failed";
+      if (ended && performance.now() - resultAt.current < ENTER_GUARD_MS) return;
       e.preventDefault();
       void fly();
     };
@@ -257,7 +268,7 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
   const pickSkin = useCallback((skin: SkinId | null) => {
     setView((v) => {
       const mine = (rows: QualifierView["board"]["top"]) => rows.map((r) => (r.me ? { ...r, skin } : r));
-      return { ...v, me: { ...v.me, skin }, board: { top: mine(v.board.top), around: mine(v.board.around) } };
+      return { ...v, me: { ...v.me, skin }, board: { ...v.board, top: mine(v.board.top), around: mine(v.board.around) } };
     });
   }, []);
 
@@ -265,16 +276,22 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
   const showCockpit = canFly || running || stage.kind === "result" || stage.kind === "failed";
   // The 3D tunnel (D773) is warmed only while the typing box is up and no run is on, in idle time.
   // A run that starts cancels a pending warm-up, so nothing 3D is scheduled during the countdown
-  // or the sprint.
+  // or the sprint. The first warm-up waits for the end of a run, or for the ready screen to sit
+  // idle (warmDelayMs): a fetch begun the moment a first visit loads could, on a slow network,
+  // land and evaluate three in the middle of the first run.
   useEffect(() => {
     if (!showCockpit || running) return;
     const warm = () => preloadTunnel3D(false);
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm);
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = setTimeout(warm, 1500);
-    return () => clearTimeout(id);
+    const delay = warmDelayMs({ ranBefore: ranBefore.current });
+    let idle: number | null = null;
+    // Without requestIdleCallback (Safari), a plain timer stands in for idle time.
+    const timer = window.requestIdleCallback
+      ? setTimeout(() => { idle = window.requestIdleCallback(warm); }, delay)
+      : setTimeout(warm, Math.max(delay, 1500));
+    return () => {
+      clearTimeout(timer);
+      if (idle !== null) window.cancelIdleCallback(idle);
+    };
   }, [showCockpit, running]);
   const flyButton = (label: string) => (
     // mousedown is cancelled so the typing box keeps focus (and a phone its keyboard).
