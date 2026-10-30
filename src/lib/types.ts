@@ -288,6 +288,8 @@ export type Checkpoint = {
   sort_order: number;
   /** A booking door's activity (D324): who is expected is who booked it on `day`. Null is an ordinary door. */
   activity_id: string | null;
+  /** D761: a submission activity crew are offered on the scanner right after a check-in here. Null is none. */
+  survey_activity_id: string | null;
 };
 
 export type Checkin = {
@@ -520,6 +522,8 @@ export type ActivitySubmission = {
   attendee_edited_at: string | null;
   /** D392: the group member who sent this on the attendee's behalf; null when they sent it themselves. */
   submitted_by: string | null;
+  /** D760: the checkpoint whose scanner this was filled on; null for every other entry. Optional so old fixtures compile. */
+  checkpoint_id?: string | null;
   /** D396: question key to the SHA-256 of its uploaded file; empty on rows sent before fingerprints. */
   file_hashes: Record<string, string>;
   /** D499: why it was revoked, a copy of the wording picked or typed; null on revokes before 0077. Optional so old fixtures compile. */

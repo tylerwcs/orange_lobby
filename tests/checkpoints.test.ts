@@ -3,7 +3,7 @@ import { activeCheckpoint, badgeCheckin, checkpointOptions, checkpointsByDay, pi
 import type { Checkpoint } from "@/lib/types";
 
 const cp = (id: string, name: string, day: string, sort_order = 0): Checkpoint =>
-  ({ id, event_id: "e1", name, day, sort_order, activity_id: null });
+  ({ id, event_id: "e1", name, day, sort_order, activity_id: null, survey_activity_id: null });
 
 describe("checkpointsByDay", () => {
   it("returns nothing for no checkpoints", () => {

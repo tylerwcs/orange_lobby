@@ -619,10 +619,12 @@ export async function submitAnswers(
   submittedBy: string | null = null,
   /** D396: the fingerprints of this request's uploads; a match in the member's live entries is `duplicate`. */
   fileHashes: Record<string, string> = {},
+  /** D760: the door this was filled at; set, the activity may be closed (a door survey stays off the portal). */
+  checkpointId: string | null = null,
 ): Promise<SubmitCode> {
   const { data, error } = await serviceClient().rpc("submit_answers", {
     p_activity_id: activityId, p_attendee_id: attendeeId, p_answers: answers, p_today: today, p_submitted_by: submittedBy,
-    p_file_hashes: fileHashes,
+    p_file_hashes: fileHashes, p_checkpoint_id: checkpointId,
   });
   if (error) throw error;
   return data as SubmitCode;
