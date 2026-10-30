@@ -9,3 +9,10 @@ export * from "./scoring";
 export * from "./phase";
 export * from "./progress";
 export * from "./board";
+export * from "./run";
+export * from "./input";
+export * from "./screen";
+
+// The portal page's screens (D772).
+export { QualifierClient } from "./components/QualifierClient";
+export type { Tunnel2DProps } from "./components/Tunnel2D";

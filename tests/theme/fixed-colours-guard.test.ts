@@ -19,6 +19,7 @@ const ROOTS = [
   "src/features/cancel/portal",
   "src/features/games/components/phone",
   "src/features/games/components/PlayClient.tsx",
+  "src/features/qualifier/components",
   // Portalled over attendee pages: the toast stack and the form-error alert.
   "src/components/ui/toaster.tsx",
   "src/components/ui/alert.tsx",
