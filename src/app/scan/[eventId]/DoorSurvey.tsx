@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { startTransition, useActionState } from "react";
 import { ClipboardList } from "lucide-react";
 import { submitDoorSurveyAction } from "./actions";
 import { HealthConsentField, SubmissionFields } from "@/features/activities/client";
@@ -25,22 +25,22 @@ export function DoorSurvey({ eventId, checkpointId, crewToken, form, attendee, n
   onSaved: () => void;
   onSkip: () => void;
 }) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setPending(true);
-    setError(null);
+  const [error, send, pending] = useActionState(async (_prev: string | null, fd: FormData): Promise<string | null> => {
     try {
-      const r = await submitDoorSurveyAction(eventId, checkpointId, attendee.id, new FormData(e.currentTarget), crewToken);
-      if (r.ok) onSaved();
-      else setError(r.error);
+      const r = await submitDoorSurveyAction(eventId, checkpointId, attendee.id, fd, crewToken);
+      if (r.ok) { onSaved(); return null; }
+      return r.error;
     } catch {
-      setError("The survey didn't reach the server. Check the connection and try again.");
-    } finally {
-      setPending(false);
+      return "The survey didn't reach the server. Check the connection and try again.";
     }
+  }, null);
+
+  // Sent from onSubmit, not as the form's action: an action resets the form when it settles,
+  // and a refused survey must keep what was typed so crew can fix it or Skip.
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    startTransition(() => send(fd));
   };
 
   return (
