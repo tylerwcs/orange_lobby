@@ -1,6 +1,6 @@
 # Typing qualifier — design
 
-Date: 31 Oct 2026. Decisions from D767. Migration 0117.
+Date: 31 Oct 2026. Decisions D767–D775. Migration 0117.
 
 ## Why
 
