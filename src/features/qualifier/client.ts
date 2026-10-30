@@ -12,6 +12,7 @@ export * from "./board";
 export * from "./run";
 export * from "./input";
 export * from "./screen";
+export * from "./tunnel-mode";
 
 // The portal page's screens (D772).
 export { QualifierClient } from "./components/QualifierClient";

@@ -13,7 +13,7 @@ const BEHIND = 2;
 const AHEAD = 7;
 const SHIP_AT = 22; // %
 const STEP = (100 - SHIP_AT - 6) / AHEAD; // % per word
-const CUT_COLOUR = "#f59e0b";
+export const CUT_COLOUR = "#f59e0b";
 
 const xOf = (words: number, progress: number) => SHIP_AT + (words - progress) * STEP;
 const clampX = (x: number) => Math.min(96, Math.max(4, x));

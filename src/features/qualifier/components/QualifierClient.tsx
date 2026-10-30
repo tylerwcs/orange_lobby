@@ -14,7 +14,7 @@ import { claimFree, failMessage, gapLine, livePhase, untilText, type FailReason 
 import { qualifierFont } from "../font";
 import { TypingInput, type TypingInputHandle } from "./TypingInput";
 import { RunHud } from "./RunHud";
-import { Tunnel2D } from "./Tunnel2D";
+import { Tunnel, preloadTunnel3D } from "./Tunnel";
 import { ResultCard } from "./ResultCard";
 import { Board } from "./Board";
 
@@ -252,6 +252,18 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
 
   const canFly = phase === "open";
   const showCockpit = canFly || running || stage.kind === "result" || stage.kind === "failed";
+  // The 3D tunnel (D773) is fetched only once the typing box is up, and in idle time, so it can
+  // never delay the input; until it has loaded and drawn, the run shows the 2D tunnel.
+  useEffect(() => {
+    if (!showCockpit) return;
+    const idle = window.requestIdleCallback;
+    if (idle) {
+      const id = idle(preloadTunnel3D, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(preloadTunnel3D, 1500);
+    return () => clearTimeout(id);
+  }, [showCockpit]);
   const flyButton = (label: string) => (
     // mousedown is cancelled so the typing box keeps focus (and a phone its keyboard).
     <Button className="h-16 w-full max-w-xs font-game text-3xl" onMouseDown={(e) => e.preventDefault()} onClick={() => void fly()} disabled={starting}>
@@ -360,7 +372,7 @@ function RunView({ run, t, typing, view, landing, swipe }: {
   return (
     <div className="flex flex-col items-center gap-3">
       <RunHud leftMs={clock.leftMs} wpm={liveWpm(words, typing.index, prefix, at)} />
-      <Tunnel2D progress={typing.index} ghosts={ghosts} skin={view.me.skin} />
+      <Tunnel progress={typing.index} ghosts={ghosts} skin={view.me.skin} sprint={clock.stage === "sprint"} />
       {clock.stage === "countdown" ? (
         <div className="flex min-h-32 w-full items-center justify-center">
           <motion.span key={clock.count} initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
