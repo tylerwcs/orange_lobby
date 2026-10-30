@@ -130,9 +130,8 @@ they leave the door, and nobody has to remember to open their portal.
 ## Calls made in writing this up (not discussed with the user)
 
 - **Consent tick language:** the health-information consent is the attendee's own consent
-  (D412) but the scanner has no language. When the event has the EN | BM switch on, the door
-  form shows the consent wording in **both** languages, English first, BM below, from the
-  existing `d.submission` wording. Otherwise English.
+  (D412). The existing `HealthConsentField` is already in English and BM together (D413), so
+  the door form reuses it as is, on every event.
 - `duplicate` offers the survey, so someone who skipped can be caught on a re-scan.
 - The door bypasses the open switch (survey stays off the portal).
 
