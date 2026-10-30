@@ -32,3 +32,51 @@ describe("boardSlices (D771)", () => {
     expect(ranks(boardSlices([...rows(25)].reverse(), 23).top)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
   });
 });
+
+import { aroundWindow, needsFreshSlice, type SeenRow } from "@/features/qualifier/board";
+
+const seen = (n: number, from = 1): SeenRow[] =>
+  Array.from({ length: n }, (_, i) => ({ rank: from + i, id: `p${from + i}`, wpm: 100 - (from + i) }));
+const ask = (o: Partial<Parameters<typeof needsFreshSlice>[0]>) =>
+  needsFreshSlice({ top: seen(20), around: [], myId: "p5", myRank: 5, myWpm: 95, total: 500, ...o });
+
+describe("needsFreshSlice (D771)", () => {
+  it("is fresh when the caller's row is where their rank says", () => {
+    expect(ask({})).toEqual({ board: false, around: false });
+    expect(ask({ myRank: null })).toEqual({ board: false, around: false });
+  });
+
+  it("is stale when the caller climbed into the top 20, or moved within it", () => {
+    expect(ask({ myId: "me", myRank: 12, myWpm: 88 }).board).toBe(true);
+    expect(ask({ myId: "p5", myRank: 3, myWpm: 95 }).board).toBe(true);
+  });
+
+  it("is stale when the caller's wpm moved but their rank did not", () => {
+    expect(ask({ myWpm: 97 }).board).toBe(true);
+  });
+
+  it("is stale when the caller fell out of the top 20 but the snapshot still lists them", () => {
+    expect(ask({ myRank: 24, myWpm: 95 })).toEqual({ board: true, around: true });
+  });
+
+  it("is stale when the rank is beyond the snapshot's total (a first run)", () => {
+    expect(ask({ myId: "me", myRank: 501, myWpm: 30, total: 500 }).board).toBe(true);
+  });
+
+  it("past rank 20 checks the around rows for the caller at their rank", () => {
+    const around = seen(3, 22);
+    expect(ask({ myId: "p23", myRank: 23, myWpm: 77, around })).toEqual({ board: false, around: false });
+    expect(ask({ myId: "p23", myRank: 24, myWpm: 77, around }).around).toBe(true);
+    expect(ask({ myId: "p23", myRank: 23, myWpm: 80, around }).around).toBe(true);
+  });
+});
+
+describe("aroundWindow", () => {
+  it("is the rank and its neighbours as a zero-based offset", () => {
+    expect(aroundWindow(30)).toEqual({ offset: 28, limit: 3 });
+  });
+  it("never reaches into the top 20", () => {
+    expect(aroundWindow(21)).toEqual({ offset: 20, limit: 2 });
+    expect(aroundWindow(22)).toEqual({ offset: 20, limit: 3 });
+  });
+});

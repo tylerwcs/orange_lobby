@@ -4,7 +4,7 @@ import { tagsFor } from "@/features/games/client";
 import { createMemo } from "@/lib/memo";
 import { lastDays, nowInKL } from "@/lib/time";
 import { boardSize, getPlayer, getSettings, listBoard, listFinalists, rankOf, runOffsets, type BoardRow } from "./db";
-import { BOARD_TOP, boardSlices, type BoardEntry } from "./board";
+import { BOARD_TOP, aroundWindow, boardSlices, needsFreshSlice, type BoardEntry } from "./board";
 import { ineligibility, phaseOf, type Ineligible, type Phase, type QualifierSettings } from "./phase";
 import { streakDays, tierOf, unlockedSkins, type SkinId, type Tier } from "./progress";
 import { FINALISTS } from "./scoring";
@@ -20,16 +20,24 @@ const settingsMemo = createMemo<QualifierSettings | null>(BOARD_TTL_MS);
 /** The event's window and left-out categories, memoised for a few seconds like the board. */
 export const settingsFor = (eventId: string) => settingsMemo.get(eventId, () => getSettings(eventId));
 
-/** The first 20 rows and the board's size. */
-export const boardFor = (eventId: string) =>
-  boardMemo.get(eventId, async () => {
-    const [top, total] = await Promise.all([listBoard(eventId, BOARD_TOP, 0), boardSize(eventId)]);
-    return { top, total };
-  });
+const loadBoard = async (eventId: string) => {
+  const [top, total] = await Promise.all([listBoard(eventId, BOARD_TOP, 0), boardSize(eventId)]);
+  return { top, total };
+};
 
-/** Ranks myRank-1 .. myRank+1: rank r sits at offset r-1. */
-const aroundFor = (eventId: string, myRank: number) =>
-  aroundMemo.get(`${eventId}:${myRank}`, () => listBoard(eventId, 3, Math.max(0, myRank - 2)));
+/** The first 20 rows and the board's size. `fresh` drops the shared copy and reads again. */
+export const boardFor = (eventId: string, fresh = false) => {
+  if (fresh) boardMemo.clear(eventId);
+  return boardMemo.get(eventId, () => loadBoard(eventId));
+};
+
+/** Ranks myRank-1 .. myRank+1, never reaching into the top 20 (those rows are in `boardFor`). */
+const aroundFor = (eventId: string, myRank: number, fresh = false) => {
+  const key = `${eventId}:${myRank}`;
+  if (fresh) aroundMemo.clear(key);
+  const w = aroundWindow(myRank);
+  return aroundMemo.get(key, () => listBoard(eventId, w.limit, w.offset));
+};
 
 export type QualifierView = {
   phase: Phase;
@@ -62,21 +70,37 @@ export function droppedOf(seen: number | null, rank: number | null): { from: num
   return rank === null || rank > seen ? { from: seen, to: rank } : null;
 }
 
-export async function qualifierView(ctx: PlayContext, now: number): Promise<QualifierView> {
+/**
+ * `known` is a rank the caller has just read (the submit route's), so it is not read twice.
+ * The shared board copy may be a few seconds old, so the caller's own row is reconciled with
+ * their fresh rank (needsFreshSlice): only when it disagrees is that slice read again, and the
+ * shared copy is refreshed with it for everyone after.
+ */
+export async function qualifierView(ctx: PlayContext, now: number, known?: { rank: number | null }): Promise<QualifierView> {
   const { event, attendee } = ctx;
   const settings = await settingsFor(event.id);
   const phase = phaseOf(settings, now);
-  const ineligible = ineligibility(attendee, event.preview_attendee_id, settings?.excluded_categories ?? []);
+  const ineligible = ineligibility({ ...attendee, cancelled_at: attendee.cancelled_at ?? null }, event.preview_attendee_id, settings?.excluded_categories ?? []);
 
-  const [player, rank, board, finalists] = await Promise.all([
+  const [player, rank, board0, finalists] = await Promise.all([
     getPlayer(event.id, attendee.id),
     // Someone who may not play is off the board whatever their old runs say.
-    ineligible ? Promise.resolve(null) : rankOf(event.id, attendee.id),
+    ineligible ? Promise.resolve(null) : known ? Promise.resolve(known.rank) : rankOf(event.id, attendee.id),
     boardFor(event.id),
     phase === "confirmed" ? listFinalists(event.id) : Promise.resolve(null),
   ]);
-  const aroundRows = rank !== null && rank > BOARD_TOP ? await aroundFor(event.id, rank) : [];
+  let board = board0;
+  let aroundRows = rank !== null && rank > BOARD_TOP ? await aroundFor(event.id, rank) : [];
 
+  const seen = (r: BoardRow) => ({ rank: r.rank, id: r.attendee_id, wpm: r.best_wpm });
+  const stale = needsFreshSlice({
+    top: board.top.map(seen), around: aroundRows.map(seen), myId: attendee.id, myRank: rank,
+    myWpm: player?.best_wpm ?? null, total: board.total,
+  });
+  if (stale.board) board = await boardFor(event.id, true);
+  if (stale.around && rank !== null) aroundRows = await aroundFor(event.id, rank, true);
+
+  // Top and around are disjoint by rank (around starts at 21), so a person can't appear twice.
   const rows = new Map<number, BoardRow>();
   for (const r of [...board.top, ...aroundRows]) rows.set(r.rank, r);
   const tags = tagsFor([...rows.values()].map((r) => ({ id: r.attendee_id, name: r.name, extra: r.extra })));

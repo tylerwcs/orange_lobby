@@ -18,7 +18,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
   if (!ctx) return json({ error: "This link does not open the qualifier." }, 404);
   const { event, attendee } = ctx;
   const settings = await settingsFor(event.id);
-  if (ineligibility(attendee, event.preview_attendee_id, settings?.excluded_categories ?? [])) {
+  if (ineligibility({ ...attendee, cancelled_at: attendee.cancelled_at ?? null }, event.preview_attendee_id, settings?.excluded_categories ?? [])) {
     return json({ error: "This challenge isn't open to you." }, 403);
   }
   if (phaseOf(settings, Date.now()) !== "open") return json({ error: "The qualifier isn't open right now." }, 403);

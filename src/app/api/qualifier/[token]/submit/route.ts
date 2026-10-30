@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   // during a visit must not read as a fall later.
   const rank = await rankOf(event.id, attendee.id);
   await markSeen(event.id, attendee.id, rank);
-  const view = await qualifierView(ctx, Date.now());
+  const view = await qualifierView(ctx, Date.now(), { rank });
   const line = nearMiss({ wpm: scored.wpm, prevBest, rank, cutWpm: view.cutWpm });
   return json({ ok: true, wpm: scored.wpm, accuracy: scored.accuracy, prevBest, line, view });
 }
