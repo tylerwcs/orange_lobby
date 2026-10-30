@@ -1,6 +1,7 @@
 // Where the qualifier is in its life, and who may play it (D768). Pure, so the portal, the
 // play page and the server actions all read the same clock the same way.
 import { categoryParts } from "@/lib/agenda";
+import { shortDateTime } from "@/lib/text";
 
 export type QualifierSettings = {
   opens_at: string | null;
@@ -45,4 +46,15 @@ export function ineligibility(
   const out = new Set(excluded.map((x) => x.trim().toLowerCase()).filter(Boolean));
   if (out.size > 0 && categoryParts(a.category).some((p) => out.has(p))) return "excluded";
   return null;
+}
+
+/** The admin page's line under the title (D770). Dates are Malaysia time, as the rest of the admin. */
+export function phaseSubtitle(s: QualifierSettings | null, now: number): string {
+  switch (phaseOf(s, now)) {
+    case "unset": return "Not scheduled";
+    case "before": return `Opens ${shortDateTime(s!.opens_at!)}`;
+    case "open": return `Open until ${shortDateTime(s!.closes_at!)}`;
+    case "review": return "Closed — under review";
+    case "confirmed": return "Finalists confirmed";
+  }
 }

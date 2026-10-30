@@ -6,7 +6,7 @@ export const BASE_KEYS = ["portal", "attendees", "agenda", "info", "announcement
 export type BaseKey = (typeof BASE_KEYS)[number];
 
 /** What an event can add (D433). A key added here must be added to FEATURES: the Record stops the build until it is. */
-export const ADDON_KEYS = ["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido", "custom"] as const;
+export const ADDON_KEYS = ["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido", "typing_qualifier", "custom"] as const;
 export type AddonKey = (typeof ADDON_KEYS)[number];
 export type FeatureKey = BaseKey | AddonKey;
 
@@ -15,7 +15,7 @@ export type StoredAddon = Exclude<AddonKey, "custom">;
 export const STORED_ADDONS = ADDON_KEYS.filter((k): k is StoredAddon => k !== "custom");
 
 /** Sidebar items and settings tabs an add-on can hide. Activities and Games are hidden by their kinds, not named here. */
-export type NavKey = "whatsapp" | "activities" | "games";
+export type NavKey = "whatsapp" | "activities" | "games" | "qualifier";
 export type SettingsTabKey = "address";
 
 export type Unlocks = {
@@ -93,6 +93,9 @@ export const FEATURES: Record<FeatureKey, Feature> = {
   ]),
   slido: addon("Slido embedding", "Slido inside the portal. Until the embed is built, use a link tile.", {}, [
     { key: "slido", kind: "card", title: "Slido", send: ["Your Slido event link"] },
+  ]),
+  typing_qualifier: addon("Typing qualifier", "A week of 30-second typing sprints; the top 10 go to the finale.", { nav: ["qualifier"] }, [
+    { key: "typing-qualifier", kind: "card", title: "Typing qualifier", send: ["When the qualifier week opens and closes", "Any categories to leave out, e.g. staff or committee"] },
   ]),
   custom: addon("Custom module", "Bespoke work, described per event."),
 };

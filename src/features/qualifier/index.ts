@@ -4,3 +4,4 @@
  */
 export * from "./client";
 export * from "./db";
+export { SettingsCard } from "./admin/SettingsCard";

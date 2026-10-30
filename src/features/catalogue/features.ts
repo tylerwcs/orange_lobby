@@ -55,6 +55,7 @@ export function hiddenNav(fs: FeatureSet): NavKey[] {
   if (!nav.has("whatsapp")) out.push("whatsapp");
   if (activityKindsFor(fs).length === 0) out.push("activities");
   if (gameKindsFor(fs).length === 0) out.push("games");
+  if (!nav.has("qualifier")) out.push("qualifier");
   return out;
 }
 

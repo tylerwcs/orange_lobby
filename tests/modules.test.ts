@@ -187,6 +187,20 @@ describe("normalizeModules", () => {
   });
 });
 
+describe("the Typing qualifier tile (D770)", () => {
+  const base = { floor_plan_url: null, info_page_title: "Info" };
+  const qualifier = { key: "tile", id: "qualifier", enabled: true, label: "Typing qualifier", icon: "star", target: { kind: "route", route: "qualifier" } };
+  it("is a labelled route", () => {
+    expect(TILE_ROUTES).toContain("qualifier");
+    expect(TILE_ROUTE_LABELS.qualifier).toBe("Typing qualifier");
+  });
+  it("opens the attendee's own page and is left off the public portal", () => {
+    const event = { ...base, modules: parseModules([qualifier]) };
+    expect(resolveTiles({ event, basePath: "/e/kom/a/abcdefghjkmn" })[0]).toMatchObject({ href: "/e/kom/a/abcdefghjkmn/qualifier", route: "qualifier" });
+    expect(resolveTiles({ event, basePath: "/e/kom", personal: false })).toEqual([]);
+  });
+});
+
 describe("TILE_ROUTE_LABELS", () => {
   it("gives every TILE_ROUTES entry a human label", () => {
     for (const route of TILE_ROUTES) {

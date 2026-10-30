@@ -34,14 +34,14 @@ export type ModuleIcon = (typeof MODULE_ICONS)[number];
  * `plan` is deliberately absent: the floor plan is its own preset, because it carries the
  * image URL the page needs and a generic route tile has nowhere to put one.
  */
-export const TILE_ROUTES = ["agenda", "announcements", "info", "me", "seat", "stamps", "activities", "play"] as const;
+export const TILE_ROUTES = ["agenda", "announcements", "info", "me", "seat", "stamps", "activities", "play", "qualifier"] as const;
 export type TileRoute = (typeof TILE_ROUTES)[number];
 
 /**
  * Routes that only exist on a personal link. Playing needs an identity (D253), so the public
  * portal has no play page and a Games tile is left off its home rather than drawn as a 404.
  */
-const PERSONAL_ONLY_ROUTES: ReadonlySet<TileRoute> = new Set<TileRoute>(["play"]);
+const PERSONAL_ONLY_ROUTES: ReadonlySet<TileRoute> = new Set<TileRoute>(["play", "qualifier"]);
 
 /**
  * The human label for each route, shown in the tile editor's "Portal page" picker instead
@@ -57,6 +57,7 @@ export const TILE_ROUTE_LABELS: Record<TileRoute, string> = {
   stamps: "Booth Passport",
   activities: "Activities",
   play: "Games",
+  qualifier: "Typing qualifier",
 };
 
 export type TileTarget = { kind: "url"; url: string } | { kind: "route"; route: TileRoute };

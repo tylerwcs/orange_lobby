@@ -18,7 +18,7 @@ describe("the catalogue (D433)", () => {
     for (const k of ADDON_KEYS) expect(FEATURES[k].tier).toBe("addon");
   });
   it("stores every add-on except custom (D436)", () => {
-    expect(STORED_ADDONS).toEqual(["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido"]);
+    expect(STORED_ADDONS).toEqual(["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido", "typing_qualifier"]);
   });
   it("orders activity and game kinds the way their menus do", () => {
     expect([...ACTIVITY_KIND_ORDER]).toEqual([...ACTIVITY_KINDS]);
@@ -87,8 +87,8 @@ describe("allowed kinds", () => {
 });
 
 describe("hidden admin areas (D438)", () => {
-  it("hides WhatsApp, Activities and Games with no add-ons", () => {
-    expect(hiddenNav(none)).toEqual(["whatsapp", "activities", "games"]);
+  it("hides WhatsApp, Activities, Games and the qualifier with no add-ons", () => {
+    expect(hiddenNav(none)).toEqual(["whatsapp", "activities", "games", "qualifier"]);
   });
   it("hides nothing with every add-on", () => {
     expect(hiddenNav(all)).toEqual([]);
@@ -97,6 +97,10 @@ describe("hidden admin areas (D438)", () => {
   it("keeps Activities while either activity add-on is on", () => {
     expect(hiddenNav(featureSet(["booking"], 0))).not.toContain("activities");
     expect(hiddenNav(featureSet(["engagement"], 0))).not.toContain("activities");
+  });
+  it("shows the Typing qualifier item only with that add-on (D770)", () => {
+    expect(hiddenNav(featureSet(["typing_qualifier"], 0))).not.toContain("qualifier");
+    expect(hiddenNav(featureSet(["whatsapp"], 0))).toContain("qualifier");
   });
   it("hides the Address tab without Custom domain", () => {
     expect(hiddenSettingsTabs(none)).toEqual(["address"]);

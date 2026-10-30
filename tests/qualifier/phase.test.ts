@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ineligibility, phaseOf, type QualifierSettings } from "@/features/qualifier/phase";
+import { ineligibility, phaseOf, phaseSubtitle, type QualifierSettings } from "@/features/qualifier/phase";
 
 const iso = "2026-11-05T10:00:00+08:00";
 const opens = Date.parse("2026-11-02T09:00:00+08:00");
@@ -45,5 +45,18 @@ describe("ineligibility (D768)", () => {
     expect(ineligibility({ ...a, category: "kom / CREW" }, null, ["  Crew "])).toBe("excluded");
     expect(ineligibility(a, null, [])).toBeNull();
     expect(ineligibility(a, undefined, ["crew"])).toBeNull();
+  });
+});
+
+describe("phaseSubtitle (D770)", () => {
+  it("names each phase, with dates in Malaysia time", () => {
+    expect(phaseSubtitle(null, t)).toBe("Not scheduled");
+    expect(phaseSubtitle(s, opens - 1000)).toBe("Opens 2 Nov, 09:00");
+    expect(phaseSubtitle(s, t)).toBe("Open until 4 Nov, 18:00");
+    expect(phaseSubtitle(s, closes)).toBe("Closed — under review");
+    expect(phaseSubtitle({ ...s, confirmed_at: iso }, closes + 1000)).toBe("Finalists confirmed");
+  });
+  it("reads the date in Malaysia time whatever offset the instant was stored in", () => {
+    expect(phaseSubtitle({ ...s, opens_at: "2026-11-01T17:00:00Z" }, Date.parse("2026-11-01T16:00:00Z"))).toBe("Opens 2 Nov, 01:00");
   });
 });

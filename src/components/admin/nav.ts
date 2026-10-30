@@ -19,7 +19,7 @@ export type Group = { title: string; items: Item[] };
  *
  * Setup leads Event: it is where the organiser's submissions wait, and its badge counts them (D448).
  *
- * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities and Games each
+ * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities, Games and the Typing qualifier (D770) each
  * carry the key `hiddenNav` names.
  *
  * D598: Attendees carries the number of cancellation requests waiting for an organiser, for
@@ -46,6 +46,7 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
       { href: `${b}/popups`, label: "Popups", icon: "bell" },
       { href: `${b}/modules`, label: "Modules", icon: "grid" },
       { href: `${b}/activities`, label: "Activities", icon: "flag", key: "activities" },
+      { href: `${b}/qualifier`, label: "Typing qualifier", icon: "star", key: "qualifier" },
     ] },
     { title: "Event", items: [
       { href: `${b}/setup`, label: "Setup", icon: "check", adminOnly: true, ...(badges.setup ? { badge: badges.setup } : {}) },
