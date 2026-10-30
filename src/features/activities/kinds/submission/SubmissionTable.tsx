@@ -120,6 +120,8 @@ export function SubmissionTable({ submissions, questions, submitterFor, edit, re
               <TableCell>
                 <div className="font-semibold">{who.name}</div>
                 {submission.submitted_by && <div className="text-xs text-muted-foreground">Added by {submitterFor(submission.submitted_by).name}</div>}
+                {/* D764: filled on a crew scanner after check-in (D763). */}
+                {submission.checkpoint_id && <div className="text-xs text-muted-foreground">At the door</div>}
                 {withFor?.(submission) && <div className="text-xs text-muted-foreground">{withFor(submission)}</div>}
                 {who.email && <div className="text-xs text-muted-foreground">{who.email}</div>}
               </TableCell>
