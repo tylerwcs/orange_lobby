@@ -22,7 +22,7 @@ import { createAgendaItem, deleteAgendaItem, listAgenda, updateAgendaItem, listA
 import { breakoutSlots, matchAssignments, breakoutSlotFromColumn, parseRoomCodes, splitByExisting, describeAssignment, agendaRows } from "@/lib/breakouts";
 import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/lib/db/breakouts";
 import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncementOrder, updateAnnouncement } from "@/lib/db/announcements";
-import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder } from "@/lib/db/checkpoints";
+import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder, setCheckpointSurvey } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
 import { requireFeature } from "@/features/catalogue";
 import { purgeSetupFiles } from "@/features/setup";
@@ -983,6 +983,9 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
   // trusted from the form: a posted id from another event or kind must not become a door.
   const activity = activityId ? (await listActivities(ev.id, "booking")).find((a) => a.id === activityId) ?? null : null;
   if (activityId && !activity) redirect(flashPath(back, "That activity no longer exists.", "error"));
+  // D761: the survey is one of this event's forms, checked the same way.
+  const survey = await surveyFromForm(ev.id, formData);
+  if (survey === false) redirect(flashPath(back, "That form no longer exists.", "error"));
   // A booking door may leave the name blank; it takes the activity's.
   const name = str(formData, "name") || activity?.name || "";
   if (!name) redirect(flashPath(back, "A checkpoint needs a name.", "error"));
@@ -993,7 +996,7 @@ export async function addCheckpointAction(eventId: string, formData: FormData) {
   if (activity && !(await listSessions(ev.id)).some((s) => s.activity_id === activity.id && s.day === day)) {
     redirect(flashPath(back, `${activity.name} has no sessions on ${shortDate(day)}.`, "error"));
   }
-  await createCheckpoint(ev, name, day, activity?.id ?? null);
+  await createCheckpoint(ev, name, day, activity?.id ?? null, survey);
   revalidatePath(back);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(back, `“${name}” added.`));
@@ -1034,6 +1037,29 @@ export async function setActiveCheckpointAction(eventId: string, formData: FormD
   revalidatePath(`/admin/events/${eventId}/settings`);
   revalidatePath(`/admin/events/${eventId}/attendees`);
   redirect(flashPath(back, `Now running “${chosen.name}”.`));
+}
+
+/**
+ * D761: the posted `survey_activity_id` as one of this event's forms - null for "None", false when
+ * it names anything else (another event, another kind, a deleted form).
+ */
+async function surveyFromForm(eventId: string, formData: FormData): Promise<string | null | false> {
+  const id = str(formData, "survey_activity_id");
+  if (!id) return null;
+  return (await listActivities(eventId, "submission")).some((a) => a.id === id) ? id : false;
+}
+
+/** D761: changes or removes the survey crew are offered after a check-in at this door. */
+export async function setCheckpointSurveyAction(eventId: string, cpId: string, formData: FormData) {
+  const { ev } = await requireEventAccess(eventId);
+  const back = `/admin/events/${eventId}/settings`;
+  if (!(await listCheckpoints(ev.id)).some((c) => c.id === cpId)) redirect(flashPath(back, "That checkpoint no longer exists.", "error"));
+  const survey = await surveyFromForm(ev.id, formData);
+  if (survey === false) redirect(flashPath(back, "That form no longer exists.", "error"));
+  await setCheckpointSurvey(cpId, ev.id, survey);
+  revalidatePath(back);
+  revalidatePath(`/admin/events/${eventId}`);
+  redirect(flashPath(back, survey ? "Survey updated." : "Survey removed."));
 }
 
 export async function deleteCheckpointAction(eventId: string, cpId: string) {

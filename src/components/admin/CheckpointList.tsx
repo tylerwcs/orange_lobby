@@ -17,13 +17,17 @@ type Reorder = (ids: string[]) => Promise<void>;
  * go through `moveItem`, so they cannot drift apart, and both save immediately — there
  * is no separate "save order" step to forget.
  */
-export function CheckpointList({ day, items, tallies, activityNames, activeId, reorder, deleteCheckpoint }: {
+export function CheckpointList({ day, items, tallies, activityNames, surveyNames, surveyForms, activeId, reorder, deleteCheckpoint }: {
   day: string;
   items: Checkpoint[];
   /** Each door's "n of m" (D331). */
   tallies: Record<string, DoorTally>;
   /** Booking activity names by id, for a booking door's badge. */
   activityNames: Record<string, string>;
+  /** D761: form names by id, for a door's survey badge. */
+  surveyNames: Record<string, string>;
+  /** D761: each door's survey picker, rendered by the server; null when the event has no forms. */
+  surveyForms: Record<string, React.ReactNode> | null;
   /** The checkpoint the event is running. Chosen on the Overview, only shown here. */
   activeId: string | null;
   reorder: Reorder;
@@ -90,6 +94,7 @@ export function CheckpointList({ day, items, tallies, activityNames, activeId, r
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold">{c.name}</span>
                   {c.activity_id && <Badge variant="secondary">Booked for {activityNames[c.activity_id] ?? "an activity"}</Badge>}
+                  {c.survey_activity_id && <Badge variant="secondary">Survey: {surveyNames[c.survey_activity_id] ?? "a form"}</Badge>}
                   {c.id === activeId && <Badge variant="success">Running now</Badge>}
                 </div>
                 <div className="text-xs font-semibold text-muted-foreground tabular-nums">
@@ -99,6 +104,7 @@ export function CheckpointList({ day, items, tallies, activityNames, activeId, r
               <RowMoveContext.Provider value={{ up: i > 0 ? () => move(i, i - 1) : null, down: i < order.length - 1 ? () => move(i, i + 1) : null }}>
                 <RowActions
                   name={`“${c.name}”`}
+                  dialog={surveyForms?.[c.id] ? { label: "Survey…", title: "Survey after check-in", form: surveyForms[c.id] } : undefined}
                   remove={{ action: () => deleteCheckpoint(c.id), message: `Its ${n} check-in${n === 1 ? "" : "s"} go with it. This cannot be undone.` }}
                 />
               </RowMoveContext.Provider>

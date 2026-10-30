@@ -27,7 +27,7 @@ import { RememberedTabs } from "@/components/admin/RememberedTabs";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction, createPreviewLinkAction, replacePreviewLinkAction, turnOffPreviewLinkAction, previewGeneralPortalAction } from "../actions";
+import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, setCheckpointSurveyAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction, createPreviewLinkAction, replacePreviewLinkAction, turnOffPreviewLinkAction, previewGeneralPortalAction } from "../actions";
 import { previewLanding, previewLink } from "@/lib/preview-link";
 import { getAttendee } from "@/lib/db/attendees";
 import { PreviewLinkButtons } from "@/components/admin/PreviewLinkButtons";
@@ -108,13 +108,32 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const verifying = activityKindsFor(features).includes("submission");
   const qs = editorQuestions(ev.registration_form);
   const base = appBaseUrl();
-  const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr, places] = await Promise.all([
-    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id), eventAddress(ev), getPlaces(ev.id),
+  const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr, places, forms] = await Promise.all([
+    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id), eventAddress(ev), getPlaces(ev.id), listActivities(ev.id, "submission"),
   ]);
   // D686: how full it is, under the limit field. The waiting/pending counts ride along when there are any.
   const taken = placesLabel(places.taken, places.limit);
   const queued = [places.waiting > 0 ? `${places.waiting} waiting` : "", places.pending > 0 ? `${places.pending} pending approval` : ""].filter(Boolean).join(", ");
   const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
+  // D761: the forms a door can offer crew after each check-in, and each door's own picker.
+  const surveyNames = Object.fromEntries(forms.map((a) => [a.id, a.name]));
+  const surveySelect = (current: string | null, id: string) => (
+    <select id={id} name="survey_activity_id" className={input} defaultValue={current ?? ""}>
+      <option value="">None</option>
+      {forms.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+    </select>
+  );
+  const surveyHint = "Crew are offered this form on their device right after they scan someone in.";
+  const surveyForms = forms.length === 0 ? null : Object.fromEntries(cps.map((c) => [c.id, (
+    <form key={c.id} action={setCheckpointSurveyAction.bind(null, ev.id, c.id)} className="grid gap-4">
+      <div className="grid gap-2">
+        <label className="text-sm font-medium" htmlFor={`cp_survey_${c.id}`}>Form</label>
+        {surveySelect(c.survey_activity_id, `cp_survey_${c.id}`)}
+        <p className="text-xs text-muted-foreground">{surveyHint}</p>
+      </div>
+      <div><SubmitButton>Save</SubmitButton></div>
+    </form>
+  )]));
   // The handed-out links with their QR beside them (D491): a preview to scan off the screen,
   // and the print-size PNG from the export route.
   const share = async (kind: ShareLinkKind) => {
@@ -226,6 +245,13 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                   <p className="text-xs text-muted-foreground">A booking door lists who booked that day&apos;s sessions, and shows who didn&apos;t come.</p>
                 </div>
               )}
+              {forms.length > 0 && (
+                <div className="grid gap-2 sm:col-span-2">
+                  <label className="text-sm font-medium" htmlFor="cp_survey">Survey after check-in</label>
+                  {surveySelect(null, "cp_survey")}
+                  <p className="text-xs text-muted-foreground">{surveyHint}</p>
+                </div>
+              )}
               <Field label="Name" name="name" placeholder="Registration"
                 description={bookingActivities.length > 0 ? "For a booking door, leave blank to use the activity's name." : undefined} />
               <Field label="Date" name="day" type="date" defaultValue={days[0] ?? ev.starts_on} />
@@ -252,6 +278,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
                   items={g.items}
                   tallies={tallies}
                   activityNames={activityNames}
+                  surveyNames={surveyNames}
+                  surveyForms={surveyForms}
                   activeId={running?.id ?? null}
                   reorder={reorderCheckpointsAction.bind(null, ev.id, g.day)}
                   deleteCheckpoint={deleteCheckpointAction.bind(null, ev.id)}
