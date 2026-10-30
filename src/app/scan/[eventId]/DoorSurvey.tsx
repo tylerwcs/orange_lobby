@@ -1,5 +1,5 @@
 "use client";
-import { startTransition, useActionState } from "react";
+import { startTransition, useActionState, useEffect, useRef } from "react";
 import { ClipboardList } from "lucide-react";
 import { submitDoorSurveyAction } from "./actions";
 import { HealthConsentField, SubmissionFields } from "@/features/activities/client";
@@ -15,13 +15,15 @@ export type DoorSurveyForm = { id: string; name: string; descriptionHtml: string
  * over, or read out. Keyed by attendee where it is placed, so nothing typed for one person is
  * ever on screen for the next; it unmounts on Submit and on Skip, and the answers never come back.
  */
-export function DoorSurvey({ eventId, checkpointId, crewToken, form, attendee, needsConsent, onSaved, onSkip }: {
+export function DoorSurvey({ eventId, checkpointId, crewToken, form, attendee, needsConsent, scanBlocked, onSaved, onSkip }: {
   eventId: string;
   checkpointId: string;
   crewToken?: string;
   form: DoorSurveyForm;
   attendee: { id: string; name: string };
   needsConsent: boolean;
+  /** D765: how many badge scans landed while this was open; each was refused, and this says so. */
+  scanBlocked: number;
   onSaved: () => void;
   onSkip: () => void;
 }) {
@@ -35,6 +37,10 @@ export function DoorSurvey({ eventId, checkpointId, crewToken, form, attendee, n
     }
   }, null);
 
+  // D765: focus starts inside the form, so a hand scanner's Tab or Enter can't reach the card behind it.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { dialogRef.current?.focus(); }, []);
+
   // Sent from onSubmit, not as the form's action: an action resets the form when it settles,
   // and a refused survey must keep what was typed so crew can fix it or Skip.
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,8 +50,9 @@ export function DoorSurvey({ eventId, checkpointId, crewToken, form, attendee, n
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="door-survey-title" className="fixed inset-0 z-50 overflow-y-auto bg-background">
-      <form onSubmit={submit} className="mx-auto flex min-h-full w-full max-w-xl flex-col gap-5 p-4 lg:p-6">
+    <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="door-survey-title" data-door-survey className="fixed inset-0 z-50 overflow-y-auto bg-background outline-none">
+      {/* D765: off, so a browser never offers one attendee's answers to the next on this device. */}
+      <form onSubmit={submit} autoComplete="off" className="mx-auto flex min-h-full w-full max-w-xl flex-col gap-5 p-4 lg:p-6">
         <header className="flex flex-col gap-1">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
             <ClipboardList className="size-4" aria-hidden="true" />
@@ -57,6 +64,7 @@ export function DoorSurvey({ eventId, checkpointId, crewToken, form, attendee, n
         {needsConsent && <HealthConsentField id="door-survey-consent" />}
         <SubmissionFields questions={form.questions} />
         <div className="sticky bottom-0 -mx-4 mt-auto flex flex-col gap-2 border-t border-border bg-background px-4 py-3 lg:-mx-6 lg:px-6">
+          {scanBlocked > 0 && <p role="status" className="text-sm font-semibold text-warning">That was a badge scan, so nobody was checked in. Finish or skip this survey first.</p>}
           {error && <p role="alert" className="text-sm font-semibold text-destructive">{error}</p>}
           <div className="flex gap-2">
             <Button type="submit" disabled={pending} className="h-12 flex-1 text-base font-bold">

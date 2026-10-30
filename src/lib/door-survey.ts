@@ -30,3 +30,11 @@ export function doorSurveyRefusal(x: { hasSurvey: boolean; checkedInHere: boolea
   if (!x.checkedInHere) return "Scan them in at this door first.";
   return null;
 }
+
+/**
+ * D765: a hand scanner types into whatever has focus. A badge scanned while the survey is open
+ * lands in the answer being typed; this takes it back out. Only from the end, where it was typed.
+ */
+export function stripScan(value: string, scanned: string): string {
+  return scanned && value.endsWith(scanned) ? value.slice(0, value.length - scanned.length) : value;
+}

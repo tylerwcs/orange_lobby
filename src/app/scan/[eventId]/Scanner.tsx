@@ -8,7 +8,7 @@ import type { Checkpoint } from "@/lib/types";
 import type { Board } from "@/features/activities/client";
 import { ExpectedList } from "./ExpectedList";
 import { DoorSurvey, type DoorSurveyForm } from "./DoorSurvey";
-import { offersSurvey } from "@/lib/door-survey";
+import { offersSurvey, stripScan } from "@/lib/door-survey";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -117,7 +117,15 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
   // person behind the one still answering.
   const [surveyOpen, setSurveyOpen] = useState(false);
   const surveyOpenRef = useRef(false);
-  const openSurvey = (open: boolean) => { surveyOpenRef.current = open; setSurveyOpen(open); };
+  const openSurvey = (open: boolean) => { surveyOpenRef.current = open; setSurveyOpen(open); setScanBlocked(0); };
+  const [scanBlocked, setScanBlocked] = useState(0);
+  const mainRef = useRef<HTMLElement>(null);
+  // D765: the scanner behind the open survey takes no focus and no clicks.
+  useEffect(() => {
+    for (const el of Array.from(mainRef.current?.children ?? [])) {
+      if (!el.hasAttribute("data-door-survey")) el.toggleAttribute("inert", surveyOpen);
+    }
+  }, [surveyOpen]);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
   const busyRef = useRef(false);
@@ -242,11 +250,18 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
     if (mode !== "wedge") return;
     const reader = createWedgeReader();
     const onKey = (e: KeyboardEvent) => {
-      // D763: typing into the open survey is answers, not a badge.
-      if (surveyOpenRef.current || e.repeat || e.isComposing) return;
+      if (e.repeat || e.isComposing) return;
       const scanned = reader.feed(e.key, e.timeStamp);
       if (scanned === null) return;
       e.preventDefault(); // the Enter (or Tab) that ended it must not also act on the page
+      // D765: a badge scanned while the survey is open checks nobody in and must not submit the
+      // form either. It typed itself into whatever answer had focus, so it comes back out of it.
+      if (surveyOpenRef.current) {
+        const el = document.activeElement;
+        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = stripScan(el.value, scanned);
+        setScanBlocked((n) => n + 1);
+        return;
+      }
       void scanText(scanned, true);
     };
     window.addEventListener("keydown", onKey);
@@ -435,7 +450,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-3 p-3 lg:max-w-7xl lg:gap-5 lg:p-6">
+    <main ref={mainRef} className="mx-auto flex w-full max-w-md flex-col gap-3 p-3 lg:max-w-7xl lg:gap-5 lg:p-6">
       {/* One row at desk width — the door, how badges are read, and how full the room is. On
           a phone the count stays beside the door name, where it always was, and the rest wraps. */}
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_minmax(12rem,18rem)] lg:gap-x-6">
@@ -571,7 +586,7 @@ export function Scanner({ eventId, checkpoint, initialCount, total, crewToken, b
       {surveyOpen && survey && owesSurvey && (
         <DoorSurvey key={result!.attendee!.id} eventId={eventId} checkpointId={checkpoint.id} crewToken={crewToken} form={survey}
           attendee={{ id: result!.attendee!.id, name: result!.attendee!.name }} needsConsent={result!.survey!.needsConsent}
-          onSaved={surveySaved} onSkip={dropSurvey} />
+          scanBlocked={scanBlocked} onSaved={surveySaved} onSkip={dropSurvey} />
       )}
     </main>
   );

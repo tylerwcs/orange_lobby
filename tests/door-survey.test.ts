@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { doorSurveyRefusal, offersSurvey } from "@/lib/door-survey";
+import { readFileSync } from "node:fs";
+import { doorSurveyRefusal, offersSurvey, stripScan } from "@/lib/door-survey";
 
 describe("offersSurvey (D762)", () => {
   it("offers it to someone just checked in or already in, and nobody else", () => {
@@ -22,5 +23,22 @@ describe("doorSurveyRefusal (D762)", () => {
   });
   it("refuses a cancelled registration", () => {
     expect(doorSurveyRefusal({ ...fine, cancelled: true })).toBe("This registration was cancelled.");
+  });
+});
+
+describe("stripScan (D765)", () => {
+  it("takes a badge scan back out of the answer it was typed into", () => {
+    expect(stripScan("Hypertensionzzqdetaqqqqq", "zzqdetaqqqqq")).toBe("Hypertension");
+    expect(stripScan("https://x.test/a/zzqdetaqqqqq", "https://x.test/a/zzqdetaqqqqq")).toBe("");
+  });
+  it("leaves an answer alone when the scan didn't land in it", () => {
+    expect(stripScan("Hypertension", "zzqdetaqqqqq")).toBe("Hypertension");
+  });
+});
+
+describe("the door survey form (D765)", () => {
+  it("never offers one attendee's typed answers to the next on a shared device", () => {
+    const src = readFileSync("src/app/scan/[eventId]/DoorSurvey.tsx", "utf8");
+    expect(src).toMatch(/<form[^>]*autoComplete="off"/);
   });
 });
