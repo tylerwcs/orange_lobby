@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireEventAccess } from "@/lib/access";
 import { requireFeature } from "@/features/catalogue";
-import { saveSettings } from "@/features/qualifier";
+import { confirmFinalists, saveSettings, setDisqualified } from "@/features/qualifier";
 import { parseCategories } from "@/lib/agenda";
 import { flashPath } from "@/lib/flash";
 import { localInputToIso } from "@/lib/time";
@@ -36,4 +36,39 @@ export async function saveQualifierSettingsAction(eventId: string, fd: FormData)
   if (result === "locked") redirect(flashPath(back, "Finalists are confirmed \u2014 settings are locked.", "error"));
   revalidatePath(back);
   redirect(flashPath(back, "Saved."));
+}
+
+/**
+ * Disqualifies or restores one run (D775); the attendee's best, and so the board, is
+ * recomputed by the database. Refused once the finalists are confirmed. Lands back on that
+ * attendee's runs.
+ */
+export async function setRunDisqualifiedAction(eventId: string, attendeeId: string, runId: string, on: boolean) {
+  const { ev } = await requireEventAccess(eventId);
+  const back = `${qualifierPath(ev.id)}/${encodeURIComponent(attendeeId)}`;
+  await requireFeature(ev.id, "typing_qualifier", qualifierPath(ev.id));
+
+  const result = await setDisqualified(ev.id, runId, on);
+  if (result === "locked") redirect(flashPath(back, "Settings are locked.", "error"));
+  if (result === "missing") redirect(flashPath(back, "That run isn't there any more.", "error"));
+  revalidatePath(qualifierPath(ev.id));
+  redirect(flashPath(back, on ? "Run disqualified." : "Run restored."));
+}
+
+/**
+ * Locks the top 10 as the finale list (D775). `confirmed_by` is a uuid: the signed-in user's
+ * auth id, which an Ecopia admin and a committee member both have (`actor.userId`).
+ * `not_closed` is also the answer while a run started before the close can still be submitted
+ * (up to about 36 s after it), hence the second half of the message.
+ */
+export async function confirmFinalistsAction(eventId: string) {
+  const { actor, ev } = await requireEventAccess(eventId);
+  const back = qualifierPath(ev.id);
+  await requireFeature(ev.id, "typing_qualifier", back);
+
+  const result = await confirmFinalists(ev.id, actor.userId);
+  if (result === "not_closed") redirect(flashPath(back, "Close the qualifier first — or wait a minute for the last runs to finish.", "error"));
+  if (result === "already") redirect(flashPath(back, "Already confirmed.", "error"));
+  revalidatePath(back);
+  redirect(flashPath(back, "Finalists confirmed."));
 }
