@@ -4,6 +4,7 @@ import { MAX_UPLOAD_BYTES, UPLOAD_ACCEPT, UPLOAD_TOO_BIG } from "@/lib/storage";
 import { shrinkImage } from "@/lib/shrink-image";
 import { isQuestionShown } from "@/lib/show-when";
 import { numberInputAttrs } from "@/lib/number-answer";
+import { multiParts, toggleMulti } from "@/lib/multi-answer";
 import type { RegistrationQuestion } from "@/lib/types";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -84,6 +85,34 @@ function renderQuestion(q: RegistrationQuestion, current: string, d: Dict["submi
 }
 
 /**
+ * D759: a tick-box question, as on the registration form (D732). The boxes carry no name - the
+ * hidden input posts the answer as one string, the shape every other question posts and the one
+ * `readAnswers` reads. Neither fires a change event the fieldset can read, so each tick is
+ * reported up through `onAnswer` to keep `show_when` in step.
+ */
+function MultiChoice({ q, current, onAnswer }: { q: RegistrationQuestion; current: string; onAnswer: (key: string, value: string) => void }) {
+  const [value, setValue] = useState(current);
+  const id = `q-${q.key}`;
+  return (
+    <div id={id} role="group" aria-labelledby={`${id}-label`} className="flex flex-col">
+      <input type="hidden" name={q.key} value={value} />
+      {q.options!.map((o) => (
+        <label key={o} className="flex items-start gap-3 py-3 text-sm">
+          <input type="checkbox" value={o} data-multi={q.key} checked={multiParts(value).includes(o)}
+            onChange={(e) => {
+              const next = toggleMulti(value, o, e.target.checked, q.options!);
+              setValue(next);
+              onAnswer(q.key, next);
+            }}
+            className="size-5 shrink-0 accent-primary" />
+          <span>{o}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/**
  * A submission form's questions, hiding each one whose `show_when` is not met by the answers
  * given so far - the same rule `validateAnswers` applies when the form is sent.
  *
@@ -108,6 +137,7 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
   const [answers, setAnswers] = useState<Record<string, string>>(defaults ?? {});
   const onChange = (e: React.FormEvent<HTMLFieldSetElement>) => {
     const t = e.target as HTMLInputElement;
+    // A tick box has no name; its question reports through `onAnswer` instead (D759).
     if (!t.name || t.type === "file") return;
     setAnswers((a) => ({ ...a, [t.name]: t.value }));
   };
@@ -120,7 +150,7 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
           const link = fileLinks && Object.hasOwn(fileLinks, q.key) ? fileLinks[q.key] : undefined;
           return (
             <Field key={q.key}>
-              <FieldLabel htmlFor={`q-${q.key}`}>
+              <FieldLabel id={`q-${q.key}-label`} htmlFor={q.type === "multi" ? undefined : `q-${q.key}`}>
                 {q.label}
                 {!q.required && <span className="font-normal text-muted-foreground">{d.optional}</span>}
               </FieldLabel>
@@ -134,7 +164,9 @@ export function SubmissionFields({ questions, defaults, fileLinks }: {
                     : <span className="text-muted-foreground">{common.unavailable}</span>}
                 </p>
               )}
-              {renderQuestion(q, current, d)}
+              {q.type === "multi"
+                ? <MultiChoice q={q} current={current} onAnswer={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))} />
+                : renderQuestion(q, current, d)}
               {storedFile && <FieldDescription>{d.replaceFile}</FieldDescription>}
             </Field>
           );

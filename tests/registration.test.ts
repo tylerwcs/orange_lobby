@@ -202,3 +202,11 @@ describe("tick boxes (D732)", () => {
     expect(isQuestionShown(other, { chronic: "Diabetes" }, [q, other])).toBe(false);
   });
 });
+
+describe("activity form question types", () => {
+  it("lets activity forms carry tick boxes (D759)", () => {
+    expect(FORM_QUESTION_TYPES).toContain("multi");
+    const tick = { key: "kinds", label: "Kinds", type: "multi", required: false, options: ["A", "B", "C"] };
+    expect(parseQuestions([tick], FORM_QUESTION_TYPES)[0].type).toBe("multi");
+  });
+});

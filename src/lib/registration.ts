@@ -12,7 +12,7 @@ export { isQuestionShown };
 /** What registration may ask. A file has no attendee row to attach to yet (D164). Tick boxes, D732. */
 export const REGISTRATION_QUESTION_TYPES = ["text", "phone", "number", "select", "multi"] as const satisfies readonly QuestionType[];
 /** What a form may ask. */
-export const FORM_QUESTION_TYPES = ["text", "phone", "number", "select", "textarea", "file"] as const satisfies readonly QuestionType[];
+export const FORM_QUESTION_TYPES = ["text", "phone", "number", "select", "multi", "textarea", "file"] as const satisfies readonly QuestionType[];
 
 const schemaFor = (allowed: readonly QuestionType[]) => z.object({
   key: z.string().regex(/^[a-z0-9_]+$/, "key must be lowercase letters, digits, underscores"),
