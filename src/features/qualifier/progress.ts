@@ -1,5 +1,6 @@
 // Ranks, streaks, skins and the result line (D768). None of it touches the score: the score
 // is wpm and nothing else (D767). Pure, shared by the result screen and the server.
+import { lastDays, nowInKL } from "@/lib/time";
 import { FINALISTS } from "./scoring";
 
 export type Tier = "cadet" | "pilot" | "commander" | "ace";
@@ -87,4 +88,61 @@ export function byStanding(a: Entry, b: Entry): number {
   if (a.wpm !== b.wpm) return b.wpm - a.wpm;
   if (a.accuracy !== b.accuracy) return b.accuracy - a.accuracy;
   return a.at < b.at ? -1 : a.at > b.at ? 1 : 0;
+}
+
+/**
+ * The line under the skins (D774): what the next locked skin asks for, in unlock order. Null
+ * once all six are open. Decoration only: nothing here reaches the score (D767).
+ */
+export function nextSkinHint(p: { runs: number; streak: number; best: number | null }): string | null {
+  const open = new Set(unlockedSkins(p));
+  const next = SKINS.find((s) => !open.has(s));
+  switch (next) {
+    case undefined: return null;
+    case "violet": return "Next skin: finish your first flight";
+    case "teal": return `Next skin at 10 runs (${Math.max(0, 10 - p.runs)} to go)`;
+    case "coral": return "Next skin: fly 3 days in a row";
+    case "sky": return "Next skin at 40 wpm";
+    case "amber": return "Next skin at 60 wpm";
+    case "gold": return "Next skin at 80 wpm";
+  }
+}
+
+const DOTS = 7;
+
+/**
+ * One dot per day of the window, opens to closes in Malaysian days, `done` when the player ran
+ * that day. A window longer than a week shows the last 7 days ending today, held between the
+ * open and the close. With no window set, the last 7 days ending today.
+ */
+export function streakDots(
+  opensAt: string | null, closesAt: string | null, today: string, runDays: readonly string[],
+): { day: string; done: boolean }[] {
+  const ran = new Set(runDays);
+  const day = (iso: string | null) => {
+    const t = iso ? new Date(iso) : null;
+    return t && !Number.isNaN(t.getTime()) ? nowInKL(t).date : null;
+  };
+  const first = day(opensAt);
+  const last = day(closesAt);
+  let days: string[];
+  if (first && last && last >= first && (dayMs(last) - dayMs(first)) / DAY_MS < DOTS) {
+    days = [];
+    for (let d = first; d <= last; d = new Date(dayMs(d) + DAY_MS).toISOString().slice(0, 10)) days.push(d);
+  } else {
+    let end = today;
+    if (last && end > last) end = last;
+    if (first && end < first) end = first;
+    days = lastDays(end, DOTS).filter((d) => !first || d >= first);
+  }
+  return days.map((d) => ({ day: d, done: ran.has(d) }));
+}
+
+/**
+ * What the Share button sends (D774). The event's generic link only: never the player's
+ * personal link, which carries their token.
+ */
+export function shareText(wpm: number, rank: number | null, url: string): string {
+  const where = rank === null ? "" : ` — #${rank} so far`;
+  return `I flew ${Number(wpm.toFixed(1))} wpm in the Typing Qualifier${where}. ${url}`;
 }

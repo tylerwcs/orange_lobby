@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  TIER_LABELS, SKINS, byStanding, nearMiss, streakDays, tierOf, unlockedSkins, type Entry,
+  TIER_LABELS, SKINS, byStanding, nearMiss, nextSkinHint, shareText, streakDays, streakDots, tierOf, unlockedSkins, type Entry,
 } from "@/features/qualifier/progress";
 
 const e = (wpm: number, accuracy: number, at: string): Entry => ({ wpm, accuracy, at });
@@ -70,5 +70,62 @@ describe("nearMiss lines", () => {
 describe("byStanding: wpm, then accuracy, then earlier", () => {
   it("orders", () => {
     expect([e(70, 95, "b"), e(70, 98, "c"), e(70, 98, "a"), e(71, 80, "z")].sort(byStanding).map((x) => x.at)).toEqual(["z", "a", "c", "b"]);
+  });
+});
+
+describe("shareText (D774)", () => {
+  it("says the wpm, the rank and the event link", () => {
+    expect(shareText(76, 14, "https://x/e/demo")).toBe("I flew 76 wpm in the Typing Qualifier — #14 so far. https://x/e/demo");
+  });
+  it("leaves out the rank when there is none", () => {
+    expect(shareText(76, null, "https://x/e/demo")).toBe("I flew 76 wpm in the Typing Qualifier. https://x/e/demo");
+  });
+  it("keeps one decimal when the wpm has one", () => {
+    expect(shareText(76.4, 3, "https://x")).toBe("I flew 76.4 wpm in the Typing Qualifier — #3 so far. https://x");
+  });
+  it("never carries a personal link", () => {
+    expect(shareText(76, 14, "https://x/e/demo")).not.toMatch(/\/a\/[A-Za-z0-9]{12}/);
+  });
+});
+
+describe("nextSkinHint (D774)", () => {
+  it("is the first locked skin's milestone, in unlock order", () => {
+    expect(nextSkinHint({ runs: 0, streak: 0, best: null })).toBe("Next skin: finish your first flight");
+    expect(nextSkinHint({ runs: 4, streak: 1, best: 30 })).toBe("Next skin at 10 runs (6 to go)");
+    expect(nextSkinHint({ runs: 10, streak: 1, best: 30 })).toBe("Next skin: fly 3 days in a row");
+    expect(nextSkinHint({ runs: 10, streak: 3, best: 30 })).toBe("Next skin at 40 wpm");
+    expect(nextSkinHint({ runs: 10, streak: 3, best: 45 })).toBe("Next skin at 60 wpm");
+    expect(nextSkinHint({ runs: 10, streak: 3, best: 65 })).toBe("Next skin at 80 wpm");
+  });
+  it("is null once every skin is unlocked", () => {
+    expect(nextSkinHint({ runs: 10, streak: 3, best: 90 })).toBeNull();
+  });
+});
+
+describe("streakDots (D774)", () => {
+  const opens = "2026-11-02T09:00:00+08:00";
+  const closes = "2026-11-04T18:00:00+08:00";
+  it("a short window has one dot per day, opens to closes", () => {
+    expect(streakDots(opens, closes, "2026-11-03", ["2026-11-02"])).toEqual([
+      { day: "2026-11-02", done: true }, { day: "2026-11-03", done: false }, { day: "2026-11-04", done: false },
+    ]);
+  });
+  it("uses Malaysian days: 00:30 on the 3rd KL is still the 2nd in UTC", () => {
+    expect(streakDots("2026-11-03T00:30:00+08:00", "2026-11-03T20:00:00+08:00", "2026-11-03", ["2026-11-03"]))
+      .toEqual([{ day: "2026-11-03", done: true }]);
+  });
+  it("a long window shows the last 7 days ending today", () => {
+    const d = streakDots("2026-11-01T09:00:00+08:00", "2026-11-30T18:00:00+08:00", "2026-11-12", ["2026-11-12", "2026-11-10", "2026-11-01"]);
+    expect(d.map((x) => x.day)).toEqual(["2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12"]);
+    expect(d.filter((x) => x.done).map((x) => x.day)).toEqual(["2026-11-10", "2026-11-12"]);
+  });
+  it("a long window ends at the close once it has passed, and never starts before the open", () => {
+    const d = streakDots("2026-11-01T09:00:00+08:00", "2026-11-10T18:00:00+08:00", "2026-12-25", []);
+    expect(d.map((x) => x.day)).toEqual(["2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10"]);
+    const early = streakDots("2026-11-01T09:00:00+08:00", "2026-11-30T18:00:00+08:00", "2026-11-03", []);
+    expect(early.map((x) => x.day)).toEqual(["2026-11-01", "2026-11-02", "2026-11-03"]);
+  });
+  it("with no window set, the last 7 days ending today", () => {
+    expect(streakDots(null, null, "2026-11-12", []).map((x) => x.day)).toEqual(["2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12"]);
   });
 });

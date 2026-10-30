@@ -9,6 +9,7 @@ import { markSeenAction } from "@/app/e/[slug]/(portal)/a/[token]/qualifier/acti
 import type { QualifierView } from "../view";
 import { backspace, ghostIndexAt, initialTyping, prefixOf, typeText, type TypingState } from "../typing";
 import { GRACE_MS, RUN_MS } from "../scoring";
+import { shareText, type SkinId } from "../progress";
 import { liveWpm, perfOrigin, runClock, submissionOf } from "../run";
 import { claimFree, failMessage, gapLine, livePhase, untilText, type FailReason } from "../screen";
 import { qualifierFont } from "../font";
@@ -17,6 +18,8 @@ import { RunHud } from "./RunHud";
 import { Tunnel, preloadTunnel3D } from "./Tunnel";
 import { ResultCard } from "./ResultCard";
 import { Board } from "./Board";
+import { Progress } from "./Progress";
+import { ShareButton } from "./ShareButton";
 
 type Ghosts = { best: number[] | null; cut: number[] | null };
 type Run = { runId: string; words: string[]; origin: number; ghosts: Ghosts };
@@ -250,6 +253,14 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
     return () => window.removeEventListener("keydown", onKey);
   }, [running, phase, stage.kind, fly]);
 
+  // A colour just picked shows at once on the ship, the picker and the player's own board row.
+  const pickSkin = useCallback((skin: SkinId | null) => {
+    setView((v) => {
+      const mine = (rows: QualifierView["board"]["top"]) => rows.map((r) => (r.me ? { ...r, skin } : r));
+      return { ...v, me: { ...v.me, skin }, board: { top: mine(v.board.top), around: mine(v.board.around) } };
+    });
+  }, []);
+
   const canFly = phase === "open";
   const showCockpit = canFly || running || stage.kind === "result" || stage.kind === "failed";
   // The 3D tunnel (D773) is warmed only while the typing box is up and no run is on, in idle time.
@@ -302,7 +313,8 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
             ) : stage.kind === "result" ? (
               <div className="flex flex-col items-center gap-3">
                 <ResultCard wpm={stage.landed.wpm} accuracy={stage.landed.accuracy} line={claimFree(stage.landed.line, phase)}
-                  best={view.me.best} cutWpm={view.cutWpm} canFly={canFly} flying={starting} onFlyAgain={() => void fly()} />
+                  best={view.me.best} cutWpm={view.cutWpm} canFly={canFly} flying={starting} onFlyAgain={() => void fly()}
+                  share={<ShareButton text={shareText(stage.landed.wpm, view.me.rank, view.shareUrl)} />} />
                 {swipe && <p role="status" className="text-sm font-bold text-destructive">{SWIPE}</p>}
               </div>
             ) : stage.kind === "failed" ? (
@@ -314,6 +326,10 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
               <Ready view={view} error={stage.error} flyButton={flyButton("Fly")} />
             )}
           </div>
+        )}
+
+        {!running && phase !== "unset" && phase !== "before" && (
+          <Progress view={view} slug={slug} token={token} onSkin={pickSkin} />
         )}
 
         {!running && phase !== "unset" && phase !== "before" && <Board view={view} phase={phase} now={now} />}

@@ -2,11 +2,13 @@ import "server-only";
 import type { PlayContext } from "@/features/games";
 import { tagsFor } from "@/features/games/client";
 import { createMemo } from "@/lib/memo";
-import { lastDays, nowInKL } from "@/lib/time";
+import { eventAddress } from "@/features/domains";
+import { genericLink } from "@/lib/links";
+import { nowInKL } from "@/lib/time";
 import { boardSize, getPlayer, getSettings, listBoard, listFinalists, rankOf, runOffsets, type BoardRow } from "./db";
 import { BOARD_TOP, aroundWindow, boardSlices, needsFreshSlice, type BoardEntry } from "./board";
 import { ineligibility, phaseOf, type Ineligible, type Phase, type QualifierSettings } from "./phase";
-import { streakDays, tierOf, unlockedSkins, type SkinId, type Tier } from "./progress";
+import { streakDays, streakDots, tierOf, unlockedSkins, type SkinId, type Tier } from "./progress";
 import { FINALISTS } from "./scoring";
 
 // The qualifier page's state in one read (D771). Board rows are shared by everyone at the event,
@@ -16,6 +18,10 @@ const BOARD_TTL_MS = 3000;
 const boardMemo = createMemo<{ top: BoardRow[]; total: number }>(BOARD_TTL_MS);
 const aroundMemo = createMemo<BoardRow[]>(BOARD_TTL_MS);
 const settingsMemo = createMemo<QualifierSettings | null>(BOARD_TTL_MS);
+// The event's own address changes about never; every submit builds a view, so it is read once a minute.
+const shareMemo = createMemo<string>(60_000);
+const shareUrlFor = (event: { id: string; slug: string }) =>
+  shareMemo.get(event.id, async () => genericLink(await eventAddress(event)));
 
 /** The event's window and left-out categories, memoised for a few seconds like the board. */
 export const settingsFor = (eventId: string) => settingsMemo.get(eventId, () => getSettings(eventId));
@@ -44,6 +50,8 @@ export type QualifierView = {
   opensAt: string | null;
   closesAt: string | null;
   ineligible: Ineligible | null;
+  /** The event's own link for the share text: never the player's personal one (D774). */
+  shareUrl: string;
   me: {
     best: number | null;
     accuracy: number | null;
@@ -51,7 +59,8 @@ export type QualifierView = {
     total: number;
     tier: Tier;
     streak: number;
-    runDays: string[];
+    /** One dot per day of the window (at most the last 7), filled when the player ran that day. */
+    dots: { day: string; done: boolean }[];
     skins: SkinId[];
     skin: SkinId | null;
     runs: number;
@@ -82,12 +91,13 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
   const phase = phaseOf(settings, now);
   const ineligible = ineligibility({ ...attendee, cancelled_at: attendee.cancelled_at ?? null }, event.preview_attendee_id, settings?.excluded_categories ?? []);
 
-  const [player, rank, board0, finalists] = await Promise.all([
+  const [player, rank, board0, finalists, shareUrl] = await Promise.all([
     getPlayer(event.id, attendee.id),
     // Someone who may not play is off the board whatever their old runs say.
     ineligible ? Promise.resolve(null) : known ? Promise.resolve(known.rank) : rankOf(event.id, attendee.id),
     boardFor(event.id),
     phase === "confirmed" ? listFinalists(event.id) : Promise.resolve(null),
+    shareUrlFor(event),
   ]);
   let board = board0;
   let aroundRows = rank !== null && rank > BOARD_TOP ? await aroundFor(event.id, rank) : [];
@@ -116,13 +126,13 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
   const days = player?.run_days ?? [];
   const streak = streakDays(days, today);
   const best = player?.best_wpm ?? null;
-  const week = new Set(lastDays(today, 7));
 
   return {
     phase,
     opensAt: settings?.opens_at ?? null,
     closesAt: settings?.closes_at ?? null,
     ineligible,
+    shareUrl,
     me: {
       best,
       accuracy: player?.best_accuracy ?? null,
@@ -130,7 +140,7 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
       total: board.total,
       tier: tierOf(best),
       streak,
-      runDays: days.filter((d) => week.has(d)),
+      dots: streakDots(settings?.opens_at ?? null, settings?.closes_at ?? null, today, days),
       skins: unlockedSkins({ runs: player?.runs_played ?? 0, streak, best }),
       skin: player?.skin ?? null,
       runs: player?.runs_played ?? 0,
