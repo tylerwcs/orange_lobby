@@ -1,6 +1,6 @@
 "use client";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type RootState } from "@react-three/fiber";
 import { ConeGeometry, ExtrudeGeometry, MathUtils, Shape, type Mesh, type MeshBasicMaterial } from "three";
 import { skinColour } from "../screen";
 import { slowTracker } from "../tunnel-mode";
@@ -106,7 +106,18 @@ function Scene({ progress, best, cut, skin, sprint, onSlow, onDrawn }: {
   useEffect(() => { if (sprint) tracker.current = slowTracker(); }, [sprint]);
   useEffect(() => { invalidate(); }, [progress, best, cut, invalidate]);
 
-  useFrame((state, delta) => {
+  // A context lost while this scene is up leaves a dead canvas: show the 2D tunnel instead. The
+  // listener goes with the scene, because unmounting makes R3F lose the context on purpose, and
+  // that is not a failure.
+  useEffect(() => {
+    const el = gl.domElement;
+    let alive = true;
+    const lost = (e: Event) => { e.preventDefault(); if (alive) latest.current.onSlow(); };
+    el.addEventListener("webglcontextlost", lost);
+    return () => { alive = false; el.removeEventListener("webglcontextlost", lost); };
+  }, [gl]);
+
+  const frame = (state: RootState, delta: number) => {
     const { progress: goal, best: bestGoal, cut: cutGoal, sprint: racing } = latest.current;
     const dt = Math.min(delta, 0.1);
     cam.current = MathUtils.damp(cam.current, goal, EASE, dt);
@@ -146,6 +157,15 @@ function Scene({ progress, best, cut, skin, sprint, onSlow, onDrawn }: {
       if (tracker.current.frame(performance.now(), delta * 1000)) latest.current.onSlow();
     } else if (moving) {
       invalidate(); // demand mode: keep drawing until the ease has settled
+    }
+  };
+
+  useFrame((state, delta) => {
+    // An exception in the frame loop bypasses the error boundary: fall back to 2D from here.
+    try {
+      frame(state, delta);
+    } catch {
+      latest.current.onSlow();
     }
   });
 
@@ -191,10 +211,6 @@ function Tunnel3DView({ progress, ghosts, skin, sprint = false, onSlow, onDrawn 
         camera={{ fov: 55, near: 0.1, far: GATES * GAP + 10, position: [0, 0, 0] }}
         gl={{ antialias: true, alpha: true }}
         style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-        onCreated={({ gl }) => {
-          // A lost context leaves a dead canvas: show the 2D tunnel instead.
-          gl.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); onSlow(); });
-        }}
       >
         <Scene progress={progress} best={ghosts.best} cut={ghosts.cut} skin={skin} sprint={sprint} onSlow={onSlow}
           onDrawn={() => { setShown(true); onDrawn?.(); }} />

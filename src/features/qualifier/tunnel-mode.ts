@@ -18,6 +18,23 @@ export function tunnelMode(s: { reducedMotion: boolean; webgl: boolean; slow: bo
   return !s.reducedMotion && s.webgl && !s.slow ? "3d" : "2d";
 }
 
+/**
+ * May the 3D chunk be fetched and evaluated now? Never while a run is on (the countdown or the
+ * sprint): evaluating three is a long main-thread task, and the typing must never wait on it.
+ */
+export function mayPreload(s: { running: boolean; reducedMotion: boolean; slow: boolean }): boolean {
+  return !s.running && !s.reducedMotion && !s.slow;
+}
+
+/**
+ * May the 3D canvas be mounted now? Creating the canvas and compiling its shaders is a long task
+ * too, so only before the sprint, and only once the chunk is already loaded. Once mounted it
+ * stays; if it was not mounted before the sprint began, this run stays 2D.
+ */
+export function mayMount3D(s: { sprint: boolean; loaded: boolean; mounted: boolean }): boolean {
+  return s.mounted || (s.loaded && !s.sprint);
+}
+
 export type SlowTracker = {
   /** One drawn frame: `nowMs` on any steady clock, `dtMs` its length. True once the scene is slow. */
   frame(nowMs: number, dtMs: number): boolean;

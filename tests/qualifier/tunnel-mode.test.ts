@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAUSE_MS, SLOW_FRAME_MS, SLOW_WINDOW_MS, slowTracker, tunnelMode } from "@/features/qualifier/tunnel-mode";
+import { PAUSE_MS, SLOW_FRAME_MS, SLOW_WINDOW_MS, mayMount3D, mayPreload, slowTracker, tunnelMode } from "@/features/qualifier/tunnel-mode";
 
 /** Feeds `ms`-long frames from `from` for `total` ms; returns the clock after the last frame. */
 function feed(t: ReturnType<typeof slowTracker>, from: number, ms: number, total: number) {
@@ -80,5 +80,34 @@ describe("slowTracker (D773)", () => {
     const a = feed(t, 0, 100, 2500);
     expect(a.slow).toBe(true);
     expect(feed(t, a.now, 8, 5000).slow).toBe(true);
+  });
+});
+
+describe("mayPreload (D773)", () => {
+  it("allows the warm-up only between runs, with motion allowed and frames fast", () => {
+    expect(mayPreload({ running: false, reducedMotion: false, slow: false })).toBe(true);
+  });
+  it("never during a run (countdown or sprint)", () => {
+    expect(mayPreload({ running: true, reducedMotion: false, slow: false })).toBe(false);
+  });
+  it("not for reduced motion or after slow frames", () => {
+    expect(mayPreload({ running: false, reducedMotion: true, slow: false })).toBe(false);
+    expect(mayPreload({ running: false, reducedMotion: false, slow: true })).toBe(false);
+  });
+});
+
+describe("mayMount3D (D773)", () => {
+  it("mounts once loaded, before the sprint", () => {
+    expect(mayMount3D({ sprint: false, loaded: true, mounted: false })).toBe(true);
+  });
+  it("does not mount while the chunk is still loading", () => {
+    expect(mayMount3D({ sprint: false, loaded: false, mounted: false })).toBe(false);
+  });
+  it("never mounts during the sprint, loaded or not: that run stays 2D", () => {
+    expect(mayMount3D({ sprint: true, loaded: true, mounted: false })).toBe(false);
+    expect(mayMount3D({ sprint: true, loaded: false, mounted: false })).toBe(false);
+  });
+  it("stays mounted through the sprint once it was mounted before it", () => {
+    expect(mayMount3D({ sprint: true, loaded: true, mounted: true })).toBe(true);
   });
 });

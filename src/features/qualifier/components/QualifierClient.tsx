@@ -252,18 +252,19 @@ export function QualifierClient({ token, slug, initial }: { token: string; slug:
 
   const canFly = phase === "open";
   const showCockpit = canFly || running || stage.kind === "result" || stage.kind === "failed";
-  // The 3D tunnel (D773) is fetched only once the typing box is up, and in idle time, so it can
-  // never delay the input; until it has loaded and drawn, the run shows the 2D tunnel.
+  // The 3D tunnel (D773) is warmed only while the typing box is up and no run is on, in idle time.
+  // A run that starts cancels a pending warm-up, so nothing 3D is scheduled during the countdown
+  // or the sprint.
   useEffect(() => {
-    if (!showCockpit) return;
-    const idle = window.requestIdleCallback;
-    if (idle) {
-      const id = idle(preloadTunnel3D, { timeout: 4000 });
+    if (!showCockpit || running) return;
+    const warm = () => preloadTunnel3D(false);
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm);
       return () => window.cancelIdleCallback(id);
     }
-    const id = setTimeout(preloadTunnel3D, 1500);
+    const id = setTimeout(warm, 1500);
     return () => clearTimeout(id);
-  }, [showCockpit]);
+  }, [showCockpit, running]);
   const flyButton = (label: string) => (
     // mousedown is cancelled so the typing box keeps focus (and a phone its keyboard).
     <Button className="h-16 w-full max-w-xs font-game text-3xl" onMouseDown={(e) => e.preventDefault()} onClick={() => void fly()} disabled={starting}>
