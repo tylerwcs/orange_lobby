@@ -14,6 +14,26 @@
 -- for every start, submit and disqualify already under way, and each of those that comes after
 -- it sees the confirm: nothing reaches the board once the finalists are snapshotted.
 -- qualifier_refresh_player is only called with these locks already held.
+--
+-- Cost (spec "Load": 500-1,000 players in one evening, a start and a submit per ~35 s each,
+-- plus a board read after every run). Assumes at most ~1,000 players per event, i.e. rows of
+-- qualifier_players for one event_id, found by its primary key's event_id prefix:
+-- - Who is on the board is one definition, qualifier_entrants, over qualifier_may_play (who may
+--   play) - both plain SQL, not security definer and with no SET, so the planner inlines them
+--   into the query that calls them instead of running a function per row.
+-- - qualifier_board_size: one pass over the event's players (+ attendee by primary key), no sort.
+-- - qualifier_rank: 1 + how many entrants are ahead (qualifier_ahead, the tie order as a
+--   predicate): the attendee's own row by primary key, then one pass, no sort, no window.
+-- - qualifier_board / qualifier_confirm: qualifier_standings, one window over the entrants (one
+--   sort of at most ~1,000 rows), then the page.
+-- The app adds to this: the board's first page and size are shared per server instance for a
+-- few seconds (view.ts), a submit reads the rank once, and a page load reads it once (the
+-- server render; the "seen" mark reuses it).
+
+-- The migration takes ACCESS EXCLUSIVE on event_features (the check swap) and SHARE ROW
+-- EXCLUSIVE on events, attendees and organisations (the new foreign keys). The database also
+-- hosts live events: give up after 5 s rather than queue every request behind a long lock.
+set local lock_timeout = '5s';
 
 -- D770: the add-on is stored in event_features, whose 0070 check lists the keys an event can
 -- have. The check was an unnamed inline column check, so Postgres named it
@@ -21,6 +41,21 @@
 alter table public.event_features drop constraint if exists event_features_feature_check;
 alter table public.event_features add constraint event_features_feature_check
   check (feature in ('whatsapp', 'booking', 'engagement', 'live_games', 'lucky_draw', 'custom_domain', 'slido', 'typing_qualifier'));
+-- If the live check had another name, the drop above did nothing and the old check (without
+-- typing_qualifier) still stands beside the new one: fail the apply instead.
+do $$
+declare
+  v_checks int;
+begin
+  select count(*) into v_checks
+    from pg_catalog.pg_constraint c
+    join pg_catalog.pg_attribute att
+      on att.attrelid = c.conrelid and att.attname = 'feature' and att.attnum = any (c.conkey)
+   where c.conrelid = 'public.event_features'::regclass and c.contype = 'c';
+  if v_checks <> 1 then
+    raise exception '0117: event_features has % check constraints on feature, expected exactly 1 (event_features_feature_check)', v_checks;
+  end if;
+end $$;
 
 -- One row per event: the window (opens_at inclusive, closes_at exclusive, as phaseOf), the
 -- categories left out, and the confirm that freezes everything.
@@ -113,6 +148,28 @@ alter table public.qualifier_finalists enable row level security;
 -- leaves out "KOM, Crew"; it treats an empty list as "everyone", so an empty list is guarded).
 -- The caller has already matched the attendee to the event. Mirrored by ineligibility in
 -- src/features/qualifier/phase.ts.
+--
+-- The board's helpers below (qualifier_may_play, qualifier_entrants, qualifier_ahead,
+-- qualifier_standings) are plain SQL on purpose: not security definer and with no SET, so the
+-- planner inlines them into the query that calls them (a definer function, or one with SET, is
+-- run as a black box once per row or per call). They read nothing a caller could steer: every
+-- name is schema-qualified or in pg_catalog, so the caller's search_path doesn't matter. Like
+-- the RPCs they are revoked from public, anon and authenticated and granted to service_role
+-- only; the definer RPCs call them as the owner.
+create or replace function public.qualifier_may_play(
+  p_attendee_id uuid, p_category text, p_cancelled_at timestamptz, p_preview_id uuid, p_excluded text[]
+) returns boolean
+language sql
+immutable
+as $$
+  select p_cancelled_at is null
+     and p_attendee_id is distinct from p_preview_id
+     and not (cardinality(coalesce(p_excluded, '{}'::text[])) > 0
+              and public.category_matches(p_excluded, p_category));
+$$;
+
+-- Start's check (one attendee, once per start): qualifier_may_play, so the start and the board
+-- can't disagree about who may play.
 create or replace function public.qualifier_eligible(
   p_attendee_id uuid, p_category text, p_cancelled_at timestamptz, p_preview_id uuid, p_excluded text[]
 ) returns boolean
@@ -121,29 +178,21 @@ immutable
 security definer
 set search_path = ''
 as $$
-  select p_cancelled_at is null
-     and p_attendee_id is distinct from p_preview_id
-     and not (cardinality(coalesce(p_excluded, '{}'::text[])) > 0
-              and public.category_matches(p_excluded, p_category));
+  select public.qualifier_may_play(p_attendee_id, p_category, p_cancelled_at, p_preview_id, p_excluded);
 $$;
 
--- The board's one rule, used by qualifier_board, qualifier_rank, qualifier_board_size and
--- qualifier_confirm: eligible players with a best, ordered by higher wpm, higher accuracy, the
--- earlier best run, then attendee id, ranked 1, 2, 3... Mirrored by byStanding in
--- src/features/qualifier/progress.ts.
-create or replace function public.qualifier_standings(p_event_id uuid)
+-- Who is on the board: players of the event with a best who may play. The one definition used
+-- by qualifier_standings (so qualifier_board and qualifier_confirm), qualifier_rank and
+-- qualifier_board_size. The event and its settings are joined once, not looked up per row.
+create or replace function public.qualifier_entrants(p_event_id uuid)
 returns table(
-  rank bigint, attendee_id uuid, best_wpm numeric, best_accuracy smallint, best_at timestamptz,
+  attendee_id uuid, best_wpm numeric, best_accuracy smallint, best_at timestamptz,
   best_run_id uuid, skin text, runs_played int
 )
 language sql
 stable
-security definer
-set search_path = ''
 as $$
-  select row_number() over (
-           order by p.best_wpm desc, p.best_accuracy desc, p.best_at asc, p.attendee_id asc),
-         p.attendee_id, p.best_wpm, p.best_accuracy, p.best_at, p.best_run_id, p.skin, p.runs_played
+  select p.attendee_id, p.best_wpm, p.best_accuracy, p.best_at, p.best_run_id, p.skin, p.runs_played
     from public.qualifier_players p
     join public.attendees a on a.id = p.attendee_id and a.event_id = p.event_id
     join public.events e on e.id = p.event_id
@@ -153,8 +202,39 @@ as $$
      and p.best_wpm is not null
      and p.best_accuracy is not null
      and p.best_at is not null
-     and public.qualifier_eligible(a.id, a.category, a.cancelled_at, e.preview_attendee_id,
+     and public.qualifier_may_play(a.id, a.category, a.cancelled_at, e.preview_attendee_id,
                                    coalesce(s.excluded_categories, '{}'::text[]));
+$$;
+
+-- The tie order, as "a comes before b": higher wpm, then higher accuracy, then the earlier best
+-- run, then the lower attendee id. A row comparison is decided by its first unequal pair, so
+-- swapping best_at and attendee_id between the sides makes those two "lower comes first".
+-- Entrants never have a null in these. Must order exactly as qualifier_standings' window
+-- (the next function); both are mirrored by byStanding in src/features/qualifier/progress.ts.
+create or replace function public.qualifier_ahead(
+  a_wpm numeric, a_accuracy smallint, a_at timestamptz, a_id uuid,
+  b_wpm numeric, b_accuracy smallint, b_at timestamptz, b_id uuid
+) returns boolean
+language sql
+immutable
+as $$
+  select (a_wpm, a_accuracy, b_at, b_id) > (b_wpm, b_accuracy, a_at, a_id);
+$$;
+
+-- The board: the entrants ranked 1, 2, 3... in the tie order (qualifier_ahead, above). Used by
+-- qualifier_board and qualifier_confirm.
+create or replace function public.qualifier_standings(p_event_id uuid)
+returns table(
+  rank bigint, attendee_id uuid, best_wpm numeric, best_accuracy smallint, best_at timestamptz,
+  best_run_id uuid, skin text, runs_played int
+)
+language sql
+stable
+as $$
+  select row_number() over (
+           order by en.best_wpm desc, en.best_accuracy desc, en.best_at asc, en.attendee_id asc),
+         en.attendee_id, en.best_wpm, en.best_accuracy, en.best_at, en.best_run_id, en.skin, en.runs_played
+    from public.qualifier_entrants(p_event_id) en;
 $$;
 
 -- Rewrites one attendee's summary from their runs. Best = the best counted run that is not
@@ -352,7 +432,9 @@ as $$
   offset greatest(coalesce(p_offset, 0), 0);
 $$;
 
--- One attendee's place on the board, or null when they are not on it.
+-- One attendee's place on the board, or null when they are not on it: 1 + the entrants ahead
+-- of them in the tie order. The same number qualifier_standings gives them (the order is total),
+-- without ranking everyone: one pass, no sort.
 create or replace function public.qualifier_rank(p_event_id uuid, p_attendee_id uuid)
 returns int
 language sql
@@ -360,7 +442,12 @@ stable
 security definer
 set search_path = ''
 as $$
-  select st.rank::int from public.qualifier_standings(p_event_id) st where st.attendee_id = p_attendee_id;
+  select 1 + (select count(*)::int
+                from public.qualifier_entrants(p_event_id) o
+               where public.qualifier_ahead(o.best_wpm, o.best_accuracy, o.best_at, o.attendee_id,
+                                            me.best_wpm, me.best_accuracy, me.best_at, me.attendee_id))
+    from public.qualifier_entrants(p_event_id) me
+   where me.attendee_id = p_attendee_id;
 $$;
 
 -- How many are on the board.
@@ -371,7 +458,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select count(*)::int from public.qualifier_standings(p_event_id);
+  select count(*)::int from public.qualifier_entrants(p_event_id);
 $$;
 
 -- Disqualifies (p_on) or restores a run, and rewrites its attendee's best (D769). 'locked' once
@@ -485,8 +572,14 @@ begin
 end;
 $$;
 
+revoke execute on function public.qualifier_may_play(uuid, text, timestamptz, uuid, text[]) from public, anon, authenticated;
+grant execute on function public.qualifier_may_play(uuid, text, timestamptz, uuid, text[]) to service_role;
 revoke execute on function public.qualifier_eligible(uuid, text, timestamptz, uuid, text[]) from public, anon, authenticated;
 grant execute on function public.qualifier_eligible(uuid, text, timestamptz, uuid, text[]) to service_role;
+revoke execute on function public.qualifier_entrants(uuid) from public, anon, authenticated;
+grant execute on function public.qualifier_entrants(uuid) to service_role;
+revoke execute on function public.qualifier_ahead(numeric, smallint, timestamptz, uuid, numeric, smallint, timestamptz, uuid) from public, anon, authenticated;
+grant execute on function public.qualifier_ahead(numeric, smallint, timestamptz, uuid, numeric, smallint, timestamptz, uuid) to service_role;
 revoke execute on function public.qualifier_standings(uuid) from public, anon, authenticated;
 grant execute on function public.qualifier_standings(uuid) to service_role;
 revoke execute on function public.qualifier_refresh_player(uuid, uuid) from public, anon, authenticated;

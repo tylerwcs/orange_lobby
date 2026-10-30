@@ -18,7 +18,8 @@
 //      counted run, run_days their Malaysia-time days. Disqualifying a run of no such id is
 //      'missing'.
 //   5. The board orders by wpm, accuracy, the earlier best, then attendee id, ranks 1..n, pages
-//      with limit/offset, and qualifier_rank / qualifier_board_size agree with it. Its flagged,
+//      with limit/offset, and qualifier_rank (for every row, a full tie included) and
+//      qualifier_board_size agree with it. Its flagged,
 //      device, name and extra are carried. An attendee moved into a left-out category leaves the
 //      board and their runs remain.
 //   6. A run started before closes_at and submitted after it counts ('ok'); while it can still be
@@ -218,6 +219,11 @@ try {
   rows = await board();
   const [lo, hi] = [P[2], P[3]].sort();
   check("a full tie goes to the lower attendee id", ids(rows)[2] === lo && ids(rows)[3] === hi);
+  // qualifier_rank counts who is ahead (qualifier_ahead) instead of ranking the board: it must
+  // give every row the board's own rank, the full tie included.
+  const ranks = await Promise.all(rows.map((r) => rank(r.attendee_id)));
+  check("qualifier_rank agrees with every board row, ties included", ranks.every((k, i) => k === Number(rows[i].rank)),
+    JSON.stringify(ranks));
   // Moved into a left-out category: off the board, runs kept.
   const sizeBefore = await size();
   must(await db.from("attendees").update({ category: "Crew" }).eq("id", ben));
