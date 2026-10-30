@@ -4,7 +4,11 @@ import { getEventByCrewToken } from "@/lib/db/events";
 import { findByToken, getAttendee, listAttendees } from "@/lib/db/attendees";
 import { recordCheckin, listCheckedInAttendeeIds, deleteCheckin, getCheckin } from "@/lib/db/checkins";
 import { getCheckpoint } from "@/lib/db/checkpoints";
-import { bookedSessionOn, bookerIdsOn, loadBoard, settleRequestsAtDoor, slotTime, type Board } from "@/features/activities";
+import { bookedSessionOn, bookerIdsOn, discardUploads, entriesForAttendee, getActivity, loadBoard, readAnswers, saveOrDiscard, settleRequestsAtDoor, slotTime, submitAnswers, type Board } from "@/features/activities";
+import { hasHealthConsent, recordHealthConsent } from "@/lib/db/health-consents";
+import { HEALTH_CONSENT_REFUSED, healthConsentTicked } from "@/lib/privacy";
+import { doorSurveyRefusal, type DoorSurveyState } from "@/lib/door-survey";
+import { t } from "@/features/language";
 import { extractToken, scanResultFields } from "@/lib/scan";
 import { fieldValue } from "@/lib/attendee-values";
 import { eventFields } from "@/lib/attendee-fields";
@@ -18,6 +22,8 @@ import type { Attendee, Checkpoint, Event } from "@/lib/types";
 export type ScanResult = {
   status: "ok" | "duplicate" | "notfound" | "error" | "undone" | "not_booked";
   attendee?: Attendee; fields?: { label: string; value: string }[]; earlier?: { at: string }; message?: string;
+  /** D762: the door's survey for this person, on an arrival at a door that names one. */
+  survey?: DoorSurveyState;
 };
 
 /** `booked` is null at an ordinary door, where there is nothing to have booked. */
@@ -78,14 +84,30 @@ async function doCheckin(ev: Event, userId: string | null, checkpointId: string,
     const slot = await bookedSessionOn(attendee.id, checkpoint.activity_id, checkpoint.day);
     if (!slot && !walkIn) {
       const existing = await getCheckin(checkpointId, attendee.id);
-      if (existing) return { status: "duplicate", attendee, fields: [{ label: "Booked", value: "Walk-in" }, ...fields], earlier: { at: existing.scanned_at } };
+      if (existing) return { status: "duplicate", attendee, fields: [{ label: "Booked", value: "Walk-in" }, ...fields], earlier: { at: existing.scanned_at }, survey: await surveyState(checkpoint, attendee.id) };
       return { status: "not_booked", attendee, fields };
     }
     fields.unshift({ label: "Booked", value: slot ? slotTime(slot) : "Walk-in" });
   }
   const r = await recordCheckin(ev, checkpointId, attendee.id, userId);
   if (r.created) await settleAtDoor(checkpoint, attendee.id, "closed", userId);
-  return r.created ? { status: "ok", attendee, fields } : { status: "duplicate", attendee, fields, earlier: { at: r.existing!.scanned_at } };
+  const survey = await surveyState(checkpoint, attendee.id);
+  return r.created ? { status: "ok", attendee, fields, survey } : { status: "duplicate", attendee, fields, earlier: { at: r.existing!.scanned_at }, survey };
+}
+
+/**
+ * D762: whether this person still owes the door's survey, for the card to offer it or say it's done.
+ * Undefined at a door with none, or once its form is gone or no longer a form.
+ */
+async function surveyState(checkpoint: Checkpoint, attendeeId: string): Promise<DoorSurveyState | undefined> {
+  if (!checkpoint.survey_activity_id) return undefined;
+  const form = await getActivity(checkpoint.survey_activity_id, checkpoint.event_id);
+  if (!form || form.kind !== "submission") return undefined;
+  const [entries, consented] = await Promise.all([
+    entriesForAttendee(form.id, attendeeId),
+    form.health_data ? hasHealthConsent(attendeeId, form.id) : Promise.resolve(true),
+  ]);
+  return { activityId: form.id, done: entries.some((e) => e.status === "submitted"), needsConsent: !consented };
 }
 
 /**
@@ -121,6 +143,48 @@ export async function checkInByIdAction(eventId: string, checkpointId: string, a
   const a = await getAttendee(attendeeId);
   if (!a || a.event_id !== eventId) return { status: "notfound", message: "That attendee is no longer on the list." };
   return doCheckin(ev, userId, checkpointId, a, walkIn);
+}
+
+/**
+ * D762: the door survey, filled on the crew's device right after a check-in here. A crew link may
+ * write only this - the checkpoint's own form, for someone checked in at this checkpoint - and
+ * every refusal comes back as data (see `authorise`). Nothing of the answers is ever sent back.
+ */
+export async function submitDoorSurveyAction(eventId: string, checkpointId: string, attendeeId: string, fd: FormData, crewToken?: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const auth = await authorise(eventId, crewToken);
+  if ("error" in auth) return { ok: false, error: auth.error };
+  const { ev } = auth;
+  if (ev.status === "archived") return { ok: false, error: "This event is archived, so check-in is closed." };
+  if (!ev.check_in_enabled) return { ok: false, error: "Check-in is off for this event." };
+  const checkpoint = await getCheckpoint(checkpointId, ev.id);
+  if (!checkpoint) return { ok: false, error: "This checkpoint no longer exists. Go back and pick another." };
+  const [form, attendee, checkin] = await Promise.all([
+    checkpoint.survey_activity_id ? getActivity(checkpoint.survey_activity_id, ev.id) : Promise.resolve(null),
+    getAttendee(attendeeId),
+    getCheckin(checkpoint.id, attendeeId),
+  ]);
+  if (!attendee || attendee.event_id !== ev.id) return { ok: false, error: "That attendee is no longer on the list." };
+  const refused = doorSurveyRefusal({
+    hasSurvey: !!checkpoint.survey_activity_id,
+    activityMatches: form?.kind === "submission",
+    cancelled: !!attendee.cancelled_at,
+    checkedInHere: !!checkin,
+  });
+  if (refused || !form) return { ok: false, error: refused ?? "This door has no survey." };
+
+  // D412: the tick on the door form is the attendee's own - they tick it on the device themselves.
+  if (form.health_data && !(await hasHealthConsent(attendee.id, form.id))) {
+    if (!healthConsentTicked(fd)) return { ok: false, error: HEALTH_CONSENT_REFUSED };
+    await recordHealthConsent(attendee, form.id);
+  }
+
+  const read = await readAnswers(form, fd);
+  if (!read.ok) return { ok: false, error: read.error };
+  const code = await saveOrDiscard(read.uploaded, () =>
+    submitAnswers(form.id, attendee.id, read.answers, nowInKL().date, null, read.hashes, checkpoint.id));
+  if (code === "ok") return { ok: true };
+  await discardUploads(read.uploaded);
+  return { ok: false, error: code === "limit" ? "They've already filled this survey." : t("en").submission.result[code] };
 }
 
 export async function undoCheckinAction(eventId: string, checkpointId: string, attendeeId: string, crewToken?: string): Promise<ScanResult> {
