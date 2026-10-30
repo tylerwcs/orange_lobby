@@ -8,3 +8,4 @@ export * from "./typing";
 export * from "./scoring";
 export * from "./phase";
 export * from "./progress";
+export * from "./board";

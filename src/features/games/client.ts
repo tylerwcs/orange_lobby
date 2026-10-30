@@ -27,3 +27,6 @@ export { DrawFormatFields } from "./admin/DrawFormatFields";
 export { NewGameMenu } from "./admin/NewGameMenu";
 export { PrizesEditor } from "./admin/PrizesEditor";
 export { QuestionsEditor } from "./admin/QuestionsEditor";
+
+// Names as the live games show them (D273), for the qualifier board (D771).
+export { tagsFor } from "./names";

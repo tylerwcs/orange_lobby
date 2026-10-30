@@ -37,7 +37,7 @@ export type Ineligible = "cancelled" | "preview" | "excluded";
  * attendee with no category is never excluded.
  */
 export function ineligibility(
-  a: { id: string; category: string | null; cancelled_at: string | null },
+  a: { id: string; category: string | null; cancelled_at?: string | null },
   previewId: string | null | undefined,
   excluded: readonly string[],
 ): Ineligible | null {
