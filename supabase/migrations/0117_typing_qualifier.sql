@@ -1,6 +1,7 @@
 -- Typing qualifier (spec 2026-10-31-typing-qualifier-design.md, D767-D769): a week of 30-second
 -- typing sprints, each attendee's best wpm on one board, and the top 10 frozen as the finale list.
--- Adds four tables and the functions below; no existing table or function changes.
+-- Adds four tables and the functions below; the only existing object it changes is the
+-- event_features key check (D770, below), which gains one key.
 --
 -- The database owns the parts a client could cheat: the run's start time, one live run per
 -- attendee, the submit window, who may play, the tie order and the finalist snapshot. The pure
@@ -13,6 +14,13 @@
 -- for every start, submit and disqualify already under way, and each of those that comes after
 -- it sees the confirm: nothing reaches the board once the finalists are snapshotted.
 -- qualifier_refresh_player is only called with these locks already held.
+
+-- D770: the add-on is stored in event_features, whose 0070 check lists the keys an event can
+-- have. The check was an unnamed inline column check, so Postgres named it
+-- event_features_feature_check. Same seven keys plus typing_qualifier; nothing else changes.
+alter table public.event_features drop constraint if exists event_features_feature_check;
+alter table public.event_features add constraint event_features_feature_check
+  check (feature in ('whatsapp', 'booking', 'engagement', 'live_games', 'lucky_draw', 'custom_domain', 'slido', 'typing_qualifier'));
 
 -- One row per event: the window (opens_at inclusive, closes_at exclusive, as phaseOf), the
 -- categories left out, and the confirm that freezes everything.

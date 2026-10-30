@@ -19,7 +19,9 @@ import { createClient } from "@supabase/supabase-js";
 // When 0070 was applied: events created before this must have been backfilled. Set it to the
 // time Task 1 applied the migration (Malaysia time).
 const MIGRATED_AT = "2026-10-10T20:09:12+08:00";
-const STORED = ["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido"];
+const STORED = ["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido", "typing_qualifier"];
+// What 0070 backfilled. Add-ons added later (typing_qualifier, D770) are not backfilled.
+const BACKFILLED = STORED.filter((k) => k !== "typing_qualifier");
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,7 +41,7 @@ const must = ({ data, error }) => { if (error) throw error; return data; };
 // 1. The backfill.
 const older = must(await db.from("events").select("id, slug").lt("created_at", MIGRATED_AT));
 const rows = must(await db.from("event_features").select("event_id, feature").in("event_id", older.map((e) => e.id)));
-const short = older.filter((e) => rows.filter((r) => r.event_id === e.id).length !== STORED.length);
+const short = older.filter((e) => rows.filter((r) => r.event_id === e.id).length !== BACKFILLED.length);
 check("every event from before the migration has all seven add-ons", short.length === 0, short.map((e) => e.slug).join(", "));
 
 const org = must(await db.from("organisations").select("id").limit(1).single());
