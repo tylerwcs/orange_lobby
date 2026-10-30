@@ -41,13 +41,17 @@ export async function getSettings(eventId: string): Promise<QualifierSettings | 
   };
 }
 
-/** The window and the left-out categories. `locked` once the finalists are confirmed. */
+/**
+ * The window and the left-out categories. `locked` once the finalists are confirmed. Only
+ * `ev.id` is sent: the RPC takes org_id from the event row itself, never from the caller.
+ * Throws when `closes_at` is not after `opens_at` (a table check), so validate first.
+ */
 export async function saveSettings(
   ev: { id: string; org_id: string },
   s: Omit<QualifierSettings, "confirmed_at">,
 ): Promise<"ok" | "locked"> {
   const { data, error } = await serviceClient().rpc("qualifier_save_settings", {
-    p_event_id: ev.id, p_org_id: ev.org_id, p_opens_at: s.opens_at, p_closes_at: s.closes_at,
+    p_event_id: ev.id, p_opens_at: s.opens_at, p_closes_at: s.closes_at,
     p_excluded: s.excluded_categories,
   });
   if (error) throw error;

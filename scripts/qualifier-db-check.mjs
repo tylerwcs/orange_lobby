@@ -13,19 +13,20 @@
 //   3. qualifier_submit answers 'early' before starts_at + 29 s and 'late' after starts_at + 33 s
 //      (starts_at is backdated in the table, measured from the database's own clock), 'refused'
 //      over 250 wpm, and 'ok' in between. A bad device is stored as 'unknown'.
-//   4. A run started before closes_at and submitted after it counts ('ok'); while it can still be
-//      submitted, confirm waits ('not_closed').
-//   5. The best follows the tie order (wpm, then accuracy, then the earlier run). Disqualifying
+//   4. The best follows the tie order (wpm, then accuracy, then the earlier run). Disqualifying
 //      the best falls back to the next best; restoring brings it back. runs_played counts every
 //      counted run, run_days their Malaysia-time days. Disqualifying a run of no such id is
 //      'missing'.
-//   6. The board orders by wpm, accuracy, the earlier best, then attendee id, ranks 1..n, pages
-//      with limit/offset, and qualifier_rank / qualifier_board_size agree with it. Its flagged and
-//      device are the best run's. An attendee moved into a left-out category, or cancelled,
-//      leaves the board and their runs remain.
+//   5. The board orders by wpm, accuracy, the earlier best, then attendee id, ranks 1..n, pages
+//      with limit/offset, and qualifier_rank / qualifier_board_size agree with it. Its flagged,
+//      device, name and extra are carried. An attendee moved into a left-out category leaves the
+//      board and their runs remain.
+//   6. A run started before closes_at and submitted after it counts ('ok'); while it can still be
+//      submitted, confirm waits ('not_closed'). A cancelled attendee leaves the board, runs kept.
 //   7. Confirm is 'not_closed' before the close, then snapshots exactly the board's top 10 (rank,
 //      attendee, wpm, accuracy, skin); a second confirm is 'already'; settings save and
-//      disqualify are 'locked' afterwards and the snapshot does not change.
+//      disqualify are 'locked' afterwards; a live run submitted after the confirm, even inside
+//      its own 29-33 s, answers 'done' and does not reach the board; the snapshot does not change.
 //   8. Deleting the event removes every qualifier row (cascade).
 //
 // HOW TO RUN: npm run check:qualifier (node --env-file=.env.local scripts/qualifier-db-check.mjs).
@@ -78,7 +79,7 @@ try {
 
   // --- Helpers ---
   const save = (opensMs, closesMs) => db.rpc("qualifier_save_settings", {
-    p_event_id: event.id, p_org_id: event.org_id, p_opens_at: new Date(opensMs).toISOString(),
+    p_event_id: event.id, p_opens_at: new Date(opensMs).toISOString(),
     p_closes_at: new Date(closesMs).toISOString(), p_excluded: EXCLUDED,
   });
   // The database's clock, as an offset from this machine's: each start answers starts_at =
@@ -169,7 +170,7 @@ try {
   check("the refused run is still live and can be submitted", (await submit(rb.run_id, ben, 50, 90, { device: "phone" })) === "ok");
   check("a device outside touch/keyboard is stored as 'unknown'", (await runRow(rb.run_id)).device === "unknown");
 
-  // 5. The best and its tie order (Ann: r2 60/95 already)
+  // 4. The best and its tie order (Ann: r2 60/95 already)
   const a2 = await play(ann, 60, 98);
   await play(ann, 55, 100);
   const a4 = await play(ann, 60, 98);
@@ -189,7 +190,7 @@ try {
   check("restoring brings the best back", annP.best_run_id === a2 && (await runRow(a2)).disqualified_at === null);
   check("disqualifying a run of no such id is 'missing'", (await disq(randomUUID(), true)) === "missing");
 
-  // 6. The board
+  // 5. The board
   const marks = [[90, 95], [90, 97], [85, 90], [85, 90], [80, 99], [75, 80], [70, 100], [65, 90], [64, 90], [63, 90], [62, 90], [61, 90]];
   const pRuns = [];
   for (let i = 0; i < P.length; i += 1) {
@@ -203,10 +204,9 @@ try {
   check("the board orders by wpm, then accuracy, then the earlier best", JSON.stringify(ids(rows)) === JSON.stringify(expectedTop),
     ids(rows).map((id) => people.find((p) => p.id === id)?.name).join(","));
   check("ranks run 1..n", rows.every((r, i) => Number(r.rank) === i + 1));
-  check("the board leaves out the cancelled, preview and excluded people", !ids(rows).some((id) => [dev, pre, eve, cai].includes(id)));
   const p8 = rows.find((r) => r.attendee_id === P[7]);
   check("the board carries the best run's flagged and device", p8?.flagged === true && p8?.device === "touch" && rows.find((r) => r.attendee_id === P[0])?.flagged === false);
-  check("the board carries name and extra", rows[0].name === "P02" && typeof rows[0].extra === "object" && Number(rows[0].best_wpm) === 90 && rows[0].best_accuracy === 97);
+  check("the board carries name and extra", rows[0].name === "P02" && rows[0].extra !== null && typeof rows[0].extra === "object" && !Array.isArray(rows[0].extra) && Number(rows[0].best_wpm) === 90 && rows[0].best_accuracy === 97);
   const page = await board(3, 2);
   check("limit/offset pages the board", JSON.stringify(ids(page)) === JSON.stringify(ids(rows).slice(2, 5)));
   check("qualifier_board_size agrees with the board", (await size()) === rows.length, `size ${await size()} vs ${rows.length}`);
@@ -226,15 +226,23 @@ try {
   check("someone moved into a left-out category leaves the board, runs kept",
     !ids(rows).includes(ben) && (await rank(ben)) === null && (await size()) === sizeBefore - 1 && benRuns.length === 1, `runs ${benRuns.length}`);
 
-  // 4. Started before the close, submitted after it. The run starts 29.5 s ago and the window
-  // closes 10 s ago, so the submit must land within 3.5 s: four round trips.
+  // 6. Started before the close, submitted after it. The window closes 10 s before now; each
+  // timed call is preceded by its own backdate to 31 s ago, so it has the usual 2 s margin
+  // whatever the link speed, and the start stays before closes_at (the last backdate is well
+  // under 21 s after the close is saved).
   const rc = await start(cai);
-  await backdate(rc, 29_500);
+  // A live run left past its grace: not in flight, so it doesn't hold up the confirm below.
+  const rz = await start(P[11]);
+  await backdate(rz, 60_000);
   const n = dbNow();
   check("closing the window answers ok", must(await save(n - HOUR, n - 10_000)) === "ok");
   check("start after the window is refused 'closed'", (await start(ann))?.refused === "closed");
+  await backdate(rc, 31_000);
   check("confirm waits while a run started in the window can still be submitted", (await confirm()) === "not_closed");
+  await backdate(rc, 31_000);
   check("a run started before closes_at and submitted after it answers 'ok'", (await submit(rc.run_id, cai, 58, 90)) === "ok");
+  const closesAt = must(await db.from("qualifier_settings").select("closes_at").eq("event_id", event.id).single()).closes_at;
+  check("that run did start before closes_at", Date.parse((await runRow(rc.run_id)).starts_at) < Date.parse(closesAt));
   check("that run puts the attendee on the board", (await rank(cai)) !== null);
   must(await db.from("attendees").update({ cancelled_at: new Date().toISOString() }).eq("id", cai));
   const caiRuns = must(await db.from("qualifier_runs").select("id").eq("attendee_id", cai));
@@ -255,6 +263,10 @@ try {
   check("settings save after the confirm is 'locked'", must(await save(Date.now() - HOUR, Date.now() + HOUR)) === "locked");
   check("disqualify after the confirm is 'locked'", (await disq(pRuns[1], true)) === "locked");
   check("the locked disqualify changed nothing", (await runRow(pRuns[1])).disqualified_at === null && (await rank(P[1])) === 1);
+  const p12Rank = await rank(P[11]);
+  await backdate(rz, 31_000);
+  check("a live run submitted after the confirm answers 'done', even inside its 29-33 s", (await submit(rz.run_id, P[11], 200, 100)) === "done");
+  check("that submit changed nothing", (await runRow(rz.run_id)).status === "live" && (await rank(P[11])) === p12Rank);
   // Reopen the window by hand (the RPC is locked): a confirmed qualifier still refuses starts.
   must(await db.from("qualifier_settings").update({ opens_at: new Date(Date.now() - HOUR).toISOString(), closes_at: new Date(Date.now() + HOUR).toISOString() }).eq("event_id", event.id));
   check("start after the confirm is refused 'closed', even inside a window", (await start(ann))?.refused === "closed");

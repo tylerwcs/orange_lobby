@@ -7,8 +7,12 @@
 -- mirrors live in src/features/qualifier/ (phaseOf and ineligibility in phase.ts, the timing
 -- constants in scoring.ts, byStanding in progress.ts); change both together.
 --
--- Lock order, the same in every function, so two of them never deadlock: the settings row, then
--- the attendee row, then that attendee's runs.
+-- Lock order, the same in every function, so two of them never deadlock: the event's settings
+-- row, then the attendee row, then that attendee's runs. Start, submit and disqualify read the
+-- settings row FOR SHARE; confirm and the settings save take it FOR UPDATE. So a confirm waits
+-- for every start, submit and disqualify already under way, and each of those that comes after
+-- it sees the confirm: nothing reaches the board once the finalists are snapshotted.
+-- qualifier_refresh_player is only called with these locks already held.
 
 -- One row per event: the window (opens_at inclusive, closes_at exclusive, as phaseOf), the
 -- categories left out, and the confirm that freezes everything.
@@ -75,6 +79,8 @@ create table public.qualifier_players (
 );
 -- For the run delete's SET NULL, which looks players up by best run.
 create index qualifier_players_best_run on public.qualifier_players (best_run_id);
+-- For the attendee delete cascade, which looks players up by attendee alone.
+create index qualifier_players_attendee on public.qualifier_players (attendee_id);
 
 -- The finale list, written once by qualifier_confirm: the board's top 10 at that moment.
 create table public.qualifier_finalists (
@@ -171,7 +177,7 @@ begin
   select r.* into v_best from public.qualifier_runs r
    where r.event_id = p_event_id and r.attendee_id = p_attendee_id
      and r.status = 'done' and r.disqualified_at is null
-   order by r.wpm desc, r.accuracy desc, r.starts_at asc, r.id asc
+   order by r.wpm desc nulls last, r.accuracy desc nulls last, r.starts_at asc, r.id asc
    limit 1;
 
   select count(*)::int,
@@ -201,7 +207,8 @@ $$;
 -- or in a left-out category. Otherwise abandons the attendee's live run and inserts the new one,
 -- starting when the countdown ends (p_countdown_ms is COUNTDOWN_MS). One row: run_id and
 -- starts_at, or refused.
--- The attendee row is locked first, so two starts by one person run one after the other: the
+-- The settings row is read FOR SHARE, so a start never commits after a confirm it didn't see.
+-- Then the attendee row is locked, so two starts by one person run one after the other: the
 -- second abandons the first's run instead of tripping the one-live-run index.
 create or replace function public.qualifier_start(
   p_event_id uuid, p_attendee_id uuid, p_words text[], p_countdown_ms int
@@ -219,7 +226,9 @@ declare
   v_id uuid;
   v_starts timestamptz;
 begin
-  select s.* into v_set from public.qualifier_settings s where s.event_id = p_event_id;
+  select s.* into v_set from public.qualifier_settings s
+   where s.event_id = p_event_id
+     for share;
   if not found or v_set.opens_at is null or v_set.closes_at is null or v_set.confirmed_at is not null
      or now() < v_set.opens_at or now() >= v_set.closes_at then
     return query select null::uuid, null::timestamptz, 'closed'::text;
@@ -248,14 +257,18 @@ begin
 end;
 $$;
 
--- Records a finished run (D769). 'refused' for a run that isn't this attendee's; 'done' when the
--- run is no longer live (submitted already, or abandoned by a newer start); 'early' before
--- starts_at + 30 s - 1 s; 'late' after starts_at + 30 s + 3 s (RUN_MS, GRACE_MS); 'refused' above
+-- Records a finished run (D769). 'refused' for a run that isn't this attendee's; 'done' once the
+-- finalists are confirmed, or when the run is no longer live (submitted already, or abandoned by
+-- a newer start); 'early' before starts_at + 30 s - 1 s; 'late' after starts_at + 30 s + 3 s
+-- (RUN_MS, GRACE_MS); 'refused' above
 -- the 250 wpm ceiling (HARD_CEILING_WPM; the route refuses it first, this is the backstop) or
 -- with an accuracy outside 0-100. Otherwise the run is counted and the attendee's summary
 -- rewritten: 'ok'. closes_at is not checked on purpose: a run started inside the window counts.
 -- wpm, accuracy and flagged are the route's recomputation (scoreRun); device is clamped and the
 -- counts capped to fit their columns.
+-- The settings row is read FOR SHARE before anything is locked (the lock order): a confirm
+-- (FOR UPDATE) waits for an in-progress submit, and a submit waiting on a confirm then sees it
+-- and answers 'done', so a run can never land on the board after the snapshot was taken.
 create or replace function public.qualifier_submit(
   p_run_id uuid, p_attendee_id uuid, p_wpm numeric, p_accuracy int, p_words_done int,
   p_offsets int[], p_device text, p_multi int, p_flagged boolean
@@ -266,8 +279,19 @@ set search_path = ''
 as $$
 #variable_conflict use_column
 declare
+  v_event uuid;
+  v_confirmed timestamptz;
   v_run public.qualifier_runs%rowtype;
 begin
+  -- Unlocked: only to find the event whose settings row comes first in the lock order.
+  select r.event_id into v_event from public.qualifier_runs r
+   where r.id = p_run_id and r.attendee_id = p_attendee_id;
+  if not found then return 'refused'; end if;
+  select s.confirmed_at into v_confirmed from public.qualifier_settings s
+   where s.event_id = v_event
+     for share;
+  if v_confirmed is not null then return 'done'; end if;
+
   perform 1 from public.attendees a where a.id = p_attendee_id for no key update;
   select r.* into v_run from public.qualifier_runs r
    where r.id = p_run_id and r.attendee_id = p_attendee_id
@@ -417,9 +441,11 @@ end;
 $$;
 
 -- Every settings write (D769): the window and the left-out categories. 'locked' once the
--- finalists are confirmed. A window that closes before it opens is refused by the check.
+-- finalists are confirmed. A window that closes before it opens is refused by the check (an
+-- error, not a code: the caller validates first). org_id is the event's own, as in start and
+-- refresh; an event that doesn't exist is an error.
 create or replace function public.qualifier_save_settings(
-  p_event_id uuid, p_org_id uuid, p_opens_at timestamptz, p_closes_at timestamptz, p_excluded text[]
+  p_event_id uuid, p_opens_at timestamptz, p_closes_at timestamptz, p_excluded text[]
 ) returns text
 language plpgsql
 security definer
@@ -427,8 +453,12 @@ set search_path = ''
 as $$
 #variable_conflict use_column
 declare
+  v_org uuid;
   v_confirmed timestamptz;
 begin
+  select e.org_id into v_org from public.events e where e.id = p_event_id;
+  if not found then raise exception 'qualifier_save_settings: no event %', p_event_id; end if;
+
   select s.confirmed_at into v_confirmed from public.qualifier_settings s
    where s.event_id = p_event_id
      for update;
@@ -437,7 +467,7 @@ begin
   insert into public.qualifier_settings as s
     (event_id, org_id, opens_at, closes_at, excluded_categories, updated_at)
   values
-    (p_event_id, p_org_id, p_opens_at, p_closes_at, coalesce(p_excluded, '{}'::text[]), now())
+    (p_event_id, v_org, p_opens_at, p_closes_at, coalesce(p_excluded, '{}'::text[]), now())
   on conflict (event_id) do update
      set opens_at = excluded.opens_at,
          closes_at = excluded.closes_at,
@@ -467,5 +497,5 @@ revoke execute on function public.qualifier_set_disqualified(uuid, uuid, boolean
 grant execute on function public.qualifier_set_disqualified(uuid, uuid, boolean) to service_role;
 revoke execute on function public.qualifier_confirm(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.qualifier_confirm(uuid, uuid) to service_role;
-revoke execute on function public.qualifier_save_settings(uuid, uuid, timestamptz, timestamptz, text[]) from public, anon, authenticated;
-grant execute on function public.qualifier_save_settings(uuid, uuid, timestamptz, timestamptz, text[]) to service_role;
+revoke execute on function public.qualifier_save_settings(uuid, timestamptz, timestamptz, text[]) from public, anon, authenticated;
+grant execute on function public.qualifier_save_settings(uuid, timestamptz, timestamptz, text[]) to service_role;
