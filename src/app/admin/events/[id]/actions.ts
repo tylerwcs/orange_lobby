@@ -5,9 +5,6 @@ import { requireEventAccess, requireAdminEvent, requireOrgAdmin, type Actor } fr
 import { createEvent, deleteEvent, updateEvent, setEventStatus, rotateCrewToken, rotatePreviewToken, clearPreviewToken } from "@/lib/db/events";
 import { confirmsDelete, deleteBlockedBecause } from "@/lib/event-delete";
 import { slugify } from "@/lib/slug";
-import { MAX_QUESTIONS, questionsFromForm } from "@/lib/questions-form";
-import { REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
-import { normaliseRegistrationForm, STANDARD_COUNT } from "@/lib/registration-standard";
 import type { EventStatus } from "@/lib/types";
 import { importedCategory, importedColumns, parseMasterlist, type MasterlistResult } from "@/lib/masterlist";
 import { createAttendee, createAttendees, deleteAttendee, deleteAttendees, eraseExtraKeys, findByEmail, listAttendees, updateAttendee, upsertByEmail, getAttendee, purgeAttendeePersonalData, type AttendeeInput, type NewAttendee } from "@/lib/db/attendees";
@@ -24,7 +21,7 @@ import { assignMany, unassign, renameSlotAssignments, listAssignments } from "@/
 import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncementOrder, updateAnnouncement } from "@/lib/db/announcements";
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder, setCheckpointSurvey } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
-import { requireFeature } from "@/features/catalogue";
+import { eventFeatures, has, requireFeature } from "@/features/catalogue";
 import { purgePolaroids } from "@/features/polaroid";
 import { attendeeValues, bulkSetChange, deleteChange, deleteChangesForEvent, editChange, importChange, loadLabels, logRoundRename, people, recordChange, roomLossChange, type PersonChange } from "@/features/attendee-log";
 import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
@@ -32,7 +29,7 @@ import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
 import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOrder } from "@/lib/db/info-tabs";
 import { parseAgendaColour } from "@/lib/agenda-colours";
-import { localInputToIso, nowInKL } from "@/lib/time";
+import { nowInKL } from "@/lib/time";
 import { mergeExtra } from "@/lib/attendee-merge";
 import { moduleFromForm, moduleId, upsertModule, removeModule, reorderModules } from "@/lib/modules-form";
 import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
@@ -41,8 +38,7 @@ import { canSetStatus } from "@/lib/access-rules";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
-import { parseDisplayName } from "@/lib/event-name";
-import { themeFromForm } from "@/features/theme";
+import { eventTabPatch, portalLookPatch, registrationPatch } from "@/lib/settings-form";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { meGroups, meHiddenFromForm } from "@/lib/me-page";
 import { exportFieldsFromForm } from "@/lib/export-columns";
@@ -54,7 +50,7 @@ import { listTemplates } from "@/lib/whatsapp";
 import { isSource, readTemplate, sourceValue, type Source } from "@/lib/whatsapp-templates";
 import { inAudience, sendKey } from "@/lib/whatsapp-targets";
 import { formatDateRange, shortDate } from "@/lib/text";
-import { afterPlacesChange, closeEntryForAttendee, openEntriesByEmail, parseLimit } from "@/features/registration-queue";
+import { afterPlacesChange, closeEntryForAttendee, openEntriesByEmail } from "@/features/registration-queue";
 
 const str = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
@@ -70,84 +66,100 @@ export async function createEventAction(formData: FormData) {
   redirect(`/admin/events/${ev.id}`);
 }
 
-export async function updateSettingsAction(eventId: string, formData: FormData) {
-  const { ev, actor } = await requireEventAccess(eventId);
-  let questions;
-  try {
-    // The list carries the four standard questions too (name, email, mobile, department), which
-    // do not count towards the organiser's own MAX_QUESTIONS.
-    questions = normaliseRegistrationForm(questionsFromForm(
-      (k) => { const v = formData.get(k); return typeof v === "string" ? v : null; },
-      REGISTRATION_QUESTION_TYPES, MAX_QUESTIONS + STANDARD_COUNT,
-    ));
-  } catch (e) {
-    redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
-  }
-  // D677: blank is no limit; anything else must be a whole number above 0, not quietly dropped.
-  const limitRaw = str(formData, "registration_limit");
-  const registrationLimit = parseLimit(limitRaw);
-  if (limitRaw !== null && registrationLimit === null) {
-    redirect(flashPath(`/admin/events/${eventId}/settings`, "Limit registrations to a whole number above 0, or leave it blank for no limit.", "error"));
-  }
+/** D778: the Event tab saves its own columns and nothing else. */
+export async function updateEventTabAction(eventId: string, formData: FormData) {
+  const { ev } = await requireEventAccess(eventId);
+  await updateEvent(eventId, eventTabPatch(formData, ev));
+  revalidatePath(`/admin/events/${eventId}`, "layout");
+  redirect(flashPath(settingsPath(eventId), "Event saved."));
+}
+
+/** D778: the Portal look tab - logo, banner, colour, theme and (with the Language add-on) the switch. */
+export async function updatePortalLookAction(eventId: string, formData: FormData) {
+  const { ev } = await requireEventAccess(eventId);
+  const path = settingsPath(eventId);
+  const languageOn = has(await eventFeatures(eventId), "language");
   // The images go up before anything is written: a file we will not take must leave the
   // whole save unapplied rather than half of it.
   let logo: ImageChange = { url: ev.logo_url, stale: null };
   let banner: ImageChange = { url: ev.banner_url, stale: null };
-  let regBanner: ImageChange = { url: ev.registration_banner_url ?? null, stale: null };
-  let regFooter: ImageChange = { url: ev.registration_footer_url ?? null, stale: null };
   try {
     logo = await nextImage(formData, "logo", ev.logo_url, { orgId: ev.org_id, eventId, kind: "logo" });
     banner = await nextImage(formData, "banner", ev.banner_url, { orgId: ev.org_id, eventId, kind: "banner" });
-    regBanner = await nextImage(formData, "registration_banner", ev.registration_banner_url ?? null, { orgId: ev.org_id, eventId, kind: "registration-banner" }); // D618
-    regFooter = await nextImage(formData, "registration_footer", ev.registration_footer_url ?? null, { orgId: ev.org_id, eventId, kind: "registration-footer" }); // D720
   } catch (e) {
-    redirect(flashPath(`/admin/events/${eventId}/settings`, (e as Error).message, "error"));
+    redirect(flashPath(path, (e as Error).message, "error"));
+  }
+  await updateEvent(eventId, portalLookPatch(formData, ev, { logo_url: logo.url, banner_url: banner.url }, languageOn));
+  await deleteEventImage(logo.stale);
+  await deleteEventImage(banner.stale);
+  revalidatePath(`/admin/events/${eventId}`, "layout");
+  redirect(flashPath(path, "Portal look saved."));
+}
+
+/** D778: the Registration tab - the form, its wording, limit, approval, self-cancel and its two images. */
+export async function updateRegistrationAction(eventId: string, formData: FormData) {
+  const { ev, actor } = await requireEventAccess(eventId);
+  const path = settingsPath(eventId);
+  const current = { registration_banner_url: ev.registration_banner_url ?? null, registration_footer_url: ev.registration_footer_url ?? null };
+  // Validate first (the patch throws on a bad question form or limit), before any upload.
+  try {
+    registrationPatch(formData, ev, current);
+  } catch (e) {
+    redirect(flashPath(path, (e as Error).message, "error"));
+  }
+  let regBanner: ImageChange = { url: current.registration_banner_url, stale: null };
+  let regFooter: ImageChange = { url: current.registration_footer_url, stale: null };
+  try {
+    regBanner = await nextImage(formData, "registration_banner", current.registration_banner_url, { orgId: ev.org_id, eventId, kind: "registration-banner" }); // D618
+    regFooter = await nextImage(formData, "registration_footer", current.registration_footer_url, { orgId: ev.org_id, eventId, kind: "registration-footer" }); // D720
+  } catch (e) {
+    redirect(flashPath(path, (e as Error).message, "error"));
+  }
+  await updateEvent(eventId, registrationPatch(formData, ev, { registration_banner_url: regBanner.url, registration_footer_url: regFooter.url }));
+  await deleteEventImage(regBanner.stale);
+  await deleteEventImage(regFooter.stale);
+  // D682, D691: a raised or cleared limit, or registration reopened (switch on, close time moved
+  // later), lets the waiting list move along. Any save may be one of those; the fill is a no-op otherwise.
+  const moved = await afterPlacesChange(eventId, actor, "a Registration change");
+  revalidatePath(`/admin/events/${eventId}`, "layout");
+  redirect(flashPath(path, ["Registration saved.", moved].filter(Boolean).join(" ")));
+}
+
+/** D778: removed in Task 5. The one big form still posts here until each tab has its own. */
+export async function updateSettingsAction(eventId: string, formData: FormData) {
+  const { ev, actor } = await requireEventAccess(eventId);
+  const path = settingsPath(eventId);
+  const languageOn = has(await eventFeatures(eventId), "language");
+  const current = { registration_banner_url: ev.registration_banner_url ?? null, registration_footer_url: ev.registration_footer_url ?? null };
+  try {
+    registrationPatch(formData, ev, current); // validate before any upload
+  } catch (e) {
+    redirect(flashPath(path, (e as Error).message, "error"));
+  }
+  let logo: ImageChange = { url: ev.logo_url, stale: null };
+  let banner: ImageChange = { url: ev.banner_url, stale: null };
+  let regBanner: ImageChange = { url: current.registration_banner_url, stale: null };
+  let regFooter: ImageChange = { url: current.registration_footer_url, stale: null };
+  try {
+    logo = await nextImage(formData, "logo", ev.logo_url, { orgId: ev.org_id, eventId, kind: "logo" });
+    banner = await nextImage(formData, "banner", ev.banner_url, { orgId: ev.org_id, eventId, kind: "banner" });
+    regBanner = await nextImage(formData, "registration_banner", current.registration_banner_url, { orgId: ev.org_id, eventId, kind: "registration-banner" }); // D618
+    regFooter = await nextImage(formData, "registration_footer", current.registration_footer_url, { orgId: ev.org_id, eventId, kind: "registration-footer" }); // D720
+  } catch (e) {
+    redirect(flashPath(path, (e as Error).message, "error"));
   }
   await updateEvent(eventId, {
-    name: str(formData, "name") ?? undefined,
-    display_name: parseDisplayName(str(formData, "display_name"), str(formData, "name") ?? ev.name), // D633
-    display_name_in_bar: formData.get("display_name_in_bar") === "on", // D635
-    language_switch: formData.get("language_switch") === "on", // D738
-    starts_on: str(formData, "starts_on"),
-    ends_on: str(formData, "ends_on"),
-    venue_name: str(formData, "venue_name"),
-    logo_url: logo.url,
-    banner_url: banner.url,
-    primary_color: str(formData, "primary_color") ?? "#F97316",
-    registration_open: formData.get("registration_open") === "on",
-    registration_closes_at: localInputToIso(str(formData, "registration_closes_at")),
-    // D583
-    self_cancel: formData.get("self_cancel") === "on",
-    self_cancel_closes_at: localInputToIso(str(formData, "self_cancel_closes_at")),
-    registration_limit: registrationLimit, // D677
-    registration_needs_approval: formData.get("registration_needs_approval") === "on", // D696
-    registration_intro: str(formData, "registration_intro"),
-    registration_terms: cleanRichText(str(formData, "registration_terms")),
-    registration_done_title: str(formData, "registration_done_title"),
-    registration_done_message: str(formData, "registration_done_message"),
-    registration_done_page: formData.get("registration_done_page") === "on", // D634
-    coming_soon_message: str(formData, "coming_soon_message"), // D617
-    // D708
-    registration_full_title: str(formData, "registration_full_title"),
-    registration_full_message: str(formData, "registration_full_message"),
-    registration_waiting_title: str(formData, "registration_waiting_title"),
-    registration_waiting_message: str(formData, "registration_waiting_message"),
-    registration_pending_title: str(formData, "registration_pending_title"),
-    registration_pending_message: str(formData, "registration_pending_message"),
-    registration_banner_url: regBanner.url, // D618
-    registration_footer_url: regFooter.url, // D720
-    theme: themeFromForm(formData), // D622
-    registration_questions: questions,
+    ...eventTabPatch(formData, ev),
+    ...portalLookPatch(formData, ev, { logo_url: logo.url, banner_url: banner.url }, languageOn),
+    ...registrationPatch(formData, ev, { registration_banner_url: regBanner.url, registration_footer_url: regFooter.url }),
   });
   await deleteEventImage(logo.stale);
   await deleteEventImage(banner.stale);
   await deleteEventImage(regBanner.stale);
   await deleteEventImage(regFooter.stale);
-  // D682, D691: a raised or cleared limit, or registration reopened (switch on, close time moved
-  // later), lets the waiting list move along. Any save may be one of those; the fill is a no-op otherwise.
   const moved = await afterPlacesChange(eventId, actor, "a Settings change");
   revalidatePath(`/admin/events/${eventId}`, "layout");
-  redirect(flashPath(`/admin/events/${eventId}/settings`, ["Settings saved.", moved].filter(Boolean).join(" ")));
+  redirect(flashPath(path, ["Settings saved.", moved].filter(Boolean).join(" ")));
 }
 
 /** D536: what the attendee's Me page shows. Its own action: the tab sits outside the big settings form. */
