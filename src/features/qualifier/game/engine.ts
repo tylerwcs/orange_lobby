@@ -73,11 +73,15 @@ export function newGame(seed: number): Game {
   };
 }
 
-/** Run every whole tick due by `tMs` (ticks fall at 0, TICK_MS, 2·TICK_MS, …). No-op once ended. */
+/**
+ * Run every whole tick due by `tMs` (ticks fall at 0, TICK_MS, 2·TICK_MS, …). Reaching
+ * RUN_CAP_MS ends the run there. No-op once ended.
+ */
 export function advance(g: Game, tMs: number): void {
   while (!g.ended && g.nextTickMs <= tMs) {
     g.nowMs = g.nextTickMs;
     g.nextTickMs += TICK_MS;
+    if (g.nowMs >= RUN_CAP_MS) return end(g);
     tick(g);
   }
 }
@@ -105,7 +109,7 @@ export function press(g: Game, key: string, tMs: number): void {
   letter(g, target, tMs);
 }
 
-/** Let the run play out with no more input: until it ends or reaches RUN_CAP_MS. */
+/** Let the run play out with no more input, until it ends (at the latest at RUN_CAP_MS). */
 export function finish(g: Game): void {
   advance(g, RUN_CAP_MS);
 }
@@ -179,11 +183,14 @@ function explode(g: Game, s: Slime, i: number): void {
   g.health -= s.kind === "boss" ? BOSS_HIT : SMALL_HIT;
   g.combo = 0;
   g.events.push({ t: g.nowMs, type: "explode", id: s.id });
-  if (g.health <= 0) {
-    g.ended = true;
-    g.endedMs = g.nowMs;
-    g.events.push({ t: g.nowMs, type: "end" });
-  }
+  if (g.health <= 0) end(g);
+}
+
+/** The run is over: out of health, or at RUN_CAP_MS. */
+function end(g: Game): void {
+  g.ended = true;
+  g.endedMs = g.nowMs;
+  g.events.push({ t: g.nowMs, type: "end" });
 }
 
 function letter(g: Game, s: Slime, tMs: number): void {

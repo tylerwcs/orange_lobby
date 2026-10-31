@@ -113,6 +113,23 @@ describe("engine (D790)", () => {
     }
     expect(found).toBe(true);
   });
+  it("a run kept alive to the cap ends at RUN_CAP_MS, and keys after it do nothing", () => {
+    const g = newGame(13);
+    // Pop every slime, small or boss, on the tick it appears: only one is ever out.
+    for (let t = 0; t <= RUN_CAP_MS && !g.ended; t += TICK_MS) {
+      advance(g, t);
+      for (const s of [...g.slimes]) while (g.slimes.includes(s)) typeWord(g, currentWord(s), t);
+    }
+    expect(g.ended).toBe(true);
+    expect(g.endedMs).toBe(RUN_CAP_MS);
+    expect(g.health).toBe(START_HEALTH);
+    expect(g.bosses).toBeGreaterThan(5);
+    expect(g.events.filter((e) => e.type === "end")).toEqual([{ t: RUN_CAP_MS, type: "end" }]);
+    advance(g, RUN_CAP_MS + 1000);
+    const before = JSON.stringify(g);
+    for (const k of "abcdefghijklmnopqrstuvwxyz\b") press(g, k, RUN_CAP_MS + 1000);
+    expect(JSON.stringify(g)).toBe(before);
+  });
   it("keys after the end are ignored", () => {
     const g = newGame(9); finish(g); const score = g.score;
     press(g, "a", g.endedMs! + 1000); expect(g.score).toBe(score);
