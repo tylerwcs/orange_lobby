@@ -31,7 +31,7 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
   if (!ev) {
     const items: Item[] = [
       { href: "/admin/events", label: "All events", icon: "layers" },
-      { href: "/admin/features", label: "Features", icon: "layers", adminOnly: true },
+      { href: "/admin/features", label: "Features", icon: "grid", adminOnly: true },
     ];
     return [{ title: "Events", items: items.filter((i) => admin || !i.adminOnly) }];
   }

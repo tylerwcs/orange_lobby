@@ -15,6 +15,11 @@ describe("groupsFor", () => {
     expect(labels(false)).toEqual(["All events"]);
   });
 
+  it("gives Features its own icon, not All events'", () => {
+    const [events, features] = groupsFor(null)[0].items;
+    expect(features.icon).not.toBe(events.icon);
+  });
+
   it("carries the Scanner while check-in is on", () => {
     expect(hrefs({ id: "e1", check_in_enabled: true })).toContain("/scan/e1");
   });
