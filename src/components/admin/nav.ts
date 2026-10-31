@@ -41,7 +41,7 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
       { href: `${b}/agenda`, label: "Agenda", icon: "calendar" },
       { href: `${b}/info`, label: "Info page", icon: "info" },
       { href: `${b}/announcements`, label: "Announcements", icon: "megaphone" },
-      { href: `${b}/popups`, label: "Popups", icon: "bell" },
+      { href: `${b}/popups`, label: "Popups", icon: "bell", key: "popups" },
       { href: `${b}/modules`, label: "Modules", icon: "grid" },
       { href: `${b}/activities`, label: "Activities", icon: "flag", key: "activities" },
       { href: `${b}/qualifier`, label: "Typing qualifier", icon: "star", key: "qualifier" },

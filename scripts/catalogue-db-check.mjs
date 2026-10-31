@@ -20,9 +20,10 @@ import { createClient } from "@supabase/supabase-js";
 // When 0070 was applied: events created before this must have been backfilled. Set it to the
 // time Task 1 applied the migration (Malaysia time).
 const MIGRATED_AT = "2026-10-10T20:09:12+08:00";
-const STORED = ["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido", "typing_qualifier"];
-// What 0070 backfilled. Add-ons added later (typing_qualifier, D770) are not backfilled.
-const BACKFILLED = STORED.filter((k) => k !== "typing_qualifier");
+const STORED = ["whatsapp", "booking", "engagement", "live_games", "lucky_draw", "custom_domain", "slido", "typing_qualifier", "language", "popups"];
+// What 0070 backfilled. Add-ons added later are not: typing_qualifier (D770), and language and
+// popups (D777, 0118), which 0118 backfilled only for events already using them.
+const BACKFILLED = STORED.filter((k) => !["typing_qualifier", "language", "popups"].includes(k));
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

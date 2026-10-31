@@ -7,6 +7,7 @@ import { isValidOrder } from "@/lib/agenda-placement";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { toRichHtml } from "@/lib/rich-text";
 import { listActivities } from "@/features/activities";
+import { requireFeature } from "@/features/catalogue";
 import type { Event } from "@/lib/types";
 import { createPopup, deletePopup, listPopups, setPopupOn, setPopupOrder, updatePopup } from "../db";
 import { readPopupForm } from "../rules";
@@ -31,6 +32,7 @@ async function readForm(ev: Pick<Event, "id">, formData: FormData): Promise<Popu
 
 export async function addPopupAction(eventId: string, formData: FormData) {
   const { ev } = await requireEventAccess(eventId);
+  await requireFeature(ev.id, "popups", back(eventId));
   const input = await readForm(ev, formData);
   await createPopup(ev, input);
   refresh(ev);
@@ -39,6 +41,7 @@ export async function addPopupAction(eventId: string, formData: FormData) {
 
 export async function updatePopupAction(eventId: string, popupId: string, formData: FormData) {
   const { ev } = await requireEventAccess(eventId);
+  await requireFeature(ev.id, "popups", back(eventId));
   const input = await readForm(ev, formData);
   await updatePopup(popupId, ev.id, input);
   refresh(ev);
@@ -48,12 +51,14 @@ export async function updatePopupAction(eventId: string, popupId: string, formDa
 /** Takes the wanted state, not a flip, so a double click can't undo itself (as `toggleOpenAction`). */
 export async function setPopupOnAction(eventId: string, popupId: string, on: boolean) {
   const { ev } = await requireEventAccess(eventId);
+  await requireFeature(ev.id, "popups", back(eventId));
   await setPopupOn(popupId, ev.id, on);
   refresh(ev);
 }
 
 export async function deletePopupAction(eventId: string, popupId: string) {
   const { ev } = await requireEventAccess(eventId);
+  await requireFeature(ev.id, "popups", back(eventId));
   await deletePopup(popupId, ev.id);
   refresh(ev);
 }
@@ -61,6 +66,7 @@ export async function deletePopupAction(eventId: string, popupId: string) {
 /** The order a drag or an arrow left them in. A list that is not exactly this event's popups is dropped. */
 export async function reorderPopupsAction(eventId: string, ids: string[]) {
   const { ev } = await requireEventAccess(eventId);
+  await requireFeature(ev.id, "popups", back(eventId));
   const current = (await listPopups(ev.id)).map((p) => p.id);
   if (current.length === 0 || !isValidOrder(current, ids)) return;
   await setPopupOrder(ev.id, ids);

@@ -57,6 +57,12 @@ describe("groupsFor", () => {
     expect(portal?.items.map((i) => i.label)).toEqual(["Agenda", "Info page", "Announcements", "Popups", "Modules"]);
   });
 
+  it("hides Popups when the add-on is off, and shows it otherwise (D777)", () => {
+    const labels = (hidden: Parameters<typeof groupsFor>[1]) => groupsFor({ id: "e1", check_in_enabled: true }, hidden).flatMap((g) => g.items.map((i) => i.label));
+    expect(labels(["popups"])).not.toContain("Popups");
+    expect(labels([])).toContain("Popups");
+  });
+
   it("has no Setup item (D783)", () => {
     const labels = groupsFor({ id: "e1", check_in_enabled: true }).flatMap((g) => g.items.map((i) => i.label));
     expect(labels).not.toContain("Setup");

@@ -30,7 +30,7 @@ export const REGISTRATION_OPTIONS: readonly Option[] = [
   { key: "self_cancel", name: "Self-cancel", summary: "Attendees cancel their own place and give a reason.", origin: { date: "2026-10", decision: "D583" }, where: REGISTRATION, inUse: ({ ev }) => ev.self_cancel },
   { key: "event_terms", name: "Event terms", summary: "Client clauses to tick on the form and the portal.", origin: { date: "2026-10", decision: "D540" }, where: REGISTRATION, inUse: ({ ev }) => !!ev.registration_terms },
   { key: "done_page", name: "You're in page", summary: "A confirmation page with a QR after registering.", origin: { date: "2026-10", decision: "D634" }, where: REGISTRATION, inUse: ({ ev }) => !!ev.registration_done_page },
-  { key: "after_register_booking", name: "Open booking after registering", summary: "Send new registrants straight to a booking activity.", origin: { date: "2026-10", decision: "D766" }, where: REGISTRATION, experimental: true, inUse: ({ ev }) => !!ev.after_register_activity_id },
+  { key: "after_register_booking", name: "Open booking after registering", summary: "Send new registrants straight to a booking activity.", origin: { date: "2026-10", decision: "D766", event: "MYBESTME" }, where: REGISTRATION, experimental: true, inUse: ({ ev }) => !!ev.after_register_activity_id },
   { key: "registration_images", name: "Banner and form image", summary: "A banner on top and an image under the form.", origin: { date: "2026-10", decision: "D618" }, where: REGISTRATION },
   { key: "scheduled_open", name: "Scheduled opening", summary: "Pick a time and an activity opens by itself.", origin: { date: "2026-10", decision: "D600" }, where: ACTIVITY },
   { key: "tick_box_questions", name: "Tick-box questions", summary: "Questions where people tick all that apply.", origin: { date: "2026-10", decision: "D732" }, where: REGISTRATION },
@@ -69,7 +69,7 @@ export const ENGAGEMENT_OPTIONS: readonly Option[] = [
   { key: "tracks", name: "Tracks", summary: "Run two scored tracks; captains can submit for the team.", origin: { date: "2026-10", decision: "D776" }, where: ACTIVITY, experimental: true },
   { key: "ad_hoc_points", name: "Ad hoc points", summary: "Bonus and penalty points on a leaderboard.", origin: { date: "2026-10", decision: "D704" }, where: ACTIVITY },
   { key: "tournaments", name: "Tournaments", summary: "Squads, captains and results across rounds.", origin: { date: "2026-10", decision: "D637" }, where: ACTIVITY },
-  { key: "polaroid_print_look", name: "Polaroid print look", summary: "Card background, logo and ink for printed polaroids.", origin: { date: "2026-10", decision: "D718" }, where: ACTIVITY, experimental: true },
+  { key: "polaroid_print_look", name: "Polaroid print look", summary: "Card background, logo and ink for printed polaroids.", origin: { date: "2026-10", decision: "D718", event: "UOB" }, where: ACTIVITY, experimental: true },
 ];
 
 /** Session booking's option. */

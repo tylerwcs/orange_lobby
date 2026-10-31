@@ -5,3 +5,5 @@
 export * from "./catalogue";
 export * from "./features";
 export * from "./custom-modules";
+export type { Option } from "./options";
+export type { EventUsage } from "./usage";
