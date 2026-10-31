@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { unsavedChangesMessage } from "@/lib/unsaved-changes";
+import { formsLost, unsavedChangesMessage } from "@/lib/unsaved-changes";
 
 const TAB_FORM = "form[data-tab-label]";
 
@@ -12,9 +12,11 @@ const TAB_FORM = "form[data-tab-label]";
  * A `data-tab-label` form turns dirty, and gets `data-dirty` (which its SaveBar shows as
  * "Unsaved changes"), on its first `input` or `change` event, or a click on one of its
  * `type="button"` buttons: adding, moving or removing a question, an image's Remove, a theme
- * Reset, the terms editor's toolbar. Submitting a tab's form while OTHER tabs' forms are dirty
- * names them all and asks; a form's own edits never do. A submit that goes ahead clears its own
- * form's mark, so a refused or no-change save does not warn later.
+ * Reset, the terms editor's toolbar. Submitting ANY form on the page (another tab's, the Me page
+ * form, a dialog, a What's on switch) while tab forms other than itself are dirty names them all
+ * and asks; a tab form's own edits never do. Status clicks are action calls, not submits, so they
+ * are not covered. A submit that goes ahead clears its own form's mark, so a refused or no-change
+ * save does not warn later.
  *
  * Listens on window in the capture phase, ahead of React's own submit handling at the root, and
  * a cancelled submit is one React does not run the action for. Renders nothing.
@@ -30,13 +32,15 @@ export function UnsavedGuard() {
     };
     const submit = (e: Event) => {
       const form = e.target;
-      if (!(form instanceof HTMLFormElement) || !form.matches(TAB_FORM)) return;
-      const others = Array.from(document.querySelectorAll<HTMLFormElement>(`${TAB_FORM}[data-dirty]`)).filter((f) => f !== form);
-      if (others.length > 0 && !window.confirm(unsavedChangesMessage(others.map((f) => f.dataset.tabLabel ?? "another tab")))) {
+      if (!(form instanceof HTMLFormElement)) return;
+      const dirty = Array.from(document.querySelectorAll<HTMLFormElement>(`${TAB_FORM}[data-dirty]`));
+      const lost = formsLost(form, dirty);
+      if (lost.length > 0 && !window.confirm(unsavedChangesMessage(lost.map((f) => f.dataset.tabLabel ?? "another tab")))) {
         e.preventDefault();
         return;
       }
-      form.removeAttribute("data-dirty");
+      // A submit that goes ahead clears its own mark (a tab form's own edits are the ones it saves).
+      if (form.matches(TAB_FORM)) form.removeAttribute("data-dirty");
     };
     window.addEventListener("input", edit, true);
     window.addEventListener("change", edit, true);
