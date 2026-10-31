@@ -2,7 +2,8 @@
 // behave as the spec says against a real database. vitest has no database (D141).
 //
 // WHAT THIS PROVES:
-//   1. Every event created before the migration has all seven stored add-ons (D435).
+//   1. Every event created before the migration got all seven stored add-ons (D435). Admins may
+//      turn add-ons off since (D439), so this only lists the events that have; it doesn't fail.
 //   2. A new event starts with none.
 //   3. event_features refuses `custom` and unknown keys, and a duplicate row (D434, D436).
 //   4. Turning an add-on off (deleting its row) leaves the event's games untouched (D439).
@@ -38,11 +39,16 @@ const check = (label, ok, detail = "") => {
 };
 const must = ({ data, error }) => { if (error) throw error; return data; };
 
-// 1. The backfill.
+// 1. The backfill. Its result can't be re-checked once an admin turns an add-on off (D439), so
+// the events missing a backfilled add-on are listed, not failed.
 const older = must(await db.from("events").select("id, slug").lt("created_at", MIGRATED_AT));
 const rows = must(await db.from("event_features").select("event_id, feature").in("event_id", older.map((e) => e.id)));
-const short = older.filter((e) => rows.filter((r) => r.event_id === e.id).length !== BACKFILLED.length);
-check("every event from before the migration has all seven add-ons", short.length === 0, short.map((e) => e.slug).join(", "));
+const turnedOff = older
+  .map((e) => ({ slug: e.slug, off: BACKFILLED.filter((k) => !rows.some((r) => r.event_id === e.id && r.feature === k)) }))
+  .filter((e) => e.off.length > 0);
+console.log(turnedOff.length === 0
+  ? "NOTE  every event from before the migration still has all seven add-ons"
+  : `NOTE  events from before the migration with add-ons turned off since: ${turnedOff.map((e) => `${e.slug} (${e.off.join(", ")})`).join("; ")}`);
 
 const org = must(await db.from("organisations").select("id").limit(1).single());
 const event = must(await db.from("events").insert({ org_id: org.id, name: `Catalogue check ${runId}`, slug: `catalogue-check-${runId}` }).select("id, org_id").single());
