@@ -70,7 +70,7 @@ export type TimelineRefusal = "too_fast" | "too_long";
  * keyboard's suggestion) are flagged instead, and backspaces are left out (R13): a keyboard that
  * rewrites a long composition sends many at the same instant, and a backspace never scores.
  */
-const typedLetters = (entries: readonly Entry[]) => entries.filter((e) => !e.insert && e.key !== "");
+const typedLetters = (entries: readonly Entry[]) => entries.filter((e) => !e.insert && e.key !== "\b");
 
 /** Refuse what no hand could type: past the run cap, or more than CEILING_KEYS typed letters in any CEILING_WINDOW_MS. */
 export function checkTimeline(entries: readonly Entry[]): TimelineRefusal | null {

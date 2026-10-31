@@ -6,7 +6,7 @@ import type { RunResult } from "./game/replay";
 import type { Device, Review, Timeline } from "./game/timeline";
 
 // The qualifier's reads and writes (D769, D795), thin over the tables and RPCs of migrations
-// 0117 and 0119. The rules a client could cheat (timing, one live run, who may play, the tie
+// 0117 and 0120. The rules a client could cheat (timing, one live run, who may play, the tie
 // order, the confirm) live in those RPCs; this file only shapes their rows.
 // Times come back as `Date.toISOString()` strings (starts_at is stored to the millisecond, so
 // nothing is lost), and numeric columns come back as JS numbers.
@@ -96,7 +96,7 @@ export async function getRun(runId: string, attendeeId: string): Promise<{
 /**
  * Records a run the route has already replayed (replay, reviewOf): the score and the rest are
  * the server's, and the timeline is kept for review, each key at its time after the start (the
- * wire form carries gaps; the key_times column holds times, 0119). `early`: the database's clock
+ * wire form carries gaps; the key_times column holds times, 0120). `early`: the database's clock
  * has not reached the replayed end yet; `late`: past the run cap plus grace; `done`: submitted
  * already, abandoned, or the finalists are confirmed; `refused`: not theirs, or out of bounds.
  */

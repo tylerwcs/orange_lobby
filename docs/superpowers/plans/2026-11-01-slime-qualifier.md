@@ -4,7 +4,7 @@
 
 **Goal:** Replace the typing qualifier's 30-second sprint with a first-person 3D slime-popping typing game, ranked by a server-replayed score, keeping the qualifier's window, board, admin review, confirm and CSV.
 
-**Architecture:** One pure, deterministic game engine (`src/features/qualifier/game/`) runs the run on the phone and is replayed on the server from the run's seed and the player's keystroke timeline; the server stores the score it computes. A new migration (0119) reshapes the qualifier tables from wpm to score. The portal hosts the game in a fullscreen overlay rendered with React Three Fiber in a low-poly pastel world; the old sprint, tunnel, ghosts, skins, streaks, ranks, dropped banner, near-miss line and Share are deleted.
+**Architecture:** One pure, deterministic game engine (`src/features/qualifier/game/`) runs the run on the phone and is replayed on the server from the run's seed and the player's keystroke timeline; the server stores the score it computes. A new migration (0120) reshapes the qualifier tables from wpm to score. The portal hosts the game in a fullscreen overlay rendered with React Three Fiber in a low-poly pastel world; the old sprint, tunnel, ghosts, skins, streaks, ranks, dropped banner, near-miss line and Share are deleted.
 
 **Tech Stack:** Next.js 16.3 (App Router, route handlers), React 19.2, TypeScript, Supabase Postgres via `security definer` RPCs, three 0.186 + @react-three/fiber 9 (drei is NOT installed — don't add it), vitest.
 
@@ -20,7 +20,7 @@
 - Game constants live in `src/features/qualifier/game/rules.ts` only; SQL literals that mirror them (`interval '21 minutes'`, `1200000`, `2000`) are pinned by a test (Task 3).
 - English only, as today. Words from the existing `WORDS` list; boss sentences lowercase letters and single spaces only.
 - Writes stay in `security definer` RPCs granted to `service_role` only, revoked from `public, anon, authenticated` (as 0117).
-- Never run anything against the events with slug `ecphub` or `zp-my-best-me`. Migration 0119 is written in this plan but **applied to production only when the user says so** (it is the only database and hosts live events).
+- Never run anything against the events with slug `ecphub` or `zp-my-best-me`. Migration 0120 is written in this plan but **applied to production only when the user says so** (it is the only database and hosts live events).
 - Commits: stage named paths only (never `git add -A` / `.`; the checkout has the user's unrelated changes). Messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Decision numbers D790–D796.
 - Attendee components may not use `text-white`, `bg-white`, `bg-black`, `bg-foreground`, `text-gray-*` without a `theme-fixed:` comment on the line (`tests/theme/fixed-colours-guard.test.ts`, which scans `src/features/qualifier/components` recursively). 3D colours are hex numbers in `game/palette.ts`, not classes.
 - Test command: `npx vitest run <path>`; full checks: `npx vitest run`, `npx tsc --noEmit`, `npm run lint`, `npm run build`.
@@ -215,17 +215,17 @@ The two boss tests are described in comments: write them out fully; they are par
 
 ---
 
-### Task 3: Migration 0119 and the DB check script
+### Task 3: Migration 0120 and the DB check script
 
 **Files:**
-- Create: `supabase/migrations/0119_slime_qualifier.sql`
+- Create: `supabase/migrations/0120_slime_qualifier.sql`
 - Modify: `scripts/qualifier-db-check.mjs`
 - Test: `tests/qualifier/sql-constants.test.ts`
 
 **Interfaces:**
 - Consumes: `RUN_CAP_MS`, `SUBMIT_GRACE_MS`, `EARLY_TOLERANCE_MS`, `COUNTDOWN_MS` from Task 1.
 - Produces (SQL, all `security definer` unless noted, `set search_path = ''`, granted to `service_role` only like 0117):
-  - **Guard first**: `do $$ begin if exists (select 1 from public.qualifier_runs) or exists (select 1 from public.qualifier_finalists) then raise exception '0119: qualifier data exists; reshape by hand'; end if; end $$;`, and `set local lock_timeout = '5s';`.
+  - **Guard first**: `do $$ begin if exists (select 1 from public.qualifier_runs) or exists (select 1 from public.qualifier_finalists) then raise exception '0120: qualifier data exists; reshape by hand'; end if; end $$;`, and `set local lock_timeout = '5s';`.
   - `qualifier_runs`: drop `words, wpm, accuracy, words_done, offsets`; add `seed int not null`, `ended_ms int`, `score int`, `popped int`, `bosses int`, `peak_cps numeric(4,1)`, `keys text`, `key_times int[]`. Keep `status, starts_at, submitted_at, device, multi_inserts, flagged, disqualified_at` and the indexes.
   - `qualifier_players`: drop `best_wpm, best_accuracy, run_days, skin, last_seen_rank`; add `best_score int`. Keep `best_run_id, best_at, runs_played`.
   - `qualifier_finalists`: drop `best_wpm, best_accuracy, skin`; add `best_score int not null`.
@@ -237,11 +237,11 @@ The two boss tests are described in comments: write them out fully; they are par
   - New `qualifier_live_count(p_event_id uuid) returns int` (stable, definer): live runs of the event with `now() <= starts_at + interval '21 minutes'`.
   - Unchanged: `qualifier_may_play`, `qualifier_eligible`, `qualifier_set_disqualified`, `qualifier_save_settings`, the settings table, the feature check.
 
-- [ ] **Step 1: Write the failing test** `tests/qualifier/sql-constants.test.ts`: read `supabase/migrations/0119_slime_qualifier.sql` as text and assert it contains `interval '21 minutes'` and `1200000` and `p_ended_ms - 2000`, and that `RUN_CAP_MS + SUBMIT_GRACE_MS === 21 * 60_000`, `RUN_CAP_MS === 1_200_000`, `EARLY_TOLERANCE_MS === 2000`. Run it — FAIL (file missing).
+- [ ] **Step 1: Write the failing test** `tests/qualifier/sql-constants.test.ts`: read `supabase/migrations/0120_slime_qualifier.sql` as text and assert it contains `interval '21 minutes'` and `1200000` and `p_ended_ms - 2000`, and that `RUN_CAP_MS + SUBMIT_GRACE_MS === 21 * 60_000`, `RUN_CAP_MS === 1_200_000`, `EARLY_TOLERANCE_MS === 2000`. Run it — FAIL (file missing).
 - [ ] **Step 2: Write the migration** per the Interfaces block. Copy 0117's comments style and lock-order notes; keep each helper's inlinable/non-definer status as in 0117.
 - [ ] **Step 3: Run** `npx vitest run tests/qualifier/sql-constants.test.ts` — PASS.
-- [ ] **Step 4: Update `scripts/qualifier-db-check.mjs`** to the new RPCs: start with a seed; one live run; `'early'` (submit right after start with `p_ended_ms = 60000`); `'late'` (backdate `starts_at` by 22 minutes); `'refused'` (ended_ms 1200001); a valid submit (backdate `starts_at` by 70 s, `p_ended_ms = 60000`) → `'ok'` and the player's `best_score`; tie order (equal scores → earlier `starts_at` ranks first); `qualifier_rank`; `qualifier_live_count`; disqualify falls back to the next best; confirm refuses while a run started before the close is live (`not_closed`), then succeeds and snapshots `best_score`; settings locked after confirm; cascade delete. Keep its safety rules (own throwaway draft event, never `ecphub`/`zp-my-best-me`, deletes in `finally`). Do **not** run it yet (0119 isn't applied).
-- [ ] **Step 5: Commit** `git add supabase/migrations/0119_slime_qualifier.sql scripts/qualifier-db-check.mjs tests/qualifier/sql-constants.test.ts` → `feat(qualifier): migration 0119 reshapes the qualifier for the slime game (D792)`.
+- [ ] **Step 4: Update `scripts/qualifier-db-check.mjs`** to the new RPCs: start with a seed; one live run; `'early'` (submit right after start with `p_ended_ms = 60000`); `'late'` (backdate `starts_at` by 22 minutes); `'refused'` (ended_ms 1200001); a valid submit (backdate `starts_at` by 70 s, `p_ended_ms = 60000`) → `'ok'` and the player's `best_score`; tie order (equal scores → earlier `starts_at` ranks first); `qualifier_rank`; `qualifier_live_count`; disqualify falls back to the next best; confirm refuses while a run started before the close is live (`not_closed`), then succeeds and snapshots `best_score`; settings locked after confirm; cascade delete. Keep its safety rules (own throwaway draft event, never `ecphub`/`zp-my-best-me`, deletes in `finally`). Do **not** run it yet (0120 isn't applied).
+- [ ] **Step 5: Commit** `git add supabase/migrations/0120_slime_qualifier.sql scripts/qualifier-db-check.mjs tests/qualifier/sql-constants.test.ts` → `feat(qualifier): migration 0120 reshapes the qualifier for the slime game (D792)`.
 
 ---
 
@@ -352,7 +352,7 @@ The two boss tests are described in comments: write them out fully; they are par
 
 These touch the shared production database or need a person with phones; do them only when the user says so:
 
-1. Apply `0119_slime_qualifier.sql` (the guard refuses if any qualifier run exists), then `npm run check:qualifier` and `npm run check:catalogue`.
+1. Apply `0120_slime_qualifier.sql` (the guard refuses if any qualifier run exists), then `npm run check:qualifier` and `npm run check:catalogue`.
 2. On a throwaway published test event: seed 200 attendees, run `npm run load:qualifier -- run https://<deploy> <event> 150 180`; delete the event after.
 3. Browser pass (spec Testing): Android and iPhone and a laptop — fullscreen in/out, keyboard stays open, autocorrect off, swipe flagged, a full run to death, Play again, a locked phone retrying its run, window closed, admin disqualify, confirm waiting for a live run, CSV.
-4. Merge and deploy together with 0119 (the old code and the new schema don't mix; no event has the add-on on today).
+4. Merge and deploy together with 0120 (the old code and the new schema don't mix; no event has the add-on on today).

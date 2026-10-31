@@ -194,7 +194,7 @@ tests and columns are removed rather than left unused.
 
 ## Data
 
-A new migration (**0119**, the next free number) reshapes the qualifier tables. They hold no rows
+A new migration (**0120**, the next free number) reshapes the qualifier tables. They hold no rows
 in production today (checked 1 Nov after the load tests), so columns can be dropped and replaced;
 the migration should still refuse to run if any qualifier run exists, rather than lose data.
 

@@ -1,5 +1,5 @@
 // Executable evidence that the slime qualifier's RPCs (supabase/migrations/0117_typing_qualifier.sql,
-// reshaped by 0119_slime_qualifier.sql, D769/D792) enforce their rules against a real database.
+// reshaped by 0120_slime_qualifier.sql, D769/D792) enforce their rules against a real database.
 // vitest has no database (D141), so the pure mirrors in src/features/qualifier/ are unit-tested
 // there and this proves the SQL agrees. The RPCs trust the score the route computed by replaying
 // the timeline, so this sends made-up scores straight to them.
@@ -36,7 +36,7 @@
 //   8. Deleting the event removes every qualifier row (cascade).
 //
 // HOW TO RUN: npm run check:qualifier (node --env-file=.env.local scripts/qualifier-db-check.mjs).
-// It needs migrations 0117 and 0119 applied to the database in .env.local.
+// It needs migrations 0117 and 0120 applied to the database in .env.local.
 // SAFE TO RE-RUN: it creates its own draft event with a random slug and deletes it in `finally`.
 // It never touches the events with slug `ecphub` or `zp-my-best-me`.
 import { randomUUID } from "node:crypto";
@@ -57,7 +57,7 @@ const check = (label, ok, detail = "") => {
 };
 const must = ({ data, error }) => { if (error) throw error; return data; };
 
-// Mirrors of src/features/qualifier/game/rules.ts (and the literals in 0119).
+// Mirrors of src/features/qualifier/game/rules.ts (and the literals in 0120).
 const COUNTDOWN_MS = 3000; // COUNTDOWN_MS
 const RUN_CAP_MS = 1_200_000; // RUN_CAP_MS; a submit is taken until starts_at + RUN_CAP_MS + SUBMIT_GRACE_MS (21 min)
 const MIN = 60_000;

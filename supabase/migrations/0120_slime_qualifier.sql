@@ -10,8 +10,8 @@
 -- The database still owns the parts a client could cheat: the run's start time, one live run
 -- per attendee, the submit window, who may play, the tie order and the finalist snapshot. The
 -- pure mirrors live in src/features/qualifier/ (phaseOf and ineligibility in phase.ts, the game
--- and timing constants in game/rules.ts, byStanding in progress.ts); change both together. The
--- SQL literals that repeat rules.ts are pinned by tests/qualifier/sql-constants.test.ts:
+-- and timing constants in game/rules.ts); change both together. The tie order has no mirror: the
+-- board shows the ranks qualifier_standings computes. The SQL literals that repeat rules.ts are pinned by tests/qualifier/sql-constants.test.ts:
 -- interval '21 minutes' (RUN_CAP_MS + SUBMIT_GRACE_MS), 1200000 (RUN_CAP_MS) and 2000
 -- (EARLY_TOLERANCE_MS).
 --
@@ -36,7 +36,7 @@ lock table public.qualifier_runs, public.qualifier_players, public.qualifier_fin
 do $$
 begin
   if exists (select 1 from public.qualifier_runs) or exists (select 1 from public.qualifier_finalists) then
-    raise exception '0119: qualifier data exists; reshape by hand';
+    raise exception '0120: qualifier data exists; reshape by hand';
   end if;
 end $$;
 
@@ -117,8 +117,8 @@ $$;
 -- The tie order, as "a comes before b": higher score, then the earlier best run, then the lower
 -- attendee id. A row comparison is decided by its first unequal pair, so swapping best_at and
 -- attendee_id between the sides makes those two "lower comes first". Entrants never have a null
--- in these. Must order exactly as qualifier_standings' window (the next function); both are
--- mirrored by byStanding in src/features/qualifier/progress.ts.
+-- in these. Must order exactly as qualifier_standings' window (the next function);
+-- scripts/qualifier-db-check.mjs checks the two agree.
 create function public.qualifier_ahead(
   a_score int, a_at timestamptz, a_id uuid,
   b_score int, b_at timestamptz, b_id uuid
