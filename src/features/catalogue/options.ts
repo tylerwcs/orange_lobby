@@ -2,6 +2,18 @@ import type { Origin } from "./catalogue";
 import type { EventUsage } from "./usage";
 
 /**
+ * A polaroid wall has a print look (D718) once any of `polaroid.card`'s background, logo or ink is set (readPolaroidSettings
+ * fills a missing part with null). Read by hand rather than through readPolaroidSettings: the sidebar, a client component,
+ * imports this file, and the polaroid client entry would bring the wall's screens with it.
+ */
+const polaroidLookSet = (raw: unknown): boolean => {
+  const card = raw && typeof raw === "object" ? (raw as { card?: unknown }).card : null;
+  if (!card || typeof card !== "object") return false;
+  const { background, logo, ink } = card as Record<string, unknown>;
+  return [background, logo, ink].some((v) => typeof v === "string" && v !== "");
+};
+
+/**
  * A capability inside a feature, set in that feature's own settings, with no switch (D777).
  * `where` says where it is set; `inUse` is given only where one event column or activity field answers it.
  */
@@ -48,8 +60,8 @@ export const PORTAL_OPTIONS: readonly Option[] = [
   { key: "theme", name: "Theme and glow", summary: "Colours that make the portal match the event's look.", origin: { event: "UOB", date: "2026-10", decision: "D622" }, where: PORTAL_LOOK },
   { key: "name_line_breaks", name: "Name line breaks", summary: "Choose where the event name wraps.", origin: { date: "2026-10", decision: "D633" }, where: EVENT },
   { key: "coming_soon", name: "Coming soon message", summary: "Your own wording on the page before the event opens.", origin: { date: "2026-10", decision: "D617" }, where: EVENT, inUse: ({ ev }) => !!ev.coming_soon_message },
-  { key: "me_page", name: "Me page", summary: "A checklist for each attendee on their own page.", origin: { date: "2026-10", decision: "D536" }, where: PORTAL_LOOK },
-  { key: "badge_pins", name: "Badge pins", summary: "Pins attendees can wear on their badge.", where: PORTAL_LOOK },
+  { key: "me_page", name: "Me page", summary: "What attendees see about themselves on their Me page.", origin: { date: "2026-10", decision: "D536" }, where: PORTAL_LOOK },
+  { key: "badge_pins", name: "Badge pins", summary: "Up to a few facts shown under each attendee's name on their badge.", where: PORTAL_LOOK },
   { key: "preview_link", name: "Preview link", summary: "Show the portal to someone without a login.", origin: { date: "2026-10", decision: "D714" }, where: EVENT, inUse: ({ ev }) => !!ev.preview_token },
   { key: "committee_logins", name: "Committee logins", summary: "Give event committee members their own login.", origin: { date: "2026-10", decision: "D550" }, where: "Settings → Committee" },
 ];
@@ -69,7 +81,7 @@ export const ENGAGEMENT_OPTIONS: readonly Option[] = [
   { key: "tracks", name: "Tracks", summary: "Run two scored tracks; captains can submit for the team.", origin: { date: "2026-10", decision: "D776" }, where: ACTIVITY, experimental: true },
   { key: "ad_hoc_points", name: "Ad hoc points", summary: "Bonus and penalty points on a leaderboard.", origin: { date: "2026-10", decision: "D704" }, where: ACTIVITY },
   { key: "tournaments", name: "Tournaments", summary: "Squads, captains and results across rounds.", origin: { date: "2026-10", decision: "D637" }, where: ACTIVITY },
-  { key: "polaroid_print_look", name: "Polaroid print look", summary: "Card background, logo and ink for printed polaroids.", origin: { date: "2026-10", decision: "D718", event: "UOB" }, where: ACTIVITY, experimental: true },
+  { key: "polaroid_print_look", name: "Polaroid print look", summary: "Card background, logo and ink for printed polaroids.", origin: { date: "2026-10", decision: "D718", event: "UOB" }, where: ACTIVITY, experimental: true, inUse: ({ activities }) => activities.some((a) => a.kind === "polaroid" && polaroidLookSet(a.polaroid)) },
 ];
 
 /** Session booking's option. */

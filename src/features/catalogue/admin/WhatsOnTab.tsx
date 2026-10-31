@@ -14,10 +14,19 @@ import { optionsInUse } from "../usage";
 import { setAddonAction, addCustomModuleAction, updateCustomModuleAction, removeCustomModuleAction } from "./actions";
 
 const OFF_NOTE = "Nothing is deleted. Turn it back on and everything returns.";
-const offMessage = (key: StoredAddon) =>
-  key === "custom_domain"
-    ? `Turn off ${FEATURES[key].name}? The Address tab is hidden, but attendee links keep using the event's own address. To remove that address, turn ${FEATURES[key].name} back on and remove it in Settings → Address. ${OFF_NOTE}`
-    : `Turn off ${FEATURES[key].name}? It disappears from the admin. ${OFF_NOTE}`;
+const offMessage = (key: StoredAddon) => {
+  const name = FEATURES[key].name;
+  switch (key) {
+    case "custom_domain":
+      return `Turn off ${name}? The Address tab is hidden, but attendee links keep using the event's own address. To remove that address, turn ${name} back on and remove it in Settings → Address. ${OFF_NOTE}`;
+    case "language":
+      return `Turn off ${name}? It disappears from the admin, but attendees keep the EN | BM switch if it is on. To remove the switch, untick it in Settings → Portal look first. ${OFF_NOTE}`;
+    case "popups":
+      return `Turn off ${name}? The Popups page disappears from the admin, but any popup that is on keeps showing to attendees. To stop them, switch them off on the Popups page first. ${OFF_NOTE}`;
+    default:
+      return `Turn off ${name}? It disappears from the admin. ${OFF_NOTE}`;
+  }
+};
 
 function ModuleForm({ action, name = "", description = "" }: { action: (fd: FormData) => Promise<void>; name?: string; description?: string }) {
   // Unique per form: the add dialog and an edit dialog can both be in the page.

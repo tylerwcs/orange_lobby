@@ -20,6 +20,8 @@ export type ReviewEntry = {
   parent?: FeatureKey;
   experimental: boolean;
   origin: Origin;
+  /** False for an option with no `inUse` check: who uses it is unknown, so `users` is empty and it is never flagged. */
+  tracked: boolean;
   users: UsageRow[];
 };
 
@@ -38,6 +40,7 @@ function threeMonthsBefore(today: string): string {
 /**
  * The entries worth a look this quarter (D782), each with the reasons. `today` is a Malaysian calendar day
  * (`nowInKL().date`), passed in so this stays pure.
+ * An entry whose usage is not tracked is never flagged: nobody can say whether it is used.
  * - oneClient: experimental, and at most one event uses it. Built for one client, still not proven on a second.
  * - goneQuiet: shipped more than three months ago, and no event starting in the last three months (or later) uses it.
  *   Events with no start date say nothing about recency. An origin month counts as its first day.
@@ -45,6 +48,7 @@ function threeMonthsBefore(today: string): string {
 export function reviewFlags(entries: ReviewEntry[], today: string): ReviewFlag[] {
   const cutoff = threeMonthsBefore(today);
   return entries
+    .filter((entry) => entry.tracked)
     .map((entry) => {
       const oneClient = entry.experimental && entry.users.length <= 1;
       const old = `${entry.origin.date}-01` < cutoff;
@@ -54,19 +58,24 @@ export function reviewFlags(entries: ReviewEntry[], today: string): ReviewFlag[]
     .filter((f) => f.oneClient || f.goneQuiet);
 }
 
+/** The entries whose usage cannot be told (D782): options with an origin but no `inUse` check. Shown as such, not as unused. */
+export function untrackedEntries(entries: readonly ReviewEntry[]): ReviewEntry[] {
+  return entries.filter((e) => !e.tracked);
+}
+
 /**
- * Every add-on, and every option, that has an origin and a way to tell who uses it (D782). Core features are never
- * reviewed, and an option with no `inUse` check has no reliable users, so it is left out rather than shown as unused.
+ * Every add-on, and every option, that has an origin (D782). Core features are never reviewed. An option with no
+ * `inUse` check has no reliable users, so it comes back `tracked: false` with none, rather than looking unused.
  */
 export function reviewEntries(rows: readonly UsageRow[]): ReviewEntry[] {
   const out: ReviewEntry[] = [];
   for (const key of ADDON_KEYS) {
     const f = FEATURES[key];
-    if (f.origin) out.push({ key, name: f.name, experimental: f.tier === "experimental", origin: f.origin, users: rows.filter((r) => has(r.features, key)) });
+    if (f.origin) out.push({ key, name: f.name, experimental: f.tier === "experimental", origin: f.origin, tracked: true, users: rows.filter((r) => has(r.features, key)) });
   }
   for (const [parent, f] of Object.entries(FEATURES) as [FeatureKey, (typeof FEATURES)[FeatureKey]][]) {
     for (const o of f.options) {
-      if (o.origin && o.inUse) out.push({ key: o.key, name: o.name, parent, experimental: !!o.experimental, origin: o.origin, users: rows.filter((r) => r.options.has(o.key)) });
+      if (o.origin) out.push({ key: o.key, name: o.name, parent, experimental: !!o.experimental, origin: o.origin, tracked: !!o.inUse, users: o.inUse ? rows.filter((r) => r.options.has(o.key)) : [] });
     }
   }
   return out;

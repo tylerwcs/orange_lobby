@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { reviewFlags, reviewEntries, latestOf, type ReviewEntry, type UsageRow } from "@/features/catalogue/review";
+import { reviewFlags, reviewEntries, untrackedEntries, latestOf, type ReviewEntry, type UsageRow } from "@/features/catalogue/review";
 import { featureSet } from "@/features/catalogue/features";
 import { FEATURES } from "@/features/catalogue/catalogue";
 
-const e = (over: Partial<ReviewEntry>): ReviewEntry => ({ key: "k", name: "K", experimental: false, origin: { date: "2026-06" }, users: [], ...over });
+const e = (over: Partial<ReviewEntry>): ReviewEntry => ({ key: "k", name: "K", experimental: false, origin: { date: "2026-06" }, tracked: true, users: [], ...over });
 const u = (startsOn: string | null): UsageRow => ({ eventId: startsOn ?? "x", eventName: "E", status: "live", startsOn, features: featureSet([], 0), options: new Set() });
 
 describe("reviewFlags (D782)", () => {
@@ -34,6 +34,10 @@ describe("reviewFlags (D782)", () => {
     expect(reviewFlags([e({ origin: { date: "2026-02" }, users: [u("2026-02-28")] })], "2026-05-31")).toEqual([]);
     expect(reviewFlags([e({ origin: { date: "2026-02" }, users: [u("2026-02-27")] })], "2026-05-31")[0].goneQuiet).toBe(true);
   });
+  it("never flags an entry whose usage is not tracked, however old or experimental", () => {
+    const old = e({ key: "n", tracked: false, experimental: true, origin: { date: "2025-01" }, users: [] });
+    expect(reviewFlags([old], "2026-11-01")).toEqual([]);
+  });
   it("keeps only flagged entries, with both flags when both apply", () => {
     const flagged = reviewFlags([e({ key: "a", experimental: true, origin: { date: "2026-06" }, users: [] }), e({ key: "b" , origin: { date: "2026-10" } })], "2026-11-01");
     expect(flagged.map((f) => f.entry.key)).toEqual(["a"]);
@@ -50,7 +54,21 @@ describe("reviewEntries (D782)", () => {
     expect(keys).toContain("approval");
     expect(keys).not.toContain("whatsapp"); // an add-on with no origin
     expect(keys).not.toContain("portal"); // core
-    expect(keys).not.toContain("theme"); // origin but no inUse: no reliable users
+  });
+  it("lists an option with an origin but no inUse as not tracked, with no users", () => {
+    const rows = [row("e1", [], ["theme"])];
+    const theme = reviewEntries(rows).find((x) => x.key === "theme")!;
+    expect(theme.tracked).toBe(false);
+    expect(theme.users).toEqual([]);
+    expect(reviewEntries(rows).find((x) => x.key === "approval")!.tracked).toBe(true);
+    expect(reviewEntries(rows).find((x) => x.key === "language")!.tracked).toBe(true);
+    expect(untrackedEntries(reviewEntries(rows)).map((x) => x.key)).toContain("theme");
+    expect(untrackedEntries(reviewEntries(rows)).every((x) => !x.tracked)).toBe(true);
+  });
+  it("tracks every option with an origin that has an inUse check, including the polaroid print look", () => {
+    const untracked = untrackedEntries(reviewEntries([])).map((x) => x.key);
+    expect(untracked).not.toContain("polaroid_print_look");
+    expect(untracked).not.toContain("waiting_list");
   });
   it("takes an add-on's users from the events that have it, and marks experimental ones", () => {
     const rows = [row("e1", ["language"]), row("e2", [])];

@@ -8,7 +8,7 @@ import { nowInKL } from "@/lib/time";
 import { ADDON_KEYS, CORE_KEYS, FEATURES, type Origin } from "../catalogue";
 import { has } from "../features";
 import { allEventsUsage } from "../db";
-import { latestOf, reviewEntries, reviewFlags, type UsageRow } from "../review";
+import { latestOf, reviewEntries, reviewFlags, untrackedEntries, type UsageRow } from "../review";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -30,11 +30,30 @@ function EventLink({ r }: { r: UsageRow }) {
   );
 }
 
+/** A collapsed list of the events behind a count, each with its status, so test events can be discounted (D780). */
+function EventList({ users }: { users: readonly UsageRow[] }) {
+  if (users.length === 0) return null;
+  return (
+    <details className="text-xs">
+      <summary className="cursor-pointer text-muted-foreground">Show events</summary>
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {users.map((r) => (
+          <li key={r.eventId}>
+            <EventLink r={r} />
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 /** The registry across every event of the org (D780), and the list of what to look at this quarter (D782). */
 export async function FeaturesPage({ orgId }: { orgId: string }) {
   const rows = await allEventsUsage(orgId);
   const today = nowInKL().date;
-  const flags = reviewFlags(reviewEntries(rows), today);
+  const entries = reviewEntries(rows);
+  const flags = reviewFlags(entries, today);
+  const untracked = untrackedEntries(entries);
 
   return (
     <>
@@ -62,12 +81,14 @@ export async function FeaturesPage({ orgId }: { orgId: string }) {
                     {f.origin && <>{originLabel(f.origin)} · </>}
                     {f.tier === "core" ? "Every event" : users.length === 0 ? "On for no events" : `On for ${plural(users.length)}${latest ? ` · latest: ${latest.eventName} (${latest.status})` : ""}`}
                   </p>
+                  {f.tier !== "core" && <EventList users={users} />}
                 </CardHeader>
                 <CardContent className="px-0">
                   {f.options.length > 0 && (
                     <ul className="divide-y divide-border border-t border-border">
                       {f.options.map((o) => {
-                        const n = rows.filter((r) => r.options.has(o.key)).length;
+                        const optionUsers = rows.filter((r) => r.options.has(o.key));
+                        const n = optionUsers.length;
                         return (
                           <li key={o.key} className="flex flex-col gap-1 px-4 py-3">
                             <span className="flex flex-wrap items-center gap-2 text-sm font-bold">
@@ -76,6 +97,7 @@ export async function FeaturesPage({ orgId }: { orgId: string }) {
                               {o.inUse && <Badge variant={n > 0 ? "success" : "secondary"}>Used by {plural(n)}</Badge>}
                             </span>
                             <span className="text-xs text-muted-foreground">{o.summary}</span>
+                            {o.inUse && <EventList users={optionUsers} />}
                             <span className="text-xs text-muted-foreground">
                               {o.where}{o.origin && <> · {originLabel(o.origin)}</>}
                             </span>
@@ -98,7 +120,7 @@ export async function FeaturesPage({ orgId }: { orgId: string }) {
             <Empty>
               <EmptyHeader>
                 <EmptyTitle>Nothing to review.</EmptyTitle>
-                <EmptyDescription>Every add-on and option with an origin is either proven on more than one event or still new.</EmptyDescription>
+                <EmptyDescription>Every add-on and option whose use is tracked is either proven on more than one event or still new.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -117,6 +139,29 @@ export async function FeaturesPage({ orgId }: { orgId: string }) {
                       <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                         {entry.users.length === 0 ? <span className="text-muted-foreground">No events use it.</span> : entry.users.map((r) => <EventLink key={r.eventId} r={r} />)}
                       </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+          {untracked.length > 0 && (
+            <Card className="overflow-hidden pb-0">
+              <CardHeader>
+                <CardTitle>Usage not tracked</CardTitle>
+                <CardDescription>Options with an origin that have no way to tell which events use them, so they are never flagged. Check these by hand.</CardDescription>
+              </CardHeader>
+              <CardContent className="px-0">
+                <ul className="divide-y divide-border border-t border-border">
+                  {untracked.map((entry) => (
+                    <li key={entry.key} className="flex flex-col gap-1.5 px-4 py-3">
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-bold">
+                        {entry.name}
+                        {entry.parent && <span className="text-xs font-normal text-muted-foreground">in {FEATURES[entry.parent].name}</span>}
+                        {entry.experimental && <Badge variant="outline">Experimental</Badge>}
+                        <Badge variant="secondary">Usage not tracked</Badge>
+                      </span>
+                      <span className="text-xs text-muted-foreground">{originLabel(entry.origin)}</span>
                     </li>
                   ))}
                 </ul>

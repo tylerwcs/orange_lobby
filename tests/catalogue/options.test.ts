@@ -73,8 +73,23 @@ describe("inUse (D777)", () => {
   it("is set only on the options one column or field answers", () => {
     expect(options.filter((o) => o.inUse).map((o) => o.key).sort()).toEqual([
       "after_register_booking", "all_groups", "approval", "badge_checkin", "coming_soon", "committee_alerts", "done_page", "event_terms",
-      "partner_submissions", "preview_link", "self_cancel", "waiting_list",
+      "partner_submissions", "polaroid_print_look", "preview_link", "self_cancel", "waiting_list",
     ]);
+  });
+  it("reads a polaroid wall's print look: any of background, logo or ink on a polaroid activity", () => {
+    const look = (polaroid: unknown, kind = "polaroid") => option("polaroid_print_look").inUse!({ ev: fixtureEvent, activities: [{ ...fixtureActivity, kind, polaroid } as unknown as Activity] });
+    expect(look(null)).toBe(false);
+    expect(look({})).toBe(false);
+    expect(look({ card: { background: null, logo: null, ink: null } })).toBe(false);
+    expect(look({ card: { ink: "#112233" } })).toBe(true);
+    expect(look({ card: { logo: "https://example.com/l.png" } })).toBe(true);
+    expect(look({ card: { background: "https://example.com/b.png" } })).toBe(true);
+    expect(look({ card: { ink: "#112233" } }, "booking")).toBe(false);
+    expect(option("polaroid_print_look").inUse!({ ev: fixtureEvent, activities: [] })).toBe(false);
+  });
+  it("describes badge pins and the Me page by what they are", () => {
+    expect(option("badge_pins").summary).toMatch(/under each attendee's name/);
+    expect(option("me_page").summary).toMatch(/their Me page/);
   });
   it("reads the committee alert numbers and the check-in pill", () => {
     const empty = { ev: fixtureEvent, activities: [] };
