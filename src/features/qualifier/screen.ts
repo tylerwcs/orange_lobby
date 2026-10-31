@@ -63,6 +63,13 @@ export function closingNote(closesAtMs: number, now: number): string | null {
   return `Closes in ${Math.ceil(left / 60_000)} min — a run started now still counts.`;
 }
 
+/** The ready screen's countdown to the close, shown whenever the window is open (spec). */
+export const closesIn = (closesAtMs: number, now: number): string => `Closes in ${untilText(closesAtMs - now)}`;
+
+/** "New best!" on the result: a score over the best before it, or a first run that scored at all. */
+export const isNewBest = (score: number, prevBest: number | null): boolean =>
+  score > 0 && (prevBest === null || score > prevBest);
+
 export type BoardItem = { kind: "row"; entry: BoardEntry } | { kind: "cut" } | { kind: "gap" };
 
 /**

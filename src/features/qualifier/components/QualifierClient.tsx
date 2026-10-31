@@ -6,9 +6,9 @@ import { clockOffset } from "@/lib/poll";
 import { useServerNow } from "@/lib/use-poll";
 import { shortDateTime } from "@/lib/text";
 import type { QualifierView } from "../view";
-import { closingNote, livePhase, placeLine, points, untilText } from "../screen";
+import { closesIn, closingNote, isNewBest, livePhase, placeLine, points, untilText } from "../screen";
 import { qualifierFont } from "../font";
-import { clearPending, loadPending, savePending, settle } from "../game/pending";
+import { DISCARD_AFTER_TRIES, clearPending, expired, loadPending, savePending, settle } from "../game/pending";
 import { primeSound } from "../game/sound";
 import type { SubmitBody, SubmitReason } from "../game/timeline";
 import { SlimeGame, type StartAnswer, type SubmitAnswer } from "./game/SlimeGame";
@@ -29,6 +29,10 @@ const SUBMIT_TIMEOUT_MS = 15_000;
 /** A key still held from the run must not start another the moment the result shows. */
 const ENTER_GUARD_MS = 400;
 const HOWTO_KEY = "qualifier-howto-seen";
+
+// The 3D scene's chunk is fetched while the ready screen waits, once per page (SlimeGame still
+// waits for it before a run starts).
+let scenePrefetched = false;
 
 function storage(): Storage | null {
   try {
@@ -69,7 +73,10 @@ const REASONS: readonly string[] = ["early", "late", "done", "refused", "invalid
 function isSubmitAnswer(v: unknown): v is SubmitAnswer {
   if (typeof v !== "object" || v === null) return false;
   const a = v as Record<string, unknown>;
-  if (a.ok === true) return typeof a.score === "number" && typeof a.view === "object" && a.view !== null;
+  if (a.ok === true) {
+    return typeof a.score === "number" && (a.prevBest === null || typeof a.prevBest === "number")
+      && typeof a.view === "object" && a.view !== null;
+  }
   return a.ok === false && typeof a.reason === "string" && REASONS.includes(a.reason);
 }
 
@@ -115,7 +122,9 @@ function refusedText(reason: SubmitReason): string {
  *   (one per token, game/pending). It is sent on mount and whenever the page comes back into
  *   view or online, but never while a SlimeGame is mounted (that game sends its own run, and
  *   the two would race), and before Play starts a new run: a new run would replace the kept one
- *   (on the device and, by abandoning it, on the server). If it can't be sent, the start says so.
+ *   (on the device and, by abandoning it, on the server). If it can't be sent, the start says so,
+ *   and after DISCARD_AFTER_TRIES failed tries offers to discard it. One kept past any submit
+ *   window is dropped (`expired`): the server could only answer "late".
  */
 export function QualifierClient({ token, initial }: { token: string; initial: QualifierView }) {
   const [view, setView] = useState(initial);
@@ -142,6 +151,12 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       const store = storage();
       const kept = loadPending(store, token);
       if (!kept) return "none" as const;
+      // Past any submit window the server could only say "late": drop it and let Play go ahead.
+      if (expired(kept, Date.now())) {
+        clearPending(store, token);
+        setNotice(`Your last run didn't count. ${refusedText("late")}`);
+        return "none" as const;
+      }
       const still = () => loadPending(store, token)?.runId === kept.runId;
       let answer: SubmitAnswer | null = null;
       try {
@@ -189,7 +204,10 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     // SlimeGame times the server's clock around this whole call; a kept run sent first would
     // skew that by half its round trip, so `serverNow` is moved back by as much (D257's midpoint).
     const called = Date.now();
-    if ((await flushPending()) === "failed") return { error: PENDING_STUCK };
+    if ((await flushPending()) === "failed") {
+      // After a few failed tries the player may give the kept run up and play (SlimeGame clears it).
+      return { error: PENDING_STUCK, discard: (loadPending(storage(), token)?.tries ?? 0) >= DISCARD_AFTER_TRIES };
+    }
     const sent = Date.now();
     const res = await fetch(`/api/qualifier/${token}/start`, { method: "POST" });
     const body = (await res.json().catch(() => null)) as
@@ -241,6 +259,24 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     }
   }, [canPlay]);
 
+  // While Play is on offer, fetch the scene's chunk when the browser is idle.
+  const onReady = stage.kind === "ready" && canPlay;
+  useEffect(() => {
+    if (!onReady || scenePrefetched) return;
+    const fetchScene = () => {
+      scenePrefetched = true;
+      import("./game/SlimeScene").catch(() => {
+        scenePrefetched = false; // SlimeGame loads it again (and says so if it can't)
+      });
+    };
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(fetchScene, { timeout: 5000 });
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(fetchScene, 1000);
+    return () => clearTimeout(id);
+  }, [onReady]);
+
   // Enter plays (again) from the ready, result and failed screens.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -281,14 +317,15 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
         <div className="rounded-3xl bg-card p-4 text-card-foreground shadow-sm">
           {stage.kind === "result" ? (
             <ResultCard score={stage.score} best={view.me.best} line={line} canPlay={canPlay} onPlayAgain={play}
-              newBest={stage.prevBest === null || stage.score > stage.prevBest} />
+              newBest={isNewBest(stage.score, stage.prevBest)} />
           ) : stage.kind === "failed" ? (
             <div className="flex flex-col items-center gap-4 py-4 text-center">
               <p role="alert" className="font-game text-2xl leading-tight">{stage.message}</p>
               {canPlay && <Button className="h-14 w-full max-w-xs font-game text-2xl" onClick={play}>Play again</Button>}
             </div>
           ) : (
-            <Ready view={view} line={line} closing={view.closesAt && canPlay ? closingNote(Date.parse(view.closesAt), now) : null}
+            <Ready view={view} line={line} closes={view.closesAt && canPlay ? closesIn(Date.parse(view.closesAt), now) : null}
+              closing={view.closesAt && canPlay ? closingNote(Date.parse(view.closesAt), now) : null}
               howto={!howtoDone} notice={notice} canPlay={canPlay} onPlay={play} />
           )}
         </div>
@@ -312,8 +349,8 @@ function Notice({ title, children }: { title: string; children?: React.ReactNode
   );
 }
 
-function Ready({ view, line, closing, howto, notice, canPlay, onPlay }: {
-  view: QualifierView; line: string; closing: string | null; howto: boolean; notice: string | null;
+function Ready({ view, line, closes, closing, howto, notice, canPlay, onPlay }: {
+  view: QualifierView; line: string; closes: string | null; closing: string | null; howto: boolean; notice: string | null;
   canPlay: boolean; onPlay(): void;
 }) {
   const { best, rank, total } = view.me;
@@ -330,6 +367,7 @@ function Ready({ view, line, closing, howto, notice, canPlay, onPlay }: {
         </div>
       </dl>
       <p className="font-bold">{line}</p>
+      {closes && <p className="text-sm text-muted-foreground tabular-nums" suppressHydrationWarning>{closes}</p>}
       {closing && <p role="status" className="text-sm font-bold text-primary" suppressHydrationWarning>{closing}</p>}
       {howto && (
         <div className="text-sm text-muted-foreground">

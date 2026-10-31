@@ -36,7 +36,9 @@ export function GameHud({ hud, muted, onMute }: { hud: HudState; muted: boolean;
               <Heart key={i} aria-hidden className={`size-5 ${i < hud.health ? "fill-destructive text-destructive" : "text-muted-foreground/50"}`} />
             ))}
           </div>
+          {/* Never takes the focus from the typing box: a phone's keyboard would close and reopen. */}
           <button type="button" onClick={onMute} aria-pressed={muted} aria-label={muted ? "Turn sound on" : "Turn sound off"}
+            tabIndex={-1} onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()}
             className={`${chip} pointer-events-auto flex size-10 items-center justify-center px-0`}>
             {muted ? <VolumeX aria-hidden className="size-5" /> : <Volume2 aria-hidden className="size-5" />}
           </button>

@@ -21,7 +21,8 @@ import { drainEvents } from "./sceneEvents";
 const loadScene = () => import("./SlimeScene");
 const SlimeScene = dynamic(loadScene, { ssr: false });
 
-export type StartAnswer = { runId: string; startsAt: string; serverNow: number; seed: number } | { error: string };
+/** `discard`: the error is a kept run that keeps failing to send, which the player may discard. */
+export type StartAnswer = { runId: string; startsAt: string; serverNow: number; seed: number } | { error: string; discard?: boolean };
 /** `view` is the qualifier page's refreshed view, with this run on the board. */
 export type SubmitAnswer = { ok: true; score: number; prevBest: number | null; view: QualifierView } | { ok: false; reason: SubmitReason };
 
@@ -43,12 +44,18 @@ export type SlimeGameProps = {
 type Stage =
   | { kind: "nogl" }
   | { kind: "starting" }
-  | { kind: "failed"; message: string }
+  | { kind: "failed"; message: string; discard?: boolean }
   | { kind: "run"; origin: number }
-  | { kind: "sending"; offline: boolean };
+  | { kind: "sending"; offline: boolean; tries: number };
 
 const NO_GL = "This game needs a browser with 3D graphics turned on.";
+/** A mid-run failure of the scene (R12): the run plays on without it. */
 const SCENE_FAILED = "The 3D view stopped working. Your run finishes on its own.";
+const SCENE_LOAD_FAILED = "Couldn't load the game.";
+/** How long the scene's chunk may take before the start gives up (a run never starts without it). */
+const SCENE_TIMEOUT_MS = 20_000;
+/** Failed sends after which the player may leave whatever the reason (the run stays kept). */
+const LEAVE_AFTER_TRIES = 3;
 const START_ERROR = "Couldn't start a run. Check your connection and try again.";
 /** The server said the run can't have ended yet (this phone's clock ran ahead): ask again soon. */
 const EARLY_RETRY_MS = 2000;
@@ -74,6 +81,17 @@ function storage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+/** `p`, or a rejection once `ms` have passed. */
+function within<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timed out")), ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e: unknown) => { clearTimeout(timer); reject(e); },
+    );
+  });
 }
 
 /** Waits `ms`, or less if the page comes back into view or back online (a good moment to retry). */
@@ -108,8 +126,12 @@ const viewportSnapshot = () => {
 };
 
 /**
- * One slime run (D794), as a full-screen overlay over the portal: start → 3-2-1 → play until the
- * engine ends the run → submit the keystroke timeline → `onDone`.
+ * One slime run (D794), as a full-screen overlay over the portal: load the scene → start → 3-2-1 →
+ * play until the engine ends the run → submit the keystroke timeline → `onDone`.
+ *
+ * - **Scene first.** Words only exist in the scene, so its chunk (prefetched by the ready
+ *   screen) is awaited, up to SCENE_TIMEOUT_MS, before `start()`: a run never starts without it.
+ *   If it can't load, the start fails ("Couldn't load the game.", Back / Try again).
  *
  * - **Clock.** The run's origin is the server's `startsAt` on this page's `performance.now()`
  *   clock (`perfOrigin`, with the server offset measured around `start()`). Every frame and every
@@ -196,25 +218,8 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     setLockId(g.lock);
   }, []);
 
-  // ---- The scene: loaded once WebGL is there, unmounted for good if it fails. ----
+  // ---- The scene: loaded before the start (begin), unmounted for good if it fails mid-run. ----
   const gl = stage.kind !== "nogl";
-  useEffect(() => {
-    if (!gl) return;
-    let on = true;
-    loadScene().then(
-      () => {
-        if (!on) return;
-        sceneDrains.current = true;
-        setSceneLoaded(true);
-      },
-      () => {
-        if (!on) return;
-        sceneDrains.current = false;
-        setSceneFailed(true);
-      },
-    );
-    return () => { on = false; };
-  }, [gl]);
 
   const onSceneFail = useCallback(() => {
     sceneDrains.current = false; // from now on the loop drains (R11)
@@ -222,9 +227,18 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
   }, []);
   const onSlow = useCallback(() => setSlow(true), []);
 
-  // ---- Start. ----
+  // ---- Start: the scene's chunk, then the run. ----
   const begin = useCallback(async () => {
     setStage({ kind: "starting" });
+    try {
+      await within(loadScene(), SCENE_TIMEOUT_MS);
+    } catch {
+      if (alive.current) setStage({ kind: "failed", message: SCENE_LOAD_FAILED });
+      return;
+    }
+    if (!alive.current) return;
+    sceneDrains.current = true;
+    setSceneLoaded(true);
     const sent = Date.now();
     let answer: StartAnswer;
     try {
@@ -235,7 +249,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     const received = Date.now();
     if (!alive.current) return;
     if ("error" in answer) {
-      setStage({ kind: "failed", message: answer.error || START_ERROR });
+      setStage({ kind: "failed", message: answer.error || START_ERROR, discard: answer.discard });
       return;
     }
     const offset = clockOffset(sent, received, answer.serverNow);
@@ -268,9 +282,10 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     const body: SubmitBody = { runId: runId.current, device: input.current?.device() ?? "unknown", ...encodeTimeline(entries.current) };
     const { token: tok } = latest.current;
     const store = storage();
+    const savedAt = Date.now();
     let tries = 0;
-    savePending(store, tok, { runId: body.runId, body, tries });
-    setStage({ kind: "sending", offline: false });
+    savePending(store, tok, { runId: body.runId, body, tries, savedAt });
+    setStage({ kind: "sending", offline: false, tries });
     while (alive.current) {
       let answer: SubmitAnswer | null = null;
       try {
@@ -285,9 +300,9 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
         return;
       }
       tries += 1;
-      savePending(store, tok, { runId: body.runId, body, tries });
+      savePending(store, tok, { runId: body.runId, body, tries, savedAt });
       if (!alive.current) return;
-      setStage({ kind: "sending", offline: said === "network" });
+      setStage({ kind: "sending", offline: said === "network", tries });
       await pause(said === "early" ? EARLY_RETRY_MS : backoff(tries));
     }
   }, []);
@@ -362,6 +377,13 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
   const toggleMute = () => {
     setMuted(!muted);
     setMutedState(!muted);
+    input.current?.focus(); // the typing box keeps the focus (GameHud's button never takes it)
+  };
+
+  /** The kept run that won't send is given up, and a new run starts. */
+  const discardAndPlay = () => {
+    clearPending(storage(), latest.current.token);
+    void begin();
   };
 
   const [vh, vtop] = viewport ? viewport.split(":").map(Number) : [null, 0];
@@ -415,7 +437,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
             {stage.offline
               ? "Couldn't reach the server. Your run is saved on this device and will be sent again."
               : "Sending your run…"}
-            {stage.offline && <Leave onExit={onExit} label="Leave for now" />}
+            {(stage.offline || stage.tries >= LEAVE_AFTER_TRIES) && <Leave onExit={onExit} label="Leave for now" />}
           </Notice>
         )}
         {stage.kind === "nogl" && (
@@ -431,6 +453,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
               <Button type="button" variant="outline" className="pointer-events-auto" onClick={onExit}>Back</Button>
               <Button type="button" className="pointer-events-auto" onClick={() => void begin()}>Try again</Button>
             </span>
+            {stage.discard && <Leave onExit={discardAndPlay} label="Discard it and play" />}
           </Notice>
         )}
       </div>

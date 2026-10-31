@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardLayout, closingNote, livePhase, placeLine, points, untilText } from "@/features/qualifier/screen";
+import { boardLayout, closesIn, closingNote, isNewBest, livePhase, placeLine, points, untilText } from "@/features/qualifier/screen";
 import type { BoardEntry } from "@/features/qualifier/board";
 
 const at = (iso: string) => Date.parse(iso);
@@ -82,6 +82,26 @@ describe("closingNote", () => {
   it("is null once it has closed", () => {
     expect(closingNote(closes, closes)).toBeNull();
     expect(closingNote(closes, closes + 60_000)).toBeNull();
+  });
+});
+
+describe("closesIn", () => {
+  const closes = at(CLOSES);
+  it("counts down to the close with untilText, whenever the window is open", () => {
+    expect(closesIn(closes, closes - 3 * 86_400_000 - 4 * 3_600_000)).toBe("Closes in 3d 4h");
+    expect(closesIn(closes, closes - 12 * 60_000)).toBe("Closes in 12:00");
+  });
+});
+
+describe("isNewBest", () => {
+  it("is a first run that scored, or a score over the best before it", () => {
+    expect(isNewBest(10, null)).toBe(true);
+    expect(isNewBest(500, 400)).toBe(true);
+  });
+  it("is not a first run that scored 0, nor a score at or under the best", () => {
+    expect(isNewBest(0, null)).toBe(false);
+    expect(isNewBest(400, 400)).toBe(false);
+    expect(isNewBest(300, 400)).toBe(false);
   });
 });
 
