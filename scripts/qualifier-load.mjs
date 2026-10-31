@@ -14,8 +14,9 @@
 //   2. The timeline is backspaces only ("\b" at about 4 keys a second, uneven gaps, the first
 //      from startsAt, the last within the first 15 s). With no slime locked a backspace does
 //      nothing and never scores, so the replayed score is always 0 and the run ends by slimes
-//      (about 18-20 s in). The keys stay under the speed ceiling (40 letters in 2 s) and before
-//      the replayed death, or the submit would read "invalid".
+//      (about 18-20 s in). A backspace is never counted by the speed ceiling (60 accepted
+//      letters in 2 s), and the keys stay before the replayed death, or the submit would read
+//      "invalid".
 //   3. It submits a random 20-40 s after startsAt, past the replayed death. On reason "early"
 //      (the database's clock says the run is not over yet) it retries every 2 s, then moves on.
 //

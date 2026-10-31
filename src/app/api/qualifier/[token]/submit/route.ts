@@ -1,6 +1,6 @@
 import { playContext } from "@/features/games";
 import {
-  checkTimeline, decodeTimeline, getPlayer, getRun, parseSubmitBody, qualifierView, rankOf, replay, reviewOf, submitRun,
+  checkSpeed, checkTimeline, decodeTimeline, getPlayer, getRun, parseSubmitBody, qualifierView, rankOf, replay, reviewOf, submitRun,
 } from "@/features/qualifier";
 import { json } from "@/lib/http";
 import { allow } from "@/lib/ratelimit";
@@ -11,9 +11,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * A finished slime run (D791, D795). The phone sends its keystroke timeline, never a score: the
- * server checks it (the run cap, the speed ceiling), replays it through the same engine from the
- * run's own seed, and stores the score that comes out; the database then judges the timing
- * against its own clock (not before the replayed end, not after the cap plus grace).
+ * server checks it (the run cap), replays it through the same engine from the run's own seed,
+ * checks the speed of the letters the engine accepted (Ruling 17), and stores the score that
+ * comes out; the database then judges the timing against its own clock (not before the replayed
+ * end, not after the cap plus grace).
  * Answers `{ ok: false, reason }` for a run that cannot count (`invalid` for a body that isn't a
  * timeline or a timeline no hand could type), and on success the score, the best before it and
  * the page's fresh view.
@@ -34,8 +35,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   const entries = decodeTimeline(body);
   if (checkTimeline(entries)) return json({ ok: false, reason: "invalid" });
-  const result = replay(run.seed, entries);
-  if ("refused" in result) return json({ ok: false, reason: "invalid" });
+  const replayed = replay(run.seed, entries);
+  if ("refused" in replayed) return json({ ok: false, reason: "invalid" });
+  const { letters, ...result } = replayed;
+  if (checkSpeed(letters)) return json({ ok: false, reason: "invalid" });
   const review = reviewOf(entries);
 
   const prevBest = (await getPlayer(event.id, attendee.id))?.best_score ?? null;

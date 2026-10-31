@@ -66,19 +66,27 @@ export function parseSubmitBody(body: unknown): SubmitBody | null {
 export type TimelineRefusal = "too_fast" | "too_long";
 
 /**
- * The keys the speed checks count: letters typed one at a time. Inserted letters (swipe, a
+ * The keys the review counts: letters typed one at a time. Inserted letters (swipe, a
  * keyboard's suggestion) are flagged instead, and backspaces are left out (R13): a keyboard that
  * rewrites a long composition sends many at the same instant, and a backspace never scores.
  */
 const typedLetters = (entries: readonly Entry[]) => entries.filter((e) => !e.insert && e.key !== "\b");
 
-/** Refuse what no hand could type: past the run cap, or more than CEILING_KEYS typed letters in any CEILING_WINDOW_MS. */
+/** Refuse a timeline that runs past the run cap. Before the replay; the speed check comes after it. */
 export function checkTimeline(entries: readonly Entry[]): TimelineRefusal | null {
   if (entries.length > 0 && entries[entries.length - 1].t > RUN_CAP_MS) return "too_long";
-  const typed = typedLetters(entries);
-  // Two pointers: `lo` is the oldest key still within the window that ends at key `hi`.
-  for (let hi = 0, lo = 0; hi < typed.length; hi++) {
-    while (typed[hi].t - typed[lo].t > CEILING_WINDOW_MS) lo++;
+  return null;
+}
+
+/**
+ * Refuse what no hand could type (Ruling 17): more than CEILING_KEYS accepted letters in any
+ * CEILING_WINDOW_MS. `letters` are the replay's times of the letters the engine accepted, typed
+ * one at a time (`replay`'s `letters`, sorted), so wrong letters, backspaces and inserts never count.
+ */
+export function checkSpeed(letters: readonly number[]): TimelineRefusal | null {
+  // Two pointers: `lo` is the oldest letter still within the window that ends at letter `hi`.
+  for (let hi = 0, lo = 0; hi < letters.length; hi++) {
+    while (letters[hi] - letters[lo] > CEILING_WINDOW_MS) lo++;
     if (hi - lo + 1 > CEILING_KEYS) return "too_fast";
   }
   return null;

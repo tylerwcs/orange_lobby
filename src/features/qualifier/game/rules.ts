@@ -42,7 +42,8 @@ export const BOSS_BONUS = 100;
 export const RUN_CAP_MS = 1_200_000;
 export const SUBMIT_GRACE_MS = 60_000;
 export const EARLY_TOLERANCE_MS = 2000;
-export const CEILING_KEYS = 40;
+/** A run with more than CEILING_KEYS accepted letters in any CEILING_WINDOW_MS is refused (Ruling 17). */
+export const CEILING_KEYS = 60;
 export const CEILING_WINDOW_MS = 2000;
 export const REVIEW_CPS = 12.5;
 export const REVIEW_WINDOW_MS = 10_000;

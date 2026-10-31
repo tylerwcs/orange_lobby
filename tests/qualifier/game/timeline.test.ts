@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  checkTimeline, decodeTimeline, encodeTimeline, parseSubmitBody, reviewOf, type Entry,
+  checkSpeed, checkTimeline, decodeTimeline, encodeTimeline, parseSubmitBody, reviewOf, type Entry,
 } from "@/features/qualifier/game/timeline";
-import { RUN_CAP_MS } from "@/features/qualifier/game/rules";
+import { CEILING_KEYS, CEILING_WINDOW_MS, RUN_CAP_MS } from "@/features/qualifier/game/rules";
 
 const body = () => ({ runId: "run-1", device: "touch", keys: "ab\bc", times: [0, 120, 90, 200], inserts: [1] });
 
@@ -72,38 +72,38 @@ describe("timeline (D791)", () => {
   });
 
   describe("checkTimeline", () => {
-    it("refuses 41 normal keys inside 2 s as too_fast", () => {
-      expect(checkTimeline(evenKeys(41, 50))).toBe("too_fast");
-    });
-    it("lets 40 keys inside 2 s through", () => {
-      expect(checkTimeline(evenKeys(40, 50))).toBeNull();
-    });
-    it("does not count insert keys toward the ceiling", () => {
-      const entries = evenKeys(41, 50);
-      for (let i = 0; i < 30; i++) entries[i].insert = true;
-      expect(checkTimeline(entries)).toBeNull();
-    });
-    it("does not count backspaces toward the ceiling (R13: a keyboard rewriting a composition)", () => {
-      // 41 backspaces in 2 s, many at the same instant, between ordinary letters.
-      const backs: Entry[] = Array.from({ length: 41 }, (_, i) => ({ key: "\b", t: 1000 + Math.floor(i / 10) * 500, insert: false }));
-      expect(checkTimeline([{ key: "a", t: 900, insert: false }, ...backs, { key: "b", t: 3200, insert: false }])).toBeNull();
-    });
-    it("still refuses 41 letters in 2 s with backspaces mixed in", () => {
-      const entries: Entry[] = [];
-      for (let i = 0; i < 41; i++) entries.push({ key: "a", t: i * 45, insert: false }, { key: "\b", t: i * 45, insert: false });
-      expect(checkTimeline(entries)).toBe("too_fast");
-    });
-    it("finds a fast burst anywhere in a slow run", () => {
-      const slow = evenKeys(20, 500);
-      const burst = evenKeys(41, 40, 50_000);
-      expect(checkTimeline([...slow, ...burst])).toBe("too_fast");
-    });
     it("refuses a last key past RUN_CAP_MS as too_long, accepts exactly at it", () => {
       expect(checkTimeline([{ key: "a", t: RUN_CAP_MS + 1, insert: false }])).toBe("too_long");
       expect(checkTimeline([{ key: "a", t: RUN_CAP_MS, insert: false }])).toBeNull();
     });
     it("passes an empty timeline", () => {
       expect(checkTimeline([])).toBeNull();
+    });
+    it("leaves speed to checkSpeed after the replay (Ruling 17): 100 keys in 2 s pass here", () => {
+      expect(checkTimeline(evenKeys(100, 20))).toBeNull();
+    });
+  });
+
+  describe("checkSpeed (the times of the letters the replay accepted)", () => {
+    /** `n` times, `gap` ms apart, the first at `start`. */
+    const times = (n: number, gap: number, start = 0) => Array.from({ length: n }, (_, i) => start + i * gap);
+    it("refuses 61 accepted letters inside 2 s as too_fast", () => {
+      expect(CEILING_KEYS).toBe(60);
+      expect(CEILING_WINDOW_MS).toBe(2000);
+      expect(checkSpeed(times(61, 33))).toBe("too_fast");
+    });
+    it("lets 60 accepted letters inside 2 s through", () => {
+      expect(checkSpeed(times(60, 33))).toBeNull();
+    });
+    it("a window spans 2000 ms inclusive", () => {
+      expect(checkSpeed([0, ...times(59, 0, 1000), 2000])).toBe("too_fast");
+      expect(checkSpeed([0, ...times(59, 0, 1000), 2001])).toBeNull();
+    });
+    it("finds a fast burst anywhere in a slow run", () => {
+      expect(checkSpeed([...times(20, 500), ...times(61, 30, 50_000)])).toBe("too_fast");
+    });
+    it("passes no letters at all", () => {
+      expect(checkSpeed([])).toBeNull();
     });
   });
 

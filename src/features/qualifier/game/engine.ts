@@ -200,7 +200,8 @@ function letter(g: Game, s: Slime, tMs: number): void {
   if (s.typed < word.length) return;
   g.combo += 1;
   g.score += word.length * POINTS_PER_LETTER * multiplier(g.combo);
-  g.lock = null;
+  // A boss keeps the lock between its words, so its next word continues (Ruling 18); one
+  // backspace with nothing typed releases it. A popped slime's lock goes with it (remove).
   if (s.kind === "boss" && s.wordIndex < s.words.length - 1) {
     s.wordIndex += 1;
     s.typed = 0;

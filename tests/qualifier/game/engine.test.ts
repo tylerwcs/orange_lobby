@@ -92,19 +92,46 @@ describe("engine (D790)", () => {
     // With the boss gone, small slimes come again.
     expect(g.slimes.some((s) => s.kind === "small")).toBe(true);
   });
-  it("a boss word and a small slime with the same first letter: the nearest wins", () => {
+  it("a completed boss word keeps the lock on the boss; one backspace with nothing typed releases it", () => {
+    const g = newGame(21);
+    keepAlive(g, 0, BOSS_FIRST_MS, SPAWN_DIST_MM);
+    const boss = g.slimes.find((s) => s.kind === "boss")!;
+    const [first, second] = boss.words;
+    typeWord(g, first, g.nowMs);
+    expect(boss.wordIndex).toBe(1); expect(boss.typed).toBe(0);
+    expect(g.lock).toBe(boss.id);
+    press(g, second[0], g.nowMs);
+    expect(g.lock).toBe(boss.id); expect(boss.typed).toBe(1);
+    press(g, "\b", g.nowMs); // back to nothing typed: released, as for any slime
+    expect(g.lock).toBeNull();
+    typeWord(g, second, g.nowMs);
+    expect(boss.wordIndex).toBe(2); expect(g.lock).toBe(boss.id);
+    const combo = g.combo;
+    press(g, "\b", g.nowMs); // nothing typed of the next word: one backspace releases the boss
+    expect(g.lock).toBeNull(); expect(boss.wordIndex).toBe(2); expect(g.combo).toBe(combo);
+  });
+  it("a boss word and a small slime with the same first letter: a held boss continues, else the nearest wins", () => {
     let found = false;
     for (let seed = 1; seed <= 500 && !found; seed++) {
       const g = newGame(seed);
       keepAlive(g, 0, BOSS_FIRST_MS, 8000);
       const boss = g.slimes.find((s) => s.kind === "boss");
       if (g.ended || !boss) continue;
-      // Walk the boss through its sentence until one of its words clashes with a small slime.
+      // The first word must lock the boss itself.
+      if (g.slimes.some((s) => s !== boss && currentWord(s)[0] === currentWord(boss)[0])) continue;
+      typeWord(g, currentWord(boss), g.nowMs);
+      // Walk the boss through the rest of its sentence until one of its words clashes with a small slime.
       while (!found && g.slimes.includes(boss)) {
+        expect(g.lock).toBe(boss.id);
         const letter = currentWord(boss)[0];
         const rivals = g.slimes.filter((s) => currentWord(s)[0] === letter);
         if (rivals.length > 1) {
           const nearest = rivals.reduce((a, b) => (b.distMm < a.distMm || (b.distMm === a.distMm && b.id < a.id) ? b : a));
+          expect(nearest.id).not.toBe(boss.id); // the small slimes left are nearer than the boss
+          press(g, letter, g.nowMs);
+          expect(g.lock).toBe(boss.id); // never ambiguous: the boss's next word continues
+          press(g, "\b", g.nowMs);
+          expect(g.lock).toBeNull();
           press(g, letter, g.nowMs);
           expect(g.lock).toBe(nearest.id);
           found = true;

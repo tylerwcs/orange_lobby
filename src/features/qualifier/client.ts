@@ -12,10 +12,10 @@ export * from "./screen";
 
 // The slime game's wire format, checks and replay (D791), which the submit route runs.
 export {
-  checkTimeline, decodeTimeline, parseSubmitBody, reviewOf,
+  checkSpeed, checkTimeline, decodeTimeline, parseSubmitBody, reviewOf,
   type Device, type Entry, type Review, type SubmitBody, type SubmitReason, type Timeline, type TimelineRefusal,
 } from "./game/timeline";
-export { replay, type RunResult } from "./game/replay";
+export { replay, type Replayed, type RunResult } from "./game/replay";
 
 // The portal page's screens (D772, D795).
 export { QualifierClient } from "./components/QualifierClient";
