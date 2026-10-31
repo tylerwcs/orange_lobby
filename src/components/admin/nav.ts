@@ -24,10 +24,17 @@ export type Group = { title: string; items: Item[] };
  * admins and committee alike.
  *
  * D565: an item marked `adminOnly` is Ecopia's, so a committee member (`admin` false) does not get
- * it. Nothing is marked at the moment (Setup was the only one, removed in D783).
+ * it. Features, the all-events registry page (D780), is the one marked on the events list; inside an event
+ * nothing is (Setup was the only one, removed in D783).
  */
 export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { attendees?: number } = {}, admin = true): Group[] {
-  if (!ev) return [{ title: "Events", items: [{ href: "/admin/events", label: "All events", icon: "layers" }] }];
+  if (!ev) {
+    const items: Item[] = [
+      { href: "/admin/events", label: "All events", icon: "layers" },
+      { href: "/admin/features", label: "Features", icon: "layers", adminOnly: true },
+    ];
+    return [{ title: "Events", items: items.filter((i) => admin || !i.adminOnly) }];
+  }
   const b = `/admin/events/${ev.id}`;
   const groups: Group[] = [
     { title: "Onsite", items: [

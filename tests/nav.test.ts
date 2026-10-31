@@ -5,8 +5,14 @@ const hrefs = (ev: Parameters<typeof groupsFor>[0]) =>
   groupsFor(ev).flatMap((g) => g.items.map((i) => i.href));
 
 describe("groupsFor", () => {
-  it("offers only the events list when there is no event", () => {
-    expect(hrefs(null)).toEqual(["/admin/events"]);
+  it("offers the events list and Features when there is no event", () => {
+    expect(hrefs(null)).toEqual(["/admin/events", "/admin/features"]);
+  });
+
+  it("shows Features to admins only on the events list", () => {
+    const labels = (admin: boolean) => groupsFor(null, [], {}, admin).flatMap((g) => g.items.map((i) => i.label));
+    expect(labels(true)).toEqual(["All events", "Features"]);
+    expect(labels(false)).toEqual(["All events"]);
   });
 
   it("carries the Scanner while check-in is on", () => {

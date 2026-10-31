@@ -4,3 +4,4 @@ export * from "./db";
 export { WhatsOnTab } from "./admin/WhatsOnTab";
 export { setAddonAction } from "./admin/actions";
 export { NotInEvent } from "./admin/NotInEvent";
+export { FeaturesPage } from "./admin/FeaturesPage";

@@ -47,7 +47,7 @@ export async function WhatsOnTab({ eventId }: { eventId: string }) {
       <Card className="overflow-hidden pb-0">
         <CardHeader>
           <CardTitle>On for this event</CardTitle>
-          <CardDescription>What this event has, and the options inside each that are set up. An add-on that is off is hidden in the admin. {OFF_NOTE}</CardDescription>
+          <CardDescription>Everything this event has, and its options, marked In use where this event has them set.</CardDescription>
         </CardHeader>
         <CardContent className="px-0">
           <ul className="divide-y divide-border border-t border-border">

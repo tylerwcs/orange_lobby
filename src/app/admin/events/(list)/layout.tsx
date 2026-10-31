@@ -11,10 +11,10 @@ import { SidebarInset } from "@/components/ui/sidebar";
  * sidebar, and must not be wrapped in this one.
  */
 export default async function EventsListLayout({ children }: { children: React.ReactNode }) {
-  const { email } = await requireSignedIn();
+  const { email, kind } = await requireSignedIn();
   return (
     <>
-      <AppSidebar email={email} />
+      <AppSidebar email={email} admin={kind === "admin"} />
       <SidebarInset id="main" className="min-w-0 p-4 pt-6 lg:p-6 lg:pt-8 2xl:p-8">
         {/* The same centred cap as an event's pages ([id]/layout.tsx). */}
         <div className="mx-auto w-full max-w-6xl">{children}</div>

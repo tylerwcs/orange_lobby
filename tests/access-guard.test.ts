@@ -17,6 +17,7 @@ const ADMIN_ONLY: Record<string, { requireOrgAdmin?: number; requireAdminEvent?:
   "features/catalogue/admin/actions.ts": { requireAdminEvent: 1 }, // its event() helper
   "features/domains/admin/actions.ts": { requireAdminEvent: 1 }, // its event() helper
   "features/domains/admin/AddressTab.tsx": { requireAdminEvent: 1 },
+  "app/admin/features/page.tsx": { requireOrgAdmin: 1 }, // the all-events Features page (D780)
   "features/committee/admin/actions.ts": { requireAdminEvent: 1 }, // its guard() helper (Task 5)
   // D565: Committee alerts and Verification are Ecopia's.
   "features/activities/admin/verifier-actions.ts": { requireAdminEvent: 1 }, // its guard() helper

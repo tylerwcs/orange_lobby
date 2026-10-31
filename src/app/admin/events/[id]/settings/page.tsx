@@ -78,7 +78,6 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
           {tabs.map((t) => <TabsTrigger key={t} value={t}>{SETTINGS_TAB_LABELS[t]}</TabsTrigger>)}
         </TabsList>
 
-        {/* Task 6 (D779) replaces this with What's on proper. */}
         {tabs.includes("whats-on") && (
           <TabsContent value="whats-on" className="flex flex-col gap-4 @container">
             <WhatsOnTab eventId={ev.id} />
