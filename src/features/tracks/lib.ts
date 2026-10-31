@@ -154,3 +154,45 @@ export function placementsOn(history: TrackHistoryRow[], day: string, loggedThat
   }
   return rows;
 }
+
+/** D776: one section of a captain's "Submitting for" list - a track and its people, or (null) the team's people on no track, shown but not pickable. */
+export type ProxyGroup = { label: string; activityId: string | null; choices: { value: string; name: string }[] };
+
+/**
+ * D776: a captain's "Submitting for" list on a track pair - the whole team, Track A then Track B,
+ * each person under their own track, so an entry is always sent to the form of the track it
+ * counts on. `""` is "Myself", listed under `selfOn` (the track their own entry is open on, if
+ * any). A track the captain can't send to (`sendable`) lists nobody but themselves; people on no
+ * track come last, for the captain to see who still needs placing. Empty sections are dropped.
+ */
+export function proxyGroups(input: {
+  pair: TrackPair;
+  rows: TrackRow[];
+  /** The captain's teammates, the captain left out. */
+  members: (Pick<Attendee, "id" | "name" | "group_id"> & { cancelled_at?: string | null })[];
+  names: Record<string, string>;
+  selfOn: string | null;
+  sendable: string[];
+}): ProxyGroup[] {
+  const split = splitTracks(input.pair, input.rows, input.members);
+  const byName = (x: { name: string }, y: { name: string }) => x.name.localeCompare(y.name);
+  const track = (id: string, people: typeof input.members): ProxyGroup => ({
+    label: `${trackLabel(input.pair, id)} · ${input.names[id] ?? trackLabel(input.pair, id)}`,
+    activityId: id,
+    choices: [
+      ...(input.selfOn === id ? [{ value: "", name: "Myself" }] : []),
+      ...(input.sendable.includes(id) ? [...people].sort(byName).map((m) => ({ value: m.id, name: m.name })) : []),
+    ],
+  });
+  return [
+    track(input.pair.a_activity_id, split.a),
+    track(input.pair.b_activity_id, split.b),
+    { label: "Not on a track yet", activityId: null, choices: [...split.none].sort(byName).map((m) => ({ value: m.id, name: m.name })) },
+  ].filter((g) => g.choices.length > 0);
+}
+
+/** D776: who the list starts on - this page's track first (Myself, else its first person), else the first person on the other. Null when nobody can be picked. */
+export function firstProxyChoice(groups: ProxyGroup[], hereId: string): string | null {
+  const here = groups.find((g) => g.activityId === hereId);
+  return here?.choices[0]?.value ?? groups.find((g) => g.activityId !== null)?.choices[0]?.value ?? null;
+}

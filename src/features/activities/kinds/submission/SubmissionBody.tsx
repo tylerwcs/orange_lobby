@@ -1,4 +1,5 @@
 import { CalendarDays, CircleCheck, MapPin, Users } from "lucide-react";
+import type { ReactNode } from "react";
 import { loadPortalAttendee } from "@/lib/portal";
 import { type SubmissionEntry } from "../../lib/portal-activity-entries";
 import { dayRange } from "../../lib/activity-card";
@@ -22,7 +23,8 @@ import { submitAnswersAction, editMySubmissionAction, deleteMySubmissionAction }
 import { portalFileHref } from "@/lib/file-links";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { hasHealthConsent } from "@/lib/db/health-consents";
-import { pairForActivity, trackOf, trackRows } from "@/features/tracks";
+import { firstProxyChoice, pairForActivity, proxyGroups, trackOf, trackRows, type ProxyGroup } from "@/features/tracks";
+import { TrackSubmitFor } from "./TrackSubmitFor";
 import { RichSections } from "@/components/portal/RichSections";
 import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
 import { t, type Lang } from "@/features/language";
@@ -58,19 +60,37 @@ export function editorFor(f: Activity, slug: string, token: string, attendee: Pi
  * they already sent for them today (theirs to check and, where D391 allows, edit). Null for
  * everyone else, which is nearly everyone, so the reads happen only for a proxy.
  */
-export type Proxy = { members: Attendee[]; added: ActivitySubmission[] };
+export type Proxy = {
+  members: Attendee[]; added: ActivitySubmission[];
+  /** D776: on a track pair, the whole team by track and the pair's other activity, whose form takes the other track's people. */
+  tracks?: { groups: ProxyGroup[]; other: Activity };
+};
 
-export async function proxyFor(f: Activity, attendee: Attendee): Promise<Proxy | null> {
+/** Whether an activity takes entries at all right now - the reasons no proxy can get past either. */
+const shut = (state: SubmitState) => ["closed", "ineligible", "nogroup"].includes(state.reason);
+
+/**
+ * `members` are the teammates on this activity's track (D725), for the picker of a plain form and
+ * the names of what was added here. D776: with `other` - the pair's other activity, as this
+ * attendee's page reads it - the dialog lists the whole team instead, each under their own track.
+ */
+export async function proxyFor(f: Activity, attendee: Attendee, own: SubmitState, other: SubmissionEntry | null = null): Promise<Proxy | null> {
   if (!attendee.group_id || !isProxy(f, attendee)) return null;
   const [members, added, pair] = await Promise.all([
     groupMembers(f.event_id, attendee.group_id),
     submissionsAddedBy(f.id, attendee.id, nowInKL().date),
     pairForActivity(f.id),
   ]);
-  // D725: on a track, a captain sends only for the members on this track - whatever their own is.
   const rows = pair ? await trackRows(pair.id) : [];
   const onThis = (m: Attendee) => !pair || trackOf(rows, m) === f.id;
-  return { members: members.filter((m) => m.id !== attendee.id && onThis(m)), added };
+  const team = members.filter((m) => m.id !== attendee.id);
+  const proxy = { members: team.filter(onThis), added };
+  if (!pair || !other) return proxy;
+  // `submit_answers` checks the other activity's own proxy fields and the person's track; this is what the list offers.
+  const sendable = [...(shut(own) ? [] : [f.id]), ...(!shut(other.state) && isProxy(other.form, attendee) ? [other.form.id] : [])];
+  const selfOn = own.can ? f.id : other.state.can ? other.form.id : null;
+  const groups = proxyGroups({ pair, rows, members: team, names: { [f.id]: f.name, [other.form.id]: other.form.name }, selfOn, sendable });
+  return { ...proxy, tracks: { groups, other: other.form } };
 }
 
 /**
@@ -91,14 +111,33 @@ export async function addedByLine(eventId: string, entries: Pick<ActivitySubmiss
 
 /** Whether the submit dialog shows: their own entry is open, or (D392) they may send one for a member. */
 export function canAdd(state: SubmitState, proxy: Proxy | null): boolean {
-  return state.can || (!!proxy?.members.length && !["closed", "ineligible", "nogroup"].includes(state.reason));
+  if (state.can) return true;
+  // D776: on a track pair, anyone the list lets them pick - themselves on their own track included.
+  if (proxy?.tracks) return proxy.tracks.groups.some((g) => g.activityId !== null && g.choices.length > 0);
+  return !!proxy?.members.length && !shut(state);
 }
+
+/** The id `TrackSubmitFor`'s select joins its form by; only one entry form is ever mounted. */
+const ENTRY_FORM = "submit-entry";
 
 /** The submit dialog's form, with D392's "Submitting for" picker for someone who may submit for their group. */
 export function SubmitForm({ f, slug, token, state, proxy }: { f: Activity; slug: string; token: string; state: SubmitState; proxy: Proxy | null }) {
+  const tracks = proxy?.tracks;
+  const first = tracks ? firstProxyChoice(tracks.groups, f.id) : null;
+  if (tracks && first !== null) {
+    return (
+      <TrackSubmitFor groups={tracks.groups} defaultValue={first} hereId={f.id} formId={ENTRY_FORM}
+        forms={{ [f.id]: <EntryForm f={f} slug={slug} token={token} />, [tracks.other.id]: <EntryForm f={tracks.other} slug={slug} token={token} /> }} />
+    );
+  }
+  return <EntryForm f={f} slug={slug} token={token} picker={proxy && proxy.members.length > 0 ? <SubmitFor members={proxy.members} self={state.can} /> : null} />;
+}
+
+/** One activity's entry form, posting to that activity - D776 mounts the other track's in the same dialog. */
+function EntryForm({ f, slug, token, picker = null }: { f: Activity; slug: string; token: string; picker?: ReactNode }) {
   return (
-    <form action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
-      {proxy && proxy.members.length > 0 && <SubmitFor members={proxy.members} self={state.can} />}
+    <form id={ENTRY_FORM} action={submitAnswersAction.bind(null, slug, token, f.id)} className="flex flex-col gap-6">
+      {picker}
       <PairAsk f={f} slug={slug} token={token} />
       <HealthConsentAsk f={f} slug={slug} token={token} id="health-consent" />
       {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}

@@ -198,6 +198,21 @@ user says yes in chat.
   is logged in the week strip and the streak, scores its own points into the week, and reads in
   that track's unit and entries, read-only, with "Logged on <track>, before your track changed."
 
+### D776 — Captains submit for the whole team from either track (the user, 31 Oct)
+
+- **Replaces D725's "only members on this track"** in the "Submitting for" list. Captains didn't
+  find the other track's page, so they could only reach their own track's people.
+- **The list:** on either track's page, the whole team in sections: Track A, Track B, then "Not on
+  a track yet" (shown, not pickable). "Myself" sits under the captain's own track when their own
+  entry is open there. The list starts on this page's track.
+- **The form follows the person:** picking someone on the other track swaps the dialog to that
+  track's form (its own questions), posting to that activity, so the entry is always saved on the
+  person's track. The hint says "Saved on Track B · Project Active, their track." A switch clears
+  what was typed. After sending, the captain lands on that track's page, where the entry shows
+  under "You added for your group today".
+- **Unchanged:** `submit_answers` still checks the other activity's proxy fields, the person's
+  track and the 5-a-day places; a track whose activity is closed lists nobody.
+
 ### D727 — The combined team score
 
 - **Season total for a team:**

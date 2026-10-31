@@ -48,7 +48,11 @@ export async function ActivityPage({ params, searchParams }: {
   const found = findEntry(entries, activityId);
   if (!found) notFound();
   const { activity } = found;
-  const proxy = found.kind === "submission" ? await proxyFor(found.entry.form, attendee) : null;
+  // D776: on a track pair, the other track's entry too, so a captain's list can send anyone to their own track.
+  const otherTrack = found.kind === "submission" && found.entry.track ? findEntry(entries, found.entry.track.other.id) : null;
+  const proxy = found.kind === "submission"
+    ? await proxyFor(found.entry.form, attendee, found.entry.state, otherTrack?.kind === "submission" ? otherTrack.entry : null)
+    : null;
 
   // One case per kind (D416): a kind added to ActivityKind does not build until it has a body here.
   function body(found: FoundEntry) {

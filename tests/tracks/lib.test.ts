@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goneEntryFiles, intendedTrack, placementsOn, trackFullFor, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { firstProxyChoice, proxyGroups, goneEntryFiles, intendedTrack, placementsOn, trackFullFor, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
 const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
@@ -193,5 +193,37 @@ describe("placementsOn (D734)", () => {
   it("places someone with no known track that day on the track they logged on", () => {
     expect(on("2026-10-24", [{ attendee_id: "w", activity_id: "B", group_id: "g1" }])).toEqual([["w", "B"]]);
     expect(on("2026-10-26", [{ attendee_id: "x", activity_id: "B", group_id: "g1" }])).toEqual([["x", "A"], ["y", "B"]]);
+  });
+});
+
+describe("proxyGroups and firstProxyChoice (D776)", () => {
+  const m = (id: string, name: string, group_id = "g1") => ({ id, name, group_id });
+  const names = { A: "Mileage", B: "Active" };
+  const rows = [row("a1", "A"), row("b1", "B"), row("b2", "B")];
+  const members = [m("b2", "Zed"), m("a1", "Ann"), m("b1", "Bea"), m("n1", "Nik")];
+
+  it("lists the whole team under their own tracks, then the people on none", () => {
+    const groups = proxyGroups({ pair: PAIR, rows, members, names, selfOn: "A", sendable: ["A", "B"] });
+    expect(groups).toEqual([
+      { label: "Track A · Mileage", activityId: "A", choices: [{ value: "", name: "Myself" }, { value: "a1", name: "Ann" }] },
+      { label: "Track B · Active", activityId: "B", choices: [{ value: "b1", name: "Bea" }, { value: "b2", name: "Zed" }] },
+      { label: "Not on a track yet", activityId: null, choices: [{ value: "n1", name: "Nik" }] },
+    ]);
+  });
+  it("leaves out the people of a track the captain can't send to, and empty sections", () => {
+    const groups = proxyGroups({ pair: PAIR, rows, members: members.filter((x) => x.id !== "n1"), names, selfOn: null, sendable: ["A"] });
+    expect(groups.map((g) => g.activityId)).toEqual(["A"]);
+  });
+  it("puts a teammate moved from another team on no track", () => {
+    const groups = proxyGroups({ pair: PAIR, rows: [row("a1", "A", "g0")], members: [m("a1", "Ann")], names, selfOn: null, sendable: ["A", "B"] });
+    expect(groups).toEqual([{ label: "Not on a track yet", activityId: null, choices: [{ value: "a1", name: "Ann" }] }]);
+  });
+  it("starts on this page's track, else the other, never on someone with no track", () => {
+    const groups = proxyGroups({ pair: PAIR, rows, members, names, selfOn: "A", sendable: ["A", "B"] });
+    expect(firstProxyChoice(groups, "A")).toBe("");
+    expect(firstProxyChoice(groups, "B")).toBe("b1");
+    const onlyA = proxyGroups({ pair: PAIR, rows, members, names, selfOn: null, sendable: ["A"] });
+    expect(firstProxyChoice(onlyA, "B")).toBe("a1");
+    expect(firstProxyChoice([{ label: "Not on a track yet", activityId: null, choices: [{ value: "n1", name: "Nik" }] }], "A")).toBeNull();
   });
 });
