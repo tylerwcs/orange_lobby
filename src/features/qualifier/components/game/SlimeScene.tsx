@@ -6,13 +6,22 @@ import type { Game, GameEvent } from "../../game/engine";
 import { SKY, css } from "../../game/palette";
 import { slowTracker, type Quality } from "../../game/quality";
 import { Blaster, type BlasterApi } from "./Blaster";
+import { drainEvents, safely } from "./sceneEvents";
 import { BOSS_DROP_S } from "./slimeFx";
 import { Slimes, type SlimesApi } from "./Slimes";
 import { WordLabels, type LabelsApi } from "./WordLabels";
 import { World } from "./World";
 
+/**
+ * Who drains `game.events` (R11): while the scene is mounted and healthy it empties them every
+ * frame, before any failure check and outside its GL work, and hands each to `onEvent` (and each
+ * `explode` to `onHit`), each call guarded so a caller's bug is logged and never stops the scene.
+ * Once the scene has called `onFail`, or while it isn't mounted, it drains nothing: the caller
+ * must drain `game.events` itself (or they grow for the rest of the run). With `live` false the
+ * scene only drains on the frames it draws.
+ */
 export type SlimeSceneProps = {
-  /** The live game. Only read, apart from draining `events`. */
+  /** The live game. Only read, apart from draining `events` (see above). */
   game: RefObject<Game | null>;
   /** The current run time in ms, may be fractional: slimes are extrapolated between engine ticks. */
   clock: () => number;
@@ -21,13 +30,13 @@ export type SlimeSceneProps = {
   lockId: number | null;
   /** The run is on: draw every frame and watch the frame times. Otherwise draw on demand. Default true. */
   live?: boolean;
-  /** A slime exploded on the player: the HUD's goo flash. */
+  /** A slime exploded on the player: the HUD's goo flash. Guarded: a throw is logged. */
   onHit?: () => void;
-  /** Every engine event, as the scene drains it from `game.events` (sound goes here). */
+  /** Every engine event, as the scene drains it from `game.events` (sound goes here). Guarded: a throw is logged. */
   onEvent?: (e: GameEvent) => void;
   /** Frames have been too slow at `full` for 2 s (once per mount): switch to `lite`. */
   onSlow?: () => void;
-  /** The scene broke (an exception, a lost WebGL context): it draws nothing more. */
+  /** The scene broke (an exception, a lost WebGL context): it draws nothing more, and from now on the caller drains `game.events`. */
   onFail?: () => void;
 };
 
@@ -70,7 +79,7 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
     const v = view.current;
     if (v.failed) return;
     v.failed = true;
-    latest.current.onFail?.();
+    safely(latest.current.onFail);
   };
 
   // A context lost while the scene is up leaves a dead canvas. The listener goes with the scene,
@@ -80,15 +89,14 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
     let alive = true;
     const lost = (e: Event) => {
       e.preventDefault();
-      if (!alive || view.current.failed) return;
-      view.current.failed = true;
-      latest.current.onFail?.();
+      if (alive) fail();
     };
     el.addEventListener("webglcontextlost", lost);
     return () => { alive = false; el.removeEventListener("webglcontextlost", lost); };
   }, [gl]);
 
-  const frame = (state: RootState, delta: number) => {
+  /** The GL side of a frame; `events` were drained (and forwarded) just before. */
+  const frame = (state: RootState, delta: number, events: readonly GameEvent[]) => {
     const p = latest.current;
     const v = view.current;
     const camera = state.camera as PerspectiveCamera;
@@ -106,17 +114,14 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
       camera.updateProjectionMatrix();
     }
 
-    // What happened since the last frame.
-    const events = g ? g.events.splice(0) : [];
+    // The scene's own reactions to what happened since the last frame.
     for (const e of events) {
-      p.onEvent?.(e);
       if (e.type === "pop") blaster.current?.fire(1);
       else if (e.type === "word") blaster.current?.fire(0.8);
       else if (e.type === "letter") blaster.current?.kick(0.22);
       else if (e.type === "wrong") blaster.current?.jolt();
       else if (e.type === "explode") {
         if (full) v.shake = Math.max(v.shake, 0.45);
-        p.onHit?.();
       } else if (e.type === "boss") v.thumpAt = t + BOSS_DROP_S;
     }
     if (v.thumpAt !== null && t >= v.thumpAt) {
@@ -154,16 +159,20 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
 
     if (p.live !== false && full && !v.slowSaid && tracker.current.frame(performance.now(), delta * 1000)) {
       v.slowSaid = true;
-      p.onSlow?.();
+      safely(p.onSlow);
     }
   };
 
   useFrame((state, delta) => {
-    if (view.current.failed) return;
+    if (view.current.failed) return; // the caller drains game.events from here on (R11)
+    const p = latest.current;
+    // Events first, outside the GL work: a scene fault this frame still delivers them.
+    const events = drainEvents(p.game.current, p);
     // An exception in the frame loop bypasses the error boundary: report it from here.
     try {
-      frame(state, delta);
-    } catch {
+      frame(state, delta, events);
+    } catch (e) {
+      console.error(e);
       fail();
     }
   });
@@ -181,7 +190,7 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
 class Guard extends Component<{ onError?: () => void; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch() { this.props.onError?.(); }
+  componentDidCatch() { safely(this.props.onError); }
   render() { return this.state.failed ? null : this.props.children; }
 }
 

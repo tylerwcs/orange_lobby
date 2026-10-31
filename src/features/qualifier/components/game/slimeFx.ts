@@ -53,8 +53,20 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const easeOutBack = (k: number) => 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2;
 
 const sizeOf = (s: Slime) => (s.kind === "boss" ? BOSS_SIZE : 0.85 + hash01(s.id, 1) * 0.3);
-/** How close a slime comes before it stops: right in front of the player, not inside the camera. */
-const stickDist = (size: number) => 0.65 + 0.7 * size;
+/** How much a stuck slime has swelled when its 3 s run out. */
+const SWELL = 0.45;
+/** A stuck slime's squash never goes below this, so its body is never wider than 1/√0.76 ≈ 1.15 × its radius. */
+const MIN_SQUASH = 0.76;
+const WIDEST = 1 / Math.sqrt(MIN_SQUASH);
+/** Space kept between the camera and the nearest a slime's skin can come, m. */
+const CLEARANCE = 0.3;
+/**
+ * Where a stuck slime ends up: its body fully swelled and at its widest wobble still `CLEARANCE`
+ * clear of the camera (the camera is then outside it whatever its height, boss included).
+ */
+const stuckEndDist = (size: number) => BODY_R * size * (1 + SWELL) * WIDEST + CLEARANCE;
+/** Where a slime stops as its 3 s start: a little farther out, so it can creep in while it swells. */
+const stickDist = (size: number) => stuckEndDist(size) * 1.18;
 /**
  * World distance for a real distance `d` (m). Exactly `d` until the last few metres, which are
  * eased onto `stickDist` so a slime arrives as its 3 s start, instead of passing the camera.
@@ -369,20 +381,20 @@ function animate(v: View, s: Slime, f: SceneFrame, locked: boolean): Head {
   const stuck = s.stuckLeftMs !== null;
   const speed = s.kind === "boss" ? BOSS_SPEED_MM_S : speedAt(s.spawnedMs);
   const d = stuck ? 0 : Math.max(0, s.distMm - (speed * since) / 1000) / 1000;
-  const near = stickDist(v.size);
   let dist = visualDist(d, v.size, v.boss);
   /** 0..1 through the 3 s stuck. */
   let k = 0;
   if (s.stuckLeftMs !== null) {
     k = clamp01(1 - (s.stuckLeftMs - since) / STICK_MS);
-    dist = near * (1 - 0.22 * k);
+    const near = stickDist(v.size);
+    dist = near + (stuckEndDist(v.size) - near) * k;
   }
   const a = s.lane * DEG;
   v.root.position.set(Math.sin(a) * dist, 0, -Math.cos(a) * dist);
   v.root.rotation.y = -a;
 
   const age = Math.max(0, (runMs - s.spawnedMs) / 1000);
-  const swell = 1 + 0.45 * k;
+  const swell = 1 + SWELL * k;
   const grow = v.boss ? 1 : easeOutBack(clamp01(age / 0.35));
   v.scale = v.size * swell;
   v.root.scale.setScalar(v.size * swell * Math.max(0.01, grow));
@@ -408,6 +420,7 @@ function animate(v: View, s: Slime, f: SceneFrame, locked: boolean): Head {
   }
   v.jiggle *= Math.exp(-dt * 6);
   sq *= 1 + v.jiggle * Math.sin(t * 38) * 0.14;
+  if (stuck) sq = Math.max(MIN_SQUASH, sq); // `stuckEndDist` counts on it
   const side = 1 / Math.sqrt(sq);
   v.body.position.y = y;
   v.body.scale.set(side, sq, side);

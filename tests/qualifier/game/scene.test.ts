@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Group, PerspectiveCamera, Vector3 } from "three";
+import { Group, Matrix4, PerspectiveCamera, Vector3 } from "three";
 import { advance, currentWord, newGame, press, type GameEvent } from "@/features/qualifier/game/engine";
 import { BOSS_FIRST_MS } from "@/features/qualifier/game/rules";
 import { FIELD_DEPTH, FIELD_HALF_X, buildWorld, disposeWorld } from "@/features/qualifier/components/game/scenery";
@@ -82,24 +82,82 @@ describe("the slimes' frame logic (D793)", () => {
     }
   });
 
-  it("brings an unanswered slime right up to the player and lets it explode", () => {
+  /** Is the camera outside every slime's jelly (its true, squashed, swelled, tilted ellipsoid), with a margin? */
+  function cameraClear(st: ReturnType<typeof createSlimeState>, group: Group, camera: PerspectiveCamera, margin: number): string[] {
+    group.updateMatrixWorld(true);
+    const bad: string[] = [];
+    const inv = new Matrix4();
+    const eye = camera.getWorldPosition(new Vector3());
+    for (const v of st.views.values()) {
+      const jelly = v.body.children[0];
+      // In the jelly's own space its skin is a sphere of radius 0.7.
+      const local = eye.clone().applyMatrix4(inv.copy(jelly.matrixWorld).invert());
+      if (local.length() < 0.7 * margin) bad.push(`${v.boss ? "boss" : "small"} ${v.id} size ${v.size.toFixed(2)}: ${local.length().toFixed(3)}`);
+    }
+    return bad;
+  }
+
+  it("brings unanswered slimes right up to the player, never into the camera, and lets them explode", () => {
+    let exploded = 0;
+    let nearest = Infinity;
+    let biggest = 0;
+    const bad: string[] = [];
+    // Slimes under size 1.1 are popped at 7 m, so the stuck ones include the largest (up to 1.15).
     const game = newGame(7);
     const group = new Group();
     const st = createSlimeState(group, "full");
     const camera = new PerspectiveCamera(68, 16 / 9, 0.05, 220);
     camera.position.set(0, 1.6, 0);
-    let exploded = false;
-    let nearest = Infinity;
-    for (let ms = 0; ms < 30000 && !exploded; ms += 1000 / 30) {
-      advance(game, Math.round(ms));
+    for (let ms = 0; ms < BOSS_FIRST_MS && !game.ended; ms += 1000 / 60) {
+      const t = Math.round(ms);
+      advance(game, t);
+      for (const s of [...game.slimes]) {
+        const size = st.views.get(s.id)?.size ?? 0;
+        if (!game.ended && s.stuckLeftMs === null && s.distMm <= 7000 && size < 1.1) for (const c of currentWord(s).slice(s.typed)) press(game, c, t);
+      }
       const events = game.events.splice(0);
-      if (events.some((e) => e.type === "explode")) exploded = true;
-      step(st, { t: ms / 1000, dt: 1 / 30, runMs: ms, game, quality: "full", camera, tip: new Vector3() }, events);
+      exploded += events.filter((e) => e.type === "explode").length;
+      step(st, { t: ms / 1000, dt: 1 / 60, runMs: ms, game, quality: "full", camera, tip: new Vector3() }, events);
       for (const h of st.heads.values()) nearest = Math.min(nearest, Math.hypot(h.x, h.z));
+      for (const v of st.views.values()) if (v.slime?.stuckLeftMs != null) biggest = Math.max(biggest, v.size);
+      bad.push(...cameraClear(st, group, camera, 1.1));
     }
-    expect(exploded).toBe(true);
-    expect(nearest).toBeGreaterThan(0.9); // never inside the camera
-    expect(nearest).toBeLessThan(1.6);
+    disposeSlimeState(st);
+    expect(exploded).toBeGreaterThanOrEqual(2);
+    expect(biggest).toBeGreaterThan(1.1);
+    expect(bad.slice(0, 5)).toEqual([]);
+    expect(nearest).toBeLessThan(2.2); // still right up close
+  });
+
+  it("keeps the camera outside the boss through the whole 3 s stick, letters landing on it included", () => {
+    const game = newGame(42);
+    const group = new Group();
+    const st = createSlimeState(group, "full");
+    const camera = new PerspectiveCamera(68, 16 / 9, 0.05, 220);
+    camera.position.set(0, 1.6, 0);
+    let bossStuckFrames = 0;
+    let bossExploded = false;
+    const bad: string[] = [];
+    for (let ms = 0; ms < BOSS_FIRST_MS + 60000 && !game.ended && !bossExploded; ms += 1000 / 60) {
+      const t = Math.round(ms);
+      advance(game, t);
+      for (const s of [...game.slimes]) {
+        if (game.ended) break;
+        if (s.kind === "small" && s.distMm <= 7000) for (const c of currentWord(s).slice(s.typed)) press(game, c, t);
+        // Once stuck, type the boss's first word now and then (word jiggles), never the whole sentence.
+        if (s.kind === "boss" && s.stuckLeftMs !== null && s.wordIndex === 0 && s.stuckLeftMs < 1500) {
+          for (const c of currentWord(s).slice(s.typed)) press(game, c, t);
+        }
+      }
+      const events = game.events.splice(0);
+      if (events.some((e) => e.type === "explode" && game.slimes.every((s) => s.kind !== "boss"))) bossExploded = true;
+      step(st, { t: ms / 1000, dt: 1 / 60, runMs: ms, game, quality: "full", camera, tip: new Vector3() }, events);
+      if (game.slimes.some((s) => s.kind === "boss" && s.stuckLeftMs !== null)) bossStuckFrames++;
+      bad.push(...cameraClear(st, group, camera, 1.1));
+    }
+    expect(bossStuckFrames).toBeGreaterThan(150); // most of the 3 s, watched frame by frame
+    expect(bossExploded).toBe(true);
+    expect(bad.slice(0, 5)).toEqual([]);
     disposeSlimeState(st);
   });
 });
