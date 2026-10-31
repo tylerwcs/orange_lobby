@@ -9,7 +9,7 @@ import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
 import { CommitteeTab } from "@/features/committee";
 import { EMPTY_THEME, ThemeCard } from "@/features/theme";
-import { activityKindsFor, eventFeatures, FeaturesTab, hiddenSettingsTabs } from "@/features/catalogue";
+import { activityKindsFor, eventFeatures, FeaturesTab, hiddenSettingsParts } from "@/features/catalogue";
 import { appBaseUrl, crewLink, shareLink, type ShareLinkKind } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { crewLinkLastDay } from "@/lib/crew";
@@ -103,7 +103,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const isAdmin = actor.kind === "admin";
   const statuses = isAdmin ? STATUSES : STATUSES.filter((s) => s.value !== "archived");
   const features = await eventFeatures(ev.id);
-  const hiddenTabs = hiddenSettingsTabs(features);
+  const hiddenTabs = hiddenSettingsParts(features);
   // D502: Verification is about submissions, so it shows only when the event can run them.
   const verifying = activityKindsFor(features).includes("submission");
   const qs = editorQuestions(ev.registration_form);

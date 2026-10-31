@@ -2,10 +2,10 @@ import type { ActivityKind } from "@/lib/types";
 import type { GameKind } from "@/features/games/client";
 import {
   ADDON_KEYS, FEATURES, STORED_ADDONS, ACTIVITY_KIND_ORDER, GAME_KIND_ORDER,
-  type AddonKey, type FeatureKey, type NavKey, type SettingsTabKey, type StoredAddon,
+  type AddonKey, type FeatureKey, type NavKey, type SettingsPartKey, type StoredAddon,
 } from "./catalogue";
 
-/** An event's add-ons. Base features are not in it: `has` answers yes for them (D437). */
+/** An event's add-ons. Core features are not in it: `has` answers yes for them (D437). */
 export type FeatureSet = { readonly addons: ReadonlySet<AddonKey> };
 
 export function isStoredAddon(key: string): key is StoredAddon {
@@ -20,7 +20,7 @@ export function featureSet(stored: readonly string[], customCount: number): Feat
 }
 
 export function has(fs: FeatureSet, key: FeatureKey): boolean {
-  return FEATURES[key].tier === "base" || fs.addons.has(key as AddonKey);
+  return FEATURES[key].tier === "core" || fs.addons.has(key as AddonKey);
 }
 
 const unlockedBy = (fs: FeatureSet, pick: (a: AddonKey) => readonly string[] | undefined) =>
@@ -56,14 +56,16 @@ export function hiddenNav(fs: FeatureSet): NavKey[] {
   if (activityKindsFor(fs).length === 0) out.push("activities");
   if (gameKindsFor(fs).length === 0) out.push("games");
   if (!nav.has("qualifier")) out.push("qualifier");
+  if (!nav.has("popups")) out.push("popups");
   return out;
 }
 
-export function hiddenSettingsTabs(fs: FeatureSet): SettingsTabKey[] {
-  const tabs = unlockedBy(fs, (a) => FEATURES[a].unlocks.settingsTabs);
-  return (["address"] as const).filter((t) => !tabs.has(t));
+/** Settings parts to leave out, in the order address, language, committee_alerts (D777). */
+export function hiddenSettingsParts(fs: FeatureSet): SettingsPartKey[] {
+  const parts = unlockedBy(fs, (a) => FEATURES[a].unlocks.settingsParts);
+  return (["address", "language", "committee_alerts"] as const).filter((p) => !parts.has(p));
 }
 
 export function notPartOf(key: FeatureKey): string {
-  return `${FEATURES[key].name} isn't part of this event. Turn it on in Settings → Features.`;
+  return `${FEATURES[key].name} isn't part of this event. Turn it on in Settings → What's on.`;
 }

@@ -7,7 +7,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { RowActions } from "@/components/admin/RowActions";
 import { Modal } from "@/components/admin/Modal";
-import { BASE_KEYS, FEATURES, STORED_ADDONS, type StoredAddon } from "../catalogue";
+import { CORE_KEYS, FEATURES, STORED_ADDONS, type StoredAddon } from "../catalogue";
 import { has } from "../features";
 import { eventFeatures } from "../db";
 import { setAddonAction, addCustomModuleAction, updateCustomModuleAction, removeCustomModuleAction } from "./actions";
@@ -105,7 +105,7 @@ export async function FeaturesTab({ eventId }: { eventId: string }) {
         </CardHeader>
         <CardContent>
           <ul className="grid gap-x-6 gap-y-2 text-sm @xl:grid-cols-2">
-            {BASE_KEYS.map((key) => <li key={key}><span className="font-bold">{FEATURES[key].name}</span> <span className="text-muted-foreground">— {FEATURES[key].summary}</span></li>)}
+            {CORE_KEYS.map((key) => <li key={key}><span className="font-bold">{FEATURES[key].name}</span> <span className="text-muted-foreground">— {FEATURES[key].summary}</span></li>)}
           </ul>
         </CardContent>
       </Card>
