@@ -2,7 +2,7 @@
 import { brandStyle } from "@/lib/brand";
 
 /**
- * The phone every setup preview draws in (D445): a fixed screen that scrolls, coloured with the
+ * The phone the admin previews draw in (D445): a fixed screen that scrolls, coloured with the
  * event's brand colour as the portal is. `style` replaces the brand colours when the caller
  * draws more of the portal's tokens itself (Settings' theme preview, D626).
  */

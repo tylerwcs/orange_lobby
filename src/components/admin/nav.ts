@@ -17,18 +17,16 @@ export type Group = { title: string; items: Item[] };
  * stands on its own without check-in: the roster is still the roster, which is why only
  * this one item is conditional.
  *
- * Setup leads Event: it is where the organiser's submissions wait, and its badge counts them (D448).
- *
  * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities, Games and the Typing qualifier (D770) each
  * carry the key `hiddenNav` names.
  *
  * D598: Attendees carries the number of cancellation requests waiting for an organiser, for
  * admins and committee alike.
  *
- * D565: Setup is Ecopia's (it reviews and applies what the organiser sent), so a committee
- * member (`admin` false) does not get it.
+ * D565: an item marked `adminOnly` is Ecopia's, so a committee member (`admin` false) does not get
+ * it. Nothing is marked at the moment (Setup was the only one, removed in D783).
  */
-export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { setup?: number; attendees?: number } = {}, admin = true): Group[] {
+export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null | undefined, hidden: readonly NavKey[] = [], badges: { attendees?: number } = {}, admin = true): Group[] {
   if (!ev) return [{ title: "Events", items: [{ href: "/admin/events", label: "All events", icon: "layers" }] }];
   const b = `/admin/events/${ev.id}`;
   const groups: Group[] = [
@@ -49,7 +47,6 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
       { href: `${b}/qualifier`, label: "Typing qualifier", icon: "star", key: "qualifier" },
     ] },
     { title: "Event", items: [
-      { href: `${b}/setup`, label: "Setup", icon: "check", adminOnly: true, ...(badges.setup ? { badge: badges.setup } : {}) },
       { href: `${b}/whatsapp`, label: "WhatsApp", icon: "chat", key: "whatsapp" },
       { href: `${b}/settings`, label: "Settings", icon: "settings" },
       { href: `${b}/exports`, label: "Exports", icon: "file" },

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requireSignedIn } from "@/lib/access";
 import { listEvents, listEventsByIds } from "@/lib/db/events";
 import { countAttendees } from "@/lib/db/attendees";
-import { waitingCounts } from "@/features/setup";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Modal } from "@/components/admin/Modal";
 import { Field } from "@/components/admin/Field";
@@ -19,8 +18,6 @@ export default async function AdminHome() {
   const me = await requireSignedIn();
   const events = me.kind === "admin" ? await listEvents(me.orgId) : await listEventsByIds(me.eventIds);
   const counts = await Promise.all(events.map((e) => countAttendees(e.id)));
-  // D565: "to review" counts Setup items, and Setup is admin-only.
-  const waiting: Record<string, number> = me.kind === "admin" ? await waitingCounts(events.map((e) => e.id)) : {};
   return (
     <>
         <AdminHeader
@@ -47,10 +44,7 @@ export default async function AdminHome() {
                   <div className="font-extrabold">{e.name}</div>
                   <div className="text-xs text-muted-foreground">{formatDateRange(e.starts_on, e.ends_on)}</div>
                   <div className="mt-2 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Badge variant={e.status === "live" ? "success" : e.status === "archived" ? "outline" : "secondary"}>{e.status}</Badge>
-                      {waiting[e.id] ? <Badge variant="warning">{waiting[e.id]} to review</Badge> : null}
-                    </span>
+                    <Badge variant={e.status === "live" ? "success" : e.status === "archived" ? "outline" : "secondary"}>{e.status}</Badge>
                     <span className="text-xs text-muted-foreground">{counts[i]} attendees</span>
                   </div>
                 </CardContent>

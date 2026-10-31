@@ -25,7 +25,6 @@ import { createAnnouncement, deleteAnnouncement, listAnnouncements, setAnnouncem
 import { createCheckpoint, deleteCheckpoint, listCheckpoints, setCheckpointOrder, setCheckpointSurvey } from "@/lib/db/checkpoints";
 import { recordCheckins } from "@/lib/db/checkins";
 import { requireFeature } from "@/features/catalogue";
-import { purgeSetupFiles } from "@/features/setup";
 import { purgePolaroids } from "@/features/polaroid";
 import { attendeeValues, bulkSetChange, deleteChange, deleteChangesForEvent, editChange, importChange, loadLabels, logRoundRename, people, recordChange, roomLossChange, type PersonChange } from "@/features/attendee-log";
 import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
@@ -1074,7 +1073,6 @@ export async function deleteCheckpointAction(eventId: string, cpId: string) {
 export async function purgeEventAction(eventId: string) {
   const { ev } = await requireAdminEvent(eventId);
   if (ev.status !== "archived") redirect(flashPath(`/admin/events/${eventId}/settings`, "Archive the event first.", "error"));
-  await purgeSetupFiles(ev.org_id, eventId);
   await purgePolaroids(ev.org_id, eventId);
   await purgeAttendeePersonalData(eventId, ev.org_id);
   await deleteChangesForEvent(eventId);

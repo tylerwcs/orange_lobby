@@ -87,7 +87,7 @@ export async function canPreviewDraft(ev: Pick<Event, "id" | "org_id" | "status"
 
 /**
  * The admin-only list inside an event (D553, D565): delete, purge, Features, Address, Committee,
- * Setup, Committee alerts, Verification. A signed-in non-admin (a committee member following an
+ * Committee alerts, Verification. A signed-in non-admin (a committee member following an
  * old link) gets a 404 rather than requireAdmin's "no access" login page, which would wrongly tell
  * them they have no events. Signed out still goes to /login.
  */

@@ -70,7 +70,7 @@ export async function FeaturesTab({ eventId }: { eventId: string }) {
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <span className="flex flex-col gap-1.5">
             <CardTitle>Custom modules</CardTitle>
-            <CardDescription>Bespoke work sold with this event. They show on the organiser&apos;s setup checklist; nothing in the admin depends on them.</CardDescription>
+            <CardDescription>Bespoke work sold with this event. Nothing in the admin depends on them.</CardDescription>
           </span>
           <Modal title="Add a custom module" trigger="Add custom module" icon="plus">
             <ModuleForm action={addCustomModuleAction.bind(null, eventId)} />

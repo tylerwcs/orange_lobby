@@ -28,7 +28,7 @@ describe("groupsFor", () => {
     expect(labels).toEqual([
       ["Onsite", ["Overview", "Attendees", "Groups", "Games", "Scanner"]],
       ["Portal", ["Agenda", "Info page", "Announcements", "Popups", "Modules", "Activities", "Typing qualifier"]],
-      ["Event", ["Setup", "WhatsApp", "Settings", "Exports"]],
+      ["Event", ["WhatsApp", "Settings", "Exports"]],
     ]);
   });
 
@@ -57,14 +57,9 @@ describe("groupsFor", () => {
     expect(portal?.items.map((i) => i.label)).toEqual(["Agenda", "Info page", "Announcements", "Popups", "Modules"]);
   });
 
-  it("puts Setup first under Event, with the waiting count as its badge (D448)", () => {
-    const event = groupsFor({ id: "e1", check_in_enabled: true }, [], { setup: 2 }).find((g) => g.title === "Event");
-    expect(event?.items[0]).toMatchObject({ href: "/admin/events/e1/setup", label: "Setup", badge: 2 });
-  });
-
-  it("shows no badge when nothing is waiting", () => {
-    const event = groupsFor({ id: "e1", check_in_enabled: true }).find((g) => g.title === "Event");
-    expect(event?.items[0].badge).toBeUndefined();
+  it("has no Setup item (D783)", () => {
+    const labels = groupsFor({ id: "e1", check_in_enabled: true }).flatMap((g) => g.items.map((i) => i.label));
+    expect(labels).not.toContain("Setup");
   });
 
   it("badges Attendees with the waiting cancellation requests (D598)", () => {
@@ -72,9 +67,8 @@ describe("groupsFor", () => {
     expect(onsite?.items.find((i) => i.label === "Attendees")).toMatchObject({ badge: 3 });
   });
 
-  it("leaves Setup out for a committee member, and keeps everything else (D565)", () => {
-    const labels = (admin: boolean) => groupsFor({ id: "e1", check_in_enabled: true }, [], { setup: 2 }, admin).flatMap((g) => g.items.map((i) => i.label));
-    expect(labels(false)).not.toContain("Setup");
-    expect(labels(false)).toEqual(labels(true).filter((l) => l !== "Setup"));
+  it("shows a committee member the same items as an admin (D565, D783)", () => {
+    const labels = (admin: boolean) => groupsFor({ id: "e1", check_in_enabled: true }, [], {}, admin).flatMap((g) => g.items.map((i) => i.label));
+    expect(labels(false)).toEqual(labels(true));
   });
 });

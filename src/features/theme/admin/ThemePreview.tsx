@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { launcherItems, sectionIcons } from "@/lib/launcher";
 import { TITLE_INK } from "@/lib/ink";
-import { PhoneFrame } from "@/features/setup/client";
+import { PhoneFrame } from "./PhoneFrame";
 import { themeTokens, type EventTheme } from "../client";
 
 export type PreviewEvent = {
