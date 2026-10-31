@@ -1,9 +1,16 @@
+import { after } from "next/server";
 import { playContext } from "@/features/games";
 import { WORDS_PER_RUN, drawWords, ghostsFor, ineligibility, phaseOf, settingsFor, startRun } from "@/features/qualifier";
 import { json } from "@/lib/http";
 import { allow } from "@/lib/ratelimit";
+import { within } from "@/lib/within";
 
 export const dynamic = "force-dynamic";
+
+const NO_GHOSTS = { best: null, cut: null };
+// How long a start waits for the ghosts once the run exists. They come from the board, which is
+// the first thing to slow down when many play at once (D771 load test).
+const GHOST_WAIT_MS = 250;
 
 /**
  * Starts a run (D771). The server draws the words and fixes the start on its own clock: the
@@ -27,13 +34,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
   // The countdown is already running on the database's clock once startRun returns, so the
   // ghosts are read alongside it rather than after it, and the clock reading for the phone's
   // offset (serverNow) is taken as soon as the run exists. Ghosts are decoration: if they can't
-  // be read the run starts without them.
-  const ghostsP = ghostsFor(event.id, attendee.id).catch(() => ({ best: null, cut: null }));
+  // be read, or aren't read within GHOST_WAIT_MS of the run existing, the run starts without
+  // them. The read carries on and fills the board and cut-line memos for the next start.
+  const ghostsP = ghostsFor(event.id, attendee.id).catch(() => NO_GHOSTS);
   const started = await startRun(event.id, attendee.id, words);
   const serverNow = Date.now();
   if ("refused" in started) {
     return json({ error: started.refused === "closed" ? "The qualifier isn't open right now." : "This challenge isn't open to you." }, 403);
   }
-  const ghosts = await ghostsP;
+  const ghosts = await within(ghostsP, GHOST_WAIT_MS, NO_GHOSTS);
+  after(() => ghostsP); // keeps a late read alive past the response, so the memos do fill
   return json({ runId: started.runId, startsAt: started.startsAt, serverNow, words, ghosts });
 }
