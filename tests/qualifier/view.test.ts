@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { boardSlices, type BoardEntry } from "@/features/qualifier/board";
 
 const rows = (n: number): BoardEntry[] =>
-  Array.from({ length: n }, (_, i) => ({ rank: i + 1, label: `P${i + 1}`, skin: null, wpm: 100 - i, me: false }));
+  Array.from({ length: n }, (_, i) => ({ rank: i + 1, label: `P${i + 1}`, score: 1000 - i, me: false }));
 const ranks = (xs: BoardEntry[]) => xs.map((x) => x.rank);
 
 describe("boardSlices (D771)", () => {
@@ -36,9 +36,9 @@ describe("boardSlices (D771)", () => {
 import { aroundWindow, needsFreshSlice, type SeenRow } from "@/features/qualifier/board";
 
 const seen = (n: number, from = 1): SeenRow[] =>
-  Array.from({ length: n }, (_, i) => ({ rank: from + i, id: `p${from + i}`, wpm: 100 - (from + i) }));
+  Array.from({ length: n }, (_, i) => ({ rank: from + i, id: `p${from + i}`, score: 1000 - (from + i) }));
 const ask = (o: Partial<Parameters<typeof needsFreshSlice>[0]>) =>
-  needsFreshSlice({ top: seen(20), around: [], myId: "p5", myRank: 5, myWpm: 95, total: 500, ...o });
+  needsFreshSlice({ top: seen(20), around: [], myId: "p5", myRank: 5, myScore: 995, total: 500, ...o });
 
 describe("needsFreshSlice (D771)", () => {
   it("is fresh when the caller's row is where their rank says", () => {
@@ -47,27 +47,27 @@ describe("needsFreshSlice (D771)", () => {
   });
 
   it("is stale when the caller climbed into the top 20, or moved within it", () => {
-    expect(ask({ myId: "me", myRank: 12, myWpm: 88 }).board).toBe(true);
-    expect(ask({ myId: "p5", myRank: 3, myWpm: 95 }).board).toBe(true);
+    expect(ask({ myId: "me", myRank: 12, myScore: 988 }).board).toBe(true);
+    expect(ask({ myId: "p5", myRank: 3, myScore: 995 }).board).toBe(true);
   });
 
-  it("is stale when the caller's wpm moved but their rank did not", () => {
-    expect(ask({ myWpm: 97 }).board).toBe(true);
+  it("is stale when the caller's score moved but their rank did not", () => {
+    expect(ask({ myScore: 997 }).board).toBe(true);
   });
 
   it("is stale when the caller fell out of the top 20 but the snapshot still lists them", () => {
-    expect(ask({ myRank: 24, myWpm: 95 })).toEqual({ board: true, around: true });
+    expect(ask({ myRank: 24, myScore: 995 })).toEqual({ board: true, around: true });
   });
 
   it("is stale when the rank is beyond the snapshot's total (a first run)", () => {
-    expect(ask({ myId: "me", myRank: 501, myWpm: 30, total: 500 }).board).toBe(true);
+    expect(ask({ myId: "me", myRank: 501, myScore: 30, total: 500 }).board).toBe(true);
   });
 
   it("past rank 20 checks the around rows for the caller at their rank", () => {
     const around = seen(3, 22);
-    expect(ask({ myId: "p23", myRank: 23, myWpm: 77, around })).toEqual({ board: false, around: false });
-    expect(ask({ myId: "p23", myRank: 24, myWpm: 77, around }).around).toBe(true);
-    expect(ask({ myId: "p23", myRank: 23, myWpm: 80, around }).around).toBe(true);
+    expect(ask({ myId: "p23", myRank: 23, myScore: 977, around })).toEqual({ board: false, around: false });
+    expect(ask({ myId: "p23", myRank: 24, myScore: 977, around }).around).toBe(true);
+    expect(ask({ myId: "p23", myRank: 23, myScore: 980, around }).around).toBe(true);
   });
 });
 
@@ -83,7 +83,7 @@ describe("aroundWindow", () => {
 
 import { confirmedBoard, type RankedRow } from "@/features/qualifier/board";
 
-const ranked = (rank: number, id = `p${rank}`): RankedRow => ({ rank, id, label: id.toUpperCase(), skin: null, wpm: 100 - rank });
+const ranked = (rank: number, id = `p${rank}`): RankedRow => ({ rank, id, label: id.toUpperCase(), score: 1000 - rank });
 const snapshot = (n: number) => Array.from({ length: n }, (_, i) => ranked(i + 1));
 const confirmed = (o: Partial<Parameters<typeof confirmedBoard>[0]>) =>
   confirmedBoard({ finalists: snapshot(10), live: Array.from({ length: 20 }, (_, i) => ranked(i + 1)), myId: "me", myLiveRank: null, liveTotal: 40, ...o });
@@ -104,6 +104,13 @@ describe("confirmedBoard (D769)", () => {
     expect(r.entries.filter((e) => e.rank <= r.cut).map((e) => e.label).sort()).toEqual(snapshot(10).map((f) => f.label).sort());
     expect(r.entries.find((e) => e.label === "P11")).toMatchObject({ rank: 11, me: true });
     expect(r).toMatchObject({ rank: 11, total: 40, cut: 10 });
+  });
+
+  it("shows each row's score: a finalist's from the snapshot, everyone else's live", () => {
+    const finalists = snapshot(10).map((f) => ({ ...f, score: 5000 - f.rank }));
+    const r = confirmed({ finalists, myId: "p14", myLiveRank: 14 });
+    expect(r.entries.find((e) => e.label === "P3")).toEqual({ rank: 3, label: "P3", score: 4997, me: false });
+    expect(r.entries.find((e) => e.label === "P14")).toEqual({ rank: 14, label: "P14", score: 986, me: true });
   });
 
   it("gives a finalist their snapshot rank whatever the live board says", () => {

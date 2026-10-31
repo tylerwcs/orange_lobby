@@ -9,9 +9,9 @@ import { FINALISTS } from "../scoring";
 export const BOARD_PAGE_SIZE = 50;
 
 /**
- * One page of the ranked list for the admin (D775): rank, name (a link to that person's
- * runs), best wpm, accuracy, runs played, the best run's device, and a Review badge when the
- * best run is flagged. A cut line is drawn under #10, the finale. `labels` is the name each
+ * One page of the ranked list for the admin (D775, D795): rank, name (a link to that person's
+ * runs), best score, runs played, the best run's device, and a Review badge when the best run
+ * is flagged. A cut line is drawn under #10, the finale. `labels` is the name each
  * person goes by (`tagsFor`); the full name sits under it when it differs. Paging is by
  * `?page=`, so this draws only the page it was given.
  */
@@ -34,8 +34,7 @@ export function BoardTable({ eventId, rows, labels, page, total }: {
           <TableRow>
             <TableHead className="w-14">Rank</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead className="text-right">Best wpm</TableHead>
-            <TableHead className="text-right">Accuracy</TableHead>
+            <TableHead className="text-right">Best score</TableHead>
             <TableHead className="text-right">Runs</TableHead>
             <TableHead>Device</TableHead>
             <TableHead className="w-24"><span className="sr-only">Review</span></TableHead>
@@ -51,8 +50,7 @@ export function BoardTable({ eventId, rows, labels, page, total }: {
                   <Link href={`${base}/${r.attendee_id}`} className="font-bold text-primary hover:underline">{label}</Link>
                   {label !== r.name && <span className="block text-xs text-muted-foreground">{r.name}</span>}
                 </TableCell>
-                <TableCell className="text-right font-bold tabular-nums">{r.best_wpm}</TableCell>
-                <TableCell className="text-right tabular-nums">{r.best_accuracy}%</TableCell>
+                <TableCell className="text-right font-bold tabular-nums">{r.best_score}</TableCell>
                 <TableCell className="text-right tabular-nums">{r.runs_played}</TableCell>
                 <TableCell className="capitalize">{r.device}</TableCell>
                 <TableCell>{r.flagged && <Badge variant="warning">Review</Badge>}</TableCell>
@@ -62,7 +60,7 @@ export function BoardTable({ eventId, rows, labels, page, total }: {
             return [
               line,
               <TableRow key={`cut-${r.rank}`} className="hover:bg-transparent">
-                <TableCell colSpan={7} className="border-t-2 border-dashed border-primary/50 py-1.5 text-center text-xs font-bold uppercase tracking-wide text-primary">
+                <TableCell colSpan={6} className="border-t-2 border-dashed border-primary/50 py-1.5 text-center text-xs font-bold uppercase tracking-wide text-primary">
                   Finale cut line
                 </TableCell>
               </TableRow>,

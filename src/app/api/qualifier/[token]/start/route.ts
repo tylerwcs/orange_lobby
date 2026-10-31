@@ -1,22 +1,17 @@
-import { after } from "next/server";
+import { randomInt } from "node:crypto";
 import { playContext } from "@/features/games";
-import { WORDS_PER_RUN, drawWords, ghostsFor, ineligibility, phaseOf, settingsFor, startRun } from "@/features/qualifier";
+import { ineligibility, phaseOf, settingsFor, startRun } from "@/features/qualifier";
 import { json } from "@/lib/http";
 import { allow } from "@/lib/ratelimit";
-import { within } from "@/lib/within";
 
 export const dynamic = "force-dynamic";
 
-const NO_GHOSTS = { best: null, cut: null };
-// How long a start waits for the ghosts once the run exists. They come from the board, which is
-// the first thing to slow down when many play at once (D771 load test).
-const GHOST_WAIT_MS = 250;
-
 /**
- * Starts a run (D771). The server draws the words and fixes the start on its own clock: the
- * countdown ends at `startsAt`, and a submit is judged against that, never against anything the
- * phone says. Starting abandons the player's live run. Who may play and the window are checked
- * here so the refusal can say why; the database checks them again.
+ * Starts a slime run (D771, D795). The server picks the seed, which fixes every slime, word and
+ * sentence the run will throw, and fixes the start on its own clock: the countdown ends at
+ * `startsAt`, and a submit is judged against that, never against anything the phone says.
+ * Starting abandons the player's live run. Who may play and the window are checked here so the
+ * refusal can say why; the database checks them again.
  */
 export async function POST(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -30,19 +25,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
   }
   if (phaseOf(settings, Date.now()) !== "open") return json({ error: "The qualifier isn't open right now." }, 403);
 
-  const words = drawWords(WORDS_PER_RUN);
-  // The countdown is already running on the database's clock once startRun returns, so the
-  // ghosts are read alongside it rather than after it, and the clock reading for the phone's
-  // offset (serverNow) is taken as soon as the run exists. Ghosts are decoration: if they can't
-  // be read, or aren't read within GHOST_WAIT_MS of the run existing, the run starts without
-  // them. The read carries on and fills the board and cut-line memos for the next start.
-  const ghostsP = ghostsFor(event.id, attendee.id).catch(() => NO_GHOSTS);
-  const started = await startRun(event.id, attendee.id, words);
+  // 0 to 2^31 - 1: the upper bound is exclusive, so the seed fits the column's int4.
+  const seed = randomInt(0, 2 ** 31);
+  const started = await startRun(event.id, attendee.id, seed);
+  // Read as soon as the run exists: the phone's clock offset is measured against it.
   const serverNow = Date.now();
   if ("refused" in started) {
     return json({ error: started.refused === "closed" ? "The qualifier isn't open right now." : "This challenge isn't open to you." }, 403);
   }
-  const ghosts = await within(ghostsP, GHOST_WAIT_MS, NO_GHOSTS);
-  after(() => ghostsP); // keeps a late read alive past the response, so the memos do fill
-  return json({ runId: started.runId, startsAt: started.startsAt, serverNow, words, ghosts });
+  return json({ runId: started.runId, startsAt: started.startsAt, serverNow, seed });
 }

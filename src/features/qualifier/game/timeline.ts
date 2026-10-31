@@ -65,10 +65,17 @@ export function parseSubmitBody(body: unknown): SubmitBody | null {
 
 export type TimelineRefusal = "too_fast" | "too_long";
 
-/** Refuse what no hand could type: past the run cap, or more than CEILING_KEYS typed keys in any CEILING_WINDOW_MS. */
+/**
+ * The keys the speed checks count: letters typed one at a time. Inserted letters (swipe, a
+ * keyboard's suggestion) are flagged instead, and backspaces are left out (R13): a keyboard that
+ * rewrites a long composition sends many at the same instant, and a backspace never scores.
+ */
+const typedLetters = (entries: readonly Entry[]) => entries.filter((e) => !e.insert && e.key !== "");
+
+/** Refuse what no hand could type: past the run cap, or more than CEILING_KEYS typed letters in any CEILING_WINDOW_MS. */
 export function checkTimeline(entries: readonly Entry[]): TimelineRefusal | null {
   if (entries.length > 0 && entries[entries.length - 1].t > RUN_CAP_MS) return "too_long";
-  const typed = entries.filter((e) => !e.insert);
+  const typed = typedLetters(entries);
   // Two pointers: `lo` is the oldest key still within the window that ends at key `hi`.
   for (let hi = 0, lo = 0; hi < typed.length; hi++) {
     while (typed[hi].t - typed[lo].t > CEILING_WINDOW_MS) lo++;
@@ -81,11 +88,11 @@ export type Review = { flagged: boolean; peakCps: number; inserts: number };
 
 /**
  * Signals for a human to look at, never a refusal and never a score change: any inserted text, a
- * burst at REVIEW_CPS or more, or a long run of suspiciously even keystrokes.
+ * burst of typed letters at REVIEW_CPS or more, or a long run of suspiciously even letters.
  */
 export function reviewOf(entries: readonly Entry[]): Review {
   const inserts = entries.filter((e) => e.insert).length;
-  const typed = entries.filter((e) => !e.insert);
+  const typed = typedLetters(entries);
   let most = 0;
   for (let hi = 0, lo = 0; hi < typed.length; hi++) {
     while (typed[hi].t - typed[lo].t >= REVIEW_WINDOW_MS) lo++;

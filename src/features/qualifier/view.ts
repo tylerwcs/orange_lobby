@@ -2,27 +2,19 @@ import "server-only";
 import type { PlayContext } from "@/features/games";
 import { tagsFor } from "@/features/games/client";
 import { createMemo } from "@/lib/memo";
-import { eventAddress } from "@/features/domains";
-import { genericLink } from "@/lib/links";
-import { nowInKL } from "@/lib/time";
 import { listAttendeesByIds } from "@/lib/db/attendees";
-import { boardSize, getPlayer, getSettings, listBoard, listFinalists, rankOf, runOffsets, type BoardRow, type Finalist } from "./db";
+import { boardSize, getPlayer, getSettings, listBoard, listFinalists, rankOf, type BoardRow, type Finalist } from "./db";
 import { BOARD_TOP, aroundWindow, boardSlices, confirmedBoard, needsFreshSlice, type BoardEntry } from "./board";
 import { ineligibility, phaseOf, type Ineligible, type Phase, type QualifierSettings } from "./phase";
-import { streakDays, streakDots, tierOf, unlockedSkins, type SkinId, type Tier } from "./progress";
 import { FINALISTS } from "./scoring";
 
-// The qualifier page's state in one read (D771). Board rows are shared by everyone at the event,
-// so they are read at most once per few seconds per server instance (createMemo, as the live
-// games do, D259); the player's own rows are read fresh.
+// The qualifier page's state in one read (D771, D795). Board rows are shared by everyone at the
+// event, so they are read at most once per few seconds per server instance (createMemo, as the
+// live games do, D259); the player's own rows are read fresh.
 const BOARD_TTL_MS = 3000;
 const boardMemo = createMemo<{ top: BoardRow[]; total: number }>(BOARD_TTL_MS);
 const aroundMemo = createMemo<BoardRow[]>(BOARD_TTL_MS);
 const settingsMemo = createMemo<QualifierSettings | null>(BOARD_TTL_MS);
-// The event's own address changes about never; every submit builds a view, so it is read once a minute.
-const shareMemo = createMemo<string>(60_000);
-const shareUrlFor = (event: { id: string; slug: string }) =>
-  shareMemo.get(event.id, async () => genericLink(await eventAddress(event)));
 
 /** The event's window and left-out categories, memoised for a few seconds like the board. */
 export const settingsFor = (eventId: string) => settingsMemo.get(eventId, () => getSettings(eventId));
@@ -61,35 +53,14 @@ export type QualifierView = {
   opensAt: string | null;
   closesAt: string | null;
   ineligible: Ineligible | null;
-  /** The event's own link for the share text: never the player's personal one (D774). */
-  shareUrl: string;
-  me: {
-    best: number | null;
-    accuracy: number | null;
-    rank: number | null;
-    total: number;
-    tier: Tier;
-    streak: number;
-    /** One dot per day of the window (at most the last 7), filled when the player ran that day. */
-    dots: { day: string; done: boolean }[];
-    skins: SkinId[];
-    skin: SkinId | null;
-    runs: number;
-    dropped: { from: number; to: number | null } | null;
-  };
-  /** The #10 player's best wpm, the finale cut line; null with fewer than 10 ranked. */
-  cutWpm: number | null;
+  me: { best: number | null; rank: number | null; total: number; runs: number };
+  /** The #10 player's best score, the finale cut line; null with fewer than 10 ranked. */
+  cutScore: number | null;
   /** True or false once the finalists are confirmed; null before. */
   finalist: boolean | null;
   /** `cut`: the last rank above the finale cut (10, or once confirmed the snapshot's last rank). */
   board: { top: BoardEntry[]; around: BoardEntry[]; cut: number };
 };
-
-/** Fell out of place since the rank last seen: lower on the board, or off it. */
-export function droppedOf(seen: number | null, rank: number | null): { from: number; to: number | null } | null {
-  if (seen === null) return null;
-  return rank === null || rank > seen ? { from: seen, to: rank } : null;
-}
 
 /**
  * `known` is a rank the caller has just read (the submit route's), so it is not read twice.
@@ -105,13 +76,12 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
   const phase = phaseOf(settings, now);
   const ineligible = ineligibility({ ...attendee, cancelled_at: attendee.cancelled_at ?? null }, event.preview_attendee_id, settings?.excluded_categories ?? []);
 
-  const [player, liveRank, board0, finale, shareUrl] = await Promise.all([
+  const [player, liveRank, board0, finale] = await Promise.all([
     getPlayer(event.id, attendee.id),
     // Someone who may not play is off the board whatever their old runs say.
     ineligible ? Promise.resolve(null) : known ? Promise.resolve(known.rank) : rankOf(event.id, attendee.id),
     boardFor(event.id),
     phase === "confirmed" ? finaleFor(event.id) : Promise.resolve(null),
-    shareUrlFor(event),
   ]);
   let board = board0;
   // A finalist's place is the snapshot's: no live rows around it are needed.
@@ -119,10 +89,10 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
   const aroundRank = liveRank !== null && liveRank > BOARD_TOP && !myFinalist ? liveRank : null;
   let aroundRows = aroundRank !== null ? await aroundFor(event.id, aroundRank) : [];
 
-  const seen = (r: BoardRow) => ({ rank: r.rank, id: r.attendee_id, wpm: r.best_wpm });
+  const seen = (r: BoardRow) => ({ rank: r.rank, id: r.attendee_id, score: r.best_score });
   const stale = needsFreshSlice({
     top: board.top.map(seen), around: aroundRows.map(seen), myId: attendee.id, myRank: liveRank,
-    myWpm: player?.best_wpm ?? null, total: board.total,
+    myScore: player?.best_score ?? null, total: board.total,
   });
   if (stale.board) board = await boardFor(event.id, true);
   if (stale.around && aroundRank !== null) aroundRows = await aroundFor(event.id, aroundRank, true);
@@ -136,76 +106,35 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
   for (const p of finale?.people ?? []) if (!people.has(p.id)) people.set(p.id, p);
   const tags = tagsFor([...people.values()]);
   const labelOf = (id: string) => tags.get(id)?.label ?? people.get(id)?.name ?? "?";
-  const live = [...rows.values()].map((r) => ({ rank: r.rank, id: r.attendee_id, label: labelOf(r.attendee_id), skin: r.skin, wpm: r.best_wpm }));
+  const live = [...rows.values()].map((r) => ({ rank: r.rank, id: r.attendee_id, label: labelOf(r.attendee_id), score: r.best_score }));
 
   let entries: BoardEntry[];
   let rank: number | null;
   let total: number;
   let cut: number;
-  let cutWpm: number | null;
+  let cutScore: number | null;
   if (finale) {
     ({ entries, rank, total, cut } = confirmedBoard({
-      finalists: finale.finalists.map((f) => ({ rank: f.rank, id: f.attendee_id, label: labelOf(f.attendee_id), skin: f.skin, wpm: f.best_wpm })),
+      finalists: finale.finalists.map((f) => ({ rank: f.rank, id: f.attendee_id, label: labelOf(f.attendee_id), score: f.best_score })),
       live, myId: attendee.id, myLiveRank: liveRank, liveTotal: board.total,
     }));
-    cutWpm = finale.finalists.find((f) => f.rank === FINALISTS)?.best_wpm ?? null;
+    cutScore = finale.finalists.find((f) => f.rank === FINALISTS)?.best_score ?? null;
   } else {
     entries = live.map(({ id, ...r }) => ({ ...r, me: id === attendee.id }));
     rank = liveRank;
     total = board.total;
     cut = FINALISTS;
-    cutWpm = board.top.length >= FINALISTS ? board.top[FINALISTS - 1].best_wpm : null;
+    cutScore = board.top.length >= FINALISTS ? board.top[FINALISTS - 1].best_score : null;
   }
-
-  const today = nowInKL(new Date(now)).date;
-  const days = player?.run_days ?? [];
-  const streak = streakDays(days, today);
-  const best = player?.best_wpm ?? null;
 
   return {
     phase,
     opensAt: settings?.opens_at ?? null,
     closesAt: settings?.closes_at ?? null,
     ineligible,
-    shareUrl,
-    me: {
-      best,
-      accuracy: player?.best_accuracy ?? null,
-      rank,
-      total,
-      tier: tierOf(best),
-      streak,
-      dots: streakDots(settings?.opens_at ?? null, settings?.closes_at ?? null, today, days),
-      skins: unlockedSkins({ runs: player?.runs_played ?? 0, streak, best }),
-      skin: player?.skin ?? null,
-      runs: player?.runs_played ?? 0,
-      dropped: ineligible ? null : droppedOf(player?.last_seen_rank ?? null, rank),
-    },
-    cutWpm,
+    me: { best: player?.best_score ?? null, rank, total, runs: player?.runs_played ?? 0 },
+    cutScore,
     finalist: finale ? myFinalist !== null : null,
     board: { ...boardSlices(entries, rank), cut },
   };
-}
-
-const ghostMemo = createMemo<number[] | null>(60_000);
-
-/**
- * A run's word times for a ghost. A run's offsets never change once it is done, so the cut
- * line's run, which every starting phone asks for, is read once a minute per instance.
- */
-export const ghostFor = (runId: string, eventId: string) =>
-  ghostMemo.get(`${eventId}:${runId}`, () => runOffsets(runId, eventId));
-
-/**
- * The ghosts a run starts with (D771): the player's own best run, and the #10 player's best run
- * as the cut line. The cut is left out with fewer than 10 ranked, or when the player is #10.
- */
-export async function ghostsFor(eventId: string, attendeeId: string): Promise<{ best: number[] | null; cut: number[] | null }> {
-  const [player, board] = await Promise.all([getPlayer(eventId, attendeeId), boardFor(eventId)]);
-  const tenth = board.top.length >= FINALISTS ? board.top[FINALISTS - 1] : null;
-  const [best, cut] = await Promise.all([
-    player?.best_run_id ? runOffsets(player.best_run_id, eventId) : Promise.resolve(null),
-    tenth && tenth.attendee_id !== attendeeId ? ghostFor(tenth.best_run_id, eventId) : Promise.resolve(null),
-  ]);
-  return { best, cut };
 }

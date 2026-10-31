@@ -4,16 +4,18 @@
  * Code outside this folder imports the feature only from here or from `index.ts`.
  */
 export * from "./words";
-export * from "./typing";
 export * from "./scoring";
 export * from "./phase";
-export * from "./progress";
 export * from "./board";
-export * from "./run";
 export * from "./input";
 export * from "./screen";
-export * from "./tunnel-mode";
 
-// The portal page's screens (D772).
+// The slime game's wire format, checks and replay (D791), which the submit route runs.
+export {
+  checkTimeline, decodeTimeline, parseSubmitBody, reviewOf,
+  type Device, type Entry, type Review, type SubmitBody, type SubmitReason, type Timeline, type TimelineRefusal,
+} from "./game/timeline";
+export { replay, type RunResult } from "./game/replay";
+
+// The portal page's screens (D772, D795).
 export { QualifierClient } from "./components/QualifierClient";
-export type { Tunnel2DProps } from "./components/Tunnel2D";

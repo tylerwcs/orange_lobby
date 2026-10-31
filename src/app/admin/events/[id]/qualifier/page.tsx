@@ -7,7 +7,7 @@ import { eventFeatures, has, NotInEvent } from "@/features/catalogue";
 import { tagsFor } from "@/features/games/client";
 import {
   BOARD_PAGE_SIZE, BoardTable, boardSize, ConfirmCard, FINALISTS, getSettings, listBoard, listFinalists,
-  phaseOf, phaseSubtitle, SettingsCard, type BoardRow, type FinaleEntry,
+  liveRunCount, phaseOf, phaseSubtitle, SettingsCard, type BoardRow, type FinaleEntry,
 } from "@/features/qualifier";
 import { confirmFinalistsAction, saveQualifierSettingsAction } from "./actions";
 
@@ -38,6 +38,8 @@ export default async function Qualifier({ params, searchParams }: { params: Prom
   const showFinale = phase === "review" || phase === "confirmed";
   const top: BoardRow[] = !showFinale ? [] : page === 1 ? rows.slice(0, FINALISTS) : await listBoard(ev.id, FINALISTS, 0);
   const finalists = phase === "confirmed" ? await listFinalists(ev.id) : [];
+  // Runs started before the close that can still land on the board: Confirm waits for them.
+  const liveRuns = phase === "review" ? await liveRunCount(ev.id) : 0;
   const finalistPeople = finalists.length > 0 ? await listAttendeesByIds(ev.id, finalists.map((f) => f.attendee_id)) : [];
 
   // One naming pass over everyone drawn, so two people who read alike are told apart.
@@ -50,11 +52,11 @@ export default async function Qualifier({ params, searchParams }: { params: Prom
   const entries: FinaleEntry[] = phase === "confirmed"
     ? finalists.map((f) => ({
         rank: f.rank, attendeeId: f.attendee_id, label: labels.get(f.attendee_id) ?? "?",
-        name: people.get(f.attendee_id)?.name ?? "", wpm: f.best_wpm, accuracy: f.best_accuracy, flagged: false,
+        name: people.get(f.attendee_id)?.name ?? "", score: f.best_score, flagged: false,
       }))
     : top.map((r) => ({
         rank: r.rank, attendeeId: r.attendee_id, label: labels.get(r.attendee_id) ?? r.name,
-        name: r.name, wpm: r.best_wpm, accuracy: r.best_accuracy, flagged: r.flagged,
+        name: r.name, score: r.best_score, flagged: r.flagged,
       }));
 
   return (
@@ -67,7 +69,7 @@ export default async function Qualifier({ params, searchParams }: { params: Prom
         )}
       />
       <SettingsCard settings={settings} action={saveQualifierSettingsAction.bind(null, ev.id)} />
-      {showFinale && <ConfirmCard confirmedAt={settings?.confirmed_at ?? null} entries={entries} action={confirmFinalistsAction.bind(null, ev.id)} />}
+      {showFinale && <ConfirmCard confirmedAt={settings?.confirmed_at ?? null} entries={entries} liveRuns={liveRuns} action={confirmFinalistsAction.bind(null, ev.id)} />}
       <Card className="overflow-hidden py-0">
         <CardContent className="px-0">
           <BoardTable eventId={ev.id} rows={rows} labels={labels} page={page} total={total} />

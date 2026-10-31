@@ -1,4 +1,4 @@
-// The words of a typing-qualifier run (D767): common English, lowercase a–z only, no
+// The words the small slimes carry (D767, D790): common English, lowercase a–z only, no
 // proper nouns, nothing `obscenity` flags (tests/qualifier/words.test.ts checks all of it).
 // English only, like every live game.
 const LIST = `
@@ -72,22 +72,3 @@ const LIST = `
 `;
 
 export const WORDS: readonly string[] = Object.freeze(LIST.split(/\s+/).filter(Boolean));
-
-/** Rerolls allowed when a draw equals the word before it, then the draw stands. */
-const MAX_REROLLS = 8;
-
-/**
- * `n` words for a run, picked with replacement. A word is never drawn twice in a row: an
- * immediate repeat is re-rolled (a bounded number of times, so a stuck `rand` can't loop).
- * `rand` is injectable for tests and returns [0, 1).
- */
-export function drawWords(n: number, rand: () => number = Math.random): string[] {
-  const out: string[] = [];
-  const pick = () => WORDS[Math.min(WORDS.length - 1, Math.max(0, Math.floor(rand() * WORDS.length)))];
-  for (let i = 0; i < n; i++) {
-    let w = pick();
-    for (let r = 0; r < MAX_REROLLS && i > 0 && w === out[i - 1]; r++) w = pick();
-    out.push(w);
-  }
-  return out;
-}

@@ -1,9 +1,8 @@
 // What the portal shows of the board (D771): the first 20 ranks, and the player's own row with
 // the rows just above and below it when they are further down. Pure, so it is tested without a
 // database and lives in the client-safe entry (the view's types are read by the page).
-import type { SkinId } from "./progress";
 
-export type BoardEntry = { rank: number; label: string; skin: SkinId | null; wpm: number; me: boolean };
+export type BoardEntry = { rank: number; label: string; score: number; me: boolean };
 
 /** The ranks the board always shows. */
 export const BOARD_TOP = 20;
@@ -20,22 +19,22 @@ export function boardSlices(rows: BoardEntry[], myRank: number | null): { top: B
 }
 
 /** A board row as the memoised snapshot holds it. */
-export type SeenRow = { rank: number; id: string; wpm: number };
+export type SeenRow = { rank: number; id: string; score: number };
 
 /**
  * Whether the shared (memoised) board snapshot disagrees with the caller's own fresh rank, so
- * their own row would be missing, at the wrong place or at the old wpm (D771). `board` covers
+ * their own row would be missing, at the wrong place or at the old score (D771). `board` covers
  * the top 20 and the total; `around` covers the rows beside a caller past rank 20. Someone else
  * moving does not make a snapshot stale for the caller unless it moves the caller's rank.
  * Null rank (not on the board) is never stale.
  */
 export function needsFreshSlice(p: {
   top: readonly SeenRow[]; around: readonly SeenRow[];
-  myId: string; myRank: number | null; myWpm: number | null; total: number;
+  myId: string; myRank: number | null; myScore: number | null; total: number;
 }): { board: boolean; around: boolean } {
-  const { myId, myRank, myWpm } = p;
+  const { myId, myRank, myScore } = p;
   if (myRank === null) return { board: false, around: false };
-  const isMe = (r: SeenRow | undefined) => !!r && r.id === myId && (myWpm === null || r.wpm === myWpm);
+  const isMe = (r: SeenRow | undefined) => !!r && r.id === myId && (myScore === null || r.score === myScore);
   const mineInTop = p.top.filter((r) => r.id === myId);
   const board = myRank > p.total
     || mineInTop.some((r) => r.rank !== myRank)
@@ -45,7 +44,7 @@ export function needsFreshSlice(p: {
 }
 
 /** A board row before the player's own flag is set: who, at which rank, and what is shown. */
-export type RankedRow = { rank: number; id: string; label: string; skin: SkinId | null; wpm: number };
+export type RankedRow = { rank: number; id: string; label: string; score: number };
 
 /**
  * The board once the finalists are confirmed (D769, spec "When the window closes"). The finale
@@ -69,7 +68,7 @@ export function confirmedBoard(p: {
   // Everyone ahead on the live board who is not a finalist, after the whole snapshot.
   const finalRank = (liveRank: number) => liveRank + cut - finalistsLive.filter((r) => r < liveRank).length;
   const entry = (r: RankedRow, rank: number): BoardEntry =>
-    ({ rank, label: r.label, skin: r.skin, wpm: r.wpm, me: r.id === p.myId });
+    ({ rank, label: r.label, score: r.score, me: r.id === p.myId });
   const mine = p.finalists.find((f) => f.id === p.myId);
   return {
     entries: [

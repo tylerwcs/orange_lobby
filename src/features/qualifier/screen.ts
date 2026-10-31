@@ -1,13 +1,12 @@
-// What the qualifier page says (D772): the lines, the board's layout and the clock-driven phase.
-// Pure, so the copy and its edge cases are tested without rendering.
+// What the qualifier page says (D772, D795): the lines, the board's layout and the clock-driven
+// phase. Pure, so the copy and its edge cases are tested without rendering.
 import type { BoardEntry } from "./board";
 import type { Phase } from "./phase";
-import type { SkinId } from "./progress";
 import { FINALISTS } from "./scoring";
 
 /**
  * The phase the page should show now. The server's phase is read once at load; the window's
- * ends are crossed here by the clock, so "Opens in" turns into Fly without a reload. A confirm
+ * ends are crossed here by the clock, so "Opens in" turns into Play without a reload. A confirm
  * still needs the server (it is the admin's act, not the clock's).
  */
 export function livePhase(phase: Phase, opensAt: string | null, closesAt: string | null, now: number): Phase {
@@ -32,65 +31,43 @@ export function untilText(ms: number): string {
   return `${m}:${pad(s % 60)}`;
 }
 
-/** The smallest gap worth naming: wpm is kept to one decimal. */
-const gapText = (cut: number, best: number) => Math.max(0.1, cut - best).toFixed(1);
+const POINTS = new Intl.NumberFormat("en-US");
+
+/** A score as the page prints it: whole points with thousands separators, the same on the server and in the browser. */
+export const points = (n: number): string => POINTS.format(n);
 
 /**
- * The "you dropped" banner (D771's `me.dropped`). Out of the top 10: the rank and, while runs
- * can still count, the wpm back to #10. Any other fall: "down to #N". Off the board: its own line.
+ * Where the player stands, in one line, on the ready and result screens. While the qualifier
+ * is open: in the top 10, or the place and the points that beat #10 (one more than #10's best,
+ * as ties go to the earlier run). Once the window is shut there are no top-10 claims and no
+ * chase (spec, "When the window closes"): the place alone.
  */
-export function droppedText(
-  dropped: { from: number; to: number | null } | null,
-  p: { best: number | null; cutWpm: number | null; open: boolean },
-): string | null {
-  if (!dropped) return null;
-  if (dropped.to === null) return "You've dropped off the board";
-  if (dropped.from <= FINALISTS && dropped.to > FINALISTS) {
-    const knocked = `You were knocked to #${dropped.to}`;
-    return p.open && p.cutWpm !== null && p.best !== null ? `${knocked} — ${gapText(p.cutWpm, p.best)} wpm to get back in` : knocked;
-  }
-  return `You were knocked down to #${dropped.to}`;
+export function placeLine(p: { best: number | null; rank: number | null; cutScore: number | null; phase: Phase }): string {
+  const open = p.phase === "open";
+  if (p.best === null || p.rank === null) return open ? "Play to get on the board" : "You're not on the board";
+  if (!open) return `#${p.rank}`;
+  if (p.rank <= FINALISTS) return "You're in the top 10!";
+  if (p.cutScore === null) return `#${p.rank}`;
+  // The board copy may be a few seconds older than the player's own best: never ask for less than 1.
+  const gap = Math.max(1, p.cutScore - p.best + 1);
+  return `#${p.rank} · ${points(gap)} ${gap === 1 ? "point" : "points"} to the top 10`;
 }
 
-/** The ready screen's line about the top 10. Shown only while the qualifier is open. */
-export function gapLine(p: { best: number | null; rank: number | null; cutWpm: number | null }): string {
-  if (p.rank !== null && p.rank <= FINALISTS) return "You're in the top 10";
-  if (p.cutWpm === null) return "Fewer than 10 pilots so far — a finished run puts you in the top 10";
-  if (p.best === null) return `#10 is flying at ${p.cutWpm.toFixed(1)} wpm`;
-  return `${gapText(p.cutWpm, p.best)} wpm to the top 10`;
-}
+/** The last stretch before the close, when the ready screen says a run started now still counts. */
+const CLOSING_NOTE_MS = 20 * 60_000;
 
-/** Once the window is shut there are no top-10 claims (spec, "When the window closes"). */
-export function claimFree(line: string, phase: Phase): string {
-  if (phase === "open") return line;
-  return line.startsWith("New best!") ? "New best!" : line;
-}
-
-const pct = (v: number, scale: number) => Math.round((v / scale) * 1000) / 10;
-
-/** The result's bar: the best and the #10 line on one scale, with a little headroom. */
-export function cutBar(best: number | null, cut: number | null): { bestPct: number; cutPct: number | null } | null {
-  if (best === null && cut === null) return null;
-  const scale = Math.max(best ?? 0, cut ?? 0) * 1.1;
-  return { bestPct: best === null ? 0 : pct(best, scale), cutPct: cut === null ? null : pct(cut, scale) };
-}
-
-export type FailReason = "early" | "late" | "done" | "refused";
-
-/** Why a finished run did not count, in the player's words. */
-export function failMessage(reason: FailReason): string {
-  switch (reason) {
-    case "late": return "That run didn't reach us in time — it doesn't count";
-    case "done": return "You started another run elsewhere";
-    default: return "That run couldn't be counted";
-  }
+/** Within 20 minutes of the close: how long is left and that a run started now still counts. Null otherwise. */
+export function closingNote(closesAtMs: number, now: number): string | null {
+  const left = closesAtMs - now;
+  if (!(left > 0 && left <= CLOSING_NOTE_MS)) return null;
+  return `Closes in ${Math.ceil(left / 60_000)} min — a run started now still counts.`;
 }
 
 export type BoardItem = { kind: "row"; entry: BoardEntry } | { kind: "cut" } | { kind: "gap" };
 
 /**
  * The board top to bottom: the top 10, the finale cut (under the last row when fewer than 10
- * have flown), 11-20, then a gap row when the player's own rows don't follow on, and those rows.
+ * have played), 11-20, then a gap row when the player's own rows don't follow on, and those rows.
  * `cut` is the last rank inside the cut: 10, or once confirmed the snapshot's last rank
  * (confirmedBoard), so no one placed after the confirm shows above it.
  */
@@ -108,14 +85,3 @@ export function boardLayout(top: readonly BoardEntry[], around: readonly BoardEn
   }
   return items;
 }
-
-/** The ship's and the board dot's colour. No skin chosen yet flies violet. */
-const SKIN_COLOURS: Record<SkinId, string> = {
-  violet: "#8b5cf6",
-  teal: "#14b8a6",
-  coral: "#fb7185",
-  sky: "#38bdf8",
-  amber: "#f59e0b",
-  gold: "#eab308",
-};
-export const skinColour = (skin: SkinId | null): string => SKIN_COLOURS[skin ?? "violet"];

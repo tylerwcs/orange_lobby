@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { lockBodyScroll } from "@/lib/scroll-lock";
 import { backoff, clockOffset } from "@/lib/poll";
 import { qualifierFont } from "../../font";
+import type { QualifierView } from "../../view";
 import { advance, currentWord, newGame, press, type Game, type GameEvent } from "../../game/engine";
 import { perfOrigin } from "../../game/keys";
 import { SKY, SLIMES, css } from "../../game/palette";
@@ -21,8 +22,8 @@ const loadScene = () => import("./SlimeScene");
 const SlimeScene = dynamic(loadScene, { ssr: false });
 
 export type StartAnswer = { runId: string; startsAt: string; serverNow: number; seed: number } | { error: string };
-/** `view` is the refreshed qualifier view; typed `unknown` until the view's new shape lands (Task 6). */
-export type SubmitAnswer = { ok: true; score: number; prevBest: number | null; view: unknown } | { ok: false; reason: SubmitReason };
+/** `view` is the qualifier page's refreshed view, with this run on the board. */
+export type SubmitAnswer = { ok: true; score: number; prevBest: number | null; view: QualifierView } | { ok: false; reason: SubmitReason };
 
 export type SlimeGameProps = {
   /** The attendee's token: the key the unsent run is kept under on this device. */

@@ -83,6 +83,16 @@ describe("timeline (D791)", () => {
       for (let i = 0; i < 30; i++) entries[i].insert = true;
       expect(checkTimeline(entries)).toBeNull();
     });
+    it("does not count backspaces toward the ceiling (R13: a keyboard rewriting a composition)", () => {
+      // 41 backspaces in 2 s, many at the same instant, between ordinary letters.
+      const backs: Entry[] = Array.from({ length: 41 }, (_, i) => ({ key: "", t: 1000 + Math.floor(i / 10) * 500, insert: false }));
+      expect(checkTimeline([{ key: "a", t: 900, insert: false }, ...backs, { key: "b", t: 3200, insert: false }])).toBeNull();
+    });
+    it("still refuses 41 letters in 2 s with backspaces mixed in", () => {
+      const entries: Entry[] = [];
+      for (let i = 0; i < 41; i++) entries.push({ key: "a", t: i * 45, insert: false }, { key: "", t: i * 45, insert: false });
+      expect(checkTimeline(entries)).toBe("too_fast");
+    });
     it("finds a fast burst anywhere in a slow run", () => {
       const slow = evenKeys(20, 500);
       const burst = evenKeys(41, 40, 50_000);
@@ -129,6 +139,11 @@ describe("timeline (D791)", () => {
       expect(reviewOf([])).toEqual({ flagged: false, peakCps: 0, inserts: 0 });
       const r = reviewOf(evenKeys(7, 1000));
       expect(r.peakCps * 10).toBe(Math.round(r.peakCps * 10));
+    });
+    it("ignores backspaces when measuring peakCps and evenness (R13)", () => {
+      const backs: Entry[] = Array.from({ length: 200 }, (_, i) => ({ key: "", t: 1000 + i * 10, insert: false }));
+      const r = reviewOf(backs);
+      expect(r).toEqual({ flagged: false, peakCps: 0, inserts: 0 });
     });
     it("ignores insert keys when measuring peakCps", () => {
       const entries = evenKeys(200, 10, 0, true);

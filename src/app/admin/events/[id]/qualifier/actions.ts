@@ -59,7 +59,8 @@ export async function setRunDisqualifiedAction(eventId: string, attendeeId: stri
  * Locks the top 10 as the finale list (D775). `confirmed_by` is a uuid: the signed-in user's
  * auth id, which an Ecopia admin and a committee member both have (`actor.userId`).
  * `not_closed` is also the answer while a run started before the close can still be submitted
- * (up to about 36 s after it), hence the second half of the message.
+ * (up to 21 minutes after it started: the run cap plus the submit grace), hence the second half
+ * of the message.
  */
 export async function confirmFinalistsAction(eventId: string) {
   const { actor, ev } = await requireEventAccess(eventId);
@@ -67,7 +68,7 @@ export async function confirmFinalistsAction(eventId: string) {
   await requireFeature(ev.id, "typing_qualifier", back);
 
   const result = await confirmFinalists(ev.id, actor.userId);
-  if (result === "not_closed") redirect(flashPath(back, "Close the qualifier first — or wait a minute for the last runs to finish.", "error"));
+  if (result === "not_closed") redirect(flashPath(back, "Close the qualifier first — or wait for the last runs to finish (up to 21 minutes after the close).", "error"));
   if (result === "already") redirect(flashPath(back, "Already confirmed.", "error"));
   revalidatePath(back);
   redirect(flashPath(back, "Finalists confirmed."));

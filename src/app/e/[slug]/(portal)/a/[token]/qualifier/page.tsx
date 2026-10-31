@@ -11,8 +11,9 @@ const firstView = (event: Event, attendee: Attendee) => qualifierView({ event, a
 const title = <h1 className={`mb-4 text-xl font-extrabold ${TITLE_INK}`}>Typing qualifier</h1>;
 
 /**
- * The typing qualifier (D772): the ready screen, the run, the result and the board, all in
- * QualifierClient. Personal only (the tile route is, D770); the token is the identity.
+ * The typing qualifier (D772, D795): the ready screen, the slime run, the result and the board,
+ * all in QualifierClient. Personal only (the tile route is, D770); the token is the identity.
+ * The title stays: a run covers it, and everything else, with its full-screen overlay.
  */
 export default async function Qualifier({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -40,7 +41,7 @@ export default async function Qualifier({ params }: { params: Promise<{ slug: st
   return (
     <>
       {title}
-      <QualifierClient token={token} slug={slug} initial={view} />
+      <QualifierClient token={token} initial={view} />
     </>
   );
 }

@@ -2,7 +2,7 @@
 // the byte-order mark and the headers. Types only from db.ts (it is server-only).
 import type { BoardRow, Finalist } from "./db";
 
-export const CSV_HEADER = ["Rank", "Name", "Best wpm", "Accuracy", "Runs", "Device", "Flagged", "Finalist"] as const;
+export const CSV_HEADER = ["Rank", "Name", "Best score", "Runs", "Device", "Flagged", "Finalist"] as const;
 
 /**
  * One CSV field. Quoted when it holds a comma, a quote or a line break, with quotes doubled.
@@ -34,7 +34,7 @@ export function exportCsv(rows: readonly BoardRow[], finalists: readonly Finalis
   const lines = [CSV_HEADER.join(",")];
   if (finalists === null) {
     for (const r of rows) {
-      lines.push(line([r.rank, r.name, r.best_wpm, `${r.best_accuracy}%`, r.runs_played, r.device, r.flagged ? "yes" : "", ""]));
+      lines.push(line([r.rank, r.name, r.best_score, r.runs_played, r.device, r.flagged ? "yes" : "", ""]));
     }
     return lines.join("\r\n");
   }
@@ -43,7 +43,7 @@ export function exportCsv(rows: readonly BoardRow[], finalists: readonly Finalis
   for (const f of ordered) {
     const r = live.get(f.attendee_id);
     lines.push(line([
-      f.rank, f.name, f.best_wpm, `${f.best_accuracy}%`, r?.runs_played ?? "", r?.device ?? "", r?.flagged ? "yes" : "", "yes",
+      f.rank, f.name, f.best_score, r?.runs_played ?? "", r?.device ?? "", r?.flagged ? "yes" : "", "yes",
     ]));
   }
   const through = new Set(ordered.map((f) => f.attendee_id));
@@ -51,7 +51,7 @@ export function exportCsv(rows: readonly BoardRow[], finalists: readonly Finalis
   for (const r of rows) {
     if (through.has(r.attendee_id)) continue;
     rank += 1;
-    lines.push(line([rank, r.name, r.best_wpm, `${r.best_accuracy}%`, r.runs_played, r.device, r.flagged ? "yes" : "", ""]));
+    lines.push(line([rank, r.name, r.best_score, r.runs_played, r.device, r.flagged ? "yes" : "", ""]));
   }
   return lines.join("\r\n");
 }

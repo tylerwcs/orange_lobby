@@ -15,7 +15,7 @@ export function SettingsCard({ settings, action }: { settings: QualifierSettings
     <Card>
       <CardHeader>
         <CardTitle>The qualifier week</CardTitle>
-        <CardDescription>Attendees can run the 30-second sprint between these two times, Malaysia time.</CardDescription>
+        <CardDescription>Attendees can play the slime game between these two times, Malaysia time. A run started before the close still counts.</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={action} className="flex flex-col gap-4">

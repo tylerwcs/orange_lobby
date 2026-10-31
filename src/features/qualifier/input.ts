@@ -1,6 +1,6 @@
 // How the typing box's events become letters (D772). Pure, so the fallback for keyboards that
 // compose (most Android ones) is tested without a browser.
-import type { Device } from "./scoring";
+import type { Device } from "./game/timeline";
 
 /**
  * What changed between what the box held and what it holds now: letters removed from the end,

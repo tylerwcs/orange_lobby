@@ -65,7 +65,7 @@ export const FEATURES: Record<FeatureKey, Feature> = {
   lucky_draw: addon("Lucky draw", "Slot machine, wheel, mosaic and card round.", { unlocks: { gameKinds: ["draw"] } }),
   custom_domain: addon("Custom domain", "The event on its own address.", { unlocks: { settingsParts: ["address"] } }),
   slido: addon("Slido embedding", "Slido inside the portal. Until the embed is built, use a link tile."),
-  typing_qualifier: addon("Typing qualifier", "A week of 30-second typing sprints; the top 10 go to the finale.", { unlocks: { nav: ["qualifier"] }, origin: { date: "2026-10", decision: "D767" } }),
+  typing_qualifier: addon("Typing qualifier", "A week of slime-popping typing runs; the top 10 go to the finale.", { unlocks: { nav: ["qualifier"] }, origin: { date: "2026-10", decision: "D767" } }),
   language: addon("Bahasa Malaysia portal", "An EN | BM switch on the attendee portal.", { unlocks: { settingsParts: ["language"] }, origin: { event: "MYBESTME", date: "2026-10", decision: "D736" }, experimental: true }),
   popups: addon("Portal popups", "Messages that pop up over the attendee portal.", { unlocks: { nav: ["popups"] }, origin: { event: "MYBESTME", date: "2026-10", decision: "D751" }, experimental: true }),
   custom: addon("Custom module", "Bespoke work, described per event."),
