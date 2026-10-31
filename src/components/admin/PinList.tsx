@@ -15,8 +15,8 @@ import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
  * and tile lists, so the order is reachable without a pointer.
  *
  * Unpin sits in the row's ⋯ menu (RowActions), which calls the action rather than posting a
- * form: the list sits on Settings' Event details tab, inside the form that saves every tab,
- * and a form may not hold another.
+ * form of its own per row. The list sits on Settings' Portal look tab, beside that tab's form
+ * (D778), and saves as you go.
  */
 export function PinList({ pins, labels, reorder, remove }: {
   pins: PinnedField[];

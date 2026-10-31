@@ -125,44 +125,7 @@ export async function updateRegistrationAction(eventId: string, formData: FormDa
   redirect(flashPath(path, ["Registration saved.", moved].filter(Boolean).join(" ")));
 }
 
-/** D778: removed in Task 5. The one big form still posts here until each tab has its own. */
-export async function updateSettingsAction(eventId: string, formData: FormData) {
-  const { ev, actor } = await requireEventAccess(eventId);
-  const path = settingsPath(eventId);
-  const languageOn = has(await eventFeatures(eventId), "language");
-  const current = { registration_banner_url: ev.registration_banner_url ?? null, registration_footer_url: ev.registration_footer_url ?? null };
-  try {
-    registrationPatch(formData, ev, current); // validate before any upload
-  } catch (e) {
-    redirect(flashPath(path, (e as Error).message, "error"));
-  }
-  let logo: ImageChange = { url: ev.logo_url, stale: null };
-  let banner: ImageChange = { url: ev.banner_url, stale: null };
-  let regBanner: ImageChange = { url: current.registration_banner_url, stale: null };
-  let regFooter: ImageChange = { url: current.registration_footer_url, stale: null };
-  try {
-    logo = await nextImage(formData, "logo", ev.logo_url, { orgId: ev.org_id, eventId, kind: "logo" });
-    banner = await nextImage(formData, "banner", ev.banner_url, { orgId: ev.org_id, eventId, kind: "banner" });
-    regBanner = await nextImage(formData, "registration_banner", current.registration_banner_url, { orgId: ev.org_id, eventId, kind: "registration-banner" }); // D618
-    regFooter = await nextImage(formData, "registration_footer", current.registration_footer_url, { orgId: ev.org_id, eventId, kind: "registration-footer" }); // D720
-  } catch (e) {
-    redirect(flashPath(path, (e as Error).message, "error"));
-  }
-  await updateEvent(eventId, {
-    ...eventTabPatch(formData, ev),
-    ...portalLookPatch(formData, ev, { logo_url: logo.url, banner_url: banner.url }, languageOn),
-    ...registrationPatch(formData, ev, { registration_banner_url: regBanner.url, registration_footer_url: regFooter.url }),
-  });
-  await deleteEventImage(logo.stale);
-  await deleteEventImage(banner.stale);
-  await deleteEventImage(regBanner.stale);
-  await deleteEventImage(regFooter.stale);
-  const moved = await afterPlacesChange(eventId, actor, "a Settings change");
-  revalidatePath(`/admin/events/${eventId}`, "layout");
-  redirect(flashPath(path, ["Settings saved.", moved].filter(Boolean).join(" ")));
-}
-
-/** D536: what the attendee's Me page shows. Its own action: the tab sits outside the big settings form. */
+/** D536: what the attendee's Me page shows. Its own action: the card sits outside the Portal look form (D778). */
 export async function updateMePageAction(eventId: string, formData: FormData) {
   const { ev } = await requireEventAccess(eventId);
   await updateEvent(eventId, { me_hidden: meHiddenFromForm(formData.getAll("me_shown").map(String), meGroups(ev)) });
@@ -181,7 +144,7 @@ export async function updateExportFieldsAction(eventId: string, formData: FormDa
   redirect(flashPath(path, "Export columns saved."));
 }
 
-/** The numbers told when change requests wait an hour. Its own action: the tab sits outside the big settings form. D565: admin-only. */
+/** The numbers told when change requests wait an hour. Its own action, on the Committee tab (D778). D565: admin-only. */
 export async function updateCommitteeNumbersAction(eventId: string, formData: FormData) {
   await requireAdminEvent(eventId);
   const path = `/admin/events/${eventId}/settings`;
@@ -195,8 +158,8 @@ export async function updateCommitteeNumbersAction(eventId: string, formData: Fo
 }
 
 /**
- * The scan card's fields, saved from the Checkpoints tab. Its own action because that tab
- * sits outside the one big settings form — see the SaveBar comment in settings/page.tsx.
+ * The scan card's fields, saved from the Check-in tab. Its own action, like every card on that
+ * tab: none of them is part of a tab's form (D778).
  */
 export async function updateScanFieldsAction(eventId: string, formData: FormData) {
   const { ev } = await requireEventAccess(eventId);
@@ -1202,9 +1165,9 @@ export async function reorderModulesAction(eventId: string, orderedIds: string[]
 const settingsPath = (eventId: string) => `/admin/events/${eventId}/settings`;
 
 /**
- * These save on click rather than with the settings form. updateSettingsAction writes
- * every column on every save, so a picker inside that form would have to be submitted to
- * take effect — and reordering a pin is not a thing anyone expects to have to save twice.
+ * These save on click rather than with the Portal look form (D778): a picker inside that form
+ * would have to be submitted to take effect — and reordering a pin is not a thing anyone
+ * expects to have to save twice.
  */
 export async function addPinAction(eventId: string, formData: FormData) {
   const { ev } = await requireEventAccess(eventId);

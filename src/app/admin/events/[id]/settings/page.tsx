@@ -1,112 +1,49 @@
 import { requireEventAccess } from "@/lib/access";
-import { formKey } from "@/lib/form-key";
-import { deleteBlockedBecause } from "@/lib/event-delete";
-import { activeCheckpoint, checkpointsByDay } from "@/lib/checkpoints";
-import { eventDays, nowInKL } from "@/lib/time";
-import { shortDate } from "@/lib/text";
 import { loadDoors, listActivities, VerificationTab } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
-import { CommitteeTab } from "@/features/committee";
-import { EMPTY_THEME, ThemeCard } from "@/features/theme";
 import { activityKindsFor, eventFeatures, FeaturesTab, hiddenSettingsParts } from "@/features/catalogue";
-import { appBaseUrl, crewLink, shareLink, type ShareLinkKind } from "@/lib/links";
+import { appBaseUrl, shareLink, type ShareLinkKind } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
-import { crewLinkLastDay } from "@/lib/crew";
-import { Field } from "@/components/admin/Field";
-import { ImageField } from "@/components/admin/ImageField";
-import { SubmitButton } from "@/components/admin/SubmitButton";
-import { SaveBar } from "@/components/admin/SaveBar";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { ShareLink } from "@/components/admin/ShareLink";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RememberedTabs } from "@/components/admin/RememberedTabs";
+import { UnsavedGuard } from "@/components/admin/UnsavedGuard";
 import { rememberedTab } from "@/lib/remembered-tab";
 import { cookies } from "next/headers";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { deleteEventAction, updateSettingsAction, setStatusAction, setCheckInEnabledAction, setBadgeCheckinAction, purgeEventAction, addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, setCheckpointSurveyAction, addPinAction, removePinAction, reorderPinsAction, rotateCrewTokenAction, updateScanFieldsAction, updateCommitteeNumbersAction, updateMePageAction, createPreviewLinkAction, replacePreviewLinkAction, turnOffPreviewLinkAction, previewGeneralPortalAction } from "../actions";
-import { previewLanding, previewLink } from "@/lib/preview-link";
+import { previewLanding } from "@/lib/preview-link";
 import { getAttendee } from "@/lib/db/attendees";
-import { PreviewLinkButtons } from "@/components/admin/PreviewLinkButtons";
-import { meGroups } from "@/lib/me-page";
-import { DEFAULT_COMING_SOON } from "@/lib/coming-soon";
-import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
-import { CheckpointList } from "@/components/admin/CheckpointList";
-import { PinList } from "@/components/admin/PinList";
-import { StatusPicker } from "@/components/admin/StatusPicker";
-import { pinnableFields, MAX_PINS } from "@/lib/pinned-fields";
-import { Modal } from "@/components/admin/Modal";
-import { isoToLocalInput } from "@/lib/time";
-import { MAX_QUESTIONS } from "@/lib/questions-form";
-import { editorQuestions, STANDARD_COUNT, STANDARD_RULES } from "@/lib/registration-standard";
-import { QuestionCards } from "@/components/admin/QuestionCards";
-import { DEFAULT_REGISTRATION_INTRO, REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
-import type { EventStatus } from "@/lib/types";
-import { FieldPicker } from "@/components/admin/FieldPicker";
-import { eventFields } from "@/lib/attendee-fields";
-import { MAX_SCAN_FIELDS } from "@/lib/scan";
-import { RichTextEditor } from "@/components/admin/RichTextEditor";
-import { sanitizeHtml } from "@/lib/sanitize";
-import { getPlaces, placesLabel, QUEUE_COPY_DEFAULTS } from "@/features/registration-queue";
+import { pinnableFields } from "@/lib/pinned-fields";
+import { getPlaces, placesLabel } from "@/features/registration-queue";
+import { SETTINGS_TAB_LABELS, settingsTabs } from "./tabs";
+import { EventTab } from "./tabs/EventTab";
+import { PortalLookTab } from "./tabs/PortalLookTab";
+import { RegistrationTab } from "./tabs/RegistrationTab";
+import { CheckInTab } from "./tabs/CheckInTab";
+import { CommitteeTab } from "./tabs/CommitteeTab";
+import { DangerTab } from "./tabs/DangerTab";
 
 export const metadata = { title: "Settings" };
 
-const input = "w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-
 /**
- * D553/D565: Settings tabs only Ecopia admins see. Their actions refuse anyone else too, so
- * hiding them is about not showing a committee member controls that are not theirs.
+ * D778: one tab per feature. Event, Portal look and Registration are each their own form, posting
+ * to their own action, which writes only that tab's columns - so a tab that is not open, or not
+ * saved, is never re-saved by another. Each is keyed on its own saved values (formKey) and
+ * remounts only after its own save, and each is keepMounted so a tab switched away from keeps
+ * what is typed. Status, the pins, the Me page and every card on Check-in apply on their own,
+ * outside those three forms. UnsavedGuard asks before one tab's save drops another's edits.
  */
-const ADMIN_ONLY_TABS: readonly string[] = ["features", "address", "alerts", "verification", "committee", "danger"];
-
-const STATUSES: { value: EventStatus; label: string; what: string }[] = [
-  { value: "draft", label: "Draft", what: "Attendees see “Coming soon” on every link." },
-  { value: "live", label: "Live", what: "The portal is open to attendees." },
-  { value: "archived", label: "Archived", what: "Read-only, and personal data can be purged." },
-];
-
-const CHECK_IN_CHOICES: { value: boolean; label: string; what: string }[] = [
-  { value: true, label: "This event has check-in", what: "Crew scan attendees at the doors you set up below." },
-  { value: false, label: "No check-in", what: "Nothing is scanned. Anything already recorded is kept, not deleted — switch back on and it returns." },
-];
-
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <Card className="@container">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {hint && <CardDescription>{hint}</CardDescription>}
-      </CardHeader>
-      <CardContent className="grid gap-4 @xl:grid-cols-2">{children}</CardContent>
-    </Card>
-  );
-}
-
-/**
- * Every editable panel posts the SAME form. updateSettingsAction writes every column on
- * every save - a form carrying only one tab's fields would blank the other, and blanking
- * registration_questions would take the live registration form down with it. So the tabs
- * are presentation; the form spans them, and its save bar saves all of it from wherever you
- * happen to be standing.
- */
-const SAVE_NOTE = "Saves every tab, not just this one. Changes apply to the portal immediately.";
-
 export default async function Settings({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { ev, actor } = await requireEventAccess(id);
-  // D553, D563: Features, Address and the Danger zone are the Ecopia team's. A committee member
-  // never gets their tab, and their panels (AddressTab guards itself and would 404 the page)
-  // are not rendered at all.
+  // D553, D563: What's on, Committee, Verification, Address and the Danger zone are the Ecopia
+  // team's. A committee member never gets their tab, and their panels (AddressTab guards itself
+  // and would 404 the page) are not rendered at all.
   const isAdmin = actor.kind === "admin";
-  const statuses = isAdmin ? STATUSES : STATUSES.filter((s) => s.value !== "archived");
   const features = await eventFeatures(ev.id);
-  const hiddenTabs = hiddenSettingsParts(features);
+  const hidden = hiddenSettingsParts(features);
   // D502: Verification is about submissions, so it shows only when the event can run them.
   const verifying = activityKindsFor(features).includes("submission");
-  const qs = editorQuestions(ev.registration_form);
   const base = appBaseUrl();
   const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr, places, forms] = await Promise.all([
     loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id), eventAddress(ev), getPlaces(ev.id), listActivities(ev.id, "submission"),
@@ -114,26 +51,6 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   // D686: how full it is, under the limit field. The waiting/pending counts ride along when there are any.
   const taken = placesLabel(places.taken, places.limit);
   const queued = [places.waiting > 0 ? `${places.waiting} waiting` : "", places.pending > 0 ? `${places.pending} pending approval` : ""].filter(Boolean).join(", ");
-  const activityNames = Object.fromEntries(bookingActivities.map((a) => [a.id, a.name]));
-  // D761: the forms a door can offer crew after each check-in, and each door's own picker.
-  const surveyNames = Object.fromEntries(forms.map((a) => [a.id, a.name]));
-  const surveySelect = (current: string | null, id: string) => (
-    <select id={id} name="survey_activity_id" className={input} defaultValue={current ?? ""}>
-      <option value="">None</option>
-      {forms.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-    </select>
-  );
-  const surveyHint = "Crew are offered this form on their device right after they scan someone in.";
-  const surveyForms = forms.length === 0 ? null : Object.fromEntries(cps.map((c) => [c.id, (
-    <form key={c.id} action={setCheckpointSurveyAction.bind(null, ev.id, c.id)} className="grid gap-4">
-      <div className="grid gap-2">
-        <label className="text-sm font-medium" htmlFor={`cp_survey_${c.id}`}>Form</label>
-        {surveySelect(c.survey_activity_id, `cp_survey_${c.id}`)}
-        <p className="text-xs text-muted-foreground">{surveyHint}</p>
-      </div>
-      <div><SubmitButton>Save</SubmitButton></div>
-    </form>
-  )]));
   // The handed-out links with their QR beside them (D491): a preview to scan off the screen,
   // and the print-size PNG from the export route.
   const share = async (kind: ShareLinkKind) => {
@@ -146,556 +63,66 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   const previewAs = previewPick && previewLanding(ev, previewPick) !== `/e/${ev.slug}` ? previewPick : null;
   // Reopen on the tab that was open: every action on this page redirects back to it.
   const tabScope = `settings:${ev.id}`;
-  const tabs = (["features", "details", "registration", "me", "checkpoints", "address", "alerts", "verification", "committee", "danger"] as const)
-    .filter((t) => !(hiddenTabs as readonly string[]).includes(t) && (t !== "verification" || verifying)
-      && (isAdmin || !ADMIN_ONLY_TABS.includes(t)));
-  const openTab = rememberedTab(jar, tabScope, tabs) ?? "details";
-  const deleteBlocked = deleteBlockedBecause(ev.status);
-  const grouped = checkpointsByDay(cps);
-  const running = activeCheckpoint(ev.active_checkpoint_id, cps, nowInKL().date);
-  const days = eventDays(ev.starts_on, ev.ends_on);
-  const crewExpiry = crewLinkLastDay(ev);
-
+  const tabs = settingsTabs({ admin: isAdmin, hidden, verifying });
+  const openTab = rememberedTab(jar, tabScope, tabs) ?? "event";
   const pinnable = pinnableFields(ev.registration_questions, ev.attendee_fields, groups.length > 0);
-  const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
-  const scanFields = eventFields(ev.registration_questions, ev.attendee_fields);
 
   return (
     <div className="flex flex-col gap-4">
       <AdminHeader title="Settings" subtitle={ev.name} />
 
       <RememberedTabs scope={tabScope} defaultValue={openTab} className="gap-4">
+        <UnsavedGuard />
         <TabsList>
-          {isAdmin && <TabsTrigger value="features">Features</TabsTrigger>}
-          <TabsTrigger value="details">Event details</TabsTrigger>
-          <TabsTrigger value="registration">Registration form</TabsTrigger>
-          <TabsTrigger value="me">Me page</TabsTrigger>
-          <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
-          {isAdmin && !hiddenTabs.includes("address") && <TabsTrigger value="address">Address</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="alerts">Committee alerts</TabsTrigger>}
-          {isAdmin && verifying && <TabsTrigger value="verification">Verification</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="committee">Committee</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="danger">Danger zone</TabsTrigger>}
+          {tabs.map((t) => <TabsTrigger key={t} value={t}>{SETTINGS_TAB_LABELS[t]}</TabsTrigger>)}
         </TabsList>
 
-      <TabsContent value="checkpoints" className="flex flex-col gap-4 @container">
-      {/* Above the checkpoint list because it governs it: an organiser who has just read
-          "this event has no door" should not then be invited to add one. */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Check-in</CardTitle>
-          <CardDescription>
-            Some events have no door — a wellness fair people wander into, a programme that runs for weeks.
-            Switching this off hides the Scanner, the arrival counts and the attendance export. Applies the
-            moment you choose it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            {CHECK_IN_CHOICES.map((c) => (
-              <form key={String(c.value)} action={setCheckInEnabledAction.bind(null, ev.id, c.value)}>
-                {/* SubmitButton for the same reason the status buttons use it. */}
-                <SubmitButton
-                  variant={ev.check_in_enabled === c.value ? "default" : "outline"}
-                  aria-current={ev.check_in_enabled === c.value ? "true" : undefined}
-                >
-                  {c.label}
-                </SubmitButton>
-              </form>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {CHECK_IN_CHOICES.find((c) => c.value === ev.check_in_enabled)?.what}
-          </p>
-          {ev.check_in_enabled && (
-            /* D388: its own form, like the door switch above, so it never re-saves anything else. */
-            <form action={setBadgeCheckinAction.bind(null, ev.id)} className="flex flex-col gap-2 border-t pt-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <label className="flex min-h-11 items-center gap-2 text-sm font-bold">
-                  <input type="checkbox" name="badge_checkin" defaultChecked={ev.badge_checkin} className="size-4 accent-primary" /> Show check-in on the attendee&apos;s badge
-                </label>
-                <SubmitButton variant="outline">Save</SubmitButton>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                The badge on the portal home follows the checkpoint running now: &ldquo;Lunch · 12:05&rdquo; once they are scanned there, &ldquo;Not checked in to Lunch yet&rdquo; before.
-              </p>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Checkpoints, the crew link and the scan card are all doors. With check-in off they
-          are three cards configuring something that does not happen. */}
-      {ev.check_in_enabled && (
-      <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Checkpoints</CardTitle>
-          <CardDescription>The doors this event runs. Which one is live is chosen on the Overview. A day can hold several — registration, lunch, a dinner door.</CardDescription>
-          <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
-          <Modal title="New checkpoint" hint="A checkpoint is a moment on a date, so several can share one day." trigger="New checkpoint" icon="plus" iconOnly>
-            <form action={addCheckpointAction.bind(null, ev.id)} className="grid gap-4 sm:grid-cols-2">
-              {bookingActivities.length > 0 && (
-                <div className="grid gap-2 sm:col-span-2">
-                  <label className="text-sm font-medium" htmlFor="cp_activity">Who&apos;s expected</label>
-                  <select id="cp_activity" name="activity_id" className={input} defaultValue="">
-                    <option value="">Everyone registered</option>
-                    {bookingActivities.map((a) => <option key={a.id} value={a.id}>Booked for {a.name}</option>)}
-                  </select>
-                  <p className="text-xs text-muted-foreground">A booking door lists who booked that day&apos;s sessions, and shows who didn&apos;t come.</p>
-                </div>
-              )}
-              {forms.length > 0 && (
-                <div className="grid gap-2 sm:col-span-2">
-                  <label className="text-sm font-medium" htmlFor="cp_survey">Survey after check-in</label>
-                  {surveySelect(null, "cp_survey")}
-                  <p className="text-xs text-muted-foreground">{surveyHint}</p>
-                </div>
-              )}
-              <Field label="Name" name="name" placeholder="Registration"
-                description={bookingActivities.length > 0 ? "For a booking door, leave blank to use the activity's name." : undefined} />
-              <Field label="Date" name="day" type="date" defaultValue={days[0] ?? ev.starts_on} />
-              <div className="sm:col-span-2"><SubmitButton>Add checkpoint</SubmitButton></div>
-            </form>
-          </Modal>
-          </div>
-        </CardHeader>
-        <CardContent>
-        {grouped.length === 0 ? (
-          <Empty className="border-0 bg-transparent">
-            <EmptyHeader>
-              <EmptyTitle>No checkpoints yet</EmptyTitle>
-              <EmptyDescription>Add &ldquo;Registration&rdquo; on the first morning to get started.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {grouped.map((g) => (
-              <div key={g.day} className="flex flex-col gap-1.5">
-                <h3 className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{shortDate(g.day)}</h3>
-                <CheckpointList
-                  day={shortDate(g.day)}
-                  items={g.items}
-                  tallies={tallies}
-                  activityNames={activityNames}
-                  surveyNames={surveyNames}
-                  surveyForms={surveyForms}
-                  activeId={running?.id ?? null}
-                  reorder={reorderCheckpointsAction.bind(null, ev.id, g.day)}
-                  deleteCheckpoint={deleteCheckpointAction.bind(null, ev.id)}
-                />
-              </div>
-            ))}
-          </div>
+        {/* Task 6 (D779) replaces this with What's on proper. */}
+        {tabs.includes("whats-on") && (
+          <TabsContent value="whats-on" className="flex flex-col gap-4 @container">
+            <FeaturesTab eventId={ev.id} />
+          </TabsContent>
         )}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Crew link</CardTitle>
-          <CardDescription>
-            One shared link for everyone scanning at this event&apos;s doors. Anyone holding it can scan attendees in — and can see the full attendee list. Hand it out like a shared password, not a personal invite.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {ev.crew_token ? (
-            <>
-              <ShareLink label="Crew" url={crewLink(base, ev.crew_token)} />
-              <p className="text-xs tabular-nums text-muted-foreground">
-                {crewExpiry ? `Stops working after ${shortDate(crewExpiry)}.` : "This link does not expire, because the event has no dates."}
-              </p>
-              <form action={rotateCrewTokenAction.bind(null, ev.id)}>
-                <ConfirmButton message="Replace the crew link? The old one stops working immediately, and every copy already handed out will be turned away.">
-                  Replace link
-                </ConfirmButton>
-              </form>
-            </>
-          ) : (
-            <form action={rotateCrewTokenAction.bind(null, ev.id)}>
-              <SubmitButton>Create crew link</SubmitButton>
-            </form>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="event" keepMounted className="flex flex-col gap-4 @container">
+          <EventTab ev={ev} admin={isAdmin} base={base} previewAs={previewAs} portalShare={portalShare} registrationShare={registrationShare} />
+        </TabsContent>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Scan card fields</CardTitle>
-          <CardDescription>After a scan, crew see the attendee&apos;s name and category, plus the fields chosen here — up to {MAX_SCAN_FIELDS}.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={updateScanFieldsAction.bind(null, ev.id)} className="flex flex-col items-start gap-3">
-            <FieldPicker
-              key={ev.scan_extra_fields.join("␟")}
-              name="scan_extra_fields"
-              fields={scanFields}
-              selected={ev.scan_extra_fields}
-              max={MAX_SCAN_FIELDS}
-            />
-            <SubmitButton>Save scan card</SubmitButton>
-          </form>
-        </CardContent>
-      </Card>
-      </>
-      )}
-      </TabsContent>
-
-      {/* ONE form across both editable panels - see SaveBar. keepMounted is what makes it
-          safe: an unmounted panel posts no fields, and this action writes every column. */}
-      {/* Keyed on what it saves (formKey): remounts after its own save, never after a status
-          click or a pin reorder, which would drop what is typed but not yet saved. */}
-      <form key={formKey([ev.name, ev.venue_name, ev.starts_on, ev.ends_on, ev.primary_color, ev.logo_url, ev.banner_url, ev.registration_open, ev.registration_closes_at, ev.registration_limit, ev.registration_needs_approval, ev.self_cancel, ev.self_cancel_closes_at, ev.registration_intro, ev.registration_terms, ev.registration_done_title, ev.registration_done_message, ev.registration_done_page, ev.display_name, ev.display_name_in_bar, ev.language_switch, ev.coming_soon_message, ev.registration_full_title, ev.registration_full_message, ev.registration_waiting_title, ev.registration_waiting_message, ev.registration_pending_title, ev.registration_pending_message, ev.registration_banner_url, ev.registration_form, ev.theme])} action={updateSettingsAction.bind(null, ev.id)}>
-        <TabsContent value="details" keepMounted className="flex flex-col gap-4 @container">
-        <div className="grid gap-4 @4xl:grid-cols-2">
-          <Section title="Event">
-            <Field label="Name" name="name" defaultValue={ev.name} />
-            {/* D633: where the big name breaks onto lines. Sentences, tab titles and WhatsApp keep the plain name. */}
-            <Field label="Name as shown on the portal" name="display_name" textarea defaultValue={ev.display_name ?? ""} placeholder={ev.name}
-              description="Press Enter where you want a new line, e.g. after Hub 2. Used for the big event name on the Coming soon page. Leave blank to use the name as it is." />
-            {/* D635: the bar is narrow and on every page, so the breaks stay out of it unless asked. */}
-            <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
-              <input type="checkbox" name="display_name_in_bar" defaultChecked={ev.display_name_in_bar ?? false} className="size-4 accent-primary" />
-              Also use these line breaks in the top bar
-            </label>
-            <Field label="Venue" name="venue_name" defaultValue={ev.venue_name} description="Shown beside the dates at the top of the portal." />
-            {/* One row: at their own width the two dates sit side by side even in a half card. */}
-            <div className="flex flex-wrap gap-4 @xl:col-span-2">
-              <div><Field label="Starts on" name="starts_on" type="date" defaultValue={ev.starts_on} /></div>
-              <div><Field label="Ends on" name="ends_on" type="date" defaultValue={ev.ends_on} /></div>
-            </div>
-            {/* D617: saved with Save settings, unlike the Status card it describes. */}
-            <div className="@xl:col-span-2">
-              <Field label="Coming soon message" name="coming_soon_message" textarea defaultValue={ev.coming_soon_message ?? ""} placeholder={DEFAULT_COMING_SOON}
-                description="What every link shows while the event is a draft. Line breaks are kept. Leave blank to use the placeholder text." />
-            </div>
-          </Section>
-
-          {/* D738: an EN | BM switch on the attendee portal. Saved with Save settings like every other field here. */}
-          <Section title="Portal language" hint="Only the app's own wording changes. Anything you type for the event shows as you typed it.">
-            <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
-              <input type="checkbox" name="language_switch" defaultChecked={ev.language_switch ?? false} className="size-4 accent-primary" />
-              Let attendees switch the portal to Bahasa Malaysia
-            </label>
-          </Section>
-
-          <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
-            <ImageField label="Logo" name="logo" url={ev.logo_url} />
-            <ImageField label="Banner" name="banner" url={ev.banner_url} />
-          </Section>
-
-          {/* D631: the event's colours, Primary among them; posts all seven theme fields on every save. */}
-          <ThemeCard className="@4xl:col-span-2" theme={ev.theme ?? EMPTY_THEME} primaryColor={ev.primary_color}
-            event={{ name: ev.name, logo_url: ev.logo_url, banner_url: ev.banner_url, starts_on: ev.starts_on, ends_on: ev.ends_on, venue_name: ev.venue_name }} />
-
-          {/* Status, the share links and the badge pins used to be tabs of their own. They
-              live inside the settings form now, so none of them may be a form: status and
-              unpin are plain buttons calling their actions, and the pin dialog renders in a
-              portal, outside this form in the DOM. None of them waits for Save settings. */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Status</CardTitle>
-              <CardDescription>Applies the moment you choose it — there is no separate save.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StatusPicker current={ev.status} statuses={statuses} setStatus={setStatusAction.bind(null, ev.id)} />
-              {/* D715: the client's way to see the draft as live, no login. On this host, not the
-                  event's own address: the link's cookie belongs to the host that set it. */}
-              {ev.status === "draft" && (
-                <div className="mt-4 flex flex-col gap-3 border-t pt-4">
-                  <div>
-                    <p className="text-sm font-semibold">Preview link</p>
-                    <p className="text-xs text-muted-foreground">
-                      Send this to the client to see the portal as it will look live, without logging in. Attendees still see “Coming soon”. Anyone with the link can open it, so replace it if it goes further than it should.
-                    </p>
-                  </div>
-                  {ev.preview_token && <ShareLink label="Preview" url={previewLink(base, ev.slug, ev.preview_token)} />}
-                  {/* D716: who it opens as. Chosen on the attendee's panel, where you already pick a person. */}
-                  {ev.preview_token && (
-                    <p className="text-xs text-muted-foreground">
-                      {previewAs
-                        ? <>Opens as <span className="font-semibold text-foreground">{previewAs.name}</span>, with their badge and details. To change who, choose Use for preview link on someone else in Attendees.</>
-                        : "Opens the general portal, with no one's badge. To open as one person, choose Use for preview link on them in Attendees: a test attendee you add, or someone on the committee."}
-                    </p>
-                  )}
-                  <PreviewLinkButtons exists={!!ev.preview_token} create={createPreviewLinkAction.bind(null, ev.id)}
-                    replace={replacePreviewLinkAction.bind(null, ev.id)} turnOff={turnOffPreviewLinkAction.bind(null, ev.id)}
-                    general={previewAs ? previewGeneralPortalAction.bind(null, ev.id) : undefined} />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Share links</CardTitle>
-              <CardDescription>The two addresses you hand out. Personal per-attendee links are in Exports.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <ShareLink label="Portal" {...portalShare} />
-              <ShareLink label="Registration" {...registrationShare} />
-            </CardContent>
-          </Card>
-
-          <Card className="@4xl:col-span-2">
-            <CardHeader>
-              <CardTitle>Pinned on the badge</CardTitle>
-              <CardDescription>
-                Up to {MAX_PINS} facts shown under an attendee&apos;s name on the portal home. The first gets the
-                large treatment. Someone with no value for a pinned field simply does not see it. Saved as you go.
-              </CardDescription>
-              <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
-              <Modal title="Pin a field" hint="Anything the event knows about an attendee: a column you added, an answer they gave, or a built-in like the table number." trigger="Pin a field" icon="plus" iconOnly>
-                <form action={addPinAction.bind(null, ev.id)} className="grid gap-4">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="pin_key">Field</label>
-                    <select id="pin_key" name="key" className={input} defaultValue="">
-                      <option value="" disabled>Choose a field</option>
-                      {pinnable.filter((f) => !pinnedKeys.has(f.key)).map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-                    </select>
-                  </div>
-                  <Field label="Shown as (optional)" name="label" placeholder="Partner" description="A short caption for the badge. Leave blank to use the field&apos;s own name." />
-                  <SubmitButton>Pin to the badge</SubmitButton>
-                </form>
-              </Modal>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <PinList
-                pins={ev.pinned_fields}
-                labels={Object.fromEntries(pinnable.map((f) => [f.key, f.label]))}
-                reorder={reorderPinsAction.bind(null, ev.id)}
-                remove={removePinAction.bind(null, ev.id)}
-              />
-            </CardContent>
-          </Card>
-        </div>
-        <SaveBar label="Save settings" note={SAVE_NOTE} />
+        <TabsContent value="look" keepMounted className="flex flex-col gap-4 @container">
+          <PortalLookTab ev={ev} showLanguage={!hidden.includes("language")} pinnable={pinnable} />
         </TabsContent>
 
         <TabsContent value="registration" keepMounted className="flex flex-col gap-4 @container">
-        <Card>
-          <CardHeader>
-            <CardTitle>Registration</CardTitle>
-            <CardDescription>When the form is open, and what it asks.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-          <div className="grid gap-4 @xl:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input type="checkbox" name="registration_open" defaultChecked={ev.registration_open} className="size-4 accent-primary" /> Registration is open</label>
-            <Field label="Closes automatically at" name="registration_closes_at" type="datetime-local" defaultValue={isoToLocalInput(ev.registration_closes_at)} />
-            {/* D677, D686: only people who register through the form count; imported and added people never do. */}
-            <Field label="Limit registrations to" name="registration_limit" type="number" defaultValue={ev.registration_limit ? String(ev.registration_limit) : ""}
-              description={[taken ? `${taken}.` : "Leave blank for no limit.", queued ? `${queued}.` : "", "When it is full, people can join a waiting list and move in as places free up."].filter(Boolean).join(" ")} />
-            {/* D696 */}
-            <div className="flex flex-col gap-1">
-              <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input type="checkbox" name="registration_needs_approval" defaultChecked={ev.registration_needs_approval ?? false} className="size-4 accent-primary" /> Registrations need approval</label>
-              <p className="text-sm text-muted-foreground">Each new registration waits under Attendees → Pending approval, holding a place, until you approve or decline it.</p>
-            </div>
-            <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input type="checkbox" name="self_cancel" defaultChecked={ev.self_cancel} className="size-4 accent-primary" /> Attendees can cancel their own registration</label>
-            <Field label="Cancelling closes at" name="self_cancel_closes_at" type="datetime-local" defaultValue={isoToLocalInput(ev.self_cancel_closes_at)} description="Leave blank to allow it until the event is archived." />
-            <div className="@xl:col-span-2">
-              <Field label="Line above the form" name="registration_intro" defaultValue={ev.registration_intro ?? ""} placeholder={DEFAULT_REGISTRATION_INTRO} description="Leave blank to use the placeholder text." />
-            </div>
-            {/* D618: the registration page's own banner. The colours live in the event theme (D625). */}
-            <ImageField label="Banner above the form" name="registration_banner" url={ev.registration_banner_url}
-              description="Shown on the registration page just under the event name bar, as wide as the page and at the image's own height - nothing is cropped." />
-            {/* D720: a client's disclaimer or sponsor strip, at the foot of the same page. */}
-            <ImageField label="Image under the form" name="registration_footer" url={ev.registration_footer_url}
-              description="Shown at the bottom of the registration page, such as a client's disclaimer - as wide as the page and at the image's own height." />
-          </div>
-          <div className="flex flex-col gap-1.5">
-          <h3 className="text-sm font-extrabold">Questions</h3>
-          <p className="text-xs text-muted-foreground">Name, email, mobile and department are always asked: move them or change their wording and help text, but they can&rsquo;t be removed. Add up to {MAX_QUESTIONS} more. &ldquo;Show only when&rdquo; hides a question until another answer contains the phrase, for example show &ldquo;Room partner&rdquo; only when &ldquo;stay_overnight&rdquo; contains &ldquo;Twin&rdquo;.</p>
-          </div>
-          <QuestionCards questions={qs} types={REGISTRATION_QUESTION_TYPES} max={MAX_QUESTIONS + STANDARD_COUNT} standard={STANDARD_RULES} />
-          {/* D540: a client's own clauses, shown under the questions with a tick of their own (D541). */}
-          <RichTextEditor
-            name="registration_terms"
-            label="Event terms (optional)"
-            defaultValue={sanitizeHtml(ev.registration_terms ?? "")}
-            description="Your client's own clauses, such as photo consent or no-show charges. Shown under the questions with a tick invitees must agree to, next to the Privacy Notice tick. Leave empty for no terms."
-            minHeight={140}
-          />
-          </CardContent>
-        </Card>
-        {/* D537: the page an invitee lands on after Register. The QR, the button and the link
-            box stay fixed - they are how the attendee gets back in - so only the words move. */}
-        <Card>
-          <CardHeader>
-            <CardTitle>After they register</CardTitle>
-            <CardDescription>
-              The heading and message on the page shown once someone registers. Write {"{name}"} for their first name. Leave either blank to use the placeholder text.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {/* D634: off by default - registering lands straight on their event page. */}
-            <label className="flex min-h-11 items-start gap-2 text-sm">
-              <input type="checkbox" name="registration_done_page" defaultChecked={ev.registration_done_page ?? false} className="mt-0.5 size-4 accent-primary" />
-              <span>
-                <span className="font-bold">Show a &ldquo;You&rsquo;re in&rdquo; page after they register</span>
-                <span className="block text-muted-foreground">Off: they go straight to their own event page. On: they see this page first, with the heading and message below{ev.check_in_enabled ? " and their QR code" : ""}.</span>
-              </span>
-            </label>
-            <Field label="Heading" name="registration_done_title" defaultValue={ev.registration_done_title ?? ""} placeholder={DEFAULT_DONE_TITLE} />
-            <Field
-              label="Message"
-              name="registration_done_message"
-              textarea
-              defaultValue={ev.registration_done_message ?? ""}
-              placeholder={ev.check_in_enabled ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR}
-              description={ev.check_in_enabled
-                ? "Shown under their QR code. Line breaks are kept."
-                : "Check-in is off, so there is no QR code on this page. Line breaks are kept."}
-            />
-          </CardContent>
-        </Card>
-        {/* D708: shown always, so the wording can be ready before a limit or approval is switched on. */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Waiting list</CardTitle>
-            <CardDescription>
-              What people see when registration is full, while they wait, and while their registration waits for your approval. Leave any field blank to use the placeholder text.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            <div className="flex flex-col gap-4">
-              <h3 className="text-sm font-extrabold">Registration is full</h3>
-              <Field label="Heading" name="registration_full_title" defaultValue={ev.registration_full_title ?? ""} placeholder={QUEUE_COPY_DEFAULTS.fullTitle} />
-              <Field label="Message" name="registration_full_message" textarea defaultValue={ev.registration_full_message ?? ""} placeholder={QUEUE_COPY_DEFAULTS.fullMessage}
-                description="On the registration link once it is full, above the Join the waiting list button. Line breaks are kept." />
-            </div>
-            <div className="flex flex-col gap-4">
-              <h3 className="text-sm font-extrabold">On the waiting list</h3>
-              <Field label="Heading" name="registration_waiting_title" defaultValue={ev.registration_waiting_title ?? ""} placeholder={QUEUE_COPY_DEFAULTS.waitingTitle} />
-              <Field label="Message" name="registration_waiting_message" textarea defaultValue={ev.registration_waiting_message ?? ""} placeholder={QUEUE_COPY_DEFAULTS.waitingMessage}
-                description="On their own link while they wait, under the event name. Line breaks are kept." />
-            </div>
-            <div className="flex flex-col gap-4">
-              <h3 className="text-sm font-extrabold">Waiting for approval</h3>
-              <Field label="Heading" name="registration_pending_title" defaultValue={ev.registration_pending_title ?? ""} placeholder={QUEUE_COPY_DEFAULTS.pendingTitle} />
-              <Field label="Message" name="registration_pending_message" textarea defaultValue={ev.registration_pending_message ?? ""} placeholder={QUEUE_COPY_DEFAULTS.pendingMessage}
-                description="On their own link while you decide, when Registrations need approval is on. Line breaks are kept." />
-            </div>
-          </CardContent>
-        </Card>
-        <SaveBar label="Save settings" note={SAVE_NOTE} />
+          <RegistrationTab ev={ev} taken={taken} queued={queued} />
         </TabsContent>
-      </form>
 
-      {/* D536: its own form, like the scan card, so it never re-saves the big one above. */}
-      <TabsContent value="me" className="flex flex-col gap-4 @container">
-        <Card>
-          <CardHeader>
-            <CardTitle>What attendees see on their Me page</CardTitle>
-            <CardDescription>
-              Their name is always shown. Untick anything you would rather they did not see. A question you add later shows until you untick it here, and a card with nothing left to show disappears.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form key={(ev.me_hidden ?? []).join("␟")} action={updateMePageAction.bind(null, ev.id)} className="flex flex-col gap-5">
-              {meGroups(ev).map((g) => (
-                <fieldset key={g.title} className="flex flex-col gap-1">
-                  <legend className="mb-1 text-sm font-extrabold">{g.title}</legend>
-                  {g.items.map((i) => (
-                    <label key={i.key} className="flex min-h-11 items-center gap-2 text-sm">
-                      <input type="checkbox" name="me_shown" value={i.key} defaultChecked={!(ev.me_hidden ?? []).includes(i.key)} className="size-4 accent-primary" /> {i.label}
-                    </label>
-                  ))}
-                </fieldset>
-              ))}
-              <div><SubmitButton>Save Me page</SubmitButton></div>
-            </form>
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      {/* Always there now, since Delete is for any event that is not live; Purge still needs
-          the event archived first. */}
-      {isAdmin && (
-        <TabsContent value="features" className="flex flex-col gap-4 @container">
-          <FeaturesTab eventId={ev.id} />
+        <TabsContent value="checkin" className="flex flex-col gap-4 @container">
+          <CheckInTab ev={ev} cps={cps} tallies={tallies} bookingActivities={bookingActivities} forms={forms} base={base} />
         </TabsContent>
-      )}
 
-      {isAdmin && !hiddenTabs.includes("address") && (
-        <TabsContent value="address" className="flex flex-col gap-4">
-          <AddressTab eventId={ev.id} />
-        </TabsContent>
-      )}
-
-      {isAdmin && (
-      <TabsContent value="alerts" className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Committee alerts</CardTitle>
-            <CardDescription>
-              When an attendee&apos;s request to change or cancel a booking has waited an hour without a decision, these numbers get one WhatsApp saying how many are waiting. One number per line. Leave empty to switch alerts off.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form key={ev.committee_alert_numbers.join(",")} action={updateCommitteeNumbersAction.bind(null, ev.id)} className="flex max-w-sm flex-col items-start gap-3">
-              <label htmlFor="committee_alert_numbers" className="sr-only">Committee alert numbers</label>
-              <Textarea id="committee_alert_numbers" name="committee_alert_numbers" rows={4} placeholder={"012-345 6789\n019-876 5432"}
-                defaultValue={ev.committee_alert_numbers.map((n) => `+${n}`).join("\n")} />
-              <SubmitButton>Save numbers</SubmitButton>
-            </form>
-          </CardContent>
-        </Card>
-      </TabsContent>
-      )}
-
-      {isAdmin && verifying && (
-        <TabsContent value="verification" className="flex flex-col gap-4">
-          <VerificationTab ev={ev} />
-        </TabsContent>
-      )}
-
-      {isAdmin && (
-        <TabsContent value="committee" className="flex flex-col gap-4">
-          <CommitteeTab ev={ev} />
-        </TabsContent>
-      )}
-
-      {isAdmin && (
-      <TabsContent value="danger" className="flex flex-col gap-4">
-        {ev.status === "archived" && (
-          <Card className="border-destructive/30">
-            <CardHeader>
-              <CardTitle className="text-destructive">Purge personal data</CardTitle>
-              <CardDescription>
-                Replaces names, emails, seats, phones, companies and every registration answer across this event, and reissues every personal link so the old ones stop working. Every form submission goes too, including any files attendees uploaded. Polaroid wall photos go too, with their messages. Attendance counts and categories are kept. This cannot be undone.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form action={purgeEventAction.bind(null, ev.id)}>
-                <ConfirmButton message="Purge all attendee personal data for this event? This cannot be undone." className="text-destructive">Purge</ConfirmButton>
-              </form>
-            </CardContent>
-          </Card>
+        {tabs.includes("committee") && (
+          <TabsContent value="committee" className="flex flex-col gap-4">
+            <CommitteeTab ev={ev} showAlerts={!hidden.includes("committee_alerts")} />
+          </TabsContent>
         )}
 
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="text-destructive">Delete this event</CardTitle>
-            <CardDescription>
-              Removes the event and everything in it: {total} attendee{total === 1 ? "" : "s"}, their check-ins, bookings and submissions, the agenda, activities, announcements, messages sent and every uploaded file. Every link to it stops working. This cannot be undone.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {deleteBlocked ? (
-              <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{ev.name} cannot be deleted. {deleteBlocked}</p>
-            ) : (
-              <form action={deleteEventAction.bind(null, ev.id)} className="grid max-w-md gap-3">
-                <Field label={`Type “${ev.name}” to confirm`} name="confirm_name" placeholder={ev.name} />
-                <ConfirmButton message={`Delete ${ev.name} and everything in it? This cannot be undone.`} confirmLabel="Yes, delete the event" className="w-fit text-destructive">
-                  Delete event
-                </ConfirmButton>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-      </TabsContent>
-      )}
+        {tabs.includes("verification") && (
+          <TabsContent value="verification" className="flex flex-col gap-4">
+            <VerificationTab ev={ev} />
+          </TabsContent>
+        )}
+
+        {tabs.includes("address") && (
+          <TabsContent value="address" className="flex flex-col gap-4">
+            <AddressTab eventId={ev.id} />
+          </TabsContent>
+        )}
+
+        {tabs.includes("danger") && (
+          <TabsContent value="danger" className="flex flex-col gap-4">
+            <DangerTab ev={ev} total={total} />
+          </TabsContent>
+        )}
       </RememberedTabs>
     </div>
   );

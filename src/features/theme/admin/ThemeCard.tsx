@@ -54,10 +54,11 @@ function ColourRow({ label, name, value, onPick, reset, resetLabel = "Reset", no
 }
 
 /**
- * D626, D631: the event's colours in Settings → Details, saved with Save settings. The theme is
- * held here and drawn only through card-state's helpers (the tested logic is the logic that runs);
- * the preview follows every pick before anything is saved. Every save posts all seven theme
- * fields (and the style) - the ones not set post "" - so saving another tab never wipes the stored theme.
+ * D626, D631: the event's colours in Settings → Portal look, saved with that tab's Save (D778).
+ * The theme is held here and drawn only through card-state's helpers (the tested logic is the
+ * logic that runs); the preview follows every pick before anything is saved. Every save posts
+ * all seven theme fields (and the style) - the ones not set post "" - so a save writes the
+ * whole theme, never half of it.
  */
 export function ThemeCard({ theme: saved, primaryColor, event, className = "" }: {
   theme: EventTheme;

@@ -7,10 +7,9 @@ import { Spinner } from "@/components/ui/spinner";
 /**
  * Draft / Live / Archived, applied the moment one is chosen.
  *
- * Plain buttons calling the action, not a form per status: this sits on Settings' Event
- * details tab, inside the one form that saves every tab (see SaveBar there), and a form may
- * not hold another. `type="button"` also keeps Enter in the Name field from landing here —
- * the first submit button in a form is the one Enter presses.
+ * Plain buttons calling the action, not a form per status. It sits on Settings' Event tab,
+ * beside that tab's form (D778); `type="button"` keeps it from ever submitting a form it is
+ * placed in, and keeps Enter in a field from landing here.
  */
 export function StatusPicker({ current, statuses, setStatus }: {
   current: EventStatus;
