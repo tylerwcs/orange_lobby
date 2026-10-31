@@ -1,6 +1,6 @@
 /** The catalogue's server entry (D402): everything in `client.ts`, plus its reads and writes. */
 export * from "./client";
 export * from "./db";
-export { FeaturesTab } from "./admin/FeaturesTab";
+export { WhatsOnTab } from "./admin/WhatsOnTab";
 export { setAddonAction } from "./admin/actions";
 export { NotInEvent } from "./admin/NotInEvent";

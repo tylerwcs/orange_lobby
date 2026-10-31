@@ -2,7 +2,7 @@ import { requireEventAccess } from "@/lib/access";
 import { loadDoors, listActivities, VerificationTab } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
-import { activityKindsFor, eventFeatures, FeaturesTab, hiddenSettingsParts } from "@/features/catalogue";
+import { activityKindsFor, eventFeatures, WhatsOnTab, hiddenSettingsParts } from "@/features/catalogue";
 import { appBaseUrl, shareLink, type ShareLinkKind } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -81,7 +81,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         {/* Task 6 (D779) replaces this with What's on proper. */}
         {tabs.includes("whats-on") && (
           <TabsContent value="whats-on" className="flex flex-col gap-4 @container">
-            <FeaturesTab eventId={ev.id} />
+            <WhatsOnTab eventId={ev.id} />
           </TabsContent>
         )}
 

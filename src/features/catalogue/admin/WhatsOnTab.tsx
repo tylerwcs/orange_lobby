@@ -7,9 +7,10 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { RowActions } from "@/components/admin/RowActions";
 import { Modal } from "@/components/admin/Modal";
-import { CORE_KEYS, FEATURES, STORED_ADDONS, type StoredAddon } from "../catalogue";
+import { ADDON_KEYS, CORE_KEYS, FEATURES, STORED_ADDONS, type FeatureKey, type StoredAddon } from "../catalogue";
 import { has } from "../features";
-import { eventFeatures } from "../db";
+import { eventFeatures, eventUsage } from "../db";
+import { optionsInUse } from "../usage";
 import { setAddonAction, addCustomModuleAction, updateCustomModuleAction, removeCustomModuleAction } from "./actions";
 
 const OFF_NOTE = "Nothing is deleted. Turn it back on and everything returns.";
@@ -33,36 +34,86 @@ function ModuleForm({ action, name = "", description = "" }: { action: (fd: Form
   );
 }
 
-export async function FeaturesTab({ eventId }: { eventId: string }) {
-  const features = await eventFeatures(eventId);
+const isStored = (key: FeatureKey): key is StoredAddon => (STORED_ADDONS as readonly string[]).includes(key);
+
+export async function WhatsOnTab({ eventId }: { eventId: string }) {
+  const [features, usage] = await Promise.all([eventFeatures(eventId), eventUsage(eventId)]);
+  const used = optionsInUse(usage);
   const back = `/admin/events/${eventId}/settings`;
+  const onKeys = [...CORE_KEYS, ...ADDON_KEYS].filter((key) => has(features, key));
+  const offAddons = STORED_ADDONS.filter((key) => !has(features, key));
   return (
     <>
       <Card className="overflow-hidden pb-0">
         <CardHeader>
-          <CardTitle>Add-ons</CardTitle>
-          <CardDescription>What this event has beyond the basics. An add-on that is off is hidden in the admin. {OFF_NOTE}</CardDescription>
+          <CardTitle>On for this event</CardTitle>
+          <CardDescription>What this event has, and the options inside each that are set up. An add-on that is off is hidden in the admin. {OFF_NOTE}</CardDescription>
         </CardHeader>
         <CardContent className="px-0">
           <ul className="divide-y divide-border border-t border-border">
-            {STORED_ADDONS.map((key) => {
-              const on = has(features, key);
+            {onKeys.map((key) => {
+              const feature = FEATURES[key];
               return (
-                <li key={key} className="flex items-center gap-3 px-4 py-3">
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-sm font-bold">{FEATURES[key].name}</span>
-                    <span className="text-xs text-muted-foreground">{FEATURES[key].summary}</span>
-                  </span>
-                  <Badge variant={on ? "success" : "secondary"}>{on ? "On" : "Off"}</Badge>
-                  <form action={setAddonAction.bind(null, eventId, key, !on, back)}>
-                    {on
-                      ? <ConfirmButton message={offMessage(key)} confirmLabel="Turn off">Turn off</ConfirmButton>
-                      : <SubmitButton variant="outline">Turn on</SubmitButton>}
-                  </form>
+                <li key={key} className="flex flex-col gap-2 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-bold">
+                        {feature.name}
+                        {feature.tier === "experimental" && <Badge variant="outline">Experimental</Badge>}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{feature.summary}</span>
+                    </span>
+                    {isStored(key) && (
+                      <form action={setAddonAction.bind(null, eventId, key, false, back)}>
+                        <ConfirmButton message={offMessage(key)} confirmLabel="Turn off">Turn off</ConfirmButton>
+                      </form>
+                    )}
+                  </div>
+                  {feature.options.length > 0 && (
+                    <ul className="flex flex-col gap-1 border-l border-border pl-3">
+                      {feature.options.map((o) => (
+                        <li key={o.key} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                          <span className="font-medium">{o.name}</span>
+                          {o.experimental && <Badge variant="outline">Experimental</Badge>}
+                          {used.has(o.key) && <Badge variant="success">In use</Badge>}
+                          <span className="text-muted-foreground">{o.where}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               );
             })}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden pb-0">
+        <CardHeader>
+          <CardTitle>Available</CardTitle>
+          <CardDescription>Add-ons this event does not have. Turn one on and it appears in the admin.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
+          {offAddons.length === 0 ? (
+            <p className="border-t border-border px-4 py-4 text-sm text-muted-foreground">Every add-on is on for this event.</p>
+          ) : (
+            <ul className="divide-y divide-border border-t border-border">
+              {offAddons.map((key) => (
+                <li key={key} className="flex items-center gap-3 px-4 py-3">
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="flex flex-wrap items-center gap-2 text-sm font-bold">
+                      {FEATURES[key].name}
+                      {FEATURES[key].tier === "experimental" && <Badge variant="outline">Experimental</Badge>}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{FEATURES[key].summary}</span>
+                  </span>
+                  <form action={setAddonAction.bind(null, eventId, key, true, back)}>
+                    <SubmitButton variant="outline">Turn on</SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
@@ -96,17 +147,6 @@ export async function FeaturesTab({ eventId }: { eventId: string }) {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Included with every event</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="grid gap-x-6 gap-y-2 text-sm @xl:grid-cols-2">
-            {CORE_KEYS.map((key) => <li key={key}><span className="font-bold">{FEATURES[key].name}</span> <span className="text-muted-foreground">— {FEATURES[key].summary}</span></li>)}
-          </ul>
         </CardContent>
       </Card>
     </>

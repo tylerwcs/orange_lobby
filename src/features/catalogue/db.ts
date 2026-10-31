@@ -2,9 +2,12 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { serviceClient } from "@/lib/supabase/service";
+import { getEvent } from "@/lib/db/events";
+import { listActivities } from "@/features/activities";
 import { flashPath } from "@/lib/flash";
 import { featureSet, has, notPartOf, type FeatureSet } from "./features";
 import type { FeatureKey, StoredAddon } from "./catalogue";
+import type { EventUsage } from "./usage";
 
 export type CustomModule = { id: string; event_id: string; name: string; description: string | null; sort_order: number };
 export type EventFeatures = FeatureSet & { custom: CustomModule[] };
@@ -26,6 +29,13 @@ export const eventFeatures = cache(async (eventId: string): Promise<EventFeature
   if (stored.error) throw stored.error;
   const keys = (stored.data as { feature: string }[]).map((r) => r.feature);
   return { ...featureSet(keys, custom.length), custom };
+});
+
+/** What the option checks read: the event and its activities. Memoised per request, like eventFeatures (D779). */
+export const eventUsage = cache(async (eventId: string): Promise<EventUsage> => {
+  const [ev, activities] = await Promise.all([getEvent(eventId), listActivities(eventId)]);
+  if (!ev) throw new Error(`No event ${eventId}`);
+  return { ev, activities };
 });
 
 /** The guard every gated write calls (D438). Sends the admin back with the reason. */

@@ -7,3 +7,4 @@ export * from "./features";
 export * from "./custom-modules";
 export type { Option } from "./options";
 export type { EventUsage } from "./usage";
+export { optionsInUse } from "./usage";
