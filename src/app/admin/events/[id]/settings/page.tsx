@@ -28,10 +28,11 @@ export const metadata = { title: "Settings" };
 /**
  * D778: one tab per feature. Event, Portal look and Registration are each their own form, posting
  * to their own action, which writes only that tab's columns - so a tab that is not open, or not
- * saved, is never re-saved by another. Each is keyed on its own saved values (formKey) and
- * remounts only after its own save, and each is keepMounted so a tab switched away from keeps
- * what is typed. Status, the pins, the Me page and every card on Check-in apply on their own,
- * outside those three forms. UnsavedGuard asks before one tab's save drops another's edits.
+ * saved, is never re-saved by another. Each is keepMounted, so switching tabs keeps what is typed.
+ * Every save redirects through flashPath, which shows loading.tsx and mounts this page afresh,
+ * so a save loses any other tab's unsaved edits: each form is keyed on its own columns only
+ * (formKey), and UnsavedGuard warns before another tab's edits are lost. Status, the pins, the
+ * Me page and every card on Check-in apply on their own, outside those three forms.
  */
 export default async function Settings({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -22,7 +22,7 @@ import { updateRegistrationAction } from "../../actions";
  */
 export function RegistrationTab({ ev, taken, queued }: { ev: Event; taken: string | null; queued: string }) {
   const qs = editorQuestions(ev.registration_form);
-  // Keyed on what it saves. The editor works from the full form (registration_form), so that
+  // Keyed on its own columns only. The editor works from the full form (registration_form), so that
   // stands in for the answer-only registration_questions.
   const key = formKey([...REGISTRATION_COLUMNS.filter((c) => c !== "registration_questions").map((c) => ev[c]), ev.registration_form]);
   return (
@@ -131,7 +131,7 @@ export function RegistrationTab({ ev, taken, queued }: { ev: Event; taken: strin
           </div>
         </CardContent>
       </Card>
-      <SaveBar label="Save" note="Saves this tab." />
+      <SaveBar label="Save" note="Saves this tab." unsavedNote="Unsaved changes" />
     </form>
   );
 }

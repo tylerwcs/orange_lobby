@@ -33,7 +33,7 @@ export function EventTab({ ev, admin, base, previewAs, portalShare, registration
   const statuses = admin ? STATUSES : STATUSES.filter((s) => s.value !== "archived");
   return (
     <>
-      {/* Keyed on what it saves (formKey): remounts after its own save, never after a status click. */}
+      {/* Keyed on its own columns only (formKey), so it resets only when what it saves changes. */}
       <form key={formKey(EVENT_TAB_COLUMNS.map((c) => ev[c]))} action={updateEventTabAction.bind(null, ev.id)} data-tab-label="Event" className="flex flex-col gap-4">
         <Section title="Event">
           <Field label="Name" name="name" defaultValue={ev.name} />
@@ -57,7 +57,7 @@ export function EventTab({ ev, admin, base, previewAs, portalShare, registration
               description="What every link shows while the event is a draft. Line breaks are kept. Leave blank to use the placeholder text." />
           </div>
         </Section>
-        <SaveBar label="Save" note="Saves this tab." />
+        <SaveBar label="Save" note="Saves this tab." unsavedNote="Unsaved changes" />
       </form>
 
       {/* Status and the share links apply on click, so they sit outside the tab's form: status

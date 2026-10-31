@@ -17,7 +17,7 @@ import { Modal } from "@/components/admin/Modal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { addCheckpointAction, deleteCheckpointAction, reorderCheckpointsAction, rotateCrewTokenAction, setBadgeCheckinAction, setCheckInEnabledAction, setCheckpointSurveyAction, updateScanFieldsAction } from "../../actions";
-import { SELECT_CLASS } from "./Section";
+import { SELECT_CLASS } from "./styles";
 
 const CHECK_IN_CHOICES: { value: boolean; label: string; what: string }[] = [
   { value: true, label: "This event has check-in", what: "Crew scan attendees at the doors you set up below." },

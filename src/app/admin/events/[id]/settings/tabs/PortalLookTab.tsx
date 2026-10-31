@@ -13,7 +13,8 @@ import { SaveBar } from "@/components/admin/SaveBar";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { addPinAction, removePinAction, reorderPinsAction, updateMePageAction, updatePortalLookAction } from "../../actions";
-import { Section, SELECT_CLASS } from "./Section";
+import { Section } from "./Section";
+import { SELECT_CLASS } from "./styles";
 
 /**
  * D778: how the portal looks. Logo, banner, theme and (with the Language add-on, D738) the EN | BM
@@ -29,7 +30,7 @@ export function PortalLookTab({ ev, showLanguage, pinnable }: {
   const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
   return (
     <>
-      {/* Keyed on what it saves (formKey): remounts after its own save, never after a pin reorder. */}
+      {/* Keyed on its own columns only (formKey), so it resets only when what it saves changes. */}
       <form key={formKey(PORTAL_LOOK_COLUMNS.map((c) => ev[c]))} action={updatePortalLookAction.bind(null, ev.id)} data-tab-label="Portal look" className="flex flex-col gap-4">
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
@@ -51,7 +52,7 @@ export function PortalLookTab({ ev, showLanguage, pinnable }: {
           <ThemeCard className="@4xl:col-span-2" theme={ev.theme ?? EMPTY_THEME} primaryColor={ev.primary_color}
             event={{ name: ev.name, logo_url: ev.logo_url, banner_url: ev.banner_url, starts_on: ev.starts_on, ends_on: ev.ends_on, venue_name: ev.venue_name }} />
         </div>
-        <SaveBar label="Save" note="Saves this tab." />
+        <SaveBar label="Save" note="Saves this tab." unsavedNote="Unsaved changes" />
       </form>
 
       {/* Saved as you go: unpin and reorder are plain calls, and the pin dialog's form renders in a portal. */}
