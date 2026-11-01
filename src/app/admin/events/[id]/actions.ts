@@ -24,7 +24,7 @@ import { recordCheckins } from "@/lib/db/checkins";
 import { eventFeatures, has, requireFeature } from "@/features/catalogue";
 import { purgePolaroids } from "@/features/polaroid";
 import { attendeeValues, bulkSetChange, deleteChange, deleteChangesForEvent, editChange, importChange, loadLabels, logRoundRename, people, recordChange, roomLossChange, type PersonChange } from "@/features/attendee-log";
-import { settleRequestsAtDoor, listActivities, listBookings, listSessions } from "@/features/activities";
+import { settleRequestsAtDoor, getActivity, listActivities, listBookings, listSessions } from "@/features/activities";
 import { categoriesFromValues, dayLabel } from "@/lib/agenda";
 import { itemKey, rowKey, placeKey, sortOrdersFor, isValidOrder } from "@/lib/agenda-placement";
 import { listInfoTabs, createInfoTab, updateInfoTab, deleteInfoTab, setInfoTabOrder } from "@/lib/db/info-tabs";
@@ -114,7 +114,10 @@ export async function updateRegistrationAction(eventId: string, formData: FormDa
   } catch (e) {
     redirect(flashPath(path, (e as Error).message, "error"));
   }
-  await updateEvent(eventId, registrationPatch(formData, ev, { registration_banner_url: regBanner.url, registration_footer_url: regFooter.url }));
+  const patch = registrationPatch(formData, ev, { registration_banner_url: regBanner.url, registration_footer_url: regFooter.url });
+  // D805: a posted id that is not this event's activity is dropped, never stored.
+  if (patch.after_register_activity_id && !(await getActivity(patch.after_register_activity_id, ev.id))) patch.after_register_activity_id = null;
+  await updateEvent(eventId, patch);
   await deleteEventImage(regBanner.stale);
   await deleteEventImage(regFooter.stale);
   // D682, D691: a raised or cleared limit, or registration reopened (switch on, close time moved

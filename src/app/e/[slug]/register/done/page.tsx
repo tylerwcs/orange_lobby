@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, CalendarCheck, CircleCheck } from "lucide-react";
+import { ArrowRight, CircleCheck } from "lucide-react";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
-import { findEntryByToken, nextBooking } from "@/features/registration-queue";
-import { dayRange } from "@/features/activities/client";
+import { findEntryByToken, nextStep } from "@/features/registration-queue";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
@@ -17,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ThemeStyle } from "@/features/theme";
 import { TITLE_INK } from "@/lib/ink";
 import { cn } from "@/lib/utils";
-import { doneCopy, showsDonePage } from "@/lib/registration-done";
+import { doneCopy, showsDonePage, showsDoneQr } from "@/lib/registration-done";
 
 export default async function Done({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ t?: string }> }) {
   const { slug } = await params;
@@ -33,16 +32,12 @@ export default async function Done({ params, searchParams }: { params: Promise<{
   const link = attendeeLink(await eventAddress(event), attendee.token);
   // D581: a cancelled registration is not "Registered"; their personal link shows the cancelled card.
   // D634: with the page switched off (an old bookmark, say), the same - their event page is the answer.
-  // D799: unless there is a booking to offer next, which this page leads them to after saying
-  // they are registered. Once they have booked it, it is gone from here and the rule above stands.
-  const full = showsDonePage(event);
-  const next = attendee.cancelled_at ? null : await nextBooking(event, attendee);
-  if (attendee.cancelled_at || (!full && !next)) redirect(link);
+  if (attendee.cancelled_at || !showsDonePage(event)) redirect(link);
+  // D799, D805: the next step the organiser set, while they can still do it; gone once done.
+  const next = await nextStep(event, attendee);
   // No door, no code (D228): an event without check-in never scans anyone, so the page leads
-  // with the event page instead of a QR there is no use for. With the page itself off (D634) the
-  // organiser chose not to show the code here either; it stays on their event page.
-  const qr = full && event.check_in_enabled ? await qrDataUrl(link) : null;
-  const when = next ? [dayRange(next.days), `${next.left} seat${next.left === 1 ? "" : "s"} left`].filter(Boolean).join(" · ") : null;
+  // with the event page instead of a QR there is no use for. D804: the organiser can also leave it off.
+  const qr = showsDoneQr(event) ? await qrDataUrl(link) : null;
   // D537: the organiser's own words, or the defaults this page always had.
   const copy = doneCopy(event, attendee.name);
   return (
@@ -56,11 +51,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
             <Badge variant="success">Registered</Badge>
             {/* The greeting is a paragraph, not a second h1: the sr-only heading above names the page. */}
             <p className={`text-2xl font-extrabold leading-tight text-balance ${TITLE_INK}`}>{copy.title}</p>
-            {!full ? (
-              <div aria-hidden className="flex size-20 items-center justify-center rounded-full bg-accent text-primary">
-                <CircleCheck className="size-9" />
-              </div>
-            ) : qr ? (
+            {qr ? (
               <>
                 {/* The code is the point of this page, so it is the largest thing on it. The crew
                     scan this at the door; everything else here exists to make sure it can be found
@@ -72,28 +63,28 @@ export default async function Done({ params, searchParams }: { params: Promise<{
             ) : (
               <>
                 <div aria-hidden className="flex size-20 items-center justify-center rounded-full bg-accent text-primary">
-                  <CalendarCheck className="size-9" />
+                  <CircleCheck className="size-9" />
                 </div>
                 <p className="text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.message}</p>
               </>
             )}
             {next ? (
-              // D799: the booking is the next step, so it takes the primary button; the event page
-              // steps back to a quiet link for someone who would rather book later.
+              // D799: the next step takes the primary button; the event page steps back to a quiet
+              // link for someone who would rather do it later.
               <div className="flex w-full flex-col gap-3">
                 <div className="flex flex-col gap-1 rounded-xl border border-primary/30 bg-accent px-4 py-3 text-left">
                   <span className="text-xs font-bold tracking-[0.06em] text-primary uppercase">One more step</span>
                   <span className="font-extrabold leading-snug text-balance">{next.activity.name}</span>
-                  <span className="text-sm text-muted-foreground">Book your slot now{when ? ` · ${when}` : ""}</span>
+                  <span className="text-sm text-muted-foreground">{next.detail}</span>
                 </div>
-                <Link href={`${link}/activities/${next.activity.id}?new=1`} className={cn(buttonVariants(), "h-12 w-full text-base font-bold")}>
-                  Book my slot
+                <Link href={`${link}/activities/${next.activity.id}`} className={cn(buttonVariants(), "h-12 w-full text-base font-bold")}>
+                  {next.action}
                   <ArrowRight data-icon="inline-end" />
                 </Link>
                 <Link href={link} className={cn(buttonVariants({ variant: "ghost" }), "h-11 w-full text-sm font-semibold text-muted-foreground")}>
                   I&apos;ll do it later
                 </Link>
-                {full && <BadgeLink link={link} />}
+                <BadgeLink link={link} />
               </div>
             ) : (
               <div className="flex w-full flex-col gap-2">

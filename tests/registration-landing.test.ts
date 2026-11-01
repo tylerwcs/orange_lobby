@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveTokenView, registerLanding, bookableAfterRegister } from "@/features/registration-queue/lib/landing";
+import { resolveTokenView, registerLanding, bookableAfterRegister, stepOpenFor } from "@/features/registration-queue/lib/landing";
 import type { RegistrationEntryState } from "@/lib/types";
 
 const active = { id: "a1", cancelled_at: null as string | null };
@@ -55,19 +55,41 @@ describe("registerLanding (D634, D690, D695)", () => {
   });
 });
 
-describe("registerLanding with a booking to open (D766, D799)", () => {
-  it("sends registered and updated people to the done page, which offers the booking, even with the You're in page off", () => {
+describe("registerLanding with a next step (D766, D805)", () => {
+  it("with the page on, sends registered and updated people to it - the page offers the step", () => {
     for (const o of ["registered", "updated"] as const) {
-      expect(registerLanding(o, { showsDone: true, waitlistForm: false, booking: "act1" })).toEqual({ to: "done" });
-      expect(registerLanding(o, { showsDone: false, waitlistForm: false, booking: "act1" })).toEqual({ to: "done" });
+      expect(registerLanding(o, { showsDone: true, waitlistForm: false, next: "act1" })).toEqual({ to: "done" });
     }
   });
-  it("never sends someone waiting or pending to it - they can't book yet", () => {
-    expect(registerLanding("waiting", { showsDone: false, waitlistForm: false, booking: "act1" })).toEqual({ to: "link", filled: true });
-    expect(registerLanding("pending", { showsDone: false, waitlistForm: false, booking: "act1" })).toEqual({ to: "link", filled: false });
+  it("with the page off, sends them straight to the activity, as the organiser chose", () => {
+    for (const o of ["registered", "updated"] as const) {
+      expect(registerLanding(o, { showsDone: false, waitlistForm: false, next: "act1" })).toEqual({ to: "activity", id: "act1" });
+    }
   });
-  it("lands as before when there is no booking to open", () => {
-    expect(registerLanding("registered", { showsDone: false, waitlistForm: false, booking: null })).toEqual({ to: "link", filled: false });
+  it("never sends someone waiting or pending to it - they can't take part yet", () => {
+    expect(registerLanding("waiting", { showsDone: false, waitlistForm: false, next: "act1" })).toEqual({ to: "link", filled: true });
+    expect(registerLanding("pending", { showsDone: false, waitlistForm: false, next: "act1" })).toEqual({ to: "link", filled: false });
+  });
+  it("lands as before when there is no step to offer", () => {
+    expect(registerLanding("registered", { showsDone: false, waitlistForm: false, next: null })).toEqual({ to: "link", filled: false });
+  });
+});
+
+describe("stepOpenFor (D805)", () => {
+  const form = { is_open: true, categories: null as string[] | null, starts_on: null as string | null, ends_on: null as string | null };
+  const today = "2026-11-05";
+  it("offers an open activity they can take part in and haven't done", () => {
+    expect(stepOpenFor({ activity: form, category: null, done: false, today })).toBe(true);
+  });
+  it("skips one that is closed, not for their category, or already done", () => {
+    expect(stepOpenFor({ activity: { ...form, is_open: false }, category: null, done: false, today })).toBe(false);
+    expect(stepOpenFor({ activity: { ...form, categories: ["VIP"] }, category: null, done: false, today })).toBe(false);
+    expect(stepOpenFor({ activity: form, category: null, done: true, today })).toBe(false);
+  });
+  it("keeps to a form's dates", () => {
+    expect(stepOpenFor({ activity: { ...form, starts_on: "2026-11-06" }, category: null, done: false, today })).toBe(false);
+    expect(stepOpenFor({ activity: { ...form, starts_on: "2026-11-01", ends_on: "2026-11-04" }, category: null, done: false, today })).toBe(false);
+    expect(stepOpenFor({ activity: { ...form, starts_on: "2026-11-05" }, category: null, done: false, today })).toBe(true);
   });
 });
 

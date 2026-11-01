@@ -46,9 +46,11 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   // D502: Verification is about submissions, so it shows only when the event can run them.
   const verifying = activityKindsFor(features).includes("submission");
   const base = appBaseUrl();
-  const [{ cps, tallies, registered: total }, jar, bookingActivities, groups, addr, places, forms] = await Promise.all([
-    loadDoors(ev.id), cookies(), listActivities(ev.id, "booking"), listGroups(ev.id), eventAddress(ev), getPlaces(ev.id), listActivities(ev.id, "submission"),
+  const [{ cps, tallies, registered: total }, jar, allActivities, groups, addr, places] = await Promise.all([
+    loadDoors(ev.id), cookies(), listActivities(ev.id), listGroups(ev.id), eventAddress(ev), getPlaces(ev.id),
   ]);
+  const bookingActivities = allActivities.filter((a) => a.kind === "booking");
+  const forms = allActivities.filter((a) => a.kind === "submission");
   // D686: how full it is, under the limit field. The waiting/pending counts ride along when there are any.
   const taken = placesLabel(places.taken, places.limit);
   const queued = [places.waiting > 0 ? `${places.waiting} waiting` : "", places.pending > 0 ? `${places.pending} pending approval` : ""].filter(Boolean).join(", ");
@@ -93,7 +95,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         </TabsContent>
 
         <TabsContent value="registration" keepMounted className="flex flex-col gap-4 @container">
-          <RegistrationTab ev={ev} taken={taken} queued={queued} />
+          <RegistrationTab ev={ev} taken={taken} queued={queued} activities={allActivities} />
         </TabsContent>
 
         <TabsContent value="checkin" className="flex flex-col gap-4 @container">

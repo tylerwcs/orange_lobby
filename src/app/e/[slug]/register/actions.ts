@@ -9,7 +9,7 @@ import { allow } from "@/lib/ratelimit";
 import { showsDonePage } from "@/lib/registration-done";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
-import { fillFreePlaces, nextBooking, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
+import { fillFreePlaces, nextStep, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
 import { findByToken } from "@/lib/db/attendees";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
@@ -50,11 +50,13 @@ export async function registerAction(slug: string, waitlist: boolean, _prev: Reg
     }
   }
   // D634, D690, D695: the "You're in" page, or their link (with the filled-up note when they lost the race).
-  // D766, D799: or the done page with the booking the organiser set to open after registering.
-  const attendee = outcome === "registered" || outcome === "updated" ? await findByToken(event.id, token) : null;
-  const booking = attendee ? await nextBooking(event, attendee) : null;
-  const landing = registerLanding(outcome, { showsDone: showsDonePage(event), waitlistForm: waitlist, booking: booking?.activity.id ?? null });
+  // D766, D805: with the page off, straight to the next step the organiser set, when they can do it now.
+  const showsDone = showsDonePage(event);
+  const attendee = !showsDone && (outcome === "registered" || outcome === "updated") ? await findByToken(event.id, token) : null;
+  const next = attendee ? await nextStep(event, attendee) : null;
+  const landing = registerLanding(outcome, { showsDone, waitlistForm: waitlist, next: next?.activity.id ?? null });
   if (landing.to === "done") redirect(`/e/${slug}/register/done?t=${token}`);
   const link = attendeeLink(await eventAddress(event), token);
+  if (landing.to === "activity") redirect(`${link}/activities/${landing.id}`);
   redirect(landing.filled ? `${link}?filled=1` : link);
 }

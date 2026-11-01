@@ -26,28 +26,45 @@ export function resolveTokenView<A extends { cancelled_at?: string | null }, E e
   return { kind: "missing" };
 }
 
-export type RegisterLanding = { to: "done" } | { to: "link"; filled: boolean };
+export type RegisterLanding = { to: "done" } | { to: "link"; filled: boolean } | { to: "activity"; id: string };
 
 /**
- * Where the registration form sends someone. Registered or updated: the "You're in" page when the
+ * Where the registration form sends someone. Registered or updated: the confirmation page when the
  * organiser has it on (D634), else their link. Waiting or pending: always their link (D690); a
  * waiting person who sent the normal form, not the waiting-list one, lost the race for the last
  * place and their page says so (D695).
  *
- * D766, D799: `booking` is the activity the organiser set to open right after registering, when
- * this person can book it now (`bookableAfterRegister`). They go to the done page even with the
- * "You're in" page off: it says they are registered first, then offers the booking as the next
- * step. Dropping them straight on the slots read as if registering had not happened. Someone
- * waiting or pending can't book yet and lands as before.
+ * D766, D805: `next` is the activity the organiser set as the next step, when this person can do it
+ * now (`nextStep`). With the page on, the page offers it; with the page off, the organiser has
+ * chosen to send them straight there. Someone waiting or pending can't take part yet and lands as before.
  */
 export function registerLanding(
   outcome: "updated" | "waiting" | "pending" | "registered",
-  opts: { showsDone: boolean; waitlistForm: boolean; booking?: string | null },
+  opts: { showsDone: boolean; waitlistForm: boolean; next?: string | null },
 ): RegisterLanding {
   if (outcome === "waiting") return { to: "link", filled: !opts.waitlistForm };
   if (outcome === "pending") return { to: "link", filled: false };
-  if (opts.booking) return { to: "done" };
-  return opts.showsDone ? { to: "done" } : { to: "link", filled: false };
+  if (opts.showsDone) return { to: "done" };
+  return opts.next ? { to: "activity", id: opts.next } : { to: "link", filled: false };
+}
+
+/**
+ * D805: whether a next step that is not a booking can be done now - open, for their category, not
+ * done yet, and (a form with dates) running today. A booking has its own rule, `bookableAfterRegister`.
+ */
+export function stepOpenFor(x: {
+  activity: Pick<Activity, "is_open" | "categories" | "starts_on" | "ends_on">;
+  category: string | null;
+  /** They already have an entry in it. */
+  done: boolean;
+  /** `nowInKL().date`. */
+  today: string;
+}): boolean {
+  const { activity, category, done, today } = x;
+  if (!activity.is_open || done || !eligible(activity, category)) return false;
+  if (activity.starts_on && today < activity.starts_on) return false;
+  const last = activity.ends_on ?? activity.starts_on;
+  return !last || today <= last;
 }
 
 /**

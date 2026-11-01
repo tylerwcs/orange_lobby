@@ -26,7 +26,7 @@ describe("settings tab columns (D778)", () => {
   it("splits the old settings columns into three disjoint tabs", () => {
     const all = [...EVENT_TAB_COLUMNS, ...PORTAL_LOOK_COLUMNS, ...REGISTRATION_COLUMNS];
     expect(new Set(all).size).toBe(all.length);
-    expect(all).toHaveLength(33);
+    expect(all).toHaveLength(35); // D804, D805: registration_done_qr and after_register_activity_id joined Registration
   });
   it("eventTabPatch returns exactly the Event columns", () => {
     expect(sorted(eventTabPatch(fdWith({ name: "KOM" }), ev))).toEqual([...EVENT_TAB_COLUMNS].sort());

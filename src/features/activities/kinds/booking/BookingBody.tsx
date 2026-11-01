@@ -1,4 +1,4 @@
-import { Armchair, CalendarDays, CalendarPlus, MapPin, Users } from "lucide-react";
+import { Armchair, CalendarDays, CalendarPlus, Clock, MapPin, Users } from "lucide-react";
 import { type ActivityEntry } from "../../lib/portal-activity-entries";
 import { dayRange } from "../../lib/activity-card";
 import { ActivitySessions } from "./ActivitySessions";
@@ -14,11 +14,7 @@ import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 
-export function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token, lang = "en", picking = false }: {
-  entry: ActivityEntry; slug: string; token: string; lang?: Lang;
-  /** D799: `?new=1` - arrived from "Book my slot", so the time picker opens on arrival. */
-  picking?: boolean;
-}) {
+export function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token, lang = "en" }: { entry: ActivityEntry; slug: string; token: string; lang?: Lang }) {
   const { activity } = state;
   const d = t(lang).booking;
   const grid = sessionGrid(state.sessions);
@@ -42,7 +38,6 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
     <ActivityActionDialog
       key={`${state.held}:${pendingId ?? ""}`}
       inline={inline}
-      defaultOpen={picking && !inline && !holding}
       label={holding ? d.changeSession : d.bookYourSession}
       title={activity.name}
       description={holding ? d.pickAnother : state.mustPick ? d.chooseOne : d.pickTime}
@@ -59,7 +54,9 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
         lang={lang}
         rows={[
           { icon: CalendarDays, text: dayRange(state.sessions.map((s) => s.session.day), lang) },
-          { icon: MapPin, text: [grid.location, grid.minutes ? d.minEach(grid.minutes) : null].filter(Boolean).join(" · ") || null, map: { href: grid.location_url, place: grid.location } },
+          // D803: where and how long are two facts, so two rows - the map button belongs to the place alone.
+          { icon: MapPin, text: grid.location, map: { href: grid.location_url, place: grid.location } },
+          { icon: Clock, text: grid.minutes ? d.minEach(grid.minutes) : null },
           { icon: Armchair, text: n ? d.seatsAcross(left, n) : null },
           { icon: Users, text: forGroups(activity, lang) },
         ]}

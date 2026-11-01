@@ -58,7 +58,7 @@ export async function ActivityPage({ params, searchParams }: {
   function body(found: FoundEntry) {
     switch (found.kind) {
       case "booking":
-        return <BookingBody entry={found.entry} slug={slug} token={token} lang={lang} picking={writing === "1"} />;
+        return <BookingBody entry={found.entry} slug={slug} token={token} lang={lang} />;
       case "submission": {
         const form = found.entry;
         return form.form.scoring

@@ -3,10 +3,12 @@ import { isoToLocalInput } from "@/lib/time";
 import { MAX_QUESTIONS } from "@/lib/questions-form";
 import { editorQuestions, STANDARD_COUNT, STANDARD_RULES } from "@/lib/registration-standard";
 import { DEFAULT_REGISTRATION_INTRO, REGISTRATION_QUESTION_TYPES } from "@/lib/registration";
-import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR } from "@/lib/registration-done";
+import { DEFAULT_DONE_TITLE, DEFAULT_DONE_MESSAGE_DOOR, DEFAULT_DONE_MESSAGE_NO_DOOR, showsDoneQr } from "@/lib/registration-done";
 import { REGISTRATION_COLUMNS } from "@/lib/settings-form";
 import { sanitizeHtml } from "@/lib/sanitize";
-import type { Event } from "@/lib/types";
+import type { Activity, Event } from "@/lib/types";
+import { KIND_META } from "@/features/activities/client";
+import { SELECT_CLASS } from "./styles";
 import { QUEUE_COPY_DEFAULTS } from "@/features/registration-queue";
 import { Field } from "@/components/admin/Field";
 import { ImageField } from "@/components/admin/ImageField";
@@ -20,7 +22,11 @@ import { updateRegistrationAction } from "../../actions";
  * D778: the registration form and everything around it, one form saving only these columns.
  * `taken` and `queued` (D686) are how full it is, shown under the limit.
  */
-export function RegistrationTab({ ev, taken, queued }: { ev: Event; taken: string | null; queued: string }) {
+export function RegistrationTab({ ev, taken, queued, activities }: {
+  ev: Event; taken: string | null; queued: string;
+  /** D805: what the next step can be - every activity of the event. */
+  activities: Activity[];
+}) {
   const qs = editorQuestions(ev.registration_form);
   // Keyed on its own columns only. The editor works from the full form (registration_form), so that
   // stands in for the answer-only registration_questions.
@@ -71,13 +77,13 @@ export function RegistrationTab({ ev, taken, queued }: { ev: Event; taken: strin
         />
         </CardContent>
       </Card>
-      {/* D537: the page an invitee lands on after Register. The QR, the button and the link
-          box stay fixed - they are how the attendee gets back in - so only the words move. */}
+      {/* D537, D634, D804, D805: everything about landing after Register in one place - the page,
+          its QR, its words, and the activity offered next (which used to be a tick on the booking). */}
       <Card>
         <CardHeader>
           <CardTitle>After they register</CardTitle>
           <CardDescription>
-            The heading and message on the page shown once someone registers. Write {"{name}"} for their first name. Leave either blank to use the placeholder text.
+            Where people go once they register, and what they see there. Write {"{name}"} for their first name. Leave the heading or message blank to use the placeholder text.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -85,21 +91,43 @@ export function RegistrationTab({ ev, taken, queued }: { ev: Event; taken: strin
           <label className="flex min-h-11 items-start gap-2 text-sm">
             <input type="checkbox" name="registration_done_page" defaultChecked={ev.registration_done_page ?? false} className="mt-0.5 size-4 accent-primary" />
             <span>
-              <span className="font-bold">Show a &ldquo;You&rsquo;re in&rdquo; page after they register</span>
-              <span className="block text-muted-foreground">Off: they go straight to their own event page. On: they see this page first, with the heading and message below{ev.check_in_enabled ? " and their QR code" : ""}.</span>
+              <span className="font-bold">Show a confirmation page</span>
+              <span className="block text-muted-foreground">Off: they go straight to their event page, or to the next step below. On: they see this page first, with the heading and message below.</span>
             </span>
           </label>
+          {/* D804: only with check-in on (no door, no code). Off, the switch keeps its value. */}
+          {ev.check_in_enabled ? (
+            <label className="flex min-h-11 items-start gap-2 text-sm">
+              <input type="checkbox" name="registration_done_qr" defaultChecked={ev.registration_done_qr ?? true} className="mt-0.5 size-4 accent-primary" />
+              <span>
+                <span className="font-bold">Show their QR code on it</span>
+                <span className="block text-muted-foreground">The code crew scan at the door. It is on their event page either way.</span>
+              </span>
+            </label>
+          ) : (
+            <input type="hidden" name="registration_done_qr" value={ev.registration_done_qr === false ? "" : "on"} />
+          )}
           <Field label="Heading" name="registration_done_title" defaultValue={ev.registration_done_title ?? ""} placeholder={DEFAULT_DONE_TITLE} />
           <Field
             label="Message"
             name="registration_done_message"
             textarea
             defaultValue={ev.registration_done_message ?? ""}
-            placeholder={ev.check_in_enabled ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR}
-            description={ev.check_in_enabled
+            placeholder={showsDoneQr(ev) ? DEFAULT_DONE_MESSAGE_DOOR : DEFAULT_DONE_MESSAGE_NO_DOOR}
+            description={showsDoneQr(ev)
               ? "Shown under their QR code. Line breaks are kept."
-              : "Check-in is off, so there is no QR code on this page. Line breaks are kept."}
+              : "Shown under the heading. Line breaks are kept."}
           />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="after_register_activity_id" className="text-sm font-bold">Next step (optional)</label>
+            <select id="after_register_activity_id" name="after_register_activity_id" className={SELECT_CLASS} defaultValue={ev.after_register_activity_id ?? ""}>
+              <option value="">None</option>
+              {activities.map((a) => <option key={a.id} value={a.id}>{a.name} · {KIND_META[a.kind].label}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              An activity to do right after registering. With the page on, it shows there as One more step; with it off, they go straight to it. Only while they can do it (open, for their group, a seat left or not sent yet); otherwise they land as usual.
+            </p>
+          </div>
         </CardContent>
       </Card>
       {/* D708: shown always, so the wording can be ready before a limit or approval is switched on. */}

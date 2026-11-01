@@ -73,9 +73,15 @@ export type Event = {
   registration_done_title: string | null;
   /** D537: the success page's message; null for the default, which follows check-in. */
   registration_done_message: string | null;
-  /** D634: show the "You're in" page after registering; off by default (they land on their event page). Optional so old fixtures compile. */
+  /** D634: show the confirmation page after registering; off by default (they land on their event page). Optional so old fixtures compile. */
   registration_done_page?: boolean;
-  /** D766: the booking activity a new registrant is sent straight to, when they can book it. Optional so old fixtures compile. */
+  /** D804: show the QR code on that page (with check-in on); on by default. Optional so old fixtures compile. */
+  registration_done_qr?: boolean;
+  /**
+   * D766, D805: the activity offered as the next step after registering, any kind - on the
+   * confirmation page, or straight to it when the page is off - when they can do it now.
+   * Optional so old fixtures compile.
+   */
   after_register_activity_id?: string | null;
   /** D633: the name with the organiser's line breaks, for the Coming soon card (and the bar if D635 is on); null/absent = name. */
   display_name?: string | null;
