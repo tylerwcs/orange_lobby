@@ -74,7 +74,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
 
       <RememberedTabs scope={tabScope} defaultValue={openTab} className="gap-4">
         <UnsavedGuard />
-        <TabsList>
+        <TabsList className="group-data-horizontal/tabs:h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden">
           {tabs.map((t) => <TabsTrigger key={t} value={t}>{SETTINGS_TAB_LABELS[t]}</TabsTrigger>)}
         </TabsList>
 

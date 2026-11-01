@@ -16,7 +16,7 @@ async function event(eventId: string) {
 
 /**
  * Turn on from the "Not part of this event" panel returns to the page it was pressed on, and
- * the Features tab returns to Settings. Only a path inside this event is accepted, so a crafted
+ * the What's on tab returns to Settings. Only a path inside this event is accepted, so a crafted
  * `back` can't send the admin anywhere else.
  */
 function safeBack(eventId: string, back: string): string {

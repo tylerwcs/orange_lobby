@@ -27,7 +27,7 @@ export async function CommitteeTab({ ev }: { ev: Event }) {
         <CardTitle>Committee</CardTitle>
         <CardDescription>
           People from the client who run this event with you. Each gets their own login and sees this event only — everything
-          inside it, except Features, Address, this list, archiving and deleting, which stay with the Ecopia team.
+          inside it, except What's on, Verification, Address, this list, archiving and deleting, which stay with the Ecopia team.
           Their access ends when the event is archived. The link sets up their login once; after that they sign in
           at {loginUrl} with their email and password, on any device.
         </CardDescription>
