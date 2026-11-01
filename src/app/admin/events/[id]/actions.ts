@@ -40,7 +40,6 @@ import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules"
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { eventTabPatch, portalLookPatch, registrationPatch } from "@/lib/settings-form";
 import { scanFieldsFromForm } from "@/lib/scan";
-import { meGroups, meHiddenFromForm } from "@/lib/me-page";
 import { exportFieldsFromForm } from "@/lib/export-columns";
 import { parseAlertNumbers } from "@/lib/committee-reminders";
 import { cleanRichText } from "@/lib/rich-text";
@@ -123,15 +122,6 @@ export async function updateRegistrationAction(eventId: string, formData: FormDa
   const moved = await afterPlacesChange(eventId, actor, "a Registration change");
   revalidatePath(`/admin/events/${eventId}`, "layout");
   redirect(flashPath(path, ["Registration saved.", moved].filter(Boolean).join(" ")));
-}
-
-/** D536: what the attendee's Me page shows. Its own action: the card sits outside the Portal look form (D778). */
-export async function updateMePageAction(eventId: string, formData: FormData) {
-  const { ev } = await requireEventAccess(eventId);
-  await updateEvent(eventId, { me_hidden: meHiddenFromForm(formData.getAll("me_shown").map(String), meGroups(ev)) });
-  const path = `/admin/events/${eventId}/settings`;
-  revalidatePath(path);
-  redirect(flashPath(path, "Me page saved."));
 }
 
 /** The attendee columns every export (bar Attendance) carries, saved from the Exports page. */

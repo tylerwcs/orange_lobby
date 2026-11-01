@@ -12,14 +12,14 @@ import { PinList } from "@/components/admin/PinList";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { addPinAction, removePinAction, reorderPinsAction, updateMePageAction, updatePortalLookAction } from "../../actions";
+import { addPinAction, removePinAction, reorderPinsAction, updatePortalLookAction } from "../../actions";
 import { Section } from "./Section";
 import { SELECT_CLASS } from "./styles";
 
 /**
- * D778: how the portal looks. Logo, banner, theme and (with the Language add-on, D738) the EN | BM
- * switch save with this tab's Save; the badge pins and the Me page save on their own, so they sit
- * after the tab's form, never in it.
+ * D778: how the portal looks. Logo, banner, theme, the Me page and (with the Language add-on, D738)
+ * the EN | BM switch save with this tab's Save, whose bar ends the tab. The badge pins save as you
+ * go, so they sit above the tab's form, never in it or after it.
  */
 export function PortalLookTab({ ev, showLanguage, pinnable }: {
   ev: Event;
@@ -30,32 +30,8 @@ export function PortalLookTab({ ev, showLanguage, pinnable }: {
   const pinnedKeys = new Set(ev.pinned_fields.map((p) => p.key));
   return (
     <>
-      {/* Keyed on its own columns only (formKey), so it resets only when what it saves changes. */}
-      <form key={formKey(PORTAL_LOOK_COLUMNS.map((c) => ev[c]))} action={updatePortalLookAction.bind(null, ev.id)} data-tab-label="Portal look" className="flex flex-col gap-4">
-        <div className="grid gap-4 @4xl:grid-cols-2">
-          <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
-            <ImageField label="Logo" name="logo" url={ev.logo_url} />
-            <ImageField label="Banner" name="banner" url={ev.banner_url} />
-          </Section>
-
-          {/* D738: an EN | BM switch on the attendee portal, only with the Language add-on. */}
-          {showLanguage && (
-            <Section title="Portal language" hint="Only the app's own wording changes. Anything you type for the event shows as you typed it.">
-              <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
-                <input type="checkbox" name="language_switch" defaultChecked={ev.language_switch ?? false} className="size-4 accent-primary" />
-                Let attendees switch the portal to Bahasa Malaysia
-              </label>
-            </Section>
-          )}
-
-          {/* D631: the event's colours, Primary among them; posts all seven theme fields on every save. */}
-          <ThemeCard className="@4xl:col-span-2" theme={ev.theme ?? EMPTY_THEME} primaryColor={ev.primary_color}
-            event={{ name: ev.name, logo_url: ev.logo_url, banner_url: ev.banner_url, starts_on: ev.starts_on, ends_on: ev.ends_on, venue_name: ev.venue_name }} />
-        </div>
-        <SaveBar label="Save" note="Saves this tab." unsavedNote="Unsaved changes" />
-      </form>
-
-      {/* Saved as you go: unpin and reorder are plain calls, and the pin dialog's form renders in a portal. */}
+      {/* Saved as you go, so it sits above the tab's form: unpin and reorder are plain calls, and the pin
+          dialog has a form of its own. */}
       <Card>
         <CardHeader>
           <CardTitle>Pinned on the badge</CardTitle>
@@ -89,30 +65,53 @@ export function PortalLookTab({ ev, showLanguage, pinnable }: {
         </CardContent>
       </Card>
 
-      {/* D536: its own form, like the scan card, so it never re-saves the tab's form above. */}
-      <Card>
-        <CardHeader>
-          <CardTitle>What attendees see on their Me page</CardTitle>
-          <CardDescription>
-            Their name is always shown. Untick anything you would rather they did not see. A question you add later shows until you untick it here, and a card with nothing left to show disappears.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form key={(ev.me_hidden ?? []).join("␟")} action={updateMePageAction.bind(null, ev.id)} className="flex flex-col gap-5">
-            {meGroups(ev).map((g) => (
-              <fieldset key={g.title} className="flex flex-col gap-1">
-                <legend className="mb-1 text-sm font-extrabold">{g.title}</legend>
-                {g.items.map((i) => (
-                  <label key={i.key} className="flex min-h-11 items-center gap-2 text-sm">
-                    <input type="checkbox" name="me_shown" value={i.key} defaultChecked={!(ev.me_hidden ?? []).includes(i.key)} className="size-4 accent-primary" /> {i.label}
-                  </label>
-                ))}
-              </fieldset>
-            ))}
-            <div><SubmitButton>Save Me page</SubmitButton></div>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Keyed on its own columns only (formKey), so it resets only when what it saves changes. */}
+      <form key={formKey(PORTAL_LOOK_COLUMNS.map((c) => ev[c]))} action={updatePortalLookAction.bind(null, ev.id)} data-tab-label="Portal look" className="flex flex-col gap-4">
+        <div className="grid gap-4 @4xl:grid-cols-2">
+          <Section title="Branding and images" hint="Upload the event's images. The logo replaces the initials mark; the banner appears above the home page.">
+            <ImageField label="Logo" name="logo" url={ev.logo_url} />
+            <ImageField label="Banner" name="banner" url={ev.banner_url} />
+          </Section>
+
+          {/* D738: an EN | BM switch on the attendee portal, only with the Language add-on. */}
+          {showLanguage && (
+            <Section title="Portal language" hint="Only the app's own wording changes. Anything you type for the event shows as you typed it.">
+              <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
+                <input type="checkbox" name="language_switch" defaultChecked={ev.language_switch ?? false} className="size-4 accent-primary" />
+                Let attendees switch the portal to Bahasa Malaysia
+              </label>
+            </Section>
+          )}
+
+          {/* D631: the event's colours, Primary among them; posts all seven theme fields on every save. */}
+          <ThemeCard className="@4xl:col-span-2" theme={ev.theme ?? EMPTY_THEME} primaryColor={ev.primary_color}
+            event={{ name: ev.name, logo_url: ev.logo_url, banner_url: ev.banner_url, starts_on: ev.starts_on, ends_on: ev.ends_on, venue_name: ev.venue_name }} />
+
+          {/* D536: saved with this tab's Save. Stored as what is hidden, so a question added later shows. */}
+          <Card className="@4xl:col-span-2">
+            <CardHeader>
+              <CardTitle>What attendees see on their Me page</CardTitle>
+              <CardDescription>
+                Their name is always shown. Untick anything you would rather they did not see. A question you add later shows until you untick it here, and a card with nothing left to show disappears.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              {meGroups(ev).map((g) => (
+                <fieldset key={g.title} className="flex flex-col gap-1">
+                  <legend className="mb-1 text-sm font-extrabold">{g.title}</legend>
+                  {g.items.map((i) => (
+                    <label key={i.key} className="flex min-h-11 items-center gap-2 text-sm">
+                      <input type="checkbox" name="me_shown" value={i.key} defaultChecked={!(ev.me_hidden ?? []).includes(i.key)} className="size-4 accent-primary" /> {i.label}
+                    </label>
+                  ))}
+                </fieldset>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+        <SaveBar label="Save" note="Saves this tab." unsavedNote="Unsaved changes" />
+      </form>
+
     </>
   );
 }

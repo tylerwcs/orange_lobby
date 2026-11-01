@@ -4,6 +4,7 @@ import { normaliseRegistrationForm, STANDARD_COUNT } from "@/lib/registration-st
 import { parseDisplayName } from "@/lib/event-name";
 import { localInputToIso } from "@/lib/time";
 import { cleanRichText } from "@/lib/rich-text";
+import { meGroups, meHiddenFromForm } from "@/lib/me-page";
 import { themeFromForm } from "@/features/theme";
 import { parseLimit } from "@/features/registration-queue/client";
 import type { Event } from "@/lib/types";
@@ -15,7 +16,7 @@ import type { Event } from "@/lib/types";
  * save wrote.
  */
 export const EVENT_TAB_COLUMNS = ["name", "display_name", "display_name_in_bar", "venue_name", "starts_on", "ends_on", "coming_soon_message"] as const;
-export const PORTAL_LOOK_COLUMNS = ["logo_url", "banner_url", "primary_color", "theme", "language_switch"] as const;
+export const PORTAL_LOOK_COLUMNS = ["logo_url", "banner_url", "primary_color", "theme", "language_switch", "me_hidden"] as const;
 export const REGISTRATION_COLUMNS = [
   "registration_open", "registration_closes_at", "self_cancel", "self_cancel_closes_at", "registration_limit",
   "registration_needs_approval", "registration_intro", "registration_terms", "registration_done_title",
@@ -60,6 +61,7 @@ export function portalLookPatch(
     primary_color: str(fd, "primary_color") ?? "#F97316",
     theme: themeFromForm(fd), // D622
     language_switch: languageOn ? fd.get("language_switch") === "on" : (ev.language_switch ?? false), // D738
+    me_hidden: meHiddenFromForm(fd.getAll("me_shown").map(String), meGroups(ev)), // D536
   };
 }
 

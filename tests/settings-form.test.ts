@@ -10,7 +10,7 @@ const fdWith = (o: Record<string, string>) => {
   for (const [k, v] of Object.entries(o)) fd.set(k, v);
   return fd;
 };
-const ev = { id: "e1", org_id: "o1", name: "Old name", logo_url: "old-logo", banner_url: null, language_switch: false } as unknown as Event;
+const ev = { id: "e1", org_id: "o1", name: "Old name", logo_url: "old-logo", banner_url: null, language_switch: false, registration_questions: [], attendee_fields: [] } as unknown as Event;
 const imgs = { logo_url: "logo", banner_url: null };
 const regImgs = { registration_banner_url: null, registration_footer_url: "footer" };
 // The four standard questions, in the field names questionsFromForm reads.
@@ -26,7 +26,7 @@ describe("settings tab columns (D778)", () => {
   it("splits the old settings columns into three disjoint tabs", () => {
     const all = [...EVENT_TAB_COLUMNS, ...PORTAL_LOOK_COLUMNS, ...REGISTRATION_COLUMNS];
     expect(new Set(all).size).toBe(all.length);
-    expect(all).toHaveLength(32);
+    expect(all).toHaveLength(33);
   });
   it("eventTabPatch returns exactly the Event columns", () => {
     expect(sorted(eventTabPatch(fdWith({ name: "KOM" }), ev))).toEqual([...EVENT_TAB_COLUMNS].sort());
@@ -51,6 +51,12 @@ describe("settings tab columns (D778)", () => {
   it("portalLookPatch reads language_switch when the add-on is on", () => {
     expect(portalLookPatch(fdWith({}), { ...ev, language_switch: true }, imgs, true).language_switch).toBe(false);
     expect(portalLookPatch(fdWith({ language_switch: "on" }), ev, imgs, true).language_switch).toBe(true);
+  });
+  it("portalLookPatch saves the Me page ticks: anything unticked is hidden", () => {
+    const fd = fdWith({});
+    fd.append("me_shown", ":category");
+    fd.append("me_shown", "table_no");
+    expect(portalLookPatch(fd, ev, imgs, true).me_hidden).toEqual([":badge", ":email"]);
   });
   it("registrationPatch returns exactly the Registration columns", () => {
     expect(sorted(registrationPatch(fdWith(validForm), ev, regImgs))).toEqual([...REGISTRATION_COLUMNS].sort());

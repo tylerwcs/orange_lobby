@@ -33,35 +33,8 @@ export function EventTab({ ev, admin, base, previewAs, portalShare, registration
   const statuses = admin ? STATUSES : STATUSES.filter((s) => s.value !== "archived");
   return (
     <>
-      {/* Keyed on its own columns only (formKey), so it resets only when what it saves changes. */}
-      <form key={formKey(EVENT_TAB_COLUMNS.map((c) => ev[c]))} action={updateEventTabAction.bind(null, ev.id)} data-tab-label="Event" className="flex flex-col gap-4">
-        <Section title="Event">
-          <Field label="Name" name="name" defaultValue={ev.name} />
-          {/* D633: where the big name breaks onto lines. Sentences, tab titles and WhatsApp keep the plain name. */}
-          <Field label="Name as shown on the portal" name="display_name" textarea defaultValue={ev.display_name ?? ""} placeholder={ev.name}
-            description="Press Enter where you want a new line, e.g. after Hub 2. Used for the big event name on the Coming soon page. Leave blank to use the name as it is." />
-          {/* D635: the bar is narrow and on every page, so the breaks stay out of it unless asked. */}
-          <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
-            <input type="checkbox" name="display_name_in_bar" defaultChecked={ev.display_name_in_bar ?? false} className="size-4 accent-primary" />
-            Also use these line breaks in the top bar
-          </label>
-          <Field label="Venue" name="venue_name" defaultValue={ev.venue_name} description="Shown beside the dates at the top of the portal." />
-          {/* One row: at their own width the two dates sit side by side even in a half card. */}
-          <div className="flex flex-wrap gap-4 @xl:col-span-2">
-            <div><Field label="Starts on" name="starts_on" type="date" defaultValue={ev.starts_on} /></div>
-            <div><Field label="Ends on" name="ends_on" type="date" defaultValue={ev.ends_on} /></div>
-          </div>
-          {/* D617: saved with this tab's Save, unlike the Status card it describes. */}
-          <div className="@xl:col-span-2">
-            <Field label="Coming soon message" name="coming_soon_message" textarea defaultValue={ev.coming_soon_message ?? ""} placeholder={DEFAULT_COMING_SOON}
-              description="What every link shows while the event is a draft. Line breaks are kept. Leave blank to use the placeholder text." />
-          </div>
-        </Section>
-        <SaveBar label="Save" note="Saves this tab." unsavedNote="Unsaved changes" />
-      </form>
-
-      {/* Status and the share links apply on click, so they sit outside the tab's form: status
-          is plain buttons calling its action, and none of it waits for Save. */}
+      {/* Status and the share links apply on click, so they sit above the tab's form, whose Save
+          bar ends the tab: status is plain buttons calling its action, and none of it waits for Save. */}
       <div className="grid gap-4 @4xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -108,6 +81,33 @@ export function EventTab({ ev, admin, base, previewAs, portalShare, registration
           </CardContent>
         </Card>
       </div>
+
+      {/* Keyed on its own columns only (formKey), so it resets only when what it saves changes. */}
+      <form key={formKey(EVENT_TAB_COLUMNS.map((c) => ev[c]))} action={updateEventTabAction.bind(null, ev.id)} data-tab-label="Event" className="flex flex-col gap-4">
+        <Section title="Event">
+          <Field label="Name" name="name" defaultValue={ev.name} />
+          {/* D633: where the big name breaks onto lines. Sentences, tab titles and WhatsApp keep the plain name. */}
+          <Field label="Name as shown on the portal" name="display_name" textarea defaultValue={ev.display_name ?? ""} placeholder={ev.name}
+            description="Press Enter where you want a new line, e.g. after Hub 2. Used for the big event name on the Coming soon page. Leave blank to use the name as it is." />
+          {/* D635: the bar is narrow and on every page, so the breaks stay out of it unless asked. */}
+          <label className="flex min-h-11 items-center gap-2 text-sm @xl:col-span-2">
+            <input type="checkbox" name="display_name_in_bar" defaultChecked={ev.display_name_in_bar ?? false} className="size-4 accent-primary" />
+            Also use these line breaks in the top bar
+          </label>
+          <Field label="Venue" name="venue_name" defaultValue={ev.venue_name} description="Shown beside the dates at the top of the portal." />
+          {/* One row: at their own width the two dates sit side by side even in a half card. */}
+          <div className="flex flex-wrap gap-4 @xl:col-span-2">
+            <div><Field label="Starts on" name="starts_on" type="date" defaultValue={ev.starts_on} /></div>
+            <div><Field label="Ends on" name="ends_on" type="date" defaultValue={ev.ends_on} /></div>
+          </div>
+          {/* D617: saved with this tab's Save, unlike the Status card it describes. */}
+          <div className="@xl:col-span-2">
+            <Field label="Coming soon message" name="coming_soon_message" textarea defaultValue={ev.coming_soon_message ?? ""} placeholder={DEFAULT_COMING_SOON}
+              description="What every link shows while the event is a draft. Line breaks are kept. Leave blank to use the placeholder text." />
+          </div>
+        </Section>
+        <SaveBar label="Save" note="Saves this tab." unsavedNote="Unsaved changes" />
+      </form>
     </>
   );
 }
