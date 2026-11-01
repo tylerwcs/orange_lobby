@@ -204,7 +204,7 @@ export async function SubmissionBody({ entry: { form: f, state, mine, group, rev
   const addedBy = await addedByLine(f.event_id, mine);
   return (
     <>
-      <InfoRows rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue }, { icon: Users, text: forGroups(f, lang) }]} />
+      <InfoRows lang={lang} rows={[{ icon: CalendarDays, text: dates }, { icon: MapPin, text: f.venue, map: { href: f.venue_url, place: f.venue } }, { icon: Users, text: forGroups(f, lang) }]} />
       <RichSections html={f.description} lang={lang} />
       <section className={block}>
         {/* D369: members mode is per-person, so it shows the person's own history like "off". */}

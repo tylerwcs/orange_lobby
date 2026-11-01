@@ -42,14 +42,14 @@ export async function getBoothInEvent(id: string, eventId: string): Promise<Boot
 }
 
 /** Appends to the end of its passport: a new booth is the next stand, not the first. */
-export async function createBooth(passport: Pick<Activity, "id" | "org_id" | "event_id">, name: string, location: string | null) {
+export async function createBooth(passport: Pick<Activity, "id" | "org_id" | "event_id">, name: string, location: string | null, location_url: string | null) {
   const db = serviceClient();
   const { data: last } = await db.from("booths").select("sort_order")
     .eq("activity_id", passport.id).order("sort_order", { ascending: false }).limit(1).maybeSingle();
   const sort_order = (last?.sort_order ?? -1) + 1;
   const { error } = await db.from("booths").insert({
     org_id: passport.org_id, event_id: passport.event_id, activity_id: passport.id,
-    name, location, token: generateToken(), sort_order,
+    name, location, location_url, token: generateToken(), sort_order,
   });
   if (error) throw error;
 }
@@ -60,7 +60,7 @@ export async function createBooth(passport: Pick<Activity, "id" | "org_id" | "ev
  * row id (D180): a boothId is bound client-side in `BoothList`, so without the passport check a
  * forged call through one passport's bound action could rename a sibling passport's booth.
  */
-export async function updateBooth(id: string, eventId: string, activityId: string, patch: { name: string; location: string | null }) {
+export async function updateBooth(id: string, eventId: string, activityId: string, patch: { name: string; location: string | null; location_url: string | null }) {
   const { error } = await serviceClient().from("booths").update(patch)
     .eq("id", id).eq("event_id", eventId).eq("activity_id", activityId);
   if (error) throw error;

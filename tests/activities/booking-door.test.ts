@@ -5,7 +5,7 @@ import type { SeatsForViewer } from "@/features/activities/lib/activities";
 
 const DAY = "2026-09-30";
 const s = (id: string, starts_at: string, ends_at: string | null = null, extra: Partial<ActivitySession> = {}): ActivitySession =>
-  ({ id, event_id: "e1", activity_id: "a1", day: DAY, starts_at, ends_at, location: null, capacity: 3, sort_order: 0, ...extra });
+  ({ id, event_id: "e1", activity_id: "a1", day: DAY, starts_at, ends_at, location: null, location_url: null, capacity: 3, sort_order: 0, ...extra });
 const b = (session_id: string, attendee_id: string) => ({ session_id, attendee_id });
 const scan = (attendee_id: string, scanned_at: string, checkpoint_id = "d1") => ({ attendee_id, scanned_at, checkpoint_id });
 const at = (time: string, date = DAY) => ({ date, time });

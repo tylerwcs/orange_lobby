@@ -8,7 +8,7 @@ import type { NewActivity } from "../../db/activities";
 import type { ChallengeScoring, GroupMode } from "@/lib/types";
 import { categoryValues, type FormReader } from "../form";
 
-export type SubmissionSettings = Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "action_label" | "attendee_edit" | "proxy_fields" | "health_data" | "allow_pair">
+export type SubmissionSettings = Pick<NewActivity, "name" | "description" | "categories" | "max_per_attendee" | "per_day" | "questions" | "starts_on" | "ends_on" | "venue" | "venue_url" | "action_label" | "attendee_edit" | "proxy_fields" | "health_data" | "allow_pair">
   & { group_mode: GroupMode; group_target: number | null; scoring: ChallengeScoring | null };
 
 /**

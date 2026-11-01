@@ -32,6 +32,8 @@ export type SessionGrid<T extends SeatsForViewer = SeatsForViewer> = {
   days: GridDay<T>[];
   /** The one room every session is in, or null when they differ or none is set. */
   location: string | null;
+  /** The map link those sessions share (D798), or null when they differ or none is set. */
+  location_url: string | null;
   /** The one length every session runs, in minutes, or null. */
   minutes: number | null;
 };
@@ -64,6 +66,7 @@ export function sessionGrid<T extends SeatsForViewer>(seats: T[]): SessionGrid<T
   return {
     days,
     location: shared(sorted.map((s) => s.session.location)),
+    location_url: shared(sorted.map((s) => s.session.location_url ?? null)),
     minutes: lengths.includes(null) ? null : shared(lengths),
   };
 }

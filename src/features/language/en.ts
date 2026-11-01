@@ -118,6 +118,8 @@ export const en = {
     about: "About",
     none: "There is nothing here for this event yet.",
     forGroups: (groups: string) => `For ${groups}`,
+    /** D798: the map button beside a location; `place` is the location's own words. */
+    openMap: (place: string) => `Open ${place} in maps`,
     sections: {
       pinned: "Pinned",
       choose: "To choose",

@@ -6,12 +6,12 @@ import type { Activity, ActivityChangeRequest, ActivitySession } from "@/lib/typ
 const activity = (over: Partial<Activity> = {}): Activity => ({
   id: "act1", org_id: "o", event_id: "e", name: "Workshops", description: null,
   kind: "booking", required: false, is_open: true, pinned: false, attendee_edit: false, show_leaderboard: true, health_data: false, proxy_fields: [], max_per_attendee: 1, categories: null,
-  questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
+  questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, venue_url: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
   // A start time per id ("s1" at 10:30, "s2" at 11:30), so each session's label is its own.
   id, event_id: "e", activity_id: "act1", day: "2026-10-01", starts_at: `${9 + (Number(id.replace(/\D/g, "")) || 0)}:30`.padStart(5, "0"),
-  ends_at: "11:00", location: "Room 2A", capacity: 30, sort_order: 0, ...over,
+  ends_at: "11:00", location: "Room 2A", location_url: null, capacity: 30, sort_order: 0, ...over,
 });
 const request = (over: Partial<ActivityChangeRequest> = {}): ActivityChangeRequest => ({
   id: "req1", event_id: "e", activity_id: "act1", attendee_id: "att1", kind: "switch",

@@ -309,6 +309,8 @@ export type Booth = {
   activity_id: string;
   name: string;
   location: string | null;
+  /** D798: a map link for the location, or null. */
+  location_url: string | null;
   /** The booth's scanner authority. Printed as a QR; never shown to attendees. */
   token: string;
   sort_order: number;
@@ -413,6 +415,8 @@ export type Activity = {
   ends_on: string | null;
   /** Submission kind only. Free text, shown like a booking's location. */
   venue: string | null;
+  /** D798: a map link for the venue, or null. */
+  venue_url: string | null;
   /** Submission kind only. The attendee's button; "Submit" when null (`submitLabel`). */
   action_label: string | null;
   /** Passport kind only. How many stamps fill the card; null is every booth (D182). */
@@ -446,6 +450,8 @@ export type ActivitySession = {
   starts_at: string;    // HH:MM
   ends_at: string | null;
   location: string | null;
+  /** D798: a map link for the location, or null. */
+  location_url: string | null;
   capacity: number;
   sort_order: number;
 };

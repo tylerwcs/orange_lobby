@@ -6,7 +6,7 @@ let n = 0;
 const seat = (day: string, starts_at: string, over: Partial<SeatsForViewer["session"]> = {}, state: Partial<Omit<SeatsForViewer, "session">> = {}): SeatsForViewer => ({
   session: {
     id: `s${n++}`, event_id: "e", activity_id: "a", day, starts_at,
-    ends_at: addMinutes(starts_at, 15), location: "Gardensby17", capacity: 3, sort_order: 0, ...over,
+    ends_at: addMinutes(starts_at, 15), location: "Gardensby17", location_url: null, capacity: 3, sort_order: 0, ...over,
   },
   booked: 0, left: 3, full: false, mine: false, ...state,
 });
@@ -55,7 +55,7 @@ describe("sessionGrid", () => {
   });
 
   it("returns no days for an activity with no sessions", () => {
-    expect(sessionGrid([])).toEqual({ days: [], location: null, minutes: null });
+    expect(sessionGrid([])).toEqual({ days: [], location: null, location_url: null, minutes: null });
   });
 });
 

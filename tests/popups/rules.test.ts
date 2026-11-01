@@ -5,10 +5,10 @@ import type { Activity, ActivitySession } from "@/lib/types";
 const activity = (id: string, over: Partial<Activity> = {}): Activity => ({
   id, org_id: "o", event_id: "e", name: `Activity ${id}`, description: null,
   kind: "booking", required: false, is_open: true, pinned: false, attendee_edit: false, show_leaderboard: true, health_data: false, proxy_fields: [], max_per_attendee: 1, categories: null,
-  questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
+  questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, venue_url: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const session = (id: string, activityId: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
-  id, event_id: "e", activity_id: activityId, day: "2026-11-06", starts_at: "10:00", ends_at: "10:05", location: null, capacity: 1, sort_order: 0, ...over,
+  id, event_id: "e", activity_id: activityId, day: "2026-11-06", starts_at: "10:00", ends_at: "10:05", location: null, location_url: null, capacity: 1, sort_order: 0, ...over,
 });
 const popup = (id: string, activityId: string, over: Partial<PortalPopup> = {}): PortalPopup => ({
   id, org_id: "o", event_id: "e", heading: `Popup ${id}`, message_html: "<p>Book</p>", button_label: "Book now",

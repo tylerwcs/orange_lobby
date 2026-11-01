@@ -51,9 +51,10 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
   return (
     <>
       <InfoRows
+        lang={lang}
         rows={[
           { icon: CalendarDays, text: dayRange(state.sessions.map((s) => s.session.day), lang) },
-          { icon: MapPin, text: [grid.location, grid.minutes ? d.minEach(grid.minutes) : null].filter(Boolean).join(" · ") || null },
+          { icon: MapPin, text: [grid.location, grid.minutes ? d.minEach(grid.minutes) : null].filter(Boolean).join(" · ") || null, map: { href: grid.location_url, place: grid.location } },
           { icon: Armchair, text: n ? d.seatsAcross(left, n) : null },
           { icon: Users, text: forGroups(activity, lang) },
         ]}

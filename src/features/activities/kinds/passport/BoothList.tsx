@@ -5,6 +5,7 @@ import { useOptimistic, useRef, useState, useTransition } from "react";
 import type { Booth } from "@/lib/types";
 import { moveItem } from "@/lib/reorder";
 import { Icon } from "@/components/ui/icon";
+import { MapLink } from "../../portal/MapLink";
 import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
 import { Field } from "@/components/admin/Field";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -88,6 +89,8 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
                 {b.location && <div className="text-xs font-semibold text-muted-foreground">{b.location}</div>}
               </div>
 
+              <MapLink href={b.location_url} place={b.location ?? b.name} size="icon-sm" />
+
               <Badge variant="secondary" className="tabular-nums">{n} stamp{n === 1 ? "" : "s"}</Badge>
 
               <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -107,6 +110,7 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
                         <form action={renameBooth.bind(null, b.id)} className="grid gap-4 p-1">
                           <Field label="Name" name="name" defaultValue={b.name} />
                           <Field label="Location (optional)" name="location" defaultValue={b.location} />
+                          <Field label="Map link (optional)" name="location_url" type="url" defaultValue={b.location_url} placeholder="https://maps.app.goo.gl/…" />
                           <SubmitButton>Save</SubmitButton>
                         </form>
                       ),

@@ -10,11 +10,11 @@ import type { Activity, ActivitySession, AgendaItem } from "@/lib/types";
 const activity = (over: Partial<Activity> = {}): Activity => ({
   id: "act1", org_id: "o", event_id: "e", name: "Workshops", description: null,
   kind: "booking", required: false, is_open: true, pinned: false, attendee_edit: false, show_leaderboard: true, health_data: false, proxy_fields: [], max_per_attendee: 1, categories: null,
-  questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
+  questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, venue_url: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const session = (id: string, over: Partial<ActivitySession> = {}): ActivitySession => ({
   id, event_id: "e", activity_id: "act1", day: "2026-10-01", starts_at: "09:30",
-  ends_at: "11:00", location: "Room 2A", capacity: 30, sort_order: 0, ...over,
+  ends_at: "11:00", location: "Room 2A", location_url: null, capacity: 30, sort_order: 0, ...over,
 });
 const item = (id: string, day: string, starts_at: string, over: Partial<AgendaItem> = {}): AgendaItem => ({
   id, event_id: "e", day_id: "d1", day, kind: "session", starts_at, ends_at: null, title: id, description: null,
@@ -372,7 +372,7 @@ describe("sessionLabel", () => {
 
 describe("bookedSessionId", () => {
   it("reads the session back off a booked row, and nothing off an organiser's row", () => {
-    const [row] = bookedAgendaRows([{ id: "s1", event_id: "e", activity_id: "a", day: "2026-09-28", starts_at: "11:00", ends_at: "11:15", location: null, capacity: 3, sort_order: 0 }], new Map());
+    const [row] = bookedAgendaRows([{ id: "s1", event_id: "e", activity_id: "a", day: "2026-09-28", starts_at: "11:00", ends_at: "11:15", location: null, location_url: null, capacity: 3, sort_order: 0 }], new Map());
     expect(bookedSessionId(row)).toBe("s1");
     expect(bookedSessionId({ ...row, id: "item-1" })).toBeNull();
   });

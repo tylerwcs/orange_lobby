@@ -75,7 +75,7 @@ describe("bookableAfterRegister (D766)", () => {
   const now = { date: "2026-11-01", time: "10:00" };
   const activity = { id: "act1", kind: "booking" as const, is_open: true, categories: null as string[] | null };
   const session = (id: string, day: string, starts_at: string, capacity = 1) =>
-    ({ id, event_id: "e1", activity_id: "act1", day, starts_at, ends_at: null, location: null, capacity, sort_order: 0 });
+    ({ id, event_id: "e1", activity_id: "act1", day, starts_at, ends_at: null, location: null, location_url: null, capacity, sort_order: 0 });
   const later = [session("s1", "2026-11-06", "09:00")];
 
   it("opens a booking that is open, theirs to book, and has a slot with room still to come", () => {

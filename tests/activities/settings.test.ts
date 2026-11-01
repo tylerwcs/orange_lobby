@@ -40,7 +40,7 @@ describe("readSettings (D420)", () => {
         settings: {
           name: "Photo", description: null, categories: null, max_per_attendee: null, per_day: false,
           attendee_edit: false, health_data: false, proxy_fields: [], allow_pair: false, questions: [],
-          starts_on: null, ends_on: null, venue: null, action_label: null,
+          starts_on: null, ends_on: null, venue: null, venue_url: null, action_label: null,
           group_mode: "off", group_target: null, scoring: null,
         },
       });

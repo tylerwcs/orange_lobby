@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { sessionLabel, type SeatsForViewer } from "../../lib/activities";
+import { MapLink } from "../../portal/MapLink";
 import type { ActivityEntry } from "../../lib/portal-activity-entries";
 import type { ActivityControls } from "../../lib/activity-requests";
 import { sessionGrid, startDay } from "../../lib/session-grid";
@@ -121,7 +122,7 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
         </section>
       ))}
 
-      {selected && <ActionBar seat={selected} showRoom={grid.location === null} controls={controls} book={book} requestSwitch={requestSwitch} />}
+      {selected && <ActionBar seat={selected} showRoom={grid.location === null} showMap={grid.location_url === null} controls={controls} book={book} requestSwitch={requestSwitch} />}
     </div>
   );
 }
@@ -131,9 +132,11 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
  * otherwise, holding one already, a request to move it there. Both keep the confirmation the
  * row buttons had.
  */
-function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
+function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch }: {
   seat: SeatsForViewer;
   showRoom: boolean;
+  /** The sessions' map links differ, so the page's own row has none and this one's goes here (D798). */
+  showMap: boolean;
   controls: ActivityControls;
   book: BookingActions["book"];
   requestSwitch: BookingActions["requestSwitch"];
@@ -156,6 +159,7 @@ function ActionBar({ seat, showRoom, controls, book, requestSwitch }: {
         <div className="text-sm font-extrabold">{isBook ? when : d.moveTo(when)}</div>
         <div className="truncate text-xs text-muted-foreground">{detail}</div>
       </div>
+      {showMap && <MapLink href={session.location_url} place={session.location} lang={lang} />}
       {isBook ? (
         <form action={book.bind(null, session.id)}>
           <ConfirmButton

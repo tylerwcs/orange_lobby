@@ -1,3 +1,4 @@
+import { readMapLink } from "./map-link";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 import { categoryMatches } from "@/lib/agenda";
@@ -287,7 +288,7 @@ const MAX_LABEL = 24;
  * Throws the sentence the organiser reads for a date range that cannot be right. An end date
  * the same as the start is one day, and is stored as no end date at all.
  */
-export function readSubmissionDetails(get: (key: string) => string | null): Pick<Activity, "starts_on" | "ends_on" | "venue" | "action_label"> {
+export function readSubmissionDetails(get: (key: string) => string | null): Pick<Activity, "starts_on" | "ends_on" | "venue" | "venue_url" | "action_label"> {
   const val = (k: string) => get(k)?.trim() || null;
   const starts_on = val("starts_on");
   let ends_on = val("ends_on");
@@ -296,7 +297,7 @@ export function readSubmissionDetails(get: (key: string) => string | null): Pick
   if (ends_on === starts_on) ends_on = null;
   const action_label = val("action_label");
   if (action_label && action_label.length > MAX_LABEL) throw new Error(`Keep the button wording to ${MAX_LABEL} characters or fewer.`);
-  return { starts_on, ends_on, venue: val("venue"), action_label };
+  return { starts_on, ends_on, venue: val("venue"), venue_url: readMapLink(val("venue_url")), action_label };
 }
 
 /** D350: the Setup tab's "Who submits". Throws the sentence the organiser reads. */

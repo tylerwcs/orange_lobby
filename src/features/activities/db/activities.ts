@@ -30,6 +30,7 @@ export type NewActivity = {
   starts_on?: string | null;
   ends_on?: string | null;
   venue?: string | null;
+  venue_url?: string | null;
   action_label?: string | null;
   /** Passport kind only (D182). Left out, the column's null stands. */
   stamps_required?: number | null;
@@ -60,6 +61,7 @@ export type NewSession = {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
+  location_url: string | null;
   capacity: number;
 };
 
@@ -202,6 +204,16 @@ export async function updateSession(id: string, eventId: string, patch: NewSessi
   const { error } = await serviceClient().from("activity_sessions").update(patch)
     .eq("id", id).eq("event_id", eventId);
   if (error) throw error;
+}
+
+/** D797: adds `seats` to each of these sessions in one statement (0121); returns how many it changed. */
+export async function topUpSessions(eventId: string, activityId: string, sessionIds: string[], seats: number): Promise<number> {
+  if (sessionIds.length === 0) return 0;
+  const { data, error } = await serviceClient().rpc("top_up_sessions", {
+    p_event_id: eventId, p_activity_id: activityId, p_session_ids: sessionIds, p_seats: seats,
+  });
+  if (error) throw error;
+  return data as number;
 }
 
 export async function deleteSession(id: string, eventId: string): Promise<void> {

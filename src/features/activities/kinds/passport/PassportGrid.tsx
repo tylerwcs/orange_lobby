@@ -6,6 +6,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import { meterPercent, meterAriaValue, meterAriaMax } from "@/lib/meter";
 import { shortTime, shortDateTime } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
+import { MapLink } from "../../portal/MapLink";
 
 // A small tilt per cell echoes an actual rubber stamp landing slightly askew - purely
 // decorative, cycled by index so it never depends on how many booths an event has.
@@ -64,6 +65,7 @@ function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: bool
         {glyph}
         <div className="min-w-0 flex-1">{info}</div>
         {stamped && <div className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground">{shortTime(cell.stampedAt!)}</div>}
+        <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
       </div>
     );
   }
@@ -74,7 +76,10 @@ function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: bool
     <div className={`flex min-h-[146px] min-w-0 flex-col gap-2.5 rounded-2xl p-3.5 ${tone}`}>
       <div className="flex flex-1 items-start justify-between gap-2">
         {glyph}
-        {stamped && <div className="text-xs font-bold tabular-nums text-muted-foreground">{shortTime(cell.stampedAt!)}</div>}
+        <div className="flex flex-col items-end gap-2">
+          {stamped && <div className="text-xs font-bold tabular-nums text-muted-foreground">{shortTime(cell.stampedAt!)}</div>}
+          <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
+        </div>
       </div>
       {info}
     </div>
@@ -168,10 +173,11 @@ function LockedPassport({ passport }: { passport: Passport }) {
             {passport.cells.map((c) => (
               <li key={c.booth.id} className="flex min-h-11 items-center gap-3 p-3.5">
                 <EmptyRing />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="text-sm font-extrabold leading-tight">{c.booth.name}</div>
                   {c.booth.location && <div className="truncate text-xs text-muted-foreground">{c.booth.location}</div>}
                 </div>
+                <MapLink href={c.booth.location_url} place={c.booth.location ?? c.booth.name} />
               </li>
             ))}
           </ul>

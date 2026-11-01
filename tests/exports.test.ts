@@ -170,8 +170,8 @@ describe("roster workbook", () => {
 
 describe("buildPassportWorkbook", () => {
   const booths: Booth[] = [
-    { id: "b1", org_id: "o", event_id: "e", activity_id: "p1", name: "Operations", location: "Foyer", token: "t1", sort_order: 0 },
-    { id: "b2", org_id: "o", event_id: "e", activity_id: "p1", name: "Creative Studio", location: "Foyer", token: "t2", sort_order: 1 },
+    { id: "b1", org_id: "o", event_id: "e", activity_id: "p1", name: "Operations", location: "Foyer", location_url: null, token: "t1", sort_order: 0 },
+    { id: "b2", org_id: "o", event_id: "e", activity_id: "p1", name: "Creative Studio", location: "Foyer", location_url: null, token: "t2", sort_order: 1 },
   ];
   const stamps: BoothStamp[] = [
     { id: "s1", org_id: "o", event_id: "e", booth_id: "b1", attendee_id: "a1", stamped_at: "2026-09-30T02:24:00Z" },
@@ -207,7 +207,7 @@ describe("buildPassportWorkbook", () => {
   });
 
   it("writes one sheet per passport, each with only its own booths", () => {
-    const other: Booth[] = [{ id: "c1", org_id: "o", event_id: "e", activity_id: "p2", name: "Photo Wall", location: null, token: "t3", sort_order: 0 }];
+    const other: Booth[] = [{ id: "c1", org_id: "o", event_id: "e", activity_id: "p2", name: "Photo Wall", location: null, location_url: null, token: "t3", sort_order: 0 }];
     const wb = buildPassportWorkbook(attendees, [
       { name: "Booth Passport", booths, required: null },
       { name: "Wellness Trail", booths: other, required: null },

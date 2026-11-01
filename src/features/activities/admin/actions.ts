@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireEventAccess } from "@/lib/access";
 import {
   createActivity, updateActivity, scheduleOpening, deleteActivity, deletePassportIfUnstamped, getActivity,
-  createSessions, updateSession, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
+  createSessions, updateSession, topUpSessions, deleteSession, deleteSessionsOnDay, bookSession, listSessions,
   syncSubmissionPerDay, submissionsForActivity, getSubmission, updateSubmissionAnswers, revokeSubmission, restoreSubmission, pairPartnerIds,
   type BookResult, type DecisionResult,
 } from "../db/activities";
@@ -24,7 +24,9 @@ import type { Activity, ActivityKind, ActivitySubmission, Event } from "@/lib/ty
 import { featureForActivityKind, requireFeature } from "@/features/catalogue";
 import { disqualify, undoDisqualify } from "../db/challenge";
 import { challengeWeeks, mondayOf } from "../lib/challenge";
-import { generateSlots, readSlotForm, describeAdded } from "../lib/session-slots";
+import { generateSlots, readSlotForm, describeAdded, readTopUpForm, topUpTargets, describeTopUp } from "../lib/session-slots";
+import { readMapLink } from "../lib/map-link";
+import { nowInKL } from "@/lib/time";
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
 import { parseRevokeReason, reasonsOf, restoreRefusal } from "../lib/revoke";
@@ -544,7 +546,7 @@ function readSession(fd: FormData) {
   if (!day || !starts_at) throw new Error("A session needs a day and a start time");
   const capacity = Number.parseInt(text(fd, "capacity") || "0", 10);
   if (!Number.isFinite(capacity) || capacity < 1) throw new Error("Capacity must be at least 1");
-  return { day, starts_at, ends_at: text(fd, "ends_at") || null, location: text(fd, "location") || null, capacity };
+  return { day, starts_at, ends_at: text(fd, "ends_at") || null, location: text(fd, "location") || null, location_url: readMapLink(text(fd, "location_url")), capacity };
 }
 
 /**
@@ -563,6 +565,29 @@ export async function addSessionsAction(eventId: string, activityId: string, fd:
   revalidatePath(listPath(eventId));
   revalidatePath(detailPath(eventId, activityId));
   redirect(flashPath(back, describeAdded(plan.slots.length, plan.skipped)));
+}
+
+/**
+ * D797: adds seats to every session still to start, on one day or all of them - the mid-event
+ * "make it 5 a slot instead of 3". Adds to each session's own count rather than setting one, so
+ * a session already raised by hand keeps its lead. Sessions that have started are skipped and
+ * counted in the flash, since nobody can book them any more.
+ */
+export async function topUpSessionsAction(eventId: string, activityId: string, fd: FormData) {
+  const ev = await event(eventId);
+  await bookingOf(ev, activityId);
+  const back = activityHref(eventId, activityId);
+  const input = readTopUpForm(fd);
+  if ("error" in input) redirect(flashPath(back, input.error, "error"));
+  const sessions = (await listSessions(ev.id)).filter((s) => s.activity_id === activityId);
+  const { ids, started } = topUpTargets(sessions, input.day, nowInKL());
+  if (ids.length === 0) {
+    redirect(flashPath(back, started > 0 ? "Every one of those sessions has already started." : "There are no sessions to top up.", "error"));
+  }
+  const changed = await topUpSessions(ev.id, activityId, ids, input.seats);
+  revalidatePath(listPath(eventId));
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(back, describeTopUp(input.seats, changed, started)));
 }
 
 export async function saveSessionAction(eventId: string, activityId: string, sessionId: string, fd: FormData) {
@@ -933,7 +958,7 @@ export async function addBoothAction(eventId: string, activityId: string, fd: Fo
   const passport = await passportOf(ev, activityId);
   const name = text(fd, "name");
   if (!name) throw new Error("A booth needs a name");
-  await createBooth(passport, name, text(fd, "location") || null);
+  await createBooth(passport, name, text(fd, "location") || null, readMapLink(text(fd, "location_url")));
   revalidatePath(detailPath(eventId, activityId));
 }
 
@@ -943,7 +968,7 @@ export async function renameBoothAction(eventId: string, activityId: string, boo
   await passportOf(ev, activityId);
   const name = text(fd, "name");
   if (!name) throw new Error("A booth needs a name");
-  await updateBooth(boothId, ev.id, activityId, { name, location: text(fd, "location") || null });
+  await updateBooth(boothId, ev.id, activityId, { name, location: text(fd, "location") || null, location_url: readMapLink(text(fd, "location_url")) });
   revalidatePath(detailPath(eventId, activityId));
 }
 

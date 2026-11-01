@@ -40,7 +40,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     startsAt: session.starts_at,
     endsAt: session.ends_at,
     location: session.location,
-    description: event.name,
+    // D798: the session's map link rides in the notes, where every calendar app makes it tappable.
+    description: session.location_url ? `${event.name}
+
+Map: ${session.location_url}` : event.name,
     url: `${attendeeLink(await eventAddress(event), token)}/activities/${activityId}`,
   };
   const app = query.get("app");

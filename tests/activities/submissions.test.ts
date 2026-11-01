@@ -6,7 +6,7 @@ import type { Activity, ActivitySubmission } from "@/lib/types";
 const form = (over: Partial<Activity> = {}): Activity => ({
   id: "f1", org_id: "o", event_id: "e", name: "Daily check-in", description: null,
   kind: "submission", required: false, is_open: true, pinned: false, attendee_edit: false, show_leaderboard: true, health_data: false, proxy_fields: [], categories: null,
-  max_per_attendee: null, questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
+  max_per_attendee: null, questions: [], per_day: false, group_mode: "off", group_target: null, scoring: null, image_url: null, starts_on: null, ends_on: null, venue: null, venue_url: null, action_label: null, stamps_required: null, reward_message: null, sort_order: 0, ...over,
 });
 const sub = (day: string): ActivitySubmission => ({
   id: `s-${day}`, event_id: "e", activity_id: "f1", attendee_id: "a1", group_id: null, answers: {},
@@ -226,8 +226,8 @@ describe("readSubmissionDetails", () => {
   const read = (v: Record<string, string>) => readSubmissionDetails((k) => v[k] ?? null);
   it("stores what was filled in, and null for what was not", () => {
     expect(read({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: " Level 3 gym ", action_label: "Join now" }))
-      .toEqual({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: "Level 3 gym", action_label: "Join now" });
-    expect(read({})).toEqual({ starts_on: null, ends_on: null, venue: null, action_label: null });
+      .toEqual({ starts_on: "2026-09-28", ends_on: "2026-10-02", venue: "Level 3 gym", venue_url: null, action_label: "Join now" });
+    expect(read({})).toEqual({ starts_on: null, ends_on: null, venue: null, venue_url: null, action_label: null });
   });
   it("drops an end date equal to the start, which is one day", () => {
     expect(read({ starts_on: "2026-09-28", ends_on: "2026-09-28" }).ends_on).toBeNull();

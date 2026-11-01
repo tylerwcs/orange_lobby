@@ -116,6 +116,7 @@ export const ms = {
     about: "Tentang",
     none: "Belum ada apa-apa di sini untuk acara ini.",
     forGroups: (groups: string) => `Untuk ${groups}`,
+    openMap: (place: string) => `Buka ${place} dalam peta`,
     sections: {
       pinned: "Disemat",
       choose: "Perlu dipilih",

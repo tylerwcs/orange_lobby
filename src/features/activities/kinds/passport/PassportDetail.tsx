@@ -89,6 +89,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
               <form action={addBoothAction.bind(null, ev.id, activity.id)} className="grid gap-4">
                 <Field label="Name" name="name" placeholder="Operations" />
                 <Field label="Location (optional)" name="location" placeholder="Foyer · Stand 1" />
+                <Field label="Map link (optional)" name="location_url" type="url" placeholder="https://maps.app.goo.gl/…" />
                 <SubmitButton>Add booth</SubmitButton>
               </form>
             </Modal>

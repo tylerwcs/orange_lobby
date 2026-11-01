@@ -25,10 +25,11 @@ export function AddSessionsDialog({ addSessions, existing, defaultDay }: {
   const [breaks, setBreaks] = useState<{ from: string; to: string }[]>([]);
   const [capacity, setCapacity] = useState("20");
   const [location, setLocation] = useState("");
+  const [locationUrl, setLocationUrl] = useState("");
 
   const plan = generateSlots({
     days, from, to, every: Number.parseInt(every, 10), breaks,
-    capacity: Number.parseInt(capacity, 10), location: location.trim() || null,
+    capacity: Number.parseInt(capacity, 10), location: location.trim() || null, location_url: locationUrl.trim() || null,
   }, existing);
   const summary = plan.ok
     ? `Makes ${plan.slots.length} session${plan.slots.length === 1 ? "" : "s"}${plan.skipped ? ` (${plan.skipped} already exist)` : ""}`
@@ -82,6 +83,10 @@ export function AddSessionsDialog({ addSessions, existing, defaultDay }: {
           <label className="grid gap-1.5"><span className={label}>Location (optional)</span>
             <input name="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Room 2A" className={input} /></label>
         </div>
+
+        <label className="grid gap-1.5"><span className={label}>Map link (optional)</span>
+          <input name="location_url" type="url" value={locationUrl} onChange={(e) => setLocationUrl(e.target.value)} placeholder="https://maps.app.goo.gl/…" className={input} />
+          <span className="text-xs text-muted-foreground">Attendees get a button that opens it, usually in Google Maps.</span></label>
 
         <p role="status" className={`text-sm ${plan.ok ? "text-muted-foreground" : "text-destructive"}`}>{summary}</p>
         <SubmitButton>{plan.ok ? `Add ${plan.slots.length} session${plan.slots.length === 1 ? "" : "s"}` : "Add sessions"}</SubmitButton>

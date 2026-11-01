@@ -44,7 +44,11 @@ export function SubmissionSetupFields({ activity, categories, fields, uploadImag
         <Field label="Start date (optional)" name="starts_on" type="date" defaultValue={activity?.starts_on} />
         <Field label="End date (optional)" name="ends_on" type="date" defaultValue={activity?.ends_on} description="Leave blank for a single day." />
       </div>
-      <Field label="Venue (optional)" name="venue" defaultValue={activity?.venue} placeholder="Level 3 gym" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Venue (optional)" name="venue" defaultValue={activity?.venue} placeholder="Level 3 gym" />
+        <Field label="Map link (optional)" name="venue_url" type="url" defaultValue={activity?.venue_url} placeholder="https://maps.app.goo.gl/…"
+          description="Attendees get a button that opens it, usually in Google Maps." />
+      </div>
       <Field label="Button wording (optional)" name="action_label" defaultValue={activity?.action_label} placeholder="Submit"
         description="What the button on the attendee's page says, like Join now or Upload results. Leave blank for Submit." />
       <CategoryCombo categories={categories} defaultValue={activity?.categories ?? []} />

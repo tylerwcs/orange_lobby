@@ -1,5 +1,6 @@
 import type { ActivitySession } from "@/lib/types";
 import type { SessionSeats } from "./activities";
+import { parseMapLink } from "./map-link";
 
 /**
  * The bulk "Add sessions" maths (D241), and the day grouping the Setup tab shows (D240).
@@ -19,9 +20,11 @@ export type SlotInput = {
   breaks: { from: string; to: string }[];
   capacity: number;
   location: string | null;
+  /** D798: as typed; checked with the rest. */
+  location_url: string | null;
 };
 
-export type NewSlot = { day: string; starts_at: string; ends_at: string; location: string | null; capacity: number };
+export type NewSlot = { day: string; starts_at: string; ends_at: string; location: string | null; location_url: string | null; capacity: number };
 export type SlotPlan = { ok: true; slots: NewSlot[]; skipped: number } | { ok: false; error: string };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -49,6 +52,8 @@ export function generateSlots(input: SlotInput, existing: Pick<ActivitySession, 
   if (from >= to) return refuse("The end time must be after the start time");
   if (!Number.isInteger(input.every) || input.every < 5 || input.every > 240) return refuse("Each session must last between 5 and 240 minutes");
   if (!Number.isInteger(input.capacity) || input.capacity < 1) return refuse("Seats must be at least 1");
+  const link = parseMapLink(input.location_url);
+  if (!link.ok) return refuse(link.error);
 
   const breaks: [number, number][] = [];
   for (const b of input.breaks) {
@@ -67,7 +72,7 @@ export function generateSlots(input: SlotInput, existing: Pick<ActivitySession, 
       const end = start + input.every;
       if (breaks.some(([bFrom, bTo]) => start < bTo && end > bFrom)) continue;
       if (taken.has(`${day} ${toTime(start)}`)) { skipped++; continue; }
-      slots.push({ day, starts_at: toTime(start), ends_at: toTime(end), location: input.location, capacity: input.capacity });
+      slots.push({ day, starts_at: toTime(start), ends_at: toTime(end), location: input.location, location_url: link.url, capacity: input.capacity });
       if (slots.length > MAX_SLOTS) return refuse(`That makes more than ${MAX_SLOTS} sessions. Split it into smaller batches.`);
     }
   }
@@ -88,6 +93,7 @@ export function readSlotForm(fd: FormData): SlotInput {
     breaks: all("break_from").map((from, i) => ({ from, to: breakTo[i] ?? "" })),
     capacity: Number.parseInt(text("capacity"), 10),
     location: text("location") || null,
+    location_url: text("location_url") || null,
   };
 }
 
@@ -118,4 +124,45 @@ export function groupSessionsByDay(items: SessionSeats[]): DayGroup[] {
     g.location = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
   }
   return groups;
+}
+
+/** More than any one top-up should need; a typo of 200 for 20 is the mistake this stops. */
+export const MAX_TOP_UP = 100;
+
+export type TopUpInput = { seats: number; day: string | null };
+
+/** The top-up dialog's fields (D797). `day` is blank for every day. */
+export function readTopUpForm(fd: FormData): TopUpInput | { error: string } {
+  const seats = Number.parseInt(String(fd.get("seats") ?? "").trim(), 10);
+  if (!Number.isInteger(seats) || seats < 1) return { error: "Add at least 1 seat" };
+  if (seats > MAX_TOP_UP) return { error: `Add at most ${MAX_TOP_UP} seats at a time` };
+  const day = String(fd.get("day") ?? "").trim();
+  return { seats, day: day || null };
+}
+
+/**
+ * Which sessions a top-up reaches (D797): this activity's, on `day` when one is given, and only
+ * those still to start. A session that has started or finished cannot be booked any more, so
+ * seats added to it would only make its "booked of seats" count wrong after the event.
+ * `now` is Kuala Lumpur wall-clock time, the same clock `day` and `starts_at` are written in.
+ */
+export function topUpTargets(
+  sessions: Pick<ActivitySession, "id" | "day" | "starts_at">[],
+  day: string | null,
+  now: { date: string; time: string },
+): { ids: string[]; started: number } {
+  const ids: string[] = [];
+  let started = 0;
+  for (const s of sessions) {
+    if (day && s.day !== day) continue;
+    if (s.day > now.date || (s.day === now.date && s.starts_at > now.time)) ids.push(s.id);
+    else started++;
+  }
+  return { ids, started };
+}
+
+export function describeTopUp(seats: number, changed: number, started: number): string {
+  const seatWord = `${seats} seat${seats === 1 ? "" : "s"}`;
+  const left = started > 0 ? ` ${started} session${started === 1 ? " has" : "s have"} already started and ${started === 1 ? "was" : "were"} left as ${started === 1 ? "it was" : "they were"}.` : "";
+  return `Added ${seatWord} to ${changed} session${changed === 1 ? "" : "s"}.${left}`;
 }

@@ -29,7 +29,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { saveActivityAction, toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, deleteActivityAction, addSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction, placeAttendeesAction, approveRequestAction, declineRequestAction, uploadActivityImageAction } from "../../admin/actions";
+import { saveActivityAction, toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, deleteActivityAction, addSessionsAction, topUpSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction, placeAttendeesAction, approveRequestAction, declineRequestAction, uploadActivityImageAction } from "../../admin/actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";
@@ -168,6 +168,7 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
               <SessionDays
                 items={seats}
                 addSessions={addSessionsAction.bind(null, ev.id, activity.id)}
+                topUp={topUpSessionsAction.bind(null, ev.id, activity.id)}
                 saveSession={saveSessionAction.bind(null, ev.id, activity.id)}
                 deleteSession={deleteSessionAction.bind(null, ev.id, activity.id)}
                 deleteDay={deleteSessionDayAction.bind(null, ev.id, activity.id)}
