@@ -1,47 +1,7 @@
-import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
-import { qualifierView, QualifierClient } from "@/features/qualifier";
-import type { Attendee, Event } from "@/lib/types";
-import { TITLE_INK } from "@/lib/ink";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-/** The page's first view, read at the moment of the request (outside render, which must stay pure). */
-const firstView = (event: Event, attendee: Attendee) => qualifierView({ event, attendee }, Date.now());
-
-const title = <h1 className={`mb-4 text-xl font-extrabold ${TITLE_INK}`}>Typing qualifier</h1>;
-
-/**
- * The typing qualifier (D772, D795): the ready screen, the slime run, the result and the board,
- * all in QualifierClient. Personal only (the tile route is, D770); the token is the identity.
- * The title stays: a run covers it, and everything else, with its full-screen overlay.
- */
-export default async function Qualifier({ params }: { params: Promise<{ slug: string; token: string }> }) {
+/** Slime Splat moved to the Games page (D797): an old tile or link lands there. */
+export default async function OldSlimeSplat({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
-  const { event, attendee } = await loadPortalAttendee(slug, token);
-  // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
-  if (isUnpublished(event)) return null;
-  // The start and submit endpoints refuse an archived event (playContext).
-  if (event.status === "archived") {
-    return (
-      <>
-        {title}
-        <p className="text-base text-muted-foreground">The qualifier is closed for this event.</p>
-      </>
-    );
-  }
-  const view = await firstView(event, attendee);
-  if (view.ineligible) {
-    return (
-      <>
-        {title}
-        <p className="text-base text-muted-foreground">This challenge isn&apos;t open to you.</p>
-      </>
-    );
-  }
-  return (
-    <>
-      {title}
-      <QualifierClient token={token} initial={view} />
-    </>
-  );
+  redirect(`/e/${encodeURIComponent(slug)}/a/${encodeURIComponent(token)}/play`);
 }

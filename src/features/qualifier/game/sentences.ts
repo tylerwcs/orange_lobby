@@ -126,13 +126,15 @@ export const SENTENCES: readonly string[] = Object.freeze(
 
 const wordsOf = (s: string) => s.split(" ");
 
+/** Words boss `n` (1-based) carries at least: 11, 14, 17... up to 24, so each boss is longer than the last. */
+export const bossWords = (n: number): number => Math.min(8 + 3 * n, 24);
+
 /**
- * The sentence boss `n` (1-based) carries: at least 3 + 2n words, so each boss is longer than
- * the last. Picks among the sentences long enough; when none is, joins random sentences until
- * the words are enough.
+ * The sentence boss `n` (1-based) carries: at least `bossWords(n)` words. Picks among the
+ * sentences long enough; when none is, joins random sentences until the words are enough.
  */
 export function bossSentence(r: () => number, n: number): string[] {
-  const need = 3 + 2 * n;
+  const need = bossWords(n);
   const long = SENTENCES.filter((s) => wordsOf(s).length >= need);
   if (long.length > 0) return wordsOf(long[randInt(r, long.length)]);
   const words: string[] = [];

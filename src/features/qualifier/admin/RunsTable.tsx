@@ -17,7 +17,7 @@ const STATUS: Record<string, string> = { done: "Finished", live: "Not finished",
  * score, how long it lasted, slimes popped, bosses beaten, the fastest 10 s of typing (letters
  * per second × 12, about words per minute) and the device, with a badge for text that arrived
  * as an insert (swipe typing, a keyboard's suggestion). A finished run can be disqualified, or
- * restored once it has been; both are hidden when `locked` (the finalists are confirmed).
+ * restored once it has been; both are hidden when `locked` (left over from the old finalist snapshot).
  * `actionFor` hands back the already-bound server action for a run, so this stays free of the
  * app folder. A disqualified run's numbers are struck through: it no longer counts.
  */
@@ -71,7 +71,7 @@ export function RunsTable({ runs, locked, actionFor }: {
                   <form action={actionFor(r)}>
                     {out
                       ? <ConfirmButton tone="default" confirmLabel="Restore" message="Restore this run? It counts again, and the board is recomputed.">Restore</ConfirmButton>
-                      : <ConfirmButton confirmLabel="Disqualify" message="Disqualify this run? It stops counting and the board is recomputed. You can restore it until the finalists are confirmed.">Disqualify</ConfirmButton>}
+                      : <ConfirmButton confirmLabel="Disqualify" message="Disqualify this run? It stops counting and the board is recomputed. You can restore it later.">Disqualify</ConfirmButton>}
                   </form>
                 )}
               </TableCell>

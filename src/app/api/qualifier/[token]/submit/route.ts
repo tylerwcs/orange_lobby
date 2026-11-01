@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const { token } = await params;
   if (!allow(`qsub:${token}`, 20, 60_000)) return json({ error: "Slow down a little." }, 429);
   const ctx = await playContext(token);
-  if (!ctx) return json({ error: "This link does not open the qualifier." }, 404);
+  if (!ctx) return json({ error: "This link does not open the game." }, 404);
   const { event, attendee } = ctx;
 
   const body = parseSubmitBody(await req.json().catch(() => null));

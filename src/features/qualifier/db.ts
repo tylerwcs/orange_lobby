@@ -117,13 +117,6 @@ export async function submitRun(
   return codeOf("qualifier_submit", data, ["ok", "early", "late", "done", "refused"] as const);
 }
 
-/** Games of the event still in flight (live and within their submit window): Confirm waits for them. */
-export async function liveRunCount(eventId: string): Promise<number> {
-  const { data, error } = await serviceClient().rpc("qualifier_live_count", { p_event_id: eventId });
-  if (error) throw error;
-  return Number(data ?? 0);
-}
-
 export type RunRow = {
   id: string; starts_at: string; status: string; score: number | null; ended_ms: number | null;
   popped: number | null; bosses: number | null; peak_cps: number | null; device: Device;
@@ -217,26 +210,4 @@ export async function getPlayer(eventId: string, attendeeId: string): Promise<Pl
     best_run_id: (data.best_run_id as string | null) ?? null,
     runs_played: Number(data.runs_played ?? 0),
   };
-}
-
-// --- Finalists ---
-
-/** Freezes the board's top 10 as the finale list. `not_closed` while runs can still count. */
-export async function confirmFinalists(eventId: string, by: string): Promise<"ok" | "not_closed" | "already"> {
-  const { data, error } = await serviceClient().rpc("qualifier_confirm", { p_event_id: eventId, p_by: by });
-  if (error) throw error;
-  return codeOf("qualifier_confirm", data, ["ok", "not_closed", "already"] as const);
-}
-
-export type Finalist = { rank: number; attendee_id: string; best_score: number };
-
-export async function listFinalists(eventId: string): Promise<Finalist[]> {
-  const { data, error } = await serviceClient().from("qualifier_finalists")
-    .select("rank, attendee_id, best_score").eq("event_id", eventId).order("rank");
-  if (error) throw error;
-  return ((data ?? []) as Row[]).map((r) => ({
-    rank: Number(r.rank),
-    attendee_id: r.attendee_id as string,
-    best_score: Number(r.best_score),
-  }));
 }

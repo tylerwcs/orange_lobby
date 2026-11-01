@@ -1,7 +1,7 @@
 "use client";
 import { useImperativeHandle, useRef, type Ref } from "react";
 import { Color, MathUtils, type Group, type Mesh, type MeshStandardMaterial, type Object3D, type PerspectiveCamera, type Vector3 } from "three";
-import { BLASTER, BLASTER_DARK, BLASTER_TRIM, FLASH, GLASS, HAND, SLIMES } from "../../game/palette";
+import { BLASTER, BLASTER_DARK, BLASTER_TRIM, FLASH, GLASS, HAND } from "../../game/palette";
 import type { Quality } from "../../game/quality";
 
 /**
@@ -11,8 +11,8 @@ import type { Quality } from "../../game/quality";
  */
 
 export type BlasterApi = {
-  /** Follow the camera and animate. `look`: the locked slime's colour index, or null. */
-  update(f: { t: number; dt: number; camera: PerspectiveCamera; quality: Quality; look: number | null }): void;
+  /** Follow the camera and animate. `color`: the locked slime's colour (slimeColour), or null. */
+  update(f: { t: number; dt: number; camera: PerspectiveCamera; quality: Quality; color: number | null }): void;
   /** A shot: full recoil and a muzzle flash (`strength` 0..1). */
   fire(strength: number): void;
   /** A letter landing: a small kick. */
@@ -39,7 +39,7 @@ export function Blaster({ ref }: { ref?: Ref<BlasterApi> }) {
   const motion = useRef({ recoil: 0, jolt: 0, flash: 0 });
 
   useImperativeHandle(ref, () => ({
-    update({ t, dt, camera, quality, look }) {
+    update({ t, dt, camera, quality, color }) {
       const r = rig.current;
       const g = gun.current;
       if (!r || !g) return;
@@ -73,8 +73,8 @@ export function Blaster({ ref }: { ref?: Ref<BlasterApi> }) {
       }
       const mat = goo.current;
       if (mat) {
-        if (look === null) want.copy(trim);
-        else want.setHex(SLIMES[look] ?? BLASTER_TRIM);
+        if (color === null) want.copy(trim);
+        else want.setHex(color);
         mat.color.lerp(want, 1 - Math.exp(-dt * 10));
         mat.emissive.copy(mat.color);
       }

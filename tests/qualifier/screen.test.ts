@@ -10,13 +10,12 @@ describe("livePhase", () => {
   it("opens and closes by the clock without a reload", () => {
     expect(livePhase("before", OPENS, CLOSES, at(OPENS) - 1)).toBe("before");
     expect(livePhase("before", OPENS, CLOSES, at(OPENS))).toBe("open");
-    expect(livePhase("before", OPENS, CLOSES, at(CLOSES))).toBe("review");
+    expect(livePhase("before", OPENS, CLOSES, at(CLOSES))).toBe("closed");
     expect(livePhase("open", OPENS, CLOSES, at(CLOSES) - 1)).toBe("open");
-    expect(livePhase("open", OPENS, CLOSES, at(CLOSES))).toBe("review");
+    expect(livePhase("open", OPENS, CLOSES, at(CLOSES))).toBe("closed");
   });
   it("leaves the other phases as the server said", () => {
-    expect(livePhase("review", OPENS, CLOSES, at(OPENS))).toBe("review");
-    expect(livePhase("confirmed", OPENS, CLOSES, at(OPENS))).toBe("confirmed");
+    expect(livePhase("closed", OPENS, CLOSES, at(OPENS))).toBe("closed");
     expect(livePhase("unset", null, null, 0)).toBe("unset");
   });
 });
@@ -33,31 +32,25 @@ describe("untilText", () => {
   });
 });
 
-describe("placeLine", () => {
-  it("says a top-10 player is in while the qualifier is open", () => {
-    expect(placeLine({ best: 900, rank: 3, cutScore: 500, phase: "open" })).toBe("You're in the top 10!");
-    expect(placeLine({ best: 500, rank: 10, cutScore: 500, phase: "open" })).toBe("You're in the top 10!");
+describe("placeLine (D797: a plain leaderboard)", () => {
+  it("gives the place on the board", () => {
+    expect(placeLine({ best: 900, rank: 3, total: 40, phase: "open" })).toBe("You're #3 of 40");
+    expect(placeLine({ best: 400, rank: 14, total: 40, phase: "closed" })).toBe("You're #14 of 40");
   });
-  it("gives the place and the points to beat #10 (cutScore - best + 1)", () => {
-    expect(placeLine({ best: 1000, rank: 14, cutScore: 1229, phase: "open" })).toBe("#14 · 230 points to the top 10");
-    // Tied with #10 but behind on the earlier run: one point more is enough.
-    expect(placeLine({ best: 500, rank: 11, cutScore: 500, phase: "open" })).toBe("#11 · 1 point to the top 10");
+  it("says the top spot as such", () => {
+    expect(placeLine({ best: 900, rank: 1, total: 40, phase: "open" })).toBe("You're top of the board!");
+    expect(placeLine({ best: 900, rank: 1, total: 1, phase: "open" })).toBe("You're on the board!");
   });
-  it("prints big gaps with thousands separators, and never asks for less than 1", () => {
-    expect(placeLine({ best: 0, rank: 30, cutScore: 12_339, phase: "open" })).toBe("#30 · 12,340 points to the top 10");
-    // A board copy a few seconds older than the player's own best.
-    expect(placeLine({ best: 900, rank: 12, cutScore: 800, phase: "open" })).toBe("#12 · 1 point to the top 10");
-  });
-  it("asks for a run with no best yet", () => {
-    expect(placeLine({ best: null, rank: null, cutScore: 500, phase: "open" })).toBe("Play to get on the board");
-    expect(placeLine({ best: null, rank: null, cutScore: null, phase: "open" })).toBe("Play to get on the board");
-  });
-  it("makes no top-10 claim once the window is shut", () => {
-    for (const phase of ["review", "confirmed"] as const) {
-      expect(placeLine({ best: 900, rank: 3, cutScore: 500, phase })).toBe("#3");
-      expect(placeLine({ best: 400, rank: 14, cutScore: 500, phase })).toBe("#14");
-      expect(placeLine({ best: null, rank: null, cutScore: 500, phase })).not.toMatch(/top 10|Play/);
+  it("makes no finale claim, anywhere", () => {
+    for (const phase of ["open", "closed"] as const) {
+      for (const rank of [1, 5, 10, 11, 30]) {
+        expect(placeLine({ best: 100, rank, total: 30, phase })).not.toMatch(/top 10|finale|cut/i);
+      }
     }
+  });
+  it("asks for a run with no best yet, while open", () => {
+    expect(placeLine({ best: null, rank: null, total: 0, phase: "open" })).toBe("Play to get on the board");
+    expect(placeLine({ best: null, rank: null, total: 5, phase: "closed" })).toBe("You're not on the board");
   });
 });
 
@@ -108,13 +101,9 @@ describe("isNewBest", () => {
 const row = (rank: number, me = false): BoardEntry => ({ rank, label: `P${rank}`, score: 1000 - rank, me });
 
 describe("boardLayout", () => {
-  it("puts the cut under #10, then 11-20", () => {
+  it("lists the top rows in order, with no cut line", () => {
     const items = boardLayout(Array.from({ length: 12 }, (_, i) => row(i + 1)), []);
-    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "cut", 11, 12]);
-  });
-  it("puts the cut under the last row with fewer than 10", () => {
-    const items = boardLayout([row(1), row(2)], []);
-    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, "cut"]);
+    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
   it("adds a gap row before the rows around the player further down", () => {
     const top = Array.from({ length: 20 }, (_, i) => row(i + 1));
@@ -128,12 +117,5 @@ describe("boardLayout", () => {
   });
   it("is empty for an empty board", () => {
     expect(boardLayout([], [])).toEqual([]);
-  });
-});
-
-describe("boardLayout with a confirmed cut", () => {
-  it("puts the cut under the snapshot's last rank", () => {
-    const items = boardLayout([row(1), row(2), row(3), row(4), row(5)], [], 3);
-    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, 3, "cut", 4, 5]);
   });
 });

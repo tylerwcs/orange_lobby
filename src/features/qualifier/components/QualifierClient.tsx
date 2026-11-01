@@ -7,6 +7,7 @@ import { useServerNow } from "@/lib/use-poll";
 import { shortDateTime } from "@/lib/text";
 import type { QualifierView } from "../view";
 import { closesIn, closingNote, isNewBest, livePhase, placeLine, points, untilText } from "../screen";
+import { GAME_NAME } from "../paths";
 import { qualifierFont } from "../font";
 import { DISCARD_AFTER_TRIES, clearPending, expired, loadPending, savePending, settle } from "../game/pending";
 import { primeSound } from "../game/sound";
@@ -112,9 +113,9 @@ function refusedText(reason: SubmitReason): string {
 }
 
 /**
- * The typing qualifier on the attendee's phone or laptop (D772, D795): ready → the slime game
- * (SlimeGame, a full-screen overlay) → result, and the board. The server owns the run (D771):
- * it picks the seed and the start time, and replays the keystrokes to score it.
+ * Slime Splat on the attendee's phone or laptop (D772, D795, D797), on the portal's Games page:
+ * ready → the game (SlimeGame, a full-screen overlay) → result, and the leaderboard. The server
+ * owns the run (D771): it picks the seed and the start time, and replays the keystrokes to score it.
  *
  * - **Play** mounts SlimeGame inside the click (flushSync), asks for fullscreen on its overlay
  *   on a laptop and unlocks the sound, all while the gesture still counts. Enter plays too.
@@ -259,13 +260,13 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     }
   }, [canPlay]);
 
-  // While Play is on offer, fetch the scene's chunk when the browser is idle.
+  // While Play is on offer, fetch the scene's chunk and the slime model when the browser is idle.
   const onReady = stage.kind === "ready" && canPlay;
   useEffect(() => {
     if (!onReady || scenePrefetched) return;
     const fetchScene = () => {
       scenePrefetched = true;
-      import("./game/SlimeScene").catch(() => {
+      import("./game/SlimeScene").then((m) => m.loadSlimeModel()).catch(() => {
         scenePrefetched = false; // SlimeGame loads it again (and says so if it can't)
       });
     };
@@ -293,25 +294,24 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     return () => window.removeEventListener("keydown", onKey);
   }, [canPlay, play]);
 
-  const line = placeLine({ best: view.me.best, rank: view.me.rank, cutScore: view.cutScore, phase });
+  const line = placeLine({ best: view.me.best, rank: view.me.rank, total: view.me.total, phase });
   const showCockpit = canPlay || stage.kind !== "ready";
 
   return (
     <div className={`${qualifierFont.variable} flex flex-col gap-6`}>
       {phase === "unset" && (
-        <Notice title="Not open yet">The qualifier hasn&apos;t been scheduled. Check back soon.</Notice>
+        <Notice title="Not open yet">{GAME_NAME} hasn&apos;t opened yet. Check back soon.</Notice>
       )}
       {phase === "before" && view.opensAt && (
         <Notice title={`Opens ${shortDateTime(view.opensAt)}`}>
           <span suppressHydrationWarning>in {untilText(Date.parse(view.opensAt) - now)}</span>
         </Notice>
       )}
-      {phase === "review" && (
-        <Notice title="Results under review — finalists announced soon">
-          {view.me.rank !== null && <>You&apos;re #{view.me.rank} of {view.me.total} for now.</>}
+      {phase === "closed" && (
+        <Notice title={`${GAME_NAME} is closed`}>
+          {view.me.rank !== null && <>You finished #{view.me.rank} of {view.me.total}.</>}
         </Notice>
       )}
-      {phase === "confirmed" && <Finale view={view} />}
 
       {showCockpit && (
         <div className="rounded-3xl bg-card p-4 text-card-foreground shadow-sm">
@@ -378,18 +378,6 @@ function Ready({ view, line, closes, closing, howto, notice, canPlay, onPlay }: 
       {notice && <p role="status" className="text-sm font-bold">{notice}</p>}
       {canPlay && <Button className="h-16 w-full max-w-xs font-game text-3xl" onClick={onPlay}>Play</Button>}
       {canPlay && <p className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</p>}
-    </div>
-  );
-}
-
-function Finale({ view }: { view: QualifierView }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-3xl bg-muted p-6 text-center">
-      {view.finalist && <p className="font-game text-3xl leading-tight text-primary">You&apos;re through to the finale!</p>}
-      <p className="font-game text-xl">
-        {view.me.rank === null ? "You're not on the final board" : `Final rank: #${view.me.rank} of ${view.me.total}`}
-      </p>
-      {!view.finalist && <p className="text-sm text-muted-foreground">The top 10 are through to the finale.</p>}
     </div>
   );
 }

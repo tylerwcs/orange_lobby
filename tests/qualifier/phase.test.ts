@@ -19,15 +19,14 @@ describe("phaseOf (D768)", () => {
     expect(phaseOf({ ...s, opens_at: null }, t)).toBe("unset");
     expect(phaseOf({ ...s, closes_at: null }, t)).toBe("unset");
   });
-  it("walks before, open, review, confirmed; closes_at is exclusive", () => {
+  it("walks before, open, closed; closes_at is exclusive", () => {
     expect(phaseOf(s, opens - 1)).toBe("before");
     expect(phaseOf(s, opens)).toBe("open");
     expect(phaseOf(s, closes - 1)).toBe("open");
-    expect(phaseOf(s, closes)).toBe("review");
-    expect(phaseOf({ ...s, confirmed_at: iso }, closes + 1)).toBe("confirmed");
+    expect(phaseOf(s, closes)).toBe("closed");
   });
-  it("confirmed wins over the window", () => {
-    expect(phaseOf({ ...s, confirmed_at: iso }, opens + 1)).toBe("confirmed");
+  it("an old finalist snapshot only reads as closed (D797)", () => {
+    expect(phaseOf({ ...s, confirmed_at: iso }, opens + 1)).toBe("closed");
   });
   it("an unparseable date is unset, not a crash", () => {
     expect(phaseOf({ ...s, opens_at: "nope" }, t)).toBe("unset");
@@ -53,8 +52,8 @@ describe("phaseSubtitle (D770)", () => {
     expect(phaseSubtitle(null, t)).toBe("Not scheduled");
     expect(phaseSubtitle(s, opens - 1000)).toBe("Opens 2 Nov, 09:00");
     expect(phaseSubtitle(s, t)).toBe("Open until 4 Nov, 18:00");
-    expect(phaseSubtitle(s, closes)).toBe("Closed — under review");
-    expect(phaseSubtitle({ ...s, confirmed_at: iso }, closes + 1000)).toBe("Finalists confirmed");
+    expect(phaseSubtitle(s, closes)).toBe("Closed");
+    expect(phaseSubtitle({ ...s, confirmed_at: iso }, closes + 1000)).toBe("Closed");
   });
   it("reads the date in Malaysia time whatever offset the instant was stored in", () => {
     expect(phaseSubtitle({ ...s, opens_at: "2026-11-01T17:00:00Z" }, Date.parse("2026-11-01T16:00:00Z"))).toBe("Opens 2 Nov, 01:00");

@@ -2,14 +2,16 @@
 // Imperative three.js, driven once a frame by the scene; the Game is only read. Rendering code:
 // trig, floats and Math.random are fine here (only the engine must be deterministic).
 import {
-  CircleGeometry, Color, CylinderGeometry, Group, IcosahedronGeometry, InstancedMesh, Mesh, MeshBasicMaterial,
-  MeshPhysicalMaterial, MeshStandardMaterial, Object3D, SphereGeometry, TorusGeometry, Vector3, type BufferGeometry,
-  type Camera, type Material,
+  AnimationMixer, CircleGeometry, Color, CylinderGeometry, Group, IcosahedronGeometry, InstancedMesh, Mesh,
+  MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, Object3D, Vector3, type AnimationAction,
+  type BufferGeometry, type Camera, type Material, type SkinnedMesh,
 } from "three";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Game, GameEvent, Slime } from "../../game/engine";
-import { BLASTER_TRIM, BLUSH, CROWN_GOLD, EYE, PUPIL, SHADOW, SLIMES, WARN } from "../../game/palette";
+import { BLASTER_TRIM, CROWN_GOLD, HORN, PUPIL, SHADOW, SLIMES, SLIME_SHADE, TEETH, TONGUE, WARN, slimeColour } from "../../game/palette";
 import type { Quality } from "../../game/quality";
 import { BOSS_SPEED_MM_S, STICK_MS, TICK_MS, speedAt } from "../../game/rules";
+import type { SlimeModel } from "./slimeModel";
 
 export type SceneFrame = {
   /** Render clock, s (animation only). */
@@ -29,11 +31,27 @@ export type SceneFrame = {
 export type Head = { x: number; y: number; z: number; d: number };
 
 const DEG = Math.PI / 180;
-/** Body proportions at size 1: a jelly sphere squashed a little, sitting on the ground. */
-const BODY_Y = 0.57;
-const BODY_R = 0.7;
-const BODY_SY = 0.82;
-const TOP = BODY_Y + BODY_R * BODY_SY;
+/**
+ * The model (slimeModel.ts) is 1.44 m wide, 1.48 m tall and 1.62 m to its horn tips; scaled by
+ * this, a size-1 slime's body is 1.14 m tall, as the drawn jelly was (any bigger and a stuck one
+ * hides the field). Its armature is scaled 100, so a bone's translation × MODEL_RAW ×
+ * MODEL_SCALE is metres.
+ */
+const MODEL_SCALE = 0.77;
+const MODEL_RAW = 100;
+/**
+ * A size-1 slime's body, in its own space: an ellipsoid round the middle of the body, BODY_R
+ * across and deep, BODY_R × BODY_SY high, BODY_Y off the ground. The horns stick out sideways,
+ * never forwards, so the hull is what can come at the camera.
+ */
+export const BODY_Y = 0.57;
+export const BODY_R = 0.56;
+export const BODY_SY = 1.02;
+/** The horn tips at rest. */
+const TOP = 1.25;
+/** How high the Jump clip lifts a slime, and the boss's Walk, m at size 1: the label sits above it. */
+const JUMP_LIFT = 0.45;
+const WALK_LIFT = 0.26;
 const BOSS_SIZE = 2.6;
 /** Seconds: the bubble shot's flight, which is also the squish before the burst. */
 const SHOT_S = 0.13;
@@ -54,12 +72,15 @@ const easeOutBack = (k: number) => 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2;
 
 const sizeOf = (s: Slime) => (s.kind === "boss" ? BOSS_SIZE : 0.85 + hash01(s.id, 1) * 0.3);
 /** How much a stuck slime has swelled when its 3 s run out. */
-const SWELL = 0.45;
+const SWELL = 0.3;
 /** A stuck slime's squash never goes below this, so its body is never wider than 1/√0.76 ≈ 1.15 × its radius. */
 const MIN_SQUASH = 0.76;
 const WIDEST = 1 / Math.sqrt(MIN_SQUASH);
-/** Space kept between the camera and the nearest a slime's skin can come, m. */
-const CLEARANCE = 0.3;
+/**
+ * Space kept between the camera and the nearest a slime's skin can come, m: far enough that a
+ * stuck slime (about 3.8 m off, a boss 5.2 m) leaves the field in view.
+ */
+const CLEARANCE = 3;
 /**
  * Where a stuck slime ends up: its body fully swelled and at its widest wobble still `CLEARANCE`
  * clear of the camera (the camera is then outside it whatever its height, boss included).
@@ -68,12 +89,12 @@ const stuckEndDist = (size: number) => BODY_R * size * (1 + SWELL) * WIDEST + CL
 /** Where a slime stops as its 3 s start: a little farther out, so it can creep in while it swells. */
 const stickDist = (size: number) => stuckEndDist(size) * 1.18;
 /**
- * World distance for a real distance `d` (m). Exactly `d` until the last few metres, which are
- * eased onto `stickDist` so a slime arrives as its 3 s start, instead of passing the camera.
+ * World distance for a real distance `d` (m). Exactly `d` until a few metres past `stickDist`,
+ * then eased onto it, so a slime arrives there as its 3 s start instead of coming on at the camera.
  */
 function visualDist(d: number, size: number, boss: boolean): number {
-  const ramp = boss ? 6 : 4;
   const near = stickDist(size);
+  const ramp = near + (boss ? 6 : 4);
   return d >= ramp ? d : near + (d * (ramp - near)) / ramp;
 }
 
@@ -82,12 +103,12 @@ function visualDist(d: number, size: number, boss: boolean): number {
 
 type Kit = {
   quality: Quality;
-  geo: Record<"jelly" | "core" | "shine" | "dot" | "eye" | "pupil" | "glint" | "smile" | "worried" | "blush" | "shadow" | "band" | "spike" | "drop" | "puddle" | "shot", BufferGeometry>;
-  core: MeshStandardMaterial[];
-  blush: MeshBasicMaterial[];
-  shine: MeshBasicMaterial;
-  eye: MeshBasicMaterial;
-  pupil: MeshBasicMaterial;
+  model: SlimeModel;
+  geo: Record<"shadow" | "band" | "spike" | "drop" | "puddle" | "shot", BufferGeometry>;
+  /** The darker underside, one per colour in SLIMES. */
+  shade: Map<number, MeshStandardMaterial>;
+  /** The model's other parts, by its material names. */
+  parts: Record<"Eyes" | "Horns" | "Teeth" | "Tongue", MeshStandardMaterial>;
   shadow: MeshBasicMaterial;
   gold: MeshStandardMaterial;
   drop: MeshStandardMaterial;
@@ -96,23 +117,13 @@ type Kit = {
   drops: InstancedMesh;
 };
 
-function makeKit(quality: Quality): Kit {
+function makeKit(quality: Quality, model: SlimeModel): Kit {
   const full = quality === "full";
   const puddle = new CircleGeometry(1, 12);
   puddle.rotateX(-Math.PI / 2);
   const shadow = new CircleGeometry(0.65, 20);
   shadow.rotateX(-Math.PI / 2);
   const geo: Kit["geo"] = {
-    jelly: new SphereGeometry(BODY_R, full ? 32 : 20, full ? 24 : 14),
-    core: new SphereGeometry(0.42, 16, 12),
-    shine: new SphereGeometry(0.13, 12, 8),
-    dot: new SphereGeometry(0.05, 8, 6),
-    eye: new SphereGeometry(0.15, 16, 12),
-    pupil: new SphereGeometry(0.085, 12, 10),
-    glint: new SphereGeometry(0.03, 6, 4),
-    smile: new TorusGeometry(0.09, 0.025, 6, 14, Math.PI),
-    worried: new TorusGeometry(0.055, 0.022, 6, 14),
-    blush: new CircleGeometry(0.075, 12),
     shadow,
     band: new CylinderGeometry(0.3, 0.27, 0.16, 5, 1, true),
     spike: new IcosahedronGeometry(0.07, 0),
@@ -131,14 +142,13 @@ function makeKit(quality: Quality): Kit {
     drops.setMatrixAt(i, parked.matrix);
     drops.setColorAt(i, white);
   }
+  const matte = (color: number, roughness = 0.6) => new MeshStandardMaterial({ color, roughness });
   return {
     quality,
+    model,
     geo,
-    core: SLIMES.map((c) => new MeshStandardMaterial({ color: new Color(c).multiplyScalar(0.72), roughness: 0.5 })),
-    blush: SLIMES.map((c) => new MeshBasicMaterial({ color: new Color(c).lerp(new Color(BLUSH), 0.65) })),
-    shine: new MeshBasicMaterial({ color: EYE, transparent: true, opacity: 0.85 }),
-    eye: new MeshBasicMaterial({ color: EYE }),
-    pupil: new MeshBasicMaterial({ color: PUPIL }),
+    shade: new Map(SLIMES.map((c) => [c, matte(new Color(c).multiplyScalar(SLIME_SHADE).getHex(), 0.55)])),
+    parts: { Eyes: new MeshStandardMaterial({ color: PUPIL, roughness: 0.2 }), Horns: matte(HORN), Teeth: matte(TEETH, 0.4), Tongue: matte(TONGUE, 0.5) },
     shadow: new MeshBasicMaterial({ color: SHADOW, transparent: true, opacity: full ? 0.12 : 0.2, depthWrite: false }),
     gold: new MeshStandardMaterial({ color: CROWN_GOLD, flatShading: true, roughness: 0.35, metalness: 0.3 }),
     drop,
@@ -148,40 +158,55 @@ function makeKit(quality: Quality): Kit {
 }
 
 function disposeKit(k: Kit) {
+  // The model's geometry belongs to the loaded model (kept for the page), not to the kit.
   Object.values(k.geo).forEach((g) => g.dispose());
-  [...k.core, ...k.blush, k.shine, k.eye, k.pupil, k.shadow, k.gold, k.drop, k.shot].forEach((m) => m.dispose());
+  [...k.shade.values(), ...Object.values(k.parts), k.shadow, k.gold, k.drop, k.shot].forEach((m) => m.dispose());
   k.drops.dispose();
 }
 
-/** A glossy jelly skin, one per slime (its warning pulse is its own). */
-function jellyMaterial(k: Kit, look: number): MeshStandardMaterial {
-  const color = SLIMES[look] ?? SLIMES[0];
-  const base = { color, transparent: true, opacity: 0.9, emissive: color, emissiveIntensity: 0.12 };
+/** A slime's glossy skin, one per slime (its warning pulse is its own). */
+function skinMaterial(k: Kit, color: number): MeshStandardMaterial {
+  const base = { color, roughness: 0.32, emissive: color, emissiveIntensity: 0.08 };
   return k.quality === "full"
-    ? new MeshPhysicalMaterial({ ...base, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.18 })
-    : new MeshStandardMaterial({ ...base, roughness: 0.35 });
+    ? new MeshPhysicalMaterial({ ...base, clearcoat: 0.8, clearcoatRoughness: 0.2 })
+    : new MeshStandardMaterial(base);
 }
 
 // ---------------------------------------------------------------------------------------------
 // One slime on screen.
 
+type Clip = keyof SlimeModel["clips"];
+
 type View = {
   id: number;
   boss: boolean;
-  look: number;
+  color: number;
   size: number;
   root: Group;
+  /** Squash, hop and wobble; the model inside it. */
   body: Group;
+  model: Group;
   shadow: Mesh;
-  jelly: MeshStandardMaterial;
-  smile: Mesh;
-  worried: Mesh;
-  /** Hop period (s), phase (0..1) and height (body units). */
+  skin: MeshStandardMaterial;
+  mixer: AnimationMixer;
+  actions: Record<Clip, AnimationAction>;
+  /** The armature's Body bone, whose lift the shadow follows. */
+  bodyBone: Object3D | null;
+  /** Loop period (s), phase (0..1), and the lift the label sits above. */
   period: number;
   phase: number;
   hop: number;
   /** A letter or word landing: 1, then dying away. */
   jiggle: number;
+  /**
+   * While stuck: how far into the bite clip (s), and the wobble's and the warning pulse's phases
+   * (rad). Each advances by this frame's dt × its rate, never `t × rate`: a rate that rises
+   * through the 3 s would otherwise jump the phase by t × the change, a jitter that grows with
+   * the run's length.
+   */
+  biteS: number;
+  wobble: number;
+  warnPh: number;
   /** The slime the engine still has, or null once it's gone (popping). */
   slime: Slime | null;
   /** Render time the pop began. */
@@ -198,56 +223,78 @@ function mesh(geo: BufferGeometry, mat: Material, x: number, y: number, z: numbe
 }
 
 function makeView(k: Kit, s: Slime): View {
-  const look = Math.abs(s.look) % SLIMES.length;
   const boss = s.kind === "boss";
-  const jelly = jellyMaterial(k, look);
+  const color = slimeColour(s.look, s.id);
+  const skin = skinMaterial(k, color);
+  const model = cloneSkinned(k.model.scene) as Group;
+  model.scale.setScalar(MODEL_SCALE);
+  model.traverse((o) => {
+    const m = o as SkinnedMesh;
+    if (!m.isMesh) return;
+    const name = (m.material as Material).name;
+    m.material = name === "Main" ? skin : name === "Main_Dark" ? k.shade.get(color)! : k.parts[name as keyof Kit["parts"]] ?? skin;
+    m.castShadow = k.quality === "full";
+  });
+  const mixer = new AnimationMixer(model);
+  const actions = {
+    jump: mixer.clipAction(k.model.clips.jump),
+    walk: mixer.clipAction(k.model.clips.walk),
+    bite: mixer.clipAction(k.model.clips.bite),
+  };
+  Object.values(actions).forEach((a) => {
+    a.setEffectiveWeight(0);
+    a.play();
+  });
   const body = new Group();
-  const skin = mesh(k.geo.jelly, jelly, 0, BODY_Y, 0, 1, BODY_SY, 1);
-  skin.castShadow = k.quality === "full";
-  const smile = mesh(k.geo.smile, k.pupil, 0, 0.5, 0.685);
-  smile.rotation.z = Math.PI;
-  const worried = mesh(k.geo.worried, k.pupil, 0, 0.49, 0.685);
-  worried.visible = false;
-  const blushL = mesh(k.geo.blush, k.blush[look], -0.36, 0.55, 0.61);
-  blushL.rotation.y = -0.55;
-  const blushR = mesh(k.geo.blush, k.blush[look], 0.36, 0.55, 0.61);
-  blushR.rotation.y = 0.55;
-  body.add(
-    skin,
-    mesh(k.geo.core, k.core[look], 0, 0.5, 0, 1, 0.8, 1),
-    mesh(k.geo.shine, k.shine, -0.3, 0.955, 0.42, 1, 0.6, 0.5),
-    mesh(k.geo.dot, k.shine, -0.12, 1.0, 0.45),
-    mesh(k.geo.eye, k.eye, -0.2, 0.7, 0.6, 1, 1.1, 0.55),
-    mesh(k.geo.eye, k.eye, 0.2, 0.7, 0.6, 1, 1.1, 0.55),
-    mesh(k.geo.pupil, k.pupil, -0.19, 0.69, 0.665, 1, 1.1, 0.5),
-    mesh(k.geo.pupil, k.pupil, 0.21, 0.69, 0.665, 1, 1.1, 0.5),
-    mesh(k.geo.glint, k.eye, -0.16, 0.73, 0.7),
-    mesh(k.geo.glint, k.eye, 0.24, 0.73, 0.7),
-    smile, worried, blushL, blushR,
-  );
+  body.add(model);
   if (boss) {
-    // A little gold crown, tipped to one side.
+    // A little gold crown, tipped to one side, riding the head bone so it moves with the head.
     const crown = new Group();
     crown.add(mesh(k.geo.band, k.gold, 0, 0, 0));
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
       crown.add(mesh(k.geo.spike, k.gold, Math.sin(a) * 0.28, 0.12, Math.cos(a) * 0.28, 1, 1.6, 1));
     }
-    crown.position.set(0.05, TOP - 0.04, 0);
     crown.rotation.z = -0.18;
-    body.add(crown);
+    const head = model.getObjectByName("Head");
+    if (head) {
+      // The Head bone's axes are the model's; its units are the armature's (× MODEL_RAW).
+      crown.position.set(0.0005, 0.0096, 0.0005);
+      crown.scale.setScalar(1 / (MODEL_RAW * MODEL_SCALE));
+      head.add(crown);
+    } else {
+      crown.position.set(0.05, 1.12, 0);
+      body.add(crown);
+    }
   }
   const shadow = mesh(k.geo.shadow, k.shadow, 0, 0.02, 0);
   const root = new Group();
   root.add(body, shadow);
   return {
-    id: s.id, boss, look, size: sizeOf(s), root, body, shadow, jelly, smile, worried,
+    id: s.id, boss, color, size: sizeOf(s), root, body, model, shadow, skin, mixer, actions,
+    bodyBone: model.getObjectByName("Body") ?? null,
     period: boss ? 1.5 : 0.62 + hash01(s.id, 2) * 0.22,
     phase: hash01(s.id, 3),
-    hop: boss ? 0.18 : 0.5 + hash01(s.id, 4) * 0.15,
-    jiggle: 0, slime: s, poppedAt: null, scale: 1,
+    hop: boss ? WALK_LIFT : JUMP_LIFT,
+    jiggle: 0, biteS: 0, wobble: 0, warnPh: 0, slime: s, poppedAt: null, scale: 1,
   };
 }
+
+/** Holds the view in one clip at `seconds` into it (looped); the others off. */
+function pose(v: View, clip: Clip, seconds: number) {
+  for (const [name, a] of Object.entries(v.actions) as [Clip, AnimationAction][]) {
+    const on = name === clip;
+    a.setEffectiveWeight(on ? 1 : 0);
+    if (on) {
+      const d = a.getClip().duration;
+      a.time = ((seconds % d) + d) % d;
+    }
+  }
+  v.mixer.update(0);
+}
+
+/** How high the clip has lifted the body this frame, m at size 1. */
+const liftOf = (v: View) => (v.bodyBone ? Math.max(0, v.bodyBone.position.z) * MODEL_RAW * MODEL_SCALE : 0);
 
 // ---------------------------------------------------------------------------------------------
 // Effects.
@@ -273,9 +320,9 @@ const tmp = new Vector3();
 const tmpColor = new Color();
 const dummy = new Object3D();
 
-function spray(st: SlimeState, at: Vector3, look: number, n: number, size: number, t: number, aim?: Vector3) {
+function spray(st: SlimeState, at: Vector3, color: number, n: number, size: number, t: number, aim?: Vector3) {
   const count = Math.round(n * (st.kit.quality === "full" ? 1 : 0.55));
-  tmpColor.setHex(SLIMES[look] ?? SLIMES[0]);
+  tmpColor.setHex(color);
   for (let i = 0; i < count; i++) {
     const slot = st.nextDrop;
     st.nextDrop = (st.nextDrop + 1) % MAX_DROPS;
@@ -293,10 +340,10 @@ function spray(st: SlimeState, at: Vector3, look: number, n: number, size: numbe
   if (st.kit.drops.instanceColor) st.kit.drops.instanceColor.needsUpdate = true;
 }
 
-function puddle(st: SlimeState, x: number, z: number, look: number, size: number, t: number) {
+function puddle(st: SlimeState, x: number, z: number, color: number, size: number, t: number) {
   while (st.puddles.length >= MAX_PUDDLES) dropPuddle(st, 0);
   const mat = new MeshStandardMaterial({
-    color: new Color(SLIMES[look] ?? SLIMES[0]).multiplyScalar(0.92), roughness: 0.25, flatShading: true, transparent: true,
+    color: new Color(color).multiplyScalar(0.92), roughness: 0.25, flatShading: true, transparent: true,
     opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   });
   const m = new Mesh(st.kit.geo.puddle, mat);
@@ -327,14 +374,17 @@ function shoot(st: SlimeState, from: Vector3, v: View, t: number) {
 
 function removeView(st: SlimeState, v: View) {
   st.group.remove(v.root);
-  v.jelly.dispose();
+  v.mixer.stopAllAction();
+  v.mixer.uncacheRoot(v.model);
+  v.model.traverse((o) => (o as SkinnedMesh).skeleton?.dispose());
+  v.skin.dispose();
   st.views.delete(v.id);
 }
 
 function burst(st: SlimeState, v: View, t: number) {
   const c = centreOf(v, new Vector3());
-  spray(st, c, v.look, v.boss ? 44 : 18, v.size, t);
-  puddle(st, c.x, c.z, v.look, v.boss ? v.size * 1.1 : v.size, t);
+  spray(st, c, v.color, v.boss ? 44 : 18, v.size, t);
+  puddle(st, c.x, c.z, v.color, v.boss ? v.size * 1.1 : v.size, t);
   removeView(st, v);
 }
 
@@ -351,7 +401,7 @@ function onEvent(st: SlimeState, e: GameEvent, f: SceneFrame) {
       st.later.push({ at: f.t + SHOT_S, run: () => {
         if (!st.views.has(v.id)) return;
         v.jiggle = 1.6;
-        spray(st, centreOf(v, new Vector3()).add(tmp.set(0, 0.25 * v.scale, 0)), v.look, 12, 1.4, f.t + SHOT_S);
+        spray(st, centreOf(v, new Vector3()).add(tmp.set(0, 0.25 * v.scale, 0)), v.color, 12, 1.4, f.t + SHOT_S);
       } });
       return;
     }
@@ -361,13 +411,13 @@ function onEvent(st: SlimeState, e: GameEvent, f: SceneFrame) {
       v.poppedAt = f.t;
       return;
     case "stick":
-      v.jiggle = 1.5;
+      v.jiggle = 0.6; // a soft landing: the bite itself is slow
       return;
     case "explode": {
       // Goo at the screen.
       const at = centreOf(v, new Vector3());
-      spray(st, at, v.look, v.boss ? 40 : 26, Math.min(v.size, 1.6), f.t, f.camera.getWorldPosition(new Vector3()));
-      puddle(st, at.x, at.z, v.look, v.size * 1.2, f.t);
+      spray(st, at, v.color, v.boss ? 40 : 26, Math.min(v.size, 1.6), f.t, f.camera.getWorldPosition(new Vector3()));
+      puddle(st, at.x, at.z, v.color, v.size * 1.2, f.t);
       removeView(st, v);
       return;
     }
@@ -399,6 +449,20 @@ function animate(v: View, s: Slime, f: SceneFrame, locked: boolean): Head {
   v.scale = v.size * swell;
   v.root.scale.setScalar(v.size * swell * Math.max(0.01, grow));
 
+  // The model's own clips: a stuck slime chomps, a slow menacing bite (about 1.1 s) quickening a
+  // little (to about 0.75 s) as its 3 s run out; the boss walks; the rest hop, each on its own beat.
+  const beat = (t / v.period + v.phase) % 1;
+  if (stuck) {
+    v.biteS += dt * (0.6 + 0.3 * k);
+    v.wobble += dt * (3 + 3 * k);
+    v.warnPh += dt * (4 + 6 * k);
+    pose(v, "bite", v.biteS);
+  } else if (v.boss) {
+    pose(v, "walk", beat * v.actions.walk.getClip().duration);
+  } else {
+    pose(v, "jump", beat * v.actions.jump.getClip().duration);
+  }
+
   let y = 0;
   let sq = 1;
   if (v.boss && age < BOSS_DROP_S) {
@@ -406,17 +470,8 @@ function animate(v: View, s: Slime, f: SceneFrame, locked: boolean): Head {
   } else if (v.boss && age < BOSS_DROP_S + 0.35) {
     sq = 1 - Math.sin(((age - BOSS_DROP_S) / 0.35) * Math.PI) * 0.35; // the landing
   } else if (stuck) {
-    sq = 1 + Math.sin(t * (5 + 12 * k)) * (0.05 + 0.08 * k);
+    sq = 1 + Math.sin(v.wobble) * (0.03 + 0.04 * k);
     y = (0.25 * k) / v.scale;
-  } else {
-    const ph = (t / v.period + v.phase) % 1;
-    if (ph < 0.7) {
-      const arc = Math.sin((ph / 0.7) * Math.PI);
-      y = arc * v.hop;
-      sq = 1 + arc * 0.14;
-    } else {
-      sq = 1 - Math.sin(((ph - 0.7) / 0.3) * Math.PI) * 0.28;
-    }
   }
   v.jiggle *= Math.exp(-dt * 6);
   sq *= 1 + v.jiggle * Math.sin(t * 38) * 0.14;
@@ -424,15 +479,13 @@ function animate(v: View, s: Slime, f: SceneFrame, locked: boolean): Head {
   const side = 1 / Math.sqrt(sq);
   v.body.position.y = y;
   v.body.scale.set(side, sq, side);
-  v.body.rotation.z = locked ? Math.sin(t * 31) * 0.035 : 0;
-  v.shadow.scale.setScalar(Math.max(0.25, 1 - y * 0.5));
-  v.smile.visible = !locked;
-  v.worried.visible = locked;
+  v.body.rotation.z = locked && !stuck ? Math.sin(t * 31) * 0.035 : 0; // a biting slime only chomps
+  v.shadow.scale.setScalar(Math.max(0.25, 1 - (y + liftOf(v)) * 0.5));
 
   // A stuck slime pulses warmer and faster as its 3 s run out.
-  const warn = stuck ? (0.5 + 0.5 * Math.sin(t * (6 + 16 * k))) * k : 0;
-  v.jelly.emissive.setHex(SLIMES[v.look] ?? SLIMES[0]).lerp(tmpColor.setHex(WARN), warn);
-  v.jelly.emissiveIntensity = 0.12 + warn * 0.55;
+  const warn = stuck ? (0.5 + 0.5 * Math.sin(v.warnPh)) * k : 0;
+  v.skin.emissive.setHex(v.color).lerp(tmpColor.setHex(WARN), warn);
+  v.skin.emissiveIntensity = 0.08 + warn * 0.55;
 
   // The label hangs steady above the top of the hop, so the word doesn't bounce.
   const lift = stuck ? 0.25 * k : 0;
@@ -529,9 +582,9 @@ export function step(st: SlimeState, f: SceneFrame, events: readonly GameEvent[]
   }
 }
 
-/** A fresh set of slimes for one quality, drawn into `group`. */
-export function createSlimeState(group: Group, quality: Quality): SlimeState {
-  const kit = makeKit(quality);
+/** A fresh set of slimes for one quality, drawn into `group` from the loaded model. */
+export function createSlimeState(group: Group, quality: Quality, model: SlimeModel): SlimeState {
+  const kit = makeKit(quality, model);
   group.add(kit.drops);
   return { kit, group, views: new Map(), heads: new Map(), drops: [], nextDrop: 0, puddles: [], shots: [], later: [] };
 }
@@ -552,4 +605,3 @@ function clear(st: SlimeState) {
   st.drops = [];
   st.heads.clear();
 }
-

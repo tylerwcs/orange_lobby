@@ -14,19 +14,21 @@ export const BOSS_HIT = 2;
 
 export const SPAWN_DIST_MM = 18000;
 export const BOSS_DIST_MM = 20000;
-export const SPEED_START_MM_S = 1600;
-export const SPEED_STEP_MM_S = 200;
-export const SPEED_MAX_MM_S = 4000;
-export const BOSS_SPEED_MM_S = 600;
+/**
+ * A small slime's speed, set when it spawns: SPEED_START_MM_S, rising smoothly by
+ * SPEED_GAIN_PER_MIN_MM_S every minute up to SPEED_MAX_MM_S. 1.5 m/s at 0:00, 1.95 at 1:00, 2.4
+ * at 2:00, 3.3 at 4:00, the top from 6:40. This and longer words (lengthBand) are what make a run
+ * harder; slimes keep spawning at the same pace.
+ */
+export const SPEED_START_MM_S = 1500;
+export const SPEED_GAIN_PER_MIN_MM_S = 450;
+export const SPEED_MAX_MM_S = 4500;
+export const BOSS_SPEED_MM_S = 1100;
 
-/** Gap between small spawns: shrinks every ramp, plus up to GAP_JITTER_MS of random. */
-export const GAP_START_MS = 2200;
-export const GAP_STEP_MS = 150;
-export const GAP_MIN_MS = 700;
+/** Gap between small spawns, the same all run, plus up to GAP_JITTER_MS of random: about one every 2 s. */
+export const GAP_MS = 1800;
 export const GAP_JITTER_MS = 400;
-/** Speed and spawn gap step up this often. */
-export const RAMP_EVERY_MS = 30000;
-export const MAX_SMALL = 8;
+export const MAX_SMALL = 10;
 
 export const BOSS_FIRST_MS = 60000;
 /** The next boss is due this long after the previous one is gone. */
@@ -51,17 +53,16 @@ export const REVIEW_WINDOW_MS = 10_000;
 /** 1 + floor(combo ÷ COMBO_STEP), capped at ×COMBO_MAX_MULT. */
 export const multiplier = (combo: number): number => Math.min(1 + Math.floor(combo / COMBO_STEP), COMBO_MAX_MULT);
 
-/** Shortest and longest small-slime word at `elapsedMs`: words grow longer as the run goes on. */
+/**
+ * Shortest and longest small-slime word at `elapsedMs`: words grow longer as the run goes on, the
+ * longest by a letter every 20 s, the shortest every 40 s. 3-5 letters at 0:00, 4-8 at 1:00, 6-10
+ * at 2:00, 7-10 from 2:40.
+ */
 export const lengthBand = (elapsedMs: number): [min: number, max: number] => [
-  Math.min(3 + Math.floor(elapsedMs / 60000), 6),
-  Math.min(5 + Math.floor(elapsedMs / 30000), 10),
+  Math.min(3 + Math.floor(elapsedMs / 40000), 7),
+  Math.min(5 + Math.floor(elapsedMs / 20000), 10),
 ];
 
-const ramps = (elapsedMs: number) => Math.floor(elapsedMs / RAMP_EVERY_MS);
-
-/** Speed of a small slime spawned at `elapsedMs`, mm/s. */
+/** Speed of a small slime spawned at `elapsedMs`, mm/s. Integer. */
 export const speedAt = (elapsedMs: number): number =>
-  Math.min(SPEED_START_MM_S + SPEED_STEP_MM_S * ramps(elapsedMs), SPEED_MAX_MM_S);
-
-/** Base gap after a small spawn at `elapsedMs`, ms (before jitter). */
-export const gapAt = (elapsedMs: number): number => Math.max(GAP_START_MS - GAP_STEP_MS * ramps(elapsedMs), GAP_MIN_MS);
+  Math.min(SPEED_START_MM_S + Math.floor((elapsedMs * SPEED_GAIN_PER_MIN_MM_S) / 60000), SPEED_MAX_MM_S);

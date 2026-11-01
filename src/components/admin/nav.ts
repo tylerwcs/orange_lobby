@@ -17,8 +17,8 @@ export type Group = { title: string; items: Item[] };
  * stands on its own without check-in: the roster is still the roster, which is why only
  * this one item is conditional.
  *
- * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities, Games and the Typing qualifier (D770) each
- * carry the key `hiddenNav` names.
+ * Add-ons the event doesn't have are left out (D438): WhatsApp, Activities and Games (live games, the lucky draw or
+ * Slime Splat, D797) each carry the key `hiddenNav` names.
  *
  * D598: Attendees carries the number of cancellation requests waiting for an organiser, for
  * admins and committee alike.
@@ -44,7 +44,6 @@ export function groupsFor(ev: { id: string; check_in_enabled: boolean } | null |
       { href: `${b}/popups`, label: "Popups", icon: "bell", key: "popups" },
       { href: `${b}/modules`, label: "Modules", icon: "grid" },
       { href: `${b}/activities`, label: "Activities", icon: "flag", key: "activities" },
-      { href: `${b}/qualifier`, label: "Typing qualifier", icon: "star", key: "qualifier" },
     ] },
     { title: "Event", items: [
       { href: `${b}/whatsapp`, label: "WhatsApp", icon: "chat", key: "whatsapp" },

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { BoardRow } from "../db";
-import { FINALISTS } from "../scoring";
+import { slimeAdminPath } from "../paths";
 
 /** Rows to a page of the admin board (D775). */
 export const BOARD_PAGE_SIZE = 50;
@@ -11,7 +11,7 @@ export const BOARD_PAGE_SIZE = 50;
 /**
  * One page of the ranked list for the admin (D775, D795): rank, name (a link to that person's
  * runs), best score, runs played, the best run's device, and a Review badge when the best run
- * is flagged. A cut line is drawn under #10, the finale. `labels` is the name each
+ * is flagged. `labels` is the name each
  * person goes by (`tagsFor`); the full name sits under it when it differs. Paging is by
  * `?page=`, so this draws only the page it was given.
  */
@@ -23,7 +23,7 @@ export function BoardTable({ eventId, rows, labels, page, total }: {
   total: number;
 }) {
   const pages = Math.max(1, Math.ceil(total / BOARD_PAGE_SIZE));
-  const base = `/admin/events/${eventId}/qualifier`;
+  const base = slimeAdminPath(eventId);
   if (rows.length === 0) {
     return <p className="p-6 text-sm text-muted-foreground">No one is on the board yet.</p>;
   }
@@ -41,9 +41,9 @@ export function BoardTable({ eventId, rows, labels, page, total }: {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.flatMap((r) => {
+          {rows.map((r) => {
             const label = labels.get(r.attendee_id) ?? r.name;
-            const line = (
+            return (
               <TableRow key={r.attendee_id}>
                 <TableCell className="font-bold tabular-nums">{r.rank}</TableCell>
                 <TableCell>
@@ -56,15 +56,6 @@ export function BoardTable({ eventId, rows, labels, page, total }: {
                 <TableCell>{r.flagged && <Badge variant="warning">Review</Badge>}</TableCell>
               </TableRow>
             );
-            if (r.rank !== FINALISTS) return [line];
-            return [
-              line,
-              <TableRow key={`cut-${r.rank}`} className="hover:bg-transparent">
-                <TableCell colSpan={6} className="border-t-2 border-dashed border-primary/50 py-1.5 text-center text-xs font-bold uppercase tracking-wide text-primary">
-                  Finale cut line
-                </TableCell>
-              </TableRow>,
-            ];
           })}
         </TableBody>
       </Table>

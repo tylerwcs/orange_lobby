@@ -83,8 +83,8 @@ describe("allowed kinds", () => {
 });
 
 describe("hidden admin areas (D438)", () => {
-  it("hides WhatsApp, Activities, Games, the qualifier and Popups with no add-ons", () => {
-    expect(hiddenNav(none)).toEqual(["whatsapp", "activities", "games", "qualifier", "popups"]);
+  it("hides WhatsApp, Activities, Games and Popups with no add-ons", () => {
+    expect(hiddenNav(none)).toEqual(["whatsapp", "activities", "games", "popups"]);
   });
   it("hides nothing with every add-on", () => {
     expect(hiddenNav(all)).toEqual([]);
@@ -94,9 +94,10 @@ describe("hidden admin areas (D438)", () => {
     expect(hiddenNav(featureSet(["booking"], 0))).not.toContain("activities");
     expect(hiddenNav(featureSet(["engagement"], 0))).not.toContain("activities");
   });
-  it("shows the Typing qualifier item only with that add-on (D770)", () => {
-    expect(hiddenNav(featureSet(["typing_qualifier"], 0))).not.toContain("qualifier");
-    expect(hiddenNav(featureSet(["whatsapp"], 0))).toContain("qualifier");
+  it("shows Games with Slime Splat alone, as with live games or the draw (D797)", () => {
+    expect(hiddenNav(featureSet(["typing_qualifier"], 0))).not.toContain("games");
+    expect(hiddenNav(featureSet(["live_games"], 0))).not.toContain("games");
+    expect(hiddenNav(featureSet(["whatsapp"], 0))).toContain("games");
   });
   it("hides Popups without the add-on", () => {
     expect(hiddenNav(none)).toContain("popups");

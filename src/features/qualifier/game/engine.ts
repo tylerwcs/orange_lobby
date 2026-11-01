@@ -5,8 +5,8 @@ import { WORDS } from "../words";
 import { mulberry32, randInt } from "./rng";
 import { bossSentence } from "./sentences";
 import {
-  BOSS_BONUS, BOSS_DIST_MM, BOSS_FIRST_MS, BOSS_GAP_MS, BOSS_HIT, BOSS_SPEED_MM_S, GAP_JITTER_MS, MAX_SMALL,
-  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, START_HEALTH, STICK_MS, TICK_MS, gapAt, lengthBand,
+  BOSS_BONUS, BOSS_DIST_MM, BOSS_FIRST_MS, BOSS_GAP_MS, BOSS_HIT, BOSS_SPEED_MM_S, GAP_JITTER_MS, GAP_MS, MAX_SMALL,
+  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, START_HEALTH, STICK_MS, TICK_MS, lengthBand,
   multiplier, speedAt,
 } from "./rules";
 
@@ -151,7 +151,7 @@ function spawnSmall(g: Game): void {
   const free = band.filter((w) => !taken.has(w[0]));
   const pool = free.length > 0 ? free : band;
   const s = addSlime(g, "small", [pool[randInt(g.rand, pool.length)]], SPAWN_DIST_MM);
-  g.nextSpawnMs = now + gapAt(now) + randInt(g.rand, GAP_JITTER_MS);
+  g.nextSpawnMs = now + GAP_MS + randInt(g.rand, GAP_JITTER_MS);
   g.events.push({ t: now, type: "spawn", id: s.id });
 }
 

@@ -30,8 +30,25 @@ export const MOUNTAINS = [0x9cc7c9, 0xa9c9b8, 0xb4cfd8] as const;
 export const SNOW = 0xffffff;
 export const CLOUD = 0xffffff;
 
-/** The four slime colours, by `Slime.look`: pastel green, blue, pink, yellow. */
-export const SLIMES = [0x9fd98a, 0x8fc9e8, 0xf2a7c3, 0xf5cf7a] as const;
+/**
+ * The eight slime colours. `Slime.look` (0-3, from the engine) picks a pair and the slime's id the
+ * one of the pair (`slimeColour`): green or mint, blue or lavender, pink or coral, yellow or peach.
+ */
+export const SLIMES = [
+  0x8fd67a, 0x86c5ee, 0xf5a3c7, 0xf7d270,
+  0x6fd6be, 0xb9a0f0, 0xf28b82, 0xf7ad78,
+] as const;
+/** The darker underside and spots of a slime: its colour × this. */
+export const SLIME_SHADE = 0.55;
+/** The model's horns and the tongue. */
+export const HORN = 0xe9d3b0;
+export const TONGUE = 0xe0627f;
+export const TEETH = 0xffffff;
+
+/** A slime's colour: `look` (any integer) and its id choose one of SLIMES. */
+export function slimeColour(look: number, id: number): number {
+  return SLIMES[(Math.abs(look) % 4) + 4 * (Math.abs(id) % 2)];
+}
 export const EYE = 0xffffff;
 export const PUPIL = 0x1b1530;
 export const BLUSH = 0xf28fa6;
@@ -55,6 +72,10 @@ export const LABEL_BG = 0xffffff;
 export const LABEL_INK = 0x3b4a5a;
 export const LABEL_TYPED = 0xe0627f;
 export const LABEL_LOCK = 0xe0627f;
+/** The title screen's lettering (its layered shadow is slime pink and blue). */
+export const TITLE_INK = 0xffffff;
+/** A biting slime's bubble (its edge, tag and bar are WARN). */
+export const BITE_BG = 0xfff1ef;
 /** The boss's health bar. */
 export const HEALTH = 0xe0627f;
 export const HEALTH_TRACK = 0xe6e9ee;

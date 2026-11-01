@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { newGame, advance, press, finish, currentWord, type Game } from "@/features/qualifier/game/engine";
-import { BOSS_FIRST_MS, START_HEALTH, STICK_MS, TICK_MS, SPAWN_DIST_MM, multiplier, RUN_CAP_MS } from "@/features/qualifier/game/rules";
+import {
+  BOSS_FIRST_MS, GAP_JITTER_MS, GAP_MS, SPEED_MAX_MM_S, SPEED_START_MM_S, START_HEALTH, STICK_MS, TICK_MS, SPAWN_DIST_MM,
+  lengthBand, multiplier, RUN_CAP_MS, speedAt,
+} from "@/features/qualifier/game/rules";
+import { WORDS } from "@/features/qualifier/words";
 
 const firstAt = (g: Game, t: number) => { advance(g, t); return g.slimes[0]; };
 const typeWord = (g: Game, word: string, t: number) => { for (const c of word) press(g, c, t); };
@@ -49,6 +53,42 @@ describe("engine (D790)", () => {
     press(g, bad, 3000);
     expect(g.combo).toBe(0); expect(g.health).toBe(START_HEALTH);
   });
+  it("slimes come on faster through the run: speed rises smoothly, in whole mm/s, to a top", () => {
+    expect(speedAt(0)).toBe(SPEED_START_MM_S);
+    expect(speedAt(60_000)).toBe(1950);
+    expect(speedAt(120_000)).toBe(2400);
+    expect(speedAt(400_000)).toBe(SPEED_MAX_MM_S);
+    expect(speedAt(RUN_CAP_MS)).toBe(SPEED_MAX_MM_S);
+    let last = 0;
+    for (let t = 0; t <= 500_000; t += 1000) {
+      const v = speedAt(t);
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeGreaterThanOrEqual(last);
+      last = v;
+    }
+    expect(speedAt(30_000)).toBeGreaterThan(speedAt(29_000)); // every second counts
+  });
+  it("small slimes spawn at a steady pace: 1.8-2.2 s apart all run", () => {
+    const g = newGame(11);
+    keepAlive(g, 0, BOSS_FIRST_MS - 1, 4000);
+    const at = g.events.filter((e) => e.type === "spawn").map((e) => e.t);
+    const gaps = at.slice(1).map((t, i) => t - at[i]);
+    expect(gaps.length).toBeGreaterThan(20);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(GAP_MS);
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(GAP_MS + GAP_JITTER_MS + TICK_MS);
+  });
+  it("words grow longer through the run: 3-5 letters at first, 4-8 at 1:00, 6-10 at 2:00, 7-10 from 2:40", () => {
+    expect(lengthBand(0)).toEqual([3, 5]);
+    expect(lengthBand(60_000)).toEqual([4, 8]);
+    expect(lengthBand(120_000)).toEqual([6, 10]);
+    expect(lengthBand(160_000)).toEqual([7, 10]);
+    expect(lengthBand(RUN_CAP_MS)).toEqual([7, 10]);
+    // Every band has plenty of words, so the first letters stay varied.
+    for (let t = 0; t <= 200_000; t += 10_000) {
+      const [min, max] = lengthBand(t);
+      expect(WORDS.filter((w) => w.length >= min && w.length <= max).length).toBeGreaterThan(250);
+    }
+  });
   it("multiplier steps every 5 and caps at x5", () => {
     expect([0, 4, 5, 9, 10, 20, 99].map(multiplier)).toEqual([1, 1, 2, 2, 3, 5, 5]);
   });
@@ -77,7 +117,7 @@ describe("engine (D790)", () => {
     const boss = g.slimes.find((s) => s.kind === "boss")!;
     expect(boss).toBeDefined();
     expect(boss.spawnedMs).toBe(BOSS_FIRST_MS);
-    expect(boss.words.length).toBeGreaterThanOrEqual(5);
+    expect(boss.words.length).toBeGreaterThanOrEqual(11);
     expect(g.health).toBe(START_HEALTH);
     let t = BOSS_FIRST_MS, stuckAt: number | null = null;
     for (;;) {

@@ -11,8 +11,10 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { RowActions } from "@/components/admin/RowActions";
 import { ShareLink } from "@/components/admin/ShareLink";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { eventFeatures, gameKindsFor, NotInEvent } from "@/features/catalogue";
+import { eventFeatures, gameKindsFor, has, NotInEvent } from "@/features/catalogue";
+import { boardSize, GAME_NAME, getSettings, phaseSubtitle, slimeAdminPath } from "@/features/qualifier";
 import { createGameAction, deleteGameAction, rotateDisplayTokenAction, rotateHostTokenAction } from "./actions";
 
 export const metadata = { title: "Games" };
@@ -24,12 +26,47 @@ const EMPTY_STATE_PHRASE: Record<GameKind, string> = {
   draw: "a lucky draw",
 };
 
+// Outside the component, as the display and host pages read their clock: the lint rule for
+// render purity does not follow a call into a helper.
+const slimeStatusNow = (s: Awaited<ReturnType<typeof getSettings>>) => phaseSubtitle(s, Date.now());
+
+/**
+ * The event's games (D797): Slime Splat, the typing game attendees play on their own, when the
+ * event has it; then the live games and draws run on the stage, with their host and display
+ * links, when it has those.
+ */
 export default async function Games({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { actor, ev } = await requireEventAccess(id);
-  const kinds = gameKindsFor(await eventFeatures(ev.id));
+  const features = await eventFeatures(ev.id);
+  const kinds = gameKindsFor(features);
+  const slime = has(features, "typing_qualifier");
+  if (kinds.length === 0 && !slime) {
+    return <NotInEvent eventId={ev.id} title="Games" keys={["live_games", "lucky_draw", "typing_qualifier"]} back={`/admin/events/${ev.id}/games`} canTurnOn={actor.kind === "admin"} />;
+  }
+  const [slimeSettings, slimePlayers] = slime ? await Promise.all([getSettings(ev.id), boardSize(ev.id)]) : [null, 0];
+  const slimeCard = slime && (
+    <Card>
+      <CardHeader>
+        <CardTitle>{GAME_NAME}</CardTitle>
+        <CardDescription>A typing game attendees play on their phones from the portal&apos;s Games page, as often as they like while it&apos;s open. Their best run goes on the leaderboard.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm">
+          <span className="font-bold">{slimeStatusNow(slimeSettings)}</span>
+          <span className="text-muted-foreground"> · {slimePlayers} {slimePlayers === 1 ? "player" : "players"} on the leaderboard</span>
+        </p>
+        <Link href={slimeAdminPath(ev.id)} className={buttonVariants({ variant: "outline" })}>Leaderboard and settings</Link>
+      </CardContent>
+    </Card>
+  );
   if (kinds.length === 0) {
-    return <NotInEvent eventId={ev.id} title="Games" keys={["live_games", "lucky_draw"]} back={`/admin/events/${ev.id}/games`} canTurnOn={actor.kind === "admin"} />;
+    return (
+      <div className="flex flex-col gap-4">
+        <AdminHeader title="Games" subtitle="Games attendees play from their phones." />
+        {slimeCard}
+      </div>
+    );
   }
   // A game of a kind this event no longer has is kept (D439), but not listed.
   const games = (await listGames(ev.id)).filter((g) => kinds.includes(g.kind));
@@ -52,6 +89,8 @@ export default async function Games({ params }: { params: Promise<{ id: string }
         subtitle={games.length ? `${games.length} game${games.length === 1 ? "" : "s"} ready for the stage` : "Games the room plays from their phones, shown on the LED."}
         actions={<NewGameMenu kinds={kinds} forms={{ tap_race: form("tap_race"), survival: form("survival"), draw: form("draw") }} />}
       />
+
+      {slimeCard}
 
       <Card className="overflow-hidden py-0">
         <CardContent className="px-0">

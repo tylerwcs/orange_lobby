@@ -3,13 +3,14 @@ import { Component, useEffect, useRef, type ReactNode, type RefObject } from "re
 import { Canvas, useFrame, useThree, type RootState } from "@react-three/fiber";
 import { MathUtils, PerspectiveCamera, Vector3 } from "three";
 import type { Game, GameEvent } from "../../game/engine";
-import { SKY, css } from "../../game/palette";
+import { SKY, css, slimeColour } from "../../game/palette";
 import { slowTracker, type Quality } from "../../game/quality";
 import { Blaster, type BlasterApi } from "./Blaster";
 import { drainEvents, safely } from "./sceneEvents";
 import { BOSS_DROP_S } from "./slimeFx";
 import { Slimes, type SlimesApi } from "./Slimes";
 import { WordLabels, type LabelsApi } from "./WordLabels";
+export { loadSlimeModel } from "./slimeModel";
 import { World } from "./World";
 
 /**
@@ -151,7 +152,7 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
     );
     camera.updateMatrixWorld();
 
-    blaster.current?.update({ t, dt, camera, quality: p.quality, look: locked ? locked.look : null });
+    blaster.current?.update({ t, dt, camera, quality: p.quality, color: locked ? slimeColour(locked.look, locked.id) : null });
     p.labels.current?.update({
       slimes: g ? g.slimes : [], heads: slimes.current?.heads() ?? new Map(), camera,
       w: state.size.width, h: state.size.height, lock: g ? g.lock : null, dt,

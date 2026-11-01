@@ -1,5 +1,5 @@
 import { requireEventAccess } from "@/lib/access";
-import { MODULE_ICONS, TILE_ROUTES, TILE_ROUTE_LABELS, normalizeModules, type EventModule, type ModuleIcon } from "@/lib/modules";
+import { MODULE_ICONS, PICKABLE_TILE_ROUTES, TILE_ROUTE_LABELS, normalizeModules, type EventModule, type ModuleIcon } from "@/lib/modules";
 import { MAX_TILES, moduleId } from "@/lib/modules-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -67,7 +67,7 @@ function TileForm({ eventId, module: m, categories, preset }: {
             kind={tile?.target.kind ?? "url"}
             url={tile?.target.kind === "url" ? tile.target.url : ""}
             route={tile?.target.kind === "route" ? tile.target.route : "agenda"}
-            routes={TILE_ROUTES}
+            routes={PICKABLE_TILE_ROUTES}
             routeLabels={TILE_ROUTE_LABELS}
           />
           {/* The icons themselves rather than their names: "link" and "file" in a dropdown

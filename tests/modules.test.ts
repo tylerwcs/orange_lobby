@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseModules, defaultModules, resolveTiles, floorPlanUrl, floorPlanShown, normalizeModules, TILE_ROUTES, TILE_ROUTE_LABELS } from "@/lib/modules";
+import { parseModules, defaultModules, resolveTiles, floorPlanUrl, floorPlanShown, normalizeModules, PICKABLE_TILE_ROUTES, TILE_ROUTES, TILE_ROUTE_LABELS } from "@/lib/modules";
 
 
 describe("parseModules", () => {
@@ -187,12 +187,15 @@ describe("normalizeModules", () => {
   });
 });
 
-describe("the Typing qualifier tile (D770)", () => {
+describe("an old Typing qualifier tile (D770, D797)", () => {
   const base = { floor_plan_url: null, info_page_title: "Info" };
   const qualifier = { key: "tile", id: "qualifier", enabled: true, label: "Typing qualifier", icon: "star", target: { kind: "route", route: "qualifier" } };
-  it("is a labelled route", () => {
+  it("stays a valid, labelled route for tiles already saved, but the editor no longer offers it", () => {
     expect(TILE_ROUTES).toContain("qualifier");
-    expect(TILE_ROUTE_LABELS.qualifier).toBe("Typing qualifier");
+    expect(TILE_ROUTE_LABELS.qualifier).toBe("Slime Splat (in Games)");
+    expect(PICKABLE_TILE_ROUTES).not.toContain("qualifier");
+    expect(PICKABLE_TILE_ROUTES).toContain("play");
+    expect(PICKABLE_TILE_ROUTES).toHaveLength(TILE_ROUTES.length - 1);
   });
   it("opens the attendee's own page and is left off the public portal", () => {
     const event = { ...base, modules: parseModules([qualifier]) };
