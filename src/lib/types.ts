@@ -133,8 +133,6 @@ export type Event = {
   badge_checkin: boolean;
   /** The shared crew scanner link's authority. Null until an admin mints one. Never shown to attendees. */
   crew_token: string | null;
-  /** D441: the organiser setup link. Null when the link is off. */
-  setup_token: string | null;
   /** D715: a draft's preview link, for the client to see the portal as live without signing in. Null when off. */
   preview_token?: string | null;
   /** D716: the attendee the preview link opens as. Null opens the general portal. */

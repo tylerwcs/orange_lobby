@@ -37,7 +37,7 @@ import { flashPath } from "@/lib/flash";
 import { canSetStatus } from "@/lib/access-rules";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
 import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
-import { deleteEventFiles, deleteEventImage, nextImage, sweepSetupFiles, uploadEventImage, type ImageChange } from "@/lib/db/media";
+import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { eventTabPatch, portalLookPatch, registrationPatch } from "@/lib/settings-form";
 import { scanFieldsFromForm } from "@/lib/scan";
 import { meGroups, meHiddenFromForm } from "@/lib/me-page";
@@ -1048,8 +1048,6 @@ export async function deleteCheckpointAction(eventId: string, cpId: string) {
 export async function purgeEventAction(eventId: string) {
   const { ev } = await requireAdminEvent(eventId);
   if (ev.status !== "archived") redirect(flashPath(`/admin/events/${eventId}/settings`, "Archive the event first.", "error"));
-  // D783: until 0119 drops the setup-files bucket.
-  await sweepSetupFiles(ev.org_id, eventId);
   await purgePolaroids(ev.org_id, eventId);
   await purgeAttendeePersonalData(eventId, ev.org_id);
   await deleteChangesForEvent(eventId);

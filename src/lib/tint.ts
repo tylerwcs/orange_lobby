@@ -7,7 +7,7 @@
  * the art's orange to the event's, and the colourfulness scales down for a muted brand colour.
  * Lightness is left alone, so the pale circle stays pale and the shading reads the same.
  *
- * Pure and client-safe: the launcher builds these URLs on the server and in the setup preview.
+ * Pure and client-safe: the launcher builds these URLs on the server and in the admin icon picker.
  */
 
 /** The orange the art was drawn in: the app's default primary colour. */
