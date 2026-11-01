@@ -168,8 +168,12 @@ const viewportSnapshot = () => {
  *   answer clears it, "early" and network failures keep it and retry (sooner when the page comes
  *   back into view or online). The player can leave while it retries: the portal sends the kept
  *   run on its next visit.
- * - **Screen.** `fixed inset-0 z-[100]`, the body scroll locked while open, its height following
- *   `visualViewport` so on a phone the scene sits above the keyboard. Fullscreen is the parent's
+ * - **Screen.** `fixed inset-0 z-[100]` in the sky's colour, the body scroll locked while open:
+ *   the whole window is always covered. Inside it the game follows `visualViewport` (its top and
+ *   height), so on a phone the scene sits above the keyboard. iPhone Safari reports that box late
+ *   and in steps while its keyboard and floating bars move; with the cover the gap is sky for a
+ *   frame, never the portal behind (sizing the overlay itself to it let the page show through,
+ *   D797). Fullscreen is the parent's
  *   (it must be asked inside the Play click, on `ref`); a refusal or Esc leaves the overlay filling
  *   the window and the run carries on. Removing the overlay ends fullscreen (the browser exits it
  *   when the fullscreen element leaves the page).
@@ -495,68 +499,71 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
       role="dialog"
       aria-modal
       aria-label="Slime game"
-      className={`${qualifierFont.variable} fixed inset-0 z-[100] h-dvh touch-manipulation select-none overflow-hidden overscroll-none text-foreground`}
-      style={{ background: css(SKY), ...(vh ? { height: vh, top: vtop } : null) }}
+      className={`${qualifierFont.variable} fixed inset-0 z-[100] touch-manipulation select-none overflow-hidden overscroll-none text-foreground`}
+      style={{ background: css(SKY) }}
       // Taps never take the focus from the typing box (a button still gets its click) ...
       onMouseDown={(e) => { if (!(e.target as HTMLElement).closest("button")) e.preventDefault(); }}
       // ... and any tap puts it back, and lets the sound start (browsers need a gesture for it).
       onClick={() => { primeSound(); input.current?.focus(); }}
     >
-      {showScene && (
-        <SlimeScene
-          game={game}
-          clock={() => (origin.current === null ? 0 : performance.now() - origin.current)}
-          quality={quality}
-          lockId={lockId}
-          live={playing}
-          onEvent={onEvent}
-          onHit={onHit}
-          onSlow={onSlow}
-          onFail={onSceneFail}
-        />
-      )}
-      <div ref={flash} aria-hidden className="pointer-events-none absolute inset-0 opacity-0"
-        style={{ background: `radial-gradient(circle at 50% 55%, transparent 30%, ${css(SLIMES[0], 0.9)} 100%)` }} />
+      {/* The game itself, in the part of the screen the player can see: above a phone's keyboard. */}
+      <div className="absolute inset-x-0 overflow-hidden" style={vh ? { top: vtop, height: vh } : { top: 0, bottom: 0 }}>
+        {showScene && (
+          <SlimeScene
+            game={game}
+            clock={() => (origin.current === null ? 0 : performance.now() - origin.current)}
+            quality={quality}
+            lockId={lockId}
+            live={playing}
+            onEvent={onEvent}
+            onHit={onHit}
+            onSlow={onSlow}
+            onFail={onSceneFail}
+          />
+        )}
+        <div ref={flash} aria-hidden className="pointer-events-none absolute inset-0 opacity-0"
+          style={{ background: `radial-gradient(circle at 50% 55%, transparent 30%, ${css(SLIMES[0], 0.9)} 100%)` }} />
 
-      {gl && <GameInput ref={input} onKeys={onKeys} onWordBack={onWordBack} />}
+        {gl && <GameInput ref={input} onKeys={onKeys} onWordBack={onWordBack} />}
 
-      {playing && <GameHud hud={hud} muted={muted} onMute={toggleMute} />}
+        {playing && <GameHud hud={hud} muted={muted} onMute={toggleMute} />}
 
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center font-game">
-        {stage.kind === "run" && count > 0 && (
-          <p key={count} className="rounded-3xl bg-background/80 px-8 py-4 text-7xl leading-none tabular-nums shadow-sm backdrop-blur-sm" aria-live="assertive">
-            {count}
-          </p>
-        )}
-        {(stage.kind === "loading" || stage.kind === "title") && (
-          <Title loading={stage.kind === "loading"} onStart={() => void begin()} onExit={onExit} />
-        )}
-        {stage.kind === "starting" && <Notice><Loader label="Getting ready…" /></Notice>}
-        {playing && sceneFailed && <Notice>{SCENE_FAILED}</Notice>}
-        {stage.kind === "sending" && (
-          <Notice>
-            {stage.offline
-              ? "Couldn't reach the server. Your run is saved on this device and will be sent again."
-              : <Loader label="Sending your run…" />}
-            {(stage.offline || stage.tries >= LEAVE_AFTER_TRIES) && <Leave onExit={onExit} label="Leave for now" />}
-          </Notice>
-        )}
-        {stage.kind === "nogl" && (
-          <Notice>
-            {NO_GL}
-            <Leave onExit={onExit} label="Back" />
-          </Notice>
-        )}
-        {stage.kind === "failed" && (
-          <Notice>
-            {stage.message}
-            <span className="flex justify-center gap-2">
-              <Button type="button" variant="outline" className="pointer-events-auto" onClick={onExit}>Back</Button>
-              <Button type="button" className="pointer-events-auto" onClick={() => void (stage.retry === "load" ? load() : begin())}>Try again</Button>
-            </span>
-            {stage.discard && <Leave onExit={discardAndPlay} label="Discard it and play" />}
-          </Notice>
-        )}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center font-game">
+          {stage.kind === "run" && count > 0 && (
+            <p key={count} className="rounded-3xl bg-background/80 px-8 py-4 text-7xl leading-none tabular-nums shadow-sm backdrop-blur-sm" aria-live="assertive">
+              {count}
+            </p>
+          )}
+          {(stage.kind === "loading" || stage.kind === "title") && (
+            <Title loading={stage.kind === "loading"} onStart={() => void begin()} onExit={onExit} />
+          )}
+          {stage.kind === "starting" && <Notice><Loader label="Getting ready…" /></Notice>}
+          {playing && sceneFailed && <Notice>{SCENE_FAILED}</Notice>}
+          {stage.kind === "sending" && (
+            <Notice>
+              {stage.offline
+                ? "Couldn't reach the server. Your run is saved on this device and will be sent again."
+                : <Loader label="Sending your run…" />}
+              {(stage.offline || stage.tries >= LEAVE_AFTER_TRIES) && <Leave onExit={onExit} label="Leave for now" />}
+            </Notice>
+          )}
+          {stage.kind === "nogl" && (
+            <Notice>
+              {NO_GL}
+              <Leave onExit={onExit} label="Back" />
+            </Notice>
+          )}
+          {stage.kind === "failed" && (
+            <Notice>
+              {stage.message}
+              <span className="flex justify-center gap-2">
+                <Button type="button" variant="outline" className="pointer-events-auto" onClick={onExit}>Back</Button>
+                <Button type="button" className="pointer-events-auto" onClick={() => void (stage.retry === "load" ? load() : begin())}>Try again</Button>
+              </span>
+              {stage.discard && <Leave onExit={discardAndPlay} label="Discard it and play" />}
+            </Notice>
+          )}
+        </div>
       </div>
     </div>
   );
