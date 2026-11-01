@@ -55,11 +55,11 @@ describe("registerLanding (D634, D690, D695)", () => {
   });
 });
 
-describe("registerLanding with a booking to open (D766)", () => {
-  it("sends registered and updated people to the booking, ahead of the You're in page", () => {
+describe("registerLanding with a booking to open (D766, D799)", () => {
+  it("sends registered and updated people to the done page, which offers the booking, even with the You're in page off", () => {
     for (const o of ["registered", "updated"] as const) {
-      expect(registerLanding(o, { showsDone: true, waitlistForm: false, booking: "act1" })).toEqual({ to: "activity", id: "act1" });
-      expect(registerLanding(o, { showsDone: false, waitlistForm: false, booking: "act1" })).toEqual({ to: "activity", id: "act1" });
+      expect(registerLanding(o, { showsDone: true, waitlistForm: false, booking: "act1" })).toEqual({ to: "done" });
+      expect(registerLanding(o, { showsDone: false, waitlistForm: false, booking: "act1" })).toEqual({ to: "done" });
     }
   });
   it("never sends someone waiting or pending to it - they can't book yet", () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { dropBlankAnswers, FORM_QUESTION_TYPES, isQuestionShown, parseQuestions, validateAnswers, validateRegistration } from "@/lib/registration";
+import { dropBlankAnswers, emailError, emailTypingError, FORM_QUESTION_TYPES, isQuestionShown, parseQuestions, validateAnswers, validateRegistration } from "@/lib/registration";
+import { PHONE_FORMAT_ERROR } from "@/lib/phone";
 
 const qs = parseQuestions(JSON.stringify([
   { key: "tshirt", label: "T-shirt", type: "select", required: true, options: ["S", "M"] },
@@ -56,7 +57,7 @@ describe("phone and number questions", () => {
   it("checks a phone answer's format and stores it tidied (D675)", () => {
     const q = [{ key: "phone", label: "Mobile number", type: "phone" as const, required: true }];
     expect(validateAnswers({ phone: "+60 12 345 6789" }, q)).toEqual({ ok: true, answers: { phone: "012-345 6789" } });
-    expect(validateAnswers({ phone: "12345" }, q)).toEqual({ ok: false, errors: { phone: "Enter a Malaysian mobile like 012-345 6789, or an international number starting with + and the country code" } });
+    expect(validateAnswers({ phone: "12345" }, q)).toEqual({ ok: false, errors: { phone: PHONE_FORMAT_ERROR } });
     // Optional and left blank: nothing to check.
     expect(validateAnswers({ phone: "" }, [{ ...q[0], required: false }])).toEqual({ ok: true, answers: { phone: "" } });
   });
@@ -208,5 +209,20 @@ describe("activity form question types", () => {
     expect(FORM_QUESTION_TYPES).toContain("multi");
     const tick = { key: "kinds", label: "Kinds", type: "multi", required: false, options: ["A", "B", "C"] };
     expect(parseQuestions([tick], FORM_QUESTION_TYPES)[0].type).toBe("multi");
+  });
+});
+
+describe("the email field's live check (D801)", () => {
+  it("as you type, flags only what more typing cannot fix", () => {
+    for (const t of ["", "name", "name@", "name@gmail", "name@gmail.com"]) expect(emailTypingError(t), t).toBeNull();
+    expect(emailTypingError("name @gmail.com")).toBe("An email address has no spaces");
+    expect(emailTypingError("name@@gmail.com")).toBe("An email address has only one @");
+  });
+
+  it("on leaving, uses Register's rule and leaves a blank to Register", () => {
+    expect(emailError("")).toBeNull();
+    expect(emailError("Name@Company.com")).toBeNull();
+    expect(emailError("name@company")).toBe("Enter a valid email, like name@company.com");
+    expect(emailError("name@gmail. com")).toBe("An email address has no spaces");
   });
 });

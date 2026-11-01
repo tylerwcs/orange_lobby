@@ -14,7 +14,11 @@ import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 
-export function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token, lang = "en" }: { entry: ActivityEntry; slug: string; token: string; lang?: Lang }) {
+export function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token, lang = "en", picking = false }: {
+  entry: ActivityEntry; slug: string; token: string; lang?: Lang;
+  /** D799: `?new=1` - arrived from "Book my slot", so the time picker opens on arrival. */
+  picking?: boolean;
+}) {
   const { activity } = state;
   const d = t(lang).booking;
   const grid = sessionGrid(state.sessions);
@@ -38,6 +42,7 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
     <ActivityActionDialog
       key={`${state.held}:${pendingId ?? ""}`}
       inline={inline}
+      defaultOpen={picking && !inline && !holding}
       label={holding ? d.changeSession : d.bookYourSession}
       title={activity.name}
       description={holding ? d.pickAnother : state.mustPick ? d.chooseOne : d.pickTime}

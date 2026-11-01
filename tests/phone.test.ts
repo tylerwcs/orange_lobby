@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkPhone, PHONE_FORMAT_ERROR, phoneTypingError, toE164My } from "@/lib/phone";
+import { checkPhone, formatNational, joinPhone, PHONE_FORMAT_ERROR, phoneErrorFor, phoneTypingError, pickerTypingError, splitPhone, toE164My } from "@/lib/phone";
 
 describe("toE164My", () => {
   it("normalises the format the masterlist actually uses", () => {
@@ -48,7 +48,7 @@ describe("checkPhone (D675 registration format)", () => {
 
   it("takes an international number with + and its country code, kept as digits", () => {
     expect(checkPhone("+65 9123 4567")).toEqual({ ok: true, value: "+6591234567" });
-    expect(checkPhone("+44 7700 900123")).toEqual({ ok: true, value: "+447700900123" });
+    expect(checkPhone("+44 7911 123456")).toEqual({ ok: true, value: "+447911123456" });
   });
 
   it("refuses what is not a Malaysian mobile or an international number", () => {
@@ -66,5 +66,49 @@ describe("phoneTypingError (D676, as you type)", () => {
   it("flags at once what can never be valid", () => {
     for (const t of ["a", "012a", "03", "03-2345", "+60 3", "0123456789 0", "011234567890", "9", "1234", "+0", "12+3", "+1234567890123456"])
       expect(phoneTypingError(t), t).toBe(PHONE_FORMAT_ERROR);
+  });
+});
+
+describe("the country picker's helpers (D800)", () => {
+  it("splits a saved answer into its country and number", () => {
+    expect(splitPhone("012-345 6789")).toEqual({ country: "MY", national: "123456789" });
+    expect(splitPhone("+6591234567")).toEqual({ country: "SG", national: "91234567" });
+    expect(splitPhone("")).toEqual({ country: "MY", national: "" });
+  });
+
+  it("joins them back into what checkPhone reads, dropping a habitual trunk 0", () => {
+    expect(joinPhone("MY", "12-345 6789")).toBe("+60123456789");
+    expect(joinPhone("MY", "012-345 6789")).toBe("+60123456789");
+    expect(joinPhone("SG", "9123 4567")).toBe("+6591234567");
+    expect(joinPhone("MY", "")).toBe("");
+    expect(checkPhone(joinPhone("MY", "012 345 6789"))).toEqual({ ok: true, value: "012-345 6789" });
+    expect(checkPhone(joinPhone("SG", "9123 4567"))).toEqual({ ok: true, value: "+6591234567" });
+  });
+
+  it("keeps letters in the joined answer so the check can refuse them", () => {
+    expect(checkPhone(joinPhone("MY", "12abc")).ok).toBe(false);
+  });
+
+  it("spaces a valid number out the country's way and leaves anything else as typed", () => {
+    expect(formatNational("MY", "0123456789")).toBe("12 345 6789");
+    expect(formatNational("SG", "91234567")).toBe("9123 4567");
+    expect(formatNational("MY", "1234")).toBe("1234");
+  });
+
+  it("flags as you type only what more typing cannot fix", () => {
+    expect(pickerTypingError("MY", "12")).toBe(false);
+    expect(pickerTypingError("MY", "3")).toBe(true); // a landline
+    expect(pickerTypingError("SG", "9123")).toBe(false);
+    expect(pickerTypingError("SG", "91234567891234567")).toBe(true);
+    expect(pickerTypingError("SG", "9x")).toBe(true);
+  });
+
+  it("refuses another country's number that is only the right length", () => {
+    expect(checkPhone("+65 0000 0000").ok).toBe(false);
+  });
+
+  it("names the country in its error", () => {
+    expect(phoneErrorFor("MY", "Malaysia")).toBe("Enter a Malaysian mobile number, like 12 345 6789");
+    expect(phoneErrorFor("SG", "Singapore")).toContain("Singapore");
   });
 });

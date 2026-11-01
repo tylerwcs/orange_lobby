@@ -7,3 +7,4 @@ export * from "./portal/QueueCard";
 export * from "./admin/actions";
 export * from "./admin/places";
 export * from "./admin/QueueTable";
+export * from "./after-register";

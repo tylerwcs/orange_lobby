@@ -54,6 +54,25 @@ export type RegistrationData = { name: string; email: string; extra: Record<stri
 export type RegistrationResult = { ok: true; data: RegistrationData } | { ok: false; errors: Record<string, string> };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL_ERROR = "Enter a valid email";
+
+/**
+ * D801: the email field's verdict as it is typed - only what no more typing can fix, so nobody
+ * is told off halfway through "name@". The full rule (`emailError`) runs when they leave it.
+ */
+export function emailTypingError(raw: string): string | null {
+  const t = raw.trim();
+  if (/\s/.test(t)) return "An email address has no spaces";
+  if ((t.match(/@/g) ?? []).length > 1) return "An email address has only one @";
+  return null;
+}
+
+/** D801: on leaving the field - Register's own rule. Blank is left to Register, which says it is needed. */
+export function emailError(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  return emailTypingError(t) ?? (EMAIL_RE.test(t.toLowerCase()) ? null : `${EMAIL_ERROR}, like name@company.com`);
+}
 
 export type AnswersResult =
   | { ok: true; answers: Record<string, string> }
@@ -114,7 +133,7 @@ export function validateRegistration(input: Record<string, string>, questions: R
   const name = get("name");
   const email = get("email").toLowerCase();
   if (!name) errors.name = "Name is required";
-  if (!EMAIL_RE.test(email)) errors.email = "Enter a valid email";
+  if (!EMAIL_RE.test(email)) errors.email = EMAIL_ERROR;
   const answered = validateAnswers(input, questions);
   if (!answered.ok) Object.assign(errors, answered.errors);
   if (Object.keys(errors).length) return { ok: false, errors };

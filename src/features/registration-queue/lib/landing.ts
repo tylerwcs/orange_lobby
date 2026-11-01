@@ -26,7 +26,7 @@ export function resolveTokenView<A extends { cancelled_at?: string | null }, E e
   return { kind: "missing" };
 }
 
-export type RegisterLanding = { to: "done" } | { to: "link"; filled: boolean } | { to: "activity"; id: string };
+export type RegisterLanding = { to: "done" } | { to: "link"; filled: boolean };
 
 /**
  * Where the registration form sends someone. Registered or updated: the "You're in" page when the
@@ -34,9 +34,11 @@ export type RegisterLanding = { to: "done" } | { to: "link"; filled: boolean } |
  * waiting person who sent the normal form, not the waiting-list one, lost the race for the last
  * place and their page says so (D695).
  *
- * D766: `booking` is the activity the organiser set to open right after registering, when this
- * person can book it now (`bookableAfterRegister`). It wins over the "You're in" page for anyone
- * now registered; someone waiting or pending can't book yet and lands as before.
+ * D766, D799: `booking` is the activity the organiser set to open right after registering, when
+ * this person can book it now (`bookableAfterRegister`). They go to the done page even with the
+ * "You're in" page off: it says they are registered first, then offers the booking as the next
+ * step. Dropping them straight on the slots read as if registering had not happened. Someone
+ * waiting or pending can't book yet and lands as before.
  */
 export function registerLanding(
   outcome: "updated" | "waiting" | "pending" | "registered",
@@ -44,7 +46,7 @@ export function registerLanding(
 ): RegisterLanding {
   if (outcome === "waiting") return { to: "link", filled: !opts.waitlistForm };
   if (outcome === "pending") return { to: "link", filled: false };
-  if (opts.booking) return { to: "activity", id: opts.booking };
+  if (opts.booking) return { to: "done" };
   return opts.showsDone ? { to: "done" } : { to: "link", filled: false };
 }
 

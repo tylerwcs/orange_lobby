@@ -1,3 +1,5 @@
+import { AsYouType, getCountryCallingCode, isValidPhoneNumber, parsePhoneNumberFromString, validatePhoneNumberLength, type CountryCode } from "libphonenumber-js";
+
 /**
  * A Malaysian number in the only spelling the WhatsApp Cloud API accepts: country code, no
  * plus, no separators — `60123456789`.
@@ -17,7 +19,7 @@ const MY_MOBILE = /^1(?:1\d{8}|[02-9]\d{7})$/;
 /** E.164: a country code and number, 8 to 15 digits in all. */
 const INTERNATIONAL = /^[1-9]\d{7,14}$/;
 
-export const PHONE_FORMAT_ERROR = "Enter a Malaysian mobile like 012-345 6789, or an international number starting with + and the country code";
+export const PHONE_FORMAT_ERROR = "Enter a valid mobile number. A Malaysian one looks like 12 345 6789";
 
 /**
  * D675: a phone answer on a form (registration, activity forms). A Malaysian mobile - local
@@ -64,8 +66,75 @@ export function checkPhone(raw: string): { ok: true; value: string } | { ok: fal
     const split = national.length - 4; // the last four digits stand apart: 12-345 6789, 11-2345 6789
     return { ok: true, value: `0${national.slice(0, 2)}-${national.slice(2, split)} ${national.slice(split)}` };
   }
-  if (plus && INTERNATIONAL.test(digits)) return { ok: true, value: `+${digits}` };
+  // D800: another country's number has to be a real one for that country, not just enough digits.
+  if (plus && INTERNATIONAL.test(digits) && isValidPhoneNumber(`+${digits}`)) return { ok: true, value: `+${digits}` };
   return { ok: false, error: PHONE_FORMAT_ERROR };
+}
+
+/**
+ * D800: the phone field's country picker. The field shows a country and the number within it;
+ * what it posts is `joinPhone`'s one string, which `checkPhone` reads and stores exactly as
+ * before - Malaysian as 012-345 6789, anyone else as + and digits - so nothing downstream
+ * (exports, WhatsApp sends) sees a difference.
+ */
+export const DEFAULT_COUNTRY: CountryCode = "MY";
+export type { CountryCode };
+
+export function dialCode(country: CountryCode): string {
+  return `+${getCountryCallingCode(country)}`;
+}
+
+/** A saved or posted answer as the picker shows it: 012-345 6789 is Malaysia's 12-345 6789. */
+export function splitPhone(value: string): { country: CountryCode; national: string } {
+  const v = value.trim();
+  if (!v) return { country: DEFAULT_COUNTRY, national: "" };
+  const parsed = v.startsWith("+") ? parsePhoneNumberFromString(v) : parsePhoneNumberFromString(v, DEFAULT_COUNTRY);
+  if (parsed?.country) return { country: parsed.country, national: parsed.nationalNumber };
+  // Something the parser cannot place stays in the box as typed, for its owner to fix.
+  return { country: DEFAULT_COUNTRY, national: v.startsWith("+") ? v.slice(1) : v };
+}
+
+/**
+ * The picker's country and number as the one string the form posts: `+<code><digits>`. A
+ * leading trunk 0 typed out of habit (012… for Malaysia) is dropped, the way the country's own
+ * dialling rules say. Letters and the like are kept, so the check can name them.
+ */
+export function joinPhone(country: CountryCode, national: string): string {
+  const t = national.trim();
+  if (!t) return "";
+  if (/[^\d\s\-.()]/.test(t)) return `${dialCode(country)} ${t}`;
+  const typer = new AsYouType(country);
+  typer.input(t);
+  return typer.getNumber()?.number ?? `${dialCode(country)}${t.replace(/\D/g, "")}`;
+}
+
+/**
+ * The number spaced out the country's way, for the box once it is left: 12 345 6789. Written
+ * without the trunk 0 (the international form, less its code), since the code is beside it.
+ * One the library cannot read back is left exactly as typed.
+ */
+export function formatNational(country: CountryCode, national: string): string {
+  const parsed = parsePhoneNumberFromString(joinPhone(country, national));
+  return parsed?.isValid() ? parsed.formatInternational().replace(/^\+\d+\s/, "") : national;
+}
+
+/** The error under the picker's field, naming the country it was judged for. */
+export function phoneErrorFor(country: CountryCode, countryName: string): string {
+  return country === DEFAULT_COUNTRY
+    ? "Enter a Malaysian mobile number, like 12 345 6789"
+    : `That doesn't look like a ${countryName} number. Check it, or pick another country.`;
+}
+
+/**
+ * D676, D800: the picker's as-you-type error - only for what no more typing can fix. Malaysia
+ * keeps its mobile-only rule (`phoneTypingError`); elsewhere, a letter or too many digits.
+ */
+export function pickerTypingError(country: CountryCode, national: string): boolean {
+  const joined = joinPhone(country, national);
+  if (!joined) return false;
+  if (country === DEFAULT_COUNTRY) return phoneTypingError(joined) !== null;
+  if (/[^\d\s\-.()]/.test(national.trim())) return true;
+  return validatePhoneNumberLength(joined) === "TOO_LONG";
 }
 
 export function toE164My(raw: string | null | undefined): string | null {

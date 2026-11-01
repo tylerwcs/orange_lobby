@@ -8,7 +8,8 @@ import { multiParts, toggleMulti } from "@/lib/multi-answer";
 import type { RegistrationQuestion } from "@/lib/types";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useT, type Dict } from "@/features/language/client";
+import { useLang, useT, type Dict } from "@/features/language/client";
+import { PhoneInput } from "@/components/portal/PhoneInput";
 
 const inputClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
 
@@ -78,10 +79,17 @@ function renderQuestion(q: RegistrationQuestion, current: string, d: Dict["submi
       />
     );
   }
-  const type = q.type === "phone" ? "tel" : q.type === "number" ? "number" : "text";
+  if (q.type === "phone") return <PhoneQuestion q={q} current={current} />;
+  const type = q.type === "number" ? "number" : "text";
   // D370: a limited number question opens the decimal keypad and lets the browser say "at least 1" first.
   const limits = q.type === "number" ? numberInputAttrs(q) : null;
   return <input id={id} name={q.key} type={type} required={q.required} defaultValue={current} className={inputClass} {...limits} />;
+}
+
+/** D800: the registration form's country picker, its country names in the page's language. */
+function PhoneQuestion({ q, current }: { q: RegistrationQuestion; current: string }) {
+  const lang = useLang();
+  return <PhoneInput id={`q-${q.key}`} name={q.key} defaultValue={current} required={q.required} lang={lang} />;
 }
 
 /**

@@ -12,7 +12,8 @@ import { CONSENT_FIELD, PRIVACY_MS_PATH, PRIVACY_PATH, TERMS_FIELD } from "@/lib
 import { Spinner } from "@/components/ui/spinner";
 import { EventTermsPanel } from "@/components/portal/EventTermsPanel";
 import { problemsInFormOrder, registrationErrors } from "@/lib/registration-check";
-import { checkPhone, phoneTypingError } from "@/lib/phone";
+import { emailError, emailTypingError } from "@/lib/registration";
+import { PhoneInput } from "@/components/portal/PhoneInput";
 import { multiParts, toggleMulti } from "@/lib/multi-answer";
 import { CARD_TITLE_INK } from "@/lib/ink";
 
@@ -24,23 +25,10 @@ import { CARD_TITLE_INK } from "@/lib/ink";
  */
 const selectClass = "h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
 
-// Only these two question types want a specialised keyboard; select has its own branch below,
-// and plain text needs neither an overridden type nor an inputMode.
-const INPUT_TYPE: Record<string, string> = { phone: "tel", number: "number" };
-const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMode"]> = { phone: "tel", number: "decimal" };
-/** D675: what a valid answer looks like, for types with a format. */
-const PLACEHOLDER: Record<string, string> = { phone: "012-345 6789 or +65 9123 4567" };
-
-/**
- * Autofill hints come from the question's type, the same as INPUT_TYPE above.
- *
- * Company used to be matched by key here and hinted as "organization" — the one question
- * whose key the form knew by name. A hint is cheap to lose and the special case was not:
- * a question type is the only thing this should read.
- */
-function autoCompleteFor(q: RegistrationQuestion): string | undefined {
-  return q.type === "phone" ? "tel" : undefined;
-}
+// Only a number question wants a specialised keyboard here; phone (D800) and select have their
+// own branches below, and plain text needs neither an overridden type nor an inputMode.
+const INPUT_TYPE: Record<string, string> = { number: "number" };
+const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMode"]> = { number: "decimal" };
 
 export function RegisterForm({ slug, questions, termsHtml = null, waitlist = false }: {
   slug: string;
@@ -65,8 +53,8 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
   // state it was made against: once the server answers, its errors are the ones shown.
   const [checked, setChecked] = useState<{ against: RegisterState; errors: Record<string, string> } | null>(null);
   const errors = checked && checked.against === state ? checked.errors : (state.errors ?? {});
-  // D676: phone answers are judged as they are typed (only what no more typing can fix) and in
-  // full when the field is left; Register's own check still names everything else.
+  // D676, D800, D801: phone and email answers are judged as they are typed (only what no more
+  // typing can fix) and in full when the field is left; Register's own check names everything else.
   const [live, setLive] = useState<Record<string, string>>({});
   const shown: Record<string, string> = { ...live, ...errors };
   const judge = (k: string, err: string | null) => setLive((l) => {
@@ -94,13 +82,7 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
     const next = { ...answers, [k]: val };
     setAnswers(next);
     recheck(next, agreed, agreedTerms);
-    if (questions.find((q) => q.key === k)?.type === "phone") judge(k, phoneTypingError(val));
-  };
-  /** D676: leaving a phone field judges the whole number - an unfinished one is wrong by now. */
-  const leavePhone = (k: string) => {
-    const v = value(k).trim();
-    const full = v ? checkPhone(v) : null;
-    judge(k, full && !full.ok ? full.error : null);
+    if (k === "email") judge(k, emailTypingError(val));
   };
 
   /** Register with something missing: nothing is sent, and the list above the button says what is still needed. */
@@ -129,6 +111,11 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
     // sent. Put the DOM back in agreement with state before anything else.
     for (const [k, val] of Object.entries(answers)) {
       const el = document.getElementById(`reg-${k}`);
+      // D800: a phone box shows the number within its country, not the posted answer.
+      if (el instanceof HTMLInputElement && el.dataset.phoneDisplay !== undefined) {
+        if (el.value !== el.dataset.phoneDisplay) el.value = el.dataset.phoneDisplay;
+        continue;
+      }
       if ((el instanceof HTMLSelectElement || el instanceof HTMLInputElement) && el.value !== val) el.value = val ?? "";
     }
     // The consent tick is reset the same way, and must not make the invitee agree twice.
@@ -190,7 +177,11 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
                 {q.key === "name" ? (
                   <Input id={id} name="name" required autoComplete="name" enterKeyHint="next" value={value("name")} onChange={(e) => set("name", e.target.value)} className="h-11" {...invalid("name", help)} />
                 ) : q.key === "email" ? (
-                  <Input id={id} name="email" type="email" required autoComplete="email" inputMode="email" enterKeyHint="next" value={value("email")} onChange={(e) => set("email", e.target.value)} className="h-11" {...invalid("email", help)} />
+                  <Input id={id} name="email" type="email" required autoComplete="email" inputMode="email" enterKeyHint="next" value={value("email")} onChange={(e) => set("email", e.target.value)}
+                    onBlur={() => judge("email", emailError(value("email")))} className="h-11" {...invalid("email", help)} />
+                ) : q.type === "phone" ? (
+                  <PhoneInput id={id} name={q.key} defaultValue={value(q.key)} required={q.required}
+                    onAnswer={(v) => set(q.key, v)} onJudge={(err) => judge(q.key, err)} inputProps={invalid(q.key, help)} />
                 ) : q.type === "select" ? (
                   <select id={id} name={q.key} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
                     className={selectClass} {...invalid(q.key, help)}>
@@ -215,8 +206,7 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
                     ))}
                   </div>
                 ) : (
-                  <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} autoComplete={autoCompleteFor(q)} placeholder={PLACEHOLDER[q.type]} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
-                    onBlur={q.type === "phone" ? () => leavePhone(q.key) : undefined}
+                  <Input id={id} name={q.key} type={INPUT_TYPE[q.type] ?? "text"} inputMode={INPUT_MODE[q.type]} required={q.required} value={value(q.key)} onChange={(e) => set(q.key, e.target.value)}
                     className="h-11" {...invalid(q.key, help)} />
                 )}
                 <FieldError id={`${id}-error`}>{shown[q.key]}</FieldError>
