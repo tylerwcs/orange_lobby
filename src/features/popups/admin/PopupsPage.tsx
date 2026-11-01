@@ -7,6 +7,7 @@ import { Modal } from "@/components/admin/Modal";
 import { SortableList } from "@/components/admin/SortableList";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { ImageField } from "@/components/admin/ImageField";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -30,6 +31,9 @@ export async function PopupsPage({ eventId }: { eventId: string }) {
 
   const form = (p?: PortalPopup) => (
     <form action={p ? updatePopupAction.bind(null, ev.id, p.id) : addPopupAction.bind(null, ev.id)} className="grid gap-3 p-1">
+      {/* D808: above the heading in the popup, shown whole. */}
+      <ImageField label="Image (optional)" name="image" url={p?.image_url}
+        description="Shown whole at the top of the popup, above the heading - a poster or flyer fits." />
       <Field label="Heading" name="heading" defaultValue={p?.heading} placeholder="Book your health screening" />
       <RichTextEditor name="message" label="Message" defaultValue={p?.message_html} minHeight={120}
         description="Shown exactly as typed. For two languages, write both." />

@@ -2,7 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
 import type { ActivitySession, Event } from "@/lib/types";
-import type { PopupInput, PortalPopup } from "./types";
+import type { PopupWrite, PortalPopup } from "./types";
 
 /** In the organiser's order: the first that applies is the one an attendee sees (D754). */
 export async function listPopups(eventId: string): Promise<PortalPopup[]> {
@@ -13,7 +13,7 @@ export async function listPopups(eventId: string): Promise<PortalPopup[]> {
 }
 
 /** A new popup goes last, so it never takes the turn of one already running. */
-export async function createPopup(event: Pick<Event, "id" | "org_id">, input: PopupInput) {
+export async function createPopup(event: Pick<Event, "id" | "org_id">, input: PopupWrite) {
   const db = serviceClient();
   const { data: last } = await db.from("portal_popups").select("sort_order")
     .eq("event_id", event.id).order("sort_order", { ascending: false }).limit(1).maybeSingle();
@@ -22,7 +22,7 @@ export async function createPopup(event: Pick<Event, "id" | "org_id">, input: Po
   if (error) throw error;
 }
 
-export async function updatePopup(id: string, eventId: string, input: PopupInput) {
+export async function updatePopup(id: string, eventId: string, input: PopupWrite) {
   const { error } = await serviceClient().from("portal_popups").update(input).eq("id", id).eq("event_id", eventId);
   if (error) throw error;
 }
@@ -32,9 +32,11 @@ export async function setPopupOn(id: string, eventId: string, on: boolean) {
   if (error) throw error;
 }
 
-export async function deletePopup(id: string, eventId: string) {
-  const { error } = await serviceClient().from("portal_popups").delete().eq("id", id).eq("event_id", eventId);
+/** Returns the deleted row's picture, for the caller to remove from storage (D808). */
+export async function deletePopup(id: string, eventId: string): Promise<string | null> {
+  const { data, error } = await serviceClient().from("portal_popups").delete().eq("id", id).eq("event_id", eventId).select("image_url");
   if (error) throw error;
+  return (data?.[0] as { image_url: string | null } | undefined)?.image_url ?? null;
 }
 
 /** Scoped by event as well as id, so a posted id from another event reorders nothing. Steps of 10, as announcements. */

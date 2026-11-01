@@ -11,7 +11,7 @@ const session = (id: string, activityId: string, over: Partial<ActivitySession> 
   id, event_id: "e", activity_id: activityId, day: "2026-11-06", starts_at: "10:00", ends_at: "10:05", location: null, location_url: null, capacity: 1, sort_order: 0, ...over,
 });
 const popup = (id: string, activityId: string, over: Partial<PortalPopup> = {}): PortalPopup => ({
-  id, org_id: "o", event_id: "e", heading: `Popup ${id}`, message_html: "<p>Book</p>", button_label: "Book now",
+  id, org_id: "o", event_id: "e", heading: `Popup ${id}`, message_html: "<p>Book</p>", button_label: "Book now", image_url: null,
   trigger_kind: "not_done", activity_id: activityId, is_on: true, sort_order: 0, created_at: "2026-10-28T00:00:00Z", ...over,
 });
 

@@ -35,5 +35,6 @@ export const portalPopupFor = cache(async (eventId: string, attendeeId: string, 
     message_html: sanitizeHtml(toRichHtml(picked.message_html)),
     button_label: picked.button_label,
     activity_id: picked.activity_id,
+    image_url: picked.image_url,
   };
 });

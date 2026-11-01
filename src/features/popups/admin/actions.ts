@@ -9,6 +9,7 @@ import { toRichHtml } from "@/lib/rich-text";
 import { listActivities } from "@/features/activities";
 import { requireFeature } from "@/features/catalogue";
 import type { Event } from "@/lib/types";
+import { deleteEventImage, nextImage, type ImageChange } from "@/lib/db/media";
 import { createPopup, deletePopup, listPopups, setPopupOn, setPopupOrder, updatePopup } from "../db";
 import { readPopupForm } from "../rules";
 import type { PopupInput } from "../types";
@@ -30,11 +31,21 @@ async function readForm(ev: Pick<Event, "id">, formData: FormData): Promise<Popu
   return { ...rest, message_html: sanitizeHtml(toRichHtml(message)) };
 }
 
+/** D808: the picture the form asks for - a new upload, a removal, or the one it had. A bad file is the admin's flash. */
+async function readImage(ev: Pick<Event, "id" | "org_id">, formData: FormData, current: string | null): Promise<ImageChange> {
+  try {
+    return await nextImage(formData, "image", current, { orgId: ev.org_id, eventId: ev.id, kind: "popup" });
+  } catch (e) {
+    redirect(flashPath(back(ev.id), (e as Error).message, "error"));
+  }
+}
+
 export async function addPopupAction(eventId: string, formData: FormData) {
   const { ev } = await requireEventAccess(eventId);
   await requireFeature(ev.id, "popups", back(eventId));
   const input = await readForm(ev, formData);
-  await createPopup(ev, input);
+  const image = await readImage(ev, formData, null);
+  await createPopup(ev, { ...input, image_url: image.url });
   refresh(ev);
   redirect(flashPath(back(eventId), `“${input.heading}” created.`));
 }
@@ -43,7 +54,12 @@ export async function updatePopupAction(eventId: string, popupId: string, formDa
   const { ev } = await requireEventAccess(eventId);
   await requireFeature(ev.id, "popups", back(eventId));
   const input = await readForm(ev, formData);
-  await updatePopup(popupId, ev.id, input);
+  const current = (await listPopups(ev.id)).find((p) => p.id === popupId);
+  if (!current) redirect(flashPath(back(eventId), "That popup no longer exists.", "error"));
+  const image = await readImage(ev, formData, current.image_url);
+  await updatePopup(popupId, ev.id, { ...input, image_url: image.url });
+  // Only once the row names the new picture (or none) is the old one safe to throw away.
+  await deleteEventImage(image.stale);
   refresh(ev);
   redirect(flashPath(back(eventId), `“${input.heading}” saved.`));
 }
@@ -59,7 +75,7 @@ export async function setPopupOnAction(eventId: string, popupId: string, on: boo
 export async function deletePopupAction(eventId: string, popupId: string) {
   const { ev } = await requireEventAccess(eventId);
   await requireFeature(ev.id, "popups", back(eventId));
-  await deletePopup(popupId, ev.id);
+  await deleteEventImage(await deletePopup(popupId, ev.id));
   refresh(ev);
 }
 

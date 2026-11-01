@@ -48,6 +48,12 @@ export function PopupDialog({ popup, basePath }: { popup: PopupShown | null; bas
     // Done elsewhere in the meantime (booked, so the server sends null) and it is gone.
     <Dialog open={open && !here} onOpenChange={setOpen}>
       <DialogContent showCloseButton={false} className="max-h-[90dvh] gap-5 overflow-y-auto">
+        {/* D808: whole, never cropped - a poster and a square flyer both fit - and no taller than
+            half the screen, so the button stays in view on a phone. Decorative: the heading says it. */}
+        {popup.image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={popup.image_url} alt="" className="mx-auto max-h-[50dvh] w-auto max-w-full rounded-lg object-contain" />
+        )}
         <div className="flex flex-col items-center gap-3 pt-2 text-center">
           <DialogTitle className="text-lg font-extrabold leading-tight text-balance">{popup.heading}</DialogTitle>
           {/* A div, not the default <p>: the organiser's message is paragraphs and lists of its own. */}
