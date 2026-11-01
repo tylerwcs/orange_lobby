@@ -38,6 +38,13 @@ export const TILE_ROUTES = ["agenda", "announcements", "info", "me", "seat", "st
 export type TileRoute = (typeof TILE_ROUTES)[number];
 
 /**
+ * The routes the tile editor offers. `qualifier` is kept in TILE_ROUTES for tiles already saved
+ * with it (its page now forwards to Games, where Slime Splat lives, D797), but a new tile points
+ * at Games.
+ */
+export const PICKABLE_TILE_ROUTES: readonly TileRoute[] = TILE_ROUTES.filter((r) => r !== "qualifier");
+
+/**
  * Routes that only exist on a personal link. Playing needs an identity (D253), so the public
  * portal has no play page and a Games tile is left off its home rather than drawn as a 404.
  */
@@ -57,7 +64,7 @@ export const TILE_ROUTE_LABELS: Record<TileRoute, string> = {
   stamps: "Booth Passport",
   activities: "Activities",
   play: "Games",
-  qualifier: "Typing qualifier",
+  qualifier: "Slime Splat (in Games)",
 };
 
 export type TileTarget = { kind: "url"; url: string } | { kind: "route"; route: TileRoute };

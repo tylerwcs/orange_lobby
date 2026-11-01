@@ -28,7 +28,7 @@ export type Tier = "core" | "optional" | "experimental";
 export type Origin = { event?: string; date: string; decision?: string };
 
 /** Sidebar items and settings parts an add-on can hide. Activities and Games are hidden by their kinds, not named here. */
-export type NavKey = "whatsapp" | "activities" | "games" | "qualifier" | "popups";
+export type NavKey = "whatsapp" | "activities" | "games" | "popups";
 export type SettingsPartKey = "address" | "language" | "committee_alerts";
 
 export type Unlocks = {
@@ -65,7 +65,8 @@ export const FEATURES: Record<FeatureKey, Feature> = {
   lucky_draw: addon("Lucky draw", "Slot machine, wheel, mosaic and card round.", { unlocks: { gameKinds: ["draw"] } }),
   custom_domain: addon("Custom domain", "The event on its own address.", { unlocks: { settingsParts: ["address"] } }),
   slido: addon("Slido embedding", "Slido inside the portal. Until the embed is built, use a link tile."),
-  typing_qualifier: addon("Typing qualifier", "A week of 30-second typing sprints; the top 10 go to the finale.", { unlocks: { nav: ["qualifier"] }, origin: { date: "2026-10", decision: "D767" } }),
+  // The key keeps the game's first name (D767); it is Slime Splat, a game under Games (D797).
+  typing_qualifier: addon("Slime Splat", "A slime-popping typing game attendees play on their phones, with a leaderboard.", { unlocks: { nav: ["games"] }, origin: { date: "2026-10", decision: "D767" } }),
   language: addon("Bahasa Malaysia portal", "An EN | BM switch on the attendee portal.", { unlocks: { settingsParts: ["language"] }, origin: { event: "MYBESTME", date: "2026-10", decision: "D736" }, experimental: true }),
   popups: addon("Portal popups", "Messages that pop up over the attendee portal.", { unlocks: { nav: ["popups"] }, origin: { event: "MYBESTME", date: "2026-10", decision: "D751" }, experimental: true }),
   custom: addon("Custom module", "Bespoke work, described per event."),

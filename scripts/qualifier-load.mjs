@@ -1,5 +1,6 @@
-// Load test for the typing qualifier (D771): N simulated players against a running app. Each one
-// loops start -> type for 30 s -> submit, for the length of the test, the way the page does.
+// Load test for the slime qualifier (D771, D791): N simulated players against a running app. Each
+// one loops start -> wait for startsAt -> submit a harmless timeline -> start again, for the length
+// of the test, the way the page does (minus the 3D scene).
 //
 //   run <base-url> <event-id> [n=500] [seconds=180]
 //
@@ -7,12 +8,25 @@
 // (node --env-file=.env.local scripts/qualifier-load.mjs). Locally: npm run build && npm start,
 // then point it at http://localhost:3000.
 //
+// THE FLOW (POST /api/qualifier/[token]/start, then /submit):
+//   1. start answers { runId, startsAt, serverNow, seed }. The player waits until startsAt, by the
+//      clock offset serverNow gave.
+//   2. The timeline is backspaces only ("\b" at about 4 keys a second, uneven gaps, the first
+//      from startsAt, the last within the first 15 s). With no slime locked a backspace does
+//      nothing and never scores, so the replayed score is always 0 and the run ends by slimes
+//      (about 18-20 s in). A backspace is never counted by the speed ceiling (60 accepted
+//      letters in 2 s), and the keys stay before the replayed death, or the submit would read
+//      "invalid".
+//   3. It submits a random 20-40 s after startsAt, past the replayed death. On reason "early"
+//      (the database's clock says the run is not over yet) it retries every 2 s, then moves on.
+//
 // SETUP: use a TEST event, never a live one. Seed the players with the games script, which tags
 // them extra.seed = "load" (npm run load:games -- seed <event-id> 500), and give the event a
 // qualifier window that is open now (admin > Typing qualifier). Remove them afterwards with
 // npm run load:games -- cleanup <event-id>: their runs and player rows go with them by cascade.
 //
-// PASS: no 5xx or network errors, and p95 under 500 ms for start and for submit.
+// PASS: no 5xx or network errors, and p95 under 500 ms for start and for submit, at 150 players.
+// Start/submit p50/p95/p99, status counts and the submit outcomes are printed at the end.
 //
 // SAFETY: refuses the events with slug `ecphub` and `zp-my-best-me` (the live ones), refuses a
 // draft event or a window that is not open, and only ever plays as attendees seeded with
@@ -22,9 +36,13 @@ import { createClient } from "@supabase/supabase-js";
 const LIVE_SLUGS = ["ecphub", "zp-my-best-me"];
 const SEED = "load";
 const PAGE = 1000;
-// src/features/qualifier/scoring.ts: a run lasts RUN_MS from startsAt, and the database accepts
-// a submit from 29 s to 33 s after it. Submit just after the 30 s mark.
-const RUN_MS = 30_000;
+// A run with no slime popped ends by death about 18-20 s in (src/features/qualifier/game/rules.ts),
+// so every key lands in the first TYPE_MS and the submit comes at least SUBMIT_MIN_MS after startsAt.
+const TYPE_MS = 15_000;
+const SUBMIT_MIN_MS = 20_000;
+const SUBMIT_SPAN_MS = 20_000;
+const EARLY_RETRY_MS = 2000;
+const EARLY_RETRIES = 15;
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -58,29 +76,19 @@ function canPlay(a, previewId, excluded) {
 }
 
 /**
- * A plausible run: a typist of `wpm` finishing each word in its length's worth of time, give or
- * take 30%, so the gaps are uneven the way a person's are (an even run is flagged for review).
+ * A harmless timeline: backspaces only, about 4 a second (gaps of 150-350 ms, so the rhythm is
+ * uneven and not flagged), the first gap measured from startsAt, ending by TYPE_MS. A backspace
+ * with no slime locked does nothing and never scores, so the replayed score is 0.
  * Returns the body the page sends, minus runId.
  */
-function plausibleRun(words, wpm) {
-  const msPerChar = 60_000 / (wpm * 5);
-  const offsets = [];
-  let t = 0;
-  let chars = 0;
-  let prefix = 0;
-  for (const w of words) {
-    const cost = (w.length + 1) * msPerChar * (0.7 + Math.random() * 0.6);
-    if (t + cost > RUN_MS) {
-      prefix = Math.min(w.length, Math.floor(((RUN_MS - t) / cost) * w.length));
-      chars += prefix;
-      break;
-    }
-    t += cost;
-    offsets.push(Math.max(Math.round(t), (offsets.at(-1) ?? 0) + 1));
-    chars += w.length + 1;
+function harmlessRun() {
+  const times = [];
+  for (let t = 0, gap = 150 + Math.random() * 200; t + gap <= TYPE_MS; gap = 150 + Math.random() * 200) {
+    const ms = Math.round(gap);
+    times.push(ms);
+    t += ms;
   }
-  const keys = chars + Math.floor(chars * 0.04);
-  return { wordsDone: offsets.length, offsets, prefix, keys, correctKeys: chars, device: "keyboard", multiInserts: 0 };
+  return { keys: "\b".repeat(times.length), times, inserts: [], device: "keyboard" };
 }
 
 async function run(base, eventId, n, seconds) {
@@ -95,7 +103,7 @@ async function run(base, eventId, n, seconds) {
     .select("opens_at, closes_at, excluded_categories, confirmed_at").eq("event_id", ev.id).maybeSingle());
   const now = Date.now();
   if (!settings?.opens_at || !settings?.closes_at || settings.confirmed_at
-    || now < Date.parse(settings.opens_at) || now >= Date.parse(settings.closes_at) - (seconds + 40) * 1000) {
+    || now < Date.parse(settings.opens_at) || now >= Date.parse(settings.closes_at) - (seconds + 60) * 1000) {
     refuse("the qualifier window must be open for the whole test (and not confirmed). Set it in admin first.");
   }
   const excluded = Array.isArray(settings.excluded_categories) ? settings.excluded_categories : [];
@@ -118,7 +126,8 @@ async function run(base, eventId, n, seconds) {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}),
       });
       record(name, performance.now() - t, res.status);
-      return res.ok ? await res.json() : null;
+      // The submit route answers { ok: false, reason } with a 400 too; keep any JSON body.
+      return await res.json().catch(() => null);
     } catch {
       record(name, performance.now() - t, "network");
       return null;
@@ -126,25 +135,31 @@ async function run(base, eventId, n, seconds) {
   };
 
   const until = Date.now() + seconds * 1000;
-  // One player: start, type until the run's 30 s are up, submit, and fly again.
-  const player = async (tok, wpm) => {
+  // One player: start, wait for startsAt, submit after 20-40 s (retrying while "early"), fly again.
+  const player = async (tok) => {
     await sleep(Math.random() * 3000);
     while (Date.now() < until) {
       const s = await call("start", tok);
-      if (!s) { await sleep(2000); continue; }
+      if (!s?.runId) { await sleep(2000); continue; }
       // The page waits on the server's clock; so does this, by the offset serverNow gave.
       const skew = Date.now() - s.serverNow;
-      const submitAt = Date.parse(s.startsAt) + RUN_MS + 300 + Math.random() * 700 + skew;
-      await sleep(Math.max(0, submitAt - Date.now()));
-      const r = await call("submit", tok, { runId: s.runId, ...plausibleRun(s.words, wpm) });
-      const outcome = r ? (r.ok ? "ok" : r.reason) : "no answer";
+      const startAt = Date.parse(s.startsAt) + skew;
+      const body = { runId: s.runId, ...harmlessRun() };
+      await sleep(Math.max(0, startAt + SUBMIT_MIN_MS + Math.random() * SUBMIT_SPAN_MS - Date.now()));
+      let outcome = "no answer";
+      for (let attempt = 0; attempt <= EARLY_RETRIES; attempt++) {
+        const r = await call("submit", tok, body);
+        outcome = r ? (r.ok ? "ok" : String(r.reason ?? "no answer")) : "no answer";
+        if (outcome !== "early") break;
+        await sleep(EARLY_RETRY_MS);
+      }
       outcomes.set(outcome, (outcomes.get(outcome) ?? 0) + 1);
       await sleep(1000 + Math.random() * 2000);
     }
   };
 
   console.log(`${n} players for ${seconds} s against ${root}.`);
-  await Promise.all(people.map((p) => player(p.token, 25 + Math.random() * 85)));
+  await Promise.all(people.map((p) => player(p.token)));
 
   let failed = false;
   let errors = false;

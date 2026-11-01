@@ -1,5 +1,5 @@
-// Where the qualifier is in its life, and who may play it (D768). Pure, so the portal, the
-// play page and the server actions all read the same clock the same way.
+// Where Slime Splat is in its window, and who may play it (D768, D797). Pure, so the portal,
+// the play page and the server actions all read the same clock the same way.
 import { categoryParts } from "@/lib/agenda";
 import { shortDateTime } from "@/lib/text";
 
@@ -10,22 +10,23 @@ export type QualifierSettings = {
   confirmed_at: string | null;
 };
 
-export type Phase = "unset" | "before" | "open" | "review" | "confirmed";
+export type Phase = "unset" | "before" | "open" | "closed";
 
 /**
- * `unset` until both ends of the window are real dates; `confirmed` once the admin has locked
- * the finalists; otherwise by the clock. `opens_at` is inclusive and `closes_at` exclusive,
- * so the instant it closes is already `review`.
+ * `unset` until both ends of the window are real dates; otherwise by the clock. `opens_at` is
+ * inclusive and `closes_at` exclusive, so the instant it closes is already `closed`. The game
+ * has no finale of its own any more (D797): a `confirmed_at` left from the old finalist
+ * snapshot only reads as `closed` (the database still refuses a start after it).
  */
 export function phaseOf(s: QualifierSettings | null, now: number): Phase {
   if (!s || !s.opens_at || !s.closes_at) return "unset";
   const opens = Date.parse(s.opens_at);
   const closes = Date.parse(s.closes_at);
   if (Number.isNaN(opens) || Number.isNaN(closes)) return "unset";
-  if (s.confirmed_at) return "confirmed";
+  if (s.confirmed_at) return "closed";
   if (now < opens) return "before";
   if (now < closes) return "open";
-  return "review";
+  return "closed";
 }
 
 export type Ineligible = "cancelled" | "preview" | "excluded";
@@ -54,7 +55,6 @@ export function phaseSubtitle(s: QualifierSettings | null, now: number): string 
     case "unset": return "Not scheduled";
     case "before": return `Opens ${shortDateTime(s!.opens_at!)}`;
     case "open": return `Open until ${shortDateTime(s!.closes_at!)}`;
-    case "review": return "Closed — under review";
-    case "confirmed": return "Finalists confirmed";
+    case "closed": return "Closed";
   }
 }

@@ -1,357 +1,342 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { MotionConfig, motion } from "motion/react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { clockOffset } from "@/lib/poll";
 import { useServerNow } from "@/lib/use-poll";
 import { shortDateTime } from "@/lib/text";
-import { markSeenAction } from "@/app/e/[slug]/(portal)/a/[token]/qualifier/actions";
 import type { QualifierView } from "../view";
-import { backspace, ghostIndexAt, initialTyping, prefixOf, typeText, type TypingState } from "../typing";
-import { GRACE_MS, RUN_MS } from "../scoring";
-import { shareText, type SkinId } from "../progress";
-import { liveWpm, perfOrigin, runClock, submissionOf } from "../run";
-import { claimFree, failMessage, gapLine, livePhase, untilText, type FailReason } from "../screen";
+import { closesIn, closingNote, isNewBest, livePhase, placeLine, points, untilText } from "../screen";
+import { GAME_NAME } from "../paths";
 import { qualifierFont } from "../font";
-import { TypingInput, type TypingInputHandle } from "./TypingInput";
-import { RunHud } from "./RunHud";
-import { Tunnel, preloadTunnel3D } from "./Tunnel";
-import { warmDelayMs } from "../tunnel-mode";
+import { DISCARD_AFTER_TRIES, clearPending, expired, loadPending, savePending, settle } from "../game/pending";
+import { primeSound } from "../game/sound";
+import type { SubmitBody, SubmitReason } from "../game/timeline";
+import { SlimeGame, type StartAnswer, type SubmitAnswer } from "./game/SlimeGame";
 import { ResultCard } from "./ResultCard";
 import { Board } from "./Board";
-import { Progress } from "./Progress";
-import { ShareButton } from "./ShareButton";
 
-type Ghosts = { best: number[] | null; cut: number[] | null };
-type Run = { runId: string; words: string[]; origin: number; ghosts: Ghosts };
-type Landed = { wpm: number; accuracy: number; line: string };
 type Stage =
-  | { kind: "ready"; error: string | null }
-  | { kind: "run"; run: Run } // the countdown and the sprint, told apart by the clock
-  | { kind: "landing"; run: Run } // the submit is in flight
-  | { kind: "result"; landed: Landed }
+  | { kind: "ready" }
+  | { kind: "playing"; key: number } // SlimeGame is mounted: the run, then its submit
+  | { kind: "result"; score: number; prevBest: number | null }
   | { kind: "failed"; message: string };
 
-const START_ERROR = "Could not start. Check the connection and try again.";
-const LOST = "We couldn't reach the server — that run may not have counted";
-const MAYBE_COUNTED = "That run may already have counted — reload to see the board";
-const SWIPE = "Type letter by letter — swipe typing may be disqualified";
-/** Clock ticks during a run: the HUD's seconds, the ghosts, and the end of the sprint. */
-const TICK_MS = 100;
-/** A key held from the sprint must not fly again the moment the result (or a failure) shows. */
+const START_ERROR = "Couldn't start a run. Check your connection and try again.";
+const PENDING_STUCK = "Your last run hasn't been sent yet. Check your connection and try again.";
+const PENDING_KEPT = "Your last run is saved on this device. It will be sent when you're back online.";
+/** A submit that hasn't answered by now is given up and counts as a network failure (R14): kept and sent again. */
+const SUBMIT_TIMEOUT_MS = 15_000;
+/** A key still held from the run must not start another the moment the result shows. */
 const ENTER_GUARD_MS = 400;
-/** The server judged the run early (this phone's clock is ahead): ask once more after this. */
-const EARLY_RETRY_MS = 1500;
-const NET_RETRY_MS = 600;
+const HOWTO_KEY = "qualifier-howto-seen";
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// The 3D scene's chunk is fetched while the ready screen waits, once per page (SlimeGame still
+// waits for it before a run starts).
+let scenePrefetched = false;
 
-type SubmitAnswer =
-  | { ok: true; wpm: number; accuracy: number; line: string; view: QualifierView }
-  | { ok: false; reason: FailReason }
-  | { message: string };
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+// The how-to shows until the first Play on this device. On the server (and so in the first
+// render) it reads as seen: a first visit sees it appear, a returning player never sees it flash.
+const howtoListeners = new Set<() => void>();
+function subscribeHowto(on: () => void): () => void {
+  howtoListeners.add(on);
+  window.addEventListener("storage", on);
+  return () => {
+    howtoListeners.delete(on);
+    window.removeEventListener("storage", on);
+  };
+}
+function howtoSeen(): boolean {
+  try {
+    return storage()?.getItem(HOWTO_KEY) != null;
+  } catch {
+    return true;
+  }
+}
+function markHowtoSeen(): void {
+  try {
+    storage()?.setItem(HOWTO_KEY, "1");
+  } catch {
+    // Not kept: the how-to shows again next time.
+  }
+  for (const on of howtoListeners) on();
+}
+
+const REASONS: readonly string[] = ["early", "late", "done", "refused", "invalid"];
+function isSubmitAnswer(v: unknown): v is SubmitAnswer {
+  if (typeof v !== "object" || v === null) return false;
+  const a = v as Record<string, unknown>;
+  if (a.ok === true) {
+    return typeof a.score === "number" && (a.prevBest === null || typeof a.prevBest === "number")
+      && typeof a.view === "object" && a.view !== null;
+  }
+  return a.ok === false && typeof a.reason === "string" && REASONS.includes(a.reason);
+}
 
 /**
- * Sends a finished run (D771's submit). A dropped connection is tried again while the run can
- * still count (`deadline`, on the performance clock); a run judged early once more after a pause.
- * After a retry, "done" may be this very run counted by the attempt whose answer was lost.
+ * Sends a finished run. Anything but a real answer (no connection, a server error, a rate
+ * limit, no answer within SUBMIT_TIMEOUT_MS) rejects, which the callers treat as a network
+ * failure: the run stays kept on the device and is sent again. No `keepalive`: a long run's
+ * timeline is past its 64 KB limit, and the kept copy already covers a page that goes away.
  */
-async function submitRun(token: string, body: string, deadline: number): Promise<SubmitAnswer> {
-  let retried = false;
-  let earlyRetried = false;
-  for (;;) {
-    let res: Response;
-    try {
-      res = await fetch(`/api/qualifier/${token}/submit`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true,
-      });
-    } catch {
-      if (performance.now() + NET_RETRY_MS < deadline) {
-        retried = true;
-        await wait(NET_RETRY_MS);
-        continue;
-      }
-      return { message: LOST };
-    }
-    const json = (await res.json().catch(() => null)) as (SubmitAnswer & { error?: string }) | null;
-    if (!res.ok || !json || !("ok" in json)) return { message: json?.error ?? failMessage("refused") };
-    if (json.ok) return json;
-    if (json.reason === "early" && !earlyRetried) {
-      earlyRetried = true;
-      await wait(EARLY_RETRY_MS);
-      continue;
-    }
-    if (json.reason === "done" && retried) return { message: MAYBE_COUNTED };
-    return json;
+async function postSubmit(token: string, body: SubmitBody): Promise<SubmitAnswer> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SUBMIT_TIMEOUT_MS);
+  try {
+    const res = await fetch(`/api/qualifier/${token}/submit`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: ctrl.signal,
+    });
+    const answer: unknown = await res.json().catch(() => null);
+    if (isSubmitAnswer(answer)) return answer;
+    throw new Error(`The submit answered ${res.status}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Why a finished run did not count, in the player's words. */
+function refusedText(reason: SubmitReason): string {
+  switch (reason) {
+    case "late": return "That run reached us too late to count.";
+    // After a lost answer the run may have counted on an earlier try.
+    case "done": return "That run was already sent, or a newer run replaced it — reload to see the board.";
+    default: return "That run couldn't be counted.";
   }
 }
 
 /**
- * The typing qualifier on the attendee's phone or laptop (D772): ready → countdown → 30-second
- * sprint → result, and the board. The server owns the run (D771): it hands out the words and the
- * start time, and judges the result; this page only times the words against that start, on the
- * `performance.now()` clock aligned to the server's (D257).
+ * Slime Splat on the attendee's phone or laptop (D772, D795, D797), on the portal's Games page:
+ * ready → the game (SlimeGame, a full-screen overlay) → result, and the leaderboard. The server
+ * owns the run (D771): it picks the seed and the start time, and replays the keystrokes to score it.
  *
- * One typing box stays mounted from the ready screen to the result, so a phone's keyboard opens
- * on the Fly tap (iOS opens it only inside a tap) and stays up for "Fly again". During the run it
- * lies invisibly over the run card, so a tap anywhere on the card puts the focus back.
+ * - **Play** mounts SlimeGame inside the click (flushSync), asks for fullscreen on its overlay
+ *   on a laptop and unlocks the sound, all while the gesture still counts. Enter plays too.
+ * - **A kept run.** A finished run whose submit never got a final answer is kept on the device
+ *   (one per token, game/pending). It is sent on mount and whenever the page comes back into
+ *   view or online, but never while a SlimeGame is mounted (that game sends its own run, and
+ *   the two would race), and before Play starts a new run: a new run would replace the kept one
+ *   (on the device and, by abandoning it, on the server). If it can't be sent, the start says so,
+ *   and after DISCARD_AFTER_TRIES failed tries offers to discard it. One kept past any submit
+ *   window is dropped (`expired`): the server could only answer "late".
  */
-export function QualifierClient({ token, slug, initial }: { token: string; slug: string; initial: QualifierView }) {
+export function QualifierClient({ token, initial }: { token: string; initial: QualifierView }) {
   const [view, setView] = useState(initial);
-  const [stage, setStage] = useState<Stage>({ kind: "ready", error: null });
-  const [starting, setStarting] = useState(false);
-  const [typing, setTyping] = useState<TypingState>(initialTyping);
-  const [t, setT] = useState(0);
+  const [stage, setStage] = useState<Stage>({ kind: "ready" });
   const [offset, setOffset] = useState(0);
-  const [swipe, setSwipe] = useState(false);
-  const input = useRef<TypingInputHandle>(null);
-  const area = useRef<HTMLDivElement>(null);
-  // Read by the typing handlers, which must see a keystroke's effect before React renders it.
-  const typingRef = useRef<TypingState>(initialTyping);
-  const runRef = useRef<Run | null>(null);
-  const busy = useRef(false);
-  const swipeShown = useRef(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const howtoDone = useSyncExternalStore(subscribeHowto, howtoSeen, () => true);
+  const overlay = useRef<HTMLDivElement>(null);
+  /** A SlimeGame is mounted (playing or sending): nothing else sends a run. */
+  const gameOn = useRef(false);
+  const runKey = useRef(0);
   const resultAt = useRef(0);
-  const seen = useRef(false);
-  /** A run has ended on this page (a result or a failure): the 3D warm-up need not wait. */
-  const ranBefore = useRef(false);
+  const flushing = useRef<Promise<"none" | "sent" | "failed"> | null>(null);
 
-  const running = stage.kind === "run" || stage.kind === "landing";
-  const now = useServerNow(offset, 1000, !running);
+  const playing = stage.kind === "playing";
+  const now = useServerNow(offset, 1000, !playing);
   const phase = livePhase(view.phase, view.opensAt, view.closesAt, now);
+  const canPlay = phase === "open";
 
-  // The page has shown the player where they stand: that is the next "you dropped" baseline.
-  // The server already ranked them for this render; that rank is recorded, not read again.
-  const shownRank = initial.me.rank;
-  useEffect(() => {
-    if (seen.current) return;
-    seen.current = true;
-    markSeenAction(slug, token, shownRank).catch(() => {});
-  }, [slug, token, shownRank]);
-
-  const fly = useCallback(async () => {
-    // A run already on (a held Enter, a second tap) must not start another.
-    if (busy.current || runRef.current) return;
-    busy.current = true;
-    input.current?.focus(); // inside the tap or key press, so a phone opens its keyboard
-    setStarting(true);
-    setSwipe(false);
-    const sent = Date.now();
-    try {
-      const res = await fetch(`/api/qualifier/${token}/start`, { method: "POST" });
-      const body = (await res.json().catch(() => null)) as
-        | { runId?: string; startsAt: string; serverNow: number; words: string[]; ghosts?: Ghosts; error?: string }
-        | null;
-      const received = Date.now();
-      if (!res.ok || !body || typeof body.runId !== "string") {
-        setStage({ kind: "ready", error: body?.error ?? START_ERROR });
-        return;
+  /** Sends the kept run, if any. One send at a time: a second caller waits for the first. */
+  const flushPending = useCallback((): Promise<"none" | "sent" | "failed"> => {
+    if (flushing.current) return flushing.current;
+    const p = (async () => {
+      const store = storage();
+      const kept = loadPending(store, token);
+      if (!kept) return "none" as const;
+      // Past any submit window the server could only say "late": drop it and let Play go ahead.
+      if (expired(kept, Date.now())) {
+        clearPending(store, token);
+        setNotice(`Your last run didn't count. ${refusedText("late")}`);
+        return "none" as const;
       }
-      const off = clockOffset(sent, received, body.serverNow);
-      const origin = perfOrigin(Date.parse(body.startsAt), off, Date.now(), performance.now());
-      const run: Run = { runId: body.runId, words: body.words, origin, ghosts: body.ghosts ?? { best: null, cut: null } };
-      typingRef.current = initialTyping;
-      runRef.current = run;
-      setTyping(initialTyping);
-      setOffset(off);
-      setT(performance.now() - origin);
-      setStage({ kind: "run", run });
-    } catch {
-      setStage({ kind: "ready", error: START_ERROR });
-    } finally {
-      busy.current = false;
-      setStarting(false);
-    }
+      const still = () => loadPending(store, token)?.runId === kept.runId;
+      let answer: SubmitAnswer | null = null;
+      try {
+        answer = await postSubmit(token, kept.body);
+      } catch {
+        answer = null;
+      }
+      if (!answer || settle(answer.ok ? "ok" : answer.reason) === "retry") {
+        if (still()) savePending(store, token, { ...kept, tries: kept.tries + 1 });
+        return "failed" as const;
+      }
+      if (still()) clearPending(store, token);
+      if (answer.ok) {
+        setView(answer.view);
+        setNotice(`Your last run was sent: ${points(answer.score)} points.`);
+      } else if (answer.reason !== "done") {
+        setNotice(`Your last run didn't count. ${refusedText(answer.reason)}`);
+      } else {
+        setNotice(null);
+      }
+      return "sent" as const;
+    })().finally(() => {
+      flushing.current = null;
+    });
+    flushing.current = p;
+    return p;
   }, [token]);
 
-  const land = useCallback(async (run: Run) => {
-    if (runRef.current !== run) return;
-    runRef.current = null;
-    setStage({ kind: "landing", run });
-    const device = input.current?.device() ?? "unknown";
-    const body = JSON.stringify({ runId: run.runId, ...submissionOf(typingRef.current, run.words, device) });
-    const answer = await submitRun(token, body, run.origin + RUN_MS + GRACE_MS);
-    // A run has ended on this page: the 3D warm-up may now run, and a key still held from the
-    // sprint must not fly again the moment the result (or the failure) shows.
-    ranBefore.current = true;
-    resultAt.current = performance.now();
-    if ("message" in answer) {
-      setStage({ kind: "failed", message: answer.message });
-    } else if (answer.ok) {
-      setView(answer.view);
-      setStage({ kind: "result", landed: { wpm: answer.wpm, accuracy: answer.accuracy, line: answer.line } });
-    } else {
-      setStage({ kind: "failed", message: failMessage(answer.reason) });
-    }
-  }, [token]);
-
-  const onText = useCallback((text: string, tMs: number) => {
-    const run = runRef.current;
-    if (!run || tMs <= 0 || tMs > RUN_MS) return; // the countdown, or after the bell
-    const next = typeText(typingRef.current, run.words, text, tMs);
-    typingRef.current = next;
-    setTyping(next);
-    if (next.multiInserts > 0 && !swipeShown.current) {
-      swipeShown.current = true;
-      setSwipe(true);
-    }
-  }, []);
-
-  const onBackspace = useCallback(() => {
-    const run = runRef.current;
-    if (!run || performance.now() - run.origin > RUN_MS) return;
-    const next = backspace(typingRef.current);
-    if (next === typingRef.current) return;
-    typingRef.current = next;
-    setTyping(next);
-  }, []);
-
-  // The run's clock: the 3-2-1, the seconds left, then the submit at 30 s.
+  // A kept run goes out when the page opens, comes back into view or comes back online.
   useEffect(() => {
-    if (stage.kind !== "run") return;
-    const run = stage.run;
-    let count = 0;
-    const id = setInterval(() => {
-      const tt = performance.now() - run.origin;
-      setT(tt);
-      const c = runClock(tt);
-      if (c.stage === "countdown" && c.count === 1 && count !== 1) input.current?.focus();
-      count = c.count;
-      if (c.stage === "over") {
-        clearInterval(id);
-        void land(run);
-      }
-    }, TICK_MS);
-    return () => clearInterval(id);
-  }, [stage, land]);
-
-  // During a run the card is kept in view and the page doesn't scroll under the keyboard.
-  useEffect(() => {
-    if (!running) return;
-    const keep = () => area.current?.scrollIntoView({ block: "start" });
-    keep();
-    const html = document.documentElement;
-    const before = html.style.overflow;
-    html.style.overflow = "hidden";
-    window.visualViewport?.addEventListener("resize", keep);
-    return () => {
-      html.style.overflow = before;
-      window.visualViewport?.removeEventListener("resize", keep);
+    const retry = () => {
+      if (!gameOn.current && document.visibilityState === "visible") void flushPending();
     };
-  }, [running]);
+    retry();
+    document.addEventListener("visibilitychange", retry);
+    window.addEventListener("online", retry);
+    return () => {
+      document.removeEventListener("visibilitychange", retry);
+      window.removeEventListener("online", retry);
+    };
+  }, [flushPending]);
 
-  // Enter flies (again); during a run it does nothing, and a stray letter refocuses the box.
+  /** SlimeGame's start: the kept run first, then a new run from the server. */
+  const start = useCallback(async (): Promise<StartAnswer> => {
+    // SlimeGame times the server's clock around this whole call; a kept run sent first would
+    // skew that by half its round trip, so `serverNow` is moved back by as much (D257's midpoint).
+    const called = Date.now();
+    if ((await flushPending()) === "failed") {
+      // After a few failed tries the player may give the kept run up and play (SlimeGame clears it).
+      return { error: PENDING_STUCK, discard: (loadPending(storage(), token)?.tries ?? 0) >= DISCARD_AFTER_TRIES };
+    }
+    const sent = Date.now();
+    const res = await fetch(`/api/qualifier/${token}/start`, { method: "POST" });
+    const body = (await res.json().catch(() => null)) as
+      | { runId?: unknown; startsAt: string; serverNow: number; seed: number; error?: string }
+      | null;
+    const received = Date.now();
+    if (!res.ok || !body || typeof body.runId !== "string") return { error: body?.error ?? START_ERROR };
+    setOffset(clockOffset(sent, received, body.serverNow));
+    return { runId: body.runId, startsAt: body.startsAt, seed: body.seed, serverNow: body.serverNow - (sent - called) / 2 };
+  }, [token, flushPending]);
+
+  const submit = useCallback((body: SubmitBody) => postSubmit(token, body), [token]);
+
+  const onDone = useCallback((answer: SubmitAnswer) => {
+    gameOn.current = false;
+    resultAt.current = performance.now();
+    if (answer.ok) {
+      setView(answer.view);
+      setStage({ kind: "result", score: answer.score, prevBest: answer.prevBest });
+    } else {
+      setStage({ kind: "failed", message: refusedText(answer.reason) });
+    }
+  }, []);
+
+  const onExit = useCallback(() => {
+    gameOn.current = false;
+    resultAt.current = performance.now();
+    setNotice(loadPending(storage(), token) ? PENDING_KEPT : null);
+    setStage({ kind: "ready" });
+  }, [token]);
+
+  const play = useCallback(() => {
+    if (gameOn.current || !canPlay) return;
+    gameOn.current = true;
+    primeSound();
+    markHowtoSeen();
+    setNotice(null);
+    runKey.current += 1;
+    // Mounted now, inside the gesture: fullscreen and a phone's keyboard both need it.
+    flushSync(() => setStage({ kind: "playing", key: runKey.current }));
+    const el = overlay.current;
+    // A phone fills the area above its keyboard instead (iPhone can't fullscreen an element).
+    if (el && !window.matchMedia?.("(pointer: coarse)").matches) {
+      try {
+        el.requestFullscreen?.()?.catch(() => {});
+      } catch {
+        // Refused: the overlay fills the window and the run carries on.
+      }
+    }
+  }, [canPlay]);
+
+  // While Play is on offer, fetch the scene's chunk and the slime model when the browser is idle.
+  const onReady = stage.kind === "ready" && canPlay;
+  useEffect(() => {
+    if (!onReady || scenePrefetched) return;
+    const fetchScene = () => {
+      scenePrefetched = true;
+      import("./game/SlimeScene").then((m) => m.loadSlimeModel()).catch(() => {
+        scenePrefetched = false; // SlimeGame loads it again (and says so if it can't)
+      });
+    };
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(fetchScene, { timeout: 5000 });
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(fetchScene, 1000);
+    return () => clearTimeout(id);
+  }, [onReady]);
+
+  // Enter plays (again) from the ready, result and failed screens.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.isComposing || e.defaultPrevented) return;
-      const ours = input.current?.focused() ?? false;
-      if (running) {
-        if (e.key === "Enter") e.preventDefault();
-        else if (!ours && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) input.current?.focus();
-        return;
-      }
-      // A held key repeats: only a fresh press flies.
-      if (e.key !== "Enter" || e.repeat || phase !== "open") return;
+      // A held key repeats: only a fresh press plays.
+      if (e.key !== "Enter" || e.repeat || e.isComposing || e.defaultPrevented || gameOn.current || !canPlay) return;
       const el = e.target as HTMLElement | null;
-      // Another field's or a button's own Enter (a focused Fly button clicks itself).
-      if (!ours && el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(el.tagName))) return;
-      const ended = stage.kind === "result" || stage.kind === "failed";
-      if (ended && performance.now() - resultAt.current < ENTER_GUARD_MS) return;
+      // Another field's or a button's own Enter (a focused Play button clicks itself).
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(el.tagName))) return;
+      if (performance.now() - resultAt.current < ENTER_GUARD_MS) return;
       e.preventDefault();
-      void fly();
+      play();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [running, phase, stage.kind, fly]);
+  }, [canPlay, play]);
 
-  // A colour just picked shows at once on the ship, the picker and the player's own board row.
-  const pickSkin = useCallback((skin: SkinId | null) => {
-    setView((v) => {
-      const mine = (rows: QualifierView["board"]["top"]) => rows.map((r) => (r.me ? { ...r, skin } : r));
-      return { ...v, me: { ...v.me, skin }, board: { ...v.board, top: mine(v.board.top), around: mine(v.board.around) } };
-    });
-  }, []);
-
-  const canFly = phase === "open";
-  const showCockpit = canFly || running || stage.kind === "result" || stage.kind === "failed";
-  // The 3D tunnel (D773) is warmed only while the typing box is up and no run is on, in idle time.
-  // A run that starts cancels a pending warm-up, so nothing 3D is scheduled during the countdown
-  // or the sprint. The first warm-up waits for the end of a run, or for the ready screen to sit
-  // idle (warmDelayMs): a fetch begun the moment a first visit loads could, on a slow network,
-  // land and evaluate three in the middle of the first run.
-  useEffect(() => {
-    if (!showCockpit || running) return;
-    const warm = () => preloadTunnel3D(false);
-    const delay = warmDelayMs({ ranBefore: ranBefore.current });
-    let idle: number | null = null;
-    // Without requestIdleCallback (Safari), a plain timer stands in for idle time.
-    const timer = window.requestIdleCallback
-      ? setTimeout(() => { idle = window.requestIdleCallback(warm); }, delay)
-      : setTimeout(warm, Math.max(delay, 1500));
-    return () => {
-      clearTimeout(timer);
-      if (idle !== null) window.cancelIdleCallback(idle);
-    };
-  }, [showCockpit, running]);
-  const flyButton = (label: string) => (
-    // mousedown is cancelled so the typing box keeps focus (and a phone its keyboard).
-    <Button className="h-16 w-full max-w-xs font-game text-3xl" onMouseDown={(e) => e.preventDefault()} onClick={() => void fly()} disabled={starting}>
-      {starting ? "Starting…" : label}
-    </Button>
-  );
+  const line = placeLine({ best: view.me.best, rank: view.me.rank, total: view.me.total, phase });
+  const showCockpit = canPlay || stage.kind !== "ready";
 
   return (
-    <MotionConfig reducedMotion="user">
-      <div className={`${qualifierFont.variable} flex flex-col gap-6`}>
-        {phase === "unset" && (
-          <Notice title="Not open yet">The qualifier hasn&apos;t been scheduled. Check back soon.</Notice>
-        )}
-        {phase === "before" && view.opensAt && (
-          <Notice title={`Opens ${shortDateTime(view.opensAt)}`}>
-            <span suppressHydrationWarning>in {untilText(Date.parse(view.opensAt) - now)}</span>
-          </Notice>
-        )}
-        {phase === "review" && !running && (
-          <Notice title="Results under review — finalists announced soon">
-            {view.me.rank !== null && <>You&apos;re #{view.me.rank} of {view.me.total} for now.</>}
-          </Notice>
-        )}
-        {phase === "confirmed" && !running && <Finale view={view} />}
+    <div className={`${qualifierFont.variable} flex flex-col gap-6`}>
+      {phase === "unset" && (
+        <Notice title="Not open yet">{GAME_NAME} hasn&apos;t opened yet. Check back soon.</Notice>
+      )}
+      {phase === "before" && view.opensAt && (
+        <Notice title={`Opens ${shortDateTime(view.opensAt)}`}>
+          <span suppressHydrationWarning>in {untilText(Date.parse(view.opensAt) - now)}</span>
+        </Notice>
+      )}
+      {phase === "closed" && (
+        <Notice title={`${GAME_NAME} is closed`}>
+          {view.me.rank !== null && <>You finished #{view.me.rank} of {view.me.total}.</>}
+        </Notice>
+      )}
 
-        {showCockpit && (
-          <div ref={area} className="relative scroll-mt-2 rounded-3xl bg-card p-4 text-card-foreground shadow-sm" style={{ touchAction: "manipulation" }}>
-            <TypingInput ref={input} onText={onText} onBackspace={onBackspace} disabled={stage.kind !== "run"}
-              origin={running ? stage.run.origin : 0}
-              className={running
-                ? "absolute inset-0 z-10 h-full w-full cursor-default rounded-3xl opacity-0"
-                : "pointer-events-none absolute left-0 top-0 h-px w-px opacity-0"} />
-            {running ? (
-              <RunView run={stage.run} t={t} typing={typing} view={view} landing={stage.kind === "landing"} swipe={swipe} />
-            ) : stage.kind === "result" ? (
-              <div className="flex flex-col items-center gap-3">
-                <ResultCard wpm={stage.landed.wpm} accuracy={stage.landed.accuracy} line={claimFree(stage.landed.line, phase)}
-                  best={view.me.best} cutWpm={view.cutWpm} canFly={canFly} flying={starting} onFlyAgain={() => void fly()}
-                  share={<ShareButton text={shareText(stage.landed.wpm, view.me.rank, view.shareUrl)} />} />
-                {swipe && <p role="status" className="text-sm font-bold text-destructive">{SWIPE}</p>}
-              </div>
-            ) : stage.kind === "failed" ? (
-              <div className="flex flex-col items-center gap-4 py-4 text-center">
-                <p role="alert" className="font-game text-2xl leading-tight">{stage.message}</p>
-                {canFly && flyButton("Fly again")}
-              </div>
-            ) : (
-              <Ready view={view} error={stage.error} flyButton={flyButton("Fly")} />
-            )}
-          </div>
-        )}
+      {showCockpit && (
+        <div className="rounded-3xl bg-card p-4 text-card-foreground shadow-sm">
+          {stage.kind === "result" ? (
+            <ResultCard score={stage.score} best={view.me.best} line={line} canPlay={canPlay} onPlayAgain={play}
+              newBest={isNewBest(stage.score, stage.prevBest)} />
+          ) : stage.kind === "failed" ? (
+            <div className="flex flex-col items-center gap-4 py-4 text-center">
+              <p role="alert" className="font-game text-2xl leading-tight">{stage.message}</p>
+              {canPlay && <Button className="h-14 w-full max-w-xs font-game text-2xl" onClick={play}>Play again</Button>}
+            </div>
+          ) : (
+            <Ready view={view} line={line} closes={view.closesAt && canPlay ? closesIn(Date.parse(view.closesAt), now) : null}
+              closing={view.closesAt && canPlay ? closingNote(Date.parse(view.closesAt), now) : null}
+              howto={!howtoDone} notice={notice} canPlay={canPlay} onPlay={play} />
+          )}
+        </div>
+      )}
 
-        {!running && phase !== "unset" && phase !== "before" && (
-          <Progress view={view} slug={slug} token={token} onSkin={pickSkin} />
-        )}
+      {phase !== "unset" && phase !== "before" && <Board view={view} phase={phase} now={now} />}
 
-        {!running && phase !== "unset" && phase !== "before" && <Board view={view} phase={phase} now={now} />}
-      </div>
-    </MotionConfig>
+      {stage.kind === "playing" && (
+        <SlimeGame key={stage.key} ref={overlay} token={token} start={start} submit={submit} onDone={onDone} onExit={onExit} />
+      )}
+    </div>
   );
 }
 
@@ -364,95 +349,35 @@ function Notice({ title, children }: { title: string; children?: React.ReactNode
   );
 }
 
-function Ready({ view, error, flyButton }: { view: QualifierView; error: string | null; flyButton: React.ReactNode }) {
-  const { best, rank, total, runs } = view.me;
+function Ready({ view, line, closes, closing, howto, notice, canPlay, onPlay }: {
+  view: QualifierView; line: string; closes: string | null; closing: string | null; howto: boolean; notice: string | null;
+  canPlay: boolean; onPlay(): void;
+}) {
+  const { best, rank, total } = view.me;
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <dl className="grid w-full grid-cols-2 gap-3">
         <div className="rounded-2xl bg-muted p-3">
           <dt className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Your best</dt>
-          <dd className="font-game text-3xl tabular-nums">{best === null ? "—" : best.toFixed(1)}<span className="ml-1 text-sm text-muted-foreground">{best === null ? "" : "wpm"}</span></dd>
+          <dd className="font-game text-3xl tabular-nums">{best === null ? "—" : points(best)}</dd>
         </div>
         <div className="rounded-2xl bg-muted p-3">
           <dt className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Rank</dt>
           <dd className="font-game text-3xl tabular-nums">{rank === null ? "—" : `#${rank}`}<span className="ml-1 text-sm text-muted-foreground">{rank === null ? "" : `of ${total}`}</span></dd>
         </div>
       </dl>
-      <p className="font-bold">{gapLine({ best, rank, cutWpm: view.cutWpm })}</p>
-      {runs === 0 && (
+      <p className="font-bold">{line}</p>
+      {closes && <p className="text-sm text-muted-foreground tabular-nums" suppressHydrationWarning>{closes}</p>}
+      {closing && <p role="status" className="text-sm font-bold text-primary" suppressHydrationWarning>{closing}</p>}
+      {howto && (
         <div className="text-sm text-muted-foreground">
-          <p>Type each word, then space. A wrong letter must be fixed before you move on.</p>
-          <p>30 seconds a flight — fly as often as you like; your best run counts.</p>
+          <p>Type a slime&apos;s word to pop it before it reaches you. Three hits and the run is over.</p>
+          <p>Play as often as you like — your best run counts.</p>
         </div>
       )}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {flyButton}
-      <p className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</p>
-    </div>
-  );
-}
-
-function RunView({ run, t, typing, view, landing, swipe }: {
-  run: Run; t: number; typing: TypingState; view: QualifierView; landing: boolean; swipe: boolean;
-}) {
-  const clock = runClock(t);
-  const { words } = run;
-  const prefix = prefixOf(typing, words);
-  const at = clock.elapsedMs;
-  const ghosts = {
-    best: run.ghosts.best ? ghostIndexAt(run.ghosts.best, at) : null,
-    cut: run.ghosts.cut ? ghostIndexAt(run.ghosts.cut, at) : null,
-  };
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <RunHud leftMs={clock.leftMs} wpm={liveWpm(words, typing.index, prefix, at)} />
-      <Tunnel progress={typing.index} ghosts={ghosts} skin={view.me.skin} sprint={clock.stage === "sprint"} />
-      {clock.stage === "countdown" ? (
-        <div className="flex min-h-32 w-full items-center justify-center">
-          <motion.span key={clock.count} initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="font-game text-8xl leading-none tabular-nums" aria-live="assertive">{clock.count}</motion.span>
-        </div>
-      ) : (
-        <WordCard word={words[typing.index] ?? ""} typed={typing.typed} next={words.slice(typing.index + 1, typing.index + 4)} />
-      )}
-      {landing && <p role="status" className="font-game text-xl">Landing…</p>}
-      {swipe && <p role="status" className="text-sm font-bold text-destructive">{SWIPE}</p>}
-    </div>
-  );
-}
-
-/**
- * The word in the gate: right letters green, wrong ones red on a red wash (so it isn't colour
- * alone), the next letter underlined; extra letters past the word's end show in red too.
- */
-function WordCard({ word, typed, next }: { word: string; typed: string; next: string[] }) {
-  const n = Math.max(word.length, typed.length);
-  const letters = [];
-  for (let i = 0; i < n; i++) {
-    const done = i < typed.length;
-    const right = done && typed[i] === word[i];
-    const cls = !done
-      ? `text-muted-foreground ${i === typed.length ? "underline decoration-primary decoration-4 underline-offset-8" : ""}`
-      : right ? "text-emerald-500" : "rounded bg-rose-500/15 text-rose-500";
-    letters.push(<span key={i} className={cls}>{i < word.length ? word[i] : typed[i]}</span>);
-  }
-  return (
-    <div className="flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-primary/40 bg-background px-3 py-4">
-      <p className="sr-only">{word}</p>
-      <p aria-hidden className="font-game text-5xl leading-none tracking-wide sm:text-6xl">{letters}</p>
-      <p aria-hidden className="text-base text-muted-foreground">{next.join("  ")}</p>
-    </div>
-  );
-}
-
-function Finale({ view }: { view: QualifierView }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-3xl bg-muted p-6 text-center">
-      {view.finalist && <p className="font-game text-3xl leading-tight text-primary">You&apos;re through to the finale!</p>}
-      <p className="font-game text-xl">
-        {view.me.rank === null ? "You're not on the final board" : `Final rank: #${view.me.rank} of ${view.me.total}`}
-      </p>
-      {!view.finalist && <p className="text-sm text-muted-foreground">The top 10 are through to the finale.</p>}
+      {notice && <p role="status" className="text-sm font-bold">{notice}</p>}
+      {canPlay && <Button className="h-16 w-full max-w-xs font-game text-3xl" onClick={onPlay}>Play</Button>}
+      {canPlay && <p className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</p>}
     </div>
   );
 }

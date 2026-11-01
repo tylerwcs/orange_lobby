@@ -5,8 +5,8 @@ import { isoToLocalInput } from "@/lib/time";
 import type { QualifierSettings } from "../client";
 
 /**
- * The qualifier week (D770): when it opens and closes, in Malaysia time, and the categories
- * left out. Once the finalists are confirmed the form is read-only: a fieldset that is
+ * When Slime Splat is open (D770, D797), in Malaysia time, and the categories left out. An event
+ * that confirmed the old finalist snapshot keeps its settings read-only: a fieldset that is
  * disabled disables every control inside it, and the Save button is not drawn.
  */
 export function SettingsCard({ settings, action }: { settings: QualifierSettings | null; action: (fd: FormData) => Promise<void> }) {
@@ -14,8 +14,8 @@ export function SettingsCard({ settings, action }: { settings: QualifierSettings
   return (
     <Card>
       <CardHeader>
-        <CardTitle>The qualifier week</CardTitle>
-        <CardDescription>Attendees can run the 30-second sprint between these two times, Malaysia time.</CardDescription>
+        <CardTitle>When it&apos;s open</CardTitle>
+        <CardDescription>Attendees can play between these two times, Malaysia time, as often as they like; their best run goes on the leaderboard. A run started before the close still counts.</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={action} className="flex flex-col gap-4">
@@ -28,7 +28,7 @@ export function SettingsCard({ settings, action }: { settings: QualifierSettings
               placeholder="Staff, Committee" description="Separate with commas. People in these categories can't play. Leave blank to include everyone." />
           </fieldset>
           {locked
-            ? <p className="text-sm text-muted-foreground">The finalists are confirmed, so these settings are locked.</p>
+            ? <p className="text-sm text-muted-foreground">These settings are locked.</p>
             : <div><SubmitButton>Save</SubmitButton></div>}
         </form>
       </CardContent>

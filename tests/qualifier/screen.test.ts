@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  boardLayout, claimFree, cutBar, droppedText, failMessage, gapLine, livePhase, skinColour, untilText,
-} from "@/features/qualifier/screen";
+import { boardLayout, closesIn, closingNote, isNewBest, livePhase, placeLine, points, untilText } from "@/features/qualifier/screen";
 import type { BoardEntry } from "@/features/qualifier/board";
 
 const at = (iso: string) => Date.parse(iso);
@@ -12,13 +10,12 @@ describe("livePhase", () => {
   it("opens and closes by the clock without a reload", () => {
     expect(livePhase("before", OPENS, CLOSES, at(OPENS) - 1)).toBe("before");
     expect(livePhase("before", OPENS, CLOSES, at(OPENS))).toBe("open");
-    expect(livePhase("before", OPENS, CLOSES, at(CLOSES))).toBe("review");
+    expect(livePhase("before", OPENS, CLOSES, at(CLOSES))).toBe("closed");
     expect(livePhase("open", OPENS, CLOSES, at(CLOSES) - 1)).toBe("open");
-    expect(livePhase("open", OPENS, CLOSES, at(CLOSES))).toBe("review");
+    expect(livePhase("open", OPENS, CLOSES, at(CLOSES))).toBe("closed");
   });
   it("leaves the other phases as the server said", () => {
-    expect(livePhase("review", OPENS, CLOSES, at(OPENS))).toBe("review");
-    expect(livePhase("confirmed", OPENS, CLOSES, at(OPENS))).toBe("confirmed");
+    expect(livePhase("closed", OPENS, CLOSES, at(OPENS))).toBe("closed");
     expect(livePhase("unset", null, null, 0)).toBe("unset");
   });
 });
@@ -35,87 +32,78 @@ describe("untilText", () => {
   });
 });
 
-describe("droppedText", () => {
-  it("says how far below the cut a player knocked out of the top 10 is", () => {
-    expect(droppedText({ from: 8, to: 11 }, { best: 59.4, cutWpm: 60, open: true })).toBe("You were knocked to #11 — 0.6 wpm to get back in");
+describe("placeLine (D797: a plain leaderboard)", () => {
+  it("gives the place on the board", () => {
+    expect(placeLine({ best: 900, rank: 3, total: 40, phase: "open" })).toBe("You're #3 of 40");
+    expect(placeLine({ best: 400, rank: 14, total: 40, phase: "closed" })).toBe("You're #14 of 40");
   });
-  it("asks for at least 0.1 when tied with #10", () => {
-    expect(droppedText({ from: 10, to: 11 }, { best: 60, cutWpm: 60, open: true })).toBe("You were knocked to #11 — 0.1 wpm to get back in");
+  it("says the top spot as such", () => {
+    expect(placeLine({ best: 900, rank: 1, total: 40, phase: "open" })).toBe("You're top of the board!");
+    expect(placeLine({ best: 900, rank: 1, total: 1, phase: "open" })).toBe("You're on the board!");
   });
-  it("leaves out the way back once the window is shut, or without a cut", () => {
-    expect(droppedText({ from: 8, to: 11 }, { best: 59.4, cutWpm: 60, open: false })).toBe("You were knocked to #11");
-    expect(droppedText({ from: 8, to: 11 }, { best: 59.4, cutWpm: null, open: true })).toBe("You were knocked to #11");
+  it("makes no finale claim, anywhere", () => {
+    for (const phase of ["open", "closed"] as const) {
+      for (const rank of [1, 5, 10, 11, 30]) {
+        expect(placeLine({ best: 100, rank, total: 30, phase })).not.toMatch(/top 10|finale|cut/i);
+      }
+    }
   });
-  it("says down to #N for any other fall", () => {
-    expect(droppedText({ from: 15, to: 18 }, { best: 40, cutWpm: 60, open: true })).toBe("You were knocked down to #18");
-    expect(droppedText({ from: 3, to: 7 }, { best: 70, cutWpm: 60, open: true })).toBe("You were knocked down to #7");
-  });
-  it("handles falling off the board", () => {
-    expect(droppedText({ from: 4, to: null }, { best: null, cutWpm: 60, open: true })).toBe("You've dropped off the board");
-  });
-  it("is null with nothing to say", () => {
-    expect(droppedText(null, { best: 50, cutWpm: 60, open: true })).toBeNull();
-  });
-});
-
-describe("gapLine", () => {
-  it("says a top-10 player is in", () => {
-    expect(gapLine({ best: 70, rank: 3, cutWpm: 60 })).toBe("You're in the top 10");
-  });
-  it("says any finished run makes the top 10 while fewer than 10 have flown", () => {
-    expect(gapLine({ best: null, rank: null, cutWpm: null })).toBe("Fewer than 10 pilots so far — a finished run puts you in the top 10");
-  });
-  it("gives #10's speed to someone with no run yet", () => {
-    expect(gapLine({ best: null, rank: null, cutWpm: 61.2 })).toBe("#10 is flying at 61.2 wpm");
-  });
-  it("gives the gap to #10, at least 0.1", () => {
-    expect(gapLine({ best: 58.8, rank: 14, cutWpm: 61.2 })).toBe("2.4 wpm to the top 10");
-    expect(gapLine({ best: 61.2, rank: 11, cutWpm: 61.2 })).toBe("0.1 wpm to the top 10");
+  it("asks for a run with no best yet, while open", () => {
+    expect(placeLine({ best: null, rank: null, total: 0, phase: "open" })).toBe("Play to get on the board");
+    expect(placeLine({ best: null, rank: null, total: 5, phase: "closed" })).toBe("You're not on the board");
   });
 });
 
-describe("claimFree", () => {
-  it("keeps the line while the qualifier is open", () => {
-    expect(claimFree("New best! You're in the top 10!", "open")).toBe("New best! You're in the top 10!");
-  });
-  it("drops top-10 talk once it is closed", () => {
-    expect(claimFree("New best! You're in the top 10!", "review")).toBe("New best!");
-    expect(claimFree("New best! 2.1 wpm to the top 10", "review")).toBe("New best!");
-    expect(claimFree("Only 1.4 short of your best", "review")).toBe("Only 1.4 short of your best");
+describe("points", () => {
+  it("groups thousands", () => {
+    expect(points(0)).toBe("0");
+    expect(points(1230)).toBe("1,230");
+    expect(points(1_234_567)).toBe("1,234,567");
   });
 });
 
-describe("cutBar", () => {
-  it("puts the best and the #10 line on one scale with headroom", () => {
-    expect(cutBar(50, 60)).toEqual({ bestPct: 75.8, cutPct: 90.9 });
-    expect(cutBar(66, 60)).toEqual({ bestPct: 90.9, cutPct: 82.6 });
+describe("closingNote", () => {
+  const closes = at(CLOSES);
+  it("is null more than 20 minutes before the close", () => {
+    expect(closingNote(closes, closes - 21 * 60_000)).toBeNull();
   });
-  it("has no line without a cut, and no bar without either", () => {
-    expect(cutBar(50, null)).toEqual({ bestPct: 90.9, cutPct: null });
-    expect(cutBar(null, 60)).toEqual({ bestPct: 0, cutPct: 90.9 });
-    expect(cutBar(null, null)).toBeNull();
+  it("warns in the last 20 minutes that a run started now still counts", () => {
+    expect(closingNote(closes, closes - 12 * 60_000)).toBe("Closes in 12 min — a run started now still counts.");
+    expect(closingNote(closes, closes - 20 * 60_000)).toBe("Closes in 20 min — a run started now still counts.");
+    expect(closingNote(closes, closes - 30_000)).toBe("Closes in 1 min — a run started now still counts.");
   });
-});
-
-describe("failMessage", () => {
-  it("has the brief's lines", () => {
-    expect(failMessage("late")).toBe("That run didn't reach us in time — it doesn't count");
-    expect(failMessage("done")).toBe("You started another run elsewhere");
-    expect(failMessage("refused")).toBe("That run couldn't be counted");
-    expect(failMessage("early")).toBe("That run couldn't be counted");
+  it("is null once it has closed", () => {
+    expect(closingNote(closes, closes)).toBeNull();
+    expect(closingNote(closes, closes + 60_000)).toBeNull();
   });
 });
 
-const row = (rank: number, me = false): BoardEntry => ({ rank, label: `P${rank}`, skin: null, wpm: 100 - rank, me });
+describe("closesIn", () => {
+  const closes = at(CLOSES);
+  it("counts down to the close with untilText, whenever the window is open", () => {
+    expect(closesIn(closes, closes - 3 * 86_400_000 - 4 * 3_600_000)).toBe("Closes in 3d 4h");
+    expect(closesIn(closes, closes - 12 * 60_000)).toBe("Closes in 12:00");
+  });
+});
+
+describe("isNewBest", () => {
+  it("is a first run that scored, or a score over the best before it", () => {
+    expect(isNewBest(10, null)).toBe(true);
+    expect(isNewBest(500, 400)).toBe(true);
+  });
+  it("is not a first run that scored 0, nor a score at or under the best", () => {
+    expect(isNewBest(0, null)).toBe(false);
+    expect(isNewBest(400, 400)).toBe(false);
+    expect(isNewBest(300, 400)).toBe(false);
+  });
+});
+
+const row = (rank: number, me = false): BoardEntry => ({ rank, label: `P${rank}`, score: 1000 - rank, me });
 
 describe("boardLayout", () => {
-  it("puts the cut under #10, then 11-20", () => {
+  it("lists the top rows in order, with no cut line", () => {
     const items = boardLayout(Array.from({ length: 12 }, (_, i) => row(i + 1)), []);
-    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "cut", 11, 12]);
-  });
-  it("puts the cut under the last row with fewer than 10", () => {
-    const items = boardLayout([row(1), row(2)], []);
-    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, "cut"]);
+    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
   it("adds a gap row before the rows around the player further down", () => {
     const top = Array.from({ length: 20 }, (_, i) => row(i + 1));
@@ -129,19 +117,5 @@ describe("boardLayout", () => {
   });
   it("is empty for an empty board", () => {
     expect(boardLayout([], [])).toEqual([]);
-  });
-});
-
-describe("skinColour", () => {
-  it("has a colour for every skin and violet with none", () => {
-    expect(skinColour(null)).toBe(skinColour("violet"));
-    expect(skinColour("gold")).not.toBe(skinColour("violet"));
-  });
-});
-
-describe("boardLayout with a confirmed cut", () => {
-  it("puts the cut under the snapshot's last rank", () => {
-    const items = boardLayout([row(1), row(2), row(3), row(4), row(5)], [], 3);
-    expect(items.map((i) => (i.kind === "row" ? i.entry.rank : i.kind))).toEqual([1, 2, 3, "cut", 4, 5]);
   });
 });

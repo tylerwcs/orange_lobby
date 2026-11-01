@@ -1,4 +1,4 @@
-// The words of a typing-qualifier run (D767): common English, lowercase a–z only, no
+// The words the small slimes carry (D767, D790): common English, lowercase a–z only, no
 // proper nouns, nothing `obscenity` flags (tests/qualifier/words.test.ts checks all of it).
 // English only, like every live game.
 const LIST = `
@@ -69,25 +69,30 @@ const LIST = `
   private proper public rapid rare recent regular related remote rich royal safe secret senior
   short sincere smart social solid special steady sudden sunny sweet tall tiny total tough typical
   unique useful usual valid various vast visible vital wide wild
+  adventure airplane anything apartment backpack backyard baseball basketball bathroom breakfast
+  brilliant building butterfly calendar campfire carefully chocolate classroom colorful cucumber
+  daughter delicious dinosaur discover distance elevator envelope everybody everything exercise
+  favorite festival football friendly frightened furniture goldfish happiness hamburger headphones
+  helicopter homework invisible jellyfish kangaroo landscape lemonade lighthouse magazine marathon
+  mushroom notebook painting passenger peaceful pineapple playground question raincoat restaurant
+  sandwich scissors seashell sidewalk skeleton snowflake squirrel starfish strawberry sunflower
+  sunshine surprise telephone treasure umbrella universe vacation vegetable waterfall wonderful
+  adjective although applause astronaut audience blueberry boundary bracelet cardboard carpenter
+  celebrate certainly character chemistry collection community condition continent crocodile
+  curiosity dandelion decorate dictionary direction discovery doorbell downstairs dragonfly
+  education electric emergency encourage engineer equipment everywhere excellent excitement
+  explorer fireworks fisherman flashlight followed forecast forgotten fragrance gardening generous
+  gentleman geography greenhouse guidebook gymnastics hairbrush handshake harmonica hedgehog
+  highlight horseback household hurricane including instrument invention kindness knowledge
+  laughter lavender lifeguard listening lollipop magnetic meanwhile midnight milkshake molecule
+  moonlight motorcycle mysterious necklace newspaper nightfall orchestra overnight paintbrush
+  paperwork parachute peppermint perfectly pharmacy photograph pillowcase porcupine postcard
+  president princess probably propeller railroad reindeer reporter riverbank sailboat satellite
+  saxophone scarecrow scientist shipwreck shoelace silverware skateboard slippers snowstorm
+  somewhere spaceship spaghetti spotlight staircase stopwatch storybook submarine suitcase
+  sunglasses swimming tablespoon teamwork teaspoon telescope thankful tightrope toothbrush
+  toothpaste tortoise traveler trombone tropical typewriter underwater volleyball watermelon
+  windmill wildlife wristwatch xylophone yourself zookeeper
 `;
 
 export const WORDS: readonly string[] = Object.freeze(LIST.split(/\s+/).filter(Boolean));
-
-/** Rerolls allowed when a draw equals the word before it, then the draw stands. */
-const MAX_REROLLS = 8;
-
-/**
- * `n` words for a run, picked with replacement. A word is never drawn twice in a row: an
- * immediate repeat is re-rolled (a bounded number of times, so a stuck `rand` can't loop).
- * `rand` is injectable for tests and returns [0, 1).
- */
-export function drawWords(n: number, rand: () => number = Math.random): string[] {
-  const out: string[] = [];
-  const pick = () => WORDS[Math.min(WORDS.length - 1, Math.max(0, Math.floor(rand() * WORDS.length)))];
-  for (let i = 0; i < n; i++) {
-    let w = pick();
-    for (let r = 0; r < MAX_REROLLS && i > 0 && w === out[i - 1]; r++) w = pick();
-    out.push(w);
-  }
-  return out;
-}

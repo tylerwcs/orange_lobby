@@ -54,8 +54,8 @@ export function hiddenNav(fs: FeatureSet): NavKey[] {
   const out: NavKey[] = [];
   if (!nav.has("whatsapp")) out.push("whatsapp");
   if (activityKindsFor(fs).length === 0) out.push("activities");
-  if (gameKindsFor(fs).length === 0) out.push("games");
-  if (!nav.has("qualifier")) out.push("qualifier");
+  // Games holds the live games and Slime Splat (D797): it goes only when the event has neither.
+  if (gameKindsFor(fs).length === 0 && !nav.has("games")) out.push("games");
   if (!nav.has("popups")) out.push("popups");
   return out;
 }
