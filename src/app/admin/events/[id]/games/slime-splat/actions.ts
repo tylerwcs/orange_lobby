@@ -3,12 +3,30 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireEventAccess } from "@/lib/access";
 import { requireFeature } from "@/features/catalogue";
-import { saveSettings, setDisqualified, slimeAdminPath } from "@/features/qualifier";
+import { addSlime, GAME_NAME, removeSlime, saveSettings, setDisqualified, slimeAdminPath } from "@/features/qualifier";
 import { parseCategories } from "@/lib/agenda";
 import { flashPath } from "@/lib/flash";
 import { localInputToIso } from "@/lib/time";
 
 const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
+const gamesPath = (eventId: string) => `/admin/events/${eventId}/games`;
+
+/** New game → Slime Splat (D809): adds it, once per event, and opens its settings. */
+export async function addSlimeAction(eventId: string) {
+  const { ev } = await requireEventAccess(eventId);
+  await requireFeature(ev.id, "typing_qualifier", gamesPath(ev.id));
+  await addSlime(ev);
+  revalidatePath(gamesPath(ev.id));
+  redirect(slimeAdminPath(ev.id));
+}
+
+/** Takes Slime Splat off the event's games (D809); its runs and leaderboard are kept. */
+export async function removeSlimeAction(eventId: string) {
+  const { ev } = await requireEventAccess(eventId);
+  await removeSlime(ev.id);
+  revalidatePath(gamesPath(ev.id));
+  redirect(flashPath(gamesPath(ev.id), `${GAME_NAME} removed.`));
+}
 
 /**
  * Saves Slime Splat's window and the left-out categories (D770, D797). The database raises,
