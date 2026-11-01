@@ -56,6 +56,24 @@ export async function saveSettings(
   return codeOf("qualifier_save_settings", data, ["ok", "locked"] as const);
 }
 
+/**
+ * Adds Slime Splat to the event's games (D809): its settings row is what puts it there, so an
+ * empty one ("Not scheduled") is saved. An event that already has it keeps its settings.
+ */
+export async function addSlime(ev: { id: string; org_id: string }): Promise<void> {
+  if (await getSettings(ev.id)) return;
+  await saveSettings(ev, { opens_at: null, closes_at: null, excluded_categories: [] });
+}
+
+/**
+ * Takes Slime Splat off the event's games (D809): only the settings row goes, so nobody can
+ * start a run, and the runs and the leaderboard are kept for when it is added again.
+ */
+export async function removeSlime(eventId: string): Promise<void> {
+  const { error } = await serviceClient().from("qualifier_settings").delete().eq("event_id", eventId);
+  if (error) throw error;
+}
+
 // --- Runs ---
 
 /**

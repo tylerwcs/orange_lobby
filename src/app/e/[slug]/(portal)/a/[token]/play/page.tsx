@@ -1,7 +1,7 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
 import { eventFeatures, gameKindsFor, has } from "@/features/catalogue";
 import { phoneState, PlayClient } from "@/features/games";
-import { GAME_NAME, qualifierView, QualifierClient } from "@/features/qualifier";
+import { GAME_NAME, getSettings, qualifierView, QualifierClient } from "@/features/qualifier";
 import type { Attendee, Event } from "@/lib/types";
 import { TITLE_INK } from "@/lib/ink";
 
@@ -16,8 +16,8 @@ const title = <h1 className={`mb-4 text-xl font-extrabold ${TITLE_INK}`}>Games</
 
 /**
  * The portal's Games (D797): Slime Splat, the typing game played any time it is open, with its
- * leaderboard, when the event has it; then the live stage game, when the event has live games or
- * draws. Personal only (the tile route is, D253): the token is the identity.
+ * leaderboard, once it is added to the event's games (its settings row, D809); then the live
+ * stage game, when the event has live games or draws. Personal only (the tile route is, D253): the token is the identity.
  */
 export default async function Play({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -34,7 +34,7 @@ export default async function Play({ params }: { params: Promise<{ slug: string;
     );
   }
   const features = await eventFeatures(event.id);
-  const slime = has(features, "typing_qualifier");
+  const slime = has(features, "typing_qualifier") && (await getSettings(event.id)) !== null;
   const live = gameKindsFor(features).length > 0;
   const [slimeView, liveView] = await Promise.all([
     slime ? firstSlimeView(event, attendee) : null,

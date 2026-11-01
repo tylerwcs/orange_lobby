@@ -24,7 +24,7 @@ export { LinkRefused } from "./components/LinkRefused";
 // The admin editors.
 export { BackgroundPicker } from "./admin/BackgroundPicker";
 export { DrawFormatFields } from "./admin/DrawFormatFields";
-export { NewGameMenu } from "./admin/NewGameMenu";
+export { NewGameMenu, type NewGameKind } from "./admin/NewGameMenu";
 export { PrizesEditor } from "./admin/PrizesEditor";
 export { QuestionsEditor } from "./admin/QuestionsEditor";
 
