@@ -75,7 +75,7 @@ export default async function Done({ params, searchParams }: { params: Promise<{
                 <div className="flex flex-col gap-1 rounded-xl border border-primary/30 bg-accent px-4 py-3 text-left">
                   <span className="text-xs font-bold tracking-[0.06em] text-primary uppercase">One more step</span>
                   <span className="font-extrabold leading-snug text-balance">{next.activity.name}</span>
-                  <span className="text-sm text-muted-foreground">{next.detail}</span>
+                  {next.detail && <span className="text-sm text-muted-foreground">{next.detail}</span>}
                 </div>
                 <Link href={`${link}/activities/${next.activity.id}`} className={cn(buttonVariants(), "h-12 w-full text-base font-bold")}>
                   {next.action}
@@ -84,7 +84,8 @@ export default async function Done({ params, searchParams }: { params: Promise<{
                 <Link href={link} className={cn(buttonVariants({ variant: "ghost" }), "h-11 w-full text-sm font-semibold text-muted-foreground")}>
                   I&apos;ll do it later
                 </Link>
-                <BadgeLink link={link} />
+                {/* D806: no link box here - the page is about the next step, and "I'll do it
+                    later" already opens the event page. It stays below when there is no step. */}
               </div>
             ) : (
               <div className="flex w-full flex-col gap-2">

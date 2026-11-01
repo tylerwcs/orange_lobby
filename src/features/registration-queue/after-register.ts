@@ -10,8 +10,11 @@ export type NextStep = {
   activity: Activity;
   /** The button: "Book my slot", the form's own wording, or "Open it". */
   action: string;
-  /** The line under the activity's name: what to do, and for a booking when and how many seats. */
-  detail: string;
+  /**
+   * D807: the facts under the activity's name - a booking's days and seats left, a form's dates and
+   * place - or null. Never what to do: the button below already says that.
+   */
+  detail: string | null;
 };
 
 /**
@@ -33,13 +36,13 @@ export async function nextStep(event: Pick<Event, "id" | "after_register_activit
       const ahead = sessions.filter((s) => s.activity_id === activity.id && (s.day > now.date || (s.day === now.date && s.starts_at > now.time)));
       const left = ahead.reduce((n, s) => n + seatsFor(s, counts[s.id] ?? 0).left, 0);
       const when = dayRange([...new Set(ahead.map((s) => s.day))]);
-      return { activity, action: "Book my slot", detail: ["Book your slot now", when, `${left} seat${left === 1 ? "" : "s"} left`].filter(Boolean).join(" · ") };
+      return { activity, action: "Book my slot", detail: [when, `${left} seat${left === 1 ? "" : "s"} left`].filter(Boolean).join(" · ") };
     }
     const done = activity.kind === "submission" && (await entriesForAttendee(activity.id, attendee.id)).length > 0;
     if (!stepOpenFor({ activity, category: attendee.category, done, today: now.date })) return null;
-    return activity.kind === "submission"
-      ? { activity, action: submitLabel(activity), detail: "Fill it in now" }
-      : { activity, action: "Open it", detail: "Take a look now" };
+    if (activity.kind !== "submission") return { activity, action: "Open it", detail: null };
+    const dates = activity.starts_on ? dayRange([activity.starts_on, activity.ends_on ?? activity.starts_on]) : null;
+    return { activity, action: submitLabel(activity), detail: [dates, activity.venue].filter(Boolean).join(" · ") || null };
   } catch (e) {
     console.error("nextStep: could not check the next step to offer", e);
     return null;
