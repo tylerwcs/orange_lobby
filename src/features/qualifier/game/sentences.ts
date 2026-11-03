@@ -1,6 +1,7 @@
 // Boss sentences of the slime game (D790): original everyday English, lowercase a–z and single
 // spaces, no proper nouns, nothing `obscenity` flags (tests/qualifier/game/sentences.test.ts).
 import { randInt } from "./rng";
+import { BOSS_WORDS } from "./rules";
 
 const LIST = `
 the cat is asleep
@@ -126,17 +127,18 @@ export const SENTENCES: readonly string[] = Object.freeze(
 
 const wordsOf = (s: string) => s.split(" ");
 
-/** Words boss `n` (1-based) carries at least: 11, 14, 17... up to 24, so each boss is longer than the last. */
-export const bossWords = (n: number): number => Math.min(8 + 3 * n, 24);
+/** Words boss `n` (1-based) carries (D812): BOSS_WORDS, 12 then 10; the last count for any later one. */
+export const bossWords = (n: number): number => BOSS_WORDS[Math.min(Math.max(n, 1), BOSS_WORDS.length) - 1];
 
 /**
- * The sentence boss `n` (1-based) carries: at least `bossWords(n)` words. Picks among the
- * sentences long enough; when none is, joins random sentences until the words are enough.
+ * The sentence boss `n` (1-based) carries: exactly `bossWords(n)` words, so the last boss fits its
+ * 15 s. Picks among the sentences that long; when none is, joins random sentences until the words
+ * are enough.
  */
 export function bossSentence(r: () => number, n: number): string[] {
   const need = bossWords(n);
-  const long = SENTENCES.filter((s) => wordsOf(s).length >= need);
-  if (long.length > 0) return wordsOf(long[randInt(r, long.length)]);
+  const fit = SENTENCES.filter((s) => wordsOf(s).length === need);
+  if (fit.length > 0) return wordsOf(fit[randInt(r, fit.length)]);
   const words: string[] = [];
   while (words.length < need) words.push(...wordsOf(SENTENCES[randInt(r, SENTENCES.length)]));
   return words;

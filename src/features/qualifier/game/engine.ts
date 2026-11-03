@@ -5,8 +5,8 @@ import { WORDS } from "../words";
 import { mulberry32, randInt } from "./rng";
 import { bossSentence } from "./sentences";
 import {
-  BOSS_BONUS, BOSS_DIST_MM, BOSS_FIRST_MS, BOSS_GAP_MS, BOSS_HIT, BOSS_SPEED_MM_S, GAP_JITTER_MS, GAP_MS, MAX_SMALL,
-  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, START_HEALTH, STICK_MS, TICK_MS, lengthBand,
+  BOSS_AT_MS, BOSS_BONUS, BOSS_DIST_MM, BOSS_HIT, BOSS_SPEED_MM_S, FINAL_BOSS_DIST_MM, GAP_JITTER_MS, GAP_MS, MAX_SMALL,
+  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, STICK_MS, TICK_MS, TIME_BONUS_PER_S, lengthBand,
   multiplier, speedAt,
 } from "./rules";
 
@@ -32,19 +32,23 @@ export type GameEvent = {
   t: number;
   type: "spawn" | "letter" | "wrong" | "word" | "pop" | "stick" | "explode" | "boss" | "end";
   id?: number;
+  /** "explode": the points it took (less than the hit when the score was lower). "end": the time bonus. */
+  points?: number;
 };
 
 export type Game = {
   seed: number;
   /** Time of the last tick run. */
   nowMs: number;
-  health: number;
   score: number;
   combo: number;
   /** Small slimes popped. */
   popped: number;
   /** Bosses popped. */
   bosses: number;
+  /** The last boss was popped: the run ended early, with `timeBonus` for the time left. */
+  cleared: boolean;
+  timeBonus: number;
   slimes: Slime[];
   /** Id of the slime being typed. */
   lock: number | null;
@@ -56,7 +60,7 @@ export type Game = {
   rand: () => number;
   nextTickMs: number;
   nextSpawnMs: number;
-  /** When the next boss is due; null while one is out. */
+  /** When the next boss is due; null once the last is out. */
   bossDueMs: number | null;
   /** Bosses spawned so far: the number of the one out, if any. */
   bossCount: number;
@@ -67,15 +71,16 @@ export const currentWord = (s: Slime): string => s.words[s.wordIndex];
 
 export function newGame(seed: number): Game {
   return {
-    seed, nowMs: 0, health: START_HEALTH, score: 0, combo: 0, popped: 0, bosses: 0, slimes: [], lock: null,
+    seed, nowMs: 0, score: 0, combo: 0, popped: 0, bosses: 0, cleared: false, timeBonus: 0, slimes: [], lock: null,
     ended: false, endedMs: null, events: [],
-    rand: mulberry32(seed), nextTickMs: 0, nextSpawnMs: 0, bossDueMs: BOSS_FIRST_MS, bossCount: 0, nextId: 1,
+    rand: mulberry32(seed), nextTickMs: 0, nextSpawnMs: 0, bossDueMs: BOSS_AT_MS[0], bossCount: 0, nextId: 1,
   };
 }
 
 /**
  * Run every whole tick due by `tMs` (ticks fall at 0, TICK_MS, 2·TICK_MS, …). Reaching
- * RUN_CAP_MS ends the run there. No-op once ended.
+ * RUN_CAP_MS ends the run there: every run lasts that long unless the last boss goes first. No-op
+ * once ended.
  */
 export function advance(g: Game, tMs: number): void {
   while (!g.ended && g.nextTickMs <= tMs) {
@@ -109,7 +114,7 @@ export function press(g: Game, key: string, tMs: number): void {
   letter(g, target, tMs);
 }
 
-/** Let the run play out with no more input, until it ends (at the latest at RUN_CAP_MS). */
+/** Let the run play out with no more input, until it ends at RUN_CAP_MS. */
 export function finish(g: Game): void {
   advance(g, RUN_CAP_MS);
 }
@@ -122,7 +127,6 @@ function tick(g: Game): void {
       s.stuckLeftMs -= TICK_MS;
       if (s.stuckLeftMs <= 0) {
         explode(g, s, i);
-        if (g.ended) return;
         continue;
       }
     } else {
@@ -138,7 +142,8 @@ function tick(g: Game): void {
   }
   const bossOut = g.slimes.some((s) => s.kind === "boss");
   if (!bossOut && g.bossDueMs !== null && now >= g.bossDueMs) return spawnBoss(g);
-  if (bossOut || now < g.nextSpawnMs) return;
+  // The last boss is the run's last slime.
+  if (bossOut || g.bossCount >= BOSS_AT_MS.length || now < g.nextSpawnMs) return;
   if (g.slimes.filter((s) => s.kind === "small").length >= MAX_SMALL) return;
   spawnSmall(g);
 }
@@ -157,8 +162,9 @@ function spawnSmall(g: Game): void {
 
 function spawnBoss(g: Game): void {
   g.bossCount += 1;
-  g.bossDueMs = null;
-  const s = addSlime(g, "boss", bossSentence(g.rand, g.bossCount), BOSS_DIST_MM);
+  g.bossDueMs = BOSS_AT_MS[g.bossCount] ?? null;
+  const last = g.bossDueMs === null;
+  const s = addSlime(g, "boss", bossSentence(g.rand, g.bossCount), last ? FINAL_BOSS_DIST_MM : BOSS_DIST_MM);
   g.events.push({ t: g.nowMs, type: "boss", id: s.id });
 }
 
@@ -171,26 +177,26 @@ function addSlime(g: Game, kind: Slime["kind"], words: string[], distMm: number)
   return s;
 }
 
-/** Take slime `s` (at index `i`) out of play; a boss going makes the next one due. */
+/** Take slime `s` (at index `i`) out of play. */
 function remove(g: Game, s: Slime, i = g.slimes.indexOf(s)): void {
   g.slimes.splice(i, 1);
   if (g.lock === s.id) g.lock = null;
-  if (s.kind === "boss") g.bossDueMs = g.nowMs + BOSS_GAP_MS;
 }
 
+/** A slime bit for STICK_MS and burst (D812): it costs points, never below 0, and the combo. */
 function explode(g: Game, s: Slime, i: number): void {
   remove(g, s, i);
-  g.health -= s.kind === "boss" ? BOSS_HIT : SMALL_HIT;
+  const points = Math.min(g.score, s.kind === "boss" ? BOSS_HIT : SMALL_HIT);
+  g.score -= points;
   g.combo = 0;
-  g.events.push({ t: g.nowMs, type: "explode", id: s.id });
-  if (g.health <= 0) end(g);
+  g.events.push({ t: g.nowMs, type: "explode", id: s.id, points });
 }
 
-/** The run is over: out of health, or at RUN_CAP_MS. */
-function end(g: Game): void {
+/** The run is over: at RUN_CAP_MS, or the last boss popped, `bonus` being its time bonus. */
+function end(g: Game, bonus = 0): void {
   g.ended = true;
   g.endedMs = g.nowMs;
-  g.events.push({ t: g.nowMs, type: "end" });
+  g.events.push({ t: g.nowMs, type: "end", points: bonus });
 }
 
 function letter(g: Game, s: Slime, tMs: number): void {
@@ -214,6 +220,14 @@ function letter(g: Game, s: Slime, tMs: number): void {
   } else g.popped += 1;
   remove(g, s);
   g.events.push({ t: tMs, type: "pop", id: s.id });
+  // The last boss popped: the run is won, and every whole second left counts.
+  if (s.kind === "boss" && g.bossDueMs === null) {
+    const bonus = Math.floor((RUN_CAP_MS - g.nowMs) / 1000) * TIME_BONUS_PER_S;
+    g.score += bonus;
+    g.cleared = true;
+    g.timeBonus = bonus;
+    end(g, bonus);
+  }
 }
 
 function wrong(g: Game, tMs: number): void {

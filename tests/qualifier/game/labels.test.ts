@@ -72,6 +72,12 @@ describe("layoutLabels", () => {
     expect(out.get(1)).toEqual({ x: 300, y: 0 });
   });
 
+  it("keeps every label below view.top, where the score and the clock are", () => {
+    const boxes = [0, 1, 2].map((id) => ({ id, x: 100, y: 10, w: 120, h: 30, near: id }));
+    const at = layoutLabels(boxes, { w: 800, h: 600, top: 90 });
+    for (const p of at.values()) expect(p.y).toBeGreaterThanOrEqual(90);
+  });
+
   it("returns an empty map for no labels", () => {
     expect(layoutLabels([], view).size).toBe(0);
   });

@@ -6,7 +6,7 @@ import { hz, scoreAt, stepSeconds, STEPS_PER_BAR, type Mood, type Note } from ".
 
 export type Sfx =
   | "pop" | "splat" | "hit" | "boss" | "wrong" | "bite"
-  | "type" | "combo" | "count" | "go" | "bossDown" | "gameover";
+  | "type" | "combo" | "count" | "go" | "bossDown" | "timeup" | "win";
 
 const MUTE_KEY = "qualifier-muted";
 /** Effects' loudness: they sit under whatever else the phone is playing. */
@@ -174,9 +174,14 @@ export function sfx(kind: Sfx): void {
         jingle(c, out, at + 0.25, "triangle", [72, 76, 79, 84], 0.11, 0.14, 0.32);
         jingle(c, out, at + 0.25, "square", [60, 64, 67, 72], 0.11, 0.14, 0.08);
         break;
-      case "gameover": // the run is over: three falling notes
-        jingle(c, out, at, "triangle", [67, 64, 60], 0.22, 0.25, 0.3);
-        tone(c, out, at + 0.44, "sine", 130, 65, 0.7, 0.35);
+      case "timeup": // the clock ran out: a buzzer, then three falling notes
+        tone(c, out, at, "square", 220, 220, 0.5, 0.18);
+        jingle(c, out, at + 0.55, "triangle", [67, 64, 60], 0.22, 0.25, 0.3);
+        break;
+      case "win": // the last boss popped: a fanfare up to a held top note, after its splat
+        jingle(c, out, at + 0.25, "triangle", [72, 76, 79, 84, 88, 91], 0.1, 0.13, 0.32);
+        jingle(c, out, at + 0.25, "square", [60, 64, 67, 72, 76, 79], 0.1, 0.13, 0.08);
+        tone(c, out, at + 0.85, "triangle", hz(96), hz(96), 0.8, 0.3);
         break;
     }
   } catch {

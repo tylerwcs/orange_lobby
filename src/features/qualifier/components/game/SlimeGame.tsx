@@ -13,7 +13,7 @@ import { LABEL_INK, SKY, SLIMES, TITLE_INK, css } from "../../game/palette";
 import { clearPending, savePending, settle } from "../../game/pending";
 import { hasWebGL, qualityOf } from "../../game/quality";
 import type { RunResult } from "../../game/replay";
-import { multiplier } from "../../game/rules";
+import { RUN_CAP_MS, multiplier } from "../../game/rules";
 import { isMuted, playMusic, primeSound, setMuted, sfx, stopMusic } from "../../game/sound";
 import { encodeTimeline, type Entry, type SubmitBody, type SubmitReason } from "../../game/timeline";
 import { GameHud, type HudState } from "./GameHud";
@@ -53,7 +53,8 @@ type Stage =
   /** `retry`: what Try again does (load the scene again, or start a run). */
   | { kind: "failed"; message: string; discard?: boolean; retry: "load" | "start" }
   | { kind: "run"; origin: number }
-  | { kind: "sending"; offline: boolean; tries: number };
+  /** `cleared`: the last boss was popped, with `bonus` points for the time left (D812). */
+  | { kind: "sending"; offline: boolean; tries: number; cleared: boolean; bonus: number };
 
 /** The game's name, on its title screen. */
 export const GAME_TITLE = `${GAME_NAME}!`;
@@ -69,7 +70,9 @@ const START_ERROR = "Couldn't start a run. Check your connection and try again."
 /** The server said the run can't have ended yet (this phone's clock ran ahead): ask again soon. */
 const EARLY_RETRY_MS = 2000;
 
-const EMPTY_HUD: HudState = { score: 0, combo: 0, health: 0, word: null, typed: 0, miss: null, misses: 0 };
+const EMPTY_HUD: HudState = { score: 0, combo: 0, left: RUN_CAP_MS / 1000, lost: 0, hits: 0, word: null, typed: 0, miss: null, misses: 0 };
+/** From how many seconds left the clock ticks. */
+const TICK_FROM_S = 5;
 /** How long a wrong key stays shown in red in the typing bar, unless a next key clears it first. */
 const MISS_MS = 800;
 
@@ -78,17 +81,21 @@ type Miss = { letter: string; at: number; n: number };
 
 const lockedOf = (g: Game) => (g.lock === null ? undefined : g.slimes.find((s) => s.id === g.lock));
 
-function hudOf(g: Game, miss: Miss | null, misses: number): HudState {
+/** The last slime that burst: the points it took, and how many have burst. */
+type Hit = { points: number; n: number };
+
+function hudOf(g: Game, miss: Miss | null, misses: number, hit: Hit): HudState {
   const s = lockedOf(g);
   return {
-    score: g.score, combo: g.combo, health: g.health, word: s ? currentWord(s) : null, typed: s ? s.typed : 0,
+    score: g.score, combo: g.combo, left: Math.max(0, Math.ceil((RUN_CAP_MS - g.nowMs) / 1000)),
+    lost: hit.points, hits: hit.n, word: s ? currentWord(s) : null, typed: s ? s.typed : 0,
     miss: miss ? miss.letter : null, misses,
   };
 }
 
 const sameHud = (a: HudState, b: HudState) =>
-  a.score === b.score && a.combo === b.combo && a.health === b.health && a.word === b.word && a.typed === b.typed &&
-  a.miss === b.miss && a.misses === b.misses;
+  a.score === b.score && a.combo === b.combo && a.left === b.left && a.hits === b.hits && a.word === b.word &&
+  a.typed === b.typed && a.miss === b.miss && a.misses === b.misses;
 
 /** 3-2-1 before the start (clamped, so a start that arrives late or early still reads sensibly), 0 after. */
 const countOf = (t: number) => (t >= 0 ? 0 : Math.min(3, Math.max(1, Math.ceil(-t / 1000))));
@@ -212,6 +219,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
   /** The multiplier last heard, for the combo sparkle. */
   const shownMult = useRef(1);
   const misses = useRef(0);
+  const hit = useRef<Hit>({ points: 0, n: 0 });
   const latest = useRef({ token, start, submit, onDone });
   useEffect(() => { latest.current = { token, start, submit, onDone }; }, [token, start, submit, onDone]);
 
@@ -229,6 +237,12 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
   }, [musicMood]);
   useEffect(() => stopMusic, []);
 
+  // The last seconds of the clock tick out loud.
+  const finalTick = stage.kind === "run" && hud.left > 0 && hud.left <= TICK_FROM_S ? hud.left : null;
+  useEffect(() => {
+    if (finalTick !== null) sfx("count");
+  }, [finalTick]);
+
   // ---- Sound, the music's mood and the goo flash, from the engine's events (whoever drains them). ----
   const onEvent = useCallback((e: GameEvent) => {
     if (e.type === "boss") {
@@ -238,7 +252,8 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     } else if (e.type === "pop") {
       if (e.id !== undefined && bossIds.current.has(e.id)) {
         sfx("splat");
-        sfx("bossDown");
+        // The last boss: the win fanfare plays as the run ends instead.
+        if (!game.current?.cleared) sfx("bossDown");
         playMusic("play");
       } else {
         sfx("pop");
@@ -246,7 +261,11 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     } else if (e.type === "word") sfx("pop");
     else if (e.type === "letter") sfx("type");
     else if (e.type === "stick") sfx("bite");
-    else if (e.type === "explode") sfx("hit");
+    else if (e.type === "explode") {
+      sfx("hit");
+      // At 0 points a burst takes nothing, so there is nothing to show.
+      if (e.points) hit.current = { points: e.points, n: hit.current.n + 1 };
+    }
     else if (e.type === "wrong") sfx("wrong");
     // The multiplier went up: a sparkle.
     const m = multiplier(game.current?.combo ?? 0);
@@ -262,7 +281,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     const g = game.current;
     if (!g) return;
     if (miss.current && performance.now() - miss.current.at > MISS_MS) miss.current = null;
-    const next = hudOf(g, miss.current, misses.current);
+    const next = hudOf(g, miss.current, misses.current, hit.current);
     if (!sameHud(next, lastHud.current)) {
       lastHud.current = next;
       setHud(next);
@@ -324,7 +343,8 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     shownMult.current = 1;
     miss.current = null;
     misses.current = 0;
-    lastHud.current = hudOf(g, null, 0);
+    hit.current = { points: 0, n: 0 };
+    lastHud.current = hudOf(g, null, 0, hit.current);
     setHud(lastHud.current);
     setCount(countOf(Math.round(performance.now() - o)));
     setStage({ kind: "run", origin: o });
@@ -369,7 +389,8 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     if (!g || finishing.current) return;
     finishing.current = true;
     stopMusic();
-    sfx("gameover");
+    sfx(g.cleared ? "win" : "timeup");
+    const ending = { cleared: g.cleared, bonus: g.timeBonus };
     const local: RunResult = { score: g.score, endedMs: g.endedMs ?? g.nowMs, popped: g.popped, bosses: g.bosses };
     const body: SubmitBody = { runId: runId.current, device: input.current?.device() ?? "unknown", ...encodeTimeline(entries.current) };
     const { token: tok } = latest.current;
@@ -377,7 +398,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     const savedAt = Date.now();
     let tries = 0;
     savePending(store, tok, { runId: body.runId, body, tries, savedAt });
-    setStage({ kind: "sending", offline: false, tries });
+    setStage({ kind: "sending", offline: false, tries, ...ending });
     while (alive.current) {
       let answer: SubmitAnswer | null = null;
       try {
@@ -394,7 +415,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
       tries += 1;
       savePending(store, tok, { runId: body.runId, body, tries, savedAt });
       if (!alive.current) return;
-      setStage({ kind: "sending", offline: said === "network", tries });
+      setStage({ kind: "sending", offline: said === "network", tries, ...ending });
       await pause(said === "early" ? EARLY_RETRY_MS : backoff(tries));
     }
   }, []);
@@ -507,7 +528,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
       onClick={() => { primeSound(); input.current?.focus(); }}
     >
       {/* The game itself, in the part of the screen the player can see: above a phone's keyboard. */}
-      <div className="absolute inset-x-0 overflow-hidden" style={vh ? { top: vtop, height: vh } : { top: 0, bottom: 0 }}>
+      <div data-game-stage className="absolute inset-x-0 overflow-hidden" style={vh ? { top: vtop, height: vh } : { top: 0, bottom: 0 }}>
         {showScene && (
           <SlimeScene
             game={game}
@@ -541,6 +562,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
           {playing && sceneFailed && <Notice>{SCENE_FAILED}</Notice>}
           {stage.kind === "sending" && (
             <Notice>
+              <End cleared={stage.cleared} bonus={stage.bonus} />
               {stage.offline
                 ? "Couldn't reach the server. Your run is saved on this device and will be sent again."
                 : <Loader label="Sending your run…" />}
@@ -581,7 +603,7 @@ function Title({ loading, onStart, onExit }: { loading: boolean; onStart: () => 
         {GAME_TITLE}
       </h1>
       <p className="max-w-xs rounded-2xl bg-background/85 px-4 py-2 font-sans text-base text-foreground shadow-sm backdrop-blur-sm">
-        Type a slime&apos;s word to pop it before it bites. Three bites and you&apos;re out.
+        Type a slime&apos;s word to pop it before it bites. You have 3 minutes, and the last boss is the final slime.
       </p>
       {loading ? (
         <div className="rounded-2xl bg-background/85 px-6 py-4 shadow-sm backdrop-blur-sm">
@@ -612,6 +634,16 @@ function Loader({ label }: { label: string }) {
         ))}
       </span>
       <span className="font-sans text-base text-foreground">{label}</span>
+    </span>
+  );
+}
+
+/** What ended the run, over "Sending your run…": the clock, or the last boss popped. */
+function End({ cleared, bonus }: { cleared: boolean; bonus: number }) {
+  return (
+    <span className="flex flex-col items-center gap-1 animate-in fade-in zoom-in-90 duration-300">
+      <span className="font-game text-5xl leading-none">{cleared ? "You beat the boss!" : "Time\u2019s up!"}</span>
+      {cleared && bonus > 0 && <span className="font-game text-2xl text-primary">+{bonus.toLocaleString("en")} time bonus</span>}
     </span>
   );
 }

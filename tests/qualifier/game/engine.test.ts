@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { newGame, advance, press, finish, currentWord, type Game } from "@/features/qualifier/game/engine";
 import {
-  BOSS_FIRST_MS, GAP_JITTER_MS, GAP_MS, SPEED_MAX_MM_S, SPEED_START_MM_S, START_HEALTH, STICK_MS, TICK_MS, SPAWN_DIST_MM,
-  lengthBand, multiplier, RUN_CAP_MS, speedAt,
+  BOSS_AT_MS, BOSS_BONUS, BOSS_DIST_MM, BOSS_HIT, FINAL_BOSS_DIST_MM, GAP_JITTER_MS, GAP_MS, SMALL_HIT, SPEED_MAX_MM_S,
+  SPEED_START_MM_S, STICK_MS, TICK_MS, SPAWN_DIST_MM, TIME_BONUS_PER_S, lengthBand, multiplier, RUN_CAP_MS, speedAt,
 } from "@/features/qualifier/game/rules";
+
+const [BOSS_1_MS, LAST_BOSS_MS] = BOSS_AT_MS;
 import { WORDS } from "@/features/qualifier/words";
 
 const firstAt = (g: Game, t: number) => { advance(g, t); return g.slimes[0]; };
@@ -25,7 +27,8 @@ describe("engine (D790)", () => {
   });
   it("advancing in many small steps equals one big step", () => {
     const a = newGame(7), b = newGame(7);
-    for (let t = 0; t <= 20_000; t += 17) advance(a, t);
+    for (let t = 0; t < 20_000; t += 17) advance(a, t);
+    advance(a, 20_000);
     advance(b, 20_000);
     expect(JSON.stringify(a.slimes)).toBe(JSON.stringify(b.slimes));
   });
@@ -45,20 +48,21 @@ describe("engine (D790)", () => {
     typeWord(g, w.toUpperCase(), 3000);
     expect(g.popped).toBe(1);
   });
-  it("a wrong letter breaks the combo and costs no health", () => {
+  it("a wrong letter breaks the combo and costs no points", () => {
     const g = newGame(11); const w = currentWord(firstAt(g, 3000));
     typeWord(g, w, 3000); expect(g.combo).toBe(1);
     const used = new Set(g.slimes.map((s) => currentWord(s)[0]));
     const bad = "abcdefghijklmnopqrstuvwxyz".split("").find((c) => !used.has(c))!;
+    const score = g.score;
     press(g, bad, 3000);
-    expect(g.combo).toBe(0); expect(g.health).toBe(START_HEALTH);
+    expect(g.combo).toBe(0); expect(g.score).toBe(score);
   });
   it("slimes come on faster through the run: speed rises smoothly, in whole mm/s, to a top", () => {
     expect(speedAt(0)).toBe(SPEED_START_MM_S);
-    expect(speedAt(60_000)).toBe(1950);
-    expect(speedAt(120_000)).toBe(2400);
-    expect(speedAt(400_000)).toBe(SPEED_MAX_MM_S);
+    expect(speedAt(60_000)).toBe(2100);
+    expect(speedAt(120_000)).toBe(2700);
     expect(speedAt(RUN_CAP_MS)).toBe(SPEED_MAX_MM_S);
+    expect(SPEED_MAX_MM_S).toBe(3300);
     let last = 0;
     for (let t = 0; t <= 500_000; t += 1000) {
       const v = speedAt(t);
@@ -70,7 +74,7 @@ describe("engine (D790)", () => {
   });
   it("small slimes spawn at a steady pace: 1.8-2.2 s apart all run", () => {
     const g = newGame(11);
-    keepAlive(g, 0, BOSS_FIRST_MS - 1, 4000);
+    keepAlive(g, 0, BOSS_1_MS - 1, 4000);
     const at = g.events.filter((e) => e.type === "spawn").map((e) => e.t);
     const gaps = at.slice(1).map((t, i) => t - at[i]);
     expect(gaps.length).toBeGreaterThan(20);
@@ -98,28 +102,41 @@ describe("engine (D790)", () => {
     press(g, next[0], 3000); expect(g.lock).not.toBeNull();
     press(g, "\b", 3000); expect(g.lock).toBeNull(); expect(g.combo).toBe(1);
   });
-  it("a slime that reaches the player sticks for 3 s, can still be popped, then explodes for 1 health", () => {
+  it("a slime that reaches the player sticks for 3 s, can still be popped, then bursts for SMALL_HIT points and the combo", () => {
     const g = newGame(5); advance(g, 3000); const s = g.slimes[0];
     let t = 3000; while (s.stuckLeftMs === null) advance(g, (t += 50));
+    g.score = 1000; g.combo = 7;
     advance(g, t + STICK_MS - 100);
-    expect(g.health).toBe(START_HEALTH);
+    expect(g.score).toBe(1000);
     advance(g, t + STICK_MS + 100);
-    expect(g.health).toBe(START_HEALTH - 1); expect(g.combo).toBe(0);
+    expect(g.score).toBe(1000 - SMALL_HIT); expect(g.combo).toBe(0);
+    expect(g.events.find((e) => e.type === "explode" && e.id === s.id)?.points).toBe(SMALL_HIT);
+    expect(g.ended).toBe(false);
   });
-  it("with no typing the run ends at 0 health with endedMs set", () => {
+  it("a burst never takes the score below 0", () => {
+    const g = newGame(5); advance(g, 3000); const s = g.slimes[0];
+    let t = 3000; while (s.stuckLeftMs === null) advance(g, (t += 50));
+    g.score = 40;
+    advance(g, t + STICK_MS + 100);
+    expect(g.score).toBe(0);
+    expect(g.events.find((e) => e.type === "explode" && e.id === s.id)?.points).toBe(40);
+  });
+  it("with no typing the run lasts the full RUN_CAP_MS (3 minutes), at 0 points", () => {
     const g = newGame(9); finish(g);
-    expect(g.ended).toBe(true); expect(g.health).toBeLessThanOrEqual(0); expect(g.endedMs).toBeGreaterThan(0);
-    expect(g.endedMs!).toBeLessThan(RUN_CAP_MS);
+    expect(RUN_CAP_MS).toBe(180_000);
+    expect(g.ended).toBe(true); expect(g.endedMs).toBe(RUN_CAP_MS); expect(g.score).toBe(0); expect(g.cleared).toBe(false);
+    expect(g.events.filter((e) => e.type === "explode").length).toBeGreaterThan(10);
   });
-  it("a boss arrives at about one minute, stops small spawns, and costs 2 health", () => {
+  it("the first boss arrives at 1:30 with 12 words, stops small spawns, and bursts for BOSS_HIT points", () => {
     const g = newGame(21);
-    keepAlive(g, 0, BOSS_FIRST_MS, SPAWN_DIST_MM);
+    keepAlive(g, 0, BOSS_1_MS, SPAWN_DIST_MM);
     const boss = g.slimes.find((s) => s.kind === "boss")!;
     expect(boss).toBeDefined();
-    expect(boss.spawnedMs).toBe(BOSS_FIRST_MS);
-    expect(boss.words.length).toBeGreaterThanOrEqual(11);
-    expect(g.health).toBe(START_HEALTH);
-    let t = BOSS_FIRST_MS, stuckAt: number | null = null;
+    expect(boss.spawnedMs).toBe(90_000);
+    expect(boss.distMm).toBe(BOSS_DIST_MM);
+    expect(boss.words.length).toBe(12);
+    g.score = 5000;
+    let t = BOSS_1_MS, stuckAt: number | null = null;
     for (;;) {
       advance(g, (t += TICK_MS));
       if (!g.slimes.includes(boss)) break;
@@ -128,13 +145,29 @@ describe("engine (D790)", () => {
     }
     expect(stuckAt).not.toBeNull();
     expect(t - stuckAt!).toBe(STICK_MS);
-    expect(g.health).toBe(START_HEALTH - 2);
+    expect(g.score).toBe(5000 - BOSS_HIT);
     // With the boss gone, small slimes come again.
     expect(g.slimes.some((s) => s.kind === "small")).toBe(true);
   });
+  it("the last boss comes at 2:45 with 10 words, close enough to reach the player as time runs out, and no small slime follows", () => {
+    const g = newGame(21);
+    keepAlive(g, 0, LAST_BOSS_MS, SPAWN_DIST_MM);
+    const boss = g.slimes.find((s) => s.kind === "boss" && s.spawnedMs === 165_000)!;
+    expect(boss).toBeDefined();
+    expect(boss.distMm).toBe(FINAL_BOSS_DIST_MM);
+    expect(boss.words.length).toBe(10);
+    const spawnsBefore = g.events.filter((e) => e.type === "spawn").length;
+    finish(g);
+    expect(g.events.filter((e) => e.type === "spawn").length).toBe(spawnsBefore);
+    expect(g.endedMs).toBe(RUN_CAP_MS);
+    expect(g.cleared).toBe(false);
+    // It walked the whole way: it would bite on the very tick the run ends.
+    expect(boss.distMm).toBeLessThanOrEqual(55);
+    expect(boss.stuckLeftMs).toBeNull();
+  });
   it("a completed boss word keeps the lock on the boss; one backspace with nothing typed releases it", () => {
     const g = newGame(21);
-    keepAlive(g, 0, BOSS_FIRST_MS, SPAWN_DIST_MM);
+    keepAlive(g, 0, BOSS_1_MS, SPAWN_DIST_MM);
     const boss = g.slimes.find((s) => s.kind === "boss")!;
     const [first, second] = boss.words;
     typeWord(g, first, g.nowMs);
@@ -154,7 +187,7 @@ describe("engine (D790)", () => {
     let found = false;
     for (let seed = 1; seed <= 500 && !found; seed++) {
       const g = newGame(seed);
-      keepAlive(g, 0, BOSS_FIRST_MS, 8000);
+      keepAlive(g, 0, BOSS_1_MS, 8000);
       const boss = g.slimes.find((s) => s.kind === "boss");
       if (g.ended || !boss) continue;
       // The first word must lock the boss itself.
@@ -180,22 +213,27 @@ describe("engine (D790)", () => {
     }
     expect(found).toBe(true);
   });
-  it("a run kept alive to the cap ends at RUN_CAP_MS, and keys after it do nothing", () => {
+  it("popping the last boss wins the run there, with TIME_BONUS_PER_S for every whole second left; keys after it do nothing", () => {
     const g = newGame(13);
     // Pop every slime, small or boss, on the tick it appears: only one is ever out.
+    let before = 0;
     for (let t = 0; t <= RUN_CAP_MS && !g.ended; t += TICK_MS) {
       advance(g, t);
-      for (const s of [...g.slimes]) while (g.slimes.includes(s)) typeWord(g, currentWord(s), t);
+      before = g.score;
+      for (const s of [...g.slimes]) while (g.slimes.includes(s) && !g.ended) typeWord(g, currentWord(s), t);
     }
-    expect(g.ended).toBe(true);
-    expect(g.endedMs).toBe(RUN_CAP_MS);
-    expect(g.health).toBe(START_HEALTH);
-    expect(g.bosses).toBeGreaterThan(5);
-    expect(g.events.filter((e) => e.type === "end")).toEqual([{ t: RUN_CAP_MS, type: "end" }]);
+    expect(g.ended).toBe(true); expect(g.cleared).toBe(true);
+    expect(g.endedMs).toBe(LAST_BOSS_MS);
+    expect(g.bosses).toBe(2);
+    const bonus = 15 * TIME_BONUS_PER_S;
+    expect(g.timeBonus).toBe(bonus);
+    expect(g.events.filter((e) => e.type === "end")).toEqual([{ t: LAST_BOSS_MS, type: "end", points: bonus }]);
+    // The last boss's words, its BOSS_BONUS × 2 and the time bonus.
+    expect(g.score - before).toBeGreaterThan(2 * BOSS_BONUS + bonus);
     advance(g, RUN_CAP_MS + 1000);
-    const before = JSON.stringify(g);
+    const state = JSON.stringify(g);
     for (const k of "abcdefghijklmnopqrstuvwxyz\b") press(g, k, RUN_CAP_MS + 1000);
-    expect(JSON.stringify(g)).toBe(before);
+    expect(JSON.stringify(g)).toBe(state);
   });
   it("keys after the end are ignored", () => {
     const g = newGame(9); finish(g); const score = g.score;

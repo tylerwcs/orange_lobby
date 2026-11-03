@@ -15,11 +15,11 @@ describe("SENTENCES (D790)", () => {
 });
 
 describe("bossSentence", () => {
-  it("gives boss n at least 8 + 3n words, up to 24: 11 for the first", () => {
-    expect([1, 2, 3, 5, 6, 9].map(bossWords)).toEqual([11, 14, 17, 23, 24, 24]);
-    for (let n = 1; n <= 8; n++) {
-      const words = bossSentence(mulberry32(1), n);
-      expect(words.length).toBeGreaterThanOrEqual(bossWords(n));
+  it("gives the first boss 12 words and the last 10, exactly", () => {
+    expect([1, 2, 3].map(bossWords)).toEqual([12, 10, 10]);
+    for (let n = 1; n <= 3; n++) for (let seed = 1; seed <= 20; seed++) {
+      const words = bossSentence(mulberry32(seed), n);
+      expect(words.length).toBe(bossWords(n));
       expect(words.every((w) => /^[a-z]+$/.test(w))).toBe(true);
     }
   });
