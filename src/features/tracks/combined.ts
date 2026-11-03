@@ -8,10 +8,13 @@ import type { ChallengeScoring } from "@/lib/types";
  * load (D375).
  */
 
-/** A team's week: each track's Tier 1 + podium + that week's ad hoc points (D813), and the pair's bonus. `void` voids all three (D726). */
-export type PairTeamWeek = { a: number; b: number; bonus: number; onTrack: number; members: number; void: boolean };
+/**
+ * A team's week: each track's Tier 1 + podium, the pair's bonus, and both tracks' ad hoc points given
+ * that week (D813, D814 - their own column, not inside a track's). `void` voids them all (D726).
+ */
+export type PairTeamWeek = { a: number; b: number; bonus: number; adjust: number; onTrack: number; members: number; void: boolean };
 export type PairWeek = { week: ChallengeWeek; ended: boolean; teams: Record<string, PairTeamWeek> };
-/** `a` and `b` are each track's tier1 + podium + ad hoc points; `total` adds the bonus. `km` and `volumeRank` are unused (0, null). */
+/** `a` and `b` are each track's tier1 + podium; `adjust` both tracks' ad hoc points (D814); `total` adds them and the bonus. `km` and `volumeRank` are unused (0, null). */
 export type PairStanding = Standing & { a: number; b: number };
 export type PairScore = { weeks: PairWeek[]; standings: PairStanding[] };
 
@@ -55,9 +58,10 @@ export function scorePair(input: { a: ChallengeScore; b: ChallengeScore; aScorin
       const members = team.memberIds.filter((id) => a.counts(id, week.days[0]));
       const allLogged = members.length > 0 && members.every((id) => week.days.every((d) => logged(id, d)));
       result[team.id] = {
-        a: voided ? 0 : ta.tier1 + ta.podium + ta.adjust,
-        b: voided ? 0 : tb.tier1 + tb.podium + tb.adjust,
+        a: voided ? 0 : ta.tier1 + ta.podium,
+        b: voided ? 0 : tb.tier1 + tb.podium,
         bonus: !voided && ended && allLogged ? input.bonus : 0,
+        adjust: voided ? 0 : ta.adjust + tb.adjust,
         onTrack: members.filter((id) => elapsed.every((d) => logged(id, d))).length,
         members: members.length,
         void: voided,
@@ -69,12 +73,12 @@ export function scorePair(input: { a: ChallengeScore; b: ChallengeScore; aScorin
   const rows = teams.map((team): PairStanding => {
     const sa = a.standings.find((s) => s.id === team.id)!, sb = b.standings.find((s) => s.id === team.id)!;
     const isVoid = sa.void || sb.void;
-    const ptsA = sa.tier1 + sa.podium + sa.adjust, ptsB = sb.tier1 + sb.podium + sb.adjust;
+    const ptsA = sa.tier1 + sa.podium, ptsB = sb.tier1 + sb.podium, adjust = isVoid ? 0 : sa.adjust + sb.adjust;
     const bonus = isVoid ? 0 : weeks.reduce((n, w) => n + w.teams[team.id].bonus, 0);
     return {
       id: team.id, name: team.name, km: 0, volumeRank: null, rank: null, void: isVoid,
-      tier1: sa.tier1 + sb.tier1, podium: sa.podium + sb.podium, adjust: sa.adjust + sb.adjust, bonus,
-      a: ptsA, b: ptsB, total: isVoid ? 0 : ptsA + ptsB + bonus,
+      tier1: sa.tier1 + sb.tier1, podium: sa.podium + sb.podium, adjust, bonus,
+      a: ptsA, b: ptsB, total: isVoid ? 0 : ptsA + ptsB + bonus + adjust,
     };
   });
   const live = rows.filter((r) => !r.void).sort((x, y) => y.total - x.total || x.name.localeCompare(y.name));
@@ -87,6 +91,6 @@ export function scorePair(input: { a: ChallengeScore; b: ChallengeScore; aScorin
 export function pairWeekStandings(standings: PairStanding[], week: PairWeek): PairStanding[] {
   return standings.map((s) => {
     const w = week.teams[s.id];
-    return w ? { ...s, a: w.a, b: w.b, bonus: w.bonus, adjust: 0, total: w.a + w.b + w.bonus, void: s.void || w.void } : s;
+    return w ? { ...s, a: w.a, b: w.b, bonus: w.bonus, adjust: w.adjust, total: w.a + w.b + w.bonus + w.adjust, void: s.void || w.void } : s;
   });
 }

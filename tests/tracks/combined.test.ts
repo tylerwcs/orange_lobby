@@ -79,10 +79,11 @@ describe("pair standings (D727)", () => {
     const { sa, sb, p } = pair([...daily("x", "T1", 5), t("z", "T2", WEEK1[0], 1)], daily("y", "T1", 45), { adjA: new Map([["T1", 2]]) });
     const a = sa.standings.find((s) => s.id === "T1")!, b = sb.standings.find((s) => s.id === "T1")!;
     const row = p.standings.find((s) => s.id === "T1")!;
-    expect(row.a).toBe(a.tier1 + a.podium + a.adjust);
-    expect(row.b).toBe(b.tier1 + b.podium + b.adjust);
+    expect(row.a).toBe(a.tier1 + a.podium);
+    expect(row.b).toBe(b.tier1 + b.podium);
     expect(row.bonus).toBe(10);
-    expect(row.total).toBe(row.a + row.b + 10);
+    expect(row.adjust).toBe(2); // D814: in its own column, not inside Track A
+    expect(row.total).toBe(row.a + row.b + 10 + 2);
     expect(row.rank).toBe(1);
     expect(p.standings.find((s) => s.id === "T2")!.rank).toBe(2);
   });
@@ -96,14 +97,14 @@ describe("sameCalendar (D727)", () => {
   });
 });
 
-describe("scorePair — ad hoc points given a week (D813)", () => {
-  it("adds a track's week ad hoc points to that track's week", () => {
+describe("scorePair — ad hoc points given a week (D813, D814)", () => {
+  it("keeps a track's week ad hoc points in their own column, out of the track's points", () => {
     const teams = TEAMS;
     const sa = scoreChallenge({ totals: [], teams, disqualified: new Map(), scoring: KM, weeks: WEEKS, today: AFTER,
       adjustments: new Map([["T1", 10]]), weekAdjustments: new Map([["2026-10-26", new Map([["T1", 10]])]]) });
     const sb = scoreChallenge({ totals: [], teams, disqualified: new Map(), scoring: MIN, weeks: WEEKS, today: AFTER });
     const p = scorePair({ a: sa, b: sb, aScoring: KM, bScoring: MIN, teams, bonus: 10, today: AFTER });
-    expect(p.weeks[0].teams.T1.a).toBe(10);
-    expect(p.standings.find((s) => s.id === "T1")!.total).toBe(10);
+    expect([p.weeks[0].teams.T1.a, p.weeks[0].teams.T1.adjust]).toEqual([0, 10]);
+    expect(p.standings.find((s) => s.id === "T1")).toMatchObject({ a: 0, adjust: 10, total: 10 });
   });
 });

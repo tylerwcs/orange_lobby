@@ -235,7 +235,9 @@ async function TrackerLeaderboard({ entry: { form: f, track }, teamId, attendeeI
   const byTeam = pairRows ? new Map(pairRows.map((s) => [s.id, s])) : null;
   const breakdown = byTeam ? (id: string) => {
     const s = byTeam.get(id);
-    return s ? `${pts(s.a)} Track A · ${pts(s.b)} Track B · ${pts(s.bonus)} bonus` : null;
+    // D814: the organisers' ad hoc points, when a team has some, so the line still adds up to its total.
+    const extra = s?.adjust ? ` · ${s.adjust > 0 ? "" : "minus "}${pts(Math.abs(s.adjust))} extra` : "";
+    return s ? `${pts(s.a)} Track A · ${pts(s.b)} Track B · ${pts(s.bonus)} bonus${extra}` : null;
   } : null;
   const members: Map<string, GroupCard["members"]> | null = rosters
     ? new Map(allGroupCards(challenge.groups, challenge.attendees, null, rosters.groupFields, rosters.fields).map((c) => [c.id, c.members]))

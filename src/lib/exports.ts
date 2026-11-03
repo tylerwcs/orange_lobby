@@ -421,17 +421,17 @@ export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | n
  * stands in for the Total of a voided week or a void team, as in `leaderboardRows`.
  */
 export function pairLeaderboardRows(score: PairScore): (string | number)[][] {
-  const header = ["Week", "Team", "Track A pts", "Track B pts", "Bonus", "Total", "Rank"];
+  const header = ["Week", "Team", "Track A pts", "Track B pts", "Bonus", "Ad hoc", "Total", "Rank"];
   const weekly = score.weeks
-    .filter((w) => w.ended || Object.values(w.teams).some((t) => t.a + t.b > 0))
+    .filter((w) => w.ended || Object.values(w.teams).some((t) => t.a + t.b + t.adjust !== 0))
     .flatMap((w) => score.standings
       .map((s) => {
         const t = w.teams[s.id];
-        return { s, t, total: t.a + t.b + t.bonus, isVoid: s.void || t.void };
+        return { s, t, total: t.a + t.b + t.bonus + t.adjust, isVoid: s.void || t.void };
       })
       .sort((a, b) => Number(a.isVoid) - Number(b.isVoid) || (a.isVoid ? 0 : b.total - a.total) || a.s.name.localeCompare(b.s.name))
-      .map(({ s, t, total, isVoid }) => [weekLabel(w.week), s.name, t.a, t.b, t.bonus, isVoid ? "Void" : total, ""]));
-  const totals = score.standings.map((s) => ["All weeks", s.name, s.a, s.b, s.bonus, s.void ? "Void" : s.total, s.rank ?? ""]);
+      .map(({ s, t, total, isVoid }) => [weekLabel(w.week), s.name, t.a, t.b, t.bonus, t.adjust, isVoid ? "Void" : total, ""]));
+  const totals = score.standings.map((s) => ["All weeks", s.name, s.a, s.b, s.bonus, s.adjust, s.void ? "Void" : s.total, s.rank ?? ""]);
   return [header, ...weekly, ...totals];
 }
 

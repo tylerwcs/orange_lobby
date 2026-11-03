@@ -368,7 +368,7 @@ describe("leaderboardRows (D381)", () => {
 
 describe("pairLeaderboardRows (D728)", () => {
   const week = { number: 1, days: ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"] };
-  const tw = (a: number, b: number, bonus: number, isVoid = false) => ({ a, b, bonus, onTrack: 0, members: 2, void: isVoid });
+  const tw = (a: number, b: number, bonus: number, isVoid = false) => ({ a, b, bonus, adjust: 0, onTrack: 0, members: 2, void: isVoid });
   const row = (id: string, name: string, a: number, b: number, bonus: number, rank: number | null, isVoid = false) =>
     ({ id, name, a, b, bonus, total: isVoid ? 0 : a + b + bonus, rank, void: isVoid, km: 0, tier1: 0, podium: 0, adjust: 0, volumeRank: null });
   const score: PairScore = {
@@ -378,11 +378,11 @@ describe("pairLeaderboardRows (D728)", () => {
 
   it("lists each week's teams by total, then the season with ranks", () => {
     expect(pairLeaderboardRows(score)).toEqual([
-      ["Week", "Team", "Track A pts", "Track B pts", "Bonus", "Total", "Rank"],
-      ["Week 1 · 26 Oct – 1 Nov", "Group 01", 18, 26, 10, 54, ""],
-      ["Week 1 · 26 Oct – 1 Nov", "Group 02", 30, 5, 0, 35, ""],
-      ["All weeks", "Group 01", 18, 26, 10, 54, 1],
-      ["All weeks", "Group 02", 30, 5, 0, 35, 2],
+      ["Week", "Team", "Track A pts", "Track B pts", "Bonus", "Ad hoc", "Total", "Rank"],
+      ["Week 1 · 26 Oct – 1 Nov", "Group 01", 18, 26, 10, 0, 54, ""],
+      ["Week 1 · 26 Oct – 1 Nov", "Group 02", 30, 5, 0, 0, 35, ""],
+      ["All weeks", "Group 01", 18, 26, 10, 0, 54, 1],
+      ["All weeks", "Group 02", 30, 5, 0, 0, 35, 2],
     ]);
   });
   it("reads Void for a voided week and a void team, with no rank", () => {
@@ -391,8 +391,8 @@ describe("pairLeaderboardRows (D728)", () => {
       standings: [row("T2", "Group 02", 30, 5, 0, 1), row("T1", "Group 01", 0, 0, 0, null, true)],
     };
     const rows = pairLeaderboardRows(voided);
-    expect(rows[1]).toEqual(["Week 1 · 26 Oct – 1 Nov", "Group 02", 30, 5, 0, 35, ""]);
-    expect(rows[2]).toEqual(["Week 1 · 26 Oct – 1 Nov", "Group 01", 0, 0, 0, "Void", ""]);
-    expect(rows[4]).toEqual(["All weeks", "Group 01", 0, 0, 0, "Void", ""]);
+    expect(rows[1]).toEqual(["Week 1 · 26 Oct – 1 Nov", "Group 02", 30, 5, 0, 0, 35, ""]);
+    expect(rows[2]).toEqual(["Week 1 · 26 Oct – 1 Nov", "Group 01", 0, 0, 0, 0, "Void", ""]);
+    expect(rows[4]).toEqual(["All weeks", "Group 01", 0, 0, 0, 0, "Void", ""]);
   });
 });
