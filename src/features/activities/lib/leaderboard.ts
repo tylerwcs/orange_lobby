@@ -46,16 +46,11 @@ export function rankByTotal<T extends { name: string; total: number; void: boole
 }
 
 /**
- * D810: the week the attendee's Leaderboard shows, null for every week added up. `?week=all` is
- * the season and a started week's number is that week; anything else is this week - or the season
- * before the first week begins and after the last ends, when there is no "this week".
+ * D810/D811: the week the attendee's Leaderboard shows - this week, and only it (the user's call:
+ * no picker). Null, every week added up, before the first week begins and after the last ends.
  */
-export function boardWeek(weeks: { week: ChallengeWeek }[], raw: string | null, today: string): number | null {
-  if (raw === "all") return null;
-  const started = weeks.filter((w) => w.week.days[0] <= today);
-  const asked = started.find((w) => String(w.week.number) === raw);
-  if (asked) return asked.week.number;
-  return started.find((w) => w.week.days.includes(today))?.week.number ?? null;
+export function boardWeek(weeks: { week: ChallengeWeek }[], today: string): number | null {
+  return weeks.find((w) => w.week.days.includes(today))?.week.number ?? null;
 }
 
 export type StandingLine = { rank: string; title: string; line: string };

@@ -119,24 +119,17 @@ describe("rankByTotal (D810)", () => {
   });
 });
 
-describe("boardWeek (D810)", () => {
+describe("boardWeek (D810, D811)", () => {
   // Week 1 is 26 Oct – 1 Nov, Week 6 is 30 Nov – 4 Dec.
   const weeks = challengeWeeks({ starts_on: "2026-10-26", ends_on: "2026-12-04", week_origin: "challenge" }, null).map((week) => ({ week }));
 
-  it("opens on this week", () => {
-    expect(boardWeek(weeks, null, "2026-11-03")).toBe(2);
-    expect(boardWeek(weeks, "nonsense", "2026-11-03")).toBe(2);
-  });
-  it("shows a week that has started when asked, and the season for `all`", () => {
-    expect(boardWeek(weeks, "1", "2026-11-03")).toBe(1);
-    expect(boardWeek(weeks, "all", "2026-11-03")).toBeNull();
-  });
-  it("never shows a week that hasn't begun", () => {
-    expect(boardWeek(weeks, "3", "2026-11-03")).toBe(2);
+  it("shows this week", () => {
+    expect(boardWeek(weeks, "2026-11-03")).toBe(2);
+    expect(boardWeek(weeks, "2026-10-26")).toBe(1);
+    expect(boardWeek(weeks, "2026-12-04")).toBe(6);
   });
   it("shows the season before the first week and after the last", () => {
-    expect(boardWeek(weeks, null, "2026-10-25")).toBeNull();
-    expect(boardWeek(weeks, null, "2026-12-05")).toBeNull();
-    expect(boardWeek(weeks, "6", "2026-12-05")).toBe(6);
+    expect(boardWeek(weeks, "2026-10-25")).toBeNull();
+    expect(boardWeek(weeks, "2026-12-05")).toBeNull();
   });
 });
