@@ -82,3 +82,11 @@ export function scorePair(input: { a: ChallengeScore; b: ChallengeScore; aScorin
   const voided = rows.filter((r) => r.void).sort((x, y) => x.name.localeCompare(y.name));
   return { weeks, standings: [...live, ...voided] };
 }
+
+/** D728/D810: the pair's standings with one week's track points and bonus in place of the season's, as `weekStandings`. */
+export function pairWeekStandings(standings: PairStanding[], week: PairWeek): PairStanding[] {
+  return standings.map((s) => {
+    const w = week.teams[s.id];
+    return w ? { ...s, a: w.a, b: w.b, bonus: w.bonus, adjust: 0, total: w.a + w.b + w.bonus, void: s.void || w.void } : s;
+  });
+}

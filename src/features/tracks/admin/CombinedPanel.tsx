@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { weekLabel } from "@/features/activities/client";
+import { rankByTotal, weekLabel } from "@/features/activities/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { PairScore } from "../combined";
+import { pairWeekStandings, type PairScore } from "../combined";
 
 /**
  * D728: the committee's view of a track pair's one team score - each track's points (Tier 1,
@@ -16,18 +16,7 @@ export function CombinedPanel({ score, labels, week, today, href }: {
   href: (extra: Record<string, string>) => string;
 }) {
   const picked = week === null ? null : score.weeks.find((w) => w.week.number === week) ?? null;
-  const rows = picked
-    ? (() => {
-        const weekly = score.standings.map((s) => {
-          const w = picked.teams[s.id];
-          return { ...s, a: w.a, b: w.b, bonus: w.bonus, total: w.a + w.b + w.bonus, void: s.void || w.void };
-        });
-        const live = weekly.filter((r) => !r.void);
-        return [...weekly]
-          .sort((x, y) => Number(x.void) - Number(y.void) || (x.void ? 0 : y.total - x.total) || x.name.localeCompare(y.name))
-          .map((r) => ({ ...r, rank: r.void ? null : 1 + live.filter((o) => o.total > r.total).length }));
-      })()
-    : score.standings;
+  const rows = picked ? rankByTotal(pairWeekStandings(score.standings, picked)) : score.standings;
   const chip = (active: boolean) => `rounded-full border px-3 py-1 text-xs font-bold ${active ? "border-primary bg-primary/10 text-primary" : "border-border"}`;
   return (
     <div className="flex flex-col gap-3">

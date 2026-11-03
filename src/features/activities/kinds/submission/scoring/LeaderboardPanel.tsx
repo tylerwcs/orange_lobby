@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { weekLabel } from "../../../lib/challenge";
-import type { ChallengeScore } from "../../../lib/challenge-score";
+import { weekStandings, type ChallengeScore } from "../../../lib/challenge-score";
+import { rankByTotal } from "../../../lib/leaderboard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /**
@@ -19,21 +20,9 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
   href: (extra: Record<string, string>) => string;
 }) {
   const picked = week === null ? null : score.weeks.find((w) => w.week.number === week) ?? null;
-  // A picked week is ranked on its own numbers, not on the all-weeks standings it would otherwise
-  // inherit its order and "#" from: by that week's total, then name, standard competition ranking,
-  // Void teams last and unranked. A team-week voided on its own (D467) is Void in that week only.
-  const rows = picked
-    ? (() => {
-        const weekly = score.standings.map((s) => {
-          const w = picked.teams[s.id];
-          return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, total: w.tier1 + w.bonus + w.podium, void: s.void || w.void } : s;
-        });
-        const live = weekly.filter((r) => !r.void);
-        return [...weekly]
-          .sort((x, y) => Number(x.void) - Number(y.void) || (x.void ? 0 : y.total - x.total) || x.name.localeCompare(y.name))
-          .map((r) => ({ ...r, rank: r.void ? null : 1 + live.filter((o) => o.total > r.total).length }));
-      })()
-    : score.standings;
+  // A picked week is ranked on its own numbers (`rankByTotal`), not on the all-weeks standings it
+  // would otherwise inherit its order and "#" from. A team-week voided on its own (D467) is Void in that week only.
+  const rows = picked ? rankByTotal(weekStandings(score.standings, picked)) : score.standings;
   // D705: ad hoc points count in the season total only, so their column shows on All weeks.
   const adjusted = !picked && rows.some((r) => r.adjust !== 0);
   const chip = (active: boolean) => `rounded-full border px-3 py-1 text-xs font-bold ${active ? "border-primary bg-primary/10 text-primary" : "border-border"}`;

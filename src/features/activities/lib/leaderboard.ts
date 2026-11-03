@@ -1,4 +1,5 @@
 import type { Standing } from "./challenge-score";
+import type { ChallengeWeek } from "./challenge";
 import { shortDate } from "@/lib/text";
 
 /**
@@ -30,6 +31,31 @@ export function leaderboardView(standings: Standing[], opts: { everyTeam?: boole
   const onPodium = new Set(podium.map((s) => s.id));
   const rest = opts.everyTeam ? standings : standings.filter((s) => !onPodium.has(s.id));
   return { scored, podium, rest, leaderTotal: live[0]?.total ?? 0 };
+}
+
+/**
+ * D810: rows ranked on their own totals - a week's, say, rather than the season order they came in:
+ * by total, then name, standard competition ranking, Void teams last and unranked. The committee's
+ * week chips (D381, D728) and the attendee's (D810) all rank this way.
+ */
+export function rankByTotal<T extends { name: string; total: number; void: boolean; rank: number | null }>(rows: T[]): T[] {
+  const live = rows.filter((r) => !r.void);
+  return [...rows]
+    .sort((x, y) => Number(x.void) - Number(y.void) || (x.void ? 0 : y.total - x.total) || x.name.localeCompare(y.name))
+    .map((r) => ({ ...r, rank: r.void ? null : 1 + live.filter((o) => o.total > r.total).length }));
+}
+
+/**
+ * D810: the week the attendee's Leaderboard shows, null for every week added up. `?week=all` is
+ * the season and a started week's number is that week; anything else is this week - or the season
+ * before the first week begins and after the last ends, when there is no "this week".
+ */
+export function boardWeek(weeks: { week: ChallengeWeek }[], raw: string | null, today: string): number | null {
+  if (raw === "all") return null;
+  const started = weeks.filter((w) => w.week.days[0] <= today);
+  const asked = started.find((w) => String(w.week.number) === raw);
+  if (asked) return asked.week.number;
+  return started.find((w) => w.week.days.includes(today))?.week.number ?? null;
 }
 
 export type StandingLine = { rank: string; title: string; line: string };

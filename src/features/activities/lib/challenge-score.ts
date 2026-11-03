@@ -132,3 +132,15 @@ export function scoreChallenge(input: {
 
   return { weeks: weekResults, standings: [...live, ...voided], personKm, counts };
 }
+
+/**
+ * D381/D810: the standings with one week's numbers in place of the season's - its km and tiers,
+ * no ad hoc points (D705: those count in the season only), and Void when the team or that
+ * team-week is (D467). Still in season order; `rankByTotal` ranks them on the week.
+ */
+export function weekStandings(standings: Standing[], week: WeekResult): Standing[] {
+  return standings.map((s) => {
+    const w = week.teams[s.id];
+    return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, adjust: 0, total: w.tier1 + w.bonus + w.podium, void: s.void || w.void } : s;
+  });
+}

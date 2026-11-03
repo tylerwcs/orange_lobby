@@ -10,7 +10,9 @@ import { Leaderboard } from "./tracker/Leaderboard";
 import { TrackerTabs } from "./tracker/TrackerTabs";
 import { nowInKL } from "@/lib/time";
 import { buildTracker, trackerTabs, type TrackerTab } from "../../../lib/tracker";
-import { pts, standingLine } from "../../../lib/leaderboard";
+import { boardWeek, pts, rankByTotal, standingLine } from "../../../lib/leaderboard";
+import { weekStandings } from "../../../lib/challenge-score";
+import { WeekChips } from "./tracker/WeekChips";
 import { allGroupCards, type GroupCard } from "@/lib/groups";
 import type { AttendeeField } from "@/lib/attendee-fields";
 import { entriesForAttendee } from "../../../db/activities";
@@ -18,11 +20,11 @@ import { RichSections } from "@/components/portal/RichSections";
 import { PendingScope, PendingSwap } from "@/components/PendingNav";
 import { Skeleton } from "@/components/ui/skeletons";
 import { loadChallenge, loadPairScore } from "../../../lib/challenge-data";
-import { unitOf } from "../../../lib/challenge";
+import { unitOf, weekLabel } from "../../../lib/challenge";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
 import { getActivity } from "../../../db/activities";
-import { isTrackCaptain, placementsOn, sameCalendar, scorePair, setMyTeamTrackAction, trackHistory, trackOf, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
+import { isTrackCaptain, pairWeekStandings, placementsOn, sameCalendar, scorePair, setMyTeamTrackAction, trackHistory, trackOf, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -31,9 +33,12 @@ import type { Activity } from "@/lib/types";
  * opens this page for every day, with My team at its foot (D387); Info holds the About and rules;
  * Leaderboard the standings (D386). Each tab reads only what it draws.
  */
-export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, writing, tab, edit, proxy, rosters, changingTracks = false }: {
+export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStartsOn, day, week = null, writing, tab, edit, proxy, rosters, changingTracks = false }: {
   entry: SubmissionEntry; slug: string; token: string; attendeeId: string; teamId: string | null; eventStartsOn: string | null;
-  day: string | null; writing: boolean; tab: TrackerTab; edit?: EditEntry; proxy: Proxy | null;
+  day: string | null;
+  /** D810: the Leaderboard's `?week=` - a week's number or `all`; null is this week. */
+  week?: string | null;
+  writing: boolean; tab: TrackerTab; edit?: EditEntry; proxy: Proxy | null;
   /** D517: the event shows all groups, so the Leaderboard's teams open to their rosters; null keeps rows closed. */
   rosters: RosterRules | null;
   /** D724: `?tracks=change` - a captain's My team shows the A | B switch on every row, not just the unplaced. */
@@ -49,7 +54,7 @@ export function TrackerBody({ entry, slug, token, attendeeId, teamId, eventStart
         {tab === "info"
           ? <TrackerInfo html={entry.form.description} />
           : tab === "leaderboard"
-            ? <TrackerLeaderboard entry={entry} teamId={teamId} attendeeId={attendeeId} eventStartsOn={eventStartsOn} rosters={rosters} />
+            ? <TrackerLeaderboard entry={entry} path={path} teamId={teamId} attendeeId={attendeeId} eventStartsOn={eventStartsOn} rosters={rosters} week={week} />
             : <TrackerStats entry={entry} slug={slug} token={token} path={path} attendeeId={attendeeId} teamId={teamId} eventStartsOn={eventStartsOn} day={day} writing={writing} edit={edit} proxy={proxy} changingTracks={changingTracks} />}
       </PendingSwap>
     </PendingScope>
@@ -214,8 +219,10 @@ export type RosterRules = { groupFields: string[]; fields: AttendeeField[] };
  * D516/D517: with `rosters`, every team gets a row that opens to its members, built by the same rule
  * as All groups (names and tags only), from the rows the score was read from.
  */
-async function TrackerLeaderboard({ entry: { form: f, track }, teamId, attendeeId, eventStartsOn, rosters }: {
-  entry: SubmissionEntry; teamId: string | null; attendeeId: string; eventStartsOn: string | null; rosters: RosterRules | null;
+async function TrackerLeaderboard({ entry: { form: f, track }, path, teamId, attendeeId, eventStartsOn, rosters, week: requested }: {
+  entry: SubmissionEntry; path: string; teamId: string | null; attendeeId: string; eventStartsOn: string | null; rosters: RosterRules | null;
+  /** `?week=` as given: a week's number, `all`, or null for this week (D810). */
+  week: string | null;
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
@@ -224,8 +231,15 @@ async function TrackerLeaderboard({ entry: { form: f, track }, teamId, attendeeI
   const paired = track ? await loadPairScore(event, track.pair, today) : null;
   if (paired && !paired.ok) return <p className={`py-5 ${note}`}>{paired.reason}</p>;
   const challenge = paired?.ok ? paired.a : await loadChallenge(event, f, today);
-  const standings = paired?.ok ? paired.score.standings : challenge.score.standings;
-  const byTeam = paired?.ok ? new Map(paired.score.standings.map((s) => [s.id, s])) : null;
+  // D810: one week at a time, as the committee's chips - this week unless another is asked for.
+  const weeks = paired?.ok ? paired.score.weeks : challenge.score.weeks;
+  const week = boardWeek(weeks, requested, today);
+  const pairWeek = paired?.ok ? paired.score.weeks.find((w) => w.week.number === week) : undefined;
+  const oneWeek = challenge.score.weeks.find((w) => w.week.number === week);
+  const shown = (paired?.ok ? pairWeek : oneWeek) ?? null;
+  const pairRows = paired?.ok ? (pairWeek ? rankByTotal(pairWeekStandings(paired.score.standings, pairWeek)) : paired.score.standings) : null;
+  const standings = pairRows ?? (oneWeek ? rankByTotal(weekStandings(challenge.score.standings, oneWeek)) : challenge.score.standings);
+  const byTeam = pairRows ? new Map(pairRows.map((s) => [s.id, s])) : null;
   const breakdown = byTeam ? (id: string) => {
     const s = byTeam.get(id);
     return s ? `${pts(s.a)} Track A · ${pts(s.b)} Track B · ${pts(s.bonus)} bonus` : null;
@@ -233,11 +247,26 @@ async function TrackerLeaderboard({ entry: { form: f, track }, teamId, attendeeI
   const members: Map<string, GroupCard["members"]> | null = rosters
     ? new Map(allGroupCards(challenge.groups, challenge.attendees, null, rosters.groupFields, rosters.fields).map((c) => [c.id, c.members]))
     : null;
+  const started = weeks.filter((w) => w.week.days[0] <= today);
   return (
-    <section className="flex flex-col gap-4 py-5">
-      <Leaderboard standings={standings} mine={teamId} rosters={members} selfId={attendeeId}
-        stand={standingLine(standings, teamId, { startsOn: scoring.starts_on, today })}
-        podiumPoints={(scoring.podium ?? []).some((p) => p > 0)} breakdown={breakdown} />
-    </section>
+    // A scope of its own, so a chip swaps only the standings and the chips stay put while it loads.
+    <PendingScope>
+      <section className="flex flex-col gap-4 py-5">
+        {started.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <WeekChips weeks={started.map((w) => ({ number: w.week.number, live: !w.ended }))} week={week}
+              href={(w) => `${path}?tab=leaderboard&week=${w}`} />
+            <p className="text-xs text-muted-foreground">
+              {shown ? `${weekLabel(shown.week)}${shown.ended ? "" : ". Points so far; the bonus and podium are added once the week ends."}` : "Every week so far, added up."}
+            </p>
+          </div>
+        )}
+        <PendingSwap fallback={<Skeleton className="h-40 rounded-[14px]" />}>
+          <Leaderboard standings={standings} mine={teamId} rosters={members} selfId={attendeeId}
+            stand={standingLine(standings, teamId, { startsOn: shown ? shown.week.days[0] : scoring.starts_on, today })}
+            podiumPoints={(scoring.podium ?? []).some((p) => p > 0)} breakdown={breakdown} />
+        </PendingSwap>
+      </section>
+    </PendingScope>
   );
 }
