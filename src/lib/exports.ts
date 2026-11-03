@@ -398,19 +398,20 @@ export function buildPassportWorkbook(attendees: Attendee[], passports: Passport
  * The total column is headed with the challenge's unit (D463). A week voided on its own (D467) reads
  * "Void" in that week only, last in it, while the team's other weeks and totals stay live.
  * D468: the last column is the Ultra-Effort rank, on the "All weeks" rows only ("" when a team has none).
+ * D813: "Ad hoc" is the week's dated ad hoc points on a week row, every one on an "All weeks" row.
  */
 export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | number)[][] {
-  const header = ["Week", "Team", unit, "Daily points", "Team bonus", "Podium", "Total", "Ultra-Effort rank"];
+  const header = ["Week", "Team", unit, "Daily points", "Team bonus", "Podium", "Ad hoc", "Total", "Ultra-Effort rank"];
   const weekly = score.weeks
     .filter((w) => Object.values(w.teams).some((t) => t.km > 0) || w.ended)
     .flatMap((w) => score.standings
       .map((s) => {
         const t = w.teams[s.id];
-        return { s, t, total: t.tier1 + t.bonus + t.podium, isVoid: s.void || t.void };
+        return { s, t, total: t.tier1 + t.bonus + t.podium + t.adjust, isVoid: s.void || t.void };
       })
       .sort((a, b) => Number(a.isVoid) - Number(b.isVoid) || (a.isVoid ? 0 : b.total - a.total) || a.s.name.localeCompare(b.s.name))
-      .map(({ s, t, total, isVoid }) => [weekLabel(w.week), s.name, t.km, t.tier1, t.bonus, t.podium, isVoid ? "Void" : total, ""]));
-  const totals = score.standings.map((s) => ["All weeks", s.name, s.km, s.tier1, s.bonus, s.podium, s.void ? "Void" : s.total, s.volumeRank ?? ""]);
+      .map(({ s, t, total, isVoid }) => [weekLabel(w.week), s.name, t.km, t.tier1, t.bonus, t.podium, t.adjust, isVoid ? "Void" : total, ""]));
+  const totals = score.standings.map((s) => ["All weeks", s.name, s.km, s.tier1, s.bonus, s.podium, s.adjust, s.void ? "Void" : s.total, s.volumeRank ?? ""]);
   return [header, ...weekly, ...totals];
 }
 
@@ -438,5 +439,5 @@ export function addLeaderboardSheet(wb: ExcelJS.Workbook, title: string, rows: (
   const ws = wb.addWorksheet(uniqueSheetName(sanitizeSheetNamePart(title), new Set(wb.worksheets.map((w) => w.name.toLowerCase()))));
   for (const r of rows) ws.addRow(r);
   ws.getRow(1).font = { bold: true };
-  ws.columns = [{ width: 26 }, { width: 22 }, { width: 10 }, { width: 13 }, { width: 12 }, { width: 10 }, { width: 10 }, { width: 18 }];
+  ws.columns = [{ width: 26 }, { width: 22 }, { width: 10 }, { width: 13 }, { width: 12 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 18 }];
 }

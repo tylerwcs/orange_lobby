@@ -26,7 +26,7 @@ import { nowInKL, dayNav } from "@/lib/time";
 import { shortDate } from "@/lib/text";
 import { loadChallenge, loadPairScore } from "../../lib/challenge-data";
 import { listDisqualifications } from "../../db/challenge";
-import { gridWeek, unitOf } from "../../lib/challenge";
+import { gridWeek, mondayOf, unitOf, weekLabel } from "../../lib/challenge";
 import { groupsNotDone } from "@/lib/groups";
 import { listGroups } from "@/lib/db/groups";
 import { categoryMatches } from "@/lib/agenda";
@@ -280,7 +280,8 @@ export async function SubmissionDetail({ ev, activity, requestedDay, tab, week, 
         </Card>
       )}
       {current === "leaderboard" && challenge && !(gridTeam && gridWeekShown) && (
-        <AdjustmentsCard eventId={ev.id} activityId={activity.id} groups={challenge.groups} adjustments={await listAdjustments(activity.id)} />
+        <AdjustmentsCard eventId={ev.id} activityId={activity.id} groups={challenge.groups} adjustments={await listAdjustments(activity.id)}
+          weeks={challenge.weeks.filter((w) => w.days.length && w.days[0] <= today).map((w) => ({ monday: mondayOf(w.days[0]), label: weekLabel(w) }))} />
       )}
     </div>
   );

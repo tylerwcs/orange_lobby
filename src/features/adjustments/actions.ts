@@ -7,6 +7,8 @@ import { serviceClient } from "@/lib/supabase/service";
 import { getGroup } from "@/lib/db/groups";
 import { requireFeature } from "@/features/catalogue";
 import { readAdjustment } from "@/lib/adjustments";
+import { challengeWeeks, mondayOf } from "@/features/activities/client";
+import type { ChallengeScoring } from "@/lib/types";
 import { addAdjustment, removeAdjustment } from "./db";
 
 /**
@@ -24,7 +26,9 @@ async function guard(eventId: string, activityId: string) {
   if (error) throw error;
   const ok = data && (data.kind === "tournament" || (data.kind === "submission" && data.scoring));
   if (!ok) redirect(flashPath(list, "That leaderboard no longer exists.", "error"));
-  return { actor, ev, back: leaderboard(ev.id, activityId) };
+  // D813: a challenge's weeks, by Monday - the only weeks its points may be given in.
+  const weeks = data.scoring ? challengeWeeks(data.scoring as ChallengeScoring, ev.starts_on).filter((w) => w.days.length).map((w) => mondayOf(w.days[0])) : [];
+  return { actor, ev, weeks, back: leaderboard(ev.id, activityId) };
 }
 
 function done(eventId: string, activityId: string, back: string, message: string): never {
@@ -33,7 +37,7 @@ function done(eventId: string, activityId: string, back: string, message: string
 }
 
 export async function addAdjustmentAction(eventId: string, activityId: string, fd: FormData) {
-  const { actor, ev, back } = await guard(eventId, activityId);
+  const { actor, ev, weeks, back } = await guard(eventId, activityId);
   const form = { text: (k: string) => String(fd.get(k) ?? "").trim() };
   const groupId = form.text("group");
   const group = /^[0-9a-f-]{36}$/i.test(groupId) ? await getGroup(ev.id, groupId) : null;
@@ -44,7 +48,10 @@ export async function addAdjustmentAction(eventId: string, activityId: string, f
   } catch (e) {
     redirect(flashPath(back, (e as Error).message, "error"));
   }
-  await addAdjustment({ activityId, groupId: group.id, points: read.points, reason: read.reason, addedBy: actor.email });
+  // An empty week is the season; anything else must be one of this challenge's weeks.
+  const week = form.text("week");
+  if (week && !weeks.includes(week)) redirect(flashPath(back, "Pick one of the challenge's weeks.", "error"));
+  await addAdjustment({ activityId, groupId: group.id, points: read.points, reason: read.reason, addedBy: actor.email, weekOf: week || null });
   done(ev.id, activityId, back, `${read.points > 0 ? "+" : ""}${read.points} points for ${group.name}.`);
 }
 

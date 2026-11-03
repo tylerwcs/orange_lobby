@@ -23,8 +23,8 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
   // A picked week is ranked on its own numbers (`rankByTotal`), not on the all-weeks standings it
   // would otherwise inherit its order and "#" from. A team-week voided on its own (D467) is Void in that week only.
   const rows = picked ? rankByTotal(weekStandings(score.standings, picked)) : score.standings;
-  // D705: ad hoc points count in the season total only, so their column shows on All weeks.
-  const adjusted = !picked && rows.some((r) => r.adjust !== 0);
+  // D705/D813: the Ad hoc column shows whenever the rows have some - every one on All weeks, a week's own in a week.
+  const adjusted = rows.some((r) => r.adjust !== 0);
   const chip = (active: boolean) => `rounded-full border px-3 py-1 text-xs font-bold ${active ? "border-primary bg-primary/10 text-primary" : "border-border"}`;
   return (
     <div className="flex flex-col gap-3">

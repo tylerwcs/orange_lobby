@@ -7,13 +7,31 @@
 export const MAX_ADJUSTMENT = 9999;
 export const MAX_REASON = 120;
 
-export type Adjustment = { id: string; activity_id: string; group_id: string; points: number; reason: string; added_by: string | null; created_at: string };
+export type Adjustment = { id: string; activity_id: string; group_id: string; points: number; reason: string; added_by: string | null; created_at: string;
+  /** D813: the Monday of the challenge week these points belong to; null is the season. */
+  week_of: string | null;
+};
 
 /** Each group's net adjustment; a group whose adjustments cancel out is left out. */
 export function adjustmentTotals(rows: Pick<Adjustment, "group_id" | "points">[]): Map<string, number> {
   const out = new Map<string, number>();
   for (const r of rows) out.set(r.group_id, (out.get(r.group_id) ?? 0) + r.points);
   for (const [g, n] of out) if (n === 0) out.delete(g);
+  return out;
+}
+
+/**
+ * D813: each week's net adjustment per group, by the week's Monday - only the rows given a week.
+ * They are in `adjustmentTotals` too: a dated row counts in its week and, once, in the season.
+ */
+export function weekAdjustmentTotals(rows: Pick<Adjustment, "group_id" | "points" | "week_of">[]): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    if (!r.week_of) continue;
+    const week = out.get(r.week_of) ?? new Map<string, number>();
+    week.set(r.group_id, (week.get(r.group_id) ?? 0) + r.points);
+    out.set(r.week_of, week);
+  }
   return out;
 }
 

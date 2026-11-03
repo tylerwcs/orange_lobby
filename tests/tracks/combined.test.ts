@@ -95,3 +95,15 @@ describe("sameCalendar (D727)", () => {
     expect(sameCalendar(KM, { ...MIN, week_origin: undefined })).toBe(false);
   });
 });
+
+describe("scorePair — ad hoc points given a week (D813)", () => {
+  it("adds a track's week ad hoc points to that track's week", () => {
+    const teams = TEAMS;
+    const sa = scoreChallenge({ totals: [], teams, disqualified: new Map(), scoring: KM, weeks: WEEKS, today: AFTER,
+      adjustments: new Map([["T1", 10]]), weekAdjustments: new Map([["2026-10-26", new Map([["T1", 10]])]]) });
+    const sb = scoreChallenge({ totals: [], teams, disqualified: new Map(), scoring: MIN, weeks: WEEKS, today: AFTER });
+    const p = scorePair({ a: sa, b: sb, aScoring: KM, bScoring: MIN, teams, bonus: 10, today: AFTER });
+    expect(p.weeks[0].teams.T1.a).toBe(10);
+    expect(p.standings.find((s) => s.id === "T1")!.total).toBe(10);
+  });
+});

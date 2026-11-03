@@ -8,7 +8,7 @@ import type { ChallengeScoring } from "@/lib/types";
  * load (D375).
  */
 
-/** A team's week: each track's Tier 1 + podium, and the pair's bonus. `void` voids all three (D726). */
+/** A team's week: each track's Tier 1 + podium + that week's ad hoc points (D813), and the pair's bonus. `void` voids all three (D726). */
 export type PairTeamWeek = { a: number; b: number; bonus: number; onTrack: number; members: number; void: boolean };
 export type PairWeek = { week: ChallengeWeek; ended: boolean; teams: Record<string, PairTeamWeek> };
 /** `a` and `b` are each track's tier1 + podium + ad hoc points; `total` adds the bonus. `km` and `volumeRank` are unused (0, null). */
@@ -55,8 +55,8 @@ export function scorePair(input: { a: ChallengeScore; b: ChallengeScore; aScorin
       const members = team.memberIds.filter((id) => a.counts(id, week.days[0]));
       const allLogged = members.length > 0 && members.every((id) => week.days.every((d) => logged(id, d)));
       result[team.id] = {
-        a: voided ? 0 : ta.tier1 + ta.podium,
-        b: voided ? 0 : tb.tier1 + tb.podium,
+        a: voided ? 0 : ta.tier1 + ta.podium + ta.adjust,
+        b: voided ? 0 : tb.tier1 + tb.podium + tb.adjust,
         bonus: !voided && ended && allLogged ? input.bonus : 0,
         onTrack: members.filter((id) => elapsed.every((d) => logged(id, d))).length,
         members: members.length,

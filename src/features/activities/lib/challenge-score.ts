@@ -20,8 +20,11 @@ export type DailyTotal = { attendeeId: string; groupId: string | null; day: stri
  * disqualification, so cancelling cannot lift a void.
  */
 export type Team = { id: string; name: string; memberIds: string[]; cancelledIds?: string[] };
-/** `void` is D467's week void: every tier is 0 that week and the team is off its podium. */
-export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; onTrack: number; members: number; void: boolean };
+/**
+ * `void` is D467's week void: every tier is 0 that week and the team is off its podium. `adjust` is
+ * D813's ad hoc points given this week (0 in a voided week), already in the season's `adjust`.
+ */
+export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; adjust: number; onTrack: number; members: number; void: boolean };
 export type WeekResult = { week: ChallengeWeek; ended: boolean; teams: Record<string, TeamWeek> };
 export type Standing = { id: string; name: string; km: number; tier1: number; bonus: number; podium: number;
   /** D705: the organisers' ad hoc points, already in `total`; 0 for a void team. */
@@ -51,8 +54,10 @@ export function scoreChallenge(input: {
   scoring: ChallengeScoring;
   weeks: ChallengeWeek[];
   today: string;
-  /** D705: each team's net ad hoc points, for the season total only. */
+  /** D705: each team's net ad hoc points, every row's - the season total. */
   adjustments?: Map<string, number>;
+  /** D813: the rows given a week, by the week's Monday (`weekAdjustmentTotals`) - also in the week's total. */
+  weekAdjustments?: Map<string, Map<string, number>>;
 }): ChallengeScore {
   const { totals, teams, disqualified, scoring, weeks, today } = input;
   const steps = scoring.daily_steps ?? [];
@@ -82,6 +87,7 @@ export function scoreChallenge(input: {
     const inWeek = new Set(week.days);
     const elapsed = week.days.filter((d) => d < today);
     const monday = week.days.length ? mondayOf(week.days[0]) : null;
+    const given = (monday && input.weekAdjustments?.get(monday)) || null;
     const result: Record<string, TeamWeek> = {};
     for (const team of teams) {
       let km = 0, tier1 = 0;
@@ -98,6 +104,7 @@ export function scoreChallenge(input: {
         tier1: voided ? 0 : tier1,
         bonus: !voided && ended && allLogged ? scoring.team_bonus ?? 0 : 0,
         podium: 0,
+        adjust: voided ? 0 : given?.get(team.id) ?? 0,
         onTrack: members.filter((id) => elapsed.every((d) => logged(id, d))).length,
         members: members.length,
         void: voided,
@@ -118,8 +125,9 @@ export function scoreChallenge(input: {
     // A voided week's points are already 0; its km is left out too (D467, feeding D468's total).
     const sum = (k: "km" | "tier1" | "bonus" | "podium") => weekResults.reduce((n, w) => n + (w.teams[team.id].void ? 0 : w.teams[team.id][k]), 0);
     const [tier1, bonus, podium] = [sum("tier1"), sum("bonus"), sum("podium")];
-    // D705: a void team stays void; ad hoc points don't count for it.
-    const adjust = isVoid.has(team.id) ? 0 : input.adjustments?.get(team.id) ?? 0;
+    // D705: a void team stays void; ad hoc points don't count for it. D813: nor do those given a voided week.
+    const lost = weekResults.reduce((n, w) => n + (w.teams[team.id].void && w.week.days.length ? input.weekAdjustments?.get(mondayOf(w.week.days[0]))?.get(team.id) ?? 0 : 0), 0);
+    const adjust = isVoid.has(team.id) ? 0 : (input.adjustments?.get(team.id) ?? 0) - lost;
     return { id: team.id, name: team.name, km: round2(sum("km")), tier1, bonus, podium, adjust, total: tier1 + bonus + podium + adjust, void: isVoid.has(team.id), rank: null as number | null, volumeRank: null as number | null };
   });
   // D468: the Ultra-Effort award is the most season total. Void and zero teams are out of it, so
@@ -135,12 +143,12 @@ export function scoreChallenge(input: {
 
 /**
  * D381/D810: the standings with one week's numbers in place of the season's - its km and tiers,
- * no ad hoc points (D705: those count in the season only), and Void when the team or that
- * team-week is (D467). Still in season order; `rankByTotal` ranks them on the week.
+ * the ad hoc points given that week (D813; undated ones count in the season only), and Void when
+ * the team or that team-week is (D467). Still in season order; `rankByTotal` ranks them on the week.
  */
 export function weekStandings(standings: Standing[], week: WeekResult): Standing[] {
   return standings.map((s) => {
     const w = week.teams[s.id];
-    return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, adjust: 0, total: w.tier1 + w.bonus + w.podium, void: s.void || w.void } : s;
+    return w ? { ...s, km: w.km, tier1: w.tier1, bonus: w.bonus, podium: w.podium, adjust: w.adjust, total: w.tier1 + w.bonus + w.podium + w.adjust, void: s.void || w.void } : s;
   });
 }

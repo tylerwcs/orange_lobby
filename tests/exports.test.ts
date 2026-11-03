@@ -293,9 +293,9 @@ describe("leaderboardRows (D381)", () => {
 
   it("lists every week's tiers per team, then the totals", () => {
     expect(leaderboardRows(score)).toEqual([
-      ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Total", "Ultra-Effort rank"],
-      ["Week 2 · 5–11 Oct", "Group 01", 2, 1, 0, 20, 21, ""],
-      ["All weeks", "Group 01", 2, 1, 0, 20, 21, 1],
+      ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Ad hoc", "Total", "Ultra-Effort rank"],
+      ["Week 2 · 5–11 Oct", "Group 01", 2, 1, 0, 20, 0, 21, ""],
+      ["All weeks", "Group 01", 2, 1, 0, 20, 0, 21, 1],
     ]);
   });
 
@@ -310,8 +310,8 @@ describe("leaderboardRows (D381)", () => {
       disqualified: new Map([["d1", null]]), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-12",
     });
     const rows = leaderboardRows(score);
-    expect(rows.filter((r) => String(r[0]).startsWith("Week 2")).every((r) => r[7] === "")).toBe(true);
-    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[7]])).toEqual([["Alpha", 2], ["Bravo", 1], ["Charlie", ""], ["Delta", ""]]);
+    expect(rows.filter((r) => String(r[0]).startsWith("Week 2")).every((r) => r[8] === "")).toBe(true);
+    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[8]])).toEqual([["Alpha", 2], ["Bravo", 1], ["Charlie", ""], ["Delta", ""]]);
   });
 
   it("heads the total column with the unit (D463)", () => {
@@ -341,11 +341,11 @@ describe("leaderboardRows (D381)", () => {
     // Overall: Bravo (4) ahead of Alpha (3), Charlie voided. Week 2 flips Alpha ahead of Bravo.
     expect(score.standings.map((s) => s.name)).toEqual(["Bravo", "Alpha", "Charlie"]);
     const rows = leaderboardRows(score);
-    const week2 = rows.filter((r) => String(r[0]).startsWith("Week 2")).map((r) => [r[1], r[6]]);
+    const week2 = rows.filter((r) => String(r[0]).startsWith("Week 2")).map((r) => [r[1], r[7]]);
     expect(week2).toEqual([["Alpha", 3], ["Bravo", 0], ["Charlie", "Void"]]);
-    const week3 = rows.filter((r) => String(r[0]).startsWith("Week 3")).map((r) => [r[1], r[6]]);
+    const week3 = rows.filter((r) => String(r[0]).startsWith("Week 3")).map((r) => [r[1], r[7]]);
     expect(week3).toEqual([["Bravo", 4], ["Alpha", 0], ["Charlie", "Void"]]);
-    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[6]])).toEqual([["Bravo", 4], ["Alpha", 3], ["Charlie", "Void"]]);
+    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[7]])).toEqual([["Bravo", 4], ["Alpha", 3], ["Charlie", "Void"]]);
   });
 
   it("shows Void on a voided week only, the team ranked live on its other weeks (D467)", () => {
@@ -360,9 +360,9 @@ describe("leaderboardRows (D381)", () => {
       disqualified: new Map([["a2", "2026-10-05"]]), scoring, weeks: challengeWeeks(scoring, "2026-09-28"), today: "2026-10-20",
     });
     const rows = leaderboardRows(score);
-    expect(rows.filter((r) => String(r[0]).startsWith("Week 2")).map((r) => [r[1], r[6]])).toEqual([["Bravo", 1], ["Alpha", "Void"]]);
-    expect(rows.filter((r) => String(r[0]).startsWith("Week 3")).map((r) => [r[1], r[6]])).toEqual([["Alpha", 1], ["Bravo", 0]]);
-    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[2], r[6]])).toEqual([["Alpha", 5, 1], ["Bravo", 5, 1]]);
+    expect(rows.filter((r) => String(r[0]).startsWith("Week 2")).map((r) => [r[1], r[7]])).toEqual([["Bravo", 1], ["Alpha", "Void"]]);
+    expect(rows.filter((r) => String(r[0]).startsWith("Week 3")).map((r) => [r[1], r[7]])).toEqual([["Alpha", 1], ["Bravo", 0]]);
+    expect(rows.filter((r) => r[0] === "All weeks").map((r) => [r[1], r[2], r[7]])).toEqual([["Alpha", 5, 1], ["Bravo", 5, 1]]);
   });
 });
 

@@ -5,7 +5,8 @@ import { dailyTotals, listDisqualifications, type Disqualification } from "../db
 import { listGroups } from "@/lib/db/groups";
 import { listAttendees } from "@/lib/db/attendees";
 import type { Activity, Attendee, Event, EventGroup } from "@/lib/types";
-import { loadAdjustmentTotals } from "@/features/adjustments";
+import { listAdjustments } from "@/features/adjustments";
+import { adjustmentTotals, weekAdjustmentTotals } from "@/lib/adjustments";
 import { mergeDisqualified, otherActivityId, pairActivities, pairForActivity, sameCalendar, scorePair, type PairScore, type TrackPair } from "@/features/tracks";
 
 /**
@@ -29,7 +30,7 @@ export async function loadChallenge(event: Pick<Event, "id" | "starts_on">, acti
   // members for the bonus, the counts or the rosters.
   const [totals, groups, everyone, disqualifications, adjustments, pair] = await Promise.all([
     dailyTotals(activity.id), listGroups(event.id), listAttendees(event.id, undefined, "wide", { includeCancelled: true }), listDisqualifications(activity.id),
-    loadAdjustmentTotals(activity.id), pairForActivity(activity.id),
+    listAdjustments(activity.id), pairForActivity(activity.id),
   ]);
   // D726: on a track pair a disqualification counts on both tracks, so each track scores with both lists.
   const otherDisqualifications = pair ? await listDisqualifications(otherActivityId(pair, activity.id)) : [];
@@ -44,7 +45,8 @@ export async function loadChallenge(event: Pick<Event, "id" | "starts_on">, acti
     new Map(disqualifications.map((d) => [d.attendee_id, d.week_of])),
     new Map(otherDisqualifications.map((d) => [d.attendee_id, d.week_of])),
   );
-  const score = scoreChallenge({ totals, teams, disqualified, scoring, weeks, today, adjustments });
+  const score = scoreChallenge({ totals, teams, disqualified, scoring, weeks, today,
+    adjustments: adjustmentTotals(adjustments), weekAdjustments: weekAdjustmentTotals(adjustments) });
   return { score, teams, weeks, names: new Map(everyone.map((a) => [a.id, a.name])), disqualifications, groups, attendees };
 }
 

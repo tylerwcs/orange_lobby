@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scoreChallenge, type DailyTotal, type Team } from "@/features/activities/lib/challenge-score";
+import { scoreChallenge, weekStandings, type DailyTotal, type Team } from "@/features/activities/lib/challenge-score";
 import { challengeWeeks } from "@/features/activities/lib/challenge";
 import type { ChallengeScoring } from "@/lib/types";
 
@@ -261,5 +261,30 @@ describe("ad hoc points (D705)", () => {
     expect(s.standings.find((x) => x.id === "C")!.total).toBe(-5);
     const v = scoreChallenge({ totals, teams: TEAMS, disqualified: new Map([["b1", null]]), scoring: S, weeks: WEEKS, today: "2026-10-06", adjustments: new Map([["B", 20]]) });
     expect(v.standings.find((x) => x.id === "B")!.adjust).toBe(0);
+  });
+});
+
+describe("ad hoc points given a week (D813)", () => {
+  const totals = [t("a1", "A", "2026-10-05", 6), t("b1", "B", "2026-10-12", 3)];
+  const run = (dq = new Map<string, string | null>(), scoring = S) => scoreChallenge({
+    totals, teams: TEAMS, disqualified: dq, scoring, weeks: WEEKS, today: "2026-10-20",
+    // B: +10 in week 2 (5 Oct), +5 undated - 15 in all.
+    adjustments: new Map([["B", 15]]), weekAdjustments: new Map([["2026-10-05", new Map([["B", 10]])]]),
+  });
+
+  it("counts in its week and once in the season", () => {
+    const s = run();
+    expect(s.weeks[0].teams.B.adjust).toBe(10);
+    expect(s.weeks[1].teams.B.adjust).toBe(0);
+    expect(s.standings.find((x) => x.id === "B")!.adjust).toBe(15);
+  });
+  it("adds to that week's total and ranking", () => {
+    const week = weekStandings(run().standings, run().weeks[0]);
+    expect(week.find((x) => x.id === "B")).toMatchObject({ adjust: 10, total: 10 });
+  });
+  it("drops out of the week and the season when that week is voided", () => {
+    const s = run(new Map([["b1", WEEK2[0]]]), { ...S, void: "week" });
+    expect(s.weeks[0].teams.B.adjust).toBe(0);
+    expect(s.standings.find((x) => x.id === "B")!.adjust).toBe(5);
   });
 });
