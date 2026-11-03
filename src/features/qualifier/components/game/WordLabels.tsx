@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { Vector3, type Camera } from "three";
-import { currentWord, type Slime } from "../../game/engine";
+import type { Slime } from "../../game/engine";
 import { layoutLabels, type LabelBox } from "../../game/labels";
-import { BITE_BG, HEALTH, HEALTH_TRACK, LABEL_BG, LABEL_INK, LABEL_LOCK, LABEL_TYPED, WARN, css } from "../../game/palette";
+import { BITE_BG, HEALTH, HEALTH_TRACK, LABEL_BG, LABEL_INK, LABEL_LOCK, LABEL_TYPED, WARN, css, slimeColour } from "../../game/palette";
 import { STICK_MS } from "../../game/rules";
 import type { Head } from "./slimeFx";
 
@@ -20,12 +20,17 @@ import type { Head } from "./slimeFx";
  * the screen on its side glows red, pulsing faster as the bite nears (a slime biting from out of
  * view, on a narrow phone, still shows).
  *
+ * A word typed shows its points rising off the bubble in the slime's colour ("+60", `float`,
+ * D816), from where the bubble last was: the scene floats them before the bubbles update.
+ *
  * All imperative: the elements are made, changed and moved from the frame loop, never through
  * React state. A bubble is rebuilt only when its text, progress or lock changes.
  */
 
 export type LabelsApi = {
   update(f: { slimes: readonly Slime[]; heads: ReadonlyMap<number, Head>; camera: Camera; w: number; h: number; lock: number | null; dt: number }): void;
+  /** Points rising off slime `id`'s bubble (where it last was); nothing if it never had one. */
+  float(id: number, text: string): void;
 };
 
 type Label = {
@@ -46,6 +51,10 @@ type Label = {
   placed: boolean;
   z: number;
   shown: boolean;
+  /** The slime's colour, for its floating points. */
+  color: string;
+  /** Where the bubble was last put (its top-left, px), or null before it is placed. */
+  at: { x: number; y: number } | null;
 };
 
 const INK = css(LABEL_INK);
@@ -112,7 +121,13 @@ function build(el: HTMLDivElement, s: Slime, locked: boolean, viewW: number): { 
   }
 
   if (!boss) {
-    pill.append(...wordSpans(currentWord(s), s.typed));
+    // A two-word slime: the word done struck through, the next one faded.
+    s.words.forEach((w, i) => {
+      if (i > 0) pill.append(" ");
+      if (i < s.wordIndex) pill.append(span(w, TYPED, { opacity: "0.45", textDecoration: "line-through" }));
+      else if (i > s.wordIndex) pill.append(span(w, INK, { opacity: "0.6" }));
+      else pill.append(...wordSpans(w, s.typed));
+    });
   } else {
     const text = document.createElement("div");
     s.words.forEach((w, i) => {
@@ -211,6 +226,35 @@ export function WordLabels({ ref }: { ref?: Ref<LabelsApi> }) {
   }, []);
 
   useImperativeHandle(ref, () => ({
+    float(id, text) {
+      const host = root.current;
+      const l = labels.current.get(id);
+      if (!host || !l?.at || !l.shown) return;
+      const el = document.createElement("div");
+      el.textContent = text;
+      Object.assign(el.style, {
+        position: "absolute", left: "0", top: "0", zIndex: "1500", whiteSpace: "nowrap",
+        fontSize: "clamp(22px, 4vmin, 34px)", lineHeight: "1", color: l.color,
+        webkitTextStroke: `4px ${INK}`, paintOrder: "stroke fill",
+        transform: `translate3d(${Math.round(l.at.x + l.w / 2)}px, ${Math.round(l.at.y)}px, 0) translateX(-50%)`,
+      } satisfies Partial<CSSStyleDeclaration>);
+      host.append(el);
+      const base = el.style.transform;
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const anim = el.animate?.(
+        still
+          ? [{ opacity: 1 }, { opacity: 1, offset: 0.5 }, { opacity: 0 }]
+          : [
+            { opacity: 0, transform: `${base} translateY(6px) scale(0.6)` },
+            { opacity: 1, transform: `${base} translateY(-10px) scale(1.25)`, offset: 0.18 },
+            { opacity: 1, transform: `${base} translateY(-34px) scale(1)`, offset: 0.6 },
+            { opacity: 0, transform: `${base} translateY(-60px) scale(0.95)` },
+          ],
+        { duration: 900, easing: "ease-out", fill: "forwards" },
+      );
+      if (anim) anim.onfinish = () => el.remove();
+      else el.remove();
+    },
     update({ slimes, heads, camera, w, h, lock, dt }) {
       const host = root.current;
       if (!host) return;
@@ -232,7 +276,10 @@ export function WordLabels({ ref }: { ref?: Ref<LabelsApi> }) {
             willChange: "transform", fontWeight: "800",
           } satisfies Partial<CSSStyleDeclaration>);
           host.append(el);
-          l = { el, pill: null, bite: null, scale: 1, pulse: 0, key: "", w: 0, h: 0, ox: 0, oy: 0, placed: false, z: -1, shown: true };
+          l = {
+            el, pill: null, bite: null, scale: 1, pulse: 0, key: "", w: 0, h: 0, ox: 0, oy: 0, placed: false, z: -1, shown: true,
+            color: css(slimeColour(s.look, s.id)), at: null,
+          };
           map.set(s.id, l);
         }
         const locked = lock === s.id;
@@ -303,7 +350,8 @@ export function WordLabels({ ref }: { ref?: Ref<LabelsApi> }) {
           l.ox += (tx - l.ox) * ease;
           l.oy += (ty - l.oy) * ease;
         }
-        l.el.style.transform = `translate3d(${Math.round(a.x + l.ox)}px, ${Math.round(a.y + l.oy)}px, 0)`;
+        l.at = { x: a.x + l.ox, y: a.y + l.oy };
+        l.el.style.transform = `translate3d(${Math.round(l.at.x)}px, ${Math.round(l.at.y)}px, 0)`;
       }
       const e = edges.current;
       if (e) {

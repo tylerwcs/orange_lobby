@@ -79,6 +79,9 @@ export const BITE_BG = 0xfff1ef;
 /** The boss's health bar. */
 export const HEALTH = 0xe0627f;
 export const HEALTH_TRACK = 0xe6e9ee;
+/** On fire (the top multiplier, D816): the flame chip, the glow round the screen and the typing bar. */
+export const FIRE = 0xffa53d;
+export const FIRE_HOT = 0xff5e3a;
 
 /** A palette colour as CSS, for the DOM labels: `css(0x3b4a5a)` → `#3b4a5a`, with `alpha` → `rgba(...)`. */
 export function css(hex: number, alpha?: number): string {

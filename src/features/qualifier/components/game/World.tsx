@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
-import { MeshStandardMaterial, Object3D, type DirectionalLight, type Group } from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Color, MeshStandardMaterial, Object3D, type DirectionalLight, type Fog, type FogExp2, type Group, type HemisphereLight } from "three";
 import { FOG, FOG_DENSITY, HEMI_GROUND, HEMI_INTENSITY, HEMI_SKY, SKY, SUN, SUN_INTENSITY } from "../../game/palette";
 import type { Quality } from "../../game/quality";
+import { skyAt } from "../../game/sky";
 import { buildWorld, disposeWorld } from "./scenery";
 
 /** Clouds wrap round past this |x|. */
@@ -14,8 +15,11 @@ const CLOUD_SPAN = 42;
  * lavender rocks, five-sided snow-capped mountains and faceted clouds. No path, no flowers, no
  * butterflies. Built once per quality into a handful of merged, vertex-coloured meshes (a few
  * draw calls, not a hundred). The same seed every time, so the world never changes between runs.
+ * The light follows the run's clock (`clock`, ms; D816): morning, then a golden afternoon, then
+ * sunset for the last boss (skyAt). Sky, fog and the two lights change; the colours of the ground
+ * and the props stay, lit differently.
  */
-export function World({ quality }: { quality: Quality }) {
+export function World({ quality, clock }: { quality: Quality; clock: () => number }) {
   const built = useMemo(() => buildWorld(quality), [quality]);
   useEffect(() => () => disposeWorld(built), [built]);
 
@@ -25,6 +29,8 @@ export function World({ quality }: { quality: Quality }) {
   const sunTarget = useMemo(() => new Object3D(), []);
   const clouds = useRef<Group>(null);
   const sun = useRef<DirectionalLight>(null);
+  const hemi = useRef<HemisphereLight>(null);
+  const scene = useThree((s) => s.scene);
   const full = quality === "full";
 
   // The sun's shadow covers the field and its edges (set here, where the projection can be updated).
@@ -41,8 +47,20 @@ export function World({ quality }: { quality: Quality }) {
   }, []);
 
   useFrame((_, delta) => {
+    const light = skyAt(clock());
+    if (scene.background instanceof Color) scene.background.setHex(light.sky);
+    (scene.fog as Fog | FogExp2 | null)?.color.setHex(light.fog);
+    if (sun.current) {
+      sun.current.color.setHex(light.sun);
+      sun.current.intensity = light.sunI;
+    }
+    if (hemi.current) {
+      hemi.current.color.setHex(light.hemiSky);
+      hemi.current.groundColor.setHex(light.hemiGround);
+      hemi.current.intensity = light.hemiI;
+    }
     const g = clouds.current;
-    if (!g || !full) return; // lite (and reduced motion) keeps the sky still
+    if (!g || !full) return; // lite (and reduced motion) keeps the clouds still
     const dt = Math.min(delta, 0.1);
     g.children.forEach((c, i) => {
       const speed = built.clouds[i]?.speed ?? 0.2;
@@ -55,7 +73,7 @@ export function World({ quality }: { quality: Quality }) {
     <>
       <color attach="background" args={[SKY]} />
       <fogExp2 attach="fog" args={[FOG, FOG_DENSITY]} />
-      <hemisphereLight args={[HEMI_SKY, HEMI_GROUND, HEMI_INTENSITY]} />
+      <hemisphereLight ref={hemi} args={[HEMI_SKY, HEMI_GROUND, HEMI_INTENSITY]} />
       <primitive object={sunTarget} position={[0, 0, -10]} />
       <directionalLight ref={sun} position={[-8, 12, -4]} color={SUN} intensity={SUN_INTENSITY} target={sunTarget} castShadow={full} />
       <mesh geometry={built.ground} material={material} receiveShadow={full} />

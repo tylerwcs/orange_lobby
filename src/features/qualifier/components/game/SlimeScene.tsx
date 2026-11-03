@@ -39,6 +39,8 @@ export type SlimeSceneProps = {
   onSlow?: () => void;
   /** The scene broke (an exception, a lost WebGL context): it draws nothing more, and from now on the caller drains `game.events`. */
   onFail?: () => void;
+  /** The word bubbles show. Default true; off behind the results (D816). */
+  words?: boolean;
 };
 
 /** Eye height, m. */
@@ -117,6 +119,8 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
 
     // The scene's own reactions to what happened since the last frame.
     for (const e of events) {
+      // A word's points rise off its bubble (before the bubbles update drops a popped one).
+      if ((e.type === "pop" || e.type === "word") && e.id !== undefined && e.points) p.labels.current?.float(e.id, `+${e.points}`);
       if (e.type === "pop") blaster.current?.fire(1);
       else if (e.type === "word") blaster.current?.fire(0.8);
       else if (e.type === "letter") blaster.current?.kick(0.22);
@@ -180,7 +184,7 @@ function Rig(props: SlimeSceneProps & { labels: RefObject<LabelsApi | null> }) {
 
   return (
     <>
-      <World quality={quality} />
+      <World quality={quality} clock={props.clock} />
       <Slimes ref={slimes} quality={quality} />
       <Blaster ref={blaster} />
     </>
@@ -224,7 +228,9 @@ export default function SlimeScene(props: SlimeSceneProps) {
           <Rig {...props} labels={labels} />
         </Canvas>
       </Guard>
-      <WordLabels ref={labels} />
+      <div hidden={props.words === false}>
+        <WordLabels ref={labels} />
+      </div>
     </div>
   );
 }

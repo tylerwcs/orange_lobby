@@ -119,6 +119,22 @@ we found an old map in the attic and spent all afternoon reading it
 the hotel room had a small balcony with a view of the busy harbor
 if you leave the window open the cat will climb out onto the roof
 the kids built a fort out of blankets and pillows in the living room
+the guests loved the welcome drinks served in the hotel lobby tonight
+please check in at the registration desk to collect your name badge
+the stage lights came on and the whole ballroom started to cheer
+our crew set up two hundred chairs before the doors opened today
+the lucky draw prize this year is a weekend at the beach
+dinner will be served in the grand hall right after the speeches
+the photo booth line went all the way to the coffee bar
+every table had fresh flowers and a little gift for each guest
+the keynote speaker walked on stage and the whole room went quiet right away
+after the gala dinner everyone moved to the dance floor and stayed until midnight
+the shuttle buses will take every guest from the hotel to the venue tomorrow
+our team checked the sound and the screens twice before the first guest arrived
+the caterers brought out warm cookies and fresh coffee during the short afternoon break
+keep your lanyard on so the crew can scan you in at every door
+the band played another song because the crowd would not stop clapping and cheering
+the host thanked every sponsor and then opened the doors to the exhibition hall
 `;
 
 export const SENTENCES: readonly string[] = Object.freeze(
@@ -127,7 +143,7 @@ export const SENTENCES: readonly string[] = Object.freeze(
 
 const wordsOf = (s: string) => s.split(" ");
 
-/** Words boss `n` (1-based) carries (D812): BOSS_WORDS, 12 then 10; the last count for any later one. */
+/** Words boss `n` (1-based) carries (D812, D815): BOSS_WORDS, 14 then 12; the last count for any later one. */
 export const bossWords = (n: number): number => BOSS_WORDS[Math.min(Math.max(n, 1), BOSS_WORDS.length) - 1];
 
 /**

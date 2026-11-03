@@ -1,19 +1,20 @@
 // The slime game (D790) as a pure, deterministic state machine. The phone plays it and the
 // server replays the player's keystrokes through it from the same seed, so the two must agree
 // to the millisecond: integer ms and mm only, randomness only from the seeded mulberry32.
-import { WORDS } from "../words";
+import { PHRASES, WORDS } from "../words";
 import { mulberry32, randInt } from "./rng";
 import { bossSentence } from "./sentences";
 import {
   BOSS_AT_MS, BOSS_BONUS, BOSS_DIST_MM, BOSS_HIT, BOSS_SPEED_MM_S, FINAL_BOSS_DIST_MM, GAP_JITTER_MS, GAP_MS, MAX_SMALL,
-  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, STICK_MS, TICK_MS, TIME_BONUS_PER_S, lengthBand,
+  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, STICK_MS, TICK_MS, TIME_BONUS_PER_S, TWO_WORD_FROM_MS,
+  TWO_WORD_ONE_IN, lengthBand,
   multiplier, speedAt,
 } from "./rules";
 
 export type Slime = {
   id: number;
   kind: "small" | "boss";
-  /** One word for a small slime; a boss's sentence, word by word. */
+  /** One word for a small slime (two, a phrase, late in the run); a boss's sentence, word by word. */
   words: string[];
   wordIndex: number;
   /** Correct letters typed of the current word. */
@@ -32,7 +33,10 @@ export type GameEvent = {
   t: number;
   type: "spawn" | "letter" | "wrong" | "word" | "pop" | "stick" | "explode" | "boss" | "end";
   id?: number;
-  /** "explode": the points it took (less than the hit when the score was lower). "end": the time bonus. */
+  /**
+   * "word"/"pop": the points it scored (a boss's pop includes its bonus). "explode": the points it
+   * took (less than the hit when the score was lower). "end": the time bonus. Render only.
+   */
   points?: number;
 };
 
@@ -49,6 +53,10 @@ export type Game = {
   /** The last boss was popped: the run ended early, with `timeBonus` for the time left. */
   cleared: boolean;
   timeBonus: number;
+  /** For the results screen (D816): the longest combo, letters typed right, and wrong keys. */
+  bestCombo: number;
+  letters: number;
+  misses: number;
   slimes: Slime[];
   /** Id of the slime being typed. */
   lock: number | null;
@@ -71,7 +79,7 @@ export const currentWord = (s: Slime): string => s.words[s.wordIndex];
 
 export function newGame(seed: number): Game {
   return {
-    seed, nowMs: 0, score: 0, combo: 0, popped: 0, bosses: 0, cleared: false, timeBonus: 0, slimes: [], lock: null,
+    seed, nowMs: 0, score: 0, combo: 0, popped: 0, bosses: 0, cleared: false, timeBonus: 0, bestCombo: 0, letters: 0, misses: 0, slimes: [], lock: null,
     ended: false, endedMs: null, events: [],
     rand: mulberry32(seed), nextTickMs: 0, nextSpawnMs: 0, bossDueMs: BOSS_AT_MS[0], bossCount: 0, nextId: 1,
   };
@@ -150,12 +158,20 @@ function tick(g: Game): void {
 
 function spawnSmall(g: Game): void {
   const now = g.nowMs;
-  const [min, max] = lengthBand(now);
-  const band = WORDS.filter((w) => w.length >= min && w.length <= max);
   const taken = new Set(g.slimes.map((s) => currentWord(s)[0]));
-  const free = band.filter((w) => !taken.has(w[0]));
-  const pool = free.length > 0 ? free : band;
-  const s = addSlime(g, "small", [pool[randInt(g.rand, pool.length)]], SPAWN_DIST_MM);
+  let words: string[];
+  if (now >= TWO_WORD_FROM_MS && randInt(g.rand, TWO_WORD_ONE_IN) === 0) {
+    const free = PHRASES.filter((p) => !taken.has(p[0][0]));
+    const pool = free.length > 0 ? free : PHRASES;
+    words = [...pool[randInt(g.rand, pool.length)]];
+  } else {
+    const [min, max] = lengthBand(now);
+    const band = WORDS.filter((w) => w.length >= min && w.length <= max);
+    const free = band.filter((w) => !taken.has(w[0]));
+    const pool = free.length > 0 ? free : band;
+    words = [pool[randInt(g.rand, pool.length)]];
+  }
+  const s = addSlime(g, "small", words, SPAWN_DIST_MM);
   g.nextSpawnMs = now + GAP_MS + randInt(g.rand, GAP_JITTER_MS);
   g.events.push({ t: now, type: "spawn", id: s.id });
 }
@@ -201,25 +217,29 @@ function end(g: Game, bonus = 0): void {
 
 function letter(g: Game, s: Slime, tMs: number): void {
   s.typed += 1;
+  g.letters += 1;
   g.events.push({ t: tMs, type: "letter", id: s.id });
   const word = currentWord(s);
   if (s.typed < word.length) return;
   g.combo += 1;
-  g.score += word.length * POINTS_PER_LETTER * multiplier(g.combo);
-  // A boss keeps the lock between its words, so its next word continues (Ruling 18); one
-  // backspace with nothing typed releases it. A popped slime's lock goes with it (remove).
-  if (s.kind === "boss" && s.wordIndex < s.words.length - 1) {
+  g.bestCombo = Math.max(g.bestCombo, g.combo);
+  let points = word.length * POINTS_PER_LETTER * multiplier(g.combo);
+  g.score += points;
+  // A boss or a two-word slime keeps the lock between its words, so its next word continues
+  // (Ruling 18); one backspace with nothing typed releases it. A popped slime's lock goes with it.
+  if (s.wordIndex < s.words.length - 1) {
     s.wordIndex += 1;
     s.typed = 0;
-    g.events.push({ t: tMs, type: "word", id: s.id });
+    g.events.push({ t: tMs, type: "word", id: s.id, points });
     return;
   }
   if (s.kind === "boss") {
     g.bosses += 1;
     g.score += BOSS_BONUS * g.bossCount;
+    points += BOSS_BONUS * g.bossCount;
   } else g.popped += 1;
   remove(g, s);
-  g.events.push({ t: tMs, type: "pop", id: s.id });
+  g.events.push({ t: tMs, type: "pop", id: s.id, points });
   // The last boss popped: the run is won, and every whole second left counts.
   if (s.kind === "boss" && g.bossDueMs === null) {
     const bonus = Math.floor((RUN_CAP_MS - g.nowMs) / 1000) * TIME_BONUS_PER_S;
@@ -232,6 +252,7 @@ function letter(g: Game, s: Slime, tMs: number): void {
 
 function wrong(g: Game, tMs: number): void {
   g.combo = 0;
+  g.misses += 1;
   g.events.push({ t: tMs, type: "wrong" });
 }
 

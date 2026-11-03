@@ -1,6 +1,7 @@
 // The words the small slimes carry (D767, D790): common English, lowercase a–z only, no
 // proper nouns, nothing `obscenity` flags (tests/qualifier/words.test.ts checks all of it).
-// English only, like every live game.
+// English only, like every live game. The last lines are events and hospitality (D815): we are an
+// event agency, and so are the people playing.
 const LIST = `
   the of and to in is you that it he was for on are as with his they at be this from have or by
   one had not but what all were when we there can an your which their said if do will each about
@@ -93,6 +94,85 @@ const LIST = `
   sunglasses swimming tablespoon teamwork teaspoon telescope thankful tightrope toothbrush
   toothpaste tortoise traveler trombone tropical typewriter underwater volleyball watermelon
   windmill wildlife wristwatch xylophone yourself zookeeper
+  venue lanyard emcee crew usher buffet banquet canape cocktail mocktail dessert catering caterer
+  menu brunch gala summit forum seminar keynote breakout booth exhibit exhibitor exhibition sponsor
+  sponsorship delegate attendee invitation reception registration checkin concierge valet shuttle
+  transfer itinerary timeline rundown rehearsal soundcheck microphone podium lectern lighting
+  projector backdrop banner signage decor decoration centerpiece tablecloth napkin cutlery
+  glassware ballroom foyer terrace rooftop marquee tent pavilion carpet runway catwalk plaque
+  raffle giveaway souvenir hamper voucher networking livestream broadcast photographer videographer
+  recording playlist deejay band choir dancer performer magician comedian entertainer hospitality
+  housekeeping suite checkout luggage porter bellhop minibar amenities toiletries pillow blanket
+  towel balcony refreshments celebration anniversary certificate conference coordinator organizer
+  auditorium amphitheater reservation confirmation announcement presentation performance
+  appreciation confetti balloons hashtag selfie afterparty headcount waitlist rsvp attire tuxedo
+  gown corsage bouquet florist hostess waiter waitress bartender sommelier chef pastry canapes
+  appetizer entree platter toast speech encore curtain backstage greenroom ushers wristband clicker
+  countdown
 `;
 
 export const WORDS: readonly string[] = Object.freeze(LIST.split(/\s+/).filter(Boolean));
+
+/**
+ * Two-word slimes for the late run (D815): everyday events and hospitality phrases, typed word by
+ * word like a boss's sentence. Lowercase a–z, one space, nothing `obscenity` flags.
+ */
+const PHRASE_LIST = `
+coffee break
+guest list
+red carpet
+door gift
+lucky draw
+name tag
+dress code
+photo booth
+sound check
+goodie bag
+welcome drink
+floor plan
+seating plan
+gala dinner
+dance floor
+grand ballroom
+room service
+early bird
+media wall
+opening speech
+award night
+live band
+press kit
+buffet line
+hotel lobby
+shuttle bus
+team building
+cocktail hour
+happy hour
+best dressed
+main stage
+event crew
+guest speaker
+family day
+annual dinner
+prize giving
+open bar
+sweet treats
+round table
+panel talk
+gift bag
+group photo
+smart casual
+black tie
+venue tour
+kick off
+vip table
+wrap party
+quiz night
+thank you
+`;
+
+export const PHRASES: readonly (readonly [string, string])[] = Object.freeze(
+  PHRASE_LIST.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [a, b] = l.split(" ");
+    return Object.freeze([a, b] as const);
+  }),
+);

@@ -7,16 +7,19 @@ import { backoff, clockOffset } from "@/lib/poll";
 import { qualifierFont } from "../../font";
 import { GAME_NAME } from "../../paths";
 import type { QualifierView } from "../../view";
+import { isNewBest, placeLine } from "../../screen";
 import { advance, currentWord, newGame, press, type Game, type GameEvent } from "../../game/engine";
 import { perfOrigin } from "../../game/keys";
-import { LABEL_INK, SKY, SLIMES, TITLE_INK, css } from "../../game/palette";
+import { FIRE_HOT, LABEL_INK, SKY, SLIMES, TITLE_INK, WARN, css } from "../../game/palette";
 import { clearPending, savePending, settle } from "../../game/pending";
 import { hasWebGL, qualityOf } from "../../game/quality";
 import type { RunResult } from "../../game/replay";
-import { RUN_CAP_MS, multiplier } from "../../game/rules";
-import { isMuted, playMusic, primeSound, setMuted, sfx, stopMusic } from "../../game/sound";
+import { COMBO_MAX_MULT, RUN_CAP_MS, multiplier } from "../../game/rules";
+import { isMuted, playMusic, primeSound, setMusicFire, setMuted, sfx, stopMusic } from "../../game/sound";
 import { encodeTimeline, type Entry, type SubmitBody, type SubmitReason } from "../../game/timeline";
+import { Celebrate } from "./Celebrate";
 import { GameHud, type HudState } from "./GameHud";
+import { Results, statsOf, type RunStats } from "./Results";
 import { GameInput, type GameInputHandle } from "./GameInput";
 import { drainEvents } from "./sceneEvents";
 
@@ -35,8 +38,13 @@ export type SlimeGameProps = {
   start: () => Promise<StartAnswer>;
   /** Sends the finished run. Rejects on a network failure (or a server error): the run is kept and sent again. */
   submit: (body: SubmitBody) => Promise<SubmitAnswer>;
-  /** A final answer for the run (accepted or refused), with what this phone's engine made of it. */
+  /**
+   * The run is over for the player: a refused run as soon as it is answered; a counted one when
+   * they leave its results. With what this phone's engine made of it.
+   */
   onDone: (answer: SubmitAnswer, local: RunResult) => void;
+  /** A run was counted (D816): the results show in the overlay, and the page behind can update its board. */
+  onScored?: (answer: Extract<SubmitAnswer, { ok: true }>) => void;
   /** The player leaves without a result (no 3D, a failed start, a submit that can't get through yet). */
   onExit: () => void;
   /** The overlay element: the parent calls `requestFullscreen?.()` on it inside the Play click. */
@@ -54,7 +62,9 @@ type Stage =
   | { kind: "failed"; message: string; discard?: boolean; retry: "load" | "start" }
   | { kind: "run"; origin: number }
   /** `cleared`: the last boss was popped, with `bonus` points for the time left (D812). */
-  | { kind: "sending"; offline: boolean; tries: number; cleared: boolean; bonus: number };
+  | { kind: "sending"; offline: boolean; tries: number; cleared: boolean; bonus: number }
+  /** A counted run's results (D816): Play again starts the next from here. */
+  | { kind: "done"; answer: Extract<SubmitAnswer, { ok: true }>; local: RunResult; stats: RunStats; newBest: boolean; line: string };
 
 /** The game's name, on its title screen. */
 export const GAME_TITLE = `${GAME_NAME}!`;
@@ -70,7 +80,9 @@ const START_ERROR = "Couldn't start a run. Check your connection and try again."
 /** The server said the run can't have ended yet (this phone's clock ran ahead): ask again soon. */
 const EARLY_RETRY_MS = 2000;
 
-const EMPTY_HUD: HudState = { score: 0, combo: 0, left: RUN_CAP_MS / 1000, lost: 0, hits: 0, word: null, typed: 0, miss: null, misses: 0 };
+const EMPTY_HUD: HudState = { score: 0, combo: 0, left: RUN_CAP_MS / 1000, lost: 0, hits: 0, word: null, typed: 0, miss: null, misses: 0, boss: null };
+/** Enter on the results starts the next run only after this long, so a key still held from the run can't. */
+const RESULTS_ENTER_MS = 800;
 /** From how many seconds left the clock ticks. */
 const TICK_FROM_S = 5;
 /** How long a wrong key stays shown in red in the typing bar, unless a next key clears it first. */
@@ -86,16 +98,20 @@ type Hit = { points: number; n: number };
 
 function hudOf(g: Game, miss: Miss | null, misses: number, hit: Hit): HudState {
   const s = lockedOf(g);
+  const boss = g.slimes.find((x) => x.kind === "boss");
   return {
     score: g.score, combo: g.combo, left: Math.max(0, Math.ceil((RUN_CAP_MS - g.nowMs) / 1000)),
     lost: hit.points, hits: hit.n, word: s ? currentWord(s) : null, typed: s ? s.typed : 0,
     miss: miss ? miss.letter : null, misses,
+    // The last boss is the one out once no other is due.
+    boss: boss ? { left: boss.words.length - boss.wordIndex, total: boss.words.length, final: g.bossDueMs === null } : null,
   };
 }
 
 const sameHud = (a: HudState, b: HudState) =>
   a.score === b.score && a.combo === b.combo && a.left === b.left && a.hits === b.hits && a.word === b.word &&
-  a.typed === b.typed && a.miss === b.miss && a.misses === b.misses;
+  a.typed === b.typed && a.miss === b.miss && a.misses === b.misses &&
+  a.boss?.left === b.boss?.left && a.boss?.total === b.boss?.total && a.boss?.final === b.boss?.final;
 
 /** 3-2-1 before the start (clamped, so a start that arrives late or early still reads sensibly), 0 after. */
 const countOf = (t: number) => (t >= 0 ? 0 : Math.min(3, Math.max(1, Math.ceil(-t / 1000))));
@@ -189,7 +205,7 @@ const viewportSnapshot = () => {
  *
  * No pause: a hidden tab stops the frames, and the engine catches up on the next one.
  */
-export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGameProps) {
+export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref }: SlimeGameProps) {
   const [stage, setStage] = useState<Stage>(() => (hasWebGL() ? { kind: "loading" } : { kind: "nogl" }));
   const [hud, setHud] = useState<HudState>(EMPTY_HUD);
   const [count, setCount] = useState(3);
@@ -198,6 +214,13 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
   const [slow, setSlow] = useState(false);
   const [sceneLoaded, setSceneLoaded] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
+  /** The boss banner sweeping across (D816); `n` restarts it. */
+  const [banner, setBanner] = useState<{ final: boolean; n: number } | null>(null);
+  /**
+   * Each run draws in a fresh scene (D816): Play again starts the next run in this overlay, and a
+   * new game numbers its slimes from 1 again, so nothing of the last run's slimes may linger.
+   */
+  const [runNo, setRunNo] = useState(0);
   const [reducedMotion] = useState(() => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const viewport = useSyncExternalStore(subscribeViewport, viewportSnapshot, () => "");
 
@@ -220,8 +243,9 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
   const shownMult = useRef(1);
   const misses = useRef(0);
   const hit = useRef<Hit>({ points: 0, n: 0 });
-  const latest = useRef({ token, start, submit, onDone });
-  useEffect(() => { latest.current = { token, start, submit, onDone }; }, [token, start, submit, onDone]);
+  const doneAt = useRef(0);
+  const latest = useRef({ token, start, submit, onDone, onScored });
+  useEffect(() => { latest.current = { token, start, submit, onDone, onScored }; }, [token, start, submit, onDone, onScored]);
 
   useEffect(() => {
     alive.current = true;
@@ -230,12 +254,16 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
 
   useEffect(() => lockBodyScroll(), []);
 
-  // The music: the title tune from the title screen, the run's from Start; none once it closes.
-  const musicMood = stage.kind === "loading" || stage.kind === "title" ? "title" : stage.kind === "run" ? "play" : null;
+  // The music: the title tune on the title screen and the results, the run's from Start; none once it closes.
+  const musicMood = stage.kind === "loading" || stage.kind === "title" || stage.kind === "done" ? "title" : stage.kind === "run" ? "play" : null;
   useEffect(() => {
     if (musicMood) playMusic(musicMood);
   }, [musicMood]);
   useEffect(() => stopMusic, []);
+
+  // On fire (the top multiplier): the music's drums double up until the streak breaks.
+  const onFire = stage.kind === "run" && multiplier(hud.combo) >= COMBO_MAX_MULT;
+  useEffect(() => { setMusicFire(onFire); }, [onFire]);
 
   // The last seconds of the clock tick out loud.
   const finalTick = stage.kind === "run" && hud.left > 0 && hud.left <= TICK_FROM_S ? hud.left : null;
@@ -247,8 +275,11 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
   const onEvent = useCallback((e: GameEvent) => {
     if (e.type === "boss") {
       if (e.id !== undefined) bossIds.current.add(e.id);
+      // The last boss is out once no other is due: its own banner and faster music.
+      const final = game.current?.bossDueMs === null;
       sfx("boss");
-      playMusic("boss");
+      playMusic(final ? "final" : "boss");
+      setBanner({ final, n: e.t });
     } else if (e.type === "pop") {
       if (e.id !== undefined && bossIds.current.has(e.id)) {
         sfx("splat");
@@ -334,12 +365,17 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     }
     const offset = clockOffset(sent, received, answer.serverNow);
     const o = perfOrigin(Date.parse(answer.startsAt), offset, Date.now(), performance.now());
+    // A run after another gets a fresh scene; the first keeps the one behind the title.
+    const again = game.current !== null;
     const g = newGame(answer.seed);
     game.current = g;
     entries.current = [];
     runId.current = answer.runId;
     origin.current = o;
     bossIds.current.clear();
+    finishing.current = false;
+    setBanner(null);
+    if (again) setRunNo((n) => n + 1);
     shownMult.current = 1;
     miss.current = null;
     misses.current = 0;
@@ -370,18 +406,20 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     void load();
   }, [stage.kind, load]);
 
-  // Enter starts from the title screen, as on the ready screen (a held key's repeats don't).
-  const onTitle = stage.kind === "title";
+  // Enter starts from the title screen and the results, as on the ready screen (a held key's repeats don't).
+  const enterStarts = stage.kind === "title" || stage.kind === "done";
   useEffect(() => {
-    if (!onTitle) return;
+    if (!enterStarts) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || e.repeat || e.isComposing) return;
+      if (performance.now() - doneAt.current < RESULTS_ENTER_MS) return;
       e.preventDefault();
+      input.current?.focus();
       void begin();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onTitle, begin]);
+  }, [enterStarts, begin]);
 
   // ---- Submit, until a final answer (or the player leaves). ----
   const finishRun = useCallback(async () => {
@@ -392,6 +430,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
     sfx(g.cleared ? "win" : "timeup");
     const ending = { cleared: g.cleared, bonus: g.timeBonus };
     const local: RunResult = { score: g.score, endedMs: g.endedMs ?? g.nowMs, popped: g.popped, bosses: g.bosses };
+    const stats = statsOf(g, local.endedMs);
     const body: SubmitBody = { runId: runId.current, device: input.current?.device() ?? "unknown", ...encodeTimeline(entries.current) };
     const { token: tok } = latest.current;
     const store = storage();
@@ -409,7 +448,21 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
       const said = answer === null ? "network" : answer.ok ? "ok" : answer.reason;
       if (answer && settle(said) === "clear") {
         clearPending(store, tok);
-        if (alive.current) latest.current.onDone(answer, local);
+        if (!alive.current) return;
+        if (!answer.ok) {
+          latest.current.onDone(answer, local);
+          return;
+        }
+        // Counted: the results here, the page's board behind them updated now. The keyboard goes
+        // down so the results fit a phone; Play again brings it back.
+        latest.current.onScored?.(answer);
+        input.current?.blur();
+        doneAt.current = performance.now();
+        const { me, phase } = answer.view;
+        setStage({
+          kind: "done", answer, local, stats, newBest: isNewBest(answer.score, answer.prevBest),
+          line: placeLine({ best: me.best, rank: me.rank, total: me.total, phase }),
+        });
         return;
       }
       tries += 1;
@@ -511,6 +564,7 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
 
   const [vh, vtop] = viewport ? viewport.split(":").map(Number) : [null, 0];
   const playing = stage.kind === "run" || stage.kind === "sending";
+  const cleared = (stage.kind === "sending" && stage.cleared) || (stage.kind === "done" && stage.stats.cleared);
   const showScene = gl && sceneLoaded && !sceneFailed;
   const quality = qualityOf({ reducedMotion, slow, coarse: false });
 
@@ -525,17 +579,19 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
       // Taps never take the focus from the typing box (a button still gets its click) ...
       onMouseDown={(e) => { if (!(e.target as HTMLElement).closest("button")) e.preventDefault(); }}
       // ... and any tap puts it back, and lets the sound start (browsers need a gesture for it).
-      onClick={() => { primeSound(); input.current?.focus(); }}
+      onClick={() => { primeSound(); if (stage.kind !== "done") input.current?.focus(); }}
     >
       {/* The game itself, in the part of the screen the player can see: above a phone's keyboard. */}
       <div data-game-stage className="absolute inset-x-0 overflow-hidden" style={vh ? { top: vtop, height: vh } : { top: 0, bottom: 0 }}>
         {showScene && (
           <SlimeScene
+            key={runNo}
+            words={stage.kind !== "done"}
             game={game}
             clock={() => (origin.current === null ? 0 : performance.now() - origin.current)}
             quality={quality}
             lockId={lockId}
-            live={playing}
+            live={playing || stage.kind === "done"}
             onEvent={onEvent}
             onHit={onHit}
             onSlow={onSlow}
@@ -548,8 +604,12 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
         {gl && <GameInput ref={input} onKeys={onKeys} onWordBack={onWordBack} />}
 
         {playing && <GameHud hud={hud} muted={muted} onMute={toggleMute} />}
+        {stage.kind === "run" && banner && <BossBanner key={banner.n} final={banner.final} />}
+        {/* Fireworks for beating the last boss, from the end through the results; confetti for a new best. */}
+        {cleared && <Celebrate kind="fireworks" />}
+        {stage.kind === "done" && stage.newBest && <Celebrate kind="confetti" />}
 
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center font-game">
+        <div className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center font-game ${stage.kind === "done" ? "overflow-y-auto" : ""}`}>
           {stage.kind === "run" && count > 0 && (
             <p key={count} className="rounded-3xl bg-background/80 px-8 py-4 text-7xl leading-none tabular-nums shadow-sm backdrop-blur-sm" aria-live="assertive">
               {count}
@@ -568,6 +628,11 @@ export function SlimeGame({ token, start, submit, onDone, onExit, ref }: SlimeGa
                 : <Loader label="Sending your run…" />}
               {(stage.offline || stage.tries >= LEAVE_AFTER_TRIES) && <Leave onExit={onExit} label="Leave for now" />}
             </Notice>
+          )}
+          {stage.kind === "done" && (
+            <Results score={stage.answer.score} newBest={stage.newBest} line={stage.line} stats={stage.stats}
+              onPlayAgain={() => { input.current?.focus(); void begin(); }}
+              onBack={() => latest.current.onDone(stage.answer, stage.local)} />
           )}
           {stage.kind === "nogl" && (
             <Notice>
@@ -645,6 +710,41 @@ function End({ cleared, bonus }: { cleared: boolean; bonus: number }) {
       <span className="font-game text-5xl leading-none">{cleared ? "You beat the boss!" : "Time\u2019s up!"}</span>
       {cleared && bonus > 0 && <span className="font-game text-2xl text-primary">+{bonus.toLocaleString("en")} time bonus</span>}
     </span>
+  );
+}
+
+/**
+ * A boss arrives (D816): a striped band sweeps in across the screen with "BOSS INCOMING!" (or
+ * "FINAL BOSS!"), holds a moment and sweeps out. Fades instead with reduced motion.
+ */
+function BossBanner({ final }: { final: boolean }) {
+  const band = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    band.current?.animate?.(
+      still
+        ? [{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }]
+        : [
+          { opacity: 1, transform: "translateX(-110%) skewY(-4deg)" },
+          { opacity: 1, transform: "translateX(0) skewY(-4deg)", offset: 0.18 },
+          { opacity: 1, transform: "translateX(2%) skewY(-4deg)", offset: 0.8 },
+          { opacity: 1, transform: "translateX(110%) skewY(-4deg)" },
+        ],
+      { duration: 2200, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "both" },
+    );
+  }, []);
+  const ink = final ? FIRE_HOT : WARN;
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[38%] flex justify-center overflow-hidden py-6">
+      <div ref={band} className="w-[120%] py-3 text-center font-game text-5xl leading-none tracking-wide sm:text-7xl"
+        style={{
+          background: `repeating-linear-gradient(-45deg, ${css(ink, 0.92)} 0 22px, ${css(ink, 0.78)} 22px 44px)`,
+          color: css(TITLE_INK), WebkitTextStroke: `5px ${css(LABEL_INK)}`, paintOrder: "stroke fill",
+          boxShadow: `0 6px 0 ${css(LABEL_INK, 0.25)}`, opacity: 0,
+        }}>
+        {final ? "FINAL BOSS!" : "BOSS INCOMING!"}
+      </div>
+    </div>
   );
 }
 
