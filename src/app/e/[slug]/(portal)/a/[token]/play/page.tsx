@@ -17,7 +17,7 @@ const title = <h1 className={`mb-4 text-xl font-extrabold ${TITLE_INK}`}>Games</
 /**
  * The portal's Games (D797): Slime Splat, the typing game played any time it is open, with its
  * leaderboard, once it is added to the event's games (its settings row, D809); then the live
- * stage game, when the event has live games or draws. Personal only (the tile route is, D253): the token is the identity.
+ * stage game, when the event has live games or draws (under Slime Splat only while one is on, D817). Personal only (the tile route is, D253): the token is the identity.
  */
 export default async function Play({ params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
@@ -52,12 +52,8 @@ export default async function Play({ params }: { params: Promise<{ slug: string;
               : <QualifierClient token={token} initial={slimeView} />}
           </section>
         )}
-        {liveView && (
-          <section aria-label="On stage" className="flex flex-col gap-3">
-            {slimeView && <h2 className="text-lg font-extrabold">On stage</h2>}
-            <PlayClient token={token} initial={liveView} />
-          </section>
-        )}
+        {/* Under Slime Splat, the stage game shows only while one is on (D817). */}
+        {liveView && <PlayClient token={token} initial={liveView} heading={slimeView ? "On stage" : undefined} />}
         {!slimeView && !liveView && <p className="text-base text-muted-foreground">No games here yet.</p>}
       </div>
     </>

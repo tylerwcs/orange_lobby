@@ -22,8 +22,11 @@ const MEDALS = ["🥇", "🥈", "🥉"];
  * second while a game is on, every 5 s otherwise, sending its key so an unchanged stage costs
  * almost nothing. Each state is one full-screen moment; motion is reduced to fades when the phone
  * asks for reduced motion.
+ *
+ * With a `heading` (the page has another game above it), it shows nothing while no game is on,
+ * still polling, and appears under that heading when the host starts one (D817).
  */
-export function PlayClient({ token, initial }: { token: string; initial: PhoneState }) {
+export function PlayClient({ token, initial, heading }: { token: string; initial: PhoneState; heading?: string }) {
   const { state, offset, apply } = usePoll<PhoneState>(`/api/play/${token}/state`, initial, phoneEvery, true);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
@@ -52,7 +55,8 @@ export function PlayClient({ token, initial }: { token: string; initial: PhoneSt
     </Button>
   );
 
-  return (
+  if (heading && (!s || !me || s.phase === "idle")) return null;
+  const body = (
     <MotionConfig reducedMotion="user">
       <div className={`${gameFont.variable} flex flex-col items-center gap-4 overflow-x-clip text-center`}>
         {s?.game?.title && <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{s.game.title}</p>}
@@ -83,6 +87,13 @@ export function PlayClient({ token, initial }: { token: string; initial: PhoneSt
         )}
       </div>
     </MotionConfig>
+  );
+  if (!heading) return body;
+  return (
+    <section aria-label={heading} className="flex flex-col gap-3">
+      <h2 className="text-lg font-extrabold">{heading}</h2>
+      {body}
+    </section>
   );
 }
 
