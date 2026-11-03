@@ -5,43 +5,57 @@
 export const TICK_MS = 50;
 export const COUNTDOWN_MS = 3000;
 
-export const START_HEALTH = 3;
-/** How long a slime that reached the player stays stuck before it explodes. */
+/** How long a slime that reached the player stays stuck, biting, before it explodes. */
 export const STICK_MS = 3000;
-/** Health an exploding small slime / boss costs. */
-export const SMALL_HIT = 1;
-export const BOSS_HIT = 2;
+/**
+ * Points an exploding small slime / boss costs (D812): there is no health, so a bite costs score,
+ * and the combo. The score never drops below 0.
+ */
+export const SMALL_HIT = 150;
+export const BOSS_HIT = 500;
 
 export const SPAWN_DIST_MM = 18000;
 export const BOSS_DIST_MM = 20000;
 /**
  * A small slime's speed, set when it spawns: SPEED_START_MM_S, rising smoothly by
- * SPEED_GAIN_PER_MIN_MM_S every minute up to SPEED_MAX_MM_S. 1.5 m/s at 0:00, 1.95 at 1:00, 2.4
- * at 2:00, 3.3 at 4:00, the top from 6:40. This and longer words (lengthBand) are what make a run
- * harder; slimes keep spawning at the same pace.
+ * SPEED_GAIN_PER_MIN_MM_S every minute up to SPEED_MAX_MM_S. 1.5 m/s at 0:00, 2.1 at 1:00, 2.7
+ * at 2:00, 3.3 at the end. This and longer words (lengthBand) are what make a run harder; slimes
+ * keep spawning at the same pace.
  */
 export const SPEED_START_MM_S = 1500;
-export const SPEED_GAIN_PER_MIN_MM_S = 450;
-export const SPEED_MAX_MM_S = 4500;
+export const SPEED_GAIN_PER_MIN_MM_S = 600;
+export const SPEED_MAX_MM_S = 3300;
 export const BOSS_SPEED_MM_S = 1100;
+/**
+ * The last boss starts closer, so it reaches the player just as the run ends: 15 s at
+ * BOSS_SPEED_MM_S (FINAL_BOSS_DIST_MM ÷ the 55 mm it walks a tick = 300 ticks).
+ */
+export const FINAL_BOSS_DIST_MM = 16_500;
 
 /** Gap between small spawns, the same all run, plus up to GAP_JITTER_MS of random: about one every 2 s. */
 export const GAP_MS = 1800;
 export const GAP_JITTER_MS = 400;
 export const MAX_SMALL = 10;
 
-export const BOSS_FIRST_MS = 60000;
-/** The next boss is due this long after the previous one is gone. */
-export const BOSS_GAP_MS = 60000;
+/**
+ * When the bosses come (D812): one halfway, and the last at 2:45, the run's last slime: no small
+ * slime spawns after it. Small slimes also wait while a boss is out.
+ */
+export const BOSS_AT_MS = [90_000, 165_000] as const;
+/** How many words boss n (1-based) carries: the last has only 15 s. */
+export const BOSS_WORDS = [12, 10] as const;
 
 export const POINTS_PER_LETTER = 10;
 export const COMBO_STEP = 5;
 export const COMBO_MAX_MULT = 5;
 /** Popping boss n adds BOSS_BONUS × n. */
 export const BOSS_BONUS = 100;
+/** Popping the last boss ends the run there; every whole second left adds this. */
+export const TIME_BONUS_PER_S = 50;
 
 // Run limits and replay checks (used by the server, D790).
-export const RUN_CAP_MS = 1_200_000;
+/** Every run lasts this long (D812), unless the last boss is popped sooner. */
+export const RUN_CAP_MS = 180_000;
 export const SUBMIT_GRACE_MS = 60_000;
 export const EARLY_TOLERANCE_MS = 2000;
 /** A run with more than CEILING_KEYS accepted letters in any CEILING_WINDOW_MS is refused (Ruling 17). */

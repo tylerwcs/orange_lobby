@@ -53,6 +53,8 @@ const TYPED = css(LABEL_TYPED);
 const LOCK = css(LABEL_LOCK);
 const BITE = css(WARN);
 const SMALL_FONT = "clamp(15px, 2.6vmin, 22px)";
+/** The HUD top bar's bottom padding (p-3): a label may sit in it, just under the chips. */
+const HUD_PAD_PX = 8;
 const BOSS_FONT = "clamp(14px, 2.3vmin, 20px)";
 /** How fast a bubble slides out of another's way (per s). */
 const EASE = 18;
@@ -282,7 +284,9 @@ export function WordLabels({ ref }: { ref?: Ref<LabelsApi> }) {
           map.delete(id);
         }
       }
-      const placed = layoutLabels(boxes, { w, h });
+      // Below the score and the clock (the HUD's top bar, less its bottom padding).
+      const hud = host.closest("[data-game-stage]")?.querySelector<HTMLElement>("[data-hud-top]");
+      const placed = layoutLabels(boxes, { w, h, top: hud ? hud.offsetHeight - HUD_PAD_PX : 0 });
       const ease = 1 - Math.exp(-dt * EASE);
       for (const [id, at] of placed) {
         const l = map.get(id);

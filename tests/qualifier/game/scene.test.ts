@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Group, Matrix4, PerspectiveCamera, Vector3, type Mesh, type SkinnedMesh } from "three";
 import { advance, currentWord, newGame, press, type GameEvent } from "@/features/qualifier/game/engine";
-import { BOSS_FIRST_MS } from "@/features/qualifier/game/rules";
+import { BOSS_AT_MS } from "@/features/qualifier/game/rules";
 import { FIELD_DEPTH, FIELD_HALF_X, buildWorld, disposeWorld } from "@/features/qualifier/components/game/scenery";
 import { BODY_R, BODY_SY, BODY_Y, createSlimeState, disposeSlimeState, step } from "@/features/qualifier/components/game/slimeFx";
 import { parseSlimeModel, type SlimeModel } from "@/features/qualifier/components/game/slimeModel";
@@ -56,14 +56,14 @@ describe("the slimes' frame logic (D793)", { timeout: 30_000 }, () => {
       const seen = new Set<GameEvent["type"]>();
       let puddles = 0;
       let bossSeen = false;
-      for (let ms = 0; ms < BOSS_FIRST_MS + 5000 && !game.ended; ms += 1000 / 60) {
+      for (let ms = 0; ms < BOSS_AT_MS[0] + 5000 && !game.ended; ms += 1000 / 60) {
         const t = Math.round(ms);
         advance(game, t);
         // Pop each small slime once it's within 7 m, word by word; type the boss's first word.
         for (const s of [...game.slimes]) {
           if (game.ended) break;
           if (s.kind === "small" && s.distMm <= 7000) for (const c of currentWord(s).slice(s.typed)) press(game, c, t);
-          if (s.kind === "boss" && s.wordIndex === 0 && ms > BOSS_FIRST_MS + 2000) for (const c of currentWord(s).slice(s.typed)) press(game, c, t);
+          if (s.kind === "boss" && s.wordIndex === 0 && ms > BOSS_AT_MS[0] + 2000) for (const c of currentWord(s).slice(s.typed)) press(game, c, t);
         }
         const events = game.events.splice(0);
         events.forEach((e) => seen.add(e.type));
@@ -139,7 +139,7 @@ describe("the slimes' frame logic (D793)", { timeout: 30_000 }, () => {
     const low: string[] = [];
     let crowned = 0;
     let frame = 0;
-    for (let ms = 0; ms < BOSS_FIRST_MS + 8000 && !game.ended; ms += 1000 / 60) {
+    for (let ms = 0; ms < BOSS_AT_MS[0] + 8000 && !game.ended; ms += 1000 / 60) {
       const t = Math.round(ms);
       advance(game, t);
       for (const s of [...game.slimes]) {
@@ -191,7 +191,7 @@ describe("the slimes' frame logic (D793)", { timeout: 30_000 }, () => {
     const biteAt = new Map<number, number>();
     let biteStep = 0;
     let biteFrames = 0;
-    for (let ms = 0; ms < BOSS_FIRST_MS && !game.ended; ms += 1000 / 60) {
+    for (let ms = 0; ms < BOSS_AT_MS[0] && !game.ended; ms += 1000 / 60) {
       const t = Math.round(ms);
       advance(game, t);
       for (const s of [...game.slimes]) {
@@ -241,7 +241,7 @@ describe("the slimes' frame logic (D793)", { timeout: 30_000 }, () => {
     let bossStuckFrames = 0;
     let bossExploded = false;
     const bad: string[] = [];
-    for (let ms = 0; ms < BOSS_FIRST_MS + 60000 && !game.ended && !bossExploded; ms += 1000 / 60) {
+    for (let ms = 0; ms < BOSS_AT_MS[0] + 60000 && !game.ended && !bossExploded; ms += 1000 / 60) {
       const t = Math.round(ms);
       advance(game, t);
       for (const s of [...game.slimes]) {
