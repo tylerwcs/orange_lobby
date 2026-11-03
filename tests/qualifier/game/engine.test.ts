@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { newGame, advance, press, finish, currentWord, type Game } from "@/features/qualifier/game/engine";
 import {
   BOSS_AT_MS, BOSS_BONUS, BOSS_DIST_MM, BOSS_HIT, FINAL_BOSS_DIST_MM, GAP_JITTER_MS, GAP_MS, SMALL_HIT, SPEED_MAX_MM_S,
-  SPEED_START_MM_S, STICK_MS, TICK_MS, SPAWN_DIST_MM, TIME_BONUS_PER_S, lengthBand, multiplier, RUN_CAP_MS, speedAt,
+  SPEED_START_MM_S, STICK_MS, TICK_MS, SPAWN_DIST_MM, TIME_BONUS_PER_S, TWO_WORD_FROM_MS, lengthBand, multiplier,
+  RUN_CAP_MS, speedAt,
 } from "@/features/qualifier/game/rules";
 
 const [BOSS_1_MS, LAST_BOSS_MS] = BOSS_AT_MS;
@@ -59,10 +60,10 @@ describe("engine (D790)", () => {
   });
   it("slimes come on faster through the run: speed rises smoothly, in whole mm/s, to a top", () => {
     expect(speedAt(0)).toBe(SPEED_START_MM_S);
-    expect(speedAt(60_000)).toBe(2100);
-    expect(speedAt(120_000)).toBe(2700);
+    expect(speedAt(60_000)).toBe(2400);
+    expect(speedAt(120_000)).toBe(3000);
     expect(speedAt(RUN_CAP_MS)).toBe(SPEED_MAX_MM_S);
-    expect(SPEED_MAX_MM_S).toBe(3300);
+    expect(SPEED_MAX_MM_S).toBe(3600);
     let last = 0;
     for (let t = 0; t <= 500_000; t += 1000) {
       const v = speedAt(t);
@@ -81,12 +82,11 @@ describe("engine (D790)", () => {
     expect(Math.min(...gaps)).toBeGreaterThanOrEqual(GAP_MS);
     expect(Math.max(...gaps)).toBeLessThanOrEqual(GAP_MS + GAP_JITTER_MS + TICK_MS);
   });
-  it("words grow longer through the run: 3-5 letters at first, 4-8 at 1:00, 6-10 at 2:00, 7-10 from 2:40", () => {
-    expect(lengthBand(0)).toEqual([3, 5]);
-    expect(lengthBand(60_000)).toEqual([4, 8]);
-    expect(lengthBand(120_000)).toEqual([6, 10]);
-    expect(lengthBand(160_000)).toEqual([7, 10]);
-    expect(lengthBand(RUN_CAP_MS)).toEqual([7, 10]);
+  it("words grow longer through the run: 4-6 letters at first, 5-9 at 1:00, 7-12 from 2:00", () => {
+    expect(lengthBand(0)).toEqual([4, 6]);
+    expect(lengthBand(60_000)).toEqual([5, 9]);
+    expect(lengthBand(120_000)).toEqual([7, 12]);
+    expect(lengthBand(RUN_CAP_MS)).toEqual([7, 12]);
     // Every band has plenty of words, so the first letters stay varied.
     for (let t = 0; t <= 200_000; t += 10_000) {
       const [min, max] = lengthBand(t);
@@ -134,7 +134,7 @@ describe("engine (D790)", () => {
     expect(boss).toBeDefined();
     expect(boss.spawnedMs).toBe(90_000);
     expect(boss.distMm).toBe(BOSS_DIST_MM);
-    expect(boss.words.length).toBe(12);
+    expect(boss.words.length).toBe(14);
     g.score = 5000;
     let t = BOSS_1_MS, stuckAt: number | null = null;
     for (;;) {
@@ -155,7 +155,7 @@ describe("engine (D790)", () => {
     const boss = g.slimes.find((s) => s.kind === "boss" && s.spawnedMs === 165_000)!;
     expect(boss).toBeDefined();
     expect(boss.distMm).toBe(FINAL_BOSS_DIST_MM);
-    expect(boss.words.length).toBe(10);
+    expect(boss.words.length).toBe(12);
     const spawnsBefore = g.events.filter((e) => e.type === "spawn").length;
     finish(g);
     expect(g.events.filter((e) => e.type === "spawn").length).toBe(spawnsBefore);
@@ -164,6 +164,47 @@ describe("engine (D790)", () => {
     // It walked the whole way: it would bite on the very tick the run ends.
     expect(boss.distMm).toBeLessThanOrEqual(55);
     expect(boss.stuckLeftMs).toBeNull();
+  });
+  it("two-word slimes come only after TWO_WORD_FROM_MS, about one in three, and keep the lock between their words", () => {
+    const g = newGame(31);
+    keepAlive(g, 0, LAST_BOSS_MS - 1, 3000);
+    const spawned = g.events.filter((e) => e.type === "spawn").map((e) => e.t);
+    expect(spawned.length).toBeGreaterThan(40);
+    // Re-run the same seed to see each spawn's words as it appears.
+    const h = newGame(31);
+    const seen: { t: number; n: number }[] = [];
+    for (let t = 0; t < LAST_BOSS_MS && !h.ended; t += TICK_MS) {
+      const before = h.events.length;
+      advance(h, t);
+      for (const e of h.events.slice(before)) if (e.type === "spawn") seen.push({ t: e.t, n: h.slimes.find((s) => s.id === e.id)!.words.length });
+      for (const s of [...h.slimes]) if (s.kind === "small" && s.distMm <= 3000) while (h.slimes.includes(s)) typeWord(h, currentWord(s), t);
+    }
+    expect(seen.filter((x) => x.t < TWO_WORD_FROM_MS).every((x) => x.n === 1)).toBe(true);
+    const late = seen.filter((x) => x.t >= TWO_WORD_FROM_MS);
+    const pairs = late.filter((x) => x.n === 2).length;
+    expect(pairs).toBeGreaterThan(0);
+    expect(pairs).toBeLessThan(late.length);
+  });
+  it("a two-word slime: the first word keeps the lock, the second pops it, each word scores", () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      const g = newGame(seed);
+      advance(g, TWO_WORD_FROM_MS);
+      let pair;
+      for (let t = TWO_WORD_FROM_MS; t < LAST_BOSS_MS && !pair; t += TICK_MS) {
+        advance(g, t);
+        pair = g.slimes.find((s) => s.kind === "small" && s.words.length === 2 && !g.slimes.some((o) => o !== s && currentWord(o)[0] === s.words[0][0]));
+      }
+      if (!pair) continue;
+      g.score = 0; g.combo = 0;
+      const [a, b] = pair.words;
+      typeWord(g, a, g.nowMs);
+      expect(pair.wordIndex).toBe(1); expect(g.lock).toBe(pair.id); expect(g.score).toBe(a.length * 10);
+      typeWord(g, b, g.nowMs);
+      expect(g.slimes.includes(pair)).toBe(false); expect(g.lock).toBeNull();
+      expect(g.score).toBe(a.length * 10 + b.length * 10);
+      return;
+    }
+    throw new Error("no clear two-word slime in 200 seeds");
   });
   it("a completed boss word keeps the lock on the boss; one backspace with nothing typed releases it", () => {
     const g = newGame(21);

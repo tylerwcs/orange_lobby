@@ -18,13 +18,13 @@ export const SPAWN_DIST_MM = 18000;
 export const BOSS_DIST_MM = 20000;
 /**
  * A small slime's speed, set when it spawns: SPEED_START_MM_S, rising smoothly by
- * SPEED_GAIN_PER_MIN_MM_S every minute up to SPEED_MAX_MM_S. 1.5 m/s at 0:00, 2.1 at 1:00, 2.7
- * at 2:00, 3.3 at the end. This and longer words (lengthBand) are what make a run harder; slimes
- * keep spawning at the same pace.
+ * SPEED_GAIN_PER_MIN_MM_S every minute up to SPEED_MAX_MM_S. 1.8 m/s at 0:00, 2.4 at 1:00, 3.0
+ * at 2:00, 3.6 at the end (D815: a step up from 1.5-3.3). This, longer words (lengthBand) and the
+ * two-word slimes are what make a run harder; slimes keep spawning at the same pace.
  */
-export const SPEED_START_MM_S = 1500;
+export const SPEED_START_MM_S = 1800;
 export const SPEED_GAIN_PER_MIN_MM_S = 600;
-export const SPEED_MAX_MM_S = 3300;
+export const SPEED_MAX_MM_S = 3600;
 export const BOSS_SPEED_MM_S = 1100;
 /**
  * The last boss starts closer, so it reaches the player just as the run ends: 15 s at
@@ -42,8 +42,15 @@ export const MAX_SMALL = 10;
  * slime spawns after it. Small slimes also wait while a boss is out.
  */
 export const BOSS_AT_MS = [90_000, 165_000] as const;
-/** How many words boss n (1-based) carries: the last has only 15 s. */
-export const BOSS_WORDS = [12, 10] as const;
+/** How many words boss n (1-based) carries (D815): the last has only 15 s. */
+export const BOSS_WORDS = [14, 12] as const;
+
+/**
+ * From TWO_WORD_FROM_MS (after the first boss), one small slime in TWO_WORD_ONE_IN carries a
+ * two-word phrase (PHRASES) instead of a word (D815).
+ */
+export const TWO_WORD_FROM_MS = 100_000;
+export const TWO_WORD_ONE_IN = 3;
 
 export const POINTS_PER_LETTER = 10;
 export const COMBO_STEP = 5;
@@ -68,13 +75,13 @@ export const REVIEW_WINDOW_MS = 10_000;
 export const multiplier = (combo: number): number => Math.min(1 + Math.floor(combo / COMBO_STEP), COMBO_MAX_MULT);
 
 /**
- * Shortest and longest small-slime word at `elapsedMs`: words grow longer as the run goes on, the
- * longest by a letter every 20 s, the shortest every 40 s. 3-5 letters at 0:00, 4-8 at 1:00, 6-10
- * at 2:00, 7-10 from 2:40.
+ * Shortest and longest small-slime word at `elapsedMs` (D815): words grow longer as the run goes
+ * on, the longest by a letter every 20 s, the shortest every 40 s. 4-6 letters at 0:00, 5-9 at
+ * 1:00, 7-12 from 2:00.
  */
 export const lengthBand = (elapsedMs: number): [min: number, max: number] => [
-  Math.min(3 + Math.floor(elapsedMs / 40000), 7),
-  Math.min(5 + Math.floor(elapsedMs / 20000), 10),
+  Math.min(4 + Math.floor(elapsedMs / 40000), 7),
+  Math.min(6 + Math.floor(elapsedMs / 20000), 12),
 ];
 
 /** Speed of a small slime spawned at `elapsedMs`, mm/s. Integer. */

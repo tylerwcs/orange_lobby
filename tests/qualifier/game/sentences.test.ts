@@ -15,8 +15,8 @@ describe("SENTENCES (D790)", () => {
 });
 
 describe("bossSentence", () => {
-  it("gives the first boss 12 words and the last 10, exactly", () => {
-    expect([1, 2, 3].map(bossWords)).toEqual([12, 10, 10]);
+  it("gives the first boss 14 words and the last 12, exactly", () => {
+    expect([1, 2, 3].map(bossWords)).toEqual([14, 12, 12]);
     for (let n = 1; n <= 3; n++) for (let seed = 1; seed <= 20; seed++) {
       const words = bossSentence(mulberry32(seed), n);
       expect(words.length).toBe(bossWords(n));

@@ -233,6 +233,9 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     }
   }, []);
 
+  // A counted run shows its results in the game (D816); the board here catches up behind it.
+  const onScored = useCallback((answer: Extract<SubmitAnswer, { ok: true }>) => { setView(answer.view); }, []);
+
   const onExit = useCallback(() => {
     gameOn.current = false;
     resultAt.current = performance.now();
@@ -334,7 +337,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       {phase !== "unset" && phase !== "before" && <Board view={view} phase={phase} now={now} />}
 
       {stage.kind === "playing" && (
-        <SlimeGame key={stage.key} ref={overlay} token={token} start={start} submit={submit} onDone={onDone} onExit={onExit} />
+        <SlimeGame key={stage.key} ref={overlay} token={token} start={start} submit={submit} onDone={onDone} onScored={onScored} onExit={onExit} />
       )}
     </div>
   );
@@ -371,7 +374,7 @@ function Ready({ view, line, closes, closing, howto, notice, canPlay, onPlay }: 
       {closing && <p role="status" className="text-sm font-bold text-primary" suppressHydrationWarning>{closing}</p>}
       {howto && (
         <div className="text-sm text-muted-foreground">
-          <p>Type a slime&apos;s word to pop it before it reaches you. Three hits and the run is over.</p>
+          <p>Type a slime&apos;s word to pop it before it bites. You have 3 minutes, and the last boss is the final slime.</p>
           <p>Play as often as you like — your best run counts.</p>
         </div>
       )}

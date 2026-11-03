@@ -5,7 +5,7 @@ import type { Device } from "../../game/timeline";
 import { keysFromInput } from "../../game/keys";
 
 /** `device` is what the run records (best effort). */
-export type GameInputHandle = { focus(): void; focused(): boolean; device(): Device };
+export type GameInputHandle = { focus(): void; blur(): void; focused(): boolean; device(): Device };
 
 /** Inserts that are not typing: blocked outright (D767, "Paste is blocked"). */
 const BLOCKED = new Set(["insertFromPaste", "insertFromPasteAsQuotation", "insertFromDrop", "insertFromYank", "insertReplacementText"]);
@@ -43,6 +43,7 @@ export function GameInput({ onKeys, onWordBack, ref }: {
 
   useImperativeHandle(ref, () => ({
     focus: () => box.current?.focus({ preventScroll: true }),
+    blur: () => box.current?.blur(),
     focused: () => !!box.current && document.activeElement === box.current,
     device: () => deviceOf(typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches, sawPhysical.current),
   }), []);

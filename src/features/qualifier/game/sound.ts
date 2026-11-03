@@ -197,6 +197,13 @@ let mood: Mood = "title";
 let nextMood: Mood | null = null;
 let step = 0;
 let stepAt = 0;
+/** The "on fire" drum layer (D816), from the next step. */
+let fire = false;
+
+/** Turns the "on fire" drum layer on or off; it follows on the next step. */
+export function setMusicFire(on: boolean): void {
+  fire = on;
+}
 
 function playNote(c: AudioContext, dest: AudioNode, n: Note, at: number, stepS: number) {
   const f = n.midi === undefined ? 0 : hz(n.midi);
@@ -236,7 +243,7 @@ function scheduleMusic() {
     const stepS = stepSeconds(mood);
     if (!isMuted()) {
       try {
-        for (const n of scoreAt(mood, step)) playNote(c, musicOut, n, stepAt, stepS);
+        for (const n of scoreAt(mood, step, fire)) playNote(c, musicOut, n, stepAt, stepS);
       } catch {
         // A note that can't play is skipped.
       }
@@ -274,6 +281,7 @@ export function stopMusic(): void {
   if (musicTimer !== null) clearInterval(musicTimer);
   musicTimer = null;
   nextMood = null;
+  fire = false;
   if (ctx && musicOut) {
     musicOut.gain.cancelScheduledValues(ctx.currentTime);
     musicOut.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
