@@ -1,8 +1,8 @@
 // The words the small slimes carry (D767, D790): common English, lowercase a–z only, no
 // proper nouns, nothing `obscenity` flags (tests/qualifier/words.test.ts checks all of it).
 // English only, like every live game. The last lines are events and hospitality (D815): we are an
-// event agency, and so are the people playing. The very last are Ecopia's own (D818), from
-// ecopiaevents.com, its name the one proper noun.
+// event agency, and so are the people playing. The very last are Ecopia's own (D818, D820), from
+// ecopiaevents.com, its group's names (Ecopia, Echelon, Qarmakrome, Gambit) the only proper nouns.
 const LIST = `
   the of and to in is you that it he was for on are as with his they at be this from have or by
   one had not but what all were when we there can an your which their said if do will each about
@@ -114,6 +114,8 @@ const LIST = `
   clientele corporate symposium teambuilding showcase fortune solution rejuvenation creative theme
   unthinkable relentless vigilant revenue repeat decade fabrication production ticketing management
   excellence planning outdo promise experience passion dedication
+  echelon qarmakrome gambit roadshow activation carnival fulfilment projection webcast polling
+  voting staging logistics visa inbound outbound videography photography techies fast brand
 `;
 
 export const WORDS: readonly string[] = Object.freeze(LIST.split(/\s+/).filter(Boolean));
@@ -187,6 +189,14 @@ annual trip
 product launch
 stage management
 sales convention
+led wall
+online voting
+virtual event
+media launch
+brand activation
+flight tickets
+gambit creations
+contest management
 `;
 
 export const PHRASES: readonly (readonly [string, string])[] = Object.freeze(

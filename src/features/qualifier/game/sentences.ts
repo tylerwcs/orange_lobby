@@ -143,29 +143,30 @@ export const SENTENCES: readonly string[] = Object.freeze(
 );
 
 /**
- * What the bosses say (D818): Ecopia introducing itself, in lines from ecopiaevents.com, each
+ * What the bosses say (D818, D820): the Ecopia group's companies and what each does (Ecopia,
+ * Echelon, F.A.S.T, Ecopia Travel, Qarmakrome Productions), from ecopiaevents.com, each line
  * exactly 14 words (the first boss) or 12 (the last). Same rules as SENTENCES, bar the names.
  */
 const COMPANY_LIST = `
-ecopia is into paranoid planning flawless execution uncommon ideas and doing it cost effectively
-ecopia has been providing total event solutions for top companies since two thousand three
-our clients include top multinational corporations in the fortune five hundred across asia pacific
-we are strong we raise the bar and we run events around the globe
-we plan with paranoid care so that each and every event is executed flawlessly
-if the unthinkable happens we move at light speed so the show goes on
-we are particularly good at incentive trips kick off meetings conferences and gala dinners
-more than eighty percent of our revenue comes from customers who keep coming back
-some of our clients have stayed with us into their second and third decade
-welcome to the ecopia experience where paranoid planning meets flawless execution every single time
+echelon brings every event to life with sound and lights projection and led screens
+fast is our own fabrication and staging team so we never need outside suppliers
+qarmakrome productions handles our videography photography photo booths and content for every single event
+ecopia travel and ticketing books your flights visas and tours from takeoff to touchdown
+ecopia runs conventions symposiums roadshows gala dinners carnivals and incentive trips across asia pacific
+our techies at echelon are ready to fix any problem on site with speed
+with fast building in house we turn every event space into something truly spectacular
+ecopia echelon fast ecopia travel and qarmakrome together make one full service event group
+qarmakrome productions wants to be a leading creative agency and production house in malaysia
+from the first idea to the last guest ecopia takes care of every detail
+echelon makes sure the sound and lights never break your big event
+fast builds the stages props and interactive gadgets right in our workshop
+qarmakrome films and photographs every moment so nobody ever forgets your event
+ecopia travel finds you the best flights and hotels for every budget
+ecopia turns what our clients wish for into an event they remember
+five companies one big team and every event done the ecopia way
+echelon runs the webcasts live polls and led walls at our events
 we are ecopia we are strong and we always raise the bar
-our aim is to outdo every single event we have ever done
-paranoid optimism is in our dna and it shows at every event
-we elevate and amplify events to the next level every single time
-since two thousand three we have run more than six thousand events
-we stay fresh by learning new things and chasing the latest ideas
-our team of over one hundred people runs events across asia pacific
-we never take a promise lightly and our clients keep coming back
-welcome to the ecopia experience where every uncommon idea comes to life
+qarmakrome brings the photo booth the cameras and all the entertainment too
 `;
 
 export const COMPANY: readonly string[] = Object.freeze(

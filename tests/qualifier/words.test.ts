@@ -18,6 +18,9 @@ describe("WORDS", () => {
   it("includes Ecopia's own words and phrases (D818)", () => {
     for (const w of ["ecopia", "paranoid", "flawless", "uncommon", "incentive"]) expect(WORDS).toContain(w);
     expect(PHRASES.map((p) => p.join(" "))).toContain("paranoid planning");
+    // The group's companies and services (D820).
+    for (const w of ["echelon", "qarmakrome", "gambit", "roadshow", "webcast"]) expect(WORDS).toContain(w);
+    expect(PHRASES.map((p) => p.join(" "))).toContain("led wall");
   });
 });
 
