@@ -14,6 +14,11 @@ describe("WORDS", () => {
   it("includes the event and hospitality words (D815)", () => {
     for (const w of ["venue", "lanyard", "registration", "hospitality", "photographer"]) expect(WORDS).toContain(w);
   });
+
+  it("includes Ecopia's own words and phrases (D818)", () => {
+    for (const w of ["ecopia", "paranoid", "flawless", "uncommon", "incentive"]) expect(WORDS).toContain(w);
+    expect(PHRASES.map((p) => p.join(" "))).toContain("paranoid planning");
+  });
 });
 
 describe("PHRASES", () => {
