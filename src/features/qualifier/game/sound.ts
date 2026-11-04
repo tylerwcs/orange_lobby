@@ -6,7 +6,7 @@ import { hz, scoreAt, stepSeconds, STEPS_PER_BAR, type Mood, type Note } from ".
 
 export type Sfx =
   | "pop" | "splat" | "hit" | "boss" | "wrong" | "bite"
-  | "type" | "combo" | "count" | "go" | "bossDown" | "timeup" | "win";
+  | "type" | "combo" | "count" | "go" | "bossDown" | "timeup" | "win" | "star" | "starCaught";
 
 const MUTE_KEY = "qualifier-muted";
 /** Effects' loudness: they sit under whatever else the phone is playing. */
@@ -177,6 +177,13 @@ export function sfx(kind: Sfx): void {
       case "timeup": // the clock ran out: a buzzer, then three falling notes
         tone(c, out, at, "square", 220, 220, 0.5, 0.18);
         jingle(c, out, at + 0.55, "triangle", [67, 64, 60], 0.22, 0.25, 0.3);
+        break;
+      case "star": // the bonus star appears: a twinkle up and down (D819)
+        jingle(c, out, at, "sine", [91, 96, 100, 103, 100, 96], 0.06, 0.12, 0.22);
+        break;
+      case "starCaught": // the star caught: a bright cascade, then a chord
+        jingle(c, out, at, "triangle", [84, 88, 91, 96, 100, 103, 108], 0.05, 0.1, 0.28);
+        jingle(c, out, at + 0.38, "triangle", [96, 100, 103], 0, 0.6, 0.18);
         break;
       case "win": // the last boss popped: a fanfare up to a held top note, after its splat
         jingle(c, out, at + 0.25, "triangle", [72, 76, 79, 84, 88, 91], 0.1, 0.13, 0.32);

@@ -52,6 +52,20 @@ export const BOSS_WORDS = [14, 12] as const;
 export const TWO_WORD_FROM_MS = 100_000;
 export const TWO_WORD_ONE_IN = 3;
 
+/**
+ * The bonus star (D819): one a run, a gold slime saying "cs handsome", out at a moment between
+ * STAR_FROM_MS and STAR_FROM_MS + STAR_WINDOW_MS that the seed picks (`starAt`), before the first
+ * boss. It comes faster than the rest. Typed in time, it pays STAR_BONUS on top of its letters;
+ * if it reaches the player it just gets away: no bite, no points lost.
+ */
+export const STAR_WORDS = ["cs", "handsome"] as const;
+export const STAR_FROM_MS = 30_000;
+export const STAR_WINDOW_MS = 50_000;
+export const STAR_SPEED_MM_S = 3000;
+export const STAR_BONUS = 1000;
+/** When run `seed`'s star comes out: on a tick inside the window, without drawing on the run's randomness. */
+export const starAt = (seed: number): number => STAR_FROM_MS + ((seed >>> 0) % (STAR_WINDOW_MS / TICK_MS)) * TICK_MS;
+
 export const POINTS_PER_LETTER = 10;
 export const COMBO_STEP = 5;
 export const COMBO_MAX_MULT = 5;

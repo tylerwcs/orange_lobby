@@ -1,7 +1,8 @@
 // The words the small slimes carry (D767, D790): common English, lowercase a–z only, no
 // proper nouns, nothing `obscenity` flags (tests/qualifier/words.test.ts checks all of it).
 // English only, like every live game. The last lines are events and hospitality (D815): we are an
-// event agency, and so are the people playing.
+// event agency, and so are the people playing. The very last are Ecopia's own (D818), from
+// ecopiaevents.com, its name the one proper noun.
 const LIST = `
   the of and to in is you that it he was for on are as with his they at be this from have or by
   one had not but what all were when we there can an your which their said if do will each about
@@ -109,6 +110,10 @@ const LIST = `
   gown corsage bouquet florist hostess waiter waitress bartender sommelier chef pastry canapes
   appetizer entree platter toast speech encore curtain backstage greenroom ushers wristband clicker
   countdown
+  ecopia paranoid flawless execution uncommon optimism elevate amplify incentive convention dealer
+  clientele corporate symposium teambuilding showcase fortune solution rejuvenation creative theme
+  unthinkable relentless vigilant revenue repeat decade fabrication production ticketing management
+  excellence planning outdo promise experience passion dedication
 `;
 
 export const WORDS: readonly string[] = Object.freeze(LIST.split(/\s+/).filter(Boolean));
@@ -168,6 +173,20 @@ vip table
 wrap party
 quiz night
 thank you
+paranoid planning
+flawless execution
+uncommon ideas
+incentive trip
+repeat business
+light speed
+next level
+ecopia experience
+creative themes
+fun run
+annual trip
+product launch
+stage management
+sales convention
 `;
 
 export const PHRASES: readonly (readonly [string, string])[] = Object.freeze(

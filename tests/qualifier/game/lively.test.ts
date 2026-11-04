@@ -85,8 +85,9 @@ describe("points on events and the run's stats (D816)", () => {
 
   it("statsOf: accuracy is right letters of all typed, words a minute counts five letters a word", () => {
     const base = { popped: 30, bosses: 1, bestCombo: 17, cleared: false, timeBonus: 0 };
-    expect(statsOf({ ...base, letters: 900, misses: 100 }, 180_000)).toEqual({ ...base, accuracy: 90, wpm: 60 });
-    expect(statsOf({ ...base, letters: 0, misses: 0 }, 180_000)).toMatchObject({ accuracy: 0, wpm: 0 });
-    expect(statsOf({ ...base, letters: 10, misses: 0 }, 0)).toMatchObject({ accuracy: 100, wpm: 0 });
+    const counts = { ...base, stars: 1 };
+    expect(statsOf({ ...counts, letters: 900, misses: 100 }, 180_000)).toEqual({ ...base, star: true, accuracy: 90, wpm: 60 });
+    expect(statsOf({ ...counts, letters: 0, misses: 0 }, 180_000)).toMatchObject({ accuracy: 0, wpm: 0 });
+    expect(statsOf({ ...counts, letters: 10, misses: 0 }, 0)).toMatchObject({ accuracy: 100, wpm: 0 });
   });
 });

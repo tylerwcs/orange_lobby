@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from "obscenity";
-import { SENTENCES, bossSentence, bossWords } from "@/features/qualifier/game/sentences";
+import { COMPANY, SENTENCES, bossSentence, bossWords } from "@/features/qualifier/game/sentences";
 import { mulberry32 } from "@/features/qualifier/game/rng";
 
 describe("SENTENCES (D790)", () => {
@@ -14,7 +14,27 @@ describe("SENTENCES (D790)", () => {
   });
 });
 
+describe("COMPANY (D818)", () => {
+  it("is Ecopia's introduction: distinct lowercase lines of exactly 14 or 12 words, nothing offensive", () => {
+    expect(COMPANY.filter((s) => !/^[a-z]+( [a-z]+)*$/.test(s))).toEqual([]);
+    expect(new Set(COMPANY).size).toBe(COMPANY.length);
+    const lengths = COMPANY.map((s) => s.split(" ").length);
+    expect(lengths.filter((n) => n !== 14 && n !== 12)).toEqual([]);
+    expect(lengths.filter((n) => n === 14).length).toBeGreaterThanOrEqual(8);
+    expect(lengths.filter((n) => n === 12).length).toBeGreaterThanOrEqual(8);
+    expect(COMPANY.some((s) => s.includes("ecopia"))).toBe(true);
+    const m = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
+    expect(COMPANY.filter((s) => m.hasMatch(s))).toEqual([]);
+  });
+});
+
 describe("bossSentence", () => {
+  it("reads one of Ecopia's lines (D818)", () => {
+    for (let n = 1; n <= 2; n++) for (let seed = 1; seed <= 20; seed++) {
+      expect(COMPANY).toContain(bossSentence(mulberry32(seed), n).join(" "));
+    }
+  });
+
   it("gives the first boss 14 words and the last 12, exactly", () => {
     expect([1, 2, 3].map(bossWords)).toEqual([14, 12, 12]);
     for (let n = 1; n <= 3; n++) for (let seed = 1; seed <= 20; seed++) {

@@ -1,5 +1,6 @@
 // Boss sentences of the slime game (D790): original everyday English, lowercase a–z and single
 // spaces, no proper nouns, nothing `obscenity` flags (tests/qualifier/game/sentences.test.ts).
+// The bosses now read Ecopia's introduction (COMPANY, D818); these stay as the fallback.
 import { randInt } from "./rng";
 import { BOSS_WORDS } from "./rules";
 
@@ -141,6 +142,36 @@ export const SENTENCES: readonly string[] = Object.freeze(
   LIST.split("\n").map((s) => s.trim()).filter(Boolean),
 );
 
+/**
+ * What the bosses say (D818): Ecopia introducing itself, in lines from ecopiaevents.com, each
+ * exactly 14 words (the first boss) or 12 (the last). Same rules as SENTENCES, bar the names.
+ */
+const COMPANY_LIST = `
+ecopia is into paranoid planning flawless execution uncommon ideas and doing it cost effectively
+ecopia has been providing total event solutions for top companies since two thousand three
+our clients include top multinational corporations in the fortune five hundred across asia pacific
+we are strong we raise the bar and we run events around the globe
+we plan with paranoid care so that each and every event is executed flawlessly
+if the unthinkable happens we move at light speed so the show goes on
+we are particularly good at incentive trips kick off meetings conferences and gala dinners
+more than eighty percent of our revenue comes from customers who keep coming back
+some of our clients have stayed with us into their second and third decade
+welcome to the ecopia experience where paranoid planning meets flawless execution every single time
+we are ecopia we are strong and we always raise the bar
+our aim is to outdo every single event we have ever done
+paranoid optimism is in our dna and it shows at every event
+we elevate and amplify events to the next level every single time
+since two thousand three we have run more than six thousand events
+we stay fresh by learning new things and chasing the latest ideas
+our team of over one hundred people runs events across asia pacific
+we never take a promise lightly and our clients keep coming back
+welcome to the ecopia experience where every uncommon idea comes to life
+`;
+
+export const COMPANY: readonly string[] = Object.freeze(
+  COMPANY_LIST.split("\n").map((s) => s.trim()).filter(Boolean),
+);
+
 const wordsOf = (s: string) => s.split(" ");
 
 /** Words boss `n` (1-based) carries (D812, D815): BOSS_WORDS, 14 then 12; the last count for any later one. */
@@ -148,12 +179,13 @@ export const bossWords = (n: number): number => BOSS_WORDS[Math.min(Math.max(n, 
 
 /**
  * The sentence boss `n` (1-based) carries: exactly `bossWords(n)` words, so the last boss fits its
- * 15 s. Picks among the sentences that long; when none is, joins random sentences until the words
- * are enough.
+ * 15 s. Picks among Ecopia's lines that long (D818), else among the everyday sentences that long;
+ * when none is, joins random sentences until the words are enough.
  */
 export function bossSentence(r: () => number, n: number): string[] {
   const need = bossWords(n);
-  const fit = SENTENCES.filter((s) => wordsOf(s).length === need);
+  const company = COMPANY.filter((s) => wordsOf(s).length === need);
+  const fit = company.length > 0 ? company : SENTENCES.filter((s) => wordsOf(s).length === need);
   if (fit.length > 0) return wordsOf(fit[randInt(r, fit.length)]);
   const words: string[] = [];
   while (words.length < need) words.push(...wordsOf(SENTENCES[randInt(r, SENTENCES.length)]));

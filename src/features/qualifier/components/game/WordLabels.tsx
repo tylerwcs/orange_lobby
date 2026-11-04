@@ -3,8 +3,8 @@ import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { Vector3, type Camera } from "three";
 import type { Slime } from "../../game/engine";
 import { layoutLabels, type LabelBox } from "../../game/labels";
-import { BITE_BG, HEALTH, HEALTH_TRACK, LABEL_BG, LABEL_INK, LABEL_LOCK, LABEL_TYPED, WARN, css, slimeColour } from "../../game/palette";
-import { STICK_MS } from "../../game/rules";
+import { BITE_BG, CROWN_GOLD, HEALTH, HEALTH_TRACK, LABEL_BG, LABEL_INK, LABEL_LOCK, LABEL_TYPED, STAR, WARN, css, slimeColour } from "../../game/palette";
+import { STAR_BONUS, STICK_MS } from "../../game/rules";
 import type { Head } from "./slimeFx";
 
 /**
@@ -19,6 +19,8 @@ import type { Head } from "./slimeFx";
  * turns red under a "BITING!" tag, pulses, and drains a bar as its 3 s run out; and the edge of
  * the screen on its side glows red, pulsing faster as the bite nears (a slime biting from out of
  * view, on a narrow phone, still shows).
+ *
+ * The bonus star's bubble (D819) is gold under a "★ BONUS" tag, and says its "cs" as "CS".
  *
  * A word typed shows its points rising off the bubble in the slime's colour ("+60", `float`,
  * D816), from where the bubble last was: the scene floats them before the bubbles update.
@@ -84,15 +86,19 @@ function wordSpans(word: string, typed: number): HTMLSpanElement[] {
   return out;
 }
 
+/** A word as its bubble shows it: the star's "cs" is a name, CS (typed the same, any case). */
+const shown = (s: Slime, w: string) => (s.kind === "star" && w === "cs" ? "CS" : w);
+
 /** Fills `el` with the slime's bubble; returns the bubble and, while it bites, its draining bar. */
 function build(el: HTMLDivElement, s: Slime, locked: boolean, viewW: number): { pill: HTMLDivElement; bite: HTMLDivElement | null } {
   el.replaceChildren();
   const boss = s.kind === "boss";
+  const star = s.kind === "star";
   const biting = s.stuckLeftMs !== null;
-  const edge = biting ? BITE : locked ? LOCK : INK;
+  const edge = biting ? BITE : locked ? LOCK : star ? css(CROWN_GOLD) : INK;
   const pill = document.createElement("div");
   Object.assign(pill.style, {
-    background: biting ? css(BITE_BG, 0.97) : css(LABEL_BG, 0.95),
+    background: biting ? css(BITE_BG, 0.97) : star ? css(STAR, 0.97) : css(LABEL_BG, 0.95),
     border: `${biting ? 4 : 3}px solid ${edge}`,
     borderRadius: boss ? "16px" : "999px",
     padding: boss ? "0.35em 0.7em 0.45em" : "0.12em 0.65em 0.18em",
@@ -105,6 +111,7 @@ function build(el: HTMLDivElement, s: Slime, locked: boolean, viewW: number): { 
     textAlign: "center",
     boxShadow: biting
       ? `0 0 0 5px ${css(WARN, 0.3)}, 0 0 22px ${css(WARN, 0.55)}`
+      : star ? `0 0 0 4px ${css(STAR, 0.35)}, 0 0 24px ${css(STAR, 0.8)}`
       : locked ? `0 0 0 4px ${css(LABEL_LOCK, 0.22)}, 0 3px 0 ${css(LABEL_INK, 0.22)}` : `0 3px 0 ${css(LABEL_INK, 0.22)}`,
     transform: locked ? "scale(1.12)" : "none",
     transformOrigin: "50% 100%",
@@ -118,15 +125,23 @@ function build(el: HTMLDivElement, s: Slime, locked: boolean, viewW: number): { 
       background: BITE, color: css(LABEL_BG), fontSize: "clamp(11px, 1.8vmin, 15px)", letterSpacing: "0.08em",
     } satisfies Partial<CSSStyleDeclaration>);
     el.append(tag);
+  } else if (star) {
+    const tag = document.createElement("div");
+    tag.textContent = `★ BONUS +${STAR_BONUS.toLocaleString("en-US")}`;
+    Object.assign(tag.style, {
+      alignSelf: "center", marginBottom: "4px", padding: "0.1em 0.6em", borderRadius: "999px",
+      background: css(LABEL_INK), color: css(STAR), fontSize: "clamp(11px, 1.8vmin, 15px)", letterSpacing: "0.08em",
+    } satisfies Partial<CSSStyleDeclaration>);
+    el.append(tag);
   }
 
   if (!boss) {
     // A two-word slime: the word done struck through, the next one faded.
     s.words.forEach((w, i) => {
       if (i > 0) pill.append(" ");
-      if (i < s.wordIndex) pill.append(span(w, TYPED, { opacity: "0.45", textDecoration: "line-through" }));
-      else if (i > s.wordIndex) pill.append(span(w, INK, { opacity: "0.6" }));
-      else pill.append(...wordSpans(w, s.typed));
+      if (i < s.wordIndex) pill.append(span(shown(s, w), TYPED, { opacity: "0.45", textDecoration: "line-through" }));
+      else if (i > s.wordIndex) pill.append(span(shown(s, w), INK, { opacity: "0.6" }));
+      else pill.append(...wordSpans(shown(s, w), s.typed));
     });
   } else {
     const text = document.createElement("div");
@@ -278,7 +293,7 @@ export function WordLabels({ ref }: { ref?: Ref<LabelsApi> }) {
           host.append(el);
           l = {
             el, pill: null, bite: null, scale: 1, pulse: 0, key: "", w: 0, h: 0, ox: 0, oy: 0, placed: false, z: -1, shown: true,
-            color: css(slimeColour(s.look, s.id)), at: null,
+            color: css(s.kind === "star" ? CROWN_GOLD : slimeColour(s.look, s.id)), at: null,
           };
           map.set(s.id, l);
         }

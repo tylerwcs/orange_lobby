@@ -7,10 +7,10 @@ import {
   type BufferGeometry, type Camera, type Material, type SkinnedMesh,
 } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { Game, GameEvent, Slime } from "../../game/engine";
-import { BLASTER_TRIM, CROWN_GOLD, HORN, PUPIL, SHADOW, SLIMES, SLIME_SHADE, TEETH, TONGUE, WARN, slimeColour } from "../../game/palette";
+import { speedOf, type Game, type GameEvent, type Slime } from "../../game/engine";
+import { BLASTER_TRIM, CROWN_GOLD, HORN, PUPIL, SHADOW, SLIMES, SLIME_SHADE, STAR, TEETH, TONGUE, WARN, slimeColour } from "../../game/palette";
 import type { Quality } from "../../game/quality";
-import { BOSS_SPEED_MM_S, STICK_MS, TICK_MS, speedAt } from "../../game/rules";
+import { STICK_MS, TICK_MS } from "../../game/rules";
 import type { SlimeModel } from "./slimeModel";
 
 export type SceneFrame = {
@@ -70,7 +70,9 @@ const hash01 = (id: number, salt: number) => {
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const easeOutBack = (k: number) => 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2;
 
-const sizeOf = (s: Slime) => (s.kind === "boss" ? BOSS_SIZE : 0.85 + hash01(s.id, 1) * 0.3);
+const sizeOf = (s: Slime) => (s.kind === "boss" ? BOSS_SIZE : s.kind === "star" ? 0.9 : 0.85 + hash01(s.id, 1) * 0.3);
+/** The star's glitter: a few gold drops off it this often, s. */
+const SPARKLE_S = 0.12;
 /** How much a stuck slime has swelled when its 3 s run out. */
 const SWELL = 0.3;
 /** A stuck slime's squash never goes below this, so its body is never wider than 1/√0.76 ≈ 1.15 × its radius. */
@@ -147,7 +149,7 @@ function makeKit(quality: Quality, model: SlimeModel): Kit {
     quality,
     model,
     geo,
-    shade: new Map(SLIMES.map((c) => [c, matte(new Color(c).multiplyScalar(SLIME_SHADE).getHex(), 0.55)])),
+    shade: new Map([...SLIMES, STAR].map((c) => [c, matte(new Color(c).multiplyScalar(SLIME_SHADE).getHex(), 0.55)])),
     parts: { Eyes: new MeshStandardMaterial({ color: PUPIL, roughness: 0.2 }), Horns: matte(HORN), Teeth: matte(TEETH, 0.4), Tongue: matte(TONGUE, 0.5) },
     shadow: new MeshBasicMaterial({ color: SHADOW, transparent: true, opacity: full ? 0.12 : 0.2, depthWrite: false }),
     gold: new MeshStandardMaterial({ color: CROWN_GOLD, flatShading: true, roughness: 0.35, metalness: 0.3 }),
@@ -180,6 +182,10 @@ type Clip = keyof SlimeModel["clips"];
 type View = {
   id: number;
   boss: boolean;
+  /** The bonus star (D819): gold, glowing and glittering. */
+  star: boolean;
+  /** Render time of its next glitter. */
+  sparkleAt: number;
   color: number;
   size: number;
   root: Group;
@@ -224,7 +230,8 @@ function mesh(geo: BufferGeometry, mat: Material, x: number, y: number, z: numbe
 
 function makeView(k: Kit, s: Slime): View {
   const boss = s.kind === "boss";
-  const color = slimeColour(s.look, s.id);
+  const star = s.kind === "star";
+  const color = star ? STAR : slimeColour(s.look, s.id);
   const skin = skinMaterial(k, color);
   const model = cloneSkinned(k.model.scene) as Group;
   model.scale.setScalar(MODEL_SCALE);
@@ -271,9 +278,9 @@ function makeView(k: Kit, s: Slime): View {
   const root = new Group();
   root.add(body, shadow);
   return {
-    id: s.id, boss, color, size: sizeOf(s), root, body, model, shadow, skin, mixer, actions,
+    id: s.id, boss, star, sparkleAt: 0, color, size: sizeOf(s), root, body, model, shadow, skin, mixer, actions,
     bodyBone: model.getObjectByName("Body") ?? null,
-    period: boss ? 1.5 : 0.62 + hash01(s.id, 2) * 0.22,
+    period: boss ? 1.5 : star ? 0.45 : 0.62 + hash01(s.id, 2) * 0.22,
     phase: hash01(s.id, 3),
     hop: boss ? WALK_LIFT : JUMP_LIFT,
     jiggle: 0, biteS: 0, wobble: 0, warnPh: 0, slime: s, poppedAt: null, scale: 1,
@@ -383,7 +390,7 @@ function removeView(st: SlimeState, v: View) {
 
 function burst(st: SlimeState, v: View, t: number) {
   const c = centreOf(v, new Vector3());
-  spray(st, c, v.color, v.boss ? 44 : 18, v.size, t);
+  spray(st, c, v.color, v.boss || v.star ? 44 : 18, v.size, t);
   puddle(st, c.x, c.z, v.color, v.boss ? v.size * 1.1 : v.size, t);
   removeView(st, v);
 }
@@ -413,6 +420,11 @@ function onEvent(st: SlimeState, e: GameEvent, f: SceneFrame) {
     case "stick":
       v.jiggle = 0.6; // a soft landing: the bite itself is slow
       return;
+    case "escape":
+      // The star got away: a puff of glitter, and it's gone.
+      spray(st, centreOf(v, new Vector3()), v.color, 24, 0.8, f.t);
+      removeView(st, v);
+      return;
     case "explode": {
       // Goo at the screen.
       const at = centreOf(v, new Vector3());
@@ -429,7 +441,7 @@ function animate(v: View, s: Slime, f: SceneFrame, locked: boolean): Head {
   const { t, dt, runMs, game } = f;
   const since = Math.max(0, Math.min(TICK_MS * 2, runMs - game.nowMs));
   const stuck = s.stuckLeftMs !== null;
-  const speed = s.kind === "boss" ? BOSS_SPEED_MM_S : speedAt(s.spawnedMs);
+  const speed = speedOf(s);
   const d = stuck ? 0 : Math.max(0, s.distMm - (speed * since) / 1000) / 1000;
   let dist = visualDist(d, v.size, v.boss);
   /** 0..1 through the 3 s stuck. */
@@ -485,7 +497,8 @@ function animate(v: View, s: Slime, f: SceneFrame, locked: boolean): Head {
   // A stuck slime pulses warmer and faster as its 3 s run out.
   const warn = stuck ? (0.5 + 0.5 * Math.sin(v.warnPh)) * k : 0;
   v.skin.emissive.setHex(v.color).lerp(tmpColor.setHex(WARN), warn);
-  v.skin.emissiveIntensity = 0.08 + warn * 0.55;
+  // The star glows, pulsing.
+  v.skin.emissiveIntensity = v.star ? 0.16 + 0.1 * Math.sin(t * 9) : 0.08 + warn * 0.55;
 
   // The label hangs steady above the top of the hop, so the word doesn't bounce.
   const lift = stuck ? 0.25 * k : 0;
@@ -522,6 +535,10 @@ export function step(st: SlimeState, f: SceneFrame, events: readonly GameEvent[]
       continue;
     }
     st.heads.set(v.id, animate(v, v.slime, f, game.lock === v.id));
+    if (v.star && t >= v.sparkleAt) {
+      spray(st, centreOf(v, new Vector3()).add(tmp.set(0, 0.35 * v.scale, 0)), STAR, 2, 0.35, t);
+      v.sparkleAt = t + SPARKLE_S;
+    }
   }
   // 4. Delayed effects, shots, droplets, puddles.
   for (let i = st.later.length - 1; i >= 0; i--) {

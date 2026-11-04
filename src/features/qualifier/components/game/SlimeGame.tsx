@@ -10,7 +10,7 @@ import type { QualifierView } from "../../view";
 import { isNewBest, placeLine } from "../../screen";
 import { advance, currentWord, newGame, press, type Game, type GameEvent } from "../../game/engine";
 import { perfOrigin } from "../../game/keys";
-import { FIRE_HOT, LABEL_INK, SKY, SLIMES, TITLE_INK, WARN, css } from "../../game/palette";
+import { FIRE_HOT, LABEL_INK, SKY, SLIMES, STAR, TITLE_INK, WARN, css } from "../../game/palette";
 import { clearPending, savePending, settle } from "../../game/pending";
 import { hasWebGL, qualityOf } from "../../game/quality";
 import type { RunResult } from "../../game/replay";
@@ -214,8 +214,8 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
   const [slow, setSlow] = useState(false);
   const [sceneLoaded, setSceneLoaded] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
-  /** The boss banner sweeping across (D816); `n` restarts it. */
-  const [banner, setBanner] = useState<{ final: boolean; n: number } | null>(null);
+  /** The banner sweeping across, for a boss (D816) or the bonus star (D819); `n` restarts it. */
+  const [banner, setBanner] = useState<{ kind: BannerKind; n: number } | null>(null);
   /**
    * Each run draws in a fresh scene (D816): Play again starts the next run in this overlay, and a
    * new game numbers its slimes from 1 again, so nothing of the last run's slimes may linger.
@@ -231,6 +231,7 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
   const input = useRef<GameInputHandle>(null);
   const flash = useRef<HTMLDivElement>(null);
   const bossIds = useRef(new Set<number>());
+  const starIds = useRef(new Set<number>());
   /** The scene is loaded and healthy, so it drains `game.events` (R11). */
   const sceneDrains = useRef(false);
   const started = useRef(false);
@@ -279,9 +280,14 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
       const final = game.current?.bossDueMs === null;
       sfx("boss");
       playMusic(final ? "final" : "boss");
-      setBanner({ final, n: e.t });
+      setBanner({ kind: final ? "final" : "boss", n: e.t });
+    } else if (e.type === "star") {
+      if (e.id !== undefined) starIds.current.add(e.id);
+      sfx("star");
+      setBanner({ kind: "star", n: e.t });
     } else if (e.type === "pop") {
-      if (e.id !== undefined && bossIds.current.has(e.id)) {
+      if (e.id !== undefined && starIds.current.has(e.id)) sfx("starCaught");
+      else if (e.id !== undefined && bossIds.current.has(e.id)) {
         sfx("splat");
         // The last boss: the win fanfare plays as the run ends instead.
         if (!game.current?.cleared) sfx("bossDown");
@@ -373,6 +379,7 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
     runId.current = answer.runId;
     origin.current = o;
     bossIds.current.clear();
+    starIds.current.clear();
     finishing.current = false;
     setBanner(null);
     if (again) setRunNo((n) => n + 1);
@@ -604,7 +611,7 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
         {gl && <GameInput ref={input} onKeys={onKeys} onWordBack={onWordBack} />}
 
         {playing && <GameHud hud={hud} muted={muted} onMute={toggleMute} />}
-        {stage.kind === "run" && banner && <BossBanner key={banner.n} final={banner.final} />}
+        {stage.kind === "run" && banner && <Banner key={banner.n} kind={banner.kind} />}
         {/* Fireworks for beating the last boss, from the end through the results; confetti for a new best. */}
         {cleared && <Celebrate kind="fireworks" />}
         {stage.kind === "done" && stage.newBest && <Celebrate kind="confetti" />}
@@ -714,10 +721,17 @@ function End({ cleared, bonus }: { cleared: boolean; bonus: number }) {
 }
 
 /**
- * A boss arrives (D816): a striped band sweeps in across the screen with "BOSS INCOMING!" (or
+ * A boss arrives (D816), or the bonus star (D819, "★ BONUS STAR! ★" in gold): a striped band sweeps in across the screen with "BOSS INCOMING!" (or
  * "FINAL BOSS!"), holds a moment and sweeps out. Fades instead with reduced motion.
  */
-function BossBanner({ final }: { final: boolean }) {
+type BannerKind = "boss" | "final" | "star";
+const BANNER: Record<BannerKind, { ink: number; text: string }> = {
+  boss: { ink: WARN, text: "BOSS INCOMING!" },
+  final: { ink: FIRE_HOT, text: "FINAL BOSS!" },
+  star: { ink: STAR, text: "★ BONUS STAR! ★" },
+};
+
+function Banner({ kind }: { kind: BannerKind }) {
   const band = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -733,7 +747,7 @@ function BossBanner({ final }: { final: boolean }) {
       { duration: 2200, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "both" },
     );
   }, []);
-  const ink = final ? FIRE_HOT : WARN;
+  const { ink, text } = BANNER[kind];
   return (
     <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[38%] flex justify-center overflow-hidden py-6">
       <div ref={band} className="w-[120%] py-3 text-center font-game text-5xl leading-none tracking-wide sm:text-7xl"
@@ -742,7 +756,7 @@ function BossBanner({ final }: { final: boolean }) {
           color: css(TITLE_INK), WebkitTextStroke: `5px ${css(LABEL_INK)}`, paintOrder: "stroke fill",
           boxShadow: `0 6px 0 ${css(LABEL_INK, 0.25)}`, opacity: 0,
         }}>
-        {final ? "FINAL BOSS!" : "BOSS INCOMING!"}
+        {text}
       </div>
     </div>
   );
