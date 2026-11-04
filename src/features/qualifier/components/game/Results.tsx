@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LABEL_INK, TITLE_INK, css } from "../../game/palette";
 import { points } from "../../screen";
+import { STAR_BONUS } from "../../game/rules";
 
 /** What the player did in a run, for the results (D816). */
 export type RunStats = {
@@ -15,13 +16,15 @@ export type RunStats = {
   wpm: number;
   cleared: boolean;
   timeBonus: number;
+  /** The bonus star was caught (D819). */
+  star: boolean;
 };
 
 /** The stats from a finished run's counts. */
-export function statsOf(g: { popped: number; bosses: number; bestCombo: number; letters: number; misses: number; cleared: boolean; timeBonus: number }, endedMs: number): RunStats {
+export function statsOf(g: { popped: number; bosses: number; stars: number; bestCombo: number; letters: number; misses: number; cleared: boolean; timeBonus: number }, endedMs: number): RunStats {
   const typed = g.letters + g.misses;
   return {
-    popped: g.popped, bosses: g.bosses, bestCombo: g.bestCombo, cleared: g.cleared, timeBonus: g.timeBonus,
+    popped: g.popped, bosses: g.bosses, bestCombo: g.bestCombo, cleared: g.cleared, timeBonus: g.timeBonus, star: g.stars > 0,
     accuracy: typed === 0 ? 0 : Math.round((g.letters / typed) * 100),
     wpm: endedMs <= 0 ? 0 : Math.round(g.letters / 5 / (endedMs / 60_000)),
   };
@@ -59,7 +62,7 @@ export function Results({ score, newBest, line, stats, onPlayAgain, onBack }: {
   }, [score]);
 
   const tiles: [string, string][] = [
-    ["Slimes popped", String(stats.popped + stats.bosses)],
+    ["Slimes popped", String(stats.popped + stats.bosses + (stats.star ? 1 : 0))],
     ["Best combo", String(stats.bestCombo)],
     ["Accuracy", `${stats.accuracy}%`],
     ["Words a minute", String(stats.wpm)],
@@ -78,6 +81,7 @@ export function Results({ score, newBest, line, stats, onPlayAgain, onBack }: {
         {stats.cleared && stats.timeBonus > 0 && (
           <p className="font-game text-lg text-primary tabular-nums">includes +{points(stats.timeBonus)} time bonus</p>
         )}
+        {stats.star && <p className="font-game text-lg text-primary tabular-nums">★ Caught the bonus star: +{points(STAR_BONUS)}</p>}
       </div>
       <p className="font-game text-2xl leading-tight">{line}</p>
       <dl className="grid w-full grid-cols-2 gap-2">

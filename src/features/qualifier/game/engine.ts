@@ -6,14 +6,15 @@ import { mulberry32, randInt } from "./rng";
 import { bossSentence } from "./sentences";
 import {
   BOSS_AT_MS, BOSS_BONUS, BOSS_DIST_MM, BOSS_HIT, BOSS_SPEED_MM_S, FINAL_BOSS_DIST_MM, GAP_JITTER_MS, GAP_MS, MAX_SMALL,
-  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, STICK_MS, TICK_MS, TIME_BONUS_PER_S, TWO_WORD_FROM_MS,
-  TWO_WORD_ONE_IN, lengthBand,
-  multiplier, speedAt,
+  POINTS_PER_LETTER, RUN_CAP_MS, SMALL_HIT, SPAWN_DIST_MM, STAR_BONUS, STAR_SPEED_MM_S, STAR_WORDS, STICK_MS, TICK_MS,
+  TIME_BONUS_PER_S, TWO_WORD_FROM_MS, TWO_WORD_ONE_IN, lengthBand,
+  multiplier, speedAt, starAt,
 } from "./rules";
 
 export type Slime = {
   id: number;
-  kind: "small" | "boss";
+  /** "star": the run's one bonus star (D819). */
+  kind: "small" | "boss" | "star";
   /** One word for a small slime (two, a phrase, late in the run); a boss's sentence, word by word. */
   words: string[];
   wordIndex: number;
@@ -31,10 +32,11 @@ export type Slime = {
 
 export type GameEvent = {
   t: number;
-  type: "spawn" | "letter" | "wrong" | "word" | "pop" | "stick" | "explode" | "boss" | "end";
+  /** "star": the bonus star came out; "escape": it reached the player untyped and got away (D819). */
+  type: "spawn" | "letter" | "wrong" | "word" | "pop" | "stick" | "explode" | "boss" | "star" | "escape" | "end";
   id?: number;
   /**
-   * "word"/"pop": the points it scored (a boss's pop includes its bonus). "explode": the points it
+   * "word"/"pop": the points it scored (a boss's or the star's pop includes its bonus). "explode": the points it
    * took (less than the hit when the score was lower). "end": the time bonus. Render only.
    */
   points?: number;
@@ -50,6 +52,8 @@ export type Game = {
   popped: number;
   /** Bosses popped. */
   bosses: number;
+  /** Bonus stars caught (0 or 1, D819). */
+  stars: number;
   /** The last boss was popped: the run ended early, with `timeBonus` for the time left. */
   cleared: boolean;
   timeBonus: number;
@@ -70,6 +74,8 @@ export type Game = {
   nextSpawnMs: number;
   /** When the next boss is due; null once the last is out. */
   bossDueMs: number | null;
+  /** When the star comes out; null once it has. */
+  starDueMs: number | null;
   /** Bosses spawned so far: the number of the one out, if any. */
   bossCount: number;
   nextId: number;
@@ -79,9 +85,9 @@ export const currentWord = (s: Slime): string => s.words[s.wordIndex];
 
 export function newGame(seed: number): Game {
   return {
-    seed, nowMs: 0, score: 0, combo: 0, popped: 0, bosses: 0, cleared: false, timeBonus: 0, bestCombo: 0, letters: 0, misses: 0, slimes: [], lock: null,
+    seed, nowMs: 0, score: 0, combo: 0, popped: 0, bosses: 0, stars: 0, cleared: false, timeBonus: 0, bestCombo: 0, letters: 0, misses: 0, slimes: [], lock: null,
     ended: false, endedMs: null, events: [],
-    rand: mulberry32(seed), nextTickMs: 0, nextSpawnMs: 0, bossDueMs: BOSS_AT_MS[0], bossCount: 0, nextId: 1,
+    rand: mulberry32(seed), nextTickMs: 0, nextSpawnMs: 0, bossDueMs: BOSS_AT_MS[0], starDueMs: starAt(seed), bossCount: 0, nextId: 1,
   };
 }
 
@@ -138,8 +144,13 @@ function tick(g: Game): void {
         continue;
       }
     } else {
-      const speed = s.kind === "boss" ? BOSS_SPEED_MM_S : speedAt(s.spawnedMs);
-      s.distMm -= Math.floor((speed * TICK_MS) / 1000);
+      s.distMm -= Math.floor((speedOf(s) * TICK_MS) / 1000);
+      if (s.distMm <= 0 && s.kind === "star") {
+        // The star doesn't bite: it gets away, and that's all.
+        remove(g, s, i);
+        g.events.push({ t: now, type: "escape", id: s.id });
+        continue;
+      }
       if (s.distMm <= 0) {
         s.distMm = 0;
         s.stuckLeftMs = STICK_MS;
@@ -148,6 +159,8 @@ function tick(g: Game): void {
     }
     i++;
   }
+  // The star comes out at its moment, whatever else is out (it is always before the first boss).
+  if (g.starDueMs !== null && now >= g.starDueMs) spawnStar(g);
   const bossOut = g.slimes.some((s) => s.kind === "boss");
   if (!bossOut && g.bossDueMs !== null && now >= g.bossDueMs) return spawnBoss(g);
   // The last boss is the run's last slime.
@@ -175,6 +188,16 @@ function spawnSmall(g: Game): void {
   g.nextSpawnMs = now + GAP_MS + randInt(g.rand, GAP_JITTER_MS);
   g.events.push({ t: now, type: "spawn", id: s.id });
 }
+
+function spawnStar(g: Game): void {
+  g.starDueMs = null;
+  const s = addSlime(g, "star", [...STAR_WORDS], SPAWN_DIST_MM);
+  g.events.push({ t: g.nowMs, type: "star", id: s.id });
+}
+
+/** How fast slime `s` comes, mm/s: a small one at its spawn time's speed. */
+export const speedOf = (s: Slime): number =>
+  s.kind === "boss" ? BOSS_SPEED_MM_S : s.kind === "star" ? STAR_SPEED_MM_S : speedAt(s.spawnedMs);
 
 function spawnBoss(g: Game): void {
   g.bossCount += 1;
@@ -225,7 +248,7 @@ function letter(g: Game, s: Slime, tMs: number): void {
   g.bestCombo = Math.max(g.bestCombo, g.combo);
   let points = word.length * POINTS_PER_LETTER * multiplier(g.combo);
   g.score += points;
-  // A boss or a two-word slime keeps the lock between its words, so its next word continues
+  // A boss, the star or a two-word slime keeps the lock between its words, so its next word continues
   // (Ruling 18); one backspace with nothing typed releases it. A popped slime's lock goes with it.
   if (s.wordIndex < s.words.length - 1) {
     s.wordIndex += 1;
@@ -237,6 +260,10 @@ function letter(g: Game, s: Slime, tMs: number): void {
     g.bosses += 1;
     g.score += BOSS_BONUS * g.bossCount;
     points += BOSS_BONUS * g.bossCount;
+  } else if (s.kind === "star") {
+    g.stars += 1;
+    g.score += STAR_BONUS;
+    points += STAR_BONUS;
   } else g.popped += 1;
   remove(g, s);
   g.events.push({ t: tMs, type: "pop", id: s.id, points });

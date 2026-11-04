@@ -54,6 +54,8 @@ export const PUPIL = 0x1b1530;
 export const BLUSH = 0xf28fa6;
 /** The boss's crown. */
 export const CROWN_GOLD = 0xf2c14e;
+/** The bonus star (D819): a bright gold slime, its sparkles and its bubble. */
+export const STAR = 0xffc21f;
 /** A stuck slime pulses towards this as its 3 s run out. */
 export const WARN = 0xff6b5e;
 export const SHADOW = 0x000000;
