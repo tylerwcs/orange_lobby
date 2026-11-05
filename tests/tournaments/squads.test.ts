@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  alsoIn, countedRows, fullSquadGroups, isLocked, nameInEvent, namesLine, notInAnySport, overCount, portalSquadPeople, refusalFlash, shortCount, sizeLabel, squadExportRows, squadMembers, squadState,
+  alsoIn, countedRows, fullSquadGroups, idleByTeam, isLocked, nameInEvent, namesLine, notInAnySport, overCount, portalSquadPeople, refusalFlash, shortCount, sizeLabel, squadExportRows, squadMembers, squadState,
   type SquadPerson, type SquadRow, type TournamentSport,
 } from "@/features/tournaments/lib/squads";
 
@@ -171,5 +171,16 @@ describe("fullSquadGroups (D674)", () => {
   it("counts every member when the tournament has no categories", () => {
     expect([...fullSquadGroups(people, [row("d1", "D")], null)]).toEqual([]);
     expect([...fullSquadGroups(people, [row("d1", "D"), row("dx", "D")], [])]).toEqual(["D"]);
+  });
+});
+
+describe("idleByTeam (D827)", () => {
+  it("lists each team's members who aren't in any sport, in team order", () => {
+    const members = [{ id: "a1", groupId: "g01" }, { id: "a2", groupId: "g01" }, { id: "b1", groupId: "g02" }];
+    const rows = [R("s1", "g01", "a1"), R("s1", "g01", "b1")];
+    expect(idleByTeam(members, [{ id: "g01", name: "Team 1" }, { id: "g02", name: "Team 2" }], rows)).toEqual([
+      { team: "Team 1", ids: ["a2"] },
+      { team: "Team 2", ids: [] },
+    ]);
   });
 });

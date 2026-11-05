@@ -1,7 +1,7 @@
 import { eventFields } from "@/lib/attendee-fields";
 import { requireEventAccess } from "@/lib/access";
 import { listActivities, listSessions, countBookingsBySession, listSubmissions, listBooths, listStampsForEvent, passportRollup, listRequests, isGroupForm, pendingCountByActivity, eligible, bookingRow, submissionRow, passportRow, polaroidRow, listSummary, removeWarning, ActivityList, SubmissionSetupFields, COVER_HINT, type ActivityListItem, NewActivityMenu, addActivityAction, addSubmissionActivityAction, toggleOpenAction, togglePinAction, addPassportActivityAction, deleteActivityAction, deleteSubmissionActivityAction, deletePassportActivityAction, addPolaroidActivityAction, deletePolaroidActivityAction, addTournamentActivityAction, deleteTournamentActivityAction, tournamentRow, TournamentSetupFields, uploadActivityImageAction } from "@/features/activities";
-import { countedRows, isLocked, listSportsForActivities, overCount, shortCount, squadPeople, squadRows } from "@/features/tournaments";
+import { isLocked, listSportsForActivities, listSuperTeamsFor, overCount, shortCount, sideRows, squadPeople, squadRows, tournamentSides } from "@/features/tournaments";
 import { countLiveByActivity, readPolaroidSettings } from "@/features/polaroid";
 import { activityKindsFor, eventFeatures, NotInEvent } from "@/features/catalogue";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
@@ -35,7 +35,7 @@ export default async function Activities({ params }: { params: Promise<{ id: str
   // An activity of a kind this event no longer has is kept, not deleted (D439), but not listed.
   const activities = allActivities.filter((a) => kinds.includes(a.kind));
   const categories = await listCategories(ev.id);
-  const tournaments = await tournamentFacts(ev.id, activities.filter((a) => a.kind === "tournament"), groups.map((g) => g.id));
+  const tournaments = await tournamentFacts(ev.id, activities.filter((a) => a.kind === "tournament"), groups);
 
   // Everything below is rolled up from what the page already loaded, rather than queried per
   // row: the page shows one line each, and a query per row is how a ten-activity event gets slow.
@@ -191,16 +191,22 @@ type RowFacts = {
 };
 
 /** D648: one line per tournament, from one read of each one's squads. An event has few. */
-async function tournamentFacts(eventId: string, cups: Activity[], groupIds: string[]): Promise<Map<string, RowFacts["tournament"]>> {
+async function tournamentFacts(eventId: string, cups: Activity[], groups: { id: string; name: string }[]): Promise<Map<string, RowFacts["tournament"]>> {
   if (cups.length === 0) return new Map();
-  const [sports, rowsByCup] = await Promise.all([listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id)))]);
+  const [sports, rowsByCup, teams] = await Promise.all([
+    listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id))),
+    listSuperTeamsFor(cups.filter((a) => a.super_teams).map((a) => a.id)),
+  ]);
   const people = await squadPeople(eventId, rowsByCup.flat().map((r) => r.attendee_id));
   return new Map(cups.map((a, i) => {
     const mine = sports.filter((s) => s.activity_id === a.id);
-    const rows = countedRows(rowsByCup[i], people);
-    const short = mine.reduce((n, s) => n + shortCount(s, groupIds, rows), 0);
-    const over = mine.reduce((n, s) => n + overCount(s, groupIds, rows), 0);
-    return [a.id, { sports: mine.length, groups: groupIds.length, short, over, players: rows.length, locked: isLocked(a.squads_close_at, new Date()) }];
+    // D825: squads are per side - a group, or a super team when the tournament pairs them.
+    const sides = tournamentSides(groups, a.super_teams ? teams.filter((t) => t.activity_id === a.id) : null);
+    const sideIds = sides.map((s) => s.id);
+    const rows = sideRows(rowsByCup[i], people, sides);
+    const short = mine.reduce((n, s) => n + shortCount(s, sideIds, rows), 0);
+    const over = mine.reduce((n, s) => n + overCount(s, sideIds, rows), 0);
+    return [a.id, { sports: mine.length, groups: sideIds.length, short, over, players: rows.length, locked: isLocked(a.squads_close_at, new Date()) }];
   }));
 }
 

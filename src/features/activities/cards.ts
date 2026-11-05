@@ -65,9 +65,9 @@ export function activityCards(entries: ActivityEntries & { coming?: Activity[] }
       activity, view: polaroidCard(), href: href(activity), emphasis: false, section: "open" as const,
     })),
     // D647: open to look at whatever its state; never ringed, a short squad is the captain's to chase.
-    tournament: (list) => list.map(({ activity, sports, rows, attendeeId, groupId, picker, results, groups, bonus }) => {
+    tournament: (list) => list.map(({ activity, sports, rows, attendeeId, groupId, sideId, picker, results, groups, bonus }) => {
       const ready = sports.filter((s) => {
-        const n = squadMembers(rows, s.id, groupId).length;
+        const n = squadMembers(rows, s.id, sideId).length;
         return n >= s.min_size && n <= s.max_size;
       }).length;
       const playing = new Set(rows.filter((r) => r.attendee_id === attendeeId).map((r) => r.sport_id)).size;

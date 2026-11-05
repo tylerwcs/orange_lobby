@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { listSports, squadPeople, squadRows } from "../db/tournaments";
-import { alsoIn, countedRows, isLocked, squadMembers, squadState, type SquadStateKey } from "../lib/squads";
+import { loadSides } from "../db/super-teams";
+import { sideRows } from "../lib/sides";
+import { alsoIn, isLocked, squadMembers, squadState, type SquadStateKey } from "../lib/squads";
 import { adminAddPlayerAction, adminRemovePlayerAction, adminSwapPlayerAction } from "./actions";
 
 const select = "h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -20,10 +22,14 @@ const TONE: Record<SquadStateKey, "success" | "warning" | "destructive"> = {
 /**
  * D648: one sport at a time, every group's squad with its names and state. Each row's ⋯ Edit opens
  * that squad: remove or swap anyone, add anyone from the group. An organiser may go past the
- * deadline and over max (D642); the row then reads Over.
+ * deadline and over max (D642); the row then reads Over. With super teams on, each row is a
+ * super team and its players come from both teams (D825).
  */
 export async function SquadsPanel({ ev, activity, sportId }: { ev: Event; activity: Activity; sportId?: string }) {
-  const [sports, groups, rows, attendees] = await Promise.all([listSports(activity.id), listGroups(ev.id), squadRows(activity.id), listAttendees(ev.id)]);
+  const [sports, all, rows, attendees] = await Promise.all([listSports(activity.id), listGroups(ev.id), squadRows(activity.id), listAttendees(ev.id)]);
+  const { sides: groups } = await loadSides(activity, all);
+  const paired = !!activity.super_teams;
+  const teamName = new Map(all.map((g) => [g.id, g.name]));
   if (sports.length === 0) {
     return (
       <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
@@ -31,7 +37,7 @@ export async function SquadsPanel({ ev, activity, sportId }: { ev: Event; activi
       </p>
     );
   }
-  const counted = countedRows(rows, await squadPeople(ev.id, rows.map((r) => r.attendee_id)));
+  const counted = sideRows(rows, await squadPeople(ev.id, rows.map((r) => r.attendee_id)), groups);
   const locked = isLocked(activity.squads_close_at, new Date());
   const sport = sports.find((s) => s.id === sportId) ?? sports[0];
   const name = new Map(attendees.map((a) => [a.id, a.name]));
@@ -58,17 +64,19 @@ export async function SquadsPanel({ ev, activity, sportId }: { ev: Event; activi
         })}
       </nav>
       <p className="text-sm text-muted-foreground">
-        {groups.length} group{groups.length === 1 ? "" : "s"} · {ready} ready · {lacking(sport)} {word}
+        {groups.length} {paired ? "super team" : "group"}{groups.length === 1 ? "" : "s"} · {ready} ready · {lacking(sport)} {word}
         {over > 0 && ` · ${over} over`}
       </p>
       {groups.length === 0 ? (
-        <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No groups yet. Squads are by group: add groups on the Groups page.</p>
+        <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+          {paired ? "No super teams yet. Pair the teams on the Sports tab." : "No groups yet. Squads are by group: add groups on the Groups page."}
+        </p>
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Group</TableHead>
+                <TableHead>{paired ? "Super team" : "Group"}</TableHead>
                 <TableHead>Players</TableHead>
                 <TableHead>State</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -79,9 +87,10 @@ export async function SquadsPanel({ ev, activity, sportId }: { ev: Event; activi
                 const ids = squadMembers(counted, sport.id, g.id);
                 const state = squadState(ids.length, sport, locked);
                 const inSquad = new Set(ids);
-                const options = eligible.filter((a) => a.group_id === g.id && !inSquad.has(a.id)).map((a) => {
+                const options = eligible.filter((a) => !!a.group_id && g.groupIds.includes(a.group_id) && !inSquad.has(a.id)).map((a) => {
                   const other = alsoIn(a.id, counted, sports, sport.id);
-                  return { id: a.id, label: other.length ? `${a.name} · also in ${other.join(", ")}` : a.name };
+                  const who = paired ? `${a.name} (${teamName.get(a.group_id!) ?? ""})` : a.name;
+                  return { id: a.id, label: other.length ? `${who} · also in ${other.join(", ")}` : who };
                 });
                 const picker = (
                   <select name="attendee" required aria-label="Player" className={select} defaultValue="">

@@ -1,27 +1,32 @@
 import type { Activity } from "@/lib/types";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { alsoIn, namesLine, notInAnySport, sizeLabel, squadMembers, type SquadRow, type TournamentSport } from "../lib/squads";
+import { alsoIn, idleByTeam, namesLine, notInAnySport, sizeLabel, squadMembers, type SquadRow, type TournamentSport } from "../lib/squads";
 import { addSquadMemberAction, pickSquadMemberAction, removeSquadMemberAction } from "../actions";
 import { AddMemberSelect } from "./AddMemberSelect";
 import { ChipRemoveButton } from "./FormButtons";
 
-type Member = { id: string; name: string };
+type Member = { id: string; name: string; groupId: string };
 
 /**
  * A tournament's portal page (D644, D645): the group's squads for every sport, one compact card
  * each, so the whole group shows at a glance. A picker fills them - ✕ on a name, Add a member
  * underneath - and is told who in the group plays nothing yet.
  * Under Members join themselves, anyone else gets Join / Leave. From the deadline on, it is
- * read-only for everyone.
+ * read-only for everyone. A super team's page (D827) holds both teams: either captain picks from
+ * both, and the reminder is split by team, since the +100 bonus is each team's own.
  */
-export function SquadsPage({ activity, groupId, groupName, sports, rows, members, names, selfId, picker, locked, deadline, captainName, slug, token }: {
+export function SquadsPage({ activity, sideId, title, teams, sports, rows, members, names, selfId, picker, locked, deadline, captainNames, slug, token }: {
   activity: Activity;
-  groupId: string;
-  groupName: string;
+  /** The attendee's side: their group, or their super team's lead group (D825). */
+  sideId: string;
+  /** The group's name, or the super team's. */
+  title: string;
+  /** The side's teams: one, or the two of a super team, lead first. */
+  teams: { id: string; name: string }[];
   sports: TournamentSport[];
-  /** Counted rows (D643). */
+  /** Counted rows keyed by side (D643, D825). */
   rows: SquadRow[];
-  /** The group's members this tournament is for, in the group's order: who can be picked. */
+  /** The side's members this tournament is for, team by team: who can be picked. */
   members: Member[];
   /** Every group member's name, so a player the categories now leave out is still named. */
   names: Map<string, string>;
@@ -30,27 +35,36 @@ export function SquadsPage({ activity, groupId, groupName, sports, rows, members
   locked: boolean;
   /** When squads lock, as words ("Fri 24 Oct, 6:00pm"), or null with no deadline. */
   deadline: string | null;
-  captainName: string | null;
+  /** Each team's captain, as named on My group (D366); empty when none. */
+  captainNames: string[];
   slug: string;
   token: string;
 }) {
   const selfMode = activity.squad_fill === "self";
   const name = names;
-  const squad = (sportId: string) => squadMembers(rows, sportId, groupId);
+  const squad = (sportId: string) => squadMembers(rows, sportId, sideId);
+  const paired = teams.length > 1;
+  const teamName = new Map(teams.map((t) => [t.id, t.name]));
   const mine = sports.filter((s) => squad(s.id).includes(selfId));
   const lockWords = deadline ? ` They lock ${deadline}.` : "";
   const idle = notInAnySport(members.map((m) => m.id), rows).map((id) => name.get(id) ?? "");
+  const byTeam = paired ? idleByTeam(members, teams, rows) : [];
+  const selfTeam = members.find((m) => m.id === selfId)?.groupId;
+  const partner = teams.find((t) => t.id !== selfTeam)?.name ?? "your partner team";
   const pick = (sportId: string) => pickSquadMemberAction.bind(null, slug, token, activity.id, sportId);
   const remove = (sportId: string, id: string) => removeSquadMemberAction.bind(null, slug, token, activity.id, sportId, id);
   const add = (sportId: string) => addSquadMemberAction.bind(null, slug, token, activity.id, sportId);
 
+  const captainLine = paired
+    ? (captainNames.length ? `Your captains ${namesLine(captainNames)} pick the squads.` : "Your super team's captains pick the squads.")
+    : `${captainNames[0] ? `Your captain ${captainNames[0]} picks` : "Your group's captain picks"} the squads.`;
   const lead = locked
     ? "Squads are locked. Ask the organisers for changes."
     : picker
-      ? `You pick your group's squads.${lockWords}`
+      ? (paired ? `You and ${partner} pick your super team's squads together.${lockWords}` : `You pick your group's squads.${lockWords}`)
       : selfMode
         ? `Join the sports you want to play.${deadline ? ` Squads lock ${deadline}.` : ""}`
-        : `${captainName ? `Your captain ${captainName} picks` : "Your group's captain picks"} the squads.${lockWords}`;
+        : `${captainLine}${lockWords}`;
 
   const pill = (n: number, sp: TournamentSport) =>
     n > sp.max_size ? "bg-destructive/10 text-destructive" : n >= sp.min_size ? "bg-success-soft text-success-strong" : "bg-warning-soft text-warning";
@@ -58,11 +72,21 @@ export function SquadsPage({ activity, groupId, groupName, sports, rows, members
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{groupName}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{title}</p>
         <p className="text-sm">{lead}</p>
       </div>
 
-      {picker && !locked && idle.length > 0 ? (
+      {paired && picker && !locked && idle.length > 0 ? (
+        <div className="flex flex-col gap-1 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
+          {byTeam.map(({ team, ids }) => (
+            <p key={team}>
+              {ids.length
+                ? `${team}: ${ids.length} member${ids.length === 1 ? " isn't" : "s aren't"} in any sport yet: ${namesLine(ids.map((id) => name.get(id) ?? ""))}.`
+                : `${team}: everyone's in ✓`}
+            </p>
+          ))}
+        </div>
+      ) : picker && !locked && idle.length > 0 ? (
         <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
           {idle.length} member{idle.length === 1 ? " isn't" : "s aren't"} in any sport yet: {namesLine(idle)}.
         </p>
@@ -80,7 +104,9 @@ export function SquadsPage({ activity, groupId, groupName, sports, rows, members
           const inIt = ids.includes(selfId);
           const room = ids.length < s.max_size;
           const canEdit = picker && !locked;
-          const options = members.filter((m) => !ids.includes(m.id)).map((m) => ({ id: m.id, name: m.name, alsoIn: alsoIn(m.id, rows, sports, s.id) }));
+          const options = members.filter((m) => !ids.includes(m.id)).map((m) => ({
+            id: m.id, name: paired ? `${m.name} · ${teamName.get(m.groupId) ?? ""}` : m.name, alsoIn: alsoIn(m.id, rows, sports, s.id),
+          }));
           return (
             <li key={s.id} className="flex flex-col gap-2.5 rounded-xl border bg-card p-3">
               <div className="flex items-center justify-between gap-2">

@@ -75,6 +75,11 @@ export function notInAnySport(memberIds: string[], rows: SquadRow[]): string[] {
   return memberIds.filter((id) => !playing.has(id));
 }
 
+/** D827: a super team's reminder, split by team - the +100 bonus is each team's own. */
+export function idleByTeam(members: { id: string; groupId: string }[], teams: { id: string; name: string }[], rows: SquadRow[]): { team: string; ids: string[] }[] {
+  return teams.map((t) => ({ team: t.name, ids: notInAnySport(members.filter((m) => m.groupId === t.id).map((m) => m.id), rows) }));
+}
+
 /**
  * D674: the groups that earn the full participation bonus - every member the tournament is for
  * (its categories) has a counted place in at least one sport. A group with no such member earns nothing.

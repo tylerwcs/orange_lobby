@@ -2,6 +2,8 @@ import "server-only";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
 import { getTournamentActivity } from "./db/tournaments";
+import { loadSides } from "./db/super-teams";
+import { sideOfGroup, type Side } from "./lib/sides";
 import { groupMembers } from "@/lib/db/groups";
 import { isValidToken } from "@/lib/tokens";
 import { categoryMatches } from "@/lib/agenda";
@@ -14,13 +16,17 @@ export function isPicker(activity: Pick<Activity, "proxy_fields">, attendee: Pic
   return activity.proxy_fields.some((k) => isYes(fieldValue(attendee, k)));
 }
 
-/** Everything a portal squad action needs. `members` are the group's people the tournament is for. */
-export type SquadContext = { event: Event; activity: Activity; attendee: Attendee; members: Attendee[]; picker: boolean };
+/**
+ * Everything a portal squad action needs. `members` are the people the tournament is for in the
+ * attendee's side: their group, or both teams of their super team (D826).
+ */
+export type SquadContext = { event: Event; activity: Activity; attendee: Attendee; members: Attendee[]; picker: boolean; side: Side };
 
 /**
  * A portal attendee acting on a tournament from their own link (D644, D645). Null for anyone
  * who can't: a cancelled or groupless attendee, another event's tournament, a category it isn't
- * for, or a closed one. The squad functions re-check all of it (D642); this is what the page offers.
+ * for, a closed one, or one with super teams where their group has no pair (D824). The squad
+ * functions re-check all of it (D642); this is what the page offers.
  */
 export async function portalSquadContext(slug: string, token: string, activityId: string): Promise<SquadContext | null> {
   if (!isValidToken(token)) return null;
@@ -30,6 +36,9 @@ export async function portalSquadContext(slug: string, token: string, activityId
   if (!attendee || attendee.cancelled_at || !attendee.group_id) return null;
   const activity = await getTournamentActivity(activityId, event.id);
   if (!activity || !activity.is_open || !categoryMatches(activity.categories, attendee.category)) return null;
-  const members = (await groupMembers(event.id, attendee.group_id)).filter((m) => categoryMatches(activity.categories, m.category));
-  return { event, activity, attendee, members, picker: isPicker(activity, attendee) };
+  const side = sideOfGroup((await loadSides(activity)).sides, attendee.group_id);
+  if (!side) return null;
+  const everyone = (await Promise.all(side.groupIds.map((g) => groupMembers(event.id, g)))).flat();
+  const members = everyone.filter((m) => categoryMatches(activity.categories, m.category));
+  return { event, activity, attendee, members, picker: isPicker(activity, attendee), side };
 }

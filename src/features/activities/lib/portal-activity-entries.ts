@@ -14,7 +14,7 @@ import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
-import { countedRows, isPicker, listSportsForActivities, loadBonus, loadResults, squadPeople, squadRows, type CupBonus, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
+import { isPicker, listSportsForActivities, listSuperTeamsFor, loadBonus, loadResults, sideOfGroup, sideRows, squadPeople, squadRows, tournamentSides, type CupBonus, type Side, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
 import { otherActivityId, pairsForEvent, teamEntriesToday, trackFullFor, trackLabel, trackOf, trackRowsFor, trackStatus, type TrackPair, type TrackRow, type TrackStatus } from "@/features/tracks";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
@@ -38,11 +38,16 @@ export type PassportEntry = { activity: Activity; passport: Passport };
 /** A polaroid wall this attendee may post to, and their own live polaroids on it (D482). */
 export type PolaroidEntry = { activity: Activity; mine: PolaroidRow[] };
 /**
- * A tournament this attendee's group plays in (D639), its sports, and its counted squad rows
- * (D643). Only for an attendee in a group: nobody else has a squad to see (D645).
+ * A tournament this attendee's group plays in (D639), its sports, and its counted squad rows keyed
+ * by side (D643, D825). Only for an attendee in a group: nobody else has a squad to see (D645).
+ * With super teams on, only when their group has a pair (D824).
  */
 export type TournamentEntry = {
   activity: Activity; sports: TournamentSport[]; rows: SquadRow[]; attendeeId: string; groupId: string; picker: boolean;
+  /** D821: the tournament's super teams as sides, or null with the switch off. */
+  sides: Side[] | null;
+  /** The attendee's side: their super team's lead group, or their own group with the switch off. */
+  sideId: string;
   /** D663: every sport's pools, matches and slots, and the event's groups to name them. */
   results: SportResults[]; groups: { id: string; name: string }[];
   /** D674: the participation bonus and who earns it now; null when the tournament has none. */
@@ -164,23 +169,33 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
 
 /** Each tournament's sports and counted rows (D643), people read once across all of them. */
 async function loadTournaments(eventId: string, cups: Activity[], attendee: Pick<Attendee, "id" | "extra">, groupId: string): Promise<TournamentEntry[]> {
-  const [sports, rowsByCup, resultsByCup, groups] = await Promise.all([
+  const [sports, rowsByCup, resultsByCup, groups, teams] = await Promise.all([
     listSportsForActivities(cups.map((a) => a.id)), Promise.all(cups.map((a) => squadRows(a.id))), Promise.all(cups.map((a) => loadResults(a.id))), listGroups(eventId),
+    listSuperTeamsFor(cups.filter((a) => a.super_teams).map((a) => a.id)),
   ]);
   const people = await squadPeople(eventId, rowsByCup.flat().map((r) => r.attendee_id));
-  const counted = rowsByCup.map((rows) => countedRows(rows, people));
+  const named = groups.map((g) => ({ id: g.id, name: g.name }));
+  const sidesByCup = cups.map((a) => tournamentSides(named, a.super_teams ? teams.filter((t) => t.activity_id === a.id) : null));
+  const counted = rowsByCup.map((rows, i) => sideRows(rows, people, sidesByCup[i]));
   const bonuses = await Promise.all(cups.map((a, i) => loadBonus(a, counted[i])));
-  return cups.map((activity, i) => ({
-    activity,
-    sports: sports.filter((s) => s.activity_id === activity.id),
-    rows: counted[i],
-    attendeeId: attendee.id,
-    groupId,
-    picker: isPicker(activity, attendee),
-    results: resultsByCup[i],
-    groups: groups.map((g) => ({ id: g.id, name: g.name })),
-    bonus: bonuses[i],
-  }));
+  return cups.flatMap((activity, i) => {
+    // D824: with super teams on, a group with no pair isn't in the tournament.
+    const side = sideOfGroup(sidesByCup[i], groupId);
+    if (!side) return [];
+    return [{
+      activity,
+      sports: sports.filter((s) => s.activity_id === activity.id),
+      rows: counted[i],
+      attendeeId: attendee.id,
+      groupId,
+      picker: isPicker(activity, attendee),
+      sides: activity.super_teams ? sidesByCup[i] : null,
+      sideId: side.id,
+      results: resultsByCup[i],
+      groups: named,
+      bonus: bonuses[i],
+    }];
+  });
 }
 
 /** D725: the form's pair, if any, and where this attendee stands on it. The other activity's name falls back when it is hidden. */
