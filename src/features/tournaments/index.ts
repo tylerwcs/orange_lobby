@@ -16,3 +16,4 @@ export { TournamentPage, type MatchFilter, type ResultsView } from "./components
 export { sportCookie } from "./lib/sport-cookie";
 export * from "./export";
 export * from "./db/super-teams";
+export * from "./admin/super-team-actions";

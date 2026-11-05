@@ -8,6 +8,7 @@ import { listSports } from "../db/tournaments";
 import { hasMatches } from "../db/results";
 import { addSportAction, deleteSportAction, moveSportAction, saveSportAction } from "./actions";
 import { SportFields } from "./SportFields";
+import { SuperTeamsCard } from "./SuperTeamsCard";
 
 const size = (s: { min_size: number; max_size: number }) => (s.min_size === s.max_size ? `${s.min_size}` : `${s.min_size}–${s.max_size}`);
 
@@ -19,8 +20,9 @@ export async function SportsPanel({ ev, activity }: { ev: Event; activity: Activ
   const squads = (n: number) => `${n} squad${n === 1 ? "" : "s"}`;
   return (
     <div className="flex flex-col gap-3">
+      <SuperTeamsCard ev={ev} activity={activity} />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Every group sends a squad to every sport.</p>
+        <p className="text-sm text-muted-foreground">{activity.super_teams ? "Every super team sends a squad to every sport." : "Every group sends a squad to every sport."}</p>
         <Modal title="Add a sport" trigger="Add sport" icon="plus" variant="default">
           <form action={addSportAction.bind(null, ev.id, activity.id)} className="grid grid-cols-1 gap-4">
             <SportFields />
