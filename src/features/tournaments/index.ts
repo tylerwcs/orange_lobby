@@ -15,3 +15,4 @@ export { SquadsPage } from "./components/SquadsPage";
 export { TournamentPage, type MatchFilter, type ResultsView } from "./components/TournamentPage";
 export { sportCookie } from "./lib/sport-cookie";
 export * from "./export";
+export * from "./db/super-teams";
