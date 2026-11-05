@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildSquadsWorkbook, resultSheets, squadSheetRows } from "@/features/tournaments/export";
 import { planPools, type SportResults } from "@/features/tournaments/lib/results";
 import type { TournamentSport } from "@/features/tournaments/lib/squads";
+import { tournamentSides } from "@/features/tournaments/lib/sides";
 
 const people = new Map([["a", { name: "Aina", email: "aina@x.co", extra: { master_no: "M-001" } }]]);
 const columns = [{ key: "master_no", label: "Master No" }];
@@ -20,6 +21,16 @@ describe("squadSheetRows (D649)", () => {
   });
   it("says so when there are no squads at all", () => {
     expect(squadSheetRows([], people, [])).toEqual([["Sport", "Group", "Name", "State"], ["No squads yet", "", "", ""]]);
+  });
+});
+
+describe("squadSheetRows with super teams (D833)", () => {
+  it("adds a Team column after the super team", () => {
+    const paired = [{ sport: "Badminton", group: "Group 01 + Group 02", team: "Group 02", attendeeId: "a", state: "" as const }];
+    expect(squadSheetRows(paired, people, [])).toEqual([
+      ["Sport", "Super team", "Team", "Name", "State"],
+      ["Badminton", "Group 01 + Group 02", "Group 02", "Aina", ""],
+    ]);
   });
 });
 
@@ -73,5 +84,31 @@ describe("resultSheets (D666)", () => {
     expect(sheets.leaderboard?.[1]).toEqual(["1", "Team 3", "35", "", "100", "135"]);
     expect(sheets.leaderboard?.[2]).toEqual(["2", "Team 1", "40", "", "0", "40"]);
     expect(resultSheets({ results: [futsal], groups, table: null }).leaderboard).toBeNull();
+  });
+});
+
+describe("resultSheets with super teams (D833)", () => {
+  const s: TournamentSport = { id: "f", activity_id: "act", name: "Futsal", min_size: 1, max_size: 5, position: 0, result_kind: "score", format: "pools", pool_size: 2, forfeits_marked_at: null };
+  const groups = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ id: `g${n}`, name: `Team ${n}` }));
+  const sides = tournamentSides(groups, [1, 2, 3, 4].map((n) => ({ id: `st${n}`, activity_id: "act", name: null, groupIds: [`g${n}`, `g${n + 4}`] })));
+  let n = 0;
+  const plan = planPools(s, [["g1", "g2"], ["g3", "g4"]], () => `m${++n}`);
+  const base: SportResults = {
+    sport: s,
+    pools: plan.pools.map((p) => ({ ...p, sport_id: s.id })),
+    matches: plan.matches.map((m) => ({ id: m.id, sport_id: s.id, stage: m.stage, pool: m.pool, bracket: m.bracket, round: m.round, position: m.position, walkover_to: null, went_through: null })),
+    slots: plan.matches.flatMap((m) => m.slots.map((sl) => ({ ...sl, match_id: m.id, score: null, time_ms: null, dnf: false }))),
+  };
+  const gold = base.matches.find((m) => m.stage === "bracket" && m.bracket === 0)!;
+  const futsal: SportResults = {
+    ...base,
+    slots: base.slots.map((x) => (x.match_id === gold.id ? { ...x, group_id: x.slot === 0 ? "g1" : "g3", score: x.slot === 0 ? 2 : 0 } : x)),
+  };
+
+  it("names super teams in places and adds a Partner column to the leaderboard", () => {
+    const sheets = resultSheets({ results: [futsal], groups, sides, table: [40, 35] });
+    expect(sheets.places[1]).toEqual(["Futsal", "1", "Team 1 + Team 5", "40"]);
+    expect(sheets.leaderboard?.[0]).toEqual(["Rank", "Group", "Partner", "Futsal", "Total"]);
+    expect(sheets.leaderboard?.find((r) => r[1] === "Team 5")).toEqual(["1=", "Team 5", "Team 1", "40", "40"]);
   });
 });

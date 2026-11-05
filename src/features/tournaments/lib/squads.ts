@@ -1,4 +1,5 @@
 import { categoryMatches } from "@/lib/agenda";
+import { sideRows, type Side } from "./sides";
 
 /**
  * Squad rules and words (D642-D649). Pure, so the captain's page, the member's view, the admin
@@ -159,8 +160,11 @@ export function refusalFlash(code: SquadRefusal, ctx: { sport: string; name?: st
   }
 }
 
-/** One line of the squads sheet (D649). A null attendee is the blank row a short squad gets. */
-export type SquadExportRow = { sport: string; group: string; attendeeId: string | null; state: "" | "Short" | "Forfeit" };
+/**
+ * One line of the squads sheet (D649). A null attendee is the blank row a short squad gets. With
+ * super teams (D833), `group` is the super team and `team` the player's own group.
+ */
+export type SquadExportRow = { sport: string; group: string; team?: string; attendeeId: string | null; state: "" | "Short" | "Forfeit" };
 
 /** D649: sport order, then group name, then player name; a short squad ends with a blank Short/Forfeit row. */
 export function squadExportRows(input: {
@@ -169,14 +173,18 @@ export function squadExportRows(input: {
   rows: SquadRow[];
   people: Map<string, SquadPerson>;
   locked: boolean;
+  /** D833: the super teams as sides; leave out with the switch off. */
+  sides?: Side[];
 }): SquadExportRow[] {
-  const rows = countedRows(input.rows, input.people);
-  const groups = [...input.groups].sort((a, b) => a.name.localeCompare(b.name));
+  const rows = input.sides ? sideRows(input.rows, input.people, input.sides) : countedRows(input.rows, input.people);
+  const groups = [...(input.sides ?? input.groups)].sort((a, b) => a.name.localeCompare(b.name));
+  const teamName = new Map(input.groups.map((g) => [g.id, g.name]));
   const name = (id: string) => input.people.get(id)?.name ?? "";
+  const team = (id: string) => (input.sides ? { team: teamName.get(input.people.get(id)?.group_id ?? "") ?? "" } : {});
   return [...input.sports].sort((a, b) => a.position - b.position).flatMap((sport) =>
     groups.flatMap((g) => {
       const ids = squadMembers(rows, sport.id, g.id).sort((a, b) => name(a).localeCompare(name(b)));
-      const players: SquadExportRow[] = ids.map((attendeeId) => ({ sport: sport.name, group: g.name, attendeeId, state: "" }));
+      const players: SquadExportRow[] = ids.map((attendeeId) => ({ sport: sport.name, group: g.name, ...team(attendeeId), attendeeId, state: "" }));
       return ids.length < sport.min_size
         ? [...players, { sport: sport.name, group: g.name, attendeeId: null, state: input.locked ? "Forfeit" : "Short" }]
         : players;

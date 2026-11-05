@@ -3,6 +3,7 @@ import type { ExportColumn } from "@/lib/export-columns";
 import { columnValues } from "@/lib/exports";
 import type { SquadExportRow } from "./lib/squads";
 import { formatTime, pointsFor, resolveSport, sportPlaces, tournamentOverall, type CupBonus, type SportResults } from "./lib/results";
+import { partnerOf, type Side } from "./lib/sides";
 
 type Person = { name: string; email: string | null; extra?: Record<string, string> | null };
 
@@ -12,20 +13,24 @@ type Person = { name: string; email: string | null; extra?: Record<string, strin
  * An empty tournament says so, rather than handing over a sheet that reads as a broken download.
  */
 export function squadSheetRows(rows: SquadExportRow[], people: Map<string, Person>, columns: ExportColumn[] = []): string[][] {
-  const header = ["Sport", "Group", "Name", ...columns.map((c) => c.label), "State"];
+  // D833: a super team's sheet names the super team, then each player's own team.
+  const paired = rows.some((r) => r.team !== undefined);
+  const header = ["Sport", ...(paired ? ["Super team", "Team"] : ["Group"]), "Name", ...columns.map((c) => c.label), "State"];
   if (rows.length === 0) return [header, ["No squads yet", ...header.slice(1).map(() => "")]];
   return [header, ...rows.map((r) => {
     const p = r.attendeeId ? people.get(r.attendeeId) : undefined;
-    return [r.sport, r.group, p?.name ?? "", ...(p ? columnValues(p.extra, columns) : columns.map(() => "")), r.state];
+    return [r.sport, r.group, ...(paired ? [r.team ?? ""] : []), p?.name ?? "", ...(p ? columnValues(p.extra, columns) : columns.map(() => "")), r.state];
   })];
 }
 
 export function buildSquadsWorkbook(rows: SquadExportRow[], people: Map<string, Person>, columns: ExportColumn[] = []): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Squads");
-  for (const row of squadSheetRows(rows, people, columns)) ws.addRow(row);
+  const sheet = squadSheetRows(rows, people, columns);
+  for (const row of sheet) ws.addRow(row);
   ws.getRow(1).font = { bold: true };
-  ws.columns = [{ width: 18 }, { width: 18 }, { width: 28 }, ...columns.map(() => ({ width: 20 })), { width: 10 }];
+  const paired = sheet[0][1] === "Super team";
+  ws.columns = [{ width: 18 }, { width: paired ? 26 : 18 }, ...(paired ? [{ width: 18 }] : []), { width: 28 }, ...columns.map(() => ({ width: 20 })), { width: 10 }];
   return wb;
 }
 
@@ -38,10 +43,13 @@ const TIME_HEADER = ["Sport", "Stage", "Team", "Time", "Place", "Note"];
  * with its points. Leaderboard: the overall table, only with a points table - and always, to
  * admins, whatever the reveal switch says.
  */
-export function resultSheets(input: { results: SportResults[]; groups: { id: string; name: string }[]; table: number[] | null; bonus?: CupBonus | null }): {
+export function resultSheets(input: { results: SportResults[]; groups: { id: string; name: string }[]; table: number[] | null; bonus?: CupBonus | null; sides?: Side[] | null }): {
   matches: string[][]; places: string[][]; leaderboard: string[][] | null;
 } {
-  const names = new Map(input.groups.map((g) => [g.id, g.name]));
+  // D833: matches and places name the sides (super teams); the leaderboard is per team, with its partner.
+  const groupNames = new Map(input.groups.map((g) => [g.id, g.name]));
+  const names = input.sides ? new Map(input.sides.map((s) => [s.id, s.name])) : groupNames;
+  const sides = input.sides ?? null;
   const team = (e: { groupId: string | null; pointer: string | null }) => (e.groupId ? names.get(e.groupId) ?? "" : e.pointer ?? "To be picked");
   const matches: string[][] = [];
   const places: string[][] = [["Sport", "Place", "Group", "Points"]];
@@ -73,9 +81,9 @@ export function resultSheets(input: { results: SportResults[]; groups: { id: str
   if (!input.table?.length) return { matches, places, leaderboard: null };
   const sports = [...input.results].sort((a, b) => a.sport.position - b.sport.position);
   const leaderboard = [
-    ["Rank", "Group", ...sports.map((r) => r.sport.name), ...(input.bonus ? ["Bonus"] : []), "Total"],
-    ...tournamentOverall(sports, input.groups, input.table, input.bonus ?? null).map((row) => [
-      `${row.rank}${row.tied ? "=" : ""}`, names.get(row.groupId) ?? "",
+    ["Rank", "Group", ...(sides ? ["Partner"] : []), ...sports.map((r) => r.sport.name), ...(input.bonus ? ["Bonus"] : []), "Total"],
+    ...tournamentOverall(sports, input.groups, input.table, input.bonus ?? null, sides).map((row) => [
+      `${row.rank}${row.tied ? "=" : ""}`, groupNames.get(row.groupId) ?? "", ...(sides ? [partnerOf(sides, row.groupId, groupNames) ?? ""] : []),
       ...row.bySport.map((v) => (v === null ? "" : v === "F" ? "0 (forfeit)" : String(v))),
       ...(row.bonus === null ? [] : [String(row.bonus)]), String(row.total),
     ]),

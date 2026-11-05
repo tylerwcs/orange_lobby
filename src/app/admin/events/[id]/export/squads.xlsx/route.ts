@@ -5,7 +5,7 @@ import { exportColumns } from "@/lib/export-columns";
 import { listAttendees } from "@/lib/db/attendees";
 import { listGroups } from "@/lib/db/groups";
 import { slugify } from "@/lib/slug";
-import { buildSquadsWorkbook, getTournamentActivity, isLocked, listSports, squadExportRows, squadRows } from "@/features/tournaments";
+import { buildSquadsWorkbook, getTournamentActivity, isLocked, listSports, loadSides, squadExportRows, squadRows } from "@/features/tournaments";
 
 // D649: one tournament's squads, every sport and group, on one sheet. The tournament is named by
 // `?activity=`, and must be this event's: anything else is a 404, never another event's squads.
@@ -22,7 +22,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   ]);
   const people = new Map(attendees.map((a) => [a.id, a]));
   const squadPeople = new Map(attendees.map((a) => [a.id, { id: a.id, name: a.name, group_id: a.group_id, cancelled_at: a.cancelled_at ?? null }]));
-  const lines = squadExportRows({ sports, groups, rows, people: squadPeople, locked: isLocked(cup.squads_close_at, new Date()) });
+  // D833: with super teams, one block per super team, each player with their own team.
+  const sides = cup.super_teams ? (await loadSides(cup, groups)).sides : undefined;
+  const lines = squadExportRows({ sports, groups, sides, rows, people: squadPeople, locked: isLocked(cup.squads_close_at, new Date()) });
   const columns = exportColumns(eventFields(ev.registration_questions, ev.attendee_fields), ev.export_fields);
   const buf = await buildSquadsWorkbook(lines, people, columns).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {

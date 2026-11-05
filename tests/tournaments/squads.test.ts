@@ -3,6 +3,7 @@ import {
   alsoIn, countedRows, fullSquadGroups, idleByTeam, isLocked, nameInEvent, namesLine, notInAnySport, overCount, portalSquadPeople, refusalFlash, shortCount, sizeLabel, squadExportRows, squadMembers, squadState,
   type SquadPerson, type SquadRow, type TournamentSport,
 } from "@/features/tournaments/lib/squads";
+import { tournamentSides } from "@/features/tournaments/lib/sides";
 
 const sport = (min: number, max: number) => ({ min_size: min, max_size: max });
 const S = (id: string, name: string, position: number, min = 2, max = 2): TournamentSport => ({ id, activity_id: "act", name, min_size: min, max_size: max, position, result_kind: "score", format: "pools", pool_size: 3, forfeits_marked_at: null });
@@ -123,6 +124,14 @@ describe("squadExportRows (D649)", () => {
   it("says Forfeit once squads are locked", () => {
     const out = squadExportRows({ sports, groups, rows, people: ps, locked: true });
     expect(out.filter((r) => r.attendeeId === null).map((r) => r.state)).toEqual(["Forfeit", "Forfeit"]);
+  });  it("names the super team and each player's own team (D833)", () => {
+    const sides = tournamentSides([...groups].reverse(), [{ id: "st", activity_id: "act", name: null, groupIds: ["g1", "g2"] }]);
+    const out = squadExportRows({ sports, groups, sides, rows, people: ps, locked: false });
+    expect(out.filter((r) => r.sport === "Badminton")).toEqual([
+      { sport: "Badminton", group: "Group 01 + Group 02", team: "Group 01", attendeeId: "b", state: "" },
+      { sport: "Badminton", group: "Group 01 + Group 02", team: "Group 02", attendeeId: "c", state: "" },
+      { sport: "Badminton", group: "Group 01 + Group 02", team: "Group 01", attendeeId: "a", state: "" },
+    ]);
   });
 });
 

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireEventAccess } from "@/lib/access";
 import { listGroups } from "@/lib/db/groups";
 import { slugify } from "@/lib/slug";
-import { buildResultsWorkbook, getTournamentActivity, loadBonus, loadResults } from "@/features/tournaments";
+import { buildResultsWorkbook, getTournamentActivity, loadBonus, loadResults, loadSides } from "@/features/tournaments";
 
 // D666: one tournament's results - every match, every place, and the overall table. The
 // tournament is named by `?activity=`, and must be this event's: anything else is a 404.
@@ -14,7 +14,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!cup) notFound();
 
   const [results, groups, bonus] = await Promise.all([loadResults(cup.id), listGroups(ev.id), loadBonus(cup)]);
-  const buf = await buildResultsWorkbook({ results, groups, table: cup.place_points ?? null, bonus }).xlsx.writeBuffer();
+  const sides = cup.super_teams ? (await loadSides(cup, groups)).sides : null;
+  const buf = await buildResultsWorkbook({ results, groups, table: cup.place_points ?? null, bonus, sides }).xlsx.writeBuffer();
   return new Response(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

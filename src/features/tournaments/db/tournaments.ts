@@ -3,7 +3,9 @@ import { loadAdjustmentTotals } from "@/features/adjustments";
 import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
 import type { Activity } from "@/lib/types";
-import { countedRows, fullSquadGroups, type SquadPerson, type SquadRefusal, type SquadRow, type TournamentSport } from "../lib/squads";
+import { fullSquadGroups, type SquadPerson, type SquadRefusal, type SquadRow, type TournamentSport } from "../lib/squads";
+import { sideRows } from "../lib/sides";
+import { loadSides } from "./super-teams";
 import type { CupBonus } from "../lib/results";
 
 /** The tournament an id names in this event, or null (any other kind is null too). */
@@ -116,8 +118,9 @@ export async function loadBonus(activity: Activity, counted?: SquadRow[]): Promi
   if (!activity.participation_bonus) return extra.size ? { points: 0, earned: new Set(), extra } : null;
   let rows = counted;
   if (!rows) {
-    const all = await squadRows(activity.id);
-    rows = countedRows(all, await squadPeople(activity.event_id, all.map((r) => r.attendee_id)));
+    // D825: counted by side, so a move between a super team's two teams keeps the place.
+    const [all, { sides }] = await Promise.all([squadRows(activity.id), loadSides(activity)]);
+    rows = sideRows(all, await squadPeople(activity.event_id, all.map((r) => r.attendee_id)), sides);
   }
   const people = await groupedPeople(activity.event_id);
   return { points: activity.participation_bonus, earned: fullSquadGroups(people, rows, activity.categories), extra };
