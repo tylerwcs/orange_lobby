@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { countedRows, type SquadPerson, type SquadRow } from "@/features/tournaments/lib/squads";
-import { pairProblem, partnerOf, sideOfGroup, sideRows, superTeamLabel, tournamentSides, type SuperTeam } from "@/features/tournaments/lib/sides";
+import { inTournament, pairProblem, partnerOf, showSuperTeamsCard, sideOfGroup, sideRows, superTeamLabel, tournamentSides, type SuperTeam } from "@/features/tournaments/lib/sides";
 
 const R = (sport_id: string, group_id: string, attendee_id: string): SquadRow => ({ sport_id, group_id, attendee_id, added_by: null, added_at: "2026-11-05T00:00:00Z" });
 const P = (id: string, group_id: string | null, cancelled_at: string | null = null): SquadPerson => ({ id, name: id, group_id, cancelled_at });
@@ -70,5 +70,21 @@ describe("pairProblem (D822)", () => {
     expect(pairProblem(teams, ["g01", "g04"], null)).toEqual({ clash: "g01" });
     expect(pairProblem(teams, ["g01", "g04"], "st1")).toBeNull();
     expect(pairProblem(teams, ["g03", "g04"], null)).toBeNull();
+  });
+});
+
+describe("review fixes", () => {
+  it("hides the Super teams card on a drawn tournament that doesn't use them (no reset prompt)", () => {
+    expect(showSuperTeamsCard({ on: false, drawn: true })).toBe(false);
+    expect(showSuperTeamsCard({ on: false, drawn: false })).toBe(true);
+    expect(showSuperTeamsCard({ on: true, drawn: true })).toBe(true);
+  });
+  it("counts a group in a tournament only when it has a pair, with super teams on (D824)", () => {
+    const teams = [T("st1", ["g01", "g02"])];
+    expect(inTournament({ id: "act", super_teams: true }, "g01", teams)).toBe(true);
+    expect(inTournament({ id: "act", super_teams: true }, "g03", teams)).toBe(false);
+    expect(inTournament({ id: "other", super_teams: true }, "g01", teams)).toBe(false);
+    expect(inTournament({ id: "act", super_teams: false }, "g03", [])).toBe(true);
+    expect(inTournament({ id: "act", super_teams: false }, null, [])).toBe(false);
   });
 });

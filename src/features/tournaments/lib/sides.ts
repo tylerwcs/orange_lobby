@@ -68,3 +68,18 @@ export function pairProblem(teams: SuperTeam[], groupIds: string[], editingId: s
   const clash = groupIds.find((g) => taken.has(g));
   return clash ? { clash } : null;
 }
+
+/**
+ * Review fix: the Super teams card shows unless the tournament is drawn and doesn't use them -
+ * there it would only tell an admin to reset results for nothing (the Rally Cup).
+ */
+export function showSuperTeamsCard(input: { on: boolean; drawn: boolean }): boolean {
+  return input.on || !input.drawn;
+}
+
+/** D824: whether this group takes part - any group with the switch off, only a paired one with it on. */
+export function inTournament(activity: { id: string; super_teams?: boolean | null }, groupId: string | null, teams: SuperTeam[]): boolean {
+  if (!groupId) return false;
+  if (!activity.super_teams) return true;
+  return teams.some((t) => t.activity_id === activity.id && t.groupIds.includes(groupId));
+}

@@ -14,7 +14,7 @@ import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
-import { isPicker, listSportsForActivities, listSuperTeamsFor, loadBonus, loadResults, sideOfGroup, sideRows, squadPeople, squadRows, tournamentSides, type CupBonus, type Side, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
+import { inTournament, isPicker, listSportsForActivities, listSuperTeamsFor, loadBonus, loadResults, sideOfGroup, sideRows, squadPeople, squadRows, tournamentSides, type CupBonus, type Side, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
 import { otherActivityId, pairsForEvent, teamEntriesToday, trackFullFor, trackLabel, trackOf, trackRowsFor, trackStatus, type TrackPair, type TrackRow, type TrackStatus } from "@/features/tracks";
 import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
@@ -159,11 +159,14 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
   const groupId = attendee.group_id;
   const cups = groupId ? activities.filter((a) => a.kind === "tournament" && eligible(a, attendee.category)) : [];
   const tournaments = cups.length && groupId ? await loadTournaments(event.id, cups, attendee, groupId) : [];
+  const pairedSoon = groupId ? scheduled.filter((a) => a.kind === "tournament" && a.super_teams).map((a) => a.id) : [];
+  const comingTeams = pairedSoon.length ? await listSuperTeamsFor(pairedSoon) : [];
 
   return {
     booking: bookings, submission: forms, passport: passports, polaroid: polaroids, tournament: tournaments, people,
     // A groupless attendee has no squads, so no Coming soon card for one either (D645).
-    coming: scheduled.filter((a) => eligible(a, attendee.category) && (a.kind !== "tournament" || groupId !== null)),
+    // D824: a super-team tournament is coming only for a group with a pair.
+    coming: scheduled.filter((a) => eligible(a, attendee.category) && (a.kind !== "tournament" || inTournament(a, groupId, comingTeams))),
   };
 }
 

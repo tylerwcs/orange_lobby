@@ -6,7 +6,7 @@ import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { listGroups } from "@/lib/db/groups";
 import { anyDrawn, listSuperTeams } from "../db/super-teams";
-import { superTeamLabel, type SuperTeam } from "../lib/sides";
+import { showSuperTeamsCard, superTeamLabel, type SuperTeam } from "../lib/sides";
 import { namesLine } from "../lib/squads";
 import { deleteSuperTeamAction, saveSuperTeamAction, setSuperTeamsAction } from "./super-team-actions";
 
@@ -19,6 +19,7 @@ const field = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
 export async function SuperTeamsCard({ ev, activity }: { ev: Event; activity: Activity }) {
   const [groups, teams, drawn] = await Promise.all([listGroups(ev.id), listSuperTeams(activity.id), anyDrawn(activity.id)]);
   const on = !!activity.super_teams;
+  if (!showSuperTeamsCard({ on, drawn })) return null;
   const names = new Map(groups.map((g) => [g.id, g.name]));
   const paired = new Set(teams.flatMap((t) => t.groupIds));
   const unpaired = groups.filter((g) => !paired.has(g.id));
