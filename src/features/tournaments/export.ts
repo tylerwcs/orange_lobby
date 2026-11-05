@@ -3,7 +3,7 @@ import type { ExportColumn } from "@/lib/export-columns";
 import { columnValues } from "@/lib/exports";
 import type { SquadExportRow } from "./lib/squads";
 import { formatTime, pointsFor, resolveSport, sportPlaces, tournamentOverall, type CupBonus, type SportResults } from "./lib/results";
-import { partnerOf, type Side } from "./lib/sides";
+import type { Side } from "./lib/sides";
 
 type Person = { name: string; email: string | null; extra?: Record<string, string> | null };
 
@@ -46,13 +46,13 @@ const TIME_HEADER = ["Sport", "Stage", "Team", "Time", "Place", "Note"];
 export function resultSheets(input: { results: SportResults[]; groups: { id: string; name: string }[]; table: number[] | null; bonus?: CupBonus | null; sides?: Side[] | null }): {
   matches: string[][]; places: string[][]; leaderboard: string[][] | null;
 } {
-  // D833: matches and places name the sides (super teams); the leaderboard is per team, with its partner.
-  const groupNames = new Map(input.groups.map((g) => [g.id, g.name]));
-  const names = input.sides ? new Map(input.sides.map((s) => [s.id, s.name])) : groupNames;
+  // D833: every sheet names the sides - super teams, one leaderboard row each (D832 amended).
   const sides = input.sides ?? null;
+  const names = new Map((sides ?? input.groups).map((g) => [g.id, g.name]));
+  const who = sides ? "Super team" : "Group";
   const team = (e: { groupId: string | null; pointer: string | null }) => (e.groupId ? names.get(e.groupId) ?? "" : e.pointer ?? "To be picked");
   const matches: string[][] = [];
-  const places: string[][] = [["Sport", "Place", "Group", "Points"]];
+  const places: string[][] = [["Sport", "Place", who, "Points"]];
   let last: "score" | "time" | null = null;
   for (const sr of [...input.results].sort((a, b) => a.sport.position - b.sport.position)) {
     const kind = sr.sport.result_kind;
@@ -81,9 +81,9 @@ export function resultSheets(input: { results: SportResults[]; groups: { id: str
   if (!input.table?.length) return { matches, places, leaderboard: null };
   const sports = [...input.results].sort((a, b) => a.sport.position - b.sport.position);
   const leaderboard = [
-    ["Rank", "Group", ...(sides ? ["Partner"] : []), ...sports.map((r) => r.sport.name), ...(input.bonus ? ["Bonus"] : []), "Total"],
+    ["Rank", who, ...sports.map((r) => r.sport.name), ...(input.bonus ? ["Bonus"] : []), "Total"],
     ...tournamentOverall(sports, input.groups, input.table, input.bonus ?? null, sides).map((row) => [
-      `${row.rank}${row.tied ? "=" : ""}`, groupNames.get(row.groupId) ?? "", ...(sides ? [partnerOf(sides, row.groupId, groupNames) ?? ""] : []),
+      `${row.rank}${row.tied ? "=" : ""}`, names.get(row.groupId) ?? "",
       ...row.bySport.map((v) => (v === null ? "" : v === "F" ? "0 (forfeit)" : String(v))),
       ...(row.bonus === null ? [] : [String(row.bonus)]), String(row.total),
     ]),

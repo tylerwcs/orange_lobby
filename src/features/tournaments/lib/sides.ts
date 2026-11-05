@@ -55,12 +55,6 @@ export function sideRows(rows: SquadRow[], people: Map<string, SquadPerson>, sid
   });
 }
 
-/** D832: the other team in this group's super team, or null for a group on its own. */
-export function partnerOf(sides: Side[], groupId: string, groupNames: Map<string, string>): string | null {
-  const other = sideOfGroup(sides, groupId)?.groupIds.find((g) => g !== groupId);
-  return other ? groupNames.get(other) ?? null : null;
-}
-
 /** D822: why these groups can't be a pair - not two different teams, or one already in another pair. */
 export function pairProblem(teams: SuperTeam[], groupIds: string[], editingId: string | null): string | { clash: string } | null {
   if (groupIds.length !== 2 || groupIds[0] === groupIds[1] || groupIds.some((g) => !g)) return "Pick two different teams.";

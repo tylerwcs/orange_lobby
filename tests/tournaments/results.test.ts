@@ -533,27 +533,24 @@ describe("tournamentOverall with super teams (D830, D832)", () => {
     expect(tournamentOverall([sr], groups, [40, 35], bonus, null)).toEqual(tournamentOverall([sr], groups, [40, 35], bonus));
   });
 
-  it("gives both teams of a super team its place points, and lists every paired team", () => {
+  it("ranks the super teams: one row each, keyed by the lead, unpaired teams left out (D832 amended)", () => {
     const rows = tournamentOverall([six()], groups, [40, 35, 30, 28, 26, 24], null, sides);
-    expect(rows).toHaveLength(12);
-    const g01 = rows.find((r) => r.groupId === "g01")!;
-    const g02 = rows.find((r) => r.groupId === "g02")!;
-    expect([g01.bySport, g02.bySport]).toEqual([[40], [40]]);
-    expect(g01.rank).toBe(1);
-    expect(g02).toMatchObject({ rank: 1, tied: true });
-    expect(rows.find((r) => r.groupId === "g08")?.bySport).toEqual([35]);
-    expect(rows.some((r) => r.groupId === "sean")).toBe(false);
+    expect(rows.map((r) => r.groupId).sort()).toEqual(["g01", "g03", "g05", "g07", "g09", "g11"]);
+    expect(rows[0]).toMatchObject({ groupId: "g01", rank: 1, tied: false, bySport: [40] });
+    expect(rows.find((r) => r.groupId === "g07")?.bySport).toEqual([35]);
   });
 
-  it("keeps the bonus per team", () => {
-    const rows = tournamentOverall([six()], groups, [40, 35], { points: 100, earned: new Set(["g01"]) }, sides);
-    expect(rows.find((r) => r.groupId === "g01")?.total).toBe(140);
-    expect(rows.find((r) => r.groupId === "g02")?.total).toBe(40);
+  it("adds both teams' bonus and ad hoc points to their super team", () => {
+    const one = tournamentOverall([six()], groups, [40, 35], { points: 100, earned: new Set(["g02"]) }, sides);
+    expect(one.find((r) => r.groupId === "g01")).toMatchObject({ bonus: 100, total: 140 });
+    const both = tournamentOverall([six()], groups, [40, 35], { points: 100, earned: new Set(["g07", "g08"]), extra: new Map([["g08", -10]]) }, sides);
+    expect(both[0]).toMatchObject({ groupId: "g07", bonus: 190, total: 225, rank: 1 });
+    expect(both.find((r) => r.groupId === "g01")).toMatchObject({ bonus: 0, total: 40 });
   });
 
-  it("shows a super team's forfeit on both its teams", () => {
+  it("shows a super team's forfeit on its row", () => {
     const rows = tournamentOverall([withForfeit(six(), "g03", true)], groups, [40], null, sides);
     expect(rows.find((r) => r.groupId === "g03")?.bySport).toEqual(["F"]);
-    expect(rows.find((r) => r.groupId === "g04")?.bySport).toEqual(["F"]);
+    expect(rows.some((r) => r.groupId === "g04")).toBe(false);
   });
 });

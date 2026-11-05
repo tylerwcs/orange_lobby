@@ -145,12 +145,12 @@ export function polaroidCard(): CardView {
 export function tournamentCard(input: {
   role: "picker" | "member"; ready: number; sports: number; playing: number; locked: boolean;
   /** D663: once any result is in - the group's overall place when attendees may see it, else null. */
-  results?: { overall: { rank: number; tied: boolean; total: number } | null; any: boolean };
+  results?: { overall: { rank: number; tied: boolean; total: number; superTeam?: boolean } | null; any: boolean };
 }): CardView {
   const look = { label: "View squads", primary: false };
   if (input.results?.any) {
     const o = input.results.overall;
-    const label = o ? `Your group: ${ordinal(o.rank)}${o.tied ? "=" : ""} overall · ${o.total} pts` : "Results are in";
+    const label = o ? `Your ${o.superTeam ? "super team" : "group"}: ${ordinal(o.rank)}${o.tied ? "=" : ""} overall · ${o.total} pts` : "Results are in";
     return { status: { label, tone: "primary" }, meta: null, action: { label: "View results", primary: false } };
   }
   if (input.locked) return { status: { label: "Squads locked", tone: "muted" }, meta: null, action: look };

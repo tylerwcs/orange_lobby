@@ -219,6 +219,8 @@ describe("tournamentCard (D647)", () => {
       status: { label: "Your group: 3rd overall · 104 pts", tone: "primary" }, meta: null, action: { label: "View results", primary: false },
     });
     expect(tournamentCard({ ...base, results: { overall: { rank: 1, tied: true, total: 80 }, any: true } }).status?.label).toBe("Your group: 1st= overall · 80 pts");
+    // D832: a super team's place.
+    expect(tournamentCard({ ...base, results: { overall: { rank: 2, tied: false, total: 135, superTeam: true }, any: true } }).status?.label).toBe("Your super team: 2nd overall · 135 pts");
     expect(tournamentCard({ ...base, results: { overall: null, any: true } }).status).toEqual({ label: "Results are in", tone: "primary" });
     expect(tournamentCard({ ...base, results: { overall: null, any: false } }).status?.label).toBe("Squads locked");
   });

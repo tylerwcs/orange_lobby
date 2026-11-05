@@ -134,24 +134,26 @@ D665 format: the admin reads the 4-game totals off the bowling sheet and sets ea
 place 1st–6th on the Places card. No match rows are needed. If the builder finds it simpler to
 enter totals as one score per super team and rank them, that is fine too.
 
-**D832 — Leaderboard stays per original team.** *(From the deck: "Both original teams in a
-super team receive the same placement points.")*
-- 12 rows, one per paired group. Each sport's points = its super team's place points.
-- The +100 bonus (D674) is worked out **per group** as today: every member the tournament is for
-  has a counted place in at least one sport. A place in the super team's squad counts for the
-  player's own group. So partners can differ by 100.
+**D832 — Leaderboard: one row per super team.** *(Amended 5 Nov by the user: "the leaderboard
+should just show the super teams name, meaning only 6 rankings". It was 12 rows, one per team.)*
+- 6 rows, one per super team, named as everywhere else (its name, or "Team 02 + Team 03").
+- The +100 bonus (D674) is still earned **per team**: every member the tournament is for has a
+  counted place in at least one sport, and a place in the super team's squad counts for the
+  player's own team. The super team's Bonus is **both teams' bonus added together** (0, +100 or
+  +200), plus both teams' ad hoc points (D705). *(The user's decision, 5 Nov.)*
 - No "excused" mark. When the High Committee excuses a member (leave, special circumstances),
-  the committee adds the team's +100 by hand as ad hoc points (D704–D707), which already show
-  in the Bonus column. *(The user's decision, 5 Nov.)* "Core member" = every registered member
+  the committee adds that team's +100 by hand as ad hoc points (D704–D707), which land in its
+  super team's Bonus. *(The user's decision, 5 Nov.)* "Core member" = every registered member
   of the group the tournament is for.
-- Ties share the place (D711). Partners with equal totals share a place and a podium step
-  (D712), which is expected.
-- Each row shows its partner (`with Team 03`). *(My call.)*
+- Ties share the place (D711) and a podium step (D712).
+- The viewer's row and podium step say "Your super team"; the activity card says "Your super
+  team: 2nd overall · 135 pts". The bonus note reads "+100 for each of a super team's two teams
+  once every member of that team is in at least one sport."
 - The reveal switch (hide the overall leaderboard) works as now.
 
 **D833 — Exports.** The squads export gains a **Super team** column next to Team. The results
-export names sides by super team. The leaderboard sheet stays per team, with a Partner
-column. *(My call.)*
+export names sides by super team on every sheet; the Places and Leaderboard sheets head the
+column "Super team", and the leaderboard has one row per super team. *(Amended with D832.)*
 
 **D834 — Words.** "Super team" everywhere, matching the deck. Never "alliance" in the UI.
 

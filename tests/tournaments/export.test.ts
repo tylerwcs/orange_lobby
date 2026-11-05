@@ -105,10 +105,12 @@ describe("resultSheets with super teams (D833)", () => {
     slots: base.slots.map((x) => (x.match_id === gold.id ? { ...x, group_id: x.slot === 0 ? "g1" : "g3", score: x.slot === 0 ? 2 : 0 } : x)),
   };
 
-  it("names super teams in places and adds a Partner column to the leaderboard", () => {
+  it("names super teams in places and ranks one leaderboard row per super team", () => {
     const sheets = resultSheets({ results: [futsal], groups, sides, table: [40, 35] });
+    expect(sheets.places[0]).toEqual(["Sport", "Place", "Super team", "Points"]);
     expect(sheets.places[1]).toEqual(["Futsal", "1", "Team 1 + Team 5", "40"]);
-    expect(sheets.leaderboard?.[0]).toEqual(["Rank", "Group", "Partner", "Futsal", "Total"]);
-    expect(sheets.leaderboard?.find((r) => r[1] === "Team 5")).toEqual(["1=", "Team 5", "Team 1", "40", "40"]);
+    expect(sheets.leaderboard?.[0]).toEqual(["Rank", "Super team", "Futsal", "Total"]);
+    expect(sheets.leaderboard?.slice(1, 3)).toEqual([["1", "Team 1 + Team 5", "40", "40"], ["2", "Team 3 + Team 7", "35", "35"]]);
+    expect(sheets.leaderboard).toHaveLength(5);
   });
 });

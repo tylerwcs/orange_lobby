@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { countedRows, type SquadPerson, type SquadRow } from "@/features/tournaments/lib/squads";
-import { inTournament, pairProblem, partnerOf, showSuperTeamsCard, sideOfGroup, sideRows, superTeamLabel, tournamentSides, type SuperTeam } from "@/features/tournaments/lib/sides";
+import { inTournament, pairProblem, showSuperTeamsCard, sideOfGroup, sideRows, superTeamLabel, tournamentSides, type SuperTeam } from "@/features/tournaments/lib/sides";
 
 const R = (sport_id: string, group_id: string, attendee_id: string): SquadRow => ({ sport_id, group_id, attendee_id, added_by: null, added_at: "2026-11-05T00:00:00Z" });
 const P = (id: string, group_id: string | null, cancelled_at: string | null = null): SquadPerson => ({ id, name: id, group_id, cancelled_at });
@@ -50,13 +50,6 @@ describe("sideRows (D825, D643)", () => {
     const out = sideRows(rows, ps, tournamentSides(groups, [T("a", ["g01", "g02"])]));
     // a counts; b is cancelled; c moved g02 -> g01 (same pair) and counts as the side; d moved out; e is unpaired.
     expect(out).toEqual([{ ...rows[0] }, { ...rows[2], group_id: "g01" }]);
-  });
-});
-
-describe("partnerOf", () => {
-  it("names the other team, or null on its own", () => {
-    expect(partnerOf(tournamentSides(groups, [T("a", ["g01", "g02"])]), "g02", names)).toBe("Team 1");
-    expect(partnerOf(tournamentSides(groups, null), "g02", names)).toBeNull();
   });
 });
 

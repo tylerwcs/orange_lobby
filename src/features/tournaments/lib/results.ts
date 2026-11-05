@@ -627,20 +627,24 @@ export function pickerOptions(sr: SportResults, resolved: Resolved[], tables: Po
 
 /**
  * D662: the overall table straight from every sport's results - the groups that play some sport,
- * in `groups` order - with D674's bonus. D832: with `sides` (super teams), each side's places and
- * forfeits count for every group in it, while the bonus stays each group's own.
+ * in `groups` order - with D674's bonus. D832 (amended 5 Nov): with `sides` (super teams), one row
+ * per super team, keyed by its lead group, in side order; its bonus is both teams' D674 bonus and
+ * D705 ad hoc points added together (0, +100 or +200 before ad hoc points).
  */
 export function tournamentOverall(
   results: SportResults[], groups: { id: string; name: string }[], table: number[], bonus: CupBonus | null = null, sides: Side[] | null = null,
 ): OverallRow[] {
   const names = new Map((sides ?? groups).map((g) => [g.id, g.name]));
-  const members = (id: string) => sides?.find((s) => s.id === id)?.groupIds ?? [id];
-  const playing = new Set(results.flatMap((r) => r.pools.flatMap((p) => members(p.group_id))));
-  const places = new Map(results.map((r) => [
-    r.sport.id, sportPlaces(r, resolveSport(r, names)).flatMap((p) => members(p.groupId).map((groupId) => ({ ...p, groupId }))),
-  ]));
-  const forfeits = new Map(results.map((r) => [r.sport.id, new Set(r.pools.filter((p) => p.forfeit).flatMap((p) => members(p.group_id)))]));
-  return overallTable({ sports: results.map((r) => r.sport), places, groupIds: groups.map((g) => g.id).filter((g) => playing.has(g)), table, forfeits, bonus });
+  const playing = new Set(results.flatMap((r) => r.pools.map((p) => p.group_id)));
+  const places = new Map(results.map((r) => [r.sport.id, sportPlaces(r, resolveSport(r, names))]));
+  const forfeits = new Map(results.map((r) => [r.sport.id, new Set(r.pools.filter((p) => p.forfeit).map((p) => p.group_id))]));
+  const sideBonus = (b: CupBonus, list: Side[]): CupBonus => ({
+    points: 0,
+    earned: new Set(),
+    extra: new Map(list.map((s) => [s.id, s.groupIds.reduce((n, g) => n + (b.earned.has(g) ? b.points : 0) + (b.extra?.get(g) ?? 0), 0)])),
+  });
+  const ids = (sides ?? groups).map((g) => g.id).filter((g) => playing.has(g));
+  return overallTable({ sports: results.map((r) => r.sport), places, groupIds: ids, table, forfeits, bonus: bonus && sides ? sideBonus(bonus, sides) : bonus });
 }
 
 /** D660: a copy of the sport with one group's forfeit flag changed, for `blockedBy`. */

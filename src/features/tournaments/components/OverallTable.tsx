@@ -7,13 +7,13 @@ import type { TournamentSport } from "../lib/squads";
  * forfeit. Shared by the admin Leaderboard
  * tab and the portal's Overall view; `highlight` is the viewer's group.
  */
-export function OverallTable({ rows, sports, names, highlight = null, partners }: {
+export function OverallTable({ rows, sports, names, highlight = null, paired = false }: {
   rows: OverallRow[];
   sports: TournamentSport[];
   names: Map<string, string>;
   highlight?: string | null;
-  /** D832: each paired group's partner team, shown under its name. */
-  partners?: Map<string, string>;
+  /** D832: the rows are super teams. */
+  paired?: boolean;
 }) {
   const ordered = [...sports].sort((a, b) => a.position - b.position);
   const bonus = rows.some((r) => r.bonus !== null);
@@ -23,7 +23,7 @@ export function OverallTable({ rows, sports, names, highlight = null, partners }
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
             <th className="px-3 py-2 text-left font-medium">#</th>
-            <th className="py-2 text-left font-medium">Group</th>
+            <th className="py-2 text-left font-medium">{paired ? "Super team" : "Group"}</th>
             {ordered.map((s) => (
               <th key={s.id} className="px-1.5 py-2 text-right font-medium" title={s.name}>
                 <span aria-hidden>{s.name.slice(0, 3)}</span><span className="sr-only">{s.name}</span>
@@ -37,10 +37,7 @@ export function OverallTable({ rows, sports, names, highlight = null, partners }
           {rows.map((r) => (
             <tr key={r.groupId} className={`border-b last:border-0 ${r.groupId === highlight ? "bg-primary/10 font-bold" : ""}`}>
               <td className="px-3 py-2">{r.rank}{r.tied ? "=" : ""}</td>
-              <td className="py-2">
-                {names.get(r.groupId) ?? "A group"}
-                {partners?.get(r.groupId) && <span className="block text-xs font-normal text-muted-foreground">with {partners.get(r.groupId)}</span>}
-              </td>
+              <td className="py-2">{names.get(r.groupId) ?? (paired ? "A super team" : "A group")}</td>
               {r.bySport.map((v, i) => (
                 <td key={ordered[i]?.id ?? i} className="px-1.5 py-2 text-right">
                   {v === null ? <span className="text-muted-foreground">–</span> : v === "F" ? <span className="text-warning">0 F</span> : v}
@@ -56,9 +53,11 @@ export function OverallTable({ rows, sports, names, highlight = null, partners }
   );
 }
 
-/** D674: "Bonus: +100 once every member of the group is in at least one sport." */
-export function bonusLine(points: number): string {
-  return `Bonus: +${points} once every member of the group is in at least one sport.`;
+/** D674: "Bonus: +100 once every member of the group is in at least one sport." With super teams (D832), it's each team's. */
+export function bonusLine(points: number, paired = false): string {
+  return paired
+    ? `Bonus: +${points} for each of a super team's two teams once every member of that team is in at least one sport.`
+    : `Bonus: +${points} once every member of the group is in at least one sport.`;
 }
 
 /** "Points: 1st 40 · 2nd 35 · … · 12th 20". */

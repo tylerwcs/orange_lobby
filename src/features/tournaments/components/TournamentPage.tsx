@@ -2,7 +2,7 @@ import { PendingLink, PendingScope } from "@/components/PendingNav";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import type { Activity } from "@/lib/types";
 import { poolStandings, resolveSport, sportPlaces, timeTable, tournamentOverall, type CupBonus, type Resolved, type SportResults, type TournamentTab } from "../lib/results";
-import { partnerOf, type Side } from "../lib/sides";
+import type { Side } from "../lib/sides";
 import { MatchCard, OverallView, PlayoffsView, StandingsView, TimeStandingsView } from "./ResultViews";
 import { SportSelect } from "./SportSelect";
 
@@ -48,9 +48,8 @@ export function TournamentPage({ activity, results, groups, groupId, sides = nul
   squads: React.ReactNode;
 }) {
   const names = new Map(groups.map((g) => [g.id, g.name]));
-  // D830/D832: Results name the sides; the Leaderboard names each team, with its partner.
+  // D830/D832: Results and the Leaderboard name the sides - one row per super team.
   const sideNames = sides ? new Map(sides.map((s) => [s.id, s.name])) : names;
-  const partners = sides ? new Map(groups.flatMap((g) => { const p = partnerOf(sides, g.id, names); return p ? [[g.id, p] as const] : []; })) : undefined;
   const table = activity.place_points ?? [];
   const leaderboard = table.length > 0 && activity.show_overall !== false;
   const tabs: { key: TournamentTab; label: string }[] = [
@@ -92,7 +91,7 @@ export function TournamentPage({ activity, results, groups, groupId, sides = nul
         {tab === "leaderboard" && (
           <>
             <div className="flex justify-end"><AutoRefresh seconds={REFRESH_SECONDS} /></div>
-            <OverallView rows={tournamentOverall(results, groups, table, bonus, sides)} sports={results.map((r) => r.sport)} names={names} mine={groupId} table={table} bonus={bonus?.points ?? null} partners={partners} />
+            <OverallView rows={tournamentOverall(results, groups, table, bonus, sides)} sports={results.map((r) => r.sport)} names={sideNames} mine={sideId ?? groupId} table={table} bonus={bonus?.points ?? null} paired={!!sides} />
           </>
         )}
 
