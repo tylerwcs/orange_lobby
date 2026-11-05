@@ -6,3 +6,4 @@
 export * from "./lib/squads";
 export * from "./lib/sports";
 export * from "./lib/results";
+export * from "./lib/sides";
