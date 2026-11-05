@@ -7,11 +7,13 @@ import type { TournamentSport } from "../lib/squads";
  * forfeit. Shared by the admin Leaderboard
  * tab and the portal's Overall view; `highlight` is the viewer's group.
  */
-export function OverallTable({ rows, sports, names, highlight = null }: {
+export function OverallTable({ rows, sports, names, highlight = null, partners }: {
   rows: OverallRow[];
   sports: TournamentSport[];
   names: Map<string, string>;
   highlight?: string | null;
+  /** D832: each paired group's partner team, shown under its name. */
+  partners?: Map<string, string>;
 }) {
   const ordered = [...sports].sort((a, b) => a.position - b.position);
   const bonus = rows.some((r) => r.bonus !== null);
@@ -35,7 +37,10 @@ export function OverallTable({ rows, sports, names, highlight = null }: {
           {rows.map((r) => (
             <tr key={r.groupId} className={`border-b last:border-0 ${r.groupId === highlight ? "bg-primary/10 font-bold" : ""}`}>
               <td className="px-3 py-2">{r.rank}{r.tied ? "=" : ""}</td>
-              <td className="py-2">{names.get(r.groupId) ?? "A group"}</td>
+              <td className="py-2">
+                {names.get(r.groupId) ?? "A group"}
+                {partners?.get(r.groupId) && <span className="block text-xs font-normal text-muted-foreground">with {partners.get(r.groupId)}</span>}
+              </td>
               {r.bySport.map((v, i) => (
                 <td key={ordered[i]?.id ?? i} className="px-1.5 py-2 text-right">
                   {v === null ? <span className="text-muted-foreground">–</span> : v === "F" ? <span className="text-warning">0 F</span> : v}

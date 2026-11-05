@@ -2,6 +2,7 @@ import { PendingLink, PendingScope } from "@/components/PendingNav";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import type { Activity } from "@/lib/types";
 import { poolStandings, resolveSport, sportPlaces, timeTable, tournamentOverall, type CupBonus, type Resolved, type SportResults, type TournamentTab } from "../lib/results";
+import { partnerOf, type Side } from "../lib/sides";
 import { MatchCard, OverallView, PlayoffsView, StandingsView, TimeStandingsView } from "./ResultViews";
 import { SportSelect } from "./SportSelect";
 
@@ -22,11 +23,15 @@ const REFRESH_SECONDS = 15;
  * Playoffs. Every choice is a URL (`?tab=`, `&sport=`, `&view=`, `&show=`), and the tab links
  * carry the sport, so moving to About and back lands on the same sport.
  */
-export function TournamentPage({ activity, results, groups, groupId, bonus, tab, sportId, view, show, path, about, squads }: {
+export function TournamentPage({ activity, results, groups, groupId, sides = null, sideId = groupId, bonus, tab, sportId, view, show, path, about, squads }: {
   activity: Activity;
   results: SportResults[];
   groups: { id: string; name: string }[];
   groupId: string;
+  /** D830: the super teams as sides, or null when the tournament has none. */
+  sides?: Side[] | null;
+  /** The viewer's side in Results: their super team's lead group, or their group. */
+  sideId?: string;
   /** D674: the participation bonus and who earns it now; null when there is none. */
   bonus: CupBonus | null;
   /** Already resolved by `tournamentTab`. */
@@ -43,6 +48,9 @@ export function TournamentPage({ activity, results, groups, groupId, bonus, tab,
   squads: React.ReactNode;
 }) {
   const names = new Map(groups.map((g) => [g.id, g.name]));
+  // D830/D832: Results name the sides; the Leaderboard names each team, with its partner.
+  const sideNames = sides ? new Map(sides.map((s) => [s.id, s.name])) : names;
+  const partners = sides ? new Map(groups.flatMap((g) => { const p = partnerOf(sides, g.id, names); return p ? [[g.id, p] as const] : []; })) : undefined;
   const table = activity.place_points ?? [];
   const leaderboard = table.length > 0 && activity.show_overall !== false;
   const tabs: { key: TournamentTab; label: string }[] = [
@@ -84,7 +92,7 @@ export function TournamentPage({ activity, results, groups, groupId, bonus, tab,
         {tab === "leaderboard" && (
           <>
             <div className="flex justify-end"><AutoRefresh seconds={REFRESH_SECONDS} /></div>
-            <OverallView rows={tournamentOverall(results, groups, table, bonus)} sports={results.map((r) => r.sport)} names={names} mine={groupId} table={table} bonus={bonus?.points ?? null} />
+            <OverallView rows={tournamentOverall(results, groups, table, bonus, sides)} sports={results.map((r) => r.sport)} names={names} mine={groupId} table={table} bonus={bonus?.points ?? null} partners={partners} />
           </>
         )}
 
@@ -106,7 +114,7 @@ export function TournamentPage({ activity, results, groups, groupId, bonus, tab,
                 ))}
               </nav>
             )}
-            <SportView sr={current} tab={sub} show={show} names={names} groupId={groupId} table={table.length ? table : null}
+            <SportView sr={current} tab={sub} show={show} names={sideNames} groupId={sideId} table={table.length ? table : null}
               filterHref={(f) => href({ tab: "results", sport: current.sport.id, view: "matches", show: f === "all" ? undefined : f })} />
           </>
         )}

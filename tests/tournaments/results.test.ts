@@ -5,6 +5,7 @@ import {
   type MatchPlan, type Slot, type SportResults,
 } from "@/features/tournaments/lib/results";
 import type { SquadRow, TournamentSport } from "@/features/tournaments/lib/squads";
+import { tournamentSides } from "@/features/tournaments/lib/sides";
 
 const sport = (over: Partial<TournamentSport> = {}): TournamentSport => ({
   id: "sp", activity_id: "act", name: "Futsal", min_size: 2, max_size: 2, position: 0,
@@ -510,5 +511,49 @@ describe("ad hoc points in the overall table (D705)", () => {
     expect(adj.find((r) => r.groupId === "g06")).toMatchObject({ bonus: -10, total: -10, rank: 12 });
     const both = tournamentOverall([sr], groups, [40], { points: 100, earned: new Set(["g05"]), extra: new Map([["g05", 25]]) });
     expect(both[0]).toMatchObject({ groupId: "g05", bonus: 125, total: 125 });
+  });
+});
+
+describe("tournamentOverall with super teams (D830, D832)", () => {
+  const groups = [...ids(12).map((id) => ({ id, name: names.get(id)! })), { id: "sean", name: "Sean" }];
+  const pairs = Array.from({ length: 6 }, (_, i) => ({ id: `st${i}`, activity_id: "act", name: null, groupIds: [ids(12)[i * 2], ids(12)[i * 2 + 1]] }));
+  const sides = tournamentSides(groups, pairs);
+  /** 6 super teams (leads g01, g03 … g11) in pools A (g01, g03, g05) and B (g07, g09, g11); side g01 wins Gold. */
+  const six = () => {
+    const s = sport();
+    let sr = fromPlan(s, planPools(s, [["g01", "g03", "g05"], ["g07", "g09", "g11"]], counter()));
+    const fin = resolveSport(sr, new Map(sides.map((x) => [x.id, x.name]))).find((r) => r.label.startsWith("Gold"))!.match;
+    sr = score(pick(sr, fin.id, ["g01", "g07"]), fin.id, 3, 1);
+    return sr;
+  };
+
+  it("is exactly the old table with no sides", () => {
+    const sr = twelve();
+    const bonus = { points: 100, earned: new Set(["g07"]) };
+    expect(tournamentOverall([sr], groups, [40, 35], bonus, null)).toEqual(tournamentOverall([sr], groups, [40, 35], bonus));
+  });
+
+  it("gives both teams of a super team its place points, and lists every paired team", () => {
+    const rows = tournamentOverall([six()], groups, [40, 35, 30, 28, 26, 24], null, sides);
+    expect(rows).toHaveLength(12);
+    const g01 = rows.find((r) => r.groupId === "g01")!;
+    const g02 = rows.find((r) => r.groupId === "g02")!;
+    expect([g01.bySport, g02.bySport]).toEqual([[40], [40]]);
+    expect(g01.rank).toBe(1);
+    expect(g02).toMatchObject({ rank: 1, tied: true });
+    expect(rows.find((r) => r.groupId === "g08")?.bySport).toEqual([35]);
+    expect(rows.some((r) => r.groupId === "sean")).toBe(false);
+  });
+
+  it("keeps the bonus per team", () => {
+    const rows = tournamentOverall([six()], groups, [40, 35], { points: 100, earned: new Set(["g01"]) }, sides);
+    expect(rows.find((r) => r.groupId === "g01")?.total).toBe(140);
+    expect(rows.find((r) => r.groupId === "g02")?.total).toBe(40);
+  });
+
+  it("shows a super team's forfeit on both its teams", () => {
+    const rows = tournamentOverall([withForfeit(six(), "g03", true)], groups, [40], null, sides);
+    expect(rows.find((r) => r.groupId === "g03")?.bySport).toEqual(["F"]);
+    expect(rows.find((r) => r.groupId === "g04")?.bySport).toEqual(["F"]);
   });
 });

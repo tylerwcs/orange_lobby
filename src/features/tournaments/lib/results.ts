@@ -1,3 +1,4 @@
+import type { Side } from "./sides";
 import type { TournamentSport } from "./squads";
 
 /**
@@ -624,12 +625,21 @@ export function pickerOptions(sr: SportResults, resolved: Resolved[], tables: Po
     }));
 }
 
-/** D662: the overall table straight from every sport's results - the groups that play some sport, in `groups` order - with D674's bonus. */
-export function tournamentOverall(results: SportResults[], groups: { id: string; name: string }[], table: number[], bonus: CupBonus | null = null): OverallRow[] {
-  const names = new Map(groups.map((g) => [g.id, g.name]));
-  const playing = new Set(results.flatMap((r) => r.pools.map((p) => p.group_id)));
-  const places = new Map(results.map((r) => [r.sport.id, sportPlaces(r, resolveSport(r, names))]));
-  const forfeits = new Map(results.map((r) => [r.sport.id, new Set(r.pools.filter((p) => p.forfeit).map((p) => p.group_id))]));
+/**
+ * D662: the overall table straight from every sport's results - the groups that play some sport,
+ * in `groups` order - with D674's bonus. D832: with `sides` (super teams), each side's places and
+ * forfeits count for every group in it, while the bonus stays each group's own.
+ */
+export function tournamentOverall(
+  results: SportResults[], groups: { id: string; name: string }[], table: number[], bonus: CupBonus | null = null, sides: Side[] | null = null,
+): OverallRow[] {
+  const names = new Map((sides ?? groups).map((g) => [g.id, g.name]));
+  const members = (id: string) => sides?.find((s) => s.id === id)?.groupIds ?? [id];
+  const playing = new Set(results.flatMap((r) => r.pools.flatMap((p) => members(p.group_id))));
+  const places = new Map(results.map((r) => [
+    r.sport.id, sportPlaces(r, resolveSport(r, names)).flatMap((p) => members(p.groupId).map((groupId) => ({ ...p, groupId }))),
+  ]));
+  const forfeits = new Map(results.map((r) => [r.sport.id, new Set(r.pools.filter((p) => p.forfeit).flatMap((p) => members(p.group_id)))]));
   return overallTable({ sports: results.map((r) => r.sport), places, groupIds: groups.map((g) => g.id).filter((g) => playing.has(g)), table, forfeits, bonus });
 }
 

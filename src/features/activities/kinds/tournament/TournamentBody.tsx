@@ -40,7 +40,7 @@ export async function TournamentBody({ entry, slug, token, tab = null, sport = n
   const remembered = jar.get(sportCookie(activity.id))?.value ?? null;
   return (
     <TournamentPage
-      activity={activity} results={results} groups={groups} groupId={groupId} bonus={bonus}
+      activity={activity} results={results} groups={groups} groupId={groupId} sides={sides} sideId={sideId} bonus={bonus}
       tab={tournamentTab({ tab, locked, leaderboard, about: hasAbout })}
       sportId={pickSport(sport, remembered, sports.map((s) => s.id))}
       view={VIEWS.find((v) => v === view) ?? null} show={SHOWS.find((s) => s === show) ?? "all"}

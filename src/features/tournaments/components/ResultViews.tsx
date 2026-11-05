@@ -192,8 +192,10 @@ const STEP = {
 } as const;
 
 /** D662/D663: the week so far - a podium for the top three places (D712: a step per group, so level groups each get one), then every group's points by sport and D674's bonus. */
-export function OverallView({ rows, sports, names, mine, table, bonus = null }: {
+export function OverallView({ rows, sports, names, mine, table, bonus = null, partners }: {
   rows: OverallRow[]; sports: TournamentSport[]; names: Map<string, string>; mine: string; table: number[]; bonus?: number | null;
+  /** D832: each paired group's partner team. */
+  partners?: Map<string, string>;
 }) {
   const scored = rows.some((r) => r.total > 0);
   return (
@@ -219,7 +221,7 @@ export function OverallView({ rows, sports, names, mine, table, bonus = null }: 
       )}
       {rows.length === 0
         ? <p className="text-sm text-muted-foreground">No results yet.</p>
-        : <OverallTable rows={rows} sports={sports} names={names} highlight={mine} />}
+        : <OverallTable rows={rows} sports={sports} names={names} highlight={mine} partners={partners} />}
       <p className="text-xs text-muted-foreground">{pointsLine(table)}. – is a sport not finished yet; 0 F is a forfeit.{bonus ? ` ${bonusLine(bonus)}` : ""}</p>
     </div>
   );

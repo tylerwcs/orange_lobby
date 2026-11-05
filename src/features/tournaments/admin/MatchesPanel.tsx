@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Activity, Event } from "@/lib/types";
-import { listGroups } from "@/lib/db/groups";
 import { Badge } from "@/components/ui/badge";
 import { Field } from "@/components/admin/Field";
 import { Modal } from "@/components/admin/Modal";
@@ -8,7 +7,9 @@ import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { squadPeople, squadRows } from "../db/tournaments";
 import { loadResults, loadSportResults } from "../db/results";
-import { countedRows, isLocked, squadMembers } from "../lib/squads";
+import { isLocked, squadMembers } from "../lib/squads";
+import { sideRows, type Side } from "../lib/sides";
+import { loadSides } from "../db/super-teams";
 import {
   bracketName, bracketPlaces, defaultPlaying, formatTime, hasResult, matchesLeft, ordinal, pickerOptions, pointsFor, poolName, poolStandings,
   resolveSport, sportPlaces, timeTable, type PoolTable, type Resolved, type SportResults,
@@ -32,7 +33,8 @@ type Bound = { ev: Event; activity: Activity; sr: SportResults; names: Map<strin
  * the rows; every write is a server action that lands back here with a flash.
  */
 export async function MatchesPanel({ ev, activity, sportId }: { ev: Event; activity: Activity; sportId?: string }) {
-  const [results, groups] = await Promise.all([loadResults(activity.id), listGroups(ev.id)]);
+  // D830: the teams here are the tournament's sides - its groups, or its super teams.
+  const [results, { sides: groups }] = await Promise.all([loadResults(activity.id), loadSides(activity)]);
   if (results.length === 0) {
     return (
       <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
@@ -61,10 +63,10 @@ export async function MatchesPanel({ ev, activity, sportId }: { ev: Event; activ
         })}
       </nav>
       {groups.length === 0
-        ? <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No groups yet. Teams are the event&apos;s groups: add them on the Groups page.</p>
+        ? <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{activity.super_teams ? "No super teams yet. Pair the teams on the Sports tab." : <>No groups yet. Teams are the event&apos;s groups: add them on the Groups page.</>}</p>
         : sr.sport.format === "manual"
           ? <ManualSport {...bound} groups={groups} />
-          : <PoolsSport {...bound} groups={groups} />}
+          : <PoolsSport {...bound} groups={groups} sides={groups} />}
     </div>
   );
 }
@@ -81,11 +83,11 @@ function Section({ title, aside, children }: { title: string; aside?: React.Reac
   );
 }
 
-async function PoolsSport({ ev, activity, sr, names, groups }: Bound & { groups: { id: string; name: string }[] }) {
+async function PoolsSport({ ev, activity, sr, names, groups, sides }: Bound & { groups: { id: string; name: string }[]; sides: Side[] }) {
   const resolved = resolveSport(sr, names);
   const tables = poolStandings(sr, resolved);
   const rows = await squadRows(activity.id);
-  const counted = countedRows(rows, await squadPeople(ev.id, rows.map((r) => r.attendee_id)));
+  const counted = sideRows(rows, await squadPeople(ev.id, rows.map((r) => r.attendee_id)), sides);
   const results = sr.matches.some((m) => hasResult(m, sr.slots));
   const sport = sr.sport;
   const sitting = groups.filter((g) => !sr.pools.some((p) => p.group_id === g.id));

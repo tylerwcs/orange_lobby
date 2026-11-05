@@ -4,6 +4,8 @@ import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { loadResults } from "../db/results";
 import { loadBonus } from "../db/tournaments";
 import { tournamentOverall } from "../lib/results";
+import { loadSides } from "../db/super-teams";
+import { partnerOf } from "../lib/sides";
 import { bonusLine, OverallTable, pointsLine } from "../components/OverallTable";
 import { toggleOverallAction } from "./results-actions";
 import { AdjustmentsCard, listAdjustments } from "@/features/adjustments";
@@ -15,7 +17,11 @@ import { AdjustmentsCard, listAdjustments } from "@/features/adjustments";
 export async function LeaderboardPanel({ ev, activity }: { ev: Event; activity: Activity }) {
   const table = activity.place_points ?? [];
   const [results, groups, bonus, adjustments] = await Promise.all([loadResults(activity.id), listGroups(ev.id), loadBonus(activity), listAdjustments(activity.id)]);
-  const rows = tournamentOverall(results, groups, table, bonus);
+  const { sides } = await loadSides(activity, groups);
+  const paired = activity.super_teams ? sides : null;
+  const rows = tournamentOverall(results, groups, table, bonus, paired);
+  const names = new Map(groups.map((g) => [g.id, g.name]));
+  const partners = paired ? new Map(groups.flatMap((g) => { const p = partnerOf(paired, g.id, names); return p ? [[g.id, p] as const] : []; })) : undefined;
   const shown = activity.show_overall !== false;
   return (
     <div className="flex flex-col gap-3">
@@ -28,7 +34,7 @@ export async function LeaderboardPanel({ ev, activity }: { ev: Event; activity: 
       </div>
       {rows.length === 0
         ? <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No sport has its players yet. Draw pools, or add matches, on the Matches tab.</p>
-        : <OverallTable rows={rows} sports={results.map((r) => r.sport)} names={new Map(groups.map((g) => [g.id, g.name]))} />}
+        : <OverallTable rows={rows} sports={results.map((r) => r.sport)} names={names} partners={partners} />}
       {table.length > 0 && <p className="text-xs text-muted-foreground">{pointsLine(table)}. A forfeit scores 0 for that sport.{bonus?.points ? ` ${bonusLine(bonus.points)}` : ""}{bonus?.extra?.size ? " Bonus includes ad hoc points." : ""}</p>}
       <AdjustmentsCard eventId={ev.id} activityId={activity.id} groups={groups} adjustments={adjustments} />
     </div>

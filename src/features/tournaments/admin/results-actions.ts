@@ -2,7 +2,6 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { flashPath } from "@/lib/flash";
-import { listGroups } from "@/lib/db/groups";
 import type { Activity, Event } from "@/lib/types";
 import {
   addManualMatch, deleteMatch, loadSportResults, resetSport, saveSlots, setForfeit, setManualPlaces, setShowOverall, setSlotGroups, writePlan,
@@ -12,6 +11,7 @@ import {
 } from "../lib/results";
 import { done, formOf, tabPath, tournament } from "./guard";
 import { markForfeitsIfDue } from "./forfeits";
+import { loadSides } from "../db/super-teams";
 
 /**
  * The organiser's results writes (D655-D665). Each lands back on the sport's Matches tab with a
@@ -22,7 +22,8 @@ type Ctx = { ev: Event; cup: Activity; sr: SportResults; names: Map<string, stri
 
 async function sportOf(eventId: string, activityId: string, sportId: string): Promise<Ctx> {
   const { ev, cup } = await tournament(eventId, activityId);
-  const [sr, groups] = await Promise.all([loadSportResults(cup.id, sportId), listGroups(ev.id)]);
+  // D830: the teams are the tournament's sides - its groups, or its super teams.
+  const [sr, { sides: groups }] = await Promise.all([loadSportResults(cup.id, sportId), loadSides(cup)]);
   if (!sr) redirect(flashPath(tabPath(eventId, cup.id, "matches"), "That sport no longer exists.", "error"));
   return { ev, cup, sr, names: new Map(groups.map((g) => [g.id, g.name])), back: tabPath(eventId, cup.id, "matches", sportId) };
 }
