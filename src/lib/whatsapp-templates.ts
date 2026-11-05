@@ -1,3 +1,6 @@
+import type { ActivitySession } from "@/lib/types";
+import { shortDate } from "@/lib/text";
+
 /**
  * The approved WhatsApp templates the admin can choose between, as this app understands them.
  *
@@ -85,12 +88,19 @@ export function readTemplate(t: GraphTemplate): Template | null {
   };
 }
 
-/** What can fill a `{{n}}`. `custom` is one fixed text, the same for everybody. */
+/**
+ * What can fill a `{{n}}`. `custom` is one fixed text, the same for everybody. The three
+ * `session_` ones are each person's own booking, so they need a "Booked for …" audience: that
+ * is what says which activity's booking is meant (BOOKING_SOURCES).
+ */
 export const SOURCES = {
   attendee_name: "Attendee's name",
   event_name: "Event name",
   event_dates: "Event dates",
   venue: "Venue",
+  session_activity: "Booked activity",
+  session_time: "Their session time",
+  session_location: "Their session location",
   custom: "Custom text",
 } as const;
 export type Source = keyof typeof SOURCES;
@@ -98,6 +108,31 @@ export type Source = keyof typeof SOURCES;
 export function isSource(v: string): v is Source {
   return Object.hasOwn(SOURCES, v);
 }
+
+/** The sources read from one person's booking, which only a "Booked for …" audience can fill. */
+export const BOOKING_SOURCES: readonly Source[] = ["session_activity", "session_time", "session_location"];
+export function needsBooking(sources: readonly string[]): boolean {
+  return sources.some((s) => (BOOKING_SOURCES as readonly string[]).includes(s));
+}
+
+type BookedSession = Pick<ActivitySession, "day" | "starts_at" | "location">;
+
+/**
+ * Of one person's sessions in an activity, the one a reminder is about: the next to start, or
+ * the last one when every one has begun (a reminder sent late still names a real slot). One
+ * booking is the usual case; this only matters where an activity lets people take several.
+ */
+export function sessionToRemind<T extends BookedSession>(sessions: readonly T[], now: { date: string; time: string }): T | null {
+  const sorted = [...sessions].sort((a, b) => (a.day + a.starts_at).localeCompare(b.day + b.starts_at));
+  return sorted.find((s) => s.day + s.starts_at >= now.date + now.time) ?? sorted.at(-1) ?? null;
+}
+
+/** One person's booking as the three values above. The time reads after "at": "10:30 on Sat 8 Nov". */
+export function bookingValues(activityName: string, session: BookedSession | null): Booking | null {
+  if (!session) return null;
+  return { activity: activityName, time: `${session.starts_at} on ${shortDate(session.day)}`, location: session.location?.trim() ?? "" };
+}
+export type Booking = { activity: string; time: string; location: string };
 
 /**
  * What each variable is filled with before the organiser changes anything: the two event
@@ -109,7 +144,11 @@ export function defaultSources(variables: number): Source[] {
   return Array.from({ length: variables }, (_, i) => order[i] ?? "custom");
 }
 
-export type SourceValues = { attendeeName: string; eventName: string; eventDates: string; venue: string };
+export type SourceValues = {
+  attendeeName: string; eventName: string; eventDates: string; venue: string;
+  /** This person's booking in the audience's activity; absent outside a "Booked for …" audience. */
+  booking?: Booking | null;
+};
 
 /** The value one variable takes for one attendee. */
 export function sourceValue(source: Source, v: SourceValues, custom: string): string {
@@ -118,6 +157,9 @@ export function sourceValue(source: Source, v: SourceValues, custom: string): st
     case "event_name": return v.eventName;
     case "event_dates": return v.eventDates;
     case "venue": return v.venue;
+    case "session_activity": return v.booking?.activity ?? "";
+    case "session_time": return v.booking?.time ?? "";
+    case "session_location": return v.booking?.location ?? "";
     case "custom": return custom;
   }
 }

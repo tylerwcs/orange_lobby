@@ -29,6 +29,11 @@ export function audienceOptions(activities: BookingActivity[]): AudienceOption[]
   ];
 }
 
+/** The activity a "Booked for …" audience names, whose bookings fill the session sources; else null. */
+export function bookedActivityId(key: string): string | null {
+  return key.startsWith("booked:") ? key.slice("booked:".length) : null;
+}
+
 /**
  * Whether one attendee is in an audience. "Not yet booked" leaves out anybody the activity is
  * not offered to (its categories): reminding a guest to book a staff-only session is a

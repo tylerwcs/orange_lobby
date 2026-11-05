@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { defaultSources, fillVariables, readTemplate, sourceValue, type GraphTemplate } from "@/lib/whatsapp-templates";
+import { bookingValues, defaultSources, fillVariables, needsBooking, readTemplate, sessionToRemind, sourceValue, type GraphTemplate } from "@/lib/whatsapp-templates";
+import { bookedActivityId } from "@/lib/whatsapp-targets";
 
 // Shaped like Meta's own answer for the approved event template.
 const portal: GraphTemplate = {
@@ -60,5 +61,34 @@ describe("variables", () => {
   it("replaces {{n}} in order, and shows a placeholder that has no value", () => {
     expect(fillVariables("Hi {{1}}, see you at {{2}}. {{1}}!", ["Aina", "KOM"])).toBe("Hi Aina, see you at KOM. Aina!");
     expect(fillVariables("Hi {{1}} on {{3}}", ["Aina", "x", ""])).toBe("Hi Aina on {{3}}");
+  });
+});
+
+describe("session sources", () => {
+  const s = (day: string, starts_at: string, location: string | null = "Hall 2") => ({ day, starts_at, location });
+  const now = { date: "2026-11-08", time: "11:00" };
+
+  it("reminds about the next session, or the last once all have begun", () => {
+    expect(sessionToRemind([s("2026-11-09", "09:00"), s("2026-11-08", "10:30"), s("2026-11-08", "14:00")], now)).toEqual(s("2026-11-08", "14:00"));
+    expect(sessionToRemind([s("2026-11-08", "11:00")], now)).toEqual(s("2026-11-08", "11:00"));
+    expect(sessionToRemind([s("2026-11-07", "09:00"), s("2026-11-08", "10:30")], now)).toEqual(s("2026-11-08", "10:30"));
+    expect(sessionToRemind([], now)).toBeNull();
+  });
+  it("reads the time after \"at\", and the place as set", () => {
+    expect(bookingValues("Health Screening", s("2026-11-08", "10:30", "  Hall 2 "))).toEqual({ activity: "Health Screening", time: "10:30 on Sun 8 Nov", location: "Hall 2" });
+    expect(bookingValues("Yoga", s("2026-11-08", "10:30", null))?.location).toBe("");
+    expect(bookingValues("Yoga", null)).toBeNull();
+  });
+  it("fills from the person's booking, and empty without one", () => {
+    const v = { attendeeName: "Aina", eventName: "KOM", eventDates: "", venue: "", booking: bookingValues("Yoga", s("2026-11-08", "10:30")) };
+    expect(["session_activity", "session_time", "session_location"].map((k) => sourceValue(k as never, v, ""))).toEqual(["Yoga", "10:30 on Sun 8 Nov", "Hall 2"]);
+    expect(sourceValue("session_time", { ...v, booking: null }, "")).toBe("");
+  });
+  it("needs a Booked for audience", () => {
+    expect(needsBooking(["custom", "session_time"])).toBe(true);
+    expect(needsBooking(["attendee_name", "venue"])).toBe(false);
+    expect(bookedActivityId("booked:abc")).toBe("abc");
+    expect(bookedActivityId("unbooked:abc")).toBeNull();
+    expect(bookedActivityId("all")).toBeNull();
   });
 });

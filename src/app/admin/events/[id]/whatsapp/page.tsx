@@ -5,9 +5,9 @@ import { eventFields } from "@/lib/attendee-fields";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { DEFAULT_TEMPLATE } from "@/lib/whatsapp-run";
 import { listTemplates } from "@/lib/whatsapp";
-import { readTemplate, type Template } from "@/lib/whatsapp-templates";
-import { audienceOptions, inAudience } from "@/lib/whatsapp-targets";
-import { listActivities, listBookings } from "@/features/activities";
+import { bookingValues, readTemplate, sessionToRemind, type Template } from "@/lib/whatsapp-templates";
+import { audienceOptions, bookedActivityId, inAudience } from "@/lib/whatsapp-targets";
+import { listActivities, listBookings, listSessions } from "@/features/activities";
 import { nowInKL } from "@/lib/time";
 import { randomUUID } from "node:crypto";
 import { formatDateRange, shortDateTime } from "@/lib/text";
@@ -35,8 +35,8 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
   const attendees = await listAttendees(ev.id);
   const fields = eventFields(ev.registration_questions, ev.attendee_fields);
   const { recipients, unusable } = splitAudience(attendees, fields);
-  const [sends, list, bookingActivities, bookings] = await Promise.all([
-    listSends(ev.id), listTemplates(), listActivities(ev.id, "booking"), listBookings(ev.id),
+  const [sends, list, bookingActivities, bookings, sessions] = await Promise.all([
+    listSends(ev.id), listTemplates(), listActivities(ev.id, "booking"), listBookings(ev.id), listSessions(ev.id),
   ]);
   const templates = list.ok ? list.templates.map(readTemplate).filter((t): t is Template => t !== null) : [];
 
@@ -44,10 +44,25 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
   // preview with. Only that one person's link code reaches the browser, not everybody's.
   const bookedBy = new Map<string, Set<string>>();
   for (const b of bookings) (bookedBy.get(b.activity_id) ?? bookedBy.set(b.activity_id, new Set()).get(b.activity_id)!).add(b.attendee_id);
+  // A "Booked for …" audience also carries each member's own session, worked out as the send
+  // does (sessionToRemind): the sample's for the preview, and how many have no place set.
+  const now = nowInKL();
+  const sessionById = new Map(sessions.map((s) => [s.id, s]));
   const audiences = audienceOptions(bookingActivities).map((o) => {
     const members = recipients.filter((r) => inAudience(o.key, r.attendee, bookingActivities, bookedBy));
+    const activity = bookingActivities.find((a) => a.id === bookedActivityId(o.key));
+    const bookingOf = (attendeeId: string) => activity ? bookingValues(activity.name, sessionToRemind(
+      bookings.filter((b) => b.activity_id === activity.id && b.attendee_id === attendeeId).map((b) => sessionById.get(b.session_id)).filter((s) => s !== undefined),
+      now,
+    )) : null;
     const sample = members[0]?.attendee;
-    return { ...o, ids: members.map((m) => m.attendee.id), sample: sample ? { name: sample.name, token: sample.token } : null };
+    return {
+      ...o,
+      ids: members.map((m) => m.attendee.id),
+      sample: sample ? { name: sample.name, token: sample.token, booking: bookingOf(sample.id) } : null,
+      bookings: Boolean(activity),
+      noPlace: activity ? members.filter((m) => !bookingOf(m.attendee.id)?.location).length : 0,
+    };
   });
   // Who already has what: the claim keys of every send that did not fail (a failed one is
   // retried by pressing Send again - claimSend).
@@ -140,7 +155,7 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
           people={people}
           hadTemplate={hadTemplate}
           nonce={randomUUID()}
-          today={nowInKL().date}
+          today={now.date}
           event={{ eventName: ev.name, eventDates: formatDateRange(ev.starts_on, ev.ends_on), venue: ev.venue_name ?? "" }}
           action={sendWhatsappAction.bind(null, ev.id)}
         />

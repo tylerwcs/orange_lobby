@@ -46,8 +46,8 @@ import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
 import { listTemplates } from "@/lib/whatsapp";
-import { isSource, readTemplate, sourceValue, type Source } from "@/lib/whatsapp-templates";
-import { inAudience, sendKey } from "@/lib/whatsapp-targets";
+import { bookingValues, isSource, needsBooking, readTemplate, sessionToRemind, sourceValue, type Source } from "@/lib/whatsapp-templates";
+import { bookedActivityId, inAudience, sendKey } from "@/lib/whatsapp-targets";
 import { formatDateRange, shortDate } from "@/lib/text";
 import { afterPlacesChange, closeEntryForAttendee, openEntriesByEmail } from "@/features/registration-queue";
 
@@ -1588,8 +1588,8 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
   // anything the page counted: the audience key is the only thing trusted from the form.
   const audience = String(formData.get("audience") ?? "all");
   const again = formData.get("again") === "on";
-  const [attendees, bookingActivities, bookings] = await Promise.all([
-    listAttendees(eventId), listActivities(eventId, "booking"), listBookings(eventId),
+  const [attendees, bookingActivities, bookings, sessions] = await Promise.all([
+    listAttendees(eventId), listActivities(eventId, "booking"), listBookings(eventId), listSessions(eventId),
   ]);
   const bookedBy = new Map<string, Set<string>>();
   for (const b of bookings) (bookedBy.get(b.activity_id) ?? bookedBy.set(b.activity_id, new Set()).get(b.activity_id)!).add(b.attendee_id);
@@ -1605,7 +1605,25 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
     ? reachable.filter((r) => picked.has(r.attendee.id))
     : reachable.filter((r) => inAudience(audience, r.attendee, bookingActivities, bookedBy));
   if (recipients.length === 0) fail(audience === "pick" ? "Tick at least one person to send to." : "Nobody in that audience has a number we can send to.");
-  const today = nowInKL().date;
+  const now = nowInKL();
+  const today = now.date;
+
+  // Each person's own booking, for the session sources: only a "Booked for …" audience says
+  // which activity's booking is meant, and every one of them has at least one.
+  const bookingOf = new Map<string, ReturnType<typeof bookingValues>>();
+  if (needsBooking(sources)) {
+    const activityId = bookedActivityId(audience);
+    const activity = bookingActivities.find((a) => a.id === activityId);
+    if (!activity) fail("Their session time and place come from a booking. Send to a “Booked for …” audience, or choose something else.");
+    const sessionById = new Map(sessions.map((s) => [s.id, s]));
+    for (const r of recipients) {
+      const theirs = bookings.filter((b) => b.activity_id === activityId && b.attendee_id === r.attendee.id).map((b) => sessionById.get(b.session_id)).filter((s) => s !== undefined);
+      bookingOf.set(r.attendee.id, bookingValues(activity!.name, sessionToRemind(theirs, now)));
+    }
+    // Meta rejects an empty parameter, so a session with no place set stops the send here.
+    const noPlace = sources.includes("session_location") ? recipients.filter((r) => !bookingOf.get(r.attendee.id)?.location).length : 0;
+    if (noPlace) fail(`${noPlace} of these people booked a session with no location set. Add it to the activity's sessions, or choose something else.`);
+  }
 
   const eventDates = formatDateRange(ev.starts_on, ev.ends_on);
   const result = await runSend({
@@ -1615,7 +1633,7 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
     language: template.language,
     recipients,
     params: (a) => {
-      const values = { attendeeName: a.name, eventName: ev.name, eventDates, venue: ev.venue_name ?? "" };
+      const values = { attendeeName: a.name, eventName: ev.name, eventDates, venue: ev.venue_name ?? "", booking: bookingOf.get(a.id) };
       return {
         bodyParams: sources.map((src, i) => sourceValue(src as Source, values, custom[i])),
         buttonParam: template.button ? a.token : undefined,

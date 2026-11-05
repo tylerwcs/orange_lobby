@@ -3,8 +3,8 @@ import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import {
-  SOURCES, defaultSources, fillVariables, sourceValue,
-  type Source, type SourceValues, type Template,
+  SOURCES, BOOKING_SOURCES, defaultSources, fillVariables, needsBooking, sourceValue,
+  type Booking, type Source, type SourceValues, type Template,
 } from "@/lib/whatsapp-templates";
 import { sendKey } from "@/lib/whatsapp-targets";
 
@@ -24,8 +24,12 @@ const select = "h-9 w-full rounded-md border border-input bg-transparent px-2.5 
 export function WhatsappComposer({ templates, initial, audiences, sentKeys, people, hadTemplate, nonce, today, event, action }: {
   templates: Template[];
   initial: string;
-  /** Each audience's reachable attendee ids, and one of them for the preview. */
-  audiences: { key: string; label: string; ids: string[]; sample: { name: string; token: string } | null }[];
+  /**
+   * Each audience's reachable attendee ids, and one of them for the preview. A "Booked for …"
+   * audience (`bookings`) can fill the session sources; `noPlace` of its members booked a
+   * session with no location.
+   */
+  audiences: { key: string; label: string; ids: string[]; sample: { name: string; token: string; booking?: Booking | null } | null; bookings?: boolean; noPlace?: number }[];
   /** The claim keys of every send that did not fail. */
   sentKeys: string[];
   /** Everybody reachable, for "Choose people…". */
@@ -67,7 +71,7 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
   const firstPicked = picking ? people.find((p) => picked.has(p.id)) : undefined;
   // A picked person's link code never reaches the browser, so their preview link shows as "…".
   const sample = picking ? (firstPicked ? { name: firstPicked.name, token: "…" } : null) : audience?.sample ?? null;
-  const values: SourceValues = { attendeeName: sample?.name ?? "Attendee name", ...event };
+  const values: SourceValues = { attendeeName: sample?.name ?? "Attendee name", ...event, booking: picking ? null : audience?.sample?.booking };
   const filled = sources.map((src, i) => sourceValue(src, values, custom[i] ?? ""));
   const members = picking ? [...picked] : audience?.ids ?? [];
   const hadThis = new Set(hadTemplate[template.name] ?? []);
@@ -76,6 +80,9 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
   const sent = picking ? members.filter((id) => hadThis.has(id)).length : members.length - pending;
   const missingCustom = sources.some((src, i) => src === "custom" && !custom[i]?.trim());
   const missingVenue = sources.includes("venue") && !event.venue.trim();
+  // The session sources are read from a booking, so only a "Booked for …" audience fills them.
+  const missingBooking = needsBooking(sources) && !audience?.bookings;
+  const noPlace = !missingBooking && sources.includes("session_location") ? audience?.noPlace ?? 0 : 0;
 
   return (
     <form action={action} className="grid gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10 xl:sticky xl:top-6">
@@ -122,6 +129,11 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
             </div>
           ))}
           {missingVenue && <p className="text-xs text-destructive">This event has no venue set. Add it in Settings, or choose something else.</p>}
+          {missingBooking && <p className="text-xs text-destructive">Session details come from each person’s booking. Send to a “Booked for …” audience, or choose something else.</p>}
+          {noPlace > 0 && <p className="text-xs text-destructive">{noPlace} of these people booked a session with no location set. Add it to the activity’s sessions, or choose something else.</p>}
+          {!missingBooking && !noPlace && sources.some((s) => BOOKING_SOURCES.includes(s)) && (
+            <p className="text-xs text-muted-foreground">Each person gets their own session. Someone with several gets their next one.</p>
+          )}
         </fieldset>
       )}
 
@@ -156,7 +168,7 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
           Send to {pending}
         </ConfirmButton>
       )}
-      {(missingCustom || missingVenue) && pending > 0 && (
+      {(missingCustom || missingVenue || missingBooking || noPlace > 0) && pending > 0 && (
         <p className="-mt-2 text-xs text-muted-foreground">Fill in every variable first; the send stops if one is empty.</p>
       )}
       <p className="text-xs text-muted-foreground">
