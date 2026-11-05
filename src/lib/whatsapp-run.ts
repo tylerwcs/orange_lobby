@@ -31,7 +31,7 @@ export async function runSend<T extends AudienceAttendee>(input: {
   language?: string;
   recipients: Recipient<T>[];
   /** Per-attendee variables. Returns the body values in `{{n}}` order, plus the button's token. */
-  params: (attendee: T) => { bodyParams: string[]; buttonParam?: string };
+  params: (attendee: T) => { bodyParams: string[]; buttonParam?: string; buttonParams?: string[] };
   /** A stable key per attendee makes the run idempotent; null lets the message repeat. */
   dedupeKey: (attendee: T) => string | null;
 }): Promise<RunResult> {
@@ -54,8 +54,8 @@ export async function runSend<T extends AudienceAttendee>(input: {
         result.skipped++;
         continue;
       }
-      const { bodyParams, buttonParam } = input.params(attendee);
-      const res = await sendTemplate({ to, template: input.template, language: input.language, bodyParams, buttonParam });
+      const { bodyParams, buttonParam, buttonParams } = input.params(attendee);
+      const res = await sendTemplate({ to, template: input.template, language: input.language, bodyParams, buttonParam, buttonParams });
       if (res.ok) {
         await markAccepted(claim.id, res.wamid);
         result.sent++;

@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import {
-  SOURCES, BOOKING_SOURCES, defaultSources, fillVariables, needsBooking, sourceValue,
+  SOURCES, BOOKING_SOURCES, buttonValue, defaultSources, fillVariables, hasMapButton, needsBooking, sourceValue,
   type Booking, type Source, type SourceValues, type Template,
 } from "@/lib/whatsapp-templates";
 import { sendKey } from "@/lib/whatsapp-targets";
@@ -27,9 +27,9 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
   /**
    * Each audience's reachable attendee ids, and one of them for the preview. A "Booked for …"
    * audience (`bookings`) can fill the session sources; `noPlace` of its members booked a
-   * session with no location.
+   * session with no location, and `noMap` one with no map link (for the View map button).
    */
-  audiences: { key: string; label: string; ids: string[]; sample: { name: string; token: string; booking?: Booking | null } | null; bookings?: boolean; noPlace?: number }[];
+  audiences: { key: string; label: string; ids: string[]; sample: { name: string; token: string; booking?: Booking | null } | null; bookings?: boolean; noPlace?: number; noMap?: number }[];
   /** The claim keys of every send that did not fail. */
   sentKeys: string[];
   /** Everybody reachable, for "Choose people…". */
@@ -81,8 +81,11 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
   const missingCustom = sources.some((src, i) => src === "custom" && !custom[i]?.trim());
   const missingVenue = sources.includes("venue") && !event.venue.trim();
   // The session sources are read from a booking, so only a "Booked for …" audience fills them.
-  const missingBooking = needsBooking(sources) && !audience?.bookings;
+  const mapButton = hasMapButton(template.buttons);
+  const missingBooking = needsBooking(sources, template.buttons) && !audience?.bookings;
   const noPlace = !missingBooking && sources.includes("session_location") ? audience?.noPlace ?? 0 : 0;
+  const noMap = !missingBooking && mapButton ? audience?.noMap ?? 0 : 0;
+  const usesBooking = mapButton || sources.some((s) => BOOKING_SOURCES.includes(s));
 
   return (
     <form action={action} className="grid gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10 xl:sticky xl:top-6">
@@ -129,17 +132,27 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
             </div>
           ))}
           {missingVenue && <p className="text-xs text-destructive">This event has no venue set. Add it in Settings, or choose something else.</p>}
-          {missingBooking && <p className="text-xs text-destructive">Session details come from each person’s booking. Send to a “Booked for …” audience, or choose something else.</p>}
-          {noPlace > 0 && <p className="text-xs text-destructive">{noPlace} of these people booked a session with no location set. Add it to the activity’s sessions, or choose something else.</p>}
-          {!missingBooking && !noPlace && sources.some((s) => BOOKING_SOURCES.includes(s)) && (
-            <p className="text-xs text-muted-foreground">Each person gets their own session. Someone with several gets their next one.</p>
-          )}
         </fieldset>
+      )}
+      {/* The session details and the View map button both come from each person's booking. */}
+      {usesBooking && (
+        <div className="-mt-1 grid gap-1">
+          {missingBooking && (
+            <p className="text-xs text-destructive">
+              {mapButton ? "This template’s View map button comes" : "Session details come"} from each person’s booking. Send to a “Booked for …” audience{mapButton ? "" : ", or choose something else"}.
+            </p>
+          )}
+          {noPlace > 0 && <p className="text-xs text-destructive">{noPlace} of these people booked a session with no location set. Add it to the activity’s sessions, or choose something else.</p>}
+          {noMap > 0 && <p className="text-xs text-destructive">{noMap} of these people booked a session with no map link, so View map would lead nowhere. Add the link to the activity’s sessions.</p>}
+          {!missingBooking && !noPlace && !noMap && (
+            <p className="text-xs text-muted-foreground">Each person gets their own session{mapButton ? " and its map" : ""}. Someone with several gets their next one.</p>
+          )}
+        </div>
       )}
 
       <div className="grid gap-1.5">
         <div className="text-sm font-medium">Preview{sample ? <span className="font-normal text-muted-foreground"> · as {sample.name} gets it</span> : null}</div>
-        <Preview template={template} values={filled} token={sample?.token ?? "…"} />
+        <Preview template={template} values={filled} token={sample?.token ?? "…"} booking={values.booking} />
       </div>
 
       {!picking && <label className="flex items-start gap-2 text-sm">
@@ -168,7 +181,7 @@ export function WhatsappComposer({ templates, initial, audiences, sentKeys, peop
           Send to {pending}
         </ConfirmButton>
       )}
-      {(missingCustom || missingVenue || missingBooking || noPlace > 0) && pending > 0 && (
+      {(missingCustom || missingVenue || missingBooking || noPlace > 0 || noMap > 0) && pending > 0 && (
         <p className="-mt-2 text-xs text-muted-foreground">Fill in every variable first; the send stops if one is empty.</p>
       )}
       <p className="text-xs text-muted-foreground">
@@ -227,8 +240,9 @@ function PeoplePicker({ people, picked, setPicked, had }: {
   );
 }
 
-/** The message as WhatsApp draws it: a bubble with header, body, footer and the link button. */
-function Preview({ template, values, token }: { template: Template; values: string[]; token: string }) {
+/** The message as WhatsApp draws it: a bubble with header, body, footer and the link buttons. */
+function Preview({ template, values, token, booking }: { template: Template; values: string[]; token: string; booking: Booking | null | undefined }) {
+  const links = template.buttons.map((b) => ({ ...b, url: `${b.urlPrefix}${buttonValue(b, token, booking) || (b.fill === "none" ? "" : "…")}` }));
   return (
     <div className="rounded-xl bg-[#E7DED4] p-3 dark:bg-[#0B141A]">
       <div className="max-w-[20rem] overflow-hidden rounded-lg rounded-tl-none bg-white text-[13.5px] leading-snug text-[#111B21] shadow-sm dark:bg-[#202C33] dark:text-[#E9EDEF]">
@@ -237,17 +251,17 @@ function Preview({ template, values, token }: { template: Template; values: stri
           <p className="whitespace-pre-line break-words">{fillVariables(template.body, values)}</p>
           {template.footer && <div className="text-xs text-[#667781] dark:text-[#8696A0]">{template.footer}</div>}
         </div>
-        {template.button && (
-          <div className="border-t border-black/10 dark:border-white/10">
-            <div className="flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#027EB5] dark:text-[#53BDEB]" title={`${template.button.urlPrefix}${token}`}>
-              <ExternalLink aria-hidden className="size-4" />{template.button.text}
+        {links.map((b) => (
+          <div key={b.text} className="border-t border-black/10 dark:border-white/10">
+            <div className="flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#027EB5] dark:text-[#53BDEB]" title={b.url}>
+              <ExternalLink aria-hidden className="size-4" />{b.text}
             </div>
           </div>
-        )}
+        ))}
       </div>
-      {template.button && (
-        <div className="mt-2 truncate font-mono text-[11px] text-[#54656F] dark:text-[#8696A0]">Opens {template.button.urlPrefix}{token}</div>
-      )}
+      {links.map((b) => (
+        <div key={b.text} className="mt-2 truncate font-mono text-[11px] text-[#54656F] dark:text-[#8696A0]">{b.text}: {b.url}</div>
+      ))}
     </div>
   );
 }

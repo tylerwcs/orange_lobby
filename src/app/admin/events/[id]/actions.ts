@@ -46,7 +46,7 @@ import { cleanRichText } from "@/lib/rich-text";
 import { splitAudience } from "@/lib/whatsapp-audience";
 import { runSend } from "@/lib/whatsapp-run";
 import { listTemplates } from "@/lib/whatsapp";
-import { bookingValues, isSource, needsBooking, readTemplate, sessionToRemind, sourceValue, type Source } from "@/lib/whatsapp-templates";
+import { bookingValues, buttonValue, hasMapButton, isSource, needsBooking, readTemplate, sessionToRemind, sourceValue, type Source } from "@/lib/whatsapp-templates";
 import { bookedActivityId, inAudience, sendKey } from "@/lib/whatsapp-targets";
 import { formatDateRange, shortDate } from "@/lib/text";
 import { afterPlacesChange, closeEntryForAttendee, openEntriesByEmail } from "@/features/registration-queue";
@@ -1611,10 +1611,10 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
   // Each person's own booking, for the session sources: only a "Booked for …" audience says
   // which activity's booking is meant, and every one of them has at least one.
   const bookingOf = new Map<string, ReturnType<typeof bookingValues>>();
-  if (needsBooking(sources)) {
+  if (needsBooking(sources, template.buttons)) {
     const activityId = bookedActivityId(audience);
     const activity = bookingActivities.find((a) => a.id === activityId);
-    if (!activity) fail("Their session time and place come from a booking. Send to a “Booked for …” audience, or choose something else.");
+    if (!activity) fail("Their session details and map come from a booking. Send to a “Booked for …” audience, or choose something else.");
     const sessionById = new Map(sessions.map((s) => [s.id, s]));
     for (const r of recipients) {
       const theirs = bookings.filter((b) => b.activity_id === activityId && b.attendee_id === r.attendee.id).map((b) => sessionById.get(b.session_id)).filter((s) => s !== undefined);
@@ -1623,6 +1623,9 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
     // Meta rejects an empty parameter, so a session with no place set stops the send here.
     const noPlace = sources.includes("session_location") ? recipients.filter((r) => !bookingOf.get(r.attendee.id)?.location).length : 0;
     if (noPlace) fail(`${noPlace} of these people booked a session with no location set. Add it to the activity's sessions, or choose something else.`);
+    // The View map button would open a 404 for a session with no map link (D835).
+    const noMap = hasMapButton(template.buttons) ? recipients.filter((r) => !bookingOf.get(r.attendee.id)?.hasMap).length : 0;
+    if (noMap) fail(`${noMap} of these people booked a session with no map link, so View map would lead nowhere. Add the link to the activity's sessions.`);
   }
 
   const eventDates = formatDateRange(ev.starts_on, ev.ends_on);
@@ -1636,7 +1639,7 @@ export async function sendWhatsappAction(eventId: string, formData: FormData) {
       const values = { attendeeName: a.name, eventName: ev.name, eventDates, venue: ev.venue_name ?? "", booking: bookingOf.get(a.id) };
       return {
         bodyParams: sources.map((src, i) => sourceValue(src as Source, values, custom[i])),
-        buttonParam: template.button ? a.token : undefined,
+        buttonParams: template.buttons.map((b) => buttonValue(b, a.token, bookingOf.get(a.id))),
       };
     },
     // Once per attendee per template and audience; with Send again, once more per day;

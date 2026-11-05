@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingValues, defaultSources, fillVariables, needsBooking, readTemplate, sessionToRemind, sourceValue, type GraphTemplate } from "@/lib/whatsapp-templates";
+import { bookingValues, buttonValue, defaultSources, fillVariables, needsBooking, readTemplate, sessionToRemind, sourceValue, type GraphTemplate } from "@/lib/whatsapp-templates";
 import { bookedActivityId } from "@/lib/whatsapp-targets";
 
 // Shaped like Meta's own answer for the approved event template.
@@ -26,14 +26,28 @@ describe("readTemplate", () => {
       body: "Hi {{1}}, your registration for {{2}} on {{3}} is confirmed.",
       footer: "Ecopia Events",
       variables: 3,
-      button: { text: "Visit website", urlPrefix: "https://ecphub.vercel.app/a/" },
+      buttons: [{ text: "Visit website", urlPrefix: "https://ecphub.vercel.app/a/", fill: "token" }],
     });
   });
   it("keeps a template with no variables and no button", () => {
     const hello = readTemplate({ name: "hello_world", status: "APPROVED", language: "en_US", components: [
       { type: "HEADER", format: "TEXT", text: "Hello World" }, { type: "BODY", text: "Welcome!" },
     ] });
-    expect(hello).toMatchObject({ header: "Hello World", variables: 0, button: null });
+    expect(hello).toMatchObject({ header: "Hello World", variables: 0, buttons: [] });
+  });
+  it("reads a second, View map button that carries the booked session (D835)", () => {
+    const t = readTemplate({ ...portal, components: [portal.components[0], { type: "BUTTONS", buttons: [
+      { type: "URL", text: "View my booking", url: "https://ecphub.vercel.app/a/{{1}}" },
+      { type: "URL", text: "View map", url: "https://ecphub.vercel.app/m/{{1}}" },
+    ] }] });
+    expect(t?.buttons).toEqual([
+      { text: "View my booking", urlPrefix: "https://ecphub.vercel.app/a/", fill: "token" },
+      { text: "View map", urlPrefix: "https://ecphub.vercel.app/m/", fill: "session_map" },
+    ]);
+    const fixed = readTemplate({ ...portal, components: [portal.components[0], { type: "BUTTONS", buttons: [{ type: "URL", text: "Website", url: "https://ecopia.my" }] }] });
+    expect(fixed?.buttons).toEqual([{ text: "Website", urlPrefix: "https://ecopia.my", fill: "none" }]);
+    const three = { type: "URL", text: "x", url: "https://ecphub.vercel.app/a/{{1}}" };
+    expect(readTemplate({ ...portal, components: [portal.components[0], { type: "BUTTONS", buttons: [three, three, three] }] })).toBeNull();
   });
   it("leaves out what Meta would not take or this app cannot fill", () => {
     expect(readTemplate({ ...portal, status: "REJECTED" })).toBeNull();
@@ -65,7 +79,7 @@ describe("variables", () => {
 });
 
 describe("session sources", () => {
-  const s = (day: string, starts_at: string, location: string | null = "Hall 2") => ({ day, starts_at, location });
+  const s = (day: string, starts_at: string, location: string | null = "Hall 2", location_url: string | null = "https://maps.app.goo.gl/x") => ({ id: `s-${day}-${starts_at}`, day, starts_at, location, location_url });
   const now = { date: "2026-11-08", time: "11:00" };
 
   it("reminds about the next session, or the last once all have begun", () => {
@@ -75,7 +89,8 @@ describe("session sources", () => {
     expect(sessionToRemind([], now)).toBeNull();
   });
   it("reads the time after \"at\", and the place as set", () => {
-    expect(bookingValues("Health Screening", s("2026-11-08", "10:30", "  Hall 2 "))).toEqual({ activity: "Health Screening", time: "10:30 on Sun 8 Nov", location: "Hall 2" });
+    expect(bookingValues("Health Screening", s("2026-11-08", "10:30", "  Hall 2 "))).toEqual({ activity: "Health Screening", time: "10:30 on Sun 8 Nov", location: "Hall 2", sessionId: "s-2026-11-08-10:30", hasMap: true });
+    expect(bookingValues("Yoga", s("2026-11-08", "10:30", "Hall 2", null))?.hasMap).toBe(false);
     expect(bookingValues("Yoga", s("2026-11-08", "10:30", null))?.location).toBe("");
     expect(bookingValues("Yoga", null)).toBeNull();
   });
@@ -84,7 +99,15 @@ describe("session sources", () => {
     expect(["session_activity", "session_time", "session_location"].map((k) => sourceValue(k as never, v, ""))).toEqual(["Yoga", "10:30 on Sun 8 Nov", "Hall 2"]);
     expect(sourceValue("session_time", { ...v, booking: null }, "")).toBe("");
   });
+  it("completes each button: the token, the booked session, or nothing", () => {
+    const booking = bookingValues("Yoga", s("2026-11-08", "10:30"));
+    expect(buttonValue({ text: "", urlPrefix: "", fill: "token" }, "tok", booking)).toBe("tok");
+    expect(buttonValue({ text: "", urlPrefix: "", fill: "session_map" }, "tok", booking)).toBe("s-2026-11-08-10:30");
+    expect(buttonValue({ text: "", urlPrefix: "", fill: "session_map" }, "tok", null)).toBe("");
+    expect(buttonValue({ text: "", urlPrefix: "", fill: "none" }, "tok", booking)).toBe("");
+  });
   it("needs a Booked for audience", () => {
+    expect(needsBooking(["attendee_name"], [{ text: "View map", urlPrefix: "https://ecphub.vercel.app/m/", fill: "session_map" }])).toBe(true);
     expect(needsBooking(["custom", "session_time"])).toBe(true);
     expect(needsBooking(["attendee_name", "venue"])).toBe(false);
     expect(bookedActivityId("booked:abc")).toBe("abc");

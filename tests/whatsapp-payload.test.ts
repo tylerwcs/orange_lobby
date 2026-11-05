@@ -31,6 +31,15 @@ describe("templatePayload", () => {
     expect(button?.parameters.map((x) => x.text)).toEqual(["45c2fbbhmn8g"]);
   });
 
+  it("sends each button's value at its own index, and skips a fixed link (D835)", () => {
+    const p = templatePayload({ to: "60123456789", template: "t", bodyParams: [], buttonParams: ["tok", "sess-1"] });
+    expect(p.template.components).toEqual([
+      { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: "tok" }] },
+      { type: "button", sub_type: "url", index: "1", parameters: [{ type: "text", text: "sess-1" }] },
+    ]);
+    const fixedFirst = templatePayload({ to: "60123456789", template: "t", bodyParams: [], buttonParams: ["", "sess-1"] });
+    expect(fixedFirst.template.components.map((c) => c.type === "button" && c.index)).toEqual(["1"]);
+  });
   it("leaves the button out entirely when there is no token to pass", () => {
     const p = templatePayload({ to: "60123456789", template: "hello_world", bodyParams: [] });
     expect(p.template.components.some((c) => c.type === "button")).toBe(false);

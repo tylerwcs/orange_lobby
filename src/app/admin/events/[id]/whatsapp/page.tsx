@@ -62,6 +62,7 @@ export default async function WhatsappAdmin({ params }: { params: Promise<{ id: 
       sample: sample ? { name: sample.name, token: sample.token, booking: bookingOf(sample.id) } : null,
       bookings: Boolean(activity),
       noPlace: activity ? members.filter((m) => !bookingOf(m.attendee.id)?.location).length : 0,
+      noMap: activity ? members.filter((m) => !bookingOf(m.attendee.id)?.hasMap).length : 0,
     };
   });
   // Who already has what: the claim keys of every send that did not fail (a failed one is

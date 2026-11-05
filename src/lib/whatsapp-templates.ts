@@ -10,8 +10,9 @@ import { shortDate } from "@/lib/text";
  * - approved, so Meta will take it;
  * - positional variables (`{{1}}`), not named ones;
  * - no variables in the header, which this app never sends;
- * - at most one button, and if it is a link its only variable is the tail — the attendee's
- *   token, which Meta appends to the approved prefix (see `buttonParam` in whatsapp.ts).
+ * - at most two buttons, both links, each with at most one variable and only as its tail,
+ *   which Meta appends to the approved prefix (see `buttonParams` in whatsapp.ts). That tail
+ *   is the attendee's token, or - for a link to /m/ - their booked session's id (D835).
  * Anything else is left out rather than offered and then rejected at send time.
  *
  * Pure, so the preview and the send build their text from the same code.
@@ -41,9 +42,22 @@ export type Template = {
   footer: string | null;
   /** How many `{{n}}` the body carries, numbered 1..n. */
   variables: number;
-  /** The link button, with the URL as it will look once the token is appended. */
-  button: { text: string; urlPrefix: string } | null;
+  /** The link buttons, in order: the fixed start of each URL, and what completes it. */
+  buttons: TemplateButton[];
 };
+
+/**
+ * What a button's `{{1}}` is filled with: the attendee's token (/a/<token>), their booked
+ * session's id (/m/<session>, the "View map" button, D835), or nothing for a fixed link.
+ */
+export type ButtonFill = "token" | "session_map" | "none";
+export type TemplateButton = { text: string; urlPrefix: string; fill: ButtonFill };
+
+/** A button's fill, read from where its link goes: /m/ is this app's map forwarder. */
+function buttonFill(urlPrefix: string, variables: number): ButtonFill {
+  if (variables === 0) return "none";
+  return new URL(urlPrefix).pathname.endsWith("/m/") ? "session_map" : "token";
+}
 
 const VAR = /\{\{(\d+)\}\}/g;
 
@@ -65,15 +79,15 @@ export function readTemplate(t: GraphTemplate): Template | null {
   const body = part("BODY")?.text;
   if (!body) return null;
 
-  const buttons = part("BUTTONS")?.buttons ?? [];
-  if (buttons.length > 1) return null;
-  let button: Template["button"] = null;
-  const b = buttons[0];
-  if (b) {
+  const raw = part("BUTTONS")?.buttons ?? [];
+  if (raw.length > 2) return null;
+  const buttons: TemplateButton[] = [];
+  for (const b of raw) {
     if (b.type !== "URL" || !b.url) return null;
     const vars = countVariables(b.url);
     if (vars > 1 || (vars === 1 && !b.url.endsWith("{{1}}"))) return null;
-    button = { text: b.text, urlPrefix: b.url.replace("{{1}}", "") };
+    const urlPrefix = b.url.replace("{{1}}", "");
+    buttons.push({ text: b.text, urlPrefix, fill: buttonFill(urlPrefix, vars) });
   }
 
   return {
@@ -84,7 +98,7 @@ export function readTemplate(t: GraphTemplate): Template | null {
     body,
     footer: part("FOOTER")?.text ?? null,
     variables: countVariables(body),
-    button,
+    buttons,
   };
 }
 
@@ -111,18 +125,21 @@ export function isSource(v: string): v is Source {
 
 /** The sources read from one person's booking, which only a "Booked for …" audience can fill. */
 export const BOOKING_SOURCES: readonly Source[] = ["session_activity", "session_time", "session_location"];
-export function needsBooking(sources: readonly string[]): boolean {
-  return sources.some((s) => (BOOKING_SOURCES as readonly string[]).includes(s));
+export function needsBooking(sources: readonly string[], buttons: readonly TemplateButton[] = []): boolean {
+  return sources.some((s) => (BOOKING_SOURCES as readonly string[]).includes(s)) || hasMapButton(buttons);
+}
+export function hasMapButton(buttons: readonly TemplateButton[]): boolean {
+  return buttons.some((b) => b.fill === "session_map");
 }
 
-type BookedSession = Pick<ActivitySession, "day" | "starts_at" | "location">;
+type BookedSession = Pick<ActivitySession, "id" | "day" | "starts_at" | "location" | "location_url">;
 
 /**
  * Of one person's sessions in an activity, the one a reminder is about: the next to start, or
  * the last one when every one has begun (a reminder sent late still names a real slot). One
  * booking is the usual case; this only matters where an activity lets people take several.
  */
-export function sessionToRemind<T extends BookedSession>(sessions: readonly T[], now: { date: string; time: string }): T | null {
+export function sessionToRemind<T extends Pick<BookedSession, "day" | "starts_at">>(sessions: readonly T[], now: { date: string; time: string }): T | null {
   const sorted = [...sessions].sort((a, b) => (a.day + a.starts_at).localeCompare(b.day + b.starts_at));
   return sorted.find((s) => s.day + s.starts_at >= now.date + now.time) ?? sorted.at(-1) ?? null;
 }
@@ -130,9 +147,23 @@ export function sessionToRemind<T extends BookedSession>(sessions: readonly T[],
 /** One person's booking as the three values above. The time reads after "at": "10:30 on Sat 8 Nov". */
 export function bookingValues(activityName: string, session: BookedSession | null): Booking | null {
   if (!session) return null;
-  return { activity: activityName, time: `${session.starts_at} on ${shortDate(session.day)}`, location: session.location?.trim() ?? "" };
+  return {
+    activity: activityName,
+    time: `${session.starts_at} on ${shortDate(session.day)}`,
+    location: session.location?.trim() ?? "",
+    sessionId: session.id,
+    hasMap: Boolean(session.location_url?.trim()),
+  };
 }
-export type Booking = { activity: string; time: string; location: string };
+/** `sessionId` completes the View map button; `hasMap` is whether that link leads anywhere. */
+export type Booking = { activity: string; time: string; location: string; sessionId: string; hasMap: boolean };
+
+/** What one button's `{{1}}` is for one attendee; "" for a fixed link. */
+export function buttonValue(button: TemplateButton, token: string, booking: Booking | null | undefined): string {
+  if (button.fill === "token") return token;
+  if (button.fill === "session_map") return booking?.sessionId ?? "";
+  return "";
+}
 
 /**
  * What each variable is filled with before the organiser changes anything: the two event

@@ -168,6 +168,16 @@ export async function listSessions(eventId: string): Promise<ActivitySession[]> 
   }));
 }
 
+/**
+ * A session's map link, for the WhatsApp "View map" button's /m/<session> (D835). Null when
+ * there is no such session or it has no link.
+ */
+export async function getSessionMapLink(id: string): Promise<string | null> {
+  const { data, error } = await serviceClient().from("activity_sessions").select("location_url").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data?.location_url as string | null | undefined) ?? null;
+}
+
 /** One activity's sessions on one day: what a booking door covers (D325). Trimmed and ordered as `listSessions`. */
 export async function listSessionsOn(activityId: string, day: string): Promise<ActivitySession[]> {
   const { data, error } = await serviceClient().from("activity_sessions").select("*")

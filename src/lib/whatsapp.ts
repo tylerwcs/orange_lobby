@@ -34,19 +34,26 @@ export type TemplateInput = {
    * `ecphub_uniqueportal` failed on exactly this shape.
    */
   buttonParam?: string;
+  /**
+   * Each URL button's variable by position, for a template with more than one (D835). An empty
+   * value is a fixed link and is not sent. Takes the place of `buttonParam` when given.
+   */
+  buttonParams?: string[];
   /** The approved templates are filed under plain `en`, not `en_US`. A mismatch is a 132001. */
   language?: string;
 };
 
 const text = (t: string): TemplateParam => ({ type: "text", text: t });
 
-export function templatePayload({ to, template, bodyParams, buttonParam, language = "en" }: TemplateInput): TemplatePayload {
+export function templatePayload({ to, template, bodyParams, buttonParam, buttonParams, language = "en" }: TemplateInput): TemplatePayload {
   const components: TemplateComponent[] = [];
   // An empty `parameters` array is rejected, so a template with no variables sends no body
   // component at all rather than an empty one.
   if (bodyParams.length > 0) components.push({ type: "body", parameters: bodyParams.map(text) });
   // `index` is the button's position as a string, which is what the API wants — "0", not 0.
-  if (buttonParam) components.push({ type: "button", sub_type: "url", index: "0", parameters: [text(buttonParam)] });
+  (buttonParams ?? [buttonParam ?? ""]).forEach((value, i) => {
+    if (value) components.push({ type: "button", sub_type: "url", index: String(i), parameters: [text(value)] });
+  });
   return {
     messaging_product: "whatsapp",
     to,
