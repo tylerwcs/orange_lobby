@@ -445,6 +445,8 @@ export type Activity = {
   participation_bonus?: number | null;
   /** Tournament kind only (D662): whether attendees see the overall leaderboard. */
   show_overall?: boolean | null;
+  /** Tournament kind only (D821): groups play as super teams of two, keyed in by an admin. */
+  super_teams?: boolean | null;
   sort_order: number;
 };
 
