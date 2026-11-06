@@ -268,3 +268,56 @@ describe("requestStatusLabel", () => {
     expect(requestStatusLabel("withdrawn")).toBe("withdrawn");
   });
 });
+
+// D837: an activity whose attendees change or cancel without asking. Sessions are on
+// 2026-10-01 at 10:30 (s1) and 11:30 (s2); `now` is Kuala Lumpur wall-clock time.
+describe("activityControls without asking (D837)", () => {
+  const before = { date: "2026-10-01", time: "09:00" };
+  const direct = (over: Partial<Activity> = {}) => activity({ attendee_edit: true, ...over });
+
+  it("is off unless the organiser turns it on", () => {
+    expect(activityControls(state({ mine: ["s1"] }), null, null, "en", before).direct).toBe(false);
+  });
+
+  it("is on while the activity is open", () => {
+    const c = activityControls(state({ activity: direct(), mine: ["s1"] }), null, null, "en", before);
+    expect(c.direct).toBe(true);
+    expect(c.changeable.map((s) => s.session.id)).toEqual(["s1"]);
+    expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
+    expect(c.canRequestCancel).toBe(true);
+  });
+
+  it("falls back to asking once booking is closed", () => {
+    const c = activityControls(state({ activity: direct({ is_open: false }), mine: ["s1"] }), null, null, "en", before);
+    expect(c.direct).toBe(false);
+    expect(c.changeable.map((s) => s.session.id)).toEqual(["s1"]);
+  });
+
+  it("locks a held session from its start time, and offers nothing to move to", () => {
+    const c = activityControls(state({ activity: direct(), mine: ["s1"] }), null, null, "en", { date: "2026-10-01", time: "10:30" });
+    expect(c.changeable).toEqual([]);
+    expect(c.switchTargets).toEqual([]);
+  });
+
+  it("never offers a session that has started as somewhere to move to", () => {
+    const c = activityControls(state({ activity: direct(), mine: ["s2"] }), null, null, "en", { date: "2026-10-01", time: "10:45" });
+    expect(c.changeable.map((s) => s.session.id)).toEqual(["s2"]);
+    expect(c.switchTargets).toEqual([]);
+  });
+
+  it("treats an earlier day as started", () => {
+    const c = activityControls(state({ activity: direct(), mine: ["s1"] }), null, null, "en", { date: "2026-10-02", time: "08:00" });
+    expect(c.changeable).toEqual([]);
+  });
+
+  it("still offers no cancel on a required activity", () => {
+    const c = activityControls(state({ activity: direct({ required: true }), mine: ["s1"] }), null, null, "en", before);
+    expect(c.canRequestCancel).toBe(false);
+    expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
+  });
+
+  it("keeps every held seat changeable when asking, whatever the time", () => {
+    const c = activityControls(state({ mine: ["s1"] }), null, null, "en", { date: "2026-10-02", time: "08:00" });
+    expect(c.changeable.map((s) => s.session.id)).toEqual(["s1"]);
+  });
+});

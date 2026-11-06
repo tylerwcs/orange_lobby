@@ -178,6 +178,17 @@ export const ms = {
     askCancel: "Mohon batal",
     moveHint: "Untuk berpindah, ketik Tukar sesi dan pilih masa lain. Jawatankuasa akan meluluskannya.",
     noRoom: "Tiada sesi lain yang masih ada tempat sekarang.",
+    // D837: changes without asking, up to the session's start.
+    pickAnotherNow: "Pilih masa lain. Anda akan dipindahkan serta-merta.",
+    moveNow: "Pindah",
+    confirmMoveNow: (from: string, to: string) => `Pindah dari ${from} ke ${to}? Tempat lama anda dilepaskan serta-merta.`,
+    cancelBooking: "Batal tempahan",
+    confirmCancelNow: (session: string) => `Batalkan ${session}? Tempat anda dilepaskan serta-merta.`,
+    yesCancel: "Ya, batalkan",
+    keepBooking: "Kekalkan",
+    moveHintNow: "Untuk berpindah, ketik Tukar sesi dan pilih masa lain. Anda boleh menukar atau membatalkan sehingga sesi anda bermula.",
+    moved: (session: string) => `Dipindahkan ke ${session}.`,
+    cancelled: (session: string) => `Dibatalkan: ${session}.`,
     refused: {
       full: "Sesi itu sudah penuh semasa anda sedang melihat. Sila pilih sesi lain.",
       closed: "Tempahan untuk aktiviti ini ditutup. Sila hubungi kaunter pendaftaran.",
@@ -198,6 +209,7 @@ export const ms = {
       notYours: "Anda tidak ditempah untuk sesi itu.",
       required: "Aktiviti ini memerlukan pilihan. Mohon tukar sahaja.",
       checkedIn: "Anda sudah daftar masuk untuk sesi ini.",
+      started: "Sesi itu sudah bermula, jadi ia tidak boleh ditukar.",
     },
   },
   submission: {

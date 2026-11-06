@@ -16,7 +16,13 @@ describe("readSettings (D420)", () => {
   describe("booking", () => {
     it("reads the shared policy fields", () => {
       const r = readSettings("booking", form({ name: " Workshops ", description: "", max_per_attendee: "2", categories: ["VIP", "Staff"], required: "on" }));
-      expect(r).toEqual({ ok: true, settings: { name: "Workshops", description: null, required: true, max_per_attendee: 2, categories: ["VIP", "Staff"] } });
+      expect(r).toEqual({ ok: true, settings: { name: "Workshops", description: null, required: true, max_per_attendee: 2, categories: ["VIP", "Staff"], attendee_edit: false } });
+    });
+
+    it("reads whether attendees change their own booking without asking (D837)", () => {
+      const r = readSettings("booking", form({ name: "W", attendee_edit: "on" }));
+      expect(r.ok && r.settings.attendee_edit).toBe(true);
+      expect(r.ok && newActivityFrom("booking", r.settings, true).attendee_edit).toBe(true);
     });
 
     it("returns the sentence instead of throwing, so the action can flash it", () => {

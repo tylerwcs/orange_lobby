@@ -1,6 +1,18 @@
 import { sessionLabel, type ActivityState, type SeatsForViewer } from "./activities";
 import type { ActivityChangeRequest, ActivityRequestStatus, Checkpoint } from "@/lib/types";
 import type { Lang } from "@/features/language/client";
+import { nowInKL } from "@/lib/time";
+
+/** Kuala Lumpur wall-clock time, as `nowInKL` gives it: `YYYY-MM-DD` and `HH:MM`. */
+export type KLNow = { date: string; time: string };
+
+/**
+ * D837: a session has started once its day and start time are reached, in Kuala Lumpur time.
+ * Strings compare correctly because both sides are zero-padded `YYYY-MM-DD` and `HH:MM`.
+ */
+export function sessionStarted(s: { day: string; starts_at: string }, now: KLNow): boolean {
+  return s.day < now.date || (s.day === now.date && s.starts_at.slice(0, 5) <= now.time);
+}
 
 /**
  * What an attendee's Activities card offers, given what they hold and what they have asked
@@ -37,6 +49,16 @@ export type ActivityControls = {
   /** Sessions they could ask to move to: not theirs, not full. Empty while a request is open. */
   switchTargets: SeatsForViewer[];
   canRequestCancel: boolean;
+  /**
+   * D837: the organiser lets attendees move or cancel at once, without asking (the activity's
+   * `attendee_edit`), and booking is open. Closed, it falls back to asking the committee.
+   */
+  direct: boolean;
+  /**
+   * The held seats that may still be moved or cancelled. Asking keeps every held seat here, as
+   * before; without asking, a session locks at its start time (D837).
+   */
+  changeable: SeatsForViewer[];
   pending: PendingSummary | null;
   /** The most recent decline to report, or null. See D153a. */
   declined: PendingSummary | null;
@@ -106,6 +128,7 @@ export function activityControls(
   pending: ActivityChangeRequest | null,
   lastDeclined: ActivityChangeRequest | null = null,
   lang: Lang = "en",
+  now: KLNow = nowInKL(),
 ): ActivityControls {
   const labelOf = (id: string | null): string | null => {
     const s = id ? state.sessions.find((x) => x.session.id === id) : undefined;
@@ -115,6 +138,9 @@ export function activityControls(
     ({ kind: r.kind, fromLabel: labelOf(r.from_session_id), toLabel: labelOf(r.to_session_id) });
 
   const held = state.sessions.filter((s) => s.mine);
+  const direct = state.activity.attendee_edit && !state.closed;
+  // D837: without asking, nothing that has started can be moved out of or into.
+  const changeable = direct ? held.filter((s) => !sessionStarted(s.session, now)) : held;
 
   // While a request is open, nothing that changes a seat is offered (§7.4). Book is
   // withheld too, not only the change controls: on an activity allowing more than one
@@ -128,6 +154,8 @@ export function activityControls(
       held,
       switchTargets: [],
       canRequestCancel: false,
+      direct,
+      changeable: [],
       pending: summarise(pending),
       declined: null,
     };
@@ -142,11 +170,15 @@ export function activityControls(
     // would be deciding on something that cannot happen. `!s.mine` excludes EVERY held
     // session, not just the one a given control moves out of: an attendee holding two seats
     // must not be offered a move into a seat they already occupy.
-    switchTargets: held.length > 0 ? state.sessions.filter((s) => !s.mine && !s.full) : [],
+    switchTargets: changeable.length > 0
+      ? state.sessions.filter((s) => !s.mine && !s.full && !(direct && sessionStarted(s.session, now)))
+      : [],
     // D148: a required activity's cancel never reaches the queue. Applies to every held seat
     // alike — `cancel_booking` would allow dropping one of two on a required activity, but
     // D148's rule is that the portal offers no cancel there at all.
     canRequestCancel: held.length > 0 && !state.activity.required,
+    direct,
+    changeable,
     pending: null,
   };
 }

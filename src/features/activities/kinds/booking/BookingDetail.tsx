@@ -149,6 +149,16 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
                   <input type="checkbox" name="required" className="size-4" defaultChecked={activity.required} />
                   Everyone must pick one
                 </label>
+                {/* D837: off, a move or cancel is a request the committee approves. */}
+                <div className="flex flex-col gap-1">
+                  <label className={check}>
+                    <input type="checkbox" name="attendee_edit" className="size-4" defaultChecked={activity.attendee_edit} />
+                    Attendees can change or cancel without asking
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Moves and cancels happen straight away, up to the session&apos;s start time, while booking is open. Off, they ask and the committee approves.
+                  </p>
+                </div>
                 {/* D805: the next step after registering is chosen in Settings now; this only says where. */}
                 <p className="text-xs text-muted-foreground">
                   {ev.after_register_activity_id === activity.id ? "This is the next step after registering. " : "To offer this right after registering, choose it as the next step in "}

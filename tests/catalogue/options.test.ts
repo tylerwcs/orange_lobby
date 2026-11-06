@@ -21,12 +21,12 @@ describe("the option registry (D777)", () => {
     expect(options.length).toBeGreaterThan(0);
     expect(new Set(keys).size).toBe(keys.length);
   });
-  it("lists the 31 options the design names", () => {
+  it("lists the 32 options the design names", () => {
     expect(options.map((o) => o.key).sort()).toEqual([
       "waiting_list", "approval", "self_cancel", "event_terms", "done_page", "after_register_booking", "registration_images", "scheduled_open", "tick_box_questions",
       "badge_checkin", "scan_card", "door_survey", "theme", "name_line_breaks", "coming_soon", "me_page", "badge_pins", "preview_link", "committee_logins",
       "group_tile", "all_groups", "group_fields", "verifiers", "undo_revoke", "partner_submissions", "tracks", "ad_hoc_points", "tournaments", "polaroid_print_look",
-      "committee_alerts", "change_log",
+      "committee_alerts", "change_log", "change_without_asking",
     ].sort());
   });
   it("dates every origin as YYYY-MM and every decision as D<number>", () => {
@@ -69,10 +69,13 @@ describe("inUse (D777)", () => {
     expect(option("approval").inUse!({ ev, activities: [] })).toBe(false);
     expect(option("partner_submissions").inUse!({ ev, activities: [{ ...fixtureActivity, allow_pair: true }] })).toBe(true);
     expect(option("partner_submissions").inUse!({ ev, activities: [fixtureActivity] })).toBe(false);
+    // D837: a booking's attendee_edit; a submission's is the D391 edit, not this.
+    expect(option("change_without_asking").inUse!({ ev, activities: [{ ...fixtureActivity, kind: "booking", attendee_edit: true }] })).toBe(true);
+    expect(option("change_without_asking").inUse!({ ev, activities: [{ ...fixtureActivity, kind: "submission", attendee_edit: true }] })).toBe(false);
   });
   it("is set only on the options one column or field answers", () => {
     expect(options.filter((o) => o.inUse).map((o) => o.key).sort()).toEqual([
-      "after_register_booking", "all_groups", "approval", "badge_checkin", "coming_soon", "committee_alerts", "done_page", "event_terms",
+      "after_register_booking", "all_groups", "approval", "badge_checkin", "change_without_asking", "coming_soon", "committee_alerts", "done_page", "event_terms",
       "partner_submissions", "polaroid_print_look", "preview_link", "self_cancel", "waiting_list",
     ]);
   });

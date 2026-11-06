@@ -13,7 +13,9 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
 export type BookingActions = {
   book: (sessionId: string) => Promise<void>;
+  /** A request to the committee, or - when `controls.direct` (D837) - the move itself. */
   requestSwitch: (fromSessionId: string, fd: FormData) => Promise<void>;
+  /** As `requestSwitch`: a request, or the cancel itself when `controls.direct`. */
   requestCancel: (fromSessionId: string) => Promise<void>;
   withdraw: (requestId: string) => Promise<void>;
 };
@@ -148,8 +150,11 @@ function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch }: {
   const detail = [showRoom ? session.location : null, d.seatsLeft(seat.left)]
     .filter(Boolean).join(" · ");
   const isBook = controls.bookable.some((s) => s.session.id === session.id);
-  const [from, setFrom] = useState(controls.held[0]?.session.id ?? "");
-  const fromSeat = controls.held.find((h) => h.session.id === from);
+  // D837: only seats that may still change can be moved out of; asking, that is every held seat.
+  const movable = controls.changeable;
+  const [from, setFrom] = useState(movable[0]?.session.id ?? "");
+  const fromSeat = movable.find((h) => h.session.id === from);
+  const fromLabel = fromSeat ? sessionLabel(fromSeat.session, { lang }) : d.yourSessionLower;
 
   return (
     // Docked to the foot of the dialog, which is what scrolls: -bottom-4 and the negative
@@ -176,21 +181,21 @@ function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch }: {
           <input type="hidden" name="to" value={session.id} />
           {/* Only when there is a choice: max_per_attendee can let someone hold several
               seats, and the request has to say which one moves. */}
-          {controls.held.length > 1 && (
+          {movable.length > 1 && (
             <>
               <label htmlFor={`from-${session.id}`} className="sr-only">{d.moveWhich}</label>
               <select id={`from-${session.id}`} value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-md border border-input bg-transparent px-2 text-sm">
-                {controls.held.map((h) => <option key={h.session.id} value={h.session.id}>{sessionLabel(h.session, { lang })}</option>)}
+                {movable.map((h) => <option key={h.session.id} value={h.session.id}>{sessionLabel(h.session, { lang })}</option>)}
               </select>
             </>
           )}
           <ConfirmButton
             tone="default"
             triggerVariant="default"
-            confirmLabel={d.sendRequest}
-            message={d.confirmMove(fromSeat ? sessionLabel(fromSeat.session, { lang }) : d.yourSessionLower, when)}
+            confirmLabel={controls.direct ? d.moveNow : d.sendRequest}
+            message={controls.direct ? d.confirmMoveNow(fromLabel, when) : d.confirmMove(fromLabel, when)}
           >
-            {d.requestSwitch}
+            {controls.direct ? d.moveNow : d.requestSwitch}
           </ConfirmButton>
         </form>
       )}

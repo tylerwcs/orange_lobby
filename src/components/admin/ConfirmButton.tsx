@@ -33,13 +33,15 @@ import { useT } from "@/features/language/client";
  * phone at an event venue that is long enough to press Book twice.
  */
 export function ConfirmButton({
-  message, children, className = "", confirmLabel = "Yes, continue",
+  message, children, className = "", confirmLabel = "Yes, continue", cancelLabel,
   tone = "destructive", triggerVariant = "outline",
 }: {
   message: string;
   children: React.ReactNode;
   className?: string;
   confirmLabel?: string;
+  /** The dismiss button's words, where "Cancel" would read as the action itself (D837's Cancel booking). */
+  cancelLabel?: string;
   /** "destructive" paints the confirm red, for anything that removes something. */
   tone?: "default" | "destructive";
   triggerVariant?: React.ComponentProps<typeof Button>["variant"];
@@ -64,7 +66,7 @@ export function ConfirmButton({
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{d.cancel}</AlertDialogCancel>
+          <AlertDialogCancel>{cancelLabel ?? d.cancel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => { setOpen(false); trigger.current?.form?.requestSubmit(); }}
             className={tone === "destructive" ? "bg-destructive text-white hover:bg-destructive/90" : undefined}

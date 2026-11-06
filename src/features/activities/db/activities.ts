@@ -37,7 +37,7 @@ export type NewActivity = {
   reward_message?: string | null;
   /** D387. Left out, the column's false stands; `togglePinAction` alone flips it. */
   pinned?: boolean;
-  /** Submission kind only (D391). Left out, the column's false stands. */
+  /** Submission (D391) and booking (D837). Left out, the column's false stands. */
   attendee_edit?: boolean;
   /** Submission kind only (D392). Left out, the column's empty list stands. */
   proxy_fields?: string[];

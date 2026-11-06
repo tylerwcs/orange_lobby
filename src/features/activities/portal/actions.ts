@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { loadPortalAttendee } from "@/lib/portal";
 import {
-  bookSession, getActivity, listSessions, bookingsForAttendee,
+  bookSession, switchSession, cancelBooking, getActivity, listSessions, bookingsForAttendee,
   submitAnswers, submitAnswersPair, pairPartnerIds, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type SubmitCode,
 } from "../db/activities";
 import { nextFileHashes, sharesFile } from "@/lib/file-hashes";
@@ -18,6 +18,7 @@ import { flashPath } from "@/lib/flash";
 import { memberTrackRefusal } from "@/features/tracks/client";
 import { sessionLabel } from "../lib/activities";
 import { sessionArrivals } from "../lib/booking-door";
+import { sessionStarted } from "../lib/activity-requests";
 import { allow } from "@/lib/ratelimit";
 import { hasHealthConsent, recordHealthConsent } from "@/lib/db/health-consents";
 import { healthConsentTicked } from "@/lib/privacy";
@@ -171,6 +172,97 @@ export async function requestCancelAction(slug: string, token: string, fromSessi
   redirect(result === "ok"
     ? flashPath(path, d.booking.askedCancel(sessionLabel(from, { lang })))
     : flashPath(path, d.booking.askRefused.duplicate, "error"));
+}
+
+/**
+ * D837: an attendee moves their own seat at once, where the organiser allows it (the activity's
+ * `attendee_edit`) and booking is open. Every check `requestSwitchAction` makes, plus the start
+ * time: neither the seat they leave nor the one they take may have started. `switch_session`
+ * then decides capacity, open and eligibility under its row lock, in one transaction.
+ */
+export async function moveAction(slug: string, token: string, fromSessionId: string, fd: FormData) {
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const lang = await portalLang(event);
+  const d = t(lang);
+  let path = listPathFor(slug, token);
+  if (event.status === "archived") redirect(flashPath(path, d.booking.archived, "error"));
+  if (!allow(`book:${token}`, 20, 60_000)) {
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
+  }
+
+  const toSessionId = String(fd.get("to") ?? "");
+  const sessions = await listSessions(event.id);
+  const from = sessions.find((s) => s.id === fromSessionId);
+  const to = sessions.find((s) => s.id === toSessionId);
+  if (!from || !to || from.activity_id !== to.activity_id || to.id === from.id) {
+    redirect(flashPath(path, d.booking.askRefused.missing, "error"));
+  }
+  path = activityPathFor(slug, token, from.activity_id);
+
+  const activity = await getActivity(from.activity_id, event.id);
+  if (!activity) redirect(flashPath(path, d.booking.askRefused.missing, "error"));
+  // Not allowed without asking, or booking has closed since the page drew: the committee decides.
+  if (!activity.attendee_edit || !activity.is_open) redirect(flashPath(path, d.booking.refused.closed, "error"));
+
+  const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
+  if (!holds) redirect(flashPath(path, d.booking.askRefused.notYours, "error"));
+  const requests = await requestsForAttendee(attendee.id);
+  if (requests.some((r) => r.activity_id === activity.id && r.status === "pending")) {
+    redirect(flashPath(path, d.booking.askRefused.duplicate, "error"));
+  }
+  const arrived = sessionArrivals([from], event.check_in_enabled ? await bookingArrivalsFor(attendee.id) : []);
+  if (arrived[from.id]) redirect(flashPath(path, d.booking.askRefused.checkedIn, "error"));
+  const now = nowInKL();
+  if (sessionStarted(from, now) || sessionStarted(to, now)) redirect(flashPath(path, d.booking.askRefused.started, "error"));
+
+  const result = await switchSession(from.id, to.id, attendee.id);
+  if (result === "ok") revalidatePath(`/e/${slug}/a/${token}`, "layout");
+  redirect(result === "ok"
+    ? flashPath(path, d.booking.moved(sessionLabel(to, { lang })))
+    : flashPath(path, d.booking.refused[result], "error"));
+}
+
+/**
+ * D837: an attendee cancels their own seat at once, under the same rules as `moveAction`.
+ * `cancel_booking` still refuses the last seat of a required activity (D129, D148).
+ */
+export async function cancelAction(slug: string, token: string, fromSessionId: string) {
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const lang = await portalLang(event);
+  const d = t(lang);
+  let path = listPathFor(slug, token);
+  if (event.status === "archived") redirect(flashPath(path, d.booking.archived, "error"));
+  if (!allow(`book:${token}`, 20, 60_000)) {
+    redirect(flashPath(path, d.common.tooManyAttempts, "error"));
+  }
+
+  const sessions = await listSessions(event.id);
+  const from = sessions.find((s) => s.id === fromSessionId);
+  if (!from) redirect(flashPath(path, d.booking.askRefused.missing, "error"));
+  path = activityPathFor(slug, token, from.activity_id);
+
+  const activity = await getActivity(from.activity_id, event.id);
+  if (!activity) redirect(flashPath(path, d.booking.askRefused.missing, "error"));
+  if (!activity.attendee_edit || !activity.is_open) redirect(flashPath(path, d.booking.refused.closed, "error"));
+  if (activity.required) redirect(flashPath(path, d.booking.askRefused.required, "error"));
+
+  const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);
+  if (!holds) redirect(flashPath(path, d.booking.askRefused.notYours, "error"));
+  const requests = await requestsForAttendee(attendee.id);
+  if (requests.some((r) => r.activity_id === activity.id && r.status === "pending")) {
+    redirect(flashPath(path, d.booking.askRefused.duplicate, "error"));
+  }
+  const arrived = sessionArrivals([from], event.check_in_enabled ? await bookingArrivalsFor(attendee.id) : []);
+  if (arrived[from.id]) redirect(flashPath(path, d.booking.askRefused.checkedIn, "error"));
+  if (sessionStarted(from, nowInKL())) redirect(flashPath(path, d.booking.askRefused.started, "error"));
+
+  const result = await cancelBooking(from.id, attendee.id);
+  // The Activities dot may now be due again (a required activity can never get here, but an
+  // optional one's "booked" tick on the home launcher still changes).
+  if (result === "ok") revalidatePath(`/e/${slug}/a/${token}`, "layout");
+  redirect(result === "ok"
+    ? flashPath(path, d.booking.cancelled(sessionLabel(from, { lang })))
+    : flashPath(path, result === "required" ? d.booking.askRefused.required : d.booking.askRefused.notYours, "error"));
 }
 
 export async function withdrawRequestAction(slug: string, token: string, requestId: string) {

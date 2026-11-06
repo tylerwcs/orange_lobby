@@ -389,7 +389,10 @@ export type Activity = {
   opens_at?: string | null;
   /** Leads the attendee's home row and the Activities tab, under its own heading (D387). */
   pinned: boolean;
-  /** Submission kind only (D391). Attendees may edit or delete (D398) their own entries on the day they sent them. */
+  /**
+   * Attendees change their own. On a submission (D391), edit or delete (D398) their entries on the day they
+   * sent them; on a booking (D837), move or cancel their seat at once, without asking, up to the session's start.
+   */
   attendee_edit: boolean;
   /** D397: a scored challenge's Leaderboard tab is shown to attendees. The admin tab is always there. */
   show_leaderboard: boolean;

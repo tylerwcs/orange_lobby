@@ -181,6 +181,17 @@ export const en = {
     askCancel: "Ask to cancel",
     moveHint: "To move, tap Change session and pick another time. The committee approves it.",
     noRoom: "No other session has room right now.",
+    // D837: changes without asking, up to the session's start.
+    pickAnotherNow: "Pick another time. You move straight away.",
+    moveNow: "Move",
+    confirmMoveNow: (from: string, to: string) => `Move from ${from} to ${to}? Your old seat is given up straight away.`,
+    cancelBooking: "Cancel booking",
+    confirmCancelNow: (session: string) => `Cancel ${session}? Your seat is given up straight away.`,
+    yesCancel: "Yes, cancel it",
+    keepBooking: "Keep it",
+    moveHintNow: "To move, tap Change session and pick another time. You can change or cancel until your session starts.",
+    moved: (session: string) => `Moved to ${session}.`,
+    cancelled: (session: string) => `Cancelled ${session}.`,
     refused: {
       full: "That session filled up while you were looking. Pick another one.",
       closed: "Booking for this activity is closed. Speak to the registration desk.",
@@ -201,6 +212,7 @@ export const en = {
       notYours: "You are not booked on that session.",
       required: "This activity needs a choice. Ask to switch instead.",
       checkedIn: "You've already checked in to this session.",
+      started: "That session has already started, so it can't be changed.",
     },
   },
   submission: {

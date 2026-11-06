@@ -44,7 +44,8 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
   arrivals: Record<string, string>;
   lang?: Lang;
 }) {
-  const { held, pending, declined, switchTargets, canRequestCancel } = controls;
+  const { held, pending, declined, switchTargets, canRequestCancel, direct, changeable } = controls;
+  const canChange = (id: string) => changeable.some((s) => s.session.id === id);
   const d = t(lang).booking;
   const allIn = held.length > 0 && held.every((s) => arrivals[s.session.id]);
   if (held.length === 0 && !pending && !declined) return null;
@@ -94,16 +95,18 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
                   {d.addToCalendar}
                 </AddToCalendar>
               )}
-              {!arrivedAt && canRequestCancel && (
+              {/* D837: without asking, a seat whose session has started has no Cancel. */}
+              {!arrivedAt && canRequestCancel && canChange(seat.session.id) && (
                 <form action={requestCancel.bind(null, seat.session.id)}>
                   <ConfirmButton
-                    tone="default"
+                    tone={direct ? "destructive" : "default"}
                     triggerVariant="link"
                     className="h-auto p-0 text-success-strong underline"
-                    confirmLabel={d.sendRequest}
-                    message={d.confirmCancel(sessionLabel(seat.session, { lang }))}
+                    confirmLabel={direct ? d.yesCancel : d.sendRequest}
+                    cancelLabel={direct ? d.keepBooking : undefined}
+                    message={direct ? d.confirmCancelNow(sessionLabel(seat.session, { lang })) : d.confirmCancel(sessionLabel(seat.session, { lang }))}
                   >
-                    {d.askCancel}
+                    {direct ? d.cancelBooking : d.askCancel}
                   </ConfirmButton>
                 </form>
               )}
@@ -114,9 +117,9 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
       {/* Moving is done from the grid in the page's dialog: pick another time and its bar
           offers the switch. Hidden once every held seat is checked in (D336): there is nowhere
           left to move to that means anything. */}
-      {held.length > 0 && !allIn && (
+      {held.length > 0 && !allIn && changeable.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {switchTargets.length > 0 ? d.moveHint : d.noRoom}
+          {switchTargets.length === 0 ? d.noRoom : direct ? d.moveHintNow : d.moveHint}
         </p>
       )}
     </div>

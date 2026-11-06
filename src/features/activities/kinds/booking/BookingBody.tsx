@@ -6,7 +6,7 @@ import { ActivityBooking } from "./ActivityBooking";
 import { ActivityActionDialog } from "../../portal/ActivityActionDialog";
 import { sessionGrid } from "../../lib/session-grid";
 import { allCheckedIn } from "../../lib/booking-door";
-import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction } from "../../portal/actions";
+import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, moveAction, cancelAction } from "../../portal/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { AddToCalendar } from "@/components/portal/AddToCalendar";
 import { RichSections } from "@/components/portal/RichSections";
@@ -34,17 +34,20 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
   // button and Change session becomes a link on the booked line. With several seats one
   // button cannot name them all, so each line keeps its own calendar link as before.
   const single = controls.held.length === 1 ? controls.held[0] : null;
+  // D837: without asking, Move and Cancel take effect at once; otherwise they are requests.
+  const move = (controls.direct ? moveAction : requestSwitchAction).bind(null, slug, token);
+  const cancel = (controls.direct ? cancelAction : requestCancelAction).bind(null, slug, token);
   const dialog = (inline: boolean) => (
     <ActivityActionDialog
       key={`${state.held}:${pendingId ?? ""}`}
       inline={inline}
       label={holding ? d.changeSession : d.bookYourSession}
       title={activity.name}
-      description={holding ? d.pickAnother : state.mustPick ? d.chooseOne : d.pickTime}
+      description={holding ? (controls.direct ? d.pickAnotherNow : d.pickAnother) : state.mustPick ? d.chooseOne : d.pickTime}
     >
       <ActivitySessions
         entry={{ state, controls }}
-        actions={{ book: bookAction.bind(null, slug, token), requestSwitch: requestSwitchAction.bind(null, slug, token) }}
+        actions={{ book: bookAction.bind(null, slug, token), requestSwitch: move }}
       />
     </ActivityActionDialog>
   );
@@ -69,7 +72,7 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
           pendingId={pendingId}
           calendarPath={calendarPath}
           change={single ? (canAct ? dialog(true) : null) : undefined}
-          requestCancel={requestCancelAction.bind(null, slug, token)}
+          requestCancel={cancel}
           withdraw={withdrawRequestAction.bind(null, slug, token)}
           arrivals={arrivals}
           lang={lang}

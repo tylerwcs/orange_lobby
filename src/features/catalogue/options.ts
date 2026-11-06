@@ -84,8 +84,9 @@ export const ENGAGEMENT_OPTIONS: readonly Option[] = [
   { key: "polaroid_print_look", name: "Polaroid print look", summary: "Card background, logo and ink for printed polaroids.", origin: { date: "2026-10", decision: "D718", event: "UOB" }, where: ACTIVITY, experimental: true, inUse: ({ activities }) => activities.some((a) => a.kind === "polaroid" && polaroidLookSet(a.polaroid)) },
 ];
 
-/** Session booking's option. */
+/** Session booking's options. */
 export const BOOKING_OPTIONS: readonly Option[] = [
+  { key: "change_without_asking", name: "Change without asking", summary: "Attendees move or cancel their own session at once, up to its start time.", origin: { date: "2026-11", decision: "D837", event: "MYBESTME" }, where: ACTIVITY, inUse: ({ activities }) => activities.some((a) => a.kind === "booking" && a.attendee_edit) },
   { key: "committee_alerts", name: "Committee alerts", summary: "Tell the committee when someone asks to change a booking.", where: "Settings → Committee", inUse: ({ ev }) => ev.committee_alert_numbers.length > 0 },
 ];
 
