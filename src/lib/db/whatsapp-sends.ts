@@ -39,6 +39,12 @@ export async function claimSend(input: {
   template: string;
   toE164: string;
   dedupeKey: string | null;
+  /**
+   * Reclaim a key whose send FAILED (the default, for Send again). The session-reminder timer
+   * (D836) says false: it runs every minute, and a template Meta refused would be retried each
+   * minute until the session starts.
+   */
+  retryFailed?: boolean;
 }): Promise<WhatsappSend | null> {
   const row = {
     org_id: input.orgId,
@@ -61,6 +67,7 @@ export async function claimSend(input: {
     .select()
     .maybeSingle();
   if (data) return data as WhatsappSend;
+  if (input.retryFailed === false) return null;
 
   // The key is taken, which usually means this attendee already has the message. But a
   // previous attempt that FAILED is not a reason to refuse a retry — it is the reason to

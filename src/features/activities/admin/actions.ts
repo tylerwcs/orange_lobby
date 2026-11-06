@@ -25,6 +25,7 @@ import { disqualify, undoDisqualify } from "../db/challenge";
 import { challengeWeeks, mondayOf } from "../lib/challenge";
 import { generateSlots, readSlotForm, describeAdded, readTopUpForm, topUpTargets, describeTopUp } from "../lib/session-slots";
 import { readMapLink } from "../lib/map-link";
+import { readReminderMinutes } from "../lib/session-reminders";
 import { nowInKL } from "@/lib/time";
 import { activityHref, type ActivityTab } from "../tabs";
 import { readSettings, newActivityFrom } from "../kinds/settings";
@@ -124,6 +125,26 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
   revalidatePath(`/admin/events/${eventId}/activities`);
   revalidatePath(`/admin/events/${eventId}/activities/${activityId}`);
   redirect(flashPath(`/admin/events/${eventId}/activities/${activityId}`, "Activity saved."));
+}
+
+/**
+ * D836: the WhatsApp reminder before each session. Its own action and form, like the Open
+ * switch, so saving the details form can never turn it off by leaving it out.
+ */
+export async function saveReminderAction(eventId: string, activityId: string, fd: FormData) {
+  const ev = await event(eventId);
+  const back = activityHref(eventId, activityId, "setup");
+  await requireFeature(ev.id, "whatsapp", back);
+  await bookingOf(ev, activityId);
+  let minutes: number | null;
+  try {
+    minutes = readReminderMinutes(checked(fd, "reminder_on"), text(fd, "reminder_minutes"));
+  } catch (e) {
+    redirect(flashPath(back, (e as Error).message, "error"));
+  }
+  await updateActivity(activityId, ev.id, { whatsapp_reminder_minutes: minutes });
+  revalidatePath(detailPath(eventId, activityId));
+  redirect(flashPath(back, minutes ? `Reminders go out ${minutes} minutes before each session.` : "Reminders turned off."));
 }
 
 /**

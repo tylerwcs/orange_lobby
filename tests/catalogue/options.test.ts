@@ -27,6 +27,7 @@ describe("the option registry (D777)", () => {
       "badge_checkin", "scan_card", "door_survey", "theme", "name_line_breaks", "coming_soon", "me_page", "badge_pins", "preview_link", "committee_logins",
       "group_tile", "all_groups", "group_fields", "verifiers", "undo_revoke", "partner_submissions", "tracks", "ad_hoc_points", "tournaments", "polaroid_print_look",
       "committee_alerts", "change_log", "change_without_asking",
+      "session_reminders", "whatsapp_on_register", // D836, D838
     ].sort());
   });
   it("dates every origin as YYYY-MM and every decision as D<number>", () => {
@@ -72,11 +73,16 @@ describe("inUse (D777)", () => {
     // D837: a booking's attendee_edit; a submission's is the D391 edit, not this.
     expect(option("change_without_asking").inUse!({ ev, activities: [{ ...fixtureActivity, kind: "booking", attendee_edit: true }] })).toBe(true);
     expect(option("change_without_asking").inUse!({ ev, activities: [{ ...fixtureActivity, kind: "submission", attendee_edit: true }] })).toBe(false);
+    // D836, D838
+    expect(option("session_reminders").inUse!({ ev, activities: [{ ...fixtureActivity, kind: "booking", whatsapp_reminder_minutes: 30 }] })).toBe(true);
+    expect(option("session_reminders").inUse!({ ev, activities: [{ ...fixtureActivity, kind: "booking", whatsapp_reminder_minutes: null }] })).toBe(false);
+    expect(option("whatsapp_on_register").inUse!({ ev: { ...ev, whatsapp_on_register: true }, activities: [] })).toBe(true);
+    expect(option("whatsapp_on_register").inUse!({ ev, activities: [] })).toBe(false);
   });
   it("is set only on the options one column or field answers", () => {
     expect(options.filter((o) => o.inUse).map((o) => o.key).sort()).toEqual([
       "after_register_booking", "all_groups", "approval", "badge_checkin", "change_without_asking", "coming_soon", "committee_alerts", "done_page", "event_terms",
-      "partner_submissions", "polaroid_print_look", "preview_link", "self_cancel", "waiting_list",
+      "partner_submissions", "polaroid_print_look", "preview_link", "self_cancel", "session_reminders", "waiting_list", "whatsapp_on_register",
     ]);
   });
   it("reads a polaroid wall's print look: any of background, logo or ink on a polaroid activity", () => {

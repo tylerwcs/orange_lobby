@@ -34,6 +34,8 @@ export async function runSend<T extends AudienceAttendee>(input: {
   params: (attendee: T) => { bodyParams: string[]; buttonParam?: string; buttonParams?: string[] };
   /** A stable key per attendee makes the run idempotent; null lets the message repeat. */
   dedupeKey: (attendee: T) => string | null;
+  /** False leaves a failed send failed rather than retrying it (see claimSend). */
+  retryFailed?: boolean;
 }): Promise<RunResult> {
   const result: RunResult = { sent: 0, failed: 0, skipped: 0 };
   const queue = [...input.recipients];
@@ -49,6 +51,7 @@ export async function runSend<T extends AudienceAttendee>(input: {
         template: input.template,
         toE164: to,
         dedupeKey: input.dedupeKey(attendee),
+        retryFailed: input.retryFailed,
       });
       if (!claim) {
         result.skipped++;

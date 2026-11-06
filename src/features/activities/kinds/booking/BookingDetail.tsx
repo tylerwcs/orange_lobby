@@ -20,6 +20,9 @@ import { listCheckpoints } from "@/lib/db/checkpoints";
 import { listCheckinsAt } from "@/lib/db/checkins";
 import { boardsByDay } from "../../lib/booking-door";
 import { CategoryCombo } from "@/components/admin/AgendaCombos";
+import { eventFeatures, has } from "@/features/catalogue";
+import { ReminderCard } from "./ReminderCard";
+import { reminderReady } from "../../lib/session-reminders";
 import { scannerNames } from "@/lib/db/users";
 import { seatsFor, unbookedByActivity, sessionLabel } from "../../lib/activities";
 import { groupSessionsByDay } from "../../lib/session-slots";
@@ -29,7 +32,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { SaveBar } from "@/components/admin/SaveBar";
 import { Field } from "@/components/admin/Field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { saveActivityAction, toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, deleteActivityAction, addSessionsAction, topUpSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction, placeAttendeesAction, approveRequestAction, declineRequestAction, uploadActivityImageAction } from "../../admin/actions";
+import { saveActivityAction, toggleOpenAction, scheduleOpenAction, removeScheduleAction, togglePinAction, deleteActivityAction, addSessionsAction, topUpSessionsAction, saveSessionAction, deleteSessionAction, deleteSessionDayAction, placeAttendeesAction, approveRequestAction, declineRequestAction, uploadActivityImageAction, saveReminderAction } from "../../admin/actions";
 
 const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const check = "flex items-center gap-2 text-sm font-bold";
@@ -39,6 +42,8 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
     listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id), listCategories(ev.id),
   ]);
   const sessions = allSessions.filter((s) => s.activity_id === activity.id);
+  // D836: the reminder is a WhatsApp message, so it is offered only where WhatsApp is turned on.
+  const whatsappOn = has(await eventFeatures(ev.id), "whatsapp");
   const seats = sessions.map((s) => seatsFor(s, counts[s.id] ?? 0));
   const activityBookings = bookings.filter((b) => b.activity_id === activity.id);
 
@@ -185,6 +190,14 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
               />
             </CardContent>
           </Card>
+
+          {whatsappOn && (
+            <ReminderCard
+              minutes={activity.whatsapp_reminder_minutes ?? null}
+              notReady={sessions.filter((s) => s.day + s.starts_at > nowInKL().date + nowInKL().time && !reminderReady(s)).length}
+              save={saveReminderAction.bind(null, ev.id, activity.id)}
+            />
+          )}
         </>
       )}
 

@@ -18,6 +18,7 @@ export * from "./lib/submission-uploads";
 export * from "./lib/verifier";
 export * from "./lib/revoked-entries";
 export * from "./lib/request-notify";
+export * from "./lib/session-reminder-run";
 
 // The two activity pages, for their route files to render (D419), and the server actions the
 // list page's add forms post to.

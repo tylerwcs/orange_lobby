@@ -20,7 +20,7 @@ export const PORTAL_LOOK_COLUMNS = ["logo_url", "banner_url", "primary_color", "
 export const REGISTRATION_COLUMNS = [
   "registration_open", "registration_closes_at", "self_cancel", "self_cancel_closes_at", "registration_limit",
   "registration_needs_approval", "registration_intro", "registration_terms", "registration_done_title",
-  "registration_done_message", "registration_done_page", "registration_done_qr", "after_register_activity_id", "registration_full_title", "registration_full_message",
+  "registration_done_message", "registration_done_page", "registration_done_qr", "whatsapp_on_register", "after_register_activity_id", "registration_full_title", "registration_full_message",
   "registration_waiting_title", "registration_waiting_message", "registration_pending_title",
   "registration_pending_message", "registration_banner_url", "registration_footer_url", "registration_questions",
 ] as const;
@@ -101,6 +101,7 @@ export function registrationPatch(
     registration_done_message: str(fd, "registration_done_message"),
     registration_done_page: fd.get("registration_done_page") === "on", // D634
     registration_done_qr: fd.get("registration_done_qr") === "on", // D804
+    whatsapp_on_register: fd.get("whatsapp_on_register") === "on", // D838
     // D805: as chosen; the save action checks it is one of this event's activities.
     after_register_activity_id: str(fd, "after_register_activity_id"),
     // D708

@@ -2,7 +2,8 @@ import "server-only";
 import { getAttendee } from "@/lib/db/attendees";
 import { eventFields } from "@/lib/attendee-fields";
 import { splitAudience } from "@/lib/whatsapp-audience";
-import { runSend } from "@/lib/whatsapp-run";
+import { DEFAULT_TEMPLATE as PORTAL_TEMPLATE, runSend } from "@/lib/whatsapp-run";
+import { eventFeatures, has } from "@/features/catalogue";
 import { serviceClient } from "@/lib/supabase/service";
 import { firstName, queueDedupeKey, type NotifyResult } from "./lib/rules";
 import type { Moved } from "./db";
@@ -52,4 +53,36 @@ export async function notifyRegistered(
     }
   }
   return total;
+}
+
+/**
+ * D838: with the event's "WhatsApp their link" switch on, sends someone who has just registered
+ * `ecphub_portal` - "Dear {{1}}, your registration for {{2}} has been confirmed…" with their
+ * link on the button. Only a new registration: someone who updated their details already had
+ * it, and the waiting list and approvals send their own (notifyRegistered).
+ *
+ * Keyed `ecphub_portal:<attendee>`, the same key the send screen's "Everyone" uses, so a later
+ * blast of ecphub_portal skips them and nobody gets their link twice. Runs after the response
+ * (the caller wraps it in `after`) and never throws: a WhatsApp problem must not touch
+ * their registration.
+ */
+export async function notifyPortalLink(ev: Event, attendeeId: string): Promise<void> {
+  try {
+    if (!ev.whatsapp_on_register || !has(await eventFeatures(ev.id), "whatsapp")) return;
+    const attendee = await getAttendee(attendeeId);
+    if (!attendee) return;
+    const { recipients } = splitAudience([attendee], eventFields(ev.registration_questions, ev.attendee_fields));
+    if (recipients.length === 0) return; // no usable number: the WhatsApp page lists them
+    const res = await runSend({
+      orgId: ev.org_id,
+      eventId: ev.id,
+      template: PORTAL_TEMPLATE,
+      recipients,
+      params: (a) => ({ bodyParams: [a.name, ev.name], buttonParam: a.token }),
+      dedupeKey: (a) => `${PORTAL_TEMPLATE}:${a.id}`,
+    });
+    if (res.lastError) console.error(`portal link to ${attendeeId} failed: ${res.lastError}`);
+  } catch (e) {
+    console.error("notifyPortalLink failed", e);
+  }
 }

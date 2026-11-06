@@ -2,7 +2,7 @@ import { requireEventAccess } from "@/lib/access";
 import { loadDoors, listActivities, VerificationTab } from "@/features/activities";
 import { listGroups } from "@/lib/db/groups";
 import { AddressTab, eventAddress } from "@/features/domains";
-import { activityKindsFor, eventFeatures, WhatsOnTab, hiddenSettingsParts } from "@/features/catalogue";
+import { activityKindsFor, eventFeatures, has, WhatsOnTab, hiddenSettingsParts } from "@/features/catalogue";
 import { appBaseUrl, shareLink, type ShareLinkKind } from "@/lib/links";
 import { qrDataUrl } from "@/lib/qr";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -95,7 +95,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         </TabsContent>
 
         <TabsContent value="registration" keepMounted className="flex flex-col gap-4 @container">
-          <RegistrationTab ev={ev} taken={taken} queued={queued} activities={allActivities} />
+          <RegistrationTab ev={ev} taken={taken} queued={queued} activities={allActivities} whatsappOn={has(features, "whatsapp")} />
         </TabsContent>
 
         <TabsContent value="checkin" className="flex flex-col gap-4 @container">

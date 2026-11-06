@@ -45,6 +45,7 @@ export const REGISTRATION_OPTIONS: readonly Option[] = [
   { key: "after_register_booking", name: "Next step after registering", summary: "Offer any activity right after registering, on the confirmation page or straight to it (D805).", origin: { date: "2026-10", decision: "D766", event: "MYBESTME" }, where: REGISTRATION, experimental: true, inUse: ({ ev }) => !!ev.after_register_activity_id },
   { key: "registration_images", name: "Banner and form image", summary: "A banner on top and an image under the form.", origin: { date: "2026-10", decision: "D618" }, where: REGISTRATION },
   { key: "scheduled_open", name: "Scheduled opening", summary: "Pick a time and an activity opens by itself.", origin: { date: "2026-10", decision: "D600" }, where: ACTIVITY },
+  { key: "whatsapp_on_register", name: "WhatsApp their link", summary: "Send each person their event link by WhatsApp as soon as they register.", origin: { date: "2026-11", decision: "D838" }, where: REGISTRATION, inUse: ({ ev }) => !!ev.whatsapp_on_register },
   { key: "tick_box_questions", name: "Tick-box questions", summary: "Questions where people tick all that apply.", origin: { date: "2026-10", decision: "D732" }, where: REGISTRATION },
 ];
 
@@ -87,6 +88,7 @@ export const ENGAGEMENT_OPTIONS: readonly Option[] = [
 /** Session booking's options. */
 export const BOOKING_OPTIONS: readonly Option[] = [
   { key: "change_without_asking", name: "Change without asking", summary: "Attendees move or cancel their own session at once, up to its start time.", origin: { date: "2026-11", decision: "D837", event: "MYBESTME" }, where: ACTIVITY, inUse: ({ activities }) => activities.some((a) => a.kind === "booking" && a.attendee_edit) },
+  { key: "session_reminders", name: "WhatsApp reminder", summary: "Each person booked gets a WhatsApp shortly before their session, with a map button.", origin: { date: "2026-11", decision: "D836" }, where: ACTIVITY, inUse: ({ activities }) => activities.some((a) => a.kind === "booking" && a.whatsapp_reminder_minutes != null) },
   { key: "committee_alerts", name: "Committee alerts", summary: "Tell the committee when someone asks to change a booking.", where: "Settings → Committee", inUse: ({ ev }) => ev.committee_alert_numbers.length > 0 },
 ];
 

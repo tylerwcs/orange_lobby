@@ -9,7 +9,8 @@ import { allow } from "@/lib/ratelimit";
 import { showsDonePage } from "@/lib/registration-done";
 import { eventAddress } from "@/features/domains";
 import { attendeeLink } from "@/lib/links";
-import { fillFreePlaces, nextStep, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
+import { fillFreePlaces, nextStep, notifyPortalLink, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
+import { after } from "next/server";
 import { findByToken } from "@/lib/db/attendees";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
@@ -38,7 +39,9 @@ export async function registerAction(slug: string, waitlist: boolean, _prev: Reg
 
   // D678, D691, D692, D697: updates an active attendee, or registers, queues or holds for approval
   // a new one, under the event lock; consent and the terms tick are stamped in the same write.
-  const { outcome, token } = await registerOrQueue(event, result.data, { terms: hasTerms });
+  const { outcome, token, attendeeId } = await registerOrQueue(event, result.data, { terms: hasTerms });
+  // D838: their link by WhatsApp, after the response so it never slows or blocks their landing.
+  if (outcome === "registered" && attendeeId && event.whatsapp_on_register) after(() => notifyPortalLink(event, attendeeId));
   // An active person who still had a pending entry has just had it closed, which frees the place
   // it held; the SQL does not refill it, so this does (D682). A problem here - a fill error, a
   // failed WhatsApp - never stands between the person and their link.

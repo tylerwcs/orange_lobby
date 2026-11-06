@@ -54,6 +54,8 @@ export type NewActivity = {
   /** Tournament kind only (D640, D641). Left out, the columns' nulls stand. */
   squads_close_at?: string | null;
   squad_fill?: "captains" | "self" | null;
+  /** Booking kind only (D836). Left out, the column stands; `saveReminderAction` alone writes it. */
+  whatsapp_reminder_minutes?: number | null;
 };
 
 export type NewSession = {
@@ -176,6 +178,25 @@ export async function getSessionMapLink(id: string): Promise<string | null> {
   const { data, error } = await serviceClient().from("activity_sessions").select("location_url").eq("id", id).maybeSingle();
   if (error) throw error;
   return (data?.location_url as string | null | undefined) ?? null;
+}
+
+/** D836: every booking activity with a WhatsApp reminder set, across all events, for the timer. */
+export async function listReminderActivities(): Promise<Activity[]> {
+  const { data, error } = await serviceClient().from("activities").select("*")
+    .eq("kind", "booking").not("whatsapp_reminder_minutes", "is", null);
+  if (error) throw error;
+  return data as Activity[];
+}
+
+/** D836: these activities' sessions on these days, trimmed as `listSessions`. */
+export async function listSessionsForActivities(activityIds: string[], days: string[]): Promise<ActivitySession[]> {
+  if (activityIds.length === 0 || days.length === 0) return [];
+  const { data, error } = await serviceClient().from("activity_sessions").select("*")
+    .in("activity_id", activityIds).in("day", days);
+  if (error) throw error;
+  return (data as ActivitySession[]).map((s) => ({
+    ...s, starts_at: s.starts_at.slice(0, 5), ends_at: s.ends_at?.slice(0, 5) ?? null,
+  }));
 }
 
 /** One activity's sessions on one day: what a booking door covers (D325). Trimmed and ordered as `listSessions`. */

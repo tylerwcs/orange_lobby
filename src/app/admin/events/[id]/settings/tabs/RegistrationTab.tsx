@@ -22,10 +22,12 @@ import { updateRegistrationAction } from "../../actions";
  * D778: the registration form and everything around it, one form saving only these columns.
  * `taken` and `queued` (D686) are how full it is, shown under the limit.
  */
-export function RegistrationTab({ ev, taken, queued, activities }: {
+export function RegistrationTab({ ev, taken, queued, activities, whatsappOn }: {
   ev: Event; taken: string | null; queued: string;
   /** D805: what the next step can be - every activity of the event. */
   activities: Activity[];
+  /** D838: the event has WhatsApp turned on, so its link can go out on registering. */
+  whatsappOn: boolean;
 }) {
   const qs = editorQuestions(ev.registration_form);
   // Keyed on its own columns only. The editor works from the full form (registration_form), so that
@@ -106,6 +108,18 @@ export function RegistrationTab({ ev, taken, queued, activities }: {
             </label>
           ) : (
             <input type="hidden" name="registration_done_qr" value={ev.registration_done_qr === false ? "" : "on"} />
+          )}
+          {/* D838: only with WhatsApp turned on for the event. Off, the switch keeps its value. */}
+          {whatsappOn ? (
+            <label className="flex min-h-11 items-start gap-2 text-sm">
+              <input type="checkbox" name="whatsapp_on_register" defaultChecked={ev.whatsapp_on_register ?? false} className="mt-0.5 size-4 accent-primary" />
+              <span>
+                <span className="font-bold">WhatsApp them their event link</span>
+                <span className="block text-muted-foreground">Sends ecphub_portal as soon as they register, once each. People on the waiting list or awaiting approval get theirs when they are let in.</span>
+              </span>
+            </label>
+          ) : (
+            <input type="hidden" name="whatsapp_on_register" value={ev.whatsapp_on_register ? "on" : ""} />
           )}
           <Field label="Heading" name="registration_done_title" defaultValue={ev.registration_done_title ?? ""} placeholder={DEFAULT_DONE_TITLE} />
           <Field

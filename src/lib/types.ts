@@ -77,6 +77,8 @@ export type Event = {
   registration_done_page?: boolean;
   /** D804: show the QR code on that page (with check-in on); on by default. Optional so old fixtures compile. */
   registration_done_qr?: boolean;
+  /** D838: WhatsApp each person `ecphub_portal` (their event link) as soon as they register; off by default. Optional so old fixtures compile. */
+  whatsapp_on_register?: boolean;
   /**
    * D766, D805: the activity offered as the next step after registering, any kind - on the
    * confirmation page, or straight to it when the page is off - when they can do it now.
@@ -450,6 +452,8 @@ export type Activity = {
   show_overall?: boolean | null;
   /** Tournament kind only (D821): groups play as super teams of two, keyed in by an admin. */
   super_teams?: boolean | null;
+  /** Booking kind only (D836): minutes before each session its bookers get a WhatsApp reminder; null is off. */
+  whatsapp_reminder_minutes?: number | null;
   sort_order: number;
 };
 
