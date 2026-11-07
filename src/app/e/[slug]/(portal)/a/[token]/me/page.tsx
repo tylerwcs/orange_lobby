@@ -71,16 +71,20 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
   // The decline note shows only while they could ask again, i.e. while the card below shows.
   const showNote = attendee.cancel_requested_at || (attendee.cancel_declined_at && canCancel);
 
+  // Whether anything sits beside the identity card on desktop (D841).
+  const hasRest = event.language_switch || contactDetails.length > 0 || answered.length > 0 || Boolean(showNote) || canCancel;
+
   return (
     <>
-      {/* Capped on desktop. A profile is a reading measure, not a dashboard: at the full
-          896px the label and its value end up half a metre apart and the button stretches
-          to 830px. */}
-      <div className="flex flex-col gap-3.5 md:mx-auto md:max-w-2xl md:gap-5">
+      {/* D841: on desktop the identity card is a column of its own on the left and the rest
+          stacks beside it, so the page uses the shell's width and lines up with the header -
+          rather than a centred 672px stack. A profile is still a reading measure, not a
+          dashboard: each column stays narrow enough that a label sits near its value. */}
+      <div className={`flex flex-col gap-3.5 md:gap-5 ${hasRest ? "md:grid md:grid-cols-[18rem_minmax(0,1fr)] md:items-start" : "md:max-w-sm"}`}>
 
         {/* Identity first, and the badge is a dialog rather than a wall of QR: someone
             opening their profile is usually reading it, not presenting it. */}
-        <Card>
+        <Card className="md:sticky md:top-6">
           <CardContent className="flex flex-col items-center gap-3 text-center">
             <div className="flex size-16 items-center justify-center rounded-full bg-accent text-lg font-extrabold text-accent-foreground">
               {initials(attendee.name)}
@@ -93,9 +97,11 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
               {fieldValue(attendee, ME_TABLE) && shows(ME_TABLE) && <Badge>{d.me.table(fieldValue(attendee, ME_TABLE))}</Badge>}
             </div>
 
-            {qr && <BadgeQrDialog qr={qr} name={attendee.name} trigger={<Button className="mt-1 w-full sm:w-64">{d.me.showBadge}</Button>} />}
+            {qr && <BadgeQrDialog qr={qr} name={attendee.name} trigger={<Button className="mt-1 w-full sm:w-64 md:w-full">{d.me.showBadge}</Button>} />}
           </CardContent>
         </Card>
+
+        <div className={`flex flex-col gap-3.5 md:gap-5 ${hasRest ? "" : "hidden"}`}>
 
         {/* D739: the language switch, findable from the profile as well as the home's header. */}
         {event.language_switch && (
@@ -120,11 +126,9 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
           </Card>
         )}
 
+        {/* The answers speak for themselves: no heading over them (D840). */}
         {answered.length > 0 && (
           <Card>
-            <CardHeader>
-              <CardTitle className={caption}>{d.me.toldUs}</CardTitle>
-            </CardHeader>
             <CardContent>
               <dl className="divide-y text-sm">
                 {answered.map((f) => <Row key={f.label} label={f.label} value={f.value} />)}
@@ -142,6 +146,7 @@ export default async function MePage({ params }: { params: Promise<{ slug: strin
           <CancelSection variant="me" eventName={event.name} until={event.self_cancel_closes_at ? klDayTime(event.self_cancel_closes_at) : null} action={requestCancelAction.bind(null, slug, token)} />
         )}
 
+        </div>
       </div>
     </>
   );

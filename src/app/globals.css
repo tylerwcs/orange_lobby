@@ -185,7 +185,9 @@ body {
 }
 
 /* Browser surfaces carry the design too: selection, focus, and numerals. */
-::selection { background: var(--accent); color: var(--foreground); }
+/* The accent pair, worked out to read on each other on every theme (D840). --foreground was the
+   page's ink, which on a dark theme's white cards left selected text dark on a dark highlight. */
+::selection { background: var(--accent); color: var(--accent-foreground); }
 
 /* One visible focus ring everywhere, drawn from the brand, never removed without a replacement. */
 :focus-visible {
@@ -287,10 +289,14 @@ input, textarea { touch-action: manipulation; }
   .bg-card {
     color: var(--card-foreground);
     --muted-foreground: var(--card-muted-foreground);
+    /* D840: inside a card, "foreground" is the card's ink too - a ghost or outline button's
+       hover:text-foreground was the page's white on a white card's pale hover fill. */
+    --foreground: var(--card-foreground);
   }
   .bg-popover {
     color: var(--popover-foreground);
     --muted-foreground: var(--card-muted-foreground);
+    --foreground: var(--popover-foreground);
   }
   html {
     @apply font-sans;

@@ -2,7 +2,7 @@ import type { Event } from "@/lib/types";
 import { sanitizeHtml } from "@/lib/sanitize";
 import type { PortalInfoTab } from "@/lib/info-tabs";
 import { Skeleton } from "@/components/ui/skeletons";
-import { PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
+import { PendingLink, PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
 import { PortalTabStrip } from "./PortalTabStrip";
 import { TITLE_INK } from "@/lib/ink";
 import { portalLang, t } from "@/features/language";
@@ -30,15 +30,36 @@ export async function InfoPage({ event, tabs, selected, basePath }: {
       ) : (
         // `?tab=` changes no route segment, so no loading.tsx sees it; the scope moves the
         // underline at once and swaps the content for a skeleton until the tab arrives.
+        // D841: on a phone the tabs are a strip above the text; from md they are a list down the
+        // left, so the text keeps a reading measure and the column it sits in is used, rather
+        // than a 65ch block hugging the left of a strip that runs the full width.
         <PendingScope>
-          <div className="flex flex-col gap-4">
-            <PortalTabStrip
-              tabs={tabs.map((t) => ({ key: t.key, href: href(t.key), label: t.title }))}
-              selected={selected.key}
-            />
+          <div className={`flex flex-col gap-4 ${tabs.length > 1 ? "md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-10" : ""}`}>
+            <div className="md:hidden">
+              <PortalTabStrip
+                tabs={tabs.map((t) => ({ key: t.key, href: href(t.key), label: t.title }))}
+                selected={selected.key}
+              />
+            </div>
+            {tabs.length > 1 && (
+              <nav aria-label={event.info_page_title} className="hidden md:sticky md:top-6 md:flex md:flex-col md:gap-0.5">
+                {tabs.map((t) => (
+                  <PendingLink
+                    key={t.key}
+                    href={href(t.key)}
+                    selected={t.key === selected.key}
+                    className="flex min-h-10 items-center rounded-md px-3 py-2 text-left text-sm leading-snug transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    selectedClassName="bg-accent font-bold text-primary"
+                    unselectedClassName="font-semibold text-muted-foreground hover:bg-accent"
+                  >
+                    {t.title}
+                  </PendingLink>
+                ))}
+              </nav>
+            )}
             <PendingSwipe prevHref={prevHref} nextHref={nextHref}>
               <PendingSwap fallback={<Skeleton className="h-40 rounded-[14px]" />}>
-                <div className="rich-text prose prose-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
+                <div className="rich-text prose prose-sm md:prose-base" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
               </PendingSwap>
             </PendingSwipe>
           </div>

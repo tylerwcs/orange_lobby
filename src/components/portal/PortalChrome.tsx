@@ -51,7 +51,7 @@ function MeButton({ href, label }: { href: string; label: string }) {
       href={href}
       aria-label={label}
       // relative z-10: above the home link's overlay, which covers the rest of the bar.
-      className="relative z-10 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors active:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+      className="relative z-10 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors active:bg-accent focus-visible:ring-2 focus-visible:ring-ring md:hidden"
     >
       <UserRound aria-hidden className="size-6" strokeWidth={1.75} />
     </Link>
@@ -197,7 +197,7 @@ function Chrome({ event, basePath, personal, activities, hasInfo, draftExtra, la
                     key={n.href}
                     href={`${basePath}${n.href}`}
                     aria-current={active ? "page" : undefined}
-                    className={`flex min-h-11 items-center gap-2 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-accent font-bold text-primary" : "font-semibold text-muted-foreground hover:bg-muted"}`}
+                    className={`flex min-h-11 items-center gap-2 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-accent font-bold text-primary" : "font-semibold text-muted-foreground hover:bg-accent"}`}
                   >
                     <Icon name={n.icon} size={18} />{n.label}
                     {n.dot && <Owed className="-ml-0.5" label={d.nav.choiceWaiting} />}

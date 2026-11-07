@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeletons";
 export default function PersonalMeLoading() {
   return (
     <div
-      className="flex flex-col gap-3.5 md:mx-auto md:max-w-2xl md:gap-5"
+      className="flex flex-col gap-3.5 md:grid md:grid-cols-[18rem_minmax(0,1fr)] md:items-start md:gap-5"
       role="status"
       aria-busy="true"
       aria-label="Loading"
@@ -16,8 +16,10 @@ export default function PersonalMeLoading() {
           <Skeleton className="h-6 w-24 rounded-full" />
           <Skeleton className="h-6 w-16 rounded-full" />
         </div>
-        <Skeleton className="mt-1 h-11 w-full rounded-lg sm:w-64" />
+        <Skeleton className="mt-1 h-11 w-full rounded-lg sm:w-64 md:w-full" />
       </div>
+
+      <div className="flex flex-col gap-3.5 md:gap-5">
 
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6">
         <Skeleton className="h-3 w-28" />
@@ -32,6 +34,7 @@ export default function PersonalMeLoading() {
             <Skeleton className="h-4 w-20" />
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

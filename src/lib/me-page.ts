@@ -17,7 +17,7 @@ export const ME_TABLE = "table_no";
 export type MeItem = { key: string; label: string };
 export type MeGroup = { title: string; items: MeItem[] };
 
-/** Every answer field the "What you told us" card can list: all of them bar the table, which the card shows. */
+/** Every answer field the answers card can list: all of them bar the table, which the card shows. */
 export function meAnswerFields(e: Pick<Event, "registration_questions" | "attendee_fields">) {
   return eventFields(e.registration_questions, e.attendee_fields).filter((f) => f.key !== ME_TABLE);
 }
@@ -35,7 +35,7 @@ export function meGroups(e: Pick<Event, "registration_questions" | "attendee_fie
       ],
     },
     { title: "Your details", items: [{ key: ME_EMAIL, label: "Email" }] },
-    ...(answers.length ? [{ title: "What you told us", items: answers }] : []),
+    ...(answers.length ? [{ title: "Their answers", items: answers }] : []),
   ];
 }
 

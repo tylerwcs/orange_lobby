@@ -63,7 +63,6 @@ export const ms = {
     showBadge: "Tunjuk lencana saya",
     yourDetails: "Butiran anda",
     email: "E-mel",
-    toldUs: "Maklumat yang anda berikan",
   },
   cards: {
     sessionsSoon: "Sesi akan diumumkan",

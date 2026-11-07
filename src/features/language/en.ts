@@ -65,7 +65,6 @@ export const en = {
     showBadge: "Show my badge",
     yourDetails: "Your details",
     email: "Email",
-    toldUs: "What you told us",
   },
   cards: {
     sessionsSoon: "Sessions coming soon",

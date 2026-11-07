@@ -16,7 +16,7 @@ describe("meGroups", () => {
     expect(keys).toEqual([
       ["Profile card", [ME_CATEGORY, ME_TABLE, ME_BADGE]],
       ["Your details", [ME_EMAIL]],
-      ["What you told us", ["company", "shirt"]],
+      ["Their answers", ["company", "shirt"]],
     ]);
   });
 
