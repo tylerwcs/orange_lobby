@@ -51,7 +51,7 @@ export const FEATURES: Record<FeatureKey, Feature> = {
   portal: core("Attendee portal and personal links", "Each attendee's own link to the portal.", PORTAL_OPTIONS),
   attendees: core("Attendee list", "Import and manage who is coming.", ATTENDEES_OPTIONS),
   agenda: core("Agenda", "Days and sessions."),
-  info: core("Event info and floor plan", "Info tabs and the venue plan."),
+  info: core("Event info", "Info tabs, including the venue and its floor plan."),
   announcements: core("Announcements", "News for attendees, pinned or not."),
   exports: core("Exports", "Spreadsheets, links and QR codes."),
   registration: core("Self-registration", "A sign-up form with your own questions.", REGISTRATION_OPTIONS),

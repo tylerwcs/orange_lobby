@@ -18,15 +18,15 @@ describe("moduleFromForm", () => {
     expect(m).toMatchObject({ target: { kind: "route", route: "agenda" } });
   });
 
-  it("reads the floor plan preset, which carries its image url", () => {
-    const m = moduleFromForm(form({ preset: "floor_plan", label: "Seating", url: "https://x/p.png", enabled: "on" }), "ignored");
-    expect(m).toEqual({ key: "floor_plan", enabled: true, label: "Seating", url: "https://x/p.png" });
+  it("treats an old floor plan preset as an ordinary tile (D839)", () => {
+    // A form opened before the floor plan was retired posts preset=floor_plan; it must not
+    // write a floor plan row back. With no label it is simply rejected like any tile.
+    expect(() => moduleFromForm(form({ preset: "floor_plan", url: "https://x/p.png", enabled: "on" }), "x")).toThrow();
   });
 
-  it("keeps an uploaded icon image, on a tile and on the floor plan", () => {
+  it("keeps an uploaded icon image", () => {
     const img = "https://x/icon.png";
     expect(moduleFromForm(form({ preset: "tile", label: "Q&A", icon: "chat", icon_image: img, target_kind: "url", url: "https://sli.do/x", enabled: "on" }), "t9")).toMatchObject({ icon_image: img });
-    expect(moduleFromForm(form({ preset: "floor_plan", url: "https://x/p.png", icon_image: img, enabled: "on" }), "x")).toMatchObject({ icon_image: img });
   });
 
   it("leaves icon_image off the row when there is none", () => {
@@ -53,13 +53,6 @@ describe("upsertModule", () => {
   it("appends a module whose id is new", () => {
     const next = upsertModule([tile("a")], tile("b"));
     expect(next).toHaveLength(2);
-  });
-
-  it("replaces the floor plan rather than adding a second one", () => {
-    const plan = { key: "floor_plan", enabled: true, url: "https://x/p.png" } as EventModule;
-    const next = upsertModule([plan], { key: "floor_plan", enabled: true, url: "https://y/p.png" } as EventModule);
-    expect(next).toHaveLength(1);
-    expect(next[0]).toMatchObject({ url: "https://y/p.png" });
   });
 
   it("refuses to go past the cap", () => {
@@ -96,8 +89,5 @@ describe("tile categories", () => {
   it("stores no categories when none are ticked, which means everyone", () => {
     expect(moduleFromForm(form({ ...base, categories: "" }), "t1")).not.toHaveProperty("categories");
     expect(moduleFromForm(form(base), "t1")).not.toHaveProperty("categories");
-  });
-  it("lets the floor plan be for some programmes too", () => {
-    expect(moduleFromForm(form({ preset: "floor_plan", url: "https://x/p.png", enabled: "on", categories: "KOM" }), "x")).toMatchObject({ key: "floor_plan", categories: ["KOM"] });
   });
 });

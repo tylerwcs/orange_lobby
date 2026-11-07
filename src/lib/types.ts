@@ -51,7 +51,6 @@ export type Event = {
   logo_url: string | null;
   banner_url: string | null;
   primary_color: string;
-  floor_plan_url: string | null;
   info_page_title: string;
   /** Organiser pictures for the launcher's own sections, keyed "agenda" / "info" / "group" (D222, D362). Read through `sectionIcons`. */
   section_icons: Record<string, unknown>;

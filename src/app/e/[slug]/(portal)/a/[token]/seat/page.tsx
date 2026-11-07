@@ -1,7 +1,4 @@
 import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
-import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { floorPlanShown } from "@/lib/modules";
 import { fieldValue } from "@/lib/attendee-values";
 import { TITLE_INK } from "@/lib/ink";
 
@@ -10,7 +7,6 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
   if (isUnpublished(event)) return null;
-  const basePath = `/e/${slug}/a/${token}`;
   const table = fieldValue(attendee, "table_no");
   return (
     <>
@@ -22,9 +18,6 @@ export default async function Seat({ params }: { params: Promise<{ slug: string;
         </div>
       ) : (
         <p className="mb-4 text-sm text-muted-foreground">Your seat will be shown here once seating is confirmed.</p>
-      )}
-      {floorPlanShown(event) && (
-        <Link href={`${basePath}/plan`} className={buttonVariants({ variant: "outline" })}>Open floor plan</Link>
       )}
     </>
   );

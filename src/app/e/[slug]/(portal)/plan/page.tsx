@@ -1,26 +1,7 @@
-import { loadPortalEvent } from "@/lib/portal";
-import { PortalShell } from "@/components/portal/PortalShell";
-import { Card, CardContent } from "@/components/ui/card";
-import { floorPlanUrl } from "@/lib/modules";
-import { TITLE_INK } from "@/lib/ink";
+import { redirect } from "next/navigation";
 
-export default async function PlanPage({ params }: { params: Promise<{ slug: string }> }) {
+/** The floor plan is an Info tab now (D839): an old tile or link lands on the Info page. */
+export default async function OldFloorPlan({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const event = await loadPortalEvent(slug);
-  const plan = floorPlanUrl(event);
-  return (
-    <PortalShell event={event} basePath={`/e/${slug}`} personal={false}>
-      <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>Floor plan</h1>
-      {plan ? (
-        <div className="overflow-auto rounded-xl border border-border bg-card p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={plan} alt="Floor plan" loading="lazy" className="min-h-64 w-full" />
-        </div>
-      ) : (
-        // A tile can be enabled before the plan image is uploaded; say so inside the
-        // shell rather than dead-ending on a 404.
-        <Card><CardContent><p className="text-sm text-muted-foreground">The floor plan isn&apos;t available yet.</p></CardContent></Card>
-      )}
-    </PortalShell>
-  );
+  redirect(`/e/${encodeURIComponent(slug)}/info`);
 }

@@ -9,30 +9,19 @@ import type { IconName } from "@/components/ui/icon";
  * so dropping a key makes every event that still has a row for it fail to parse - the
  * portal would 500 rather than ignore it.
  *
- * Which of these actually renders as a tile is TILE_BUILTINS, below.
+ * None of them renders any more: each became a launcher section, the banner, the badge card or
+ * (the floor plan, D839) a tab on the Info page. A stored row for one still parses and is
+ * simply dropped (normalizeModules, resolveTiles).
  */
 export const BUILTIN_MODULES = ["agenda", "seat", "floor_plan", "info", "announcements"] as const;
 export type BuiltinKey = (typeof BUILTIN_MODULES)[number];
 
-/**
- * The built-ins that are still tiles on the portal home.
- *
- * Agenda and Info are built-in launcher sections (D211), Announcements is the banner at the top of the
- * home, and the table number is on the badge card - so a tile for any of them was a second
- * route to something already on screen. Rows for the retired keys still parse; they simply
- * do not render, and the Modules page no longer offers switches for them.
- */
-export const TILE_BUILTINS = ["floor_plan"] as const satisfies readonly BuiltinKey[];
-const IS_TILE = new Set<string>(TILE_BUILTINS);
 export const MODULE_ICONS = ["calendar", "seat", "map", "info", "megaphone", "mic", "file", "chat", "check", "phone", "link", "star", "users", "download"] as const satisfies readonly IconName[];
 export type ModuleIcon = (typeof MODULE_ICONS)[number];
 
 /**
  * Internal portal destinations a tile may point at. Like BUILTIN_MODULES this list is
  * validated against stored jsonb, so it may gain entries but must not lose them.
- *
- * `plan` is deliberately absent: the floor plan is its own preset, because it carries the
- * image URL the page needs and a generic route tile has nowhere to put one.
  */
 export const TILE_ROUTES = ["agenda", "announcements", "info", "me", "seat", "stamps", "activities", "play", "qualifier"] as const;
 export type TileRoute = (typeof TILE_ROUTES)[number];
@@ -70,10 +59,7 @@ export const TILE_ROUTE_LABELS: Record<TileRoute, string> = {
 export type TileTarget = { kind: "url"; url: string } | { kind: "route"; route: TileRoute };
 
 /**
- * `url` is only meaningful on `floor_plan`, which needs the plan image the destination
- * page renders. It lives on the module rather than on `events.floor_plan_url` so the
- * setting sits with the tile that uses it — but the column is still read as a fallback,
- * see floorPlanUrl.
+ * `url` was the retired floor plan tile's image; it stays in the type so old rows parse.
  */
 /**
  * `icon_image` is an uploaded picture drawn in the launcher's circle in place of the preset
@@ -139,42 +125,9 @@ export function parseModules(input: string | unknown): EventModule[] {
   return res.data as EventModule[];
 }
 
-export function defaultModules(): EventModule[] {
-  return TILE_BUILTINS.map((key) => ({ key, enabled: true }));
-}
-
-const DEFAULT_LABEL: Record<BuiltinKey, string> = { agenda: "Agenda", seat: "My seat", floor_plan: "Floor plan", info: "Info", announcements: "Announcements" };
-const DEFAULT_ICON: Record<BuiltinKey, ModuleIcon> = { agenda: "calendar", seat: "seat", floor_plan: "map", info: "info", announcements: "megaphone" };
-
-/**
- * The plan image for this event: the floor-plan tile's own url, falling back to the
- * `events.floor_plan_url` column.
- *
- * The fallback is not legacy tolerance for its own sake — it is what lets the column be
- * migrated into the modules array in one deploy and read in another. New code reads the
- * tile; rows not yet rewritten keep working; the column stays populated so a rollback to
- * the currently deployed code still finds a plan.
- */
-export function floorPlanUrl(event: Pick<Event, "floor_plan_url" | "modules">): string | null {
-  const m = event.modules?.find((x) => x.key === "floor_plan");
-  const own = m && "url" in m ? m.url : undefined;
-  return own || event.floor_plan_url || null;
-}
-
-/**
- * Whether attendees are offered the floor plan at all (D225): it needs a plan image AND the
- * floor plan switched on in Modules. The seat card's link follows this, so the one switch that
- * hides the tile hides it too - an event without a plan worth showing turns it off in one place.
- */
-export function floorPlanShown(event: Pick<Event, "floor_plan_url" | "modules">): boolean {
-  const modules = event.modules?.length ? event.modules : defaultModules();
-  const row = modules.find((m) => m.key === "floor_plan");
-  return Boolean(row?.enabled) && Boolean(floorPlanUrl(event));
-}
-
 /**
  * The stored modules as the editor and the portal should see them: legacy `link` rows
- * become `tile` rows, the floor plan carries the url it needs, and retired built-ins are
+ * become `tile` rows and retired built-ins (all of them, the floor plan last, D839) are
  * dropped.
  *
  * This is why the tiles rework needs no data migration. `events.modules` is jsonb, so the
@@ -182,25 +135,22 @@ export function floorPlanShown(event: Pick<Event, "floor_plan_url" | "modules">)
  * the new shape back. Rewriting every live row in SQL would buy nothing and would have to
  * be correct on the first attempt against production data.
  */
-export function normalizeModules(event: Pick<Event, "floor_plan_url" | "modules">): EventModule[] {
-  const plan = floorPlanUrl(event);
-  const stored = event.modules?.length ? event.modules : defaultModules();
+export function normalizeModules(event: Pick<Event, "modules">): EventModule[] {
+  const stored = event.modules ?? [];
   const out: EventModule[] = [];
   for (const m of stored) {
     if (m.key === "link") {
       out.push({ key: "tile", id: m.id, enabled: m.enabled, label: m.label, ...(m.subtitle ? { subtitle: m.subtitle } : {}), icon: m.icon, target: { kind: "url", url: m.url } });
       continue;
     }
-    if (m.key === "tile") { out.push(m); continue; }
-    if (!IS_TILE.has(m.key)) continue;
-    out.push({ ...m, ...(plan ? { url: plan } : {}) });
+    if (m.key === "tile") out.push(m);
   }
   return out;
 }
 
 /**
  * `image` is the uploaded icon, null when the preset `icon` is drawn. `route` names the
- * portal page a route tile opens (null for links and the floor plan), so the launcher can
+ * portal page a route tile opens (null for links), so the launcher can
  * drop a tile that repeats one of its own sections (D211).
  */
 export type Tile = { id: string; label: string; subtitle: string; href: string; icon: ModuleIcon; image: string | null; route: TileRoute | null; external: boolean };
@@ -226,19 +176,17 @@ const tileImage = (m: { icon_image?: string; icon: ModuleIcon }) => safeImage(m.
  * the public portal, which drops a tile for a page only a personal link has (the Games tile).
  */
 export function resolveTiles(input: {
-  event: Pick<Event, "floor_plan_url" | "info_page_title" | "modules">;
+  event: Pick<Event, "modules">;
   basePath: string;
   category?: string | null;
   personal?: boolean;
 }): Tile[] {
   const { event, basePath, category = null, personal = true } = input;
-  const modules = event.modules?.length ? event.modules : defaultModules();
+  const modules = event.modules ?? [];
   const out: Tile[] = [];
   for (const m of modules) {
     if (!m.enabled) continue;
     if (!categoryMatches(m.categories ?? null, category)) continue;
-    // A row for a retired built-in parses but draws nothing.
-    if (m.key !== "link" && m.key !== "tile" && !IS_TILE.has(m.key)) continue;
     if (m.key === "tile") {
       if (m.target.kind === "url") {
         // Re-checked here as well as in parseModules: a row written before this rule, or
@@ -254,17 +202,8 @@ export function resolveTiles(input: {
     if (m.key === "link") {
       if (!SAFE_URL.test(m.url)) continue;
       out.push({ id: `link:${m.id}`, label: m.label, subtitle: m.subtitle ?? "", href: m.url, icon: m.icon, image: null, route: null, external: true });
-      continue;
     }
-    const label = m.label ?? (m.key === "info" ? event.info_page_title || DEFAULT_LABEL.info : DEFAULT_LABEL[m.key]);
-    const icon = DEFAULT_ICON[m.key];
-    switch (m.key) {
-      case "floor_plan":
-        if (!floorPlanUrl(event)) break;
-        // The portal's own picture unless the organiser uploaded one (D226).
-        out.push({ id: "floor_plan", label, icon, image: safeImage(m.icon_image) ?? "/portal-icons/floor-plan.webp", route: null, external: false, href: `${basePath}/plan`, subtitle: m.subtitle ?? "Venue layout" });
-        break;
-    }
+    // A row for a retired built-in parses but draws nothing.
   }
   return out;
 }

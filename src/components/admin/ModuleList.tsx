@@ -1,6 +1,5 @@
 "use client";
 import { useOptimistic, useRef, useState, useTransition } from "react";
-import { CircleAlert } from "lucide-react";
 import { TILE_ROUTE_LABELS, type EventModule } from "@/lib/modules";
 import { moduleId } from "@/lib/modules-form";
 import { moveItem } from "@/lib/reorder";
@@ -9,13 +8,11 @@ import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
 
 function label(m: EventModule): string {
-  if (m.key === "tile") return m.label;
-  return m.label ?? "Floor plan";
+  return m.label ?? "";
 }
 
 /** What kind of tile it is, in the words the "New tile" menu used. */
 function kind(m: EventModule): string {
-  if (m.key === "floor_plan") return "Floor plan";
   if (m.key === "tile") return m.target.kind === "url" ? "Link" : "Portal page";
   return "Link";
 }
@@ -43,15 +40,6 @@ function Thumb({ m }: { m: EventModule }) {
   return (
     <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
       <Icon name={m.key === "tile" || m.key === "link" ? m.icon : "map"} size={20} />
-    </span>
-  );
-}
-
-/** The same warning chip as an activity row's (ActivityRows' AttentionBadge). */
-function Attention({ text }: { text: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">
-      <CircleAlert aria-hidden className="size-3.5" />{text}
     </span>
   );
 }
@@ -165,7 +153,6 @@ function Row({ m, editor, toggle, remove }: { m: EventModule; editor: React.Reac
   const name = label(m);
   const url = externalUrl(m);
   const where = detail(m);
-  const planMissing = m.key === "floor_plan" && !m.url;
 
   return (
     <>
@@ -177,7 +164,6 @@ function Row({ m, editor, toggle, remove }: { m: EventModule; editor: React.Reac
           <span className="font-bold">{kind(m)}</span>
           {where && <span className="truncate">{where}</span>}
           {m.categories?.length ? <span className="font-semibold">· {m.categories.join(", ")}</span> : null}
-          {planMissing && <Attention text="No image yet — hidden from attendees" />}
         </div>
         {/* Phone only: status folds under the name. */}
         <div className="md:hidden"><ShownPill shown={m.enabled} /></div>

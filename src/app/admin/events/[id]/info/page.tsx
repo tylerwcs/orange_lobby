@@ -45,7 +45,7 @@ export default async function InfoAdmin({ params, searchParams }: {
   const base = `/admin/events/${ev.id}/info`;
 
   const addTab = (
-    <Modal title="Add a tab" hint="Name it for what attendees look for — Travel, Dress code, FAQ." trigger="Add tab" icon="plus" variant={tabs.length ? "ghost" : "default"}>
+    <Modal title="Add a tab" hint="Name it for what attendees look for — Event venue, Travel, Dress code, FAQ. For a floor plan, add an Event venue tab and put the plan in with the Image button." trigger="Add tab" icon="plus" variant={tabs.length ? "ghost" : "default"}>
       <form action={addInfoTabAction.bind(null, ev.id)} className="grid gap-4 p-1">
         <Field label="Title" name="title" placeholder="Travel" />
         <SubmitButton>Add tab</SubmitButton>
@@ -79,7 +79,7 @@ export default async function InfoAdmin({ params, searchParams }: {
             <Empty className="border-0 bg-transparent">
               <EmptyHeader>
                 <EmptyTitle>No tabs yet</EmptyTitle>
-                <EmptyDescription>Add a tab for each thing attendees look up — Travel, Dress code, FAQ. Each one is a tab on the portal.</EmptyDescription>
+                <EmptyDescription>Add a tab for each thing attendees look up — Event venue, Travel, Dress code, FAQ. Each one is a tab on the portal.</EmptyDescription>
               </EmptyHeader>
               {addTab}
             </Empty>

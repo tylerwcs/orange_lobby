@@ -7,7 +7,7 @@ import { parseModules, type EventModule } from "@/lib/modules";
  */
 export const MAX_TILES = 16;
 
-/** The id of a module row. The floor plan is a singleton, so its key is its identity. */
+/** The id of a module row. A retired built-in row has no id, so its key is its identity. */
 export function moduleId(m: EventModule): string {
   return "id" in m ? m.id : m.key;
 }
@@ -16,8 +16,7 @@ export function moduleId(m: EventModule): string {
  * One module from the tile editor's form.
  *
  * `id` is supplied by the caller rather than read from the form: a new tile needs a fresh
- * one and a pure function is the wrong place to make randomness. It is ignored for the
- * floor plan, which is identified by its key.
+ * one and a pure function is the wrong place to make randomness.
  */
 export function moduleFromForm(get: (key: string) => string | null, id: string): EventModule {
   const t = (k: string) => (get(k) ?? "").trim();
@@ -29,10 +28,6 @@ export function moduleFromForm(get: (key: string) => string | null, id: string):
   // The "Who can see it" picker's ticks, comma-joined by the action; none ticked is everyone.
   const cats = Array.from(new Set(t("categories").split(",").map((c) => c.trim()).filter(Boolean)));
   const withCategories = cats.length ? { categories: cats } : {};
-
-  if (t("preset") === "floor_plan") {
-    return parseModules([{ key: "floor_plan", enabled, ...(label ? { label } : {}), ...withSubtitle, ...(t("url") ? { url: t("url") } : {}), ...withImage, ...withCategories }])[0];
-  }
 
   // Both inputs stay mounted in the form so switching kind does not lose what was typed,
   // which means the unchosen one is still posted. Only the chosen one is read.

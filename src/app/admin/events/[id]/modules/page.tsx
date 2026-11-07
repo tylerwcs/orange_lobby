@@ -41,7 +41,6 @@ function TileForm({ eventId, module: m, categories, preset }: {
   /** A new tile's starting label and icon, from the New tile menu's presets (D489). */
   preset?: { label: string; icon: ModuleIcon };
 }) {
-  const isPlan = m?.key === "floor_plan";
   const tile = m?.key === "tile" ? m : undefined;
   const iconImage = m && "icon_image" in m ? m.icon_image : undefined;
   const subtitle = m && "subtitle" in m ? m.subtitle : undefined;
@@ -51,46 +50,36 @@ function TileForm({ eventId, module: m, categories, preset }: {
   return (
     <form action={saveModuleAction.bind(null, eventId)} className="grid gap-4 p-1">
       <input type="hidden" name="id" value={m ? moduleId(m) : ""} />
-      <input type="hidden" name="preset" value={isPlan ? "floor_plan" : "tile"} />
       {subtitle && <input type="hidden" name="subtitle" value={subtitle} />}
 
-      <Field label="Label" name="label" defaultValue={m && "label" in m ? m.label ?? "" : preset?.label ?? ""} placeholder={isPlan ? "Floor plan" : "Q&A"} description="Shown under the round button." />
+      <Field label="Label" name="label" defaultValue={m && "label" in m ? m.label ?? "" : preset?.label ?? ""} placeholder="Q&A" description="Shown under the round button." />
 
-      {isPlan ? (
-        <>
-          <ImageField label="Floor plan image" name="url" url={m.url} description="The image the floor plan page shows. Without it the tile stays hidden." />
-          {iconImageField}
-        </>
-      ) : (
-        <>
-          <TileTargetFields
-            kind={tile?.target.kind ?? "url"}
-            url={tile?.target.kind === "url" ? tile.target.url : ""}
-            route={tile?.target.kind === "route" ? tile.target.route : "agenda"}
-            routes={PICKABLE_TILE_ROUTES}
-            routeLabels={TILE_ROUTE_LABELS}
-          />
-          {/* The icons themselves rather than their names: "link" and "file" in a dropdown
-              said nothing about what attendees would see. Radios, so it needs no script. */}
-          <fieldset className="grid gap-2">
-            <legend className="mb-2 text-sm font-medium">Icon</legend>
-            <div className="grid grid-cols-7 gap-1.5">
-              {MODULE_ICONS.map((ic) => (
-                <label
-                  key={ic}
-                  title={ICON_LABELS[ic]}
-                  className="flex aspect-square cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted has-checked:border-primary has-checked:bg-accent has-checked:text-primary has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
-                >
-                  <input type="radio" name="icon" value={ic} defaultChecked={(tile?.icon ?? preset?.icon ?? "link") === ic} className="sr-only" aria-label={ICON_LABELS[ic]} />
-                  <Icon name={ic} size={20} />
-                </label>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">Used when there is no icon image. Download shows the post-event materials picture, in the event&rsquo;s colour.</p>
-          </fieldset>
-          {iconImageField}
-        </>
-      )}
+      <TileTargetFields
+        kind={tile?.target.kind ?? "url"}
+        url={tile?.target.kind === "url" ? tile.target.url : ""}
+        route={tile?.target.kind === "route" ? tile.target.route : "agenda"}
+        routes={PICKABLE_TILE_ROUTES}
+        routeLabels={TILE_ROUTE_LABELS}
+      />
+      {/* The icons themselves rather than their names: "link" and "file" in a dropdown
+          said nothing about what attendees would see. Radios, so it needs no script. */}
+      <fieldset className="grid gap-2">
+        <legend className="mb-2 text-sm font-medium">Icon</legend>
+        <div className="grid grid-cols-7 gap-1.5">
+          {MODULE_ICONS.map((ic) => (
+            <label
+              key={ic}
+              title={ICON_LABELS[ic]}
+              className="flex aspect-square cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted has-checked:border-primary has-checked:bg-accent has-checked:text-primary has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+            >
+              <input type="radio" name="icon" value={ic} defaultChecked={(tile?.icon ?? preset?.icon ?? "link") === ic} className="sr-only" aria-label={ICON_LABELS[ic]} />
+              <Icon name={ic} size={20} />
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">Used when there is no icon image. Download shows the post-event materials picture, in the event&rsquo;s colour.</p>
+      </fieldset>
+      {iconImageField}
 
       {/* Who sees the tile on their home, as on agenda rows. */}
       <CategoryCombo categories={categories} defaultValue={m?.categories ?? []} />
@@ -110,7 +99,6 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
   const { ev } = await requireEventAccess(id);
   const modules = normalizeModules(ev);
   const categories = await listCategories(ev.id);
-  const hasPlan = modules.some((m) => m.key === "floor_plan");
 
   const shown = modules.filter((m) => m.enabled).length;
   const full = modules.length >= MAX_TILES;
@@ -132,7 +120,6 @@ export default async function ModulesPage({ params }: { params: Promise<{ id: st
             forms={{
               tile: <TileForm eventId={ev.id} categories={categories} />,
               post_event: <TileForm eventId={ev.id} categories={categories} preset={{ label: "Post Event Materials", icon: "download" }} />,
-              ...(hasPlan ? {} : { floor_plan: <TileForm eventId={ev.id} module={{ key: "floor_plan", enabled: true }} categories={categories} /> }),
             }}
           />
         }

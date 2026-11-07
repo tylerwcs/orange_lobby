@@ -14,7 +14,7 @@ import type { Lang } from "@/features/language/client";
  * (D224): the same box and the same size for every value, so a table number and a room
  * number line up instead of one towering over the other. They share a row whenever they fit
  * and wrap when they do not; a long value drops to smaller type. No Floor plan button: the
- * launcher has the floor plan (D226). The pins arrive already resolved, so a fact this
+ * venue layout is an Info tab the organiser writes (D839). The pins arrive already resolved, so a fact this
  * attendee has no value for never reaches the card - and when nothing survives, the section
  * and its rule disappear rather than sitting empty.
  *

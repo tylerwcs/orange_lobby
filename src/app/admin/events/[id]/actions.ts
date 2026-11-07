@@ -36,7 +36,7 @@ import { addPin, removePin, reorderPins } from "@/lib/pinned-fields";
 import { flashPath } from "@/lib/flash";
 import { canSetStatus } from "@/lib/access-rules";
 import { ICON_SECTIONS, sectionIcons, type IconSection } from "@/lib/launcher";
-import { normalizeModules, floorPlanUrl, type EventModule } from "@/lib/modules";
+import { normalizeModules, type EventModule } from "@/lib/modules";
 import { deleteEventFiles, deleteEventImage, nextImage, uploadEventImage, type ImageChange } from "@/lib/db/media";
 import { eventTabPatch, portalLookPatch, registrationPatch } from "@/lib/settings-form";
 import { scanFieldsFromForm } from "@/lib/scan";
@@ -1089,39 +1089,30 @@ export async function saveModuleAction(eventId: string, formData: FormData) {
   const { ev, modules } = await currentModules(eventId);
   const posted = String(formData.get("id") ?? "").trim();
   const id = /^[a-z0-9_-]{1,32}$/.test(posted) ? posted : crypto.randomUUID().slice(0, 8);
-  const isPlan = formData.get("preset") === "floor_plan";
-  const plan = floorPlanUrl(ev);
-  const current = modules.find((m) => moduleId(m) === (isPlan ? "floor_plan" : id));
+  const current = modules.find((m) => moduleId(m) === id);
   const currentIcon = current && "icon_image" in current ? current.icon_image ?? null : null;
-  // The floor plan's url and every tile's icon image are uploads rather than something
-  // typed. They are resolved here and read back as if they had been posted, so
-  // moduleFromForm stays a pure function of strings that knows nothing about uploads.
-  const readWith = (url: string | null, icon: string | null) => (k: string) => {
-    if (k === "url" && isPlan) return url;
+  // A tile's icon image is an upload rather than something typed. It is resolved here and
+  // read back as if it had been posted, so moduleFromForm stays a pure function of strings
+  // that knows nothing about uploads.
+  const readWith = (icon: string | null) => (k: string) => {
     if (k === "icon_image") return icon;
     if (k === "categories") return formData.getAll("categories").map(String).join(",");
     const v = formData.get(k);
     return typeof v === "string" ? v : null;
   };
   let next: EventModule[] | undefined;
-  let image: ImageChange = { url: plan, stale: null };
   let icon: ImageChange = { url: currentIcon, stale: null };
   try {
     // What was typed is checked against the images already stored, before a byte moves: a
     // label this form will reject must not first have spent an upload.
-    moduleFromForm(readWith(plan, currentIcon), id);
-    if (isPlan) image = await nextImage(formData, "url", plan, { orgId: ev.org_id, eventId, kind: "floor-plan" });
+    moduleFromForm(readWith(currentIcon), id);
     icon = await nextImage(formData, "icon_image", currentIcon, { orgId: ev.org_id, eventId, kind: "tile-icon" });
-    next = upsertModule(modules, moduleFromForm(readWith(image.url, icon.url), id));
+    next = upsertModule(modules, moduleFromForm(readWith(icon.url), id));
   } catch (e) {
     redirect(flashPath(modulesPath(eventId), (e as Error).message, "error"));
   }
   if (!next) redirect(flashPath(modulesPath(eventId), "Could not read that tile.", "error"));
-  // The legacy column is written alongside the tile rather than left behind: floorPlanUrl
-  // falls back to it, so a plan removed from the tile but still named in the column would
-  // simply reappear.
-  await updateEvent(eventId, { modules: next, ...(isPlan ? { floor_plan_url: image.url } : {}) });
-  await deleteEventImage(image.stale);
+  await updateEvent(eventId, { modules: next });
   await deleteEventImage(icon.stale);
   revalidatePath(`/admin/events/${eventId}`);
   redirect(flashPath(modulesPath(eventId), posted ? "Tile saved." : "Tile added."));
