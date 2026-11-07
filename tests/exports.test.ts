@@ -293,7 +293,7 @@ describe("leaderboardRows (D381)", () => {
 
   it("lists every week's tiers per team, then the totals", () => {
     expect(leaderboardRows(score)).toEqual([
-      ["Week", "Team", "km", "Daily points", "Team bonus", "Podium", "Ad hoc", "Total", "Ultra-Effort rank"],
+      ["Week", "Team", "km", "Daily points", "Participation", "Podium", "Ad hoc", "Total", "Ultra-Effort rank"],
       ["Week 2 · 5–11 Oct", "Group 01", 2, 1, 0, 20, 0, 21, ""],
       ["All weeks", "Group 01", 2, 1, 0, 20, 0, 21, 1],
     ]);
@@ -378,7 +378,7 @@ describe("pairLeaderboardRows (D728)", () => {
 
   it("lists each week's teams by total, then the season with ranks", () => {
     expect(pairLeaderboardRows(score)).toEqual([
-      ["Week", "Team", "Track A pts", "Track B pts", "Bonus", "Ad hoc", "Total", "Rank"],
+      ["Week", "Team", "Track A pts", "Track B pts", "Participation", "Ad hoc", "Total", "Rank"],
       ["Week 1 · 26 Oct – 1 Nov", "Group 01", 18, 26, 10, 0, 54, ""],
       ["Week 1 · 26 Oct – 1 Nov", "Group 02", 30, 5, 0, 0, 35, ""],
       ["All weeks", "Group 01", 18, 26, 10, 0, 54, 1],

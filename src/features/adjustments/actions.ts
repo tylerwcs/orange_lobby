@@ -51,7 +51,10 @@ export async function addAdjustmentAction(eventId: string, activityId: string, f
   // An empty week is the season; anything else must be one of this challenge's weeks.
   const week = form.text("week");
   if (week && !weeks.includes(week)) redirect(flashPath(back, "Pick one of the challenge's weeks.", "error"));
-  await addAdjustment({ activityId, groupId: group.id, points: read.points, reason: read.reason, addedBy: actor.email, weekOf: week || null });
+  // D843: participation points belong to a week.
+  const participation = fd.get("participation") === "on";
+  if (participation && !week) redirect(flashPath(back, "Pick the week the participation points are for.", "error"));
+  await addAdjustment({ activityId, groupId: group.id, points: read.points, reason: read.reason, addedBy: actor.email, weekOf: week || null, participation });
   done(ev.id, activityId, back, `${read.points > 0 ? "+" : ""}${read.points} points for ${group.name}.`);
 }
 

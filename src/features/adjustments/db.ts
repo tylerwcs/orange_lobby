@@ -5,7 +5,7 @@ import { adjustmentTotals, type Adjustment } from "@/lib/adjustments";
 /** D704: an activity's ad hoc points, newest first. */
 export async function listAdjustments(activityId: string): Promise<Adjustment[]> {
   const { data, error } = await serviceClient().from("activity_adjustments")
-    .select("id, activity_id, group_id, points, reason, added_by, created_at, week_of")
+    .select("id, activity_id, group_id, points, reason, added_by, created_at, week_of, participation")
     .eq("activity_id", activityId).order("created_at", { ascending: false }).order("id");
   if (error) throw error;
   return (data ?? []) as Adjustment[];
@@ -16,10 +16,13 @@ export async function loadAdjustmentTotals(activityId: string): Promise<Map<stri
   return adjustmentTotals(await listAdjustments(activityId));
 }
 
-/** D813: `weekOf`, a challenge week's Monday, puts the points in that week as well as the season. */
-export async function addAdjustment(row: { activityId: string; groupId: string; points: number; reason: string; addedBy: string; weekOf?: string | null }): Promise<void> {
+/**
+ * D813: `weekOf`, a challenge week's Monday, puts the points in that week as well as the season.
+ * D843: `participation` counts them as that week's participation points (it needs `weekOf`).
+ */
+export async function addAdjustment(row: { activityId: string; groupId: string; points: number; reason: string; addedBy: string; weekOf?: string | null; participation?: boolean }): Promise<void> {
   const { error } = await serviceClient().from("activity_adjustments").insert({
-    activity_id: row.activityId, group_id: row.groupId, points: row.points, reason: row.reason, added_by: row.addedBy || null, week_of: row.weekOf ?? null,
+    activity_id: row.activityId, group_id: row.groupId, points: row.points, reason: row.reason, added_by: row.addedBy || null, week_of: row.weekOf ?? null, participation: !!row.participation,
   });
   if (error) throw error;
 }

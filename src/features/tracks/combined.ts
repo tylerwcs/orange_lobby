@@ -60,7 +60,8 @@ export function scorePair(input: { a: ChallengeScore; b: ChallengeScore; aScorin
       result[team.id] = {
         a: voided ? 0 : ta.tier1 + ta.podium,
         b: voided ? 0 : tb.tier1 + tb.podium,
-        bonus: !voided && ended && allLogged ? input.bonus : 0,
+        // D843: plus the participation points the organisers gave either track this week by hand.
+        bonus: (!voided && ended && allLogged ? input.bonus : 0) + (voided ? 0 : ta.given + tb.given),
         adjust: voided ? 0 : ta.adjust + tb.adjust,
         onTrack: members.filter((id) => elapsed.every((d) => logged(id, d))).length,
         members: members.length,

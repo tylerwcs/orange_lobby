@@ -237,14 +237,14 @@ async function TrackerLeaderboard({ entry: { form: f, track }, teamId, attendeeI
     const s = byTeam.get(id);
     // D814: the organisers' ad hoc points, when a team has some, so the line still adds up to its total.
     const extra = s?.adjust ? ` · ${s.adjust > 0 ? "" : "minus "}${pts(Math.abs(s.adjust))} extra` : "";
-    return s ? `${pts(s.a)} Track A · ${pts(s.b)} Track B · ${pts(s.bonus)} bonus${extra}` : null;
+    return s ? `${pts(s.a)} Track A · ${pts(s.b)} Track B · ${pts(s.bonus)} participation${extra}` : null;
   } : null;
   const members: Map<string, GroupCard["members"]> | null = rosters
     ? new Map(allGroupCards(challenge.groups, challenge.attendees, null, rosters.groupFields, rosters.fields).map((c) => [c.id, c.members]))
     : null;
   return (
     <section className="flex flex-col gap-4 py-5">
-      {shown && <p className="text-xs text-muted-foreground">{weekLabel(shown.week)}. Points so far this week; the bonus and podium are added once it ends.</p>}
+      {shown && <p className="text-xs text-muted-foreground">{weekLabel(shown.week)}. Points so far this week; participation and podium points are added once it ends.</p>}
       {!shown && today > scoring.ends_on && <p className="text-xs text-muted-foreground">Final standings, every week added up.</p>}
       <Leaderboard standings={standings} mine={teamId} rosters={members} selfId={attendeeId}
         stand={standingLine(standings, teamId, { startsOn: shown ? shown.week.days[0] : scoring.starts_on, today })}

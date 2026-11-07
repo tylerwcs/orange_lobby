@@ -10,6 +10,8 @@ export const MAX_REASON = 120;
 export type Adjustment = { id: string; activity_id: string; group_id: string; points: number; reason: string; added_by: string | null; created_at: string;
   /** D813: the Monday of the challenge week these points belong to; null is the season. */
   week_of: string | null;
+  /** D843: given as that week's participation points - they count in the Participation column, not Ad hoc. */
+  participation: boolean;
 };
 
 /** Each group's net adjustment; a group whose adjustments cancel out is left out. */

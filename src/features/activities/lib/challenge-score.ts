@@ -24,7 +24,10 @@ export type Team = { id: string; name: string; memberIds: string[]; cancelledIds
  * `void` is D467's week void: every tier is 0 that week and the team is off its podium. `adjust` is
  * D813's ad hoc points given this week (0 in a voided week), already in the season's `adjust`.
  */
-export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; adjust: number; onTrack: number; members: number; void: boolean };
+export type TeamWeek = { km: number; tier1: number; bonus: number; podium: number; adjust: number;
+  /** D843: participation points the organisers gave this week by hand, already in `bonus` (0 in a voided week). */
+  given: number;
+  onTrack: number; members: number; void: boolean };
 export type WeekResult = { week: ChallengeWeek; ended: boolean; teams: Record<string, TeamWeek> };
 export type Standing = { id: string; name: string; km: number; tier1: number; bonus: number; podium: number;
   /** D705: the organisers' ad hoc points, already in `total`; 0 for a void team. */
@@ -58,6 +61,8 @@ export function scoreChallenge(input: {
   adjustments?: Map<string, number>;
   /** D813: the rows given a week, by the week's Monday (`weekAdjustmentTotals`) - also in the week's total. */
   weekAdjustments?: Map<string, Map<string, number>>;
+  /** D843: participation points given by hand, by the week's Monday - they count in that week's bonus, not in `adjust`. */
+  weekParticipation?: Map<string, Map<string, number>>;
 }): ChallengeScore {
   const { totals, teams, disqualified, scoring, weeks, today } = input;
   const steps = scoring.daily_steps ?? [];
@@ -88,6 +93,7 @@ export function scoreChallenge(input: {
     const elapsed = week.days.filter((d) => d < today);
     const monday = week.days.length ? mondayOf(week.days[0]) : null;
     const given = (monday && input.weekAdjustments?.get(monday)) || null;
+    const handed = (monday && input.weekParticipation?.get(monday)) || null;
     const result: Record<string, TeamWeek> = {};
     for (const team of teams) {
       let km = 0, tier1 = 0;
@@ -99,12 +105,14 @@ export function scoreChallenge(input: {
       const voided = weekVoid && monday !== null && everyMember(team).some((id) => disqualified.has(id) && disqualified.get(id) === monday);
       const members = team.memberIds.filter((id) => counts(id, week.days[0]));
       const allLogged = members.length > 0 && members.every((id) => week.days.every((d) => logged(id, d)));
+      const byHand = voided ? 0 : handed?.get(team.id) ?? 0;
       result[team.id] = {
         km: round2(km),
         tier1: voided ? 0 : tier1,
-        bonus: !voided && ended && allLogged ? scoring.team_bonus ?? 0 : 0,
+        bonus: (!voided && ended && allLogged ? scoring.team_bonus ?? 0 : 0) + byHand,
         podium: 0,
         adjust: voided ? 0 : given?.get(team.id) ?? 0,
+        given: byHand,
         onTrack: members.filter((id) => elapsed.every((d) => logged(id, d))).length,
         members: members.length,
         void: voided,

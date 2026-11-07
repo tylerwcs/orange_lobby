@@ -108,3 +108,15 @@ describe("scorePair — ad hoc points given a week (D813, D814)", () => {
     expect(p.standings.find((s) => s.id === "T1")).toMatchObject({ a: 0, adjust: 10, total: 10 });
   });
 });
+
+describe("scorePair — participation given by hand (D843)", () => {
+  it("adds either track's hand-given participation to the pair's bonus for that week", () => {
+    const teams = TEAMS;
+    const sa = scoreChallenge({ totals: [], teams, disqualified: new Map(), scoring: KM, weeks: WEEKS, today: AFTER });
+    const sb = scoreChallenge({ totals: [], teams, disqualified: new Map(), scoring: MIN, weeks: WEEKS, today: AFTER,
+      weekParticipation: new Map([["2026-10-26", new Map([["T2", 10]])]]) });
+    const p = scorePair({ a: sa, b: sb, aScoring: KM, bScoring: MIN, teams, bonus: 10, today: AFTER });
+    expect(p.weeks[0].teams.T2).toMatchObject({ bonus: 10, adjust: 0, b: 0 });
+    expect(p.standings.find((s) => s.id === "T2")).toMatchObject({ bonus: 10, adjust: 0, total: 10 });
+  });
+});

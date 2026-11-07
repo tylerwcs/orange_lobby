@@ -45,8 +45,11 @@ export async function loadChallenge(event: Pick<Event, "id" | "starts_on">, acti
     new Map(disqualifications.map((d) => [d.attendee_id, d.week_of])),
     new Map(otherDisqualifications.map((d) => [d.attendee_id, d.week_of])),
   );
+  // D843: participation points given by hand go into their week's bonus, the rest are ad hoc points.
+  const extra = adjustments.filter((a) => !a.participation);
   const score = scoreChallenge({ totals, teams, disqualified, scoring, weeks, today,
-    adjustments: adjustmentTotals(adjustments), weekAdjustments: weekAdjustmentTotals(adjustments) });
+    adjustments: adjustmentTotals(extra), weekAdjustments: weekAdjustmentTotals(extra),
+    weekParticipation: weekAdjustmentTotals(adjustments.filter((a) => a.participation)) });
   return { score, teams, weeks, names: new Map(everyone.map((a) => [a.id, a.name])), disqualifications, groups, attendees };
 }
 

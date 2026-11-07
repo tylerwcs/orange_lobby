@@ -42,7 +42,7 @@ export function LeaderboardPanel({ score, unit, week, today, href }: {
           <TableRow>
             <TableHead className="w-10">#</TableHead><TableHead>Team</TableHead>
             <TableHead className="text-right" title={picked ? undefined : "Season total, with its Ultra-Effort rank"}>{unit}{!picked && " · Ultra-Effort"}</TableHead><TableHead className="text-right">Daily</TableHead>
-            <TableHead className="text-right">Bonus</TableHead><TableHead className="text-right">Podium</TableHead>
+            <TableHead className="text-right">Participation</TableHead><TableHead className="text-right">Podium</TableHead>
             {adjusted && <TableHead className="text-right" title="Ad hoc points from the organisers">Ad hoc</TableHead>}
             <TableHead className="text-right">Total</TableHead>
           </TableRow>

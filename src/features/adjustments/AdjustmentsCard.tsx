@@ -51,6 +51,15 @@ export function AdjustmentsCard({ eventId, activityId, groups, adjustments, week
                 <span className="text-xs font-normal text-muted-foreground">Given a week, the points also show in that week&apos;s leaderboard.</span>
               </label>
             )}
+            {weeks.length > 0 && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="participation" className="mt-0.5 size-4 accent-primary" />
+                <span className="flex flex-col gap-0.5">
+                  <span className="font-bold">Counts as participation points</span>
+                  <span className="text-xs text-muted-foreground">Shown in the Participation column for the week picked above, instead of Ad hoc.</span>
+                </span>
+              </label>
+            )}
             <Field label="Points" name="points" placeholder="20" description={`A whole number from -${MAX_ADJUSTMENT} to ${MAX_ADJUSTMENT}.`} />
             <Field label="Reason" name="reason" placeholder="Best cheer squad" description={`For organisers only, up to ${MAX_REASON} characters.`} />
             <SubmitButton>Add points</SubmitButton>
@@ -64,7 +73,7 @@ export function AdjustmentsCard({ eventId, activityId, groups, adjustments, week
           {adjustments.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <span className="flex min-w-0 flex-col">
-                <span><span className={`mr-2 font-extrabold tabular-nums ${a.points > 0 ? "text-success-strong" : "text-destructive"}`}>{signed(a.points)}</span><span className="font-semibold">{name.get(a.group_id) ?? "A deleted group"}</span>{a.week_of && <span className="text-muted-foreground"> · {weekName.get(a.week_of) ?? "Week of " + a.week_of}</span>}</span>
+                <span><span className={`mr-2 font-extrabold tabular-nums ${a.points > 0 ? "text-success-strong" : "text-destructive"}`}>{signed(a.points)}</span><span className="font-semibold">{name.get(a.group_id) ?? "A deleted group"}</span>{a.week_of && <span className="text-muted-foreground"> · {weekName.get(a.week_of) ?? "Week of " + a.week_of}{a.participation ? " · Participation" : ""}</span>}</span>
                 <span className="truncate text-xs text-muted-foreground">{a.reason} · {shortDateTime(a.created_at)}{a.added_by ? ` · ${a.added_by}` : ""}</span>
               </span>
               <RowActions name={`${signed(a.points)} for ${name.get(a.group_id) ?? "a group"}`}

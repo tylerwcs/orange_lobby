@@ -288,3 +288,23 @@ describe("ad hoc points given a week (D813)", () => {
     expect(s.standings.find((x) => x.id === "B")!.adjust).toBe(5);
   });
 });
+
+describe("participation points given by hand (D843)", () => {
+  const totals = [t("a1", "A", "2026-10-05", 6), t("b1", "B", "2026-10-12", 3)];
+  const run = (dq = new Map<string, string | null>(), scoring = S) => scoreChallenge({
+    totals, teams: TEAMS, disqualified: dq, scoring, weeks: WEEKS, today: "2026-10-08",
+    weekParticipation: new Map([["2026-10-05", new Map([["B", 10]])]]),
+  });
+
+  it("counts in that week's bonus at once, and in the season's, never as ad hoc", () => {
+    const s = run();
+    expect(s.weeks[0].teams.B).toMatchObject({ given: 10, bonus: 10, adjust: 0 });
+    const b = s.standings.find((x) => x.id === "B")!;
+    expect(b).toMatchObject({ bonus: 10, adjust: 0 });
+    expect(b.total).toBe(b.tier1 + 10);
+  });
+  it("drops out when that week is voided", () => {
+    const s = run(new Map([["b1", WEEK2[0]]]), { ...S, void: "week" });
+    expect(s.weeks[0].teams.B).toMatchObject({ given: 0, bonus: 0 });
+  });
+});

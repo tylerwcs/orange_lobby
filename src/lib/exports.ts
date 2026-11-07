@@ -401,7 +401,7 @@ export function buildPassportWorkbook(attendees: Attendee[], passports: Passport
  * D813: "Ad hoc" is the week's dated ad hoc points on a week row, every one on an "All weeks" row.
  */
 export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | number)[][] {
-  const header = ["Week", "Team", unit, "Daily points", "Team bonus", "Podium", "Ad hoc", "Total", "Ultra-Effort rank"];
+  const header = ["Week", "Team", unit, "Daily points", "Participation", "Podium", "Ad hoc", "Total", "Ultra-Effort rank"];
   const weekly = score.weeks
     .filter((w) => Object.values(w.teams).some((t) => t.km > 0) || w.ended)
     .flatMap((w) => score.standings
@@ -421,7 +421,7 @@ export function leaderboardRows(score: ChallengeScore, unit = "km"): (string | n
  * stands in for the Total of a voided week or a void team, as in `leaderboardRows`.
  */
 export function pairLeaderboardRows(score: PairScore): (string | number)[][] {
-  const header = ["Week", "Team", "Track A pts", "Track B pts", "Bonus", "Ad hoc", "Total", "Rank"];
+  const header = ["Week", "Team", "Track A pts", "Track B pts", "Participation", "Ad hoc", "Total", "Rank"];
   const weekly = score.weeks
     .filter((w) => w.ended || Object.values(w.teams).some((t) => t.a + t.b + t.adjust !== 0))
     .flatMap((w) => score.standings

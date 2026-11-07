@@ -31,14 +31,14 @@ export function CombinedPanel({ score, labels, week, today, href }: {
         ))}
       </nav>
       <p className="text-sm text-muted-foreground">
-        {picked ? `${weekLabel(picked.week)}. ` : ""}Track A is {labels.a}, Track B is {labels.b}. Each track&apos;s points are its daily points and its own podium; the bonus is when every member logged every day on either track{adjusted ? `; ad hoc is the points added by the organisers${picked ? " for this week" : ""}` : ""}.
+        {picked ? `${weekLabel(picked.week)}. ` : ""}Track A is {labels.a}, Track B is {labels.b}. Each track&apos;s points are its daily points and its own podium; participation is when every member logged every day on either track, or points the organisers gave for it{adjusted ? `; ad hoc is the points added by the organisers${picked ? " for this week" : ""}` : ""}.
       </p>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">#</TableHead><TableHead>Team</TableHead>
             <TableHead className="text-right">Track A</TableHead><TableHead className="text-right">Track B</TableHead>
-            <TableHead className="text-right">Bonus</TableHead>
+            <TableHead className="text-right">Participation</TableHead>
             {adjusted && <TableHead className="text-right" title="Ad hoc points from the organisers">Ad hoc</TableHead>}
             <TableHead className="text-right">Total</TableHead>
           </TableRow>
