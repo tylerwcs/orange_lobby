@@ -68,7 +68,8 @@ export type NewSession = {
 };
 
 /** Every answer `book_session` can give (D140). `missing` means the row is gone or foreign. */
-export type BookResult = "ok" | "full" | "closed" | "limit" | "ineligible" | "missing";
+/** `started` (D842): the session's start time has passed. Never returned to the admin's placement. */
+export type BookResult = "ok" | "full" | "closed" | "limit" | "ineligible" | "missing" | "started";
 
 /**
  * Every activity of the event.

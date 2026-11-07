@@ -20,6 +20,9 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
   const grid = sessionGrid(state.sessions);
   const left = state.sessions.reduce((n, s) => n + s.left, 0);
   const n = state.sessions.length;
+  // D842: seats in a session that has started cannot be taken, so the note counts only the rest.
+  const upcoming = state.sessions.filter((s) => !controls.started.includes(s.session.id));
+  const leftUpcoming = upcoming.reduce((n, s) => n + s.left, 0);
   const holding = state.held > 0;
   // D336: once every held session has an arrival, the session is finished. This gates `canAct`
   // below (so every route to a Change session dialog disappears - the inline link, the
@@ -81,7 +84,8 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
           <p className={note}>
             {n === 0 ? d.soon
               : state.closed ? d.closed
-              : left === 0 ? d.allFull
+              : upcoming.length === 0 ? d.allStarted
+              : leftUpcoming === 0 ? d.allFull
               : state.mustPick ? d.mustPick
               : d.notYet}
           </p>

@@ -62,6 +62,12 @@ export type ActivityControls = {
   pending: PendingSummary | null;
   /** The most recent decline to report, or null. See D153a. */
   declined: PendingSummary | null;
+  /**
+   * D842: the ids of this activity's sessions that have started, in Kuala Lumpur time. Worked
+   * out here, on the server, so the sheet strikes them through by the same clock that refuses
+   * them, not by the attendee's phone.
+   */
+  started: string[];
 };
 
 /** This activity's open request, or null. At most one exists — the database enforces it (D146). */
@@ -141,6 +147,10 @@ export function activityControls(
   const direct = state.activity.attendee_edit && !state.closed;
   // D837: without asking, nothing that has started can be moved out of or into.
   const changeable = direct ? held.filter((s) => !sessionStarted(s.session, now)) : held;
+  const started = state.sessions.filter((s) => sessionStarted(s.session, now)).map((s) => s.session.id);
+  // D842: a session that has started is no longer on offer - not to book, not to move into,
+  // whether the move is made at once or asked for.
+  const upcoming = state.sessions.filter((s) => !started.includes(s.session.id));
 
   // While a request is open, nothing that changes a seat is offered (§7.4). Book is
   // withheld too, not only the change controls: on an activity allowing more than one
@@ -158,12 +168,13 @@ export function activityControls(
       changeable: [],
       pending: summarise(pending),
       declined: null,
+      started,
     };
   }
 
   return {
     declined: lastDeclined ? summarise(lastDeclined) : null,
-    bookable: state.canBookMore ? state.sessions.filter((s) => !s.mine && !s.full) : [],
+    bookable: state.canBookMore ? upcoming.filter((s) => !s.mine && !s.full) : [],
     held,
     // Asking is not taking a seat, so a closed activity still offers this (D157). A full
     // session is never offered, because the approval would be refused (D144) and the desk
@@ -171,7 +182,7 @@ export function activityControls(
     // session, not just the one a given control moves out of: an attendee holding two seats
     // must not be offered a move into a seat they already occupy.
     switchTargets: changeable.length > 0
-      ? state.sessions.filter((s) => !s.mine && !s.full && !(direct && sessionStarted(s.session, now)))
+      ? upcoming.filter((s) => !s.mine && !s.full)
       : [],
     // D148: a required activity's cancel never reaches the queue. Applies to every held seat
     // alike — `cancel_booking` would allow dropping one of two on a required activity, but
@@ -180,6 +191,7 @@ export function activityControls(
     direct,
     changeable,
     pending: null,
+    started,
   };
 }
 

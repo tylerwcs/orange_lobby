@@ -66,6 +66,10 @@ export async function bookAction(slug: string, token: string, sessionId: string)
   if (!session) redirect(flashPath(path, d.booking.refused.missing, "error"));
   path = activityPathFor(slug, token, session.activity_id);
 
+  // D842: a time that has passed is struck through on the sheet; this stops a stale page or a
+  // direct POST. `book_session` refuses it too.
+  if (sessionStarted(session, nowInKL())) redirect(flashPath(path, d.booking.refused.started, "error"));
+
   // A pending request on this activity means its meaning is no longer settled — taking a
   // second seat underneath it would hand the desk a request whose premise changed while it
   // sat in the queue. `controls.bookable` already hides Book for this case; this is what makes
@@ -118,6 +122,9 @@ export async function requestSwitchAction(slug: string, token: string, fromSessi
     redirect(flashPath(path, d.booking.askRefused.missing, "error"));
   }
   path = activityPathFor(slug, token, from.activity_id);
+  // D842: nobody asks to move into a time that has passed. Moving out of one is still the
+  // committee's call, as before.
+  if (sessionStarted(to, nowInKL())) redirect(flashPath(path, d.booking.refused.started, "error"));
 
   // Re-checked rather than trusted from the page: a second tab still has a live button.
   const holds = (await bookingsForAttendee(attendee.id)).some((b) => b.session_id === from.id);

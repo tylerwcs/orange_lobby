@@ -26,6 +26,11 @@ const state = (over: { activity?: Activity; mine?: string[]; counts?: Record<str
     mine: new Set(over.mine ?? []),
     category: null,
   });
+// Before either session starts (D842 takes started sessions off the offer), so these tests
+// do not depend on today's date.
+const BEFORE = { date: "2026-10-01", time: "09:00" };
+const ctl = (s: ReturnType<typeof state>, p: ActivityChangeRequest | null, dcl: ActivityChangeRequest | null = null) =>
+  activityControls(s, p, dcl, "en", BEFORE);
 
 describe("pendingFor", () => {
   it("finds this activity's open request", () => {
@@ -42,7 +47,7 @@ describe("pendingFor", () => {
 
 describe("activityControls", () => {
   it("offers Book on a free session when nothing is held", () => {
-    const c = activityControls(state(), null);
+    const c = ctl(state(), null);
     expect(c.bookable.map((s) => s.session.id)).toEqual(["s1", "s2"]);
     expect(c.held).toEqual([]);
     expect(c.switchTargets).toEqual([]);
@@ -50,7 +55,7 @@ describe("activityControls", () => {
   });
 
   it("names the held session and offers the others as switch targets", () => {
-    const c = activityControls(state({ mine: ["s1"] }), null);
+    const c = ctl(state({ mine: ["s1"] }), null);
     expect(c.held.map((s) => s.session.id)).toEqual(["s1"]);
     expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
     expect(c.bookable).toEqual([]);
@@ -62,7 +67,7 @@ describe("activityControls", () => {
   // that a request rather than a removal; it did not take the second seat's control away.
   it("offers controls for every held seat, not just the first", () => {
     const twoSeats = { activity: activity({ max_per_attendee: 2 }), mine: ["s1", "s2"] };
-    const c = activityControls(state(twoSeats), null);
+    const c = ctl(state(twoSeats), null);
     expect(c.held.map((s) => s.session.id)).toEqual(["s1", "s2"]);
     expect(c.canRequestCancel).toBe(true);
     // Nothing is left to switch into: both sessions are theirs, and `switchTargets` excludes
@@ -72,7 +77,7 @@ describe("activityControls", () => {
   });
 
   it("offers a third session as a switch target to an attendee holding two", () => {
-    const c = activityControls(
+    const c = ctl(
       activityState({
         activity: activity({ max_per_attendee: 2 }),
         sessions: [session("s1"), session("s2", { starts_at: "11:30" }), session("s3", { starts_at: "14:00" })],
@@ -88,18 +93,18 @@ describe("activityControls", () => {
 
   // D148: a required activity's cancel never reaches the queue, so the control is absent.
   it("offers no cancel on a required activity", () => {
-    expect(activityControls(state({ activity: activity({ required: true }), mine: ["s1"] }), null).canRequestCancel).toBe(false);
-    expect(activityControls(state({ mine: ["s1"] }), null).canRequestCancel).toBe(true);
+    expect(ctl(state({ activity: activity({ required: true }), mine: ["s1"] }), null).canRequestCancel).toBe(false);
+    expect(ctl(state({ mine: ["s1"] }), null).canRequestCancel).toBe(true);
   });
 
   it("never offers a full session as a switch target", () => {
-    const c = activityControls(state({ mine: ["s1"], counts: { s2: 30 } }), null);
+    const c = ctl(state({ mine: ["s1"], counts: { s2: 30 } }), null);
     expect(c.switchTargets).toEqual([]);
   });
 
   // D143 and §7.4: while a request is open, nothing that changes a seat is offered.
   it("withholds every control while a request is pending", () => {
-    const c = activityControls(state({ mine: ["s1"] }), request());
+    const c = ctl(state({ mine: ["s1"] }), request());
     expect(c.bookable).toEqual([]);
     expect(c.switchTargets).toEqual([]);
     expect(c.canRequestCancel).toBe(false);
@@ -114,36 +119,36 @@ describe("activityControls", () => {
   // branch's `bookable: []` must fail the first of these two and pass the second.
   it("withholds Book while pending even when the cap would still allow another seat", () => {
     const twoSeats = { activity: activity({ max_per_attendee: 2 }), mine: ["s1"] };
-    const c = activityControls(state(twoSeats), request());
+    const c = ctl(state(twoSeats), request());
     expect(c.bookable).toEqual([]);
   });
 
   it("offers Book for that same cap-of-two attendee once nothing is pending", () => {
     const twoSeats = { activity: activity({ max_per_attendee: 2 }), mine: ["s1"] };
-    const c = activityControls(state(twoSeats), null);
+    const c = ctl(state(twoSeats), null);
     expect(c.bookable.map((s) => s.session.id)).toEqual(["s2"]);
   });
 
   it("summarises a pending cancel with no target", () => {
-    const c = activityControls(state({ mine: ["s1"] }), request({ kind: "cancel", to_session_id: null }));
+    const c = ctl(state({ mine: ["s1"] }), request({ kind: "cancel", to_session_id: null }));
     expect(c.pending).toEqual({ kind: "cancel", fromLabel: "Thu 1 Oct · 10:30", toLabel: null });
   });
 
   // The request outlives the session it names only until the cascade runs, but a page can
   // render in between. Falling back to the id would show a uuid to an attendee.
   it("survives a pending request naming a session that is gone", () => {
-    const c = activityControls(state({ mine: ["s1"] }), request({ to_session_id: "vanished" }));
+    const c = ctl(state({ mine: ["s1"] }), request({ to_session_id: "vanished" }));
     expect(c.pending).toEqual({ kind: "switch", fromLabel: "Thu 1 Oct · 10:30", toLabel: null });
   });
 
   it("offers nothing bookable when the activity is closed", () => {
-    const c = activityControls(state({ activity: activity({ is_open: false }) }), null);
+    const c = ctl(state({ activity: activity({ is_open: false }) }), null);
     expect(c.bookable).toEqual([]);
   });
 
   // D157: asking is not taking a seat, so a closed activity still accepts a request.
   it("still offers a switch when booking is closed", () => {
-    const c = activityControls(state({ activity: activity({ is_open: false }), mine: ["s1"] }), null);
+    const c = ctl(state({ activity: activity({ is_open: false }), mine: ["s1"] }), null);
     expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
     expect(c.canRequestCancel).toBe(true);
   });
@@ -203,7 +208,7 @@ describe("lastDeclinedFor", () => {
 describe("activityControls with a decline to report", () => {
   it("reports the decline when nothing is pending", () => {
     const declined = request({ status: "declined", decided_at: "2026-09-21T03:00:00Z" });
-    const c = activityControls(state({ mine: ["s1"] }), null, declined);
+    const c = ctl(state({ mine: ["s1"] }), null, declined);
     expect(c.declined).toEqual({ kind: "switch", fromLabel: "Thu 1 Oct · 10:30", toLabel: "Thu 1 Oct · 11:30" });
     // The controls are otherwise untouched — a decline is news, not a restriction.
     expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
@@ -211,7 +216,7 @@ describe("activityControls with a decline to report", () => {
 
   it("says nothing about an old decline once a new request is open", () => {
     const declined = request({ id: "old", status: "declined", decided_at: "2026-09-21T03:00:00Z" });
-    const c = activityControls(state({ mine: ["s1"] }), request(), declined);
+    const c = ctl(state({ mine: ["s1"] }), request(), declined);
     expect(c.declined).toBeNull();
     expect(c.pending).not.toBeNull();
   });
@@ -319,5 +324,39 @@ describe("activityControls without asking (D837)", () => {
   it("keeps every held seat changeable when asking, whatever the time", () => {
     const c = activityControls(state({ mine: ["s1"] }), null, null, "en", { date: "2026-10-02", time: "08:00" });
     expect(c.changeable.map((s) => s.session.id)).toEqual(["s1"]);
+  });
+});
+
+// D842: once a session's start time passes, in Kuala Lumpur time, it is struck through and
+// nobody can book it or move into it - asking or not.
+describe("activityControls and started sessions (D842)", () => {
+  const between = { date: "2026-10-01", time: "10:45" };
+
+  it("names the sessions that have started", () => {
+    expect(activityControls(state(), null, null, "en", BEFORE).started).toEqual([]);
+    expect(activityControls(state(), null, null, "en", between).started).toEqual(["s1"]);
+    expect(activityControls(state(), null, null, "en", { date: "2026-10-01", time: "10:30" }).started).toEqual(["s1"]);
+    expect(activityControls(state(), null, null, "en", { date: "2026-10-02", time: "08:00" }).started).toEqual(["s1", "s2"]);
+  });
+
+  it("offers only sessions still to start for booking", () => {
+    expect(activityControls(state(), null, null, "en", between).bookable.map((s) => s.session.id)).toEqual(["s2"]);
+    expect(activityControls(state(), null, null, "en", { date: "2026-10-02", time: "08:00" }).bookable).toEqual([]);
+  });
+
+  it("never offers a started session to ask to move into", () => {
+    const c = activityControls(
+      activityState({
+        activity: activity(),
+        sessions: [session("s1"), session("s2", { starts_at: "11:30" }), session("s3", { starts_at: "14:00" })],
+        counts: {}, mine: new Set(["s3"]), category: null,
+      }),
+      null, null, "en", between,
+    );
+    expect(c.switchTargets.map((s) => s.session.id)).toEqual(["s2"]);
+  });
+
+  it("still names started sessions while a request is open", () => {
+    expect(activityControls(state({ mine: ["s2"] }), request(), null, "en", between).started).toEqual(["s1"]);
   });
 });

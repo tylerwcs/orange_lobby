@@ -44,7 +44,8 @@ function shared<V>(values: V[]): V | null {
   return values.length > 0 && values.every((v) => v === values[0]) ? values[0] : null;
 }
 
-export function sessionGrid<T extends SeatsForViewer>(seats: T[]): SessionGrid<T> {
+/** `started` (D842): the sessions whose start time has passed, which no day is "open" for. */
+export function sessionGrid<T extends SeatsForViewer>(seats: T[], started: readonly string[] = []): SessionGrid<T> {
   const sorted = [...seats].sort((a, b) =>
     a.session.day.localeCompare(b.session.day)
     || a.session.starts_at.localeCompare(b.session.starts_at)
@@ -59,7 +60,7 @@ export function sessionGrid<T extends SeatsForViewer>(seats: T[]): SessionGrid<T
       .map((period) => ({ period, slots: slots.filter((s) => periodOf(s.session.starts_at) === period) }))
       .filter((p) => p.slots.length > 0),
     mine: slots.some((s) => s.mine),
-    open: slots.some((s) => !s.mine && !s.full),
+    open: slots.some((s) => !s.mine && !s.full && !started.includes(s.session.id)),
   }));
 
   const lengths = sorted.map((s) => (s.session.ends_at ? toMinutes(s.session.ends_at) - toMinutes(s.session.starts_at) : null));

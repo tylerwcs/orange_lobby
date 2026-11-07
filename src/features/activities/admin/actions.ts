@@ -697,6 +697,8 @@ const APPROVE_REFUSALS: Record<Exclude<DecisionResult, "ok">, string> = {
   limit: "They already hold as many sessions as this activity allows.",
   ineligible: "They are no longer eligible for that session.",
   missing: "The session or the booking is gone.",
+  // Dead like `closed`: only `book_session` says it, and only when not placing as the admin (D842).
+  started: "That session has already started.",
   required: "This activity is now required, so they cannot be left with no session.",
 };
 

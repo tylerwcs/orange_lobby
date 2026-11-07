@@ -43,7 +43,7 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
   entry: Pick<ActivityEntry, "state" | "controls">;
   actions: Pick<BookingActions, "book" | "requestSwitch">;
 }) {
-  const grid = useMemo(() => sessionGrid(state.sessions), [state.sessions]);
+  const grid = useMemo(() => sessionGrid(state.sessions, controls.started), [state.sessions, controls.started]);
   const lang = useLang();
   const d = t(lang).booking;
   const [day, setDay] = useState(() => startDay(grid.days));
@@ -51,6 +51,8 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
 
   const bookable = new Set(controls.bookable.map((s) => s.session.id));
   const switchable = new Set(controls.switchTargets.map((s) => s.session.id));
+  // D842: worked out on the server by Kuala Lumpur time, so the phone's own clock never decides it.
+  const started = new Set(controls.started);
   const canPick = (s: SeatsForViewer) => !controls.pending && (bookable.has(s.session.id) || switchable.has(s.session.id));
   // A pick that stopped being pickable - it filled up and the page came back - drops out of
   // the bar rather than offering a button the server will refuse.
@@ -94,11 +96,13 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
             {slots.map((s) => {
               const pickable = canPick(s);
               const on = selected?.session.id === s.session.id;
-              const few = !s.mine && !s.full && s.left <= FEW && s.left < s.session.capacity;
+              const gone = started.has(s.session.id);
+              const few = !s.mine && !s.full && !gone && s.left <= FEW && s.left < s.session.capacity;
               const look = s.mine
                 ? "border-2 border-success bg-success-soft text-success-strong"
                 : on ? "border-primary bg-primary text-primary-foreground"
-                : s.full ? "border-dashed border-border bg-muted text-muted-foreground line-through"
+                // D842: a time that has passed reads like a full one - struck through, not tappable.
+                : s.full || gone ? "border-dashed border-border bg-muted text-muted-foreground line-through"
                 : pickable ? "border-border bg-card text-foreground active:scale-95"
                 : "border-border bg-card text-muted-foreground opacity-60";
               return (
@@ -108,7 +112,7 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
                   disabled={!pickable}
                   aria-pressed={on}
                   onClick={() => setPicked(on ? null : s.session.id)}
-                  aria-label={`${s.session.starts_at}${s.mine ? d.yourBookingSr : s.full ? d.fullSr : d.leftSr(s.left)}`}
+                  aria-label={`${s.session.starts_at}${s.mine ? d.yourBookingSr : gone ? d.startedSr : s.full ? d.fullSr : d.leftSr(s.left)}`}
                   className={`relative flex min-h-11 flex-col items-center justify-center rounded-[10px] border px-1 py-1.5 tabular-nums outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 ${look}`}
                 >
                   <span className="text-sm font-extrabold">{s.session.starts_at}</span>

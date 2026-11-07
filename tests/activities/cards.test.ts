@@ -19,7 +19,7 @@ const session = (activityId: string): ActivitySession => ({
 const booking = (id: string, over: Partial<Activity> = {}, held = false, category: string | null = null, checkedIn = false): ActivityEntry => {
   const state = activityState({ activity: activity(id, over), sessions: [session(id)], counts: {}, mine: new Set(held ? [`${id}-s`] : []), category });
   const arrivals = checkedIn ? { [`${id}-s`]: "2026-09-30T02:00:00+00:00" } : {};
-  return { state, controls: activityControls(state, null), pendingId: null, arrivals };
+  return { state, controls: activityControls(state, null, null, "en", { date: "2026-09-29", time: "09:00" }), pendingId: null, arrivals };
 };
 const form = (id: string, reason: SubmitReason = "ok"): SubmissionEntry => ({
   form: activity(id, { kind: "submission" }), state: { can: reason === "ok", reason, used: 0 }, mine: [], group: null, revoked: [],
