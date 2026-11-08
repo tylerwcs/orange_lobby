@@ -8,6 +8,7 @@ import { Icon } from "@/components/ui/icon";
 import { MapLink } from "../../portal/MapLink";
 import { RowActions, RowMoveContext } from "@/components/admin/RowActions";
 import { Field } from "@/components/admin/Field";
+import { ImageField } from "@/components/admin/ImageField";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -84,6 +85,10 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
                 <Icon name="grip" size={18} />
               </button>
 
+              {/* D848: the booth's stamp artwork, when it has one. Its name sits right beside it, so no alt. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {b.stamp_image_url && <img src={b.stamp_image_url} alt="" width={32} height={32} className="size-8 shrink-0 rounded-full object-contain" />}
+
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-bold">{b.name}</div>
                 {b.location && <div className="text-xs font-semibold text-muted-foreground">{b.location}</div>}
@@ -105,12 +110,13 @@ export function BoothList({ items, counts, reorder, renameBooth, deleteBooth }: 
                   <RowActions
                     name={`“${b.name}”`}
                     edit={{
-                      title: `Rename ${b.name}`,
+                      title: `Edit ${b.name}`,
                       form: (
                         <form action={renameBooth.bind(null, b.id)} className="grid gap-4 p-1">
                           <Field label="Name" name="name" defaultValue={b.name} />
                           <Field label="Location (optional)" name="location" defaultValue={b.location} />
                           <Field label="Map link (optional)" name="location_url" type="url" defaultValue={b.location_url} placeholder="https://maps.app.goo.gl/…" />
+                          <ImageField label="Stamp artwork (optional)" name="stamp_image" url={b.stamp_image_url} description="A transparent PNG, square, about 1000 px. Shown once this booth is stamped." />
                           <SubmitButton>Save</SubmitButton>
                         </form>
                       ),
