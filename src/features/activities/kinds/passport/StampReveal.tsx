@@ -38,7 +38,8 @@ function slotFor(boothId: string): { el: HTMLElement; deg: number } | null {
  * D853: one stamp's arrival, "grow from centre". The page dims, a white disc appears, a gold
  * outline draws once around it from 12 o'clock with a glowing dot leading, the artwork spreads out
  * from the middle, its name shows, then it moves into its slot. Reduced motion skips straight to
- * the slot with the name shown for a moment. `onDone` is called once it has landed.
+ * the slot with the name shown for a moment. A tap, or Escape, lands it at once - several stamps
+ * replaying must never lock the page. `onDone` is called exactly once, when it has landed.
  */
 export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone: (r: Reveal) => void }) {
   const [shown, setShown] = useState<Reveal | null>(null);
@@ -47,6 +48,7 @@ export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone:
   const trace = useRef<SVGCircleElement>(null);
   const spark = useRef<SVGCircleElement>(null);
   const done = useRef(onDone);
+  const skip = useRef<(() => void) | null>(null);
   useEffect(() => { done.current = onDone; }, [onDone]);
 
   useEffect(() => {
@@ -54,6 +56,15 @@ export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone:
     let alive = true;
     const isAlive = () => alive;
     const r = reveal;
+    // Every way out goes through here, so `onDone` runs once whether it played through or was skipped.
+    const finish = () => {
+      if (!alive) return;
+      alive = false;
+      skip.current = null;
+      setShown(null);
+      done.current(r);
+    };
+    skip.current = finish;
 
     const run = async () => {
       setShown(r);
@@ -61,9 +72,7 @@ export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone:
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setStage("named");
         await wait(1200);
-        if (!alive) return;
-        setShown(null);
-        done.current(r);
+        finish();
         return;
       }
 
@@ -116,18 +125,18 @@ export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone:
       }
       setStage("out");
       await wait(560);
-      if (!alive) return;
-      setShown(null);
-      done.current(r);
+      finish();
     };
     void run();
-    return () => { alive = false; };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") finish(); };
+    window.addEventListener("keydown", onKey);
+    return () => { alive = false; skip.current = null; window.removeEventListener("keydown", onKey); };
   }, [reveal]);
 
   if (!shown) return null;
   const lit = stage !== "in";
   return (
-    <div className="fixed inset-0 z-50" aria-live="polite">
+    <div className="fixed inset-0 z-50 cursor-pointer" aria-live="polite" onClick={() => skip.current?.()}>
       <div
         className="absolute inset-0 transition-opacity duration-300"
         style={{ background: "rgba(0, 4, 20, 0.75)", opacity: stage === "lit" || stage === "named" ? 1 : 0 }}
@@ -157,6 +166,9 @@ export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone:
           <div className="text-lg font-extrabold">{shown.name}</div>
           <div className="text-sm font-medium opacity-85">Stamp collected</div>
         </div>
+      </div>
+      <div className="absolute inset-x-0 bottom-8 text-center text-xs font-semibold" style={{ color: "rgba(255, 255, 255, 0.7)", opacity: stage === "lit" || stage === "named" ? 1 : 0 }}>
+        Tap to skip
       </div>
     </div>
   );

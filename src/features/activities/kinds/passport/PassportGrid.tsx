@@ -8,7 +8,7 @@ import { shortDateTime } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
 import { MapLink } from "../../portal/MapLink";
 import { StampDisc, StampGlyph } from "./StampDisc";
-import { LandedCover } from "./PassportLive";
+import { LandedCover, LandedGlyph } from "./PassportLive";
 
 // A small tilt per cell echoes an actual rubber stamp landing slightly askew - purely
 // decorative, cycled by index so it never depends on how many booths an event has.
@@ -35,7 +35,7 @@ function EmptyRing({ size = 52 }: { size?: number }) {
  */
 function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: boolean }) {
   const stamped = cell.stampedAt !== null;
-  const glyph = stamped ? <StampGlyph deg={deg} /> : <EmptyRing />;
+  const glyph = stamped ? <StampGlyph deg={deg} /> : <LandedGlyph boothId={cell.booth.id} deg={deg} empty={<EmptyRing />} />;
   const tone = stamped ? "bg-card ring-1 ring-foreground/10" : "border border-dashed border-border";
   const info = (
     <div className="min-w-0">
