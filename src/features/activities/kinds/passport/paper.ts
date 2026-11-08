@@ -1,6 +1,6 @@
 import { brandStyle } from "@/lib/brand";
 import { hexToRgb, toHex } from "@/lib/contrast";
-import { ensureReadable } from "@/features/theme/lib/theme";
+import { ensureReadable } from "@/features/theme/client";
 
 /**
  * D854: the passport page. One cream sheet the stamps are pressed onto, the same on every event

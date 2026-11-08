@@ -13,7 +13,7 @@ import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
  * preview replays nothing on load and marks nothing seen (D847). The page is still the card and
  * the wayfinding it gives (D102).
  */
-export function PassportBody({ entry: { activity, passport }, attendeeName, slug, token, qr, preview }: {
+export function PassportBody({ entry: { activity, passport }, attendeeName, slug, token, qr, preview, brand }: {
   entry: PassportEntry;
   attendeeName: string;
   slug: string;
@@ -21,6 +21,8 @@ export function PassportBody({ entry: { activity, passport }, attendeeName, slug
   /** The attendee's QR as a data URL (qrDataUrl), as the badge dialog gets it. */
   qr: string;
   preview: boolean;
+  /** The event's colour (`primary_color`), for the plain chop on the paper (D856). */
+  brand: string | null;
 }) {
   const initial = preview ? [] : unseenReveals(passport);
   const shown = asShown(passport, new Set(initial.map((r) => r.stampId)));
@@ -37,7 +39,7 @@ export function PassportBody({ entry: { activity, passport }, attendeeName, slug
         {!activity.is_open && !passport.complete && (
           <p className={note}>Stamping opens soon. The booths are below, so you know where to go.</p>
         )}
-        <PassportGrid passport={shown} message={activity.reward_message} attendeeName={attendeeName} title={null} />
+        <PassportGrid passport={shown} message={activity.reward_message} attendeeName={attendeeName} title={null} brand={brand} />
       </section>
     </PassportLive>
   );

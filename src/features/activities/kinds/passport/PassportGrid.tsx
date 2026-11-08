@@ -1,5 +1,5 @@
 import type { Passport, PassportCell } from "../../lib/booths";
-import { passportLook, progressLine } from "../../lib/booths";
+import { progressLine } from "../../lib/booths";
 import { Icon } from "@/components/ui/icon";
 import { Progress } from "@/components/ui/progress";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
@@ -7,75 +7,14 @@ import { meterPercent, meterAriaValue, meterAriaMax } from "@/lib/meter";
 import { shortDateTime } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
 import { MapLink } from "../../portal/MapLink";
-import { StampDisc, StampGlyph } from "./StampDisc";
-import { LandedCover, LandedGlyph } from "./PassportLive";
+import { StampInk } from "./StampDisc";
+import { LandedCover } from "./PassportLive";
+import { PassportPaper } from "./PassportPaper";
+import { PAPER_INK } from "./paper";
 
 // A small tilt per cell echoes an actual rubber stamp landing slightly askew - purely
 // decorative, cycled by index so it never depends on how many booths an event has.
 const TILTS = [-7, 5, -3, 7];
-
-/**
- * The "not yet" ring. Drawn in `text-muted-foreground`, not a pale hairline: this ring IS
- * the empty state, and it has to read from arm's length in a lit foyer, not just on a
- * calibrated screen.
- */
-function EmptyRing({ size = 52 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden="true" className="shrink-0 text-muted-foreground">
-      <circle cx="28" cy="28" r="25" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 5.5" opacity=".75" />
-    </svg>
-  );
-}
-
-/**
- * One booth. Unstamped cells still carry the booth's name and location (D102) - the card
- * is a wayfinding tool, and a cell that says nothing once it is empty is just a grey box.
- * `wide` spans both columns: an odd booth count would otherwise leave a hole that reads as
- * a rendering bug rather than as "nothing here yet".
- */
-function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: boolean }) {
-  const stamped = cell.stampedAt !== null;
-  const glyph = stamped ? <StampGlyph deg={deg} /> : <LandedGlyph boothId={cell.booth.id} deg={deg} empty={<EmptyRing />} />;
-  const tone = stamped ? "bg-card ring-1 ring-foreground/10" : "border border-dashed border-border";
-  const info = (
-    <div className="min-w-0">
-      <div className="text-sm font-extrabold leading-tight text-balance break-words">{cell.booth.name}</div>
-      {cell.booth.location && <div className="truncate text-xs text-muted-foreground">{cell.booth.location}</div>}
-    </div>
-  );
-
-  if (wide) {
-    return (
-      <div data-booth-slot={cell.booth.id} className={`col-span-2 flex min-h-[100px] items-center gap-3.5 rounded-2xl p-3.5 ${tone}`}>
-        {glyph}
-        <div className="min-w-0 flex-1">{info}</div>
-        <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
-      </div>
-    );
-  }
-  return (
-    // min-w-0: this is the grid item that holds the grid-cols-2 track. Without it, a long
-    // unbroken booth name sets this flex column's min-content width and blows the track out
-    // past the viewport (a client can rename a booth in the week before the event).
-    <div data-booth-slot={cell.booth.id} className={`flex min-h-[146px] min-w-0 flex-col gap-2.5 rounded-2xl p-3.5 ${tone}`}>
-      <div className="flex flex-1 items-start justify-between gap-2">
-        {glyph}
-        <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
-      </div>
-      {info}
-    </div>
-  );
-}
-
-function BoothGrid({ cells }: { cells: PassportCell[] }) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {cells.map((cell, i) => (
-        <Cell key={cell.booth.id} cell={cell} deg={TILTS[i % TILTS.length]} wide={i === cells.length - 1 && cells.length % 2 === 1} />
-      ))}
-    </div>
-  );
-}
 
 /** The counter while still collecting: same dark treatment as BadgeCard, brand-coloured big number. */
 function ProgressHeader({ passport }: { passport: Passport }) {
@@ -121,10 +60,17 @@ function CompleteHeader({ passport, message }: { passport: Passport; message: st
 }
 
 /**
- * One round slot (D850), used once any booth on the passport has artwork: a dashed circle with a
- * "?", the name and the location until stamped, then the stamp on its white disc. The name is not
- * repeated under a stamp - designers draw it into the artwork. `data-booth-slot` is what the
- * reveal measures to land in.
+ * The map button on the paper (Review Focus 5): the outline button's own fill is the page's
+ * colour - navy on a dark theme - which would sit on the cream as a dark chip. `!` so these win
+ * over buttonVariants' `bg-background`, whatever order the CSS lands in.
+ */
+const MAP_ON_PAPER = "border-[rgba(138,106,64,0.3)]! bg-transparent! text-[#5E4526]! hover:bg-[rgba(138,106,64,0.1)]!";
+
+/**
+ * One slot on the passport page (D850, D856). Until stamped: a dashed circle with a "?", the
+ * booth's name and location - the page is still the wayfinding (D102). Once stamped: the stamp
+ * pressed straight onto the paper; its name is not repeated, designers draw it into the art.
+ * `data-booth-slot` / `data-slot-face` / `data-deg` are what the reveal measures to land in.
  */
 function RoundSlot({ cell, deg, alone }: { cell: PassportCell; deg: number; alone: boolean }) {
   const stamped = cell.stampedAt !== null;
@@ -134,19 +80,19 @@ function RoundSlot({ cell, deg, alone }: { cell: PassportCell; deg: number; alon
       // An odd last slot sits centred in its row at a normal slot's width, not stretched across it.
       className={`flex min-w-0 flex-col items-center gap-1.5 ${alone ? "col-span-2 w-[calc(50%-0.4375rem)] justify-self-center" : ""}`}
     >
-      <div data-slot-face data-deg={deg} className="relative aspect-square w-full p-[3%]">
+      <div data-slot-face data-deg={deg} className="relative aspect-square w-full p-[6%]">
         {stamped ? (
-          <StampDisc image={cell.booth.stamp_image_url} name={cell.booth.name} deg={deg} />
+          <StampInk image={cell.booth.stamp_image_url} name={cell.booth.name} deg={deg} />
         ) : (
-          <div className="flex size-full flex-col items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/45 p-3 text-center">
-            <div aria-hidden="true" className="text-3xl leading-none font-extrabold text-muted-foreground">?</div>
-            <div className="mt-1.5 text-sm leading-tight font-bold text-balance break-words">{cell.booth.name}</div>
-            {cell.booth.location && <div className="line-clamp-2 text-xs text-muted-foreground">{cell.booth.location}</div>}
+          <div className="flex size-full flex-col items-center justify-center rounded-full border-[1.5px] border-dashed p-3 text-center" style={{ borderColor: PAPER_INK.dash }}>
+            <div aria-hidden="true" className="text-3xl leading-none" style={{ color: PAPER_INK.question }}>?</div>
+            <div className="mt-1.5 text-[11px] leading-tight font-bold tracking-[0.12em] text-balance break-words uppercase" style={{ color: PAPER_INK.booth }}>{cell.booth.name}</div>
+            {cell.booth.location && <div className="mt-0.5 line-clamp-2 text-xs" style={{ color: PAPER_INK.location }}>{cell.booth.location}</div>}
           </div>
         )}
         {!stamped && <LandedCover boothId={cell.booth.id} image={cell.booth.stamp_image_url} name={cell.booth.name} deg={deg} />}
       </div>
-      <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
+      <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} className={MAP_ON_PAPER} />
     </div>
   );
 }
@@ -163,8 +109,9 @@ function RoundGrid({ cells }: { cells: PassportCell[] }) {
 
 /** No attendee behind this link: the signage QR in the foyer opens this with nothing to
  *  check progress against, so it renders locked (D103) rather than guessing at someone's
- *  progress. The booth list stays underneath - wayfinding still works without a badge. */
-function LockedPassport({ passport }: { passport: Passport }) {
+ *  progress. The booths stay underneath, on a passport page with no holder (D854) - wayfinding
+ *  still works without a badge. */
+function LockedPassport({ passport, brand }: { passport: Passport; brand: string | null }) {
   return (
     <div className="flex flex-col gap-4">
       <Empty className="border border-dashed border-border">
@@ -177,23 +124,9 @@ function LockedPassport({ passport }: { passport: Passport }) {
         </EmptyHeader>
       </Empty>
       {passport.cells.length > 0 && (
-        <div className="flex flex-col gap-2.5">
-          <div className="text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
-            {passport.cells.length} booth{passport.cells.length === 1 ? "" : "s"} at this event
-          </div>
-          <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
-            {passport.cells.map((c) => (
-              <li key={c.booth.id} className="flex min-h-11 items-center gap-3 p-3.5">
-                <EmptyRing />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-extrabold leading-tight">{c.booth.name}</div>
-                  {c.booth.location && <div className="truncate text-xs text-muted-foreground">{c.booth.location}</div>}
-                </div>
-                <MapLink href={c.booth.location_url} place={c.booth.location ?? c.booth.name} />
-              </li>
-            ))}
-          </ul>
-        </div>
+        <PassportPaper holder={null} brand={brand}>
+          <RoundGrid cells={passport.cells} />
+        </PassportPaper>
       )}
     </div>
   );
@@ -204,12 +137,14 @@ function LockedPassport({ passport }: { passport: Passport }) {
  * states applies. `attendeeName` doubles as the switch for the generic, no-attendee link -
  * that page has nobody's progress to show, so it renders locked (D103) rather than guessing.
  */
-export function PassportGrid({ passport, message, attendeeName, title }: {
+export function PassportGrid({ passport, message, attendeeName, title, brand }: {
   passport: Passport;
   message: string | null;
   attendeeName: string | null;
   /** The page heading. Null on the activity page, where the activity's own name already heads it. */
   title: string | null;
+  /** The event's colour (`primary_color`), which the plain chop is pressed in on the paper (D856). */
+  brand: string | null;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -219,7 +154,7 @@ export function PassportGrid({ passport, message, attendeeName, title }: {
       </div>
 
       {attendeeName === null ? (
-        <LockedPassport passport={passport} />
+        <LockedPassport passport={passport} brand={brand} />
       ) : (
         <>
           {passport.complete
@@ -227,7 +162,10 @@ export function PassportGrid({ passport, message, attendeeName, title }: {
             : <ProgressHeader passport={passport} />}
           {/* D851: the old "a new chop appears the next time you open this page" line is gone -
               Show my QR now watches for the stamp, and one collected without it replays on open. */}
-          {passportLook(passport) === "round" ? <RoundGrid cells={passport.cells} /> : <BoothGrid cells={passport.cells} />}
+          {/* D857: one look for every passport - the stamps on a paper page with the holder's name. */}
+          <PassportPaper holder={attendeeName} brand={brand}>
+            <RoundGrid cells={passport.cells} />
+          </PassportPaper>
         </>
       )}
     </div>

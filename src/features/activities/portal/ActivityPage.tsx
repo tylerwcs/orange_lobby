@@ -79,7 +79,7 @@ export async function ActivityPage({ params, searchParams }: {
           : <SubmissionBody lang={lang} entry={form} slug={slug} token={token} writing={writing === "1"} people={entries.people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />;
       }
       case "passport":
-        return <PassportBody entry={found.entry} attendeeName={attendee.name} slug={slug} token={token} qr={passportExtras!.qr} preview={passportExtras!.preview} />;
+        return <PassportBody entry={found.entry} attendeeName={attendee.name} slug={slug} token={token} qr={passportExtras!.qr} preview={passportExtras!.preview} brand={event.primary_color} />;
       case "polaroid":
         return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} />;
       case "tournament":

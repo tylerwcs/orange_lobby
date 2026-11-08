@@ -57,11 +57,6 @@ export function buildPassport(booths: Booth[], stamps: BoothStamp[], required: n
 /** One stamp's arrival, as the passport page plays it (D844): the booth's name and artwork, null for the plain ring. */
 export type Reveal = { stampId: string; boothId: string; name: string; image: string | null; stampedAt: string };
 
-/** Round slots when any booth carries artwork (D844), so a passport never mixes boxes and circles. */
-export function passportLook(p: Passport): "round" | "boxes" {
-  return p.cells.some((c) => c.booth.stamp_image_url) ? "round" : "boxes";
-}
-
 function reveals(p: Passport, keep: (c: PassportCell) => boolean): Reveal[] {
   return p.cells
     .filter((c): c is PassportCell & { stampedAt: string; stampId: string } => c.stampedAt !== null && c.stampId !== null && keep(c))

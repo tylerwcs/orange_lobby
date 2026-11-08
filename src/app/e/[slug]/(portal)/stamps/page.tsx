@@ -22,6 +22,7 @@ export default async function StampsPage({ params }: { params: Promise<{ slug: s
         message={passport?.reward_message ?? null}
         attendeeName={null}
         title={passport?.name ?? "Booth Passport"}
+        brand={event.primary_color}
       />
     </PortalShell>
   );

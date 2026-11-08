@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asShown, buildPassport, completionByAttendee, firstPassport, firstPublicPassport, latestStampAt, passportLook, passportRollup, progressLine, qrButtonShown, readPassportSettings, revealsAfter, stampsTarget, unseenReveals } from "@/features/activities/lib/booths";
+import { asShown, buildPassport, completionByAttendee, firstPassport, firstPublicPassport, latestStampAt, passportRollup, progressLine, qrButtonShown, readPassportSettings, revealsAfter, stampsTarget, unseenReveals } from "@/features/activities/lib/booths";
 import type { Booth, BoothStamp } from "@/lib/types";
 
 const booth = (id: string, sort_order = 0, activity_id = "p1"): Booth => ({
@@ -217,15 +217,6 @@ describe("readPassportSettings", () => {
   // clamps it on read until the booths exist.
   it("skips the upper bound when the booth count is not known yet", () => {
     expect(readPassportSettings({ stamps_required: "5", reward_message: "" }, null).stamps_required).toBe(5);
-  });
-});
-
-describe("passportLook", () => {
-  it("is boxes when no booth has artwork", () => expect(passportLook(buildPassport([booth("b1")], [], null))).toBe("boxes"));
-
-  it("is round when any booth has artwork", () => {
-    const art = { ...booth("b2", 1), stamp_image_url: "https://x/b2.png" };
-    expect(passportLook(buildPassport([booth("b1"), art], [], null))).toBe("round");
   });
 });
 

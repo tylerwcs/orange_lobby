@@ -6,7 +6,7 @@ import { isLanded, liveStart, liveStep, wantsRefresh, type LiveState } from "../
 import { markStampsSeenAction } from "../../portal/actions";
 import { PassportQr } from "./PassportQr";
 import { StampReveal } from "./StampReveal";
-import { StampDisc, StampGlyph } from "./StampDisc";
+import { StampInk } from "./StampDisc";
 
 /** The live queue's state, for the slots: which booths have landed here and are not refreshed yet. */
 const Live = createContext<LiveState>(liveStart([]));
@@ -74,7 +74,7 @@ export function PassportLive({ children, slug, token, activityId, qr, initial, c
 }
 
 /**
- * Sits in an unstamped round slot (D852). Shows the stamp once its reveal has landed here, until
+ * Sits in an unstamped slot (D852). Shows the stamp once its reveal has landed here, until
  * the refreshed grid draws the slot from the server - without it the slot would flash back to "?"
  * between the landing and the refresh.
  */
@@ -82,15 +82,8 @@ export function LandedCover({ boothId, image, name, deg }: { boothId: string; im
   const live = useContext(Live);
   if (!isLanded(live, boothId)) return null;
   return (
-    <div className="absolute inset-[3%] motion-safe:animate-[stamp-settle_0.3s_ease-out]">
-      <StampDisc image={image} name={name} deg={deg} />
+    <div className="absolute inset-0 motion-safe:animate-[stamp-settle_0.3s_ease-out]">
+      <StampInk image={image} name={name} deg={deg} />
     </div>
   );
-}
-
-/** The same hold for a box cell, a passport with no artwork: the chop in place of the empty ring. */
-export function LandedGlyph({ boothId, deg, empty }: { boothId: string; deg: number; empty: ReactNode }) {
-  const live = useContext(Live);
-  if (!isLanded(live, boothId)) return <>{empty}</>;
-  return <span className="motion-safe:animate-[stamp-settle_0.3s_ease-out]"><StampGlyph deg={deg} /></span>;
 }
