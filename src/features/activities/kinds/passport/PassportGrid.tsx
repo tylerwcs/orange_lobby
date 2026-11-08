@@ -1,33 +1,17 @@
 import type { Passport, PassportCell } from "../../lib/booths";
-import { progressLine } from "../../lib/booths";
+import { passportLook, progressLine } from "../../lib/booths";
 import { Icon } from "@/components/ui/icon";
 import { Progress } from "@/components/ui/progress";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { meterPercent, meterAriaValue, meterAriaMax } from "@/lib/meter";
-import { shortTime, shortDateTime } from "@/lib/text";
+import { shortDateTime } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
 import { MapLink } from "../../portal/MapLink";
+import { StampDisc, StampGlyph } from "./StampDisc";
 
 // A small tilt per cell echoes an actual rubber stamp landing slightly askew - purely
 // decorative, cycled by index so it never depends on how many booths an event has.
 const TILTS = [-7, 5, -3, 7];
-
-/**
- * A collected chop: two rings in the event's brand colour with a checkmark in `primary`,
- * matching the mockups. The two tones can't share one `currentColor`, so the rings and the
- * check sit in their own `<g>`/path each carrying its own text colour.
- */
-function StampGlyph({ deg, size = 52 }: { deg: number; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden="true" className="shrink-0" style={{ transform: `rotate(${deg}deg)` }}>
-      <g className="text-brand">
-        <circle cx="28" cy="28" r="25" stroke="currentColor" strokeWidth="3" />
-        <circle cx="28" cy="28" r="19" stroke="currentColor" strokeWidth="1.5" opacity=".45" />
-      </g>
-      <path d="M19 28.5l6.5 6.5L37 23" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary" />
-    </svg>
-  );
-}
 
 /**
  * The "not yet" ring. Drawn in `text-muted-foreground`, not a pale hairline: this ring IS
@@ -61,10 +45,9 @@ function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: bool
 
   if (wide) {
     return (
-      <div className={`col-span-2 flex min-h-[100px] items-center gap-3.5 rounded-2xl p-3.5 ${tone}`}>
+      <div data-booth-slot={cell.booth.id} className={`col-span-2 flex min-h-[100px] items-center gap-3.5 rounded-2xl p-3.5 ${tone}`}>
         {glyph}
         <div className="min-w-0 flex-1">{info}</div>
-        {stamped && <div className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground">{shortTime(cell.stampedAt!)}</div>}
         <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
       </div>
     );
@@ -73,13 +56,10 @@ function Cell({ cell, deg, wide }: { cell: PassportCell; deg: number; wide: bool
     // min-w-0: this is the grid item that holds the grid-cols-2 track. Without it, a long
     // unbroken booth name sets this flex column's min-content width and blows the track out
     // past the viewport (a client can rename a booth in the week before the event).
-    <div className={`flex min-h-[146px] min-w-0 flex-col gap-2.5 rounded-2xl p-3.5 ${tone}`}>
+    <div data-booth-slot={cell.booth.id} className={`flex min-h-[146px] min-w-0 flex-col gap-2.5 rounded-2xl p-3.5 ${tone}`}>
       <div className="flex flex-1 items-start justify-between gap-2">
         {glyph}
-        <div className="flex flex-col items-end gap-2">
-          {stamped && <div className="text-xs font-bold tabular-nums text-muted-foreground">{shortTime(cell.stampedAt!)}</div>}
-          <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
-        </div>
+        <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
       </div>
       {info}
     </div>
@@ -122,29 +102,59 @@ function ProgressHeader({ passport }: { passport: Passport }) {
 }
 
 /**
- * The card the counter checks against the badge in the attendee's hand: the NAME is the
- * largest thing on it, which is also what makes a forwarded screenshot useless - there is
- * no name to match on someone else's phone. Then the passport's own `reward_message`, then
- * when the card filled.
+ * The full card: how many were collected, when the card filled, then the passport's own
+ * `reward_message`. It used to lead with the attendee's name, large, so a reward counter could
+ * read it against the badge and a forwarded screenshot was useless. The user dropped the name
+ * and the chop (D849), so a screenshot of anyone's full card now looks the same as the real one.
  */
-function CompleteHeader({ passport, attendeeName, message }: { passport: Passport; attendeeName: string; message: string | null }) {
+function CompleteHeader({ passport, message }: { passport: Passport; message: string | null }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl bg-feature text-feature-foreground">
-      <div className="flex items-center gap-3.5 p-4">
-        <StampGlyph deg={-8} size={62} />
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="inline-flex w-fit items-center rounded-full bg-brand/25 px-2.5 py-1 text-xs font-extrabold text-feature-accent">{progressLine(passport)}</span>
-          {/*
-            Wraps rather than truncates. This name is the largest thing on the card because a
-            counter reads it against the badge in the person's hand - and "Zainab binti Abdul…"
-            cannot be read against anything. Found by running it: the mockup used a short name,
-            so the design never met a real one.
-          */}
-          <div className="text-2xl font-extrabold leading-tight text-balance break-words">{attendeeName}</div>
-          {passport.completedAt && <div className="text-xs font-semibold tabular-nums text-feature-foreground/70">Completed {shortDateTime(passport.completedAt)}</div>}
-        </div>
+      <div className="flex flex-col gap-2 p-4">
+        <span className="inline-flex w-fit items-center rounded-full bg-brand/25 px-3 py-1.5 text-sm font-extrabold text-feature-accent">{progressLine(passport)}</span>
+        {passport.completedAt && <div className="text-sm font-semibold tabular-nums text-feature-foreground/70">Completed {shortDateTime(passport.completedAt)}</div>}
       </div>
       {message && <div className="text-pretty bg-accent px-4 py-3.5 text-sm font-bold leading-relaxed text-primary">{message}</div>}
+    </div>
+  );
+}
+
+/**
+ * One round slot (D850), used once any booth on the passport has artwork: a dashed circle with a
+ * "?", the name and the location until stamped, then the stamp on its white disc. The name is not
+ * repeated under a stamp - designers draw it into the artwork. `data-booth-slot` is what the
+ * reveal measures to land in.
+ */
+function RoundSlot({ cell, deg, alone }: { cell: PassportCell; deg: number; alone: boolean }) {
+  const stamped = cell.stampedAt !== null;
+  return (
+    <div
+      data-booth-slot={cell.booth.id}
+      // An odd last slot sits centred in its row at a normal slot's width, not stretched across it.
+      className={`flex min-w-0 flex-col items-center gap-1.5 ${alone ? "col-span-2 w-[calc(50%-0.4375rem)] justify-self-center" : ""}`}
+    >
+      <div className="relative aspect-square w-full p-[3%]">
+        {stamped ? (
+          <StampDisc image={cell.booth.stamp_image_url} name={cell.booth.name} deg={deg} />
+        ) : (
+          <div className="flex size-full flex-col items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/45 p-3 text-center">
+            <div aria-hidden="true" className="text-3xl leading-none font-extrabold text-muted-foreground">?</div>
+            <div className="mt-1.5 text-sm leading-tight font-bold text-balance break-words">{cell.booth.name}</div>
+            {cell.booth.location && <div className="line-clamp-2 text-xs text-muted-foreground">{cell.booth.location}</div>}
+          </div>
+        )}
+      </div>
+      <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
+    </div>
+  );
+}
+
+function RoundGrid({ cells }: { cells: PassportCell[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3.5">
+      {cells.map((cell, i) => (
+        <RoundSlot key={cell.booth.id} cell={cell} deg={TILTS[i % TILTS.length]} alone={i === cells.length - 1 && cells.length % 2 === 1} />
+      ))}
     </div>
   );
 }
@@ -203,7 +213,7 @@ export function PassportGrid({ passport, message, attendeeName, title }: {
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
         {title !== null && <h1 className={`text-xl font-extrabold leading-tight ${TITLE_INK}`}>{title}</h1>}
-        {attendeeName !== null && <p className="text-sm text-muted-foreground">Visit a booth, hand over your badge, collect a chop.</p>}
+        {attendeeName !== null && <p className="text-sm text-muted-foreground">Visit a booth and show your QR to collect a stamp.</p>}
       </div>
 
       {attendeeName === null ? (
@@ -211,14 +221,11 @@ export function PassportGrid({ passport, message, attendeeName, title }: {
       ) : (
         <>
           {passport.complete
-            ? <CompleteHeader passport={passport} attendeeName={attendeeName} message={message} />
+            ? <CompleteHeader passport={passport} message={message} />
             : <ProgressHeader passport={passport} />}
-          <BoothGrid cells={passport.cells} />
-          {/* D20: the portal refetches on open, it never pushes - without this line a stamp
-              given while the page is open reads as a stamp that did not happen. */}
-          {!passport.complete && (
-            <p className="text-pretty text-xs leading-relaxed text-muted-foreground">A new chop appears the next time you open this page.</p>
-          )}
+          {/* D851: the old "a new chop appears the next time you open this page" line is gone -
+              Show my QR now watches for the stamp, and one collected without it replays on open. */}
+          {passportLook(passport) === "round" ? <RoundGrid cells={passport.cells} /> : <BoothGrid cells={passport.cells} />}
         </>
       )}
     </div>
