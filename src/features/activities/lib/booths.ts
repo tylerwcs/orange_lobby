@@ -1,6 +1,7 @@
 import type { Activity, Booth, BoothStamp } from "@/lib/types";
 
-export type PassportCell = { booth: Booth; stampedAt: string | null };
+/** `stampId` and `seenAt` are the stamp row's (D844): null together with `stampedAt` while unstamped. */
+export type PassportCell = { booth: Booth; stampedAt: string | null; stampId: string | null; seenAt: string | null };
 
 export type Passport = {
   /** Every booth this passport has, in admin order — unstamped ones included (D102). */
@@ -35,7 +36,10 @@ export function stampsTarget(boothCount: number, required: number | null): numbe
  */
 export function buildPassport(booths: Booth[], stamps: BoothStamp[], required: number | null): Passport {
   const byBooth = new Map(stamps.map((s) => [s.booth_id, s]));
-  const cells: PassportCell[] = booths.map((b) => ({ booth: b, stampedAt: byBooth.get(b.id)?.stamped_at ?? null }));
+  const cells: PassportCell[] = booths.map((b) => {
+    const s = byBooth.get(b.id);
+    return { booth: b, stampedAt: s?.stamped_at ?? null, stampId: s?.id ?? null, seenAt: s?.seen_at ?? null };
+  });
   const times = cells.map((c) => c.stampedAt).filter((t): t is string => t !== null).sort();
   const target = stampsTarget(booths.length, required);
   const collected = times.length;
@@ -48,6 +52,63 @@ export function buildPassport(booths: Booth[], stamps: BoothStamp[], required: n
     complete,
     completedAt: complete ? times[target - 1] : null,
   };
+}
+
+/** One stamp's arrival, as the passport page plays it (D844): the booth's name and artwork, null for the plain ring. */
+export type Reveal = { stampId: string; boothId: string; name: string; image: string | null; stampedAt: string };
+
+/** Round slots when any booth carries artwork (D844), so a passport never mixes boxes and circles. */
+export function passportLook(p: Passport): "round" | "boxes" {
+  return p.cells.some((c) => c.booth.stamp_image_url) ? "round" : "boxes";
+}
+
+function reveals(p: Passport, keep: (c: PassportCell) => boolean): Reveal[] {
+  return p.cells
+    .filter((c): c is PassportCell & { stampedAt: string; stampId: string } => c.stampedAt !== null && c.stampId !== null && keep(c))
+    .sort((a, b) => Date.parse(a.stampedAt) - Date.parse(b.stampedAt))
+    .map((c) => ({ stampId: c.stampId, boothId: c.booth.id, name: c.booth.name, image: c.booth.stamp_image_url, stampedAt: c.stampedAt }));
+}
+
+/** Stamps their attendee has not seen arrive, oldest first: what the page replays on open (D844). */
+export function unseenReveals(p: Passport): Reveal[] {
+  return reveals(p, (c) => c.seenAt === null);
+}
+
+/**
+ * Stamps newer than `after`, oldest first: what the open QR dialog is waiting for. A cursor rather
+ * than the seen flag, so a draft preview (which marks nothing seen) still sees a new stamp exactly
+ * once. Compared as instants: the database writes `+00:00` where a browser may send back `Z`.
+ */
+export function revealsAfter(p: Passport, after: string | null): Reveal[] {
+  const from = after === null ? -Infinity : Date.parse(after);
+  return reveals(p, (c) => Date.parse(c.stampedAt!) > from);
+}
+
+/** The newest stamp's time on this card: the open dialog's starting cursor. */
+export function latestStampAt(p: Passport): string | null {
+  const last = reveals(p, () => true).at(-1);
+  return last ? last.stampedAt : null;
+}
+
+/**
+ * The card as the grid draws it while some stamps still wait for their reveal: those cells read
+ * as unstamped, so a stamp lands in a "?" rather than over itself. The counts are untouched, so
+ * the progress card already says the stamp is in.
+ */
+export function asShown(p: Passport, hidden: ReadonlySet<string>): Passport {
+  if (hidden.size === 0) return p;
+  return {
+    ...p,
+    cells: p.cells.map((c) => (c.stampId !== null && hidden.has(c.stampId) ? { ...c, stampedAt: null, stampId: null, seenAt: null } : c)),
+  };
+}
+
+/**
+ * Show my QR stays while any booth is still unstamped, not merely until the card is complete: a
+ * target below the booth count fills the card early, and the scanner keeps stamping the rest.
+ */
+export function qrButtonShown(p: Passport, isOpen: boolean): boolean {
+  return isOpen && p.cells.some((c) => c.stampedAt === null);
 }
 
 /**

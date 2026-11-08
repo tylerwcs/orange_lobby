@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPassport, completionByAttendee, firstPassport, firstPublicPassport, passportRollup, progressLine, readPassportSettings, stampsTarget } from "@/features/activities/lib/booths";
+import { asShown, buildPassport, completionByAttendee, firstPassport, firstPublicPassport, latestStampAt, passportLook, passportRollup, progressLine, qrButtonShown, readPassportSettings, revealsAfter, stampsTarget, unseenReveals } from "@/features/activities/lib/booths";
 import type { Booth, BoothStamp } from "@/lib/types";
 
 const booth = (id: string, sort_order = 0, activity_id = "p1"): Booth => ({
@@ -218,4 +218,88 @@ describe("readPassportSettings", () => {
   it("skips the upper bound when the booth count is not known yet", () => {
     expect(readPassportSettings({ stamps_required: "5", reward_message: "" }, null).stamps_required).toBe(5);
   });
+});
+
+describe("passportLook", () => {
+  it("is boxes when no booth has artwork", () => expect(passportLook(buildPassport([booth("b1")], [], null))).toBe("boxes"));
+
+  it("is round when any booth has artwork", () => {
+    const art = { ...booth("b2", 1), stamp_image_url: "https://x/b2.png" };
+    expect(passportLook(buildPassport([booth("b1"), art], [], null))).toBe("round");
+  });
+});
+
+describe("unseenReveals", () => {
+  it("lists unseen stamps oldest first, with name and image", () => {
+    const art = { ...booth("b2", 1), stamp_image_url: "https://x/b2.png" };
+    const p = buildPassport([booth("b1"), art], [
+      { ...stamp("b2", "a1", "2026-11-08T12:00:00Z"), seen_at: null },
+      { ...stamp("b1", "a1", "2026-11-08T11:00:00Z"), seen_at: null },
+    ], null);
+    expect(unseenReveals(p).map((r) => [r.boothId, r.name, r.image, r.stampId])).toEqual([["b1", "b1", null, "b1-a1"], ["b2", "b2", "https://x/b2.png", "b2-a1"]]);
+  });
+
+  it("skips seen stamps", () => {
+    const p = buildPassport([booth("b1")], [stamp("b1", "a1", "2026-11-08T11:00:00Z")], null); // fixture: seen_at = stamped_at
+    expect(unseenReveals(p)).toEqual([]);
+  });
+
+  // Review Focus 4: an undone stamp is a row that no longer exists, so there is nothing to replay.
+  it("has nothing for a booth whose stamp was undone", () => {
+    expect(unseenReveals(buildPassport([booth("b1")], [], null))).toEqual([]);
+  });
+});
+
+describe("revealsAfter", () => {
+  const p = buildPassport([booth("b1"), booth("b2", 1)], [
+    stamp("b1", "a1", "2026-11-08T11:00:00Z"), stamp("b2", "a1", "2026-11-08T12:00:00Z"),
+  ], null);
+
+  it("returns only stamps after the cursor", () => expect(revealsAfter(p, "2026-11-08T11:00:00Z").map((r) => r.boothId)).toEqual(["b2"]));
+
+  // Review Focus 1: a repeat scan keeps its original stamped_at, so it never passes the cursor.
+  it("returns nothing when the cursor is the latest stamp", () => expect(revealsAfter(p, latestStampAt(p))).toEqual([]));
+
+  it("returns everything stamped for a null cursor", () => expect(revealsAfter(p, null)).toHaveLength(2));
+
+  // The database writes +00:00, the browser may hand back Z: the same instant either way.
+  it("compares instants, not spellings", () => expect(revealsAfter(p, "2026-11-08T11:00:00+00:00").map((r) => r.boothId)).toEqual(["b2"]));
+});
+
+describe("latestStampAt", () => {
+  it("is null with no stamps", () => expect(latestStampAt(buildPassport([booth("b1")], [], null))).toBeNull());
+
+  it("is the newest stamp's time", () => {
+    const p = buildPassport([booth("b1"), booth("b2", 1)], [stamp("b2", "a1", "2026-11-08T12:00:00Z"), stamp("b1", "a1", "2026-11-08T11:00:00Z")], null);
+    expect(latestStampAt(p)).toBe("2026-11-08T12:00:00Z");
+  });
+});
+
+describe("asShown", () => {
+  // Review Focus 2: an unseen stamp stays a "?" until its own reveal lands, but still counts.
+  it("hides only the named stamps and keeps the count", () => {
+    const p = buildPassport([booth("b1"), booth("b2", 1)], [stamp("b1", "a1", "2026-11-08T11:00:00Z"), stamp("b2", "a1", "2026-11-08T12:00:00Z")], null);
+    const shown = asShown(p, new Set(["b2-a1"]));
+    expect(shown.cells.map((c) => c.stampedAt)).toEqual(["2026-11-08T11:00:00Z", null]);
+    expect(shown.cells[1].stampId).toBeNull();
+    expect(shown.collected).toBe(2);
+  });
+});
+
+describe("qrButtonShown", () => {
+  // Review Focus 3: complete at 1 of 2 booths, but booth 2 can still stamp.
+  it("stays while a booth is unstamped even when the card is complete", () => {
+    const p = buildPassport([booth("b1"), booth("b2", 1)], [stamp("b1", "a1", "2026-11-08T11:00:00Z")], 1);
+    expect(p.complete).toBe(true);
+    expect(qrButtonShown(p, true)).toBe(true);
+  });
+
+  it("goes once every booth is stamped", () => {
+    const p = buildPassport([booth("b1")], [stamp("b1", "a1", "2026-11-08T11:00:00Z")], null);
+    expect(qrButtonShown(p, true)).toBe(false);
+  });
+
+  it("is hidden while the passport is closed", () => expect(qrButtonShown(buildPassport([booth("b1")], [], null), false)).toBe(false));
+
+  it("is hidden on a passport with no booths", () => expect(qrButtonShown(buildPassport([], [], null), true)).toBe(false));
 });
