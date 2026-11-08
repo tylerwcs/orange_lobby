@@ -86,11 +86,13 @@ function RoundSlot({ cell, deg, alone }: { cell: PassportCell; deg: number; alon
         ) : (
           <LandedSlot
             boothId={cell.booth.id} image={cell.booth.stamp_image_url} name={cell.booth.name} deg={deg}
+            // max-w-full: in a centred column a text line is only as wide as its longest word, so
+            // break-words alone never breaks it - a long booth name spilled past the ring.
             empty={
               <div className="flex size-full flex-col items-center justify-center rounded-full border-[1.5px] border-dashed p-3 text-center" style={{ borderColor: PAPER_INK.dash }}>
                 <div aria-hidden="true" className="text-3xl leading-none" style={{ color: PAPER_INK.question }}>?</div>
-                <div className="mt-1.5 text-[11px] leading-tight font-bold tracking-[0.12em] text-balance break-words uppercase" style={{ color: PAPER_INK.booth }}>{cell.booth.name}</div>
-                {cell.booth.location && <div className="mt-0.5 line-clamp-2 text-xs" style={{ color: PAPER_INK.location }}>{cell.booth.location}</div>}
+                <div className="mt-1.5 max-w-full text-[11px] leading-tight font-bold tracking-[0.12em] text-balance break-words uppercase" style={{ color: PAPER_INK.booth }}>{cell.booth.name}</div>
+                {cell.booth.location && <div className="mt-0.5 line-clamp-2 max-w-full text-xs break-words" style={{ color: PAPER_INK.location }}>{cell.booth.location}</div>}
               </div>
             }
           />
