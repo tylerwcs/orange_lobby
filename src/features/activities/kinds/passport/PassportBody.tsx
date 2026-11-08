@@ -29,7 +29,7 @@ export function PassportBody({ entry: { activity, passport }, attendeeName, slug
   return (
     <PassportLive
       slug={slug} token={token} activityId={activity.id} qr={qr}
-      initial={initial} cursor={latestStampAt(passport)} showButton={qrButtonShown(passport, activity.is_open)}
+      initial={initial} cursor={latestStampAt(passport)} showButton={qrButtonShown(passport, activity.is_open)} brand={brand}
     >
       <InfoRows rows={[
         { icon: Users, text: forGroups(activity) },

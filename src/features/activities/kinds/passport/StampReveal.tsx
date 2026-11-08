@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Reveal } from "../../lib/booths";
-import { StampDisc } from "./StampDisc";
+import { PaperDisc, StampInk } from "./StampDisc";
 
 // The outline's circle, in the SVG's own units: a 252-unit box drawn 6px outside the disc.
 const R = 122;
@@ -35,13 +35,13 @@ function slotFor(boothId: string): { el: HTMLElement; deg: number } | null {
 }
 
 /**
- * D853: one stamp's arrival, "grow from centre". The page dims, a white disc appears, a gold
- * outline draws once around it from 12 o'clock with a glowing dot leading, the artwork spreads out
- * from the middle, its name shows, then it moves into its slot. Reduced motion skips straight to
+ * D853: one stamp's arrival, "grow from centre". The page dims, a round piece of the passport's
+ * paper appears (D858), a gold outline draws once around it from 12 o'clock with a glowing dot
+ * leading, the artwork spreads out from the middle, its name shows, then it moves into its slot. Reduced motion skips straight to
  * the slot with the name shown for a moment. A tap, or Escape, lands it at once - several stamps
  * replaying must never lock the page. `onDone` is called exactly once, when it has landed.
  */
-export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone: (r: Reveal) => void }) {
+export function StampReveal({ reveal, onDone, brand }: { reveal: Reveal | null; onDone: (r: Reveal) => void; brand: string | null }) {
   const [shown, setShown] = useState<Reveal | null>(null);
   const [stage, setStage] = useState<"in" | "lit" | "named" | "out">("in");
   const box = useRef<HTMLDivElement>(null);
@@ -147,7 +147,7 @@ export function StampReveal({ reveal, onDone }: { reveal: Reveal | null; onDone:
           className="relative size-60 max-w-[64vw] max-h-[64vw] transition-[opacity,transform] duration-300 ease-out"
           style={{ opacity: lit ? 1 : 0, transform: lit ? undefined : "scale(0.9)" }}
         >
-          <StampDisc image={shown.image} name={shown.name} deg={0} />
+          <PaperDisc brand={brand}><StampInk image={shown.image} name={shown.name} deg={0} /></PaperDisc>
           <svg viewBox="0 0 252 252" aria-hidden="true" className="pointer-events-none absolute -inset-1.5 size-[calc(100%+0.75rem)] overflow-visible" style={{ opacity: stage === "out" ? 0 : 1, transition: "opacity 300ms" }}>
             <defs>
               <linearGradient id="stamp-reveal-gold" x1="0" y1="0" x2="1" y2="1">

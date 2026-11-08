@@ -17,7 +17,7 @@ const Live = createContext<LiveState>(liveStart([]));
  * time (`passport-live.ts` has the rules). Each one is marked seen as it lands; once the queue is
  * empty the grid is fetched again, and the slots hold the landed stamp until it arrives.
  */
-export function PassportLive({ children, slug, token, activityId, qr, initial, cursor, showButton }: {
+export function PassportLive({ children, slug, token, activityId, qr, initial, cursor, showButton, brand }: {
   children: ReactNode;
   slug: string;
   token: string;
@@ -28,6 +28,8 @@ export function PassportLive({ children, slug, token, activityId, qr, initial, c
   /** The newest stamp the page was rendered with: the dialog waits for anything after it. */
   cursor: string | null;
   showButton: boolean;
+  /** The event's colour, for a plain chop revealed on the paper disc (D858). */
+  brand: string | null;
 }) {
   const router = useRouter();
   const [state, dispatch] = useReducer(liveStep, initial, liveStart);
@@ -68,19 +70,20 @@ export function PassportLive({ children, slug, token, activityId, qr, initial, c
       {showButton && (
         <PassportQr slug={slug} token={token} activityId={activityId} qr={qr} after={after} paused={state.queue.length > 0} onArrived={arrived} />
       )}
-      <StampReveal reveal={state.queue[0] ?? null} onDone={done} />
+      <StampReveal reveal={state.queue[0] ?? null} onDone={done} brand={brand} />
     </Live.Provider>
   );
 }
 
 /**
- * Sits in an unstamped slot (D852). Shows the stamp once its reveal has landed here, until
- * the refreshed grid draws the slot from the server - without it the slot would flash back to "?"
- * between the landing and the refresh.
+ * An unstamped slot's face (D852): its "?" until that booth's reveal lands here, then the stamp,
+ * held until the refreshed grid draws the slot from the server - without it the slot would flash
+ * back to "?" between the landing and the refresh. It swaps the "?" out rather than covering it:
+ * a stamp on the paper has no backing (D856), so the "?" would show through.
  */
-export function LandedCover({ boothId, image, name, deg }: { boothId: string; image: string | null; name: string; deg: number }) {
+export function LandedSlot({ boothId, image, name, deg, empty }: { boothId: string; image: string | null; name: string; deg: number; empty: ReactNode }) {
   const live = useContext(Live);
-  if (!isLanded(live, boothId)) return null;
+  if (!isLanded(live, boothId)) return <>{empty}</>;
   return (
     <div className="absolute inset-0 motion-safe:animate-[stamp-settle_0.3s_ease-out]">
       <StampInk image={image} name={name} deg={deg} />
