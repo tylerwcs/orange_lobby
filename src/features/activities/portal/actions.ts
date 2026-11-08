@@ -1,11 +1,14 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { loadPortalAttendee } from "@/lib/portal";
+import { loadPortalAttendee, isDraftPreview } from "@/lib/portal";
 import {
   bookSession, switchSession, cancelBooking, getActivity, listSessions, bookingsForAttendee,
   submitAnswers, submitAnswersPair, pairPartnerIds, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type SubmitCode,
 } from "../db/activities";
+import { listPassportBooths, stampsForAttendee, markStampsSeen } from "../db/booths";
+import { buildPassport, revealsAfter, type Reveal } from "../lib/booths";
+import { eligible } from "../lib/activities";
 import { nextFileHashes, sharesFile } from "@/lib/file-hashes";
 import { canEditOwn } from "../lib/submissions";
 import { pairRefusal } from "../lib/pairs";
@@ -497,3 +500,28 @@ export async function deleteMySubmissionAction(slug: string, token: string, acti
   await deleteEntryFiles(activity, removed.answers);
   redirect(flashPath(path, d.submission.entryDeleted));
 }
+
+/**
+ * D846: what the open Show my QR dialog asks every couple of seconds - this attendee's stamps on
+ * this passport newer than `after`. Empty, never an error, for a passport that is gone, closed or
+ * not theirs: the dialog just keeps waiting, and the page says the rest when it next loads.
+ */
+export async function pollRevealsAction(slug: string, token: string, activityId: string, after: string | null): Promise<Reveal[]> {
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  if (!allow(`passport-poll:${token}`, 90, 60_000)) return [];
+  const passport = await getActivity(activityId, event.id);
+  if (!passport || passport.kind !== "passport" || !passport.is_open || !eligible(passport, attendee.category)) return [];
+  const [booths, stamps] = await Promise.all([listPassportBooths(passport.id), stampsForAttendee(attendee.id)]);
+  return revealsAfter(buildPassport(booths, stamps, passport.stamps_required), after);
+}
+
+/**
+ * D847: the reveals for these stamps have played. A draft preview writes nothing - staff looking
+ * at someone's page must not use up that person's moment (the reveal still plays for them).
+ */
+export async function markStampsSeenAction(slug: string, token: string, stampIds: string[]): Promise<void> {
+  const { attendee } = await loadPortalAttendee(slug, token);
+  if (await isDraftPreview(slug)) return;
+  await markStampsSeen(attendee.id, stampIds.filter((id) => typeof id === "string").slice(0, 50));
+}
+

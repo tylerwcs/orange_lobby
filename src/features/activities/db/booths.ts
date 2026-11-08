@@ -60,7 +60,7 @@ export async function createBooth(passport: Pick<Activity, "id" | "org_id" | "ev
  * row id (D180): a boothId is bound client-side in `BoothList`, so without the passport check a
  * forged call through one passport's bound action could rename a sibling passport's booth.
  */
-export async function updateBooth(id: string, eventId: string, activityId: string, patch: { name: string; location: string | null; location_url: string | null }) {
+export async function updateBooth(id: string, eventId: string, activityId: string, patch: { name: string; location: string | null; location_url: string | null; stamp_image_url?: string | null }) {
   const { error } = await serviceClient().from("booths").update(patch)
     .eq("id", id).eq("event_id", eventId).eq("activity_id", activityId);
   if (error) throw error;
@@ -134,6 +134,17 @@ export async function deleteStamp(boothId: string, attendeeId: string): Promise<
     .eq("booth_id", boothId).eq("attendee_id", attendeeId).select("id");
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+/**
+ * D844: the attendee has watched these stamps arrive. Scoped by attendee as well as id, so an id
+ * posted from someone else's page marks nothing; already-seen rows keep their first time.
+ */
+export async function markStampsSeen(attendeeId: string, stampIds: string[]): Promise<void> {
+  if (stampIds.length === 0) return;
+  const { error } = await serviceClient().from("booth_stamps").update({ seen_at: new Date().toISOString() })
+    .eq("attendee_id", attendeeId).in("id", stampIds).is("seen_at", null);
+  if (error) throw error;
 }
 
 /** Paged (D401): one stamp per attendee per booth passes 1,000 rows on any event of size. */

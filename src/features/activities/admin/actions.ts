@@ -18,7 +18,7 @@ import { sweepSubmissionPrefix, nextImage, deleteEventImage, uploadEventImage, t
 import { readAnswers, discardUploads, saveOrDiscard, deleteReplacedFiles } from "../lib/submission-uploads";
 import { nextFileHashes } from "@/lib/file-hashes";
 import { perDayCollision, groupRuleChangeBlocked, liveSubmissions } from "../lib/submissions";
-import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths } from "../db/booths";
+import { createBooth, updateBooth, setBoothOrder, deleteBoothIfUnstamped, listPassportBooths, getBoothInEvent } from "../db/booths";
 import type { Activity, ActivityKind, ActivitySubmission, Event } from "@/lib/types";
 import { featureForActivityKind, requireFeature } from "@/features/catalogue";
 import { disqualify, undoDisqualify } from "../db/challenge";
@@ -979,13 +979,28 @@ export async function addBoothAction(eventId: string, activityId: string, fd: Fo
   revalidatePath(detailPath(eventId, activityId));
 }
 
-/** Always allowed, stamped or not: stamps point at the row, not its name (D94). */
+/**
+ * Always allowed, stamped or not: stamps point at the row, not its name (D94). Carries the booth's
+ * stamp artwork too (D848): uploaded, kept or removed, and the replaced file deleted only once
+ * the row no longer names it.
+ */
 export async function renameBoothAction(eventId: string, activityId: string, boothId: string, fd: FormData) {
   const ev = await event(eventId);
   await passportOf(ev, activityId);
   const name = text(fd, "name");
   if (!name) throw new Error("A booth needs a name");
-  await updateBooth(boothId, ev.id, activityId, { name, location: text(fd, "location") || null, location_url: readMapLink(text(fd, "location_url")) });
+  const booth = await getBoothInEvent(boothId, ev.id);
+  if (!booth || booth.activity_id !== activityId) redirect(flashPath(detailPath(eventId, activityId), "That booth no longer exists.", "error"));
+  let image: ImageChange = { url: booth.stamp_image_url, stale: null };
+  try {
+    image = await nextImage(fd, "stamp_image", booth.stamp_image_url, { orgId: ev.org_id, eventId: ev.id, kind: "booth-stamp" });
+  } catch (e) {
+    redirect(flashPath(detailPath(eventId, activityId), (e as Error).message, "error"));
+  }
+  await updateBooth(boothId, ev.id, activityId, {
+    name, location: text(fd, "location") || null, location_url: readMapLink(text(fd, "location_url")), stamp_image_url: image.url,
+  });
+  await deleteEventImage(image.stale);
   revalidatePath(detailPath(eventId, activityId));
 }
 
@@ -1000,7 +1015,10 @@ export async function reorderBoothsAction(eventId: string, activityId: string, i
 export async function deleteBoothAction(eventId: string, activityId: string, boothId: string) {
   const ev = await event(eventId);
   await passportOf(ev, activityId);
+  // Read first: once the row is gone, nothing says which artwork was its (D848).
+  const booth = await getBoothInEvent(boothId, ev.id);
   const removed = await deleteBoothIfUnstamped(boothId, ev.id, activityId);
+  if (removed) await deleteEventImage(booth?.stamp_image_url);
   const path = detailPath(eventId, activityId);
   revalidatePath(path);
   redirect(removed
