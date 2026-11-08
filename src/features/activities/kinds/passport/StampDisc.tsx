@@ -24,8 +24,7 @@ export function StampGlyph({ deg, size = 52 }: { deg: number; size?: number }) {
 export function StampDisc({ image, name, deg, className = "" }: { image: string | null; name: string; deg: number; className?: string }) {
   return (
     <div
-      /* theme-fixed: the disc is white on every theme so the artwork reads (D850) */
-      className={`relative size-full rounded-full bg-white shadow-[0_6px_16px_rgba(0,0,0,0.3)] ${className}`}
+      className={`relative size-full rounded-full bg-white shadow-[0_6px_16px_rgba(0,0,0,0.3)] ${className}`} /* theme-fixed: white on every theme so the artwork reads (D850) */
       style={{ transform: `rotate(${deg}deg)` }}
     >
       {image ? (
