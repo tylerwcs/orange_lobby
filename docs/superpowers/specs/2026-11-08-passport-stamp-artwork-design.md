@@ -112,7 +112,8 @@ it read on any theme (found while mocking up on the UOB navy).
   QR image and layout match the badge dialog. The help line is the passport's own (see
   Constraints, Language).
 - **While the dialog is open, the page asks the server every ~2 seconds** whether this attendee
-  has a stamp on this passport that they haven't seen yet. *(My call: polling, not Supabase
+  has a stamp on this passport newer than the latest one the page already shows (a cursor, so
+  it works in a draft preview too, where nothing is marked seen). *(My call: polling, not Supabase
   Realtime. Nothing in the app uses Realtime, and attendee access is by link token, not a
   session.)* Polling stops when the dialog closes or the page is hidden.
 - When a new stamp arrives, the dialog closes and the reveal plays.
