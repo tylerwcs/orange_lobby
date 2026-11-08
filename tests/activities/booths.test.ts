@@ -3,10 +3,10 @@ import { buildPassport, completionByAttendee, firstPassport, firstPublicPassport
 import type { Booth, BoothStamp } from "@/lib/types";
 
 const booth = (id: string, sort_order = 0, activity_id = "p1"): Booth => ({
-  id, org_id: "o", event_id: "e", activity_id, name: id, location: null, location_url: null, token: `tok${id}`, sort_order,
+  id, org_id: "o", event_id: "e", activity_id, name: id, location: null, location_url: null, token: `tok${id}`, sort_order, stamp_image_url: null,
 });
 const stamp = (booth_id: string, attendee_id: string, stamped_at: string): BoothStamp => ({
-  id: `${booth_id}-${attendee_id}`, org_id: "o", event_id: "e", booth_id, attendee_id, stamped_at,
+  id: `${booth_id}-${attendee_id}`, org_id: "o", event_id: "e", booth_id, attendee_id, stamped_at, seen_at: stamped_at,
 });
 
 describe("stampsTarget", () => {

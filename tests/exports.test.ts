@@ -170,12 +170,12 @@ describe("roster workbook", () => {
 
 describe("buildPassportWorkbook", () => {
   const booths: Booth[] = [
-    { id: "b1", org_id: "o", event_id: "e", activity_id: "p1", name: "Operations", location: "Foyer", location_url: null, token: "t1", sort_order: 0 },
-    { id: "b2", org_id: "o", event_id: "e", activity_id: "p1", name: "Creative Studio", location: "Foyer", location_url: null, token: "t2", sort_order: 1 },
+    { id: "b1", org_id: "o", event_id: "e", activity_id: "p1", name: "Operations", location: "Foyer", location_url: null, token: "t1", sort_order: 0 , stamp_image_url: null },
+    { id: "b2", org_id: "o", event_id: "e", activity_id: "p1", name: "Creative Studio", location: "Foyer", location_url: null, token: "t2", sort_order: 1 , stamp_image_url: null },
   ];
   const stamps: BoothStamp[] = [
-    { id: "s1", org_id: "o", event_id: "e", booth_id: "b1", attendee_id: "a1", stamped_at: "2026-09-30T02:24:00Z" },
-    { id: "s2", org_id: "o", event_id: "e", booth_id: "b2", attendee_id: "a1", stamped_at: "2026-09-30T02:41:00Z" },
+    { id: "s1", org_id: "o", event_id: "e", booth_id: "b1", attendee_id: "a1", stamped_at: "2026-09-30T02:24:00Z", seen_at: null },
+    { id: "s2", org_id: "o", event_id: "e", booth_id: "b2", attendee_id: "a1", stamped_at: "2026-09-30T02:41:00Z", seen_at: null },
   ];
   const attendees = [
     { id: "a1", name: "Aiman Zulkifli", email: "a@x.my", category: "Management", extra: { company: "Ecopia" } },
@@ -207,11 +207,11 @@ describe("buildPassportWorkbook", () => {
   });
 
   it("writes one sheet per passport, each with only its own booths", () => {
-    const other: Booth[] = [{ id: "c1", org_id: "o", event_id: "e", activity_id: "p2", name: "Photo Wall", location: null, location_url: null, token: "t3", sort_order: 0 }];
+    const other: Booth[] = [{ id: "c1", org_id: "o", event_id: "e", activity_id: "p2", name: "Photo Wall", location: null, location_url: null, token: "t3", sort_order: 0 , stamp_image_url: null }];
     const wb = buildPassportWorkbook(attendees, [
       { name: "Booth Passport", booths, required: null },
       { name: "Wellness Trail", booths: other, required: null },
-    ], [...stamps, { id: "s3", org_id: "o", event_id: "e", booth_id: "c1", attendee_id: "a2", stamped_at: "2026-09-30T03:00:00Z" }]);
+    ], [...stamps, { id: "s3", org_id: "o", event_id: "e", booth_id: "c1", attendee_id: "a2", stamped_at: "2026-09-30T03:00:00Z", seen_at: null }]);
     expect(wb.worksheets.map((w) => w.name)).toEqual(["Booth Passport", "Wellness Trail"]);
     const trail = wb.getWorksheet("Wellness Trail")!;
     expect(trail.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Photo Wall", "Stamps", "Completed"]);

@@ -321,6 +321,8 @@ export type Booth = {
   /** The booth's scanner authority. Printed as a QR; never shown to attendees. */
   token: string;
   sort_order: number;
+  /** D844: the designer's stamp artwork, a transparent PNG shown once this booth has stamped. Null is the plain ring and tick. */
+  stamp_image_url: string | null;
 };
 
 export type BoothStamp = {
@@ -330,6 +332,8 @@ export type BoothStamp = {
   booth_id: string;
   attendee_id: string;
   stamped_at: string;
+  /** D844: when its attendee saw it arrive. Null plays the reveal on their next visit. */
+  seen_at: string | null;
 };
 
 /** What an attendee does with an activity: take a seat, send answers, collect stamps, post a polaroid, or play in a squad (D178, D179, D471, D637). */

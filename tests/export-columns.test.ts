@@ -69,7 +69,7 @@ describe("chosen columns in each export", () => {
   });
 
   it("Booth Passport: after Category, before the booths", () => {
-    const booths: Booth[] = [{ id: "b1", org_id: "o", event_id: "e", activity_id: "p", name: "Ops", location: null, location_url: null, token: "t", sort_order: 0 }];
+    const booths: Booth[] = [{ id: "b1", org_id: "o", event_id: "e", activity_id: "p", name: "Ops", location: null, location_url: null, token: "t", sort_order: 0 , stamp_image_url: null }];
     const attendees = [{ id: "a1", name: "Ann", email: "a@b.co", category: "VIP", extra }] as unknown as Parameters<typeof buildPassportWorkbook>[0];
     const ws = buildPassportWorkbook(attendees, [{ name: "Passport", booths, required: null }], [], nickname).getWorksheet("Passport")!;
     expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Nickname", "Ops", "Stamps", "Completed"]);
