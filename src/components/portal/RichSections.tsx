@@ -24,7 +24,7 @@ export function RichSections({ html, lang = "en" }: { html: string | null; lang?
   return (
     <div className="flex flex-col">
       {blocks.map((b, i) => (
-        <section key={i} className="-mx-4 border-t-8 border-muted px-4 py-5 md:mx-0 md:px-0">
+        <section key={i} className="-mx-4 border-t-8 border-divider px-4 py-5 md:mx-0 md:px-0">
           <h2 className="mb-2 text-lg font-extrabold">{b.title}</h2>
           {b.html && <div className="rich-text prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: b.html }} />}
         </section>

@@ -64,6 +64,25 @@ describe("themeTokens (D622-D632)", () => {
     expect(r(t["--primary-foreground"], t["--primary"])).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("D859: white cards on navy get a soft navy divider, not the near-white muted", () => {
+    const { tokens: t } = themeTokens({ ...UOB, overrides: { card: "#ffffff" } }, "#005cb9");
+    expect(t["--divider"]).toBeDefined();
+    expect(r(t["--divider"], "#FFFFFF")).toBeGreaterThanOrEqual(7); // a dark band
+    expect(r(t["--divider"], t["--background"])).toBeGreaterThanOrEqual(1.2);
+    expect(r(t["--divider"], t["--background"])).toBeLessThanOrEqual(2.2); // quiet, not a stripe
+  });
+
+  it("D859: same-polarity themes set no divider, so it stays --muted", () => {
+    expect(themeTokens(UOB, "#d9b25f").tokens["--divider"]).toBeUndefined(); // navy cards on navy
+    expect(themeTokens({ ...EMPTY_THEME, background: "#fef3c7" }, null).tokens["--divider"]).toBeUndefined();
+  });
+
+  it("D859: a dark card on the default light page gets a slightly darker page shade", () => {
+    const { tokens: t } = themeTokens({ ...EMPTY_THEME, overrides: { card: "#1f2937" } }, null);
+    expect(r(t["--divider"], "#F5F5F3")).toBeGreaterThanOrEqual(1.05);
+    expect(r(t["--divider"], "#F5F5F3")).toBeLessThanOrEqual(1.6);
+  });
+
   it("mixed polarity never gives up button text on the primary fill", () => {
     for (const p of ["#F97316", "#ffb066"]) {
       const { tokens: t } = themeTokens({ ...EMPTY_THEME, overrides: { card: "#0b1f4b" } }, p);

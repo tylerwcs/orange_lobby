@@ -27,6 +27,7 @@
   --secondary-foreground: oklch(0.2101 0.0318 264.66); /* #111827 */
   /* D64: --muted is a BACKGROUND here. The secondary text colour is --muted-foreground. */
   --muted: oklch(0.961 0.0029 264.54); /* #F1F2F4 */
+  --divider: var(--muted); /* D859: the section bar; a theme with white cards on a dark page sets its own */
   --muted-foreground: oklch(0.4461 0.0263 256.8); /* #4B5563 */
   /* Secondary text on card surfaces; differs from --muted-foreground only when a theme puts light
      cards on a dark ground (or the reverse). The base layer swaps it in on .bg-card / .bg-popover. */
@@ -119,6 +120,7 @@
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
+  --color-divider: var(--divider);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);

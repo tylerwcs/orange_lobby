@@ -360,6 +360,12 @@ function build(ground: Rgb, theme: EventTheme, primary: string | null): Built {
     "--rich-rule": toHex(border),
   };
 
+  // D859: the thick bar between an activity page's sections sits on the page, but `--muted`
+  // follows the card - so white cards on navy drew a near-white stripe under the title. With
+  // mixed polarity the bar is a quiet shade of the page instead; otherwise globals.css keeps it
+  // `--muted`, exactly as before.
+  if (mixed) tokens["--divider"] = toHex(isDark ? lift(ground, 0.1, 1.3) : shade(ground, -0.05));
+
   // D632: headings default to the text colour (inherited); an override reaches titles, or cards too.
   if (o.heading) {
     const heading = readableOrFallback(hexToRgb(o.heading)!, [...page, card], fg.rgb);

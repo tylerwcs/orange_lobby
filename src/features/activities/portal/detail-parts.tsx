@@ -4,7 +4,7 @@ import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 import { MapLink } from "./MapLink";
 
-export const block = "-mx-4 border-t-8 border-muted px-4 py-5 md:mx-0 md:px-0";
+export const block = "-mx-4 border-t-8 border-divider px-4 py-5 md:mx-0 md:px-0";
 export const note = "text-sm text-muted-foreground";
 
 /** "For VIP, Management" when only some groups may take part; nothing when everyone may. */
