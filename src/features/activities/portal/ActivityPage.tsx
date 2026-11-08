@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { loadPortalAttendee, isUnpublished } from "@/lib/portal";
+import { loadPortalAttendee, isUnpublished, isDraftPreview } from "@/lib/portal";
+import { eventAddress } from "@/features/domains";
+import { attendeeLink } from "@/lib/links";
+import { qrDataUrl } from "@/lib/qr";
 import { loadActivityEntries } from "../lib/portal-activity-entries";
 import { findEntry, type FoundEntry } from "../cards";
 import { ActivityCover } from "./ActivityParts";
@@ -54,6 +57,11 @@ export async function ActivityPage({ params, searchParams }: {
     ? await proxyFor(found.entry.form, attendee, found.entry.state, otherTrack?.kind === "submission" ? otherTrack.entry : null)
     : null;
 
+  // D852: a passport's Show my QR needs the badge's QR, and a draft preview replays nothing.
+  const passportExtras = found.kind === "passport"
+    ? { qr: await qrDataUrl(attendeeLink(await eventAddress(event), attendee.token)), preview: await isDraftPreview(slug) }
+    : null;
+
   // One case per kind (D416): a kind added to ActivityKind does not build until it has a body here.
   function body(found: FoundEntry) {
     switch (found.kind) {
@@ -71,7 +79,7 @@ export async function ActivityPage({ params, searchParams }: {
           : <SubmissionBody lang={lang} entry={form} slug={slug} token={token} writing={writing === "1"} people={entries.people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />;
       }
       case "passport":
-        return <PassportBody entry={found.entry} attendeeName={attendee.name} />;
+        return <PassportBody entry={found.entry} attendeeName={attendee.name} slug={slug} token={token} qr={passportExtras!.qr} preview={passportExtras!.preview} />;
       case "polaroid":
         return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} />;
       case "tournament":

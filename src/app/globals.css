@@ -264,6 +264,8 @@ input, textarea { touch-action: manipulation; }
    once, as the tab opens. Used through `motion-safe:` so reduced motion draws them still. */
 @keyframes podium-rise { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes bar-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* D852: a revealed stamp settling into its passport slot. */
+@keyframes stamp-settle { 0% { transform: scale(1.12); } 60% { transform: scale(0.97); } 100% { transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

@@ -8,6 +8,7 @@ import { shortDateTime } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
 import { MapLink } from "../../portal/MapLink";
 import { StampDisc, StampGlyph } from "./StampDisc";
+import { LandedCover } from "./PassportLive";
 
 // A small tilt per cell echoes an actual rubber stamp landing slightly askew - purely
 // decorative, cycled by index so it never depends on how many booths an event has.
@@ -133,7 +134,7 @@ function RoundSlot({ cell, deg, alone }: { cell: PassportCell; deg: number; alon
       // An odd last slot sits centred in its row at a normal slot's width, not stretched across it.
       className={`flex min-w-0 flex-col items-center gap-1.5 ${alone ? "col-span-2 w-[calc(50%-0.4375rem)] justify-self-center" : ""}`}
     >
-      <div className="relative aspect-square w-full p-[3%]">
+      <div data-slot-face data-deg={deg} className="relative aspect-square w-full p-[3%]">
         {stamped ? (
           <StampDisc image={cell.booth.stamp_image_url} name={cell.booth.name} deg={deg} />
         ) : (
@@ -143,6 +144,7 @@ function RoundSlot({ cell, deg, alone }: { cell: PassportCell; deg: number; alon
             {cell.booth.location && <div className="line-clamp-2 text-xs text-muted-foreground">{cell.booth.location}</div>}
           </div>
         )}
+        {!stamped && <LandedCover boothId={cell.booth.id} image={cell.booth.stamp_image_url} name={cell.booth.name} deg={deg} />}
       </div>
       <MapLink href={cell.booth.location_url} place={cell.booth.location ?? cell.booth.name} />
     </div>
