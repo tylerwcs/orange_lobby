@@ -4,12 +4,12 @@ import { groupMembers } from "@/lib/db/groups";
 import { isYes } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
 import {
-  isLocked, pickSport, portalSquadPeople, sideOfGroup, sportCookie, SquadsPage, TournamentPage, tournamentTab, type MatchFilter, type ResultsView,
+  isLocked, pickSport, portalSquadPeople, sideOfGroup, sportCookie, squadPeople, SquadsPage, TournamentPage, tournamentTab, type MatchFilter, type ResultsView,
 } from "@/features/tournaments";
 import type { TournamentEntry } from "../../lib/portal-activity-entries";
 import { opensLabel } from "../../lib/schedule";
 
-const VIEWS: ResultsView[] = ["matches", "standings", "playoffs"];
+const VIEWS: ResultsView[] = ["matches", "standings", "playoffs", "lanes", "totals"];
 const SHOWS: MatchFilter[] = ["all", "mine", "left", "done"];
 
 /**
@@ -19,14 +19,21 @@ const SHOWS: MatchFilter[] = ["all", "mine", "left", "done"];
  * field, as My group orders them (D366). A super team's page holds both teams (D827), each with
  * its own captain named.
  */
-export async function TournamentBody({ entry, slug, token, tab = null, sport = null, view = null, show = null }: {
-  entry: TournamentEntry; slug: string; token: string; tab?: string | null; sport?: string | null; view?: string | null; show?: string | null;
+export async function TournamentBody({ entry, slug, token, tab = null, sport = null, view = null, show = null, game = null }: {
+  entry: TournamentEntry; slug: string; token: string; tab?: string | null; sport?: string | null; view?: string | null; show?: string | null; game?: string | null;
 }) {
   const { activity, sports, rows, attendeeId, groupId, sideId, sides, picker, results, groups, bonus } = entry;
   const side = sides ? sideOfGroup(sides, groupId) : null;
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
   const teams = (side?.groupIds ?? [groupId]).map((id) => ({ id, name: groupName.get(id) ?? "Your group" }));
-  const [byTeam, jar] = await Promise.all([Promise.all(teams.map((t) => groupMembers(activity.event_id, t.id))), cookies()]);
+  // D867: every seated bowler's name, for the lane-draw view.
+  const seated = results.flatMap((r) => (r.seats ?? []).map((s) => s.attendee_id));
+  const [byTeam, jar, bowlerPeople] = await Promise.all([
+    Promise.all(teams.map((t) => groupMembers(activity.event_id, t.id))), cookies(),
+    seated.length ? squadPeople(activity.event_id, seated) : Promise.resolve(new Map()),
+  ]);
+  const bowlers = new Map([...bowlerPeople.values()].map((p) => [p.id, p.name] as const));
+  const gameNo = game && /^\d{1,2}$/.test(game) ? Number(game) : null;
   const everyone = byTeam.flat();
   const { names, members } = portalSquadPeople(everyone, activity.categories);
   const groupOf = new Map(everyone.map((m) => [m.id, m.group_id ?? groupId]));
@@ -45,6 +52,7 @@ export async function TournamentBody({ entry, slug, token, tab = null, sport = n
       sportId={pickSport(sport, remembered, sports.map((s) => s.id))}
       view={VIEWS.find((v) => v === view) ?? null} show={SHOWS.find((s) => s === show) ?? "all"}
       path={`/e/${slug}/a/${token}/activities/${activity.id}`}
+      selfId={attendeeId} bowlers={bowlers} game={gameNo}
       about={hasAbout ? <RichSections html={activity.description} /> : null}
       squads={
         <SquadsPage

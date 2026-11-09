@@ -6,7 +6,7 @@ import { Modal } from "@/components/admin/Modal";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { squadPeople, squadRows } from "../db/tournaments";
-import { laneComplete, lanePlaces, laneTotals, type LaneSeat } from "../lib/lanes";
+import { gamesOf, laneComplete, lanePlaces, laneTotals } from "../lib/lanes";
 import { defaultPlaying, ordinal, pointsFor, type SportResults } from "../lib/results";
 import { sideRows, type Side } from "../lib/sides";
 import { drawLanesAction, saveLaneGameAction, swapBowlerAction } from "./lane-actions";
@@ -15,16 +15,6 @@ import { resetSportAction, setForfeitAction } from "./results-actions";
 const box = "h-9 w-20 rounded-md border border-input bg-transparent px-2 text-center text-sm tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const select = "h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const list = "flex flex-col divide-y rounded-xl border bg-card";
-
-/** The games of a draw, each with its lanes and their seats, in order. */
-export function gamesOf(seats: LaneSeat[]): { game: number; lanes: { lane: number; seats: LaneSeat[] }[] }[] {
-  const games = [...new Set(seats.map((s) => s.game))].sort((a, b) => a - b);
-  return games.map((game) => {
-    const mine = seats.filter((s) => s.game === game);
-    const lanes = [...new Set(mine.map((s) => s.lane))].sort((a, b) => a - b);
-    return { game, lanes: lanes.map((lane) => ({ lane, seats: mine.filter((s) => s.lane === lane).sort((a, b) => a.seat - b.seat) })) };
-  });
-}
 
 function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (

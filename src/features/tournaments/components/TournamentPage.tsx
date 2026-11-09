@@ -5,8 +5,10 @@ import { poolStandings, resolveSport, sportPlaces, timeTable, tournamentOverall,
 import type { Side } from "../lib/sides";
 import { MatchCard, OverallView, PlayoffsView, StandingsView, TimeStandingsView } from "./ResultViews";
 import { SportSelect } from "./SportSelect";
+import { LanesView } from "./LanesView";
+import { laneScoresVisible } from "../lib/lanes";
 
-export type ResultsView = "matches" | "standings" | "playoffs";
+export type ResultsView = "matches" | "standings" | "playoffs" | "lanes" | "totals";
 export type MatchFilter = "all" | "mine" | "left" | "done";
 
 const FILTERS: { key: MatchFilter; label: string }[] = [
@@ -23,7 +25,7 @@ const REFRESH_SECONDS = 15;
  * Playoffs. Every choice is a URL (`?tab=`, `&sport=`, `&view=`, `&show=`), and the tab links
  * carry the sport, so moving to About and back lands on the same sport.
  */
-export function TournamentPage({ activity, results, groups, groupId, sides = null, sideId = groupId, bonus, tab, sportId, view, show, path, about, squads }: {
+export function TournamentPage({ activity, results, groups, groupId, sides = null, sideId = groupId, bonus, tab, sportId, view, show, path, about, squads, selfId = "", bowlers = new Map(), game = null }: {
   activity: Activity;
   results: SportResults[];
   groups: { id: string; name: string }[];
@@ -46,6 +48,10 @@ export function TournamentPage({ activity, results, groups, groupId, sides = nul
   about: React.ReactNode | null;
   /** The group's squads for every sport, drawn by the caller. */
   squads: React.ReactNode;
+  /** D867: the viewer, every seated bowler's name, and the lane-draw game in the link. */
+  selfId?: string;
+  bowlers?: Map<string, string>;
+  game?: number | null;
 }) {
   const names = new Map(groups.map((g) => [g.id, g.name]));
   // D830/D832: Results and the Leaderboard name the sides - one row per super team.
@@ -60,14 +66,17 @@ export function TournamentPage({ activity, results, groups, groupId, sides = nul
   ];
   const current = results.find((r) => r.sport.id === sportId) ?? null;
   const manual = current?.sport.format === "manual";
+  const lanes = current?.sport.format === "lanes";
   // D673: a time sport has no playoffs - its Standings are the places.
   const timed = current?.sport.result_kind === "time";
-  const views: { key: ResultsView; label: string }[] = [
-    { key: "matches", label: "Matches" },
-    ...(manual ? [] : [{ key: "standings" as const, label: "Standings" }]),
-    ...(manual || timed ? [] : [{ key: "playoffs" as const, label: "Playoffs" }]),
-  ];
-  const sub = views.find((v) => v.key === view)?.key ?? "matches";
+  const views: { key: ResultsView; label: string }[] = lanes
+    ? [{ key: "lanes", label: "Lanes" }, { key: "totals", label: "Totals" }]
+    : [
+      { key: "matches", label: "Matches" },
+      ...(manual ? [] : [{ key: "standings" as const, label: "Standings" }]),
+      ...(manual || timed ? [] : [{ key: "playoffs" as const, label: "Playoffs" }]),
+    ];
+  const sub = views.find((v) => v.key === view)?.key ?? views[0].key;
   const href = (q: Record<string, string | undefined>) =>
     `${path}?${new URLSearchParams(Object.entries(q).filter((e): e is [string, string] => !!e[1]))}`;
   const cols = ["grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4"][tabs.length - 1];
@@ -113,8 +122,14 @@ export function TournamentPage({ activity, results, groups, groupId, sides = nul
                 ))}
               </nav>
             )}
-            <SportView sr={current} tab={sub} show={show} names={sideNames} groupId={sideId} table={table.length ? table : null}
-              filterHref={(f) => href({ tab: "results", sport: current.sport.id, view: "matches", show: f === "all" ? undefined : f })} />
+            {lanes ? (
+              <LanesView sr={current} view={sub === "totals" ? "totals" : "lanes"} game={game} names={sideNames} bowlers={bowlers} selfId={selfId} sideId={sideId}
+                visible={laneScoresVisible(activity)} table={table.length ? table : null}
+                gameHref={(g) => href({ tab: "results", sport: current.sport.id, view: "lanes", game: String(g) })} />
+            ) : (
+              <SportView sr={current} tab={sub} show={show} names={sideNames} groupId={sideId} table={table.length ? table : null}
+                filterHref={(f) => href({ tab: "results", sport: current.sport.id, view: "matches", show: f === "all" ? undefined : f })} />
+            )}
           </>
         )}
       </div>

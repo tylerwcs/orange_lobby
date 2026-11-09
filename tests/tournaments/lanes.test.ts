@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSwapIn, drawLanes, laneComplete, lanePlaces, laneTotals, type LaneSeat } from "@/features/tournaments/lib/lanes";
+import { canSwapIn, drawLanes, laneComplete, lanePlaces, laneScoresVisible, laneTotals, type LaneSeat } from "@/features/tournaments/lib/lanes";
 import { sportPlaces, type SportResults } from "@/features/tournaments/lib/results";
 import type { TournamentSport } from "@/features/tournaments/lib/squads";
 
@@ -115,5 +115,14 @@ describe("canSwapIn (D864)", () => {
   it("refuses someone already bowling in this sport", () => {
     expect(canSwapIn(seats, "bw", "A-1")).toBe(false);
     expect(canSwapIn(seats, "bw", "stand-in")).toBe(true);
+  });
+});
+
+describe("laneScoresVisible (D867)", () => {
+  it("hides lane scores from attendees only while the reveal switch is off", () => {
+    expect(laneScoresVisible({ show_overall: false })).toBe(false);
+    expect(laneScoresVisible({ show_overall: true })).toBe(true);
+    expect(laneScoresVisible({ show_overall: null })).toBe(true);
+    expect(laneScoresVisible({})).toBe(true);
   });
 });

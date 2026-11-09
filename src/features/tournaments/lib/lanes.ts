@@ -117,6 +117,21 @@ export function lanePlaces(sr: SportResults): Place[] {
   return out.sort((a, b) => a.place - b.place || a.groupId.localeCompare(b.groupId));
 }
 
+/** The games of a draw, each with its lanes and their seats, in order. */
+export function gamesOf(seats: LaneSeat[]): { game: number; lanes: { lane: number; seats: LaneSeat[] }[] }[] {
+  const games = [...new Set(seats.map((s) => s.game))].sort((a, b) => a - b);
+  return games.map((game) => {
+    const mine = seats.filter((s) => s.game === game);
+    const lanes = [...new Set(mine.map((s) => s.lane))].sort((a, b) => a - b);
+    return { game, lanes: lanes.map((lane) => ({ lane, seats: mine.filter((s) => s.lane === lane).sort((a, b) => a.seat - b.seat) })) };
+  });
+}
+
+/** D867: attendees see lane scores, totals and places unless the reveal switch (D662) is off. */
+export function laneScoresVisible(activity: { show_overall?: boolean | null }): boolean {
+  return activity.show_overall !== false;
+}
+
 /** D864: whether this person can take a seat - not already bowling in the sport. */
 export function canSwapIn(seats: LaneSeat[], sportId: string, inId: string): boolean {
   return !seats.some((s) => s.sport_id === sportId && s.attendee_id === inId);

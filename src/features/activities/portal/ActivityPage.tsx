@@ -37,10 +37,10 @@ import { portalLang, t } from "@/features/language";
  */
 export async function ActivityPage({ params, searchParams }: {
   params: Promise<{ slug: string; token: string; activityId: string }>;
-  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[]; sport?: string | string[]; view?: string | string[]; show?: string | string[]; tracks?: string | string[] }>;
+  searchParams: Promise<{ new?: string | string[]; day?: string | string[]; tab?: string | string[]; sport?: string | string[]; view?: string | string[]; show?: string | string[]; game?: string | string[]; tracks?: string | string[] }>;
 }) {
   const { slug, token, activityId } = await params;
-  const { new: writing, day, tab, sport, view, show, tracks } = await searchParams;
+  const { new: writing, day, tab, sport, view, show, game, tracks } = await searchParams;
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : null);
   const { event, attendee } = await loadPortalAttendee(slug, token);
   // A draft shows only "Coming soon" (the layout's chrome); see isUnpublished.
@@ -83,7 +83,7 @@ export async function ActivityPage({ params, searchParams }: {
       case "polaroid":
         return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} />;
       case "tournament":
-        return <TournamentBody entry={found.entry} slug={slug} token={token} tab={one(tab)} sport={one(sport)} view={one(view)} show={one(show)} />;
+        return <TournamentBody entry={found.entry} slug={slug} token={token} tab={one(tab)} sport={one(sport)} view={one(view)} show={one(show)} game={one(game)} />;
       default: {
         const exhaustive: never = found;
         throw new Error(`Unhandled activity kind: ${String((exhaustive as { kind: string }).kind)}`);
