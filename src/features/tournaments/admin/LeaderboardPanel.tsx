@@ -27,7 +27,7 @@ export async function LeaderboardPanel({ ev, activity }: { ev: Event; activity: 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
         <div className="flex flex-col gap-0.5">
           <p className="text-sm font-bold">Show the overall leaderboard to attendees</p>
-          <p className="text-xs text-muted-foreground">Off hides it until you reveal it, at a closing ceremony say. Match results and places stay visible either way.</p>
+          <p className="text-xs text-muted-foreground">Off hides it until you reveal it, at a closing ceremony say. Match results and places stay visible either way, except a lane draw&apos;s scores, totals and places.</p>
         </div>
         <OpenSwitch open={shown} action={toggleOverallAction.bind(null, ev.id, activity.id, !shown)} name="the overall leaderboard" verb="Show" showLabel states={["Shown", "Hidden"]} />
       </div>

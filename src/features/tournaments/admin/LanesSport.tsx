@@ -117,7 +117,7 @@ export async function LanesSport({ ev, activity, sr, names, sides }: { ev: Event
                             <span className="block truncate font-semibold">{who(s.attendee_id)}</span>
                             <span className="block truncate text-xs text-muted-foreground">{names.get(s.group_id) ?? "A team"}{forfeit.has(s.group_id) ? " · Forfeit" : ""}</span>
                           </span>
-                          <input name={`score:${s.attendee_id}`} aria-label={`${who(s.attendee_id)}'s game ${game} score`} inputMode="numeric" pattern="\d{1,3}"
+                          <input name={`score:${s.attendee_id}`} aria-label={`${who(s.attendee_id)}'s game ${game} score`} type="number" min={0} max={300} step={1} inputMode="numeric"
                             defaultValue={s.score ?? ""} className={box} />
                         </label>
                       ))}
@@ -161,7 +161,8 @@ export async function LanesSport({ ev, activity, sr, names, sides }: { ev: Event
               return (
                 <div key={s.attendee_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                   <span>{who(s.attendee_id)} <span className="text-muted-foreground">· {names.get(s.group_id)}</span></span>
-                  <RowActions name={who(s.attendee_id)} edit={{
+                  <RowActions name={who(s.attendee_id)} dialog={{
+                    label: "Swap bowler",
                     title: `Swap ${who(s.attendee_id)}`,
                     hint: "The new bowler takes every lane and score of this one, and their squad place.",
                     form: (
