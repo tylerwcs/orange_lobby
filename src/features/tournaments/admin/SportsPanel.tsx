@@ -5,7 +5,7 @@ import { Modal } from "@/components/admin/Modal";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { listSports } from "../db/tournaments";
-import { hasMatches } from "../db/results";
+import { hasDraw } from "../db/results";
 import { addSportAction, deleteSportAction, moveSportAction, saveSportAction } from "./actions";
 import { SportFields } from "./SportFields";
 import { SuperTeamsCard } from "./SuperTeamsCard";
@@ -15,8 +15,10 @@ const size = (s: { min_size: number; max_size: number }) => (s.min_size === s.ma
 /** D638, D648: the tournament's sports, in order, each with its squad size and a ⋯ menu. */
 export async function SportsPanel({ ev, activity }: { ev: Event; activity: Activity }) {
   const [sports, groups] = await Promise.all([listSports(activity.id), listGroups(ev.id)]);
-  const locked = new Map(await Promise.all(sports.map(async (s) => [s.id, await hasMatches(s.id)] as const)));
-  const format = (s: (typeof sports)[number]) => `${s.format === "manual" ? "By hand" : `Pools of ${s.pool_size}`} · ${s.result_kind === "time" ? "Time" : "Score"}`;
+  const locked = new Map(await Promise.all(sports.map(async (s) => [s.id, await hasDraw(s.id)] as const)));
+  const format = (s: (typeof sports)[number]) => s.format === "lanes"
+    ? `Lane draw · ${s.lane_count} lanes · ${s.games} games`
+    : `${s.format === "manual" ? "By hand" : `Pools of ${s.pool_size}`} · ${s.result_kind === "time" ? "Time" : "Score"}`;
   const squads = (n: number) => `${n} squad${n === 1 ? "" : "s"}`;
   return (
     <div className="flex flex-col gap-3">

@@ -4,7 +4,7 @@ import { flashPath } from "@/lib/flash";
 import { getAttendee } from "@/lib/db/attendees";
 import type { Activity } from "@/lib/types";
 import { done, formOf, tabPath, tournament } from "./guard";
-import { hasMatches } from "../db/results";
+import { hasDraw } from "../db/results";
 import { addSquadMember, createSport, deleteSport, listSports, moveSport, removeSquadMember, updateSport } from "../db/tournaments";
 import { readSport } from "../lib/sports";
 import { nameInEvent, refusalFlash, type TournamentSport } from "../lib/squads";
@@ -39,8 +39,9 @@ export async function saveSportAction(eventId: string, activityId: string, sport
   const sport = readOrBack(fd, back);
   // D653: a sport with matches keeps its results settings until they're reset.
   const was = (await listSports(cup.id)).find((s) => s.id === sportId);
-  const changed = !!was && (was.result_kind !== sport.result_kind || was.format !== sport.format || was.pool_size !== sport.pool_size);
-  if (changed && (await hasMatches(sportId))) redirect(flashPath(back, "Reset this sport's matches to change its format.", "error"));
+  const changed = !!was && (was.result_kind !== sport.result_kind || was.format !== sport.format || was.pool_size !== sport.pool_size
+    || was.lane_count !== sport.lane_count || was.games !== sport.games);
+  if (changed && (await hasDraw(sportId))) redirect(flashPath(back, "Reset this sport's matches to change its format.", "error"));
   if ((await updateSport(cup.id, sportId, sport)) === "duplicate") redirect(flashPath(back, `There's already a sport called ${sport.name}.`, "error"));
   done(eventId, cup.id, back, "Sport saved.");
 }

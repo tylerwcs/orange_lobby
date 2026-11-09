@@ -57,10 +57,15 @@ export async function resetSport(sportId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function hasMatches(sportId: string): Promise<boolean> {
-  const { count, error } = await serviceClient().from("tournament_matches").select("id", { count: "exact", head: true }).eq("sport_id", sportId);
-  if (error) throw error;
-  return (count ?? 0) > 0;
+/** D860: whether the sport has anything drawn or placed - matches, pool rows or lane seats. Its format is fixed until a reset. */
+export async function hasDraw(sportId: string): Promise<boolean> {
+  const db = serviceClient();
+  const counts = await Promise.all(["tournament_matches", "tournament_pool_groups", "tournament_lane_seats"].map(async (table) => {
+    const { count, error } = await db.from(table).select("sport_id", { count: "exact", head: true }).eq("sport_id", sportId);
+    if (error) throw error;
+    return count ?? 0;
+  }));
+  return counts.some((n) => n > 0);
 }
 
 /** D658: a match's scores or times, and its walkover / went-through. Last save wins. */

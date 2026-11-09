@@ -17,7 +17,7 @@ export async function getTournamentActivity(id: string, eventId: string): Promis
 
 export const SPORT_COLUMNS = "id, activity_id, name, min_size, max_size, position, result_kind, format, pool_size, lane_count, games, forfeits_marked_at";
 
-type SportInput = { name: string; min_size: number; max_size: number; result_kind?: "score" | "time"; format?: "pools" | "manual"; pool_size?: number };
+type SportInput = { name: string; min_size: number; max_size: number; result_kind?: "score" | "time"; format?: "pools" | "manual" | "lanes"; pool_size?: number; lane_count?: number; games?: number };
 
 /** A tournament's sports in the organiser's order (D638). */
 export async function listSports(activityId: string): Promise<TournamentSport[]> {
