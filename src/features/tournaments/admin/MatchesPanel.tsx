@@ -16,6 +16,8 @@ import {
 } from "../lib/results";
 import { swimText } from "../components/ResultViews";
 import { markForfeitsIfDue } from "./forfeits";
+import { LanesSport } from "./LanesSport";
+import { laneComplete } from "../lib/lanes";
 import {
   addMatchAction, clearResultAction, deleteMatchAction, drawPoolsAction, pickTeamsAction, resetSportAction, savePlacesAction, savePoolsAction,
   saveResultAction, setForfeitAction, walkoverAction,
@@ -53,7 +55,11 @@ export async function MatchesPanel({ ev, activity, sportId }: { ev: Event; activ
       <nav aria-label="Sports" className="flex flex-wrap gap-1.5">
         {results.map((r) => {
           const left = matchesLeft(resolveSport(r, names));
-          const suffix = r.matches.length === 0 ? "" : left > 0 ? ` · ${left} left` : " · done";
+          const games = new Set((r.seats ?? []).map((s) => s.game)).size;
+          const keyedGames = new Set((r.seats ?? []).map((s) => s.game).filter((g) => (r.seats ?? []).filter((s) => s.game === g).every((s) => s.score !== null))).size;
+          const suffix = r.sport.format === "lanes"
+            ? (games === 0 ? "" : laneComplete(r) ? " · done" : ` · ${keyedGames} of ${games} games`)
+            : r.matches.length === 0 ? "" : left > 0 ? ` · ${left} left` : " · done";
           return (
             <Link key={r.sport.id} href={href(r.sport.id)} aria-current={r.sport.id === sr.sport.id ? "page" : undefined}
               className={`rounded-full border px-3 py-1 text-sm font-semibold ${r.sport.id === sr.sport.id ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}>
@@ -64,7 +70,9 @@ export async function MatchesPanel({ ev, activity, sportId }: { ev: Event; activ
       </nav>
       {groups.length === 0
         ? <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{activity.super_teams ? "No super teams yet. Pair the teams on the Sports tab." : <>No groups yet. Teams are the event&apos;s groups: add them on the Groups page.</>}</p>
-        : sr.sport.format === "manual"
+        : sr.sport.format === "lanes"
+          ? <LanesSport {...bound} sides={groups} />
+          : sr.sport.format === "manual"
           ? <ManualSport {...bound} groups={groups} />
           : <PoolsSport {...bound} groups={groups} sides={groups} />}
     </div>
