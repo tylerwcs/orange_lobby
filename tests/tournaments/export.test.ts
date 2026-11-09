@@ -114,3 +114,27 @@ describe("resultSheets with super teams (D833)", () => {
     expect(sheets.leaderboard).toHaveLength(5);
   });
 });
+
+describe("resultSheets with a lane draw (D867)", () => {
+  const s: TournamentSport = { id: "bw", activity_id: "act", name: "Bowling", min_size: 1, max_size: 1, position: 0, result_kind: "score", format: "lanes", pool_size: 3, lane_count: 1, games: 2, forfeits_marked_at: null };
+  const groups = [{ id: "g1", name: "Team 1" }, { id: "g2", name: "Team 2" }];
+  const seat = (game: number, n: number, group: string, who: string, score: number) => ({ sport_id: "bw", game, lane: 1, seat: n, group_id: group, attendee_id: who, number: 1, score });
+  const bowling: SportResults = {
+    sport: s, matches: [], slots: [],
+    pools: groups.map((g) => ({ sport_id: "bw", group_id: g.id, pool: 0, forfeit: false, manual_place: null })),
+    seats: [seat(1, 1, "g1", "a", 150), seat(1, 2, "g2", "b", 120), seat(2, 1, "g2", "b", 130), seat(2, 2, "g1", "a", 110)],
+  };
+  const people = new Map([["a", "Ann"], ["b", "Ben"]]);
+
+  it("lists every seat in a Lanes block, and places once every score is in", () => {
+    const sheets = resultSheets({ results: [bowling], groups, table: [40, 35], people });
+    expect(sheets.matches).toEqual([
+      ["Sport", "Game", "Lane", "Seat", "Bowler", "Group", "Score"],
+      ["Bowling", "1", "1", "1", "Ann", "Team 1", "150"],
+      ["Bowling", "1", "1", "2", "Ben", "Team 2", "120"],
+      ["Bowling", "2", "1", "1", "Ben", "Team 2", "130"],
+      ["Bowling", "2", "1", "2", "Ann", "Team 1", "110"],
+    ]);
+    expect(sheets.places.slice(1)).toEqual([["Bowling", "1", "Team 1", "40"], ["Bowling", "2", "Team 2", "35"]]);
+  });
+});

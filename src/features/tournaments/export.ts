@@ -43,7 +43,11 @@ const TIME_HEADER = ["Sport", "Stage", "Team", "Time", "Place", "Note"];
  * with its points. Leaderboard: the overall table, only with a points table - and always, to
  * admins, whatever the reveal switch says.
  */
-export function resultSheets(input: { results: SportResults[]; groups: { id: string; name: string }[]; table: number[] | null; bonus?: CupBonus | null; sides?: Side[] | null }): {
+export function resultSheets(input: {
+  results: SportResults[]; groups: { id: string; name: string }[]; table: number[] | null; bonus?: CupBonus | null; sides?: Side[] | null;
+  /** D867: a lane draw's bowlers, by attendee id. */
+  people?: Map<string, string>;
+}): {
   matches: string[][]; places: string[][]; leaderboard: string[][] | null;
 } {
   // D833: every sheet names the sides - super teams, one leaderboard row each (D832 amended).
@@ -53,8 +57,21 @@ export function resultSheets(input: { results: SportResults[]; groups: { id: str
   const team = (e: { groupId: string | null; pointer: string | null }) => (e.groupId ? names.get(e.groupId) ?? "" : e.pointer ?? "To be picked");
   const matches: string[][] = [];
   const places: string[][] = [["Sport", "Place", who, "Points"]];
-  let last: "score" | "time" | null = null;
+  let last: "score" | "time" | "lanes" | null = null;
   for (const sr of [...input.results].sort((a, b) => a.sport.position - b.sport.position)) {
+    // D867: a lane draw's block is one row per seat, in game, lane and seat order.
+    if (sr.sport.format === "lanes") {
+      if (last !== "lanes") matches.push(["Sport", "Game", "Lane", "Seat", "Bowler", who, "Score"]);
+      last = "lanes";
+      const seats = [...(sr.seats ?? [])].sort((a, b) => a.game - b.game || a.lane - b.lane || a.seat - b.seat);
+      for (const s of seats) {
+        matches.push([sr.sport.name, String(s.game), String(s.lane), String(s.seat), input.people?.get(s.attendee_id) ?? "", names.get(s.group_id) ?? "", s.score === null ? "" : String(s.score)]);
+      }
+      for (const p of sportPlaces(sr, [])) {
+        places.push([sr.sport.name, String(p.place), names.get(p.groupId) ?? "", p.forfeit ? "0 (forfeit)" : String(pointsFor(p, input.table))]);
+      }
+      continue;
+    }
     const kind = sr.sport.result_kind;
     if (kind !== last) matches.push(kind === "time" ? TIME_HEADER : SCORE_HEADER);
     last = kind;
