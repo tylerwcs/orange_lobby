@@ -1,4 +1,5 @@
 import type { Side } from "./sides";
+import { lanePlaces, type LaneSeat } from "./lanes";
 import type { TournamentSport } from "./squads";
 
 /**
@@ -39,7 +40,7 @@ export type Slot = {
   dnf: boolean;
 };
 
-export type SportResults = { sport: TournamentSport; pools: PoolGroup[]; matches: Match[]; slots: Slot[] };
+export type SportResults = { sport: TournamentSport; pools: PoolGroup[]; matches: Match[]; slots: Slot[]; /** D862: a lane draw's seats; none for other formats. */ seats?: LaneSeat[] };
 
 /** What `set_sport_plan` writes: a sport's pools and its matches with their slots, ids chosen here. */
 export type MatchPlan = {
@@ -434,6 +435,8 @@ export type Place = { place: number; groupId: string; forfeit: boolean };
  * ranks, equal bests sharing a place. By hand (D665): the admin's numbers.
  */
 export function sportPlaces(sr: SportResults, resolved: Resolved[]): Place[] {
+  // D866: a lane draw ranks its sides by total.
+  if (sr.sport.format === "lanes") return lanePlaces(sr);
   const forfeit = new Set(sr.pools.filter((p) => p.forfeit).map((p) => p.group_id));
   const places: Place[] = [];
   const put = (place: number, groupId: string | null) => {
