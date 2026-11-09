@@ -3,6 +3,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { selectAll } from "@/lib/db/select-all";
 import { listSports } from "./tournaments";
 import type { Match, MatchPlan, PoolGroup, Slot, SportResults } from "../lib/results";
+import type { LaneSeat } from "../lib/lanes";
 
 /**
  * The results rows (D669): pools, matches and slots. Everything else is worked out from them by
@@ -11,6 +12,7 @@ import type { Match, MatchPlan, PoolGroup, Slot, SportResults } from "../lib/res
 
 const MATCH_COLUMNS = "id, sport_id, stage, pool, bracket, round, position, walkover_to, went_through";
 const SLOT_COLUMNS = "match_id, slot, group_id, source_match_id, source_outcome, score, time_ms, dnf";
+const SEAT_COLUMNS = "sport_id, game, lane, seat, group_id, attendee_id, number, score";
 
 /** Every sport of a tournament with its pools, matches and slots, in the organiser's order. */
 export async function loadResults(activityId: string): Promise<SportResults[]> {
@@ -18,11 +20,14 @@ export async function loadResults(activityId: string): Promise<SportResults[]> {
   if (sports.length === 0) return [];
   const ids = sports.map((s) => s.id);
   const db = serviceClient();
-  const [pools, matches] = await Promise.all([
+  const [pools, matches, seats] = await Promise.all([
     selectAll<PoolGroup>((from, to) => db.from("tournament_pool_groups").select("sport_id, group_id, pool, forfeit, manual_place")
       .in("sport_id", ids).order("sport_id").order("group_id").range(from, to)),
     selectAll<Match>((from, to) => db.from("tournament_matches").select(MATCH_COLUMNS)
       .in("sport_id", ids).order("position").order("id").range(from, to)),
+    // D862: lane-draw seats, in game, lane and seat order.
+    selectAll<LaneSeat>((from, to) => db.from("tournament_lane_seats").select(SEAT_COLUMNS)
+      .in("sport_id", ids).order("sport_id").order("game").order("lane").order("seat").range(from, to)),
   ]);
   const slots: Slot[] = [];
   const matchIds = matches.map((m) => m.id);
@@ -34,7 +39,10 @@ export async function loadResults(activityId: string): Promise<SportResults[]> {
   return sports.map((sport) => {
     const mine = matches.filter((m) => m.sport_id === sport.id);
     const own = new Set(mine.map((m) => m.id));
-    return { sport, pools: pools.filter((p) => p.sport_id === sport.id), matches: mine, slots: slots.filter((s) => own.has(s.match_id)) };
+    return {
+      sport, pools: pools.filter((p) => p.sport_id === sport.id), matches: mine, slots: slots.filter((s) => own.has(s.match_id)),
+      seats: seats.filter((s) => s.sport_id === sport.id),
+    };
   });
 }
 
@@ -50,9 +58,34 @@ export async function writePlan(sportId: string, plan: MatchPlan, force: boolean
   return data as "ok" | "has_results" | "missing";
 }
 
-/** D655: Reset - no pools, no matches, and forfeits marked afresh after the next draw. */
+/** D863: the whole lane draw in one transaction - who plays and every seat. `has_scores` once any score is in, unless forced. */
+export async function writeLaneDraw(
+  sportId: string, pools: { group_id: string; forfeit: boolean }[], seats: Omit<LaneSeat, "score">[], force: boolean,
+): Promise<"ok" | "has_scores" | "missing"> {
+  const { data, error } = await serviceClient().rpc("set_lane_draw", { p_sport_id: sportId, p_pools: pools, p_seats: seats, p_force: force });
+  if (error) throw error;
+  return data as "ok" | "has_scores" | "missing";
+}
+
+/** D865: one game's scores (null = not keyed). Last save wins. */
+export async function saveLaneScores(sportId: string, game: number, scores: { lane: number; seat: number; score: number | null }[]): Promise<void> {
+  const db = serviceClient();
+  for (const s of scores) {
+    const { error } = await db.from("tournament_lane_seats").update({ score: s.score }).eq("sport_id", sportId).eq("game", game).eq("lane", s.lane).eq("seat", s.seat);
+    if (error) throw error;
+  }
+}
+
+/** D864: the new bowler takes every seat of the old one in this sport, scores and all. */
+export async function swapLaneBowler(sportId: string, outId: string, inId: string): Promise<void> {
+  const { error } = await serviceClient().from("tournament_lane_seats").update({ attendee_id: inId }).eq("sport_id", sportId).eq("attendee_id", outId);
+  if (error) throw error;
+}
+
+/** D655, D863: Reset - no pools, no matches, no lane seats, and forfeits marked afresh after the next draw. */
 export async function resetSport(sportId: string): Promise<void> {
   await writePlan(sportId, { pools: [], matches: [] }, true);
+  await writeLaneDraw(sportId, [], [], true);
   const { error } = await serviceClient().from("tournament_sports").update({ forfeits_marked_at: null }).eq("id", sportId);
   if (error) throw error;
 }
