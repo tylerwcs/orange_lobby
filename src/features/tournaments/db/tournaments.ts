@@ -15,7 +15,7 @@ export async function getTournamentActivity(id: string, eventId: string): Promis
   return (data as Activity | null) ?? null;
 }
 
-export const SPORT_COLUMNS = "id, activity_id, name, min_size, max_size, position, result_kind, format, pool_size, forfeits_marked_at";
+export const SPORT_COLUMNS = "id, activity_id, name, min_size, max_size, position, result_kind, format, pool_size, lane_count, games, forfeits_marked_at";
 
 type SportInput = { name: string; min_size: number; max_size: number; result_kind?: "score" | "time"; format?: "pools" | "manual"; pool_size?: number };
 

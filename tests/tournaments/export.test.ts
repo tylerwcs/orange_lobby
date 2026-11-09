@@ -44,7 +44,7 @@ describe("buildSquadsWorkbook", () => {
 
 describe("resultSheets (D666)", () => {
   const sport = (over: Partial<TournamentSport>): TournamentSport => ({
-    id: "s", activity_id: "act", name: "Futsal", min_size: 1, max_size: 5, position: 0, result_kind: "score", format: "pools", pool_size: 2, forfeits_marked_at: null, ...over,
+    id: "s", activity_id: "act", name: "Futsal", min_size: 1, max_size: 5, position: 0, result_kind: "score", format: "pools", pool_size: 2, lane_count: 6, games: 4, forfeits_marked_at: null, ...over,
   });
   const groups = [1, 2, 3, 4].map((n) => ({ id: `g${n}`, name: `Team ${n}` }));
   let n = 0;
@@ -88,7 +88,7 @@ describe("resultSheets (D666)", () => {
 });
 
 describe("resultSheets with super teams (D833)", () => {
-  const s: TournamentSport = { id: "f", activity_id: "act", name: "Futsal", min_size: 1, max_size: 5, position: 0, result_kind: "score", format: "pools", pool_size: 2, forfeits_marked_at: null };
+  const s: TournamentSport = { id: "f", activity_id: "act", name: "Futsal", min_size: 1, max_size: 5, position: 0, result_kind: "score", format: "pools", pool_size: 2, lane_count: 6, games: 4, forfeits_marked_at: null };
   const groups = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ id: `g${n}`, name: `Team ${n}` }));
   const sides = tournamentSides(groups, [1, 2, 3, 4].map((n) => ({ id: `st${n}`, activity_id: "act", name: null, groupIds: [`g${n}`, `g${n + 4}`] })));
   let n = 0;

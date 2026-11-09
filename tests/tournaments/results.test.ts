@@ -9,7 +9,7 @@ import { tournamentSides } from "@/features/tournaments/lib/sides";
 
 const sport = (over: Partial<TournamentSport> = {}): TournamentSport => ({
   id: "sp", activity_id: "act", name: "Futsal", min_size: 2, max_size: 2, position: 0,
-  result_kind: "score", format: "pools", pool_size: 3, forfeits_marked_at: null, ...over,
+  result_kind: "score", format: "pools", pool_size: 3, lane_count: 6, games: 4, forfeits_marked_at: null, ...over,
 });
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `g${String(i + 1).padStart(2, "0")}`);
 const names = new Map(ids(12).map((g, i) => [g, `Team ${i + 1}`]));

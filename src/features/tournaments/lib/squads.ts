@@ -11,9 +11,12 @@ export type TournamentSport = {
   id: string; activity_id: string; name: string; min_size: number; max_size: number; position: number;
   /** D653: scores (higher wins) or times (faster wins). */
   result_kind: "score" | "time";
-  /** D653: pools then placing brackets, or matches the admin adds by hand (D665). */
-  format: "pools" | "manual";
+  /** D653: pools then placing brackets, matches the admin adds by hand (D665), or a lane draw (D860). */
+  format: "pools" | "manual" | "lanes";
   pool_size: number;
+  /** D860: a lane draw's lanes and games. */
+  lane_count: number;
+  games: number;
   /** D660: when its short squads were marked forfeit; null until then. */
   forfeits_marked_at: string | null;
 };
