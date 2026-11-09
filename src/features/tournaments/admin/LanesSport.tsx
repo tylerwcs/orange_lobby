@@ -117,7 +117,7 @@ export async function LanesSport({ ev, activity, sr, names, sides }: { ev: Event
                             <span className="block truncate font-semibold">{who(s.attendee_id)}</span>
                             <span className="block truncate text-xs text-muted-foreground">{names.get(s.group_id) ?? "A team"}{forfeit.has(s.group_id) ? " · Forfeit" : ""}</span>
                           </span>
-                          <input name={`score:${s.lane}:${s.seat}`} aria-label={`${who(s.attendee_id)}'s game ${game} score`} inputMode="numeric" pattern="\d{1,3}"
+                          <input name={`score:${s.attendee_id}`} aria-label={`${who(s.attendee_id)}'s game ${game} score`} inputMode="numeric" pattern="\d{1,3}"
                             defaultValue={s.score ?? ""} className={box} />
                         </label>
                       ))}

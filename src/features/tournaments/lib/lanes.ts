@@ -132,6 +132,31 @@ export function laneScoresVisible(activity: { show_overall?: boolean | null }): 
   return activity.show_overall !== false;
 }
 
+/**
+ * D864: the squad side of a swap. The old bowler leaves the squad if they're in it; the new one
+ * joins unless an admin already put them in (on the Squads tab, say).
+ */
+export function swapSquadSteps(input: { outInSquad: boolean; inInSquad: boolean }): { removeOut: boolean; addIn: boolean } {
+  return { removeOut: input.outInSquad, addIn: !input.inInSquad };
+}
+
+/**
+ * D865: one game's scores from the admin's form, one box per bowler (`score:<attendee id>`). A blank
+ * box changes nothing, so two admins keying the same game don't wipe each other's scores; a no-show
+ * is keyed as 0. Boxes for anyone not seated in this game are ignored.
+ */
+export function readLaneGame(seats: LaneSeat[], game: number, read: (key: string) => string):
+  { ok: true; scores: { attendee_id: string; score: number }[] } | { ok: false; error: string } {
+  const scores: { attendee_id: string; score: number }[] = [];
+  for (const s of seats.filter((x) => x.game === game)) {
+    const text = read(`score:${s.attendee_id}`).trim();
+    if (text === "") continue;
+    if (!/^\d{1,3}$/.test(text) || Number(text) > 300) return { ok: false, error: "Scores are whole numbers from 0 to 300." };
+    scores.push({ attendee_id: s.attendee_id, score: Number(text) });
+  }
+  return { ok: true, scores };
+}
+
 /** D864: whether this person can take a seat - not already bowling in the sport. */
 export function canSwapIn(seats: LaneSeat[], sportId: string, inId: string): boolean {
   return !seats.some((s) => s.sport_id === sportId && s.attendee_id === inId);

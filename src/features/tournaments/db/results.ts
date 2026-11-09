@@ -67,11 +67,11 @@ export async function writeLaneDraw(
   return data as "ok" | "has_scores" | "missing";
 }
 
-/** D865: one game's scores (null = not keyed). Last save wins. */
-export async function saveLaneScores(sportId: string, game: number, scores: { lane: number; seat: number; score: number | null }[]): Promise<void> {
+/** D865: one game's scores, by bowler. Last save wins. */
+export async function saveLaneScores(sportId: string, game: number, scores: { attendee_id: string; score: number }[]): Promise<void> {
   const db = serviceClient();
   for (const s of scores) {
-    const { error } = await db.from("tournament_lane_seats").update({ score: s.score }).eq("sport_id", sportId).eq("game", game).eq("lane", s.lane).eq("seat", s.seat);
+    const { error } = await db.from("tournament_lane_seats").update({ score: s.score }).eq("sport_id", sportId).eq("game", game).eq("attendee_id", s.attendee_id);
     if (error) throw error;
   }
 }

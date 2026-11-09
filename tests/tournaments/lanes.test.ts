@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSwapIn, drawLanes, laneComplete, lanePlaces, laneScoresVisible, laneTotals, type LaneSeat } from "@/features/tournaments/lib/lanes";
+import { canSwapIn, drawLanes, laneComplete, lanePlaces, laneScoresVisible, laneTotals, readLaneGame, swapSquadSteps, type LaneSeat } from "@/features/tournaments/lib/lanes";
 import { sportPlaces, type SportResults } from "@/features/tournaments/lib/results";
 import type { TournamentSport } from "@/features/tournaments/lib/squads";
 
@@ -124,5 +124,26 @@ describe("laneScoresVisible (D867)", () => {
     expect(laneScoresVisible({ show_overall: true })).toBe(true);
     expect(laneScoresVisible({ show_overall: null })).toBe(true);
     expect(laneScoresVisible({})).toBe(true);
+  });
+});
+
+describe("review fixes", () => {
+  it("swaps when the stand-in is already in the squad: no add, the old bowler still leaves it (D864)", () => {
+    expect(swapSquadSteps({ outInSquad: true, inInSquad: false })).toEqual({ removeOut: true, addIn: true });
+    expect(swapSquadSteps({ outInSquad: false, inInSquad: true })).toEqual({ removeOut: false, addIn: false });
+    expect(swapSquadSteps({ outInSquad: true, inInSquad: true })).toEqual({ removeOut: true, addIn: false });
+  });
+
+  it("reads a game's scores by bowler, leaving blank boxes and other games alone (D865)", () => {
+    const seats: LaneSeat[] = [
+      { sport_id: "bw", game: 1, lane: 1, seat: 1, group_id: "A", attendee_id: "a", number: 1, score: 140 },
+      { sport_id: "bw", game: 1, lane: 1, seat: 2, group_id: "B", attendee_id: "b", number: 1, score: null },
+      { sport_id: "bw", game: 2, lane: 1, seat: 1, group_id: "A", attendee_id: "a", number: 1, score: null },
+    ];
+    const form = (o: Record<string, string>) => (k: string) => o[k] ?? "";
+    expect(readLaneGame(seats, 1, form({ "score:a": "", "score:b": "0" }))).toEqual({ ok: true, scores: [{ attendee_id: "b", score: 0 }] });
+    expect(readLaneGame(seats, 1, form({ "score:a": "151", "score:x": "99" }))).toEqual({ ok: true, scores: [{ attendee_id: "a", score: 151 }] });
+    expect(readLaneGame(seats, 1, form({ "score:b": "301" }))).toEqual({ ok: false, error: "Scores are whole numbers from 0 to 300." });
+    expect(readLaneGame(seats, 1, form({ "score:b": "9.5" }))).toEqual({ ok: false, error: "Scores are whole numbers from 0 to 300." });
   });
 });

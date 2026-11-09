@@ -4,7 +4,7 @@ import { flashPath } from "@/lib/flash";
 import { loadSportResults, saveLaneScores, swapLaneBowler, writeLaneDraw } from "../db/results";
 import { addSquadMember, removeSquadMember, squadPeople, squadRows } from "../db/tournaments";
 import { loadSides } from "../db/super-teams";
-import { canSwapIn, drawLanes } from "../lib/lanes";
+import { canSwapIn, drawLanes, readLaneGame, swapSquadSteps } from "../lib/lanes";
 import { sideRows } from "../lib/sides";
 import { nameInEvent, refusalFlash, squadMembers } from "../lib/squads";
 import { done, tabPath, tournament } from "./guard";
@@ -45,19 +45,13 @@ export async function drawLanesAction(eventId: string, activityId: string, sport
   done(ev.id, cup.id, back, "Lanes drawn.");
 }
 
-/** D865: one game's scores, whole numbers 0-300; a blank box is not keyed yet. */
+/** D865: one game's scores by bowler, whole numbers 0-300; a blank box changes nothing. */
 export async function saveLaneGameAction(eventId: string, activityId: string, sportId: string, game: number, fd: FormData) {
   const { ev, cup, back, sr } = await laneSport(eventId, activityId, sportId);
-  const seats = (sr.seats ?? []).filter((s) => s.game === game);
-  if (seats.length === 0) fail(back, "That game has no lanes drawn.");
-  const scores = seats.map((s) => {
-    const text = String(fd.get(`score:${s.lane}:${s.seat}`) ?? "").trim();
-    if (text === "") return { lane: s.lane, seat: s.seat, score: null };
-    const n = Number(text);
-    if (!/^\d{1,3}$/.test(text) || n > 300) fail(back, "Scores are whole numbers from 0 to 300.");
-    return { lane: s.lane, seat: s.seat, score: n };
-  });
-  await saveLaneScores(sportId, game, scores);
+  if (!(sr.seats ?? []).some((s) => s.game === game)) fail(back, "That game has no lanes drawn.");
+  const read = readLaneGame(sr.seats ?? [], game, (k) => String(fd.get(k) ?? ""));
+  if (!read.ok) fail(back, read.error);
+  if (read.ok) await saveLaneScores(sportId, game, read.scores);
   done(ev.id, cup.id, back, `Game ${game} saved.`);
 }
 
@@ -81,15 +75,18 @@ export async function swapBowlerAction(eventId: string, activityId: string, spor
   }
   const outName = nameInEvent(people.get(outId) ? { name: people.get(outId)!.name, event_id: ev.id } : null, ev.id);
   const inName = incoming!.name;
-  const inSquad = (await squadRows(cup.id)).some((r) => r.sport_id === sportId && r.attendee_id === outId);
-  if (inSquad) {
+  const squad = (await squadRows(cup.id)).filter((r) => r.sport_id === sportId);
+  const steps = swapSquadSteps({ outInSquad: squad.some((r) => r.attendee_id === outId), inInSquad: squad.some((r) => r.attendee_id === inId) });
+  if (steps.removeOut) {
     const out = await removeSquadMember({ sportId, attendeeId: outId, actorId: null, admin: true });
     if (out !== "ok") fail(back, refusalFlash(out, { sport: sr.sport.name, name: outName }));
   }
-  const add = await addSquadMember({ sportId, attendeeId: inId, actorId: null, admin: true });
-  if (add !== "ok") {
-    if (inSquad) await addSquadMember({ sportId, attendeeId: outId, actorId: null, admin: true });
-    fail(back, refusalFlash(add, { sport: sr.sport.name, name: inName }));
+  if (steps.addIn) {
+    const add = await addSquadMember({ sportId, attendeeId: inId, actorId: null, admin: true });
+    if (add !== "ok") {
+      if (steps.removeOut) await addSquadMember({ sportId, attendeeId: outId, actorId: null, admin: true });
+      fail(back, refusalFlash(add, { sport: sr.sport.name, name: inName }));
+    }
   }
   await swapLaneBowler(sportId, outId, inId);
   done(ev.id, cup.id, back, `Swapped ${outName} for ${inName}.`);
