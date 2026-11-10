@@ -1,4 +1,5 @@
 import "server-only";
+import { resizeForWeb } from "@/lib/image-resize";
 import { serviceClient } from "@/lib/supabase/service";
 import {
   MEDIA_BUCKET,
@@ -44,13 +45,18 @@ export async function uploadEventImage(input: {
   eventId: string;
   kind: ImageKind;
   file: File;
+  /** D889: shrink to at most this long side, as WebP (SVG kept). Absent stores the file as is. */
+  maxEdge?: number;
 }): Promise<string> {
-  const ext = acceptImage(input.file);
+  let ext = acceptImage(input.file);
+  let body: Buffer | File = input.file;
+  let contentType = input.file.type;
+  if (input.maxEdge) ({ body, type: contentType, ext } = await resizeForWeb(input.file, input.maxEdge));
   const path = mediaObjectPath({ orgId: input.orgId, eventId: input.eventId, kind: input.kind, ext }, crypto.randomUUID().slice(0, 8));
   const storage = serviceClient().storage.from(MEDIA_BUCKET);
   // A year's cache is safe because a replacement is a new object name, never a new body
   // at the same one.
-  const { error } = await storage.upload(path, input.file, { contentType: input.file.type, cacheControl: "31536000", upsert: false });
+  const { error } = await storage.upload(path, body, { contentType, cacheControl: "31536000", upsert: false });
   if (error) throw new Error("Could not upload that image. Try again.");
   return storage.getPublicUrl(path).data.publicUrl;
 }
@@ -74,7 +80,7 @@ export async function nextImage(
   formData: FormData,
   name: string,
   current: string | null,
-  where: { orgId: string; eventId: string; kind: ImageKind },
+  where: { orgId: string; eventId: string; kind: ImageKind; maxEdge?: number },
 ): Promise<ImageChange> {
   const intent = imageIntent(formData, name);
   if (intent.action === "upload") return { url: await uploadEventImage({ ...where, file: intent.file }), stale: current };
