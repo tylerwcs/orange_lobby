@@ -14,6 +14,7 @@ import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
 import { groupProgress, type GroupProgress } from "@/lib/groups";
 import { buildPassport, type Passport } from "./booths";
 import { polaroidsForAttendee, type PolaroidRow } from "@/features/polaroid";
+import { readPassportTest, resultsForAttendee, type PassportResult, type PassportTest } from "@/features/passport-test";
 import { inTournament, isPicker, listSportsForActivities, listSuperTeamsFor, loadBonus, loadResults, sideOfGroup, sideRows, squadPeople, squadRows, tournamentSides, type CupBonus, type Side, type SportResults, type SquadRow, type TournamentSport } from "@/features/tournaments";
 import { otherActivityId, pairsForEvent, teamEntriesToday, trackFullFor, trackLabel, trackOf, trackRowsFor, trackStatus, type TrackPair, type TrackRow, type TrackStatus } from "@/features/tracks";
 import { nowInKL } from "@/lib/time";
@@ -33,8 +34,11 @@ export type SubmissionTrack = {
   /** D730: the team's places on this track are all taken today, and this attendee isn't one of them. */
   full: boolean;
 };
-/** A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184). */
-export type PassportEntry = { activity: Activity; passport: Passport };
+/**
+ * A passport this attendee may collect on, and their card for it. Ineligible ones are left out (D184).
+ * D884: its personality test (switched off when it has none) and this attendee's result, if any.
+ */
+export type PassportEntry = { activity: Activity; passport: Passport; test: PassportTest; result: PassportResult | null };
 /** A polaroid wall this attendee may post to, and their own live polaroids on it (D482). */
 export type PolaroidEntry = { activity: Activity; mine: PolaroidRow[] };
 /**
@@ -143,12 +147,16 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
 
   // Hidden outright when ineligible, like a booking: the booth would refuse them anyway, so a
   // card they can never fill is not something to show them.
-  const passports = activities
-    .filter((a) => a.kind === "passport" && eligible(a, attendee.category))
-    .map((activity) => ({
-      activity,
-      passport: buildPassport(booths.filter((b) => b.activity_id === activity.id), stamps, activity.stamps_required),
-    }));
+  const mayStamp = activities.filter((a) => a.kind === "passport" && eligible(a, attendee.category));
+  // One read for every passport's result, and only when there is a passport with a test.
+  const tests = new Map(mayStamp.map((a) => [a.id, readPassportTest(a.passport_test)]));
+  const results = [...tests.values()].some((t) => t.on) ? await resultsForAttendee(attendee.id) : [];
+  const passports = mayStamp.map((activity) => ({
+    activity,
+    passport: buildPassport(booths.filter((b) => b.activity_id === activity.id), stamps, activity.stamps_required),
+    test: tests.get(activity.id)!,
+    result: results.find((r) => r.activity_id === activity.id) ?? null,
+  }));
 
   // Read only when the event runs a wall this attendee can see: most portal loads never do.
   const walls = activities.filter((a) => a.kind === "polaroid" && eligible(a, attendee.category));

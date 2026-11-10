@@ -1,0 +1,283 @@
+"use client";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { QrCode, X } from "lucide-react";
+import { toast } from "@/lib/toast-store";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { coverColour, type PassportTest, type SaveResult, type TestPick } from "@/features/passport-test/client";
+import { isLanded } from "../../../lib/passport-live";
+import type { Passport, Reveal } from "../../../lib/booths";
+import { chopInk } from "../paper";
+import { useLive } from "../PassportLive";
+import { PassportQr } from "../PassportQr";
+import { bookStart, bookStep } from "./flow";
+import { answerAt, inBox, NAME_BUTTON, NAME_FIELD, PAGE } from "./geometry";
+import { spreadFor, useFontsVersion, useImages, type BookStamp, type PageData } from "./pages";
+import { BOOK_FONTS, loadBookFonts } from "./fonts";
+import { FlatBook } from "./FlatBook";
+import { BookA11y } from "./BookA11y";
+import { BookBar, BOOK_BUTTON } from "./BookBar";
+import { prefersReducedMotion } from "./webgl";
+
+const REVEAL_MS = 1800;
+const PICK_HOLD_MS = 260;
+const BANNER_MS = 3500;
+const noSubscribe = () => () => {};
+
+/** Words and round buttons on the book's stage, which is always dark whatever the theme. */
+const ON_STAGE = "text-white/85"; // theme-fixed: the book's own dark stage, like the polaroid camera
+const STAGE_ROUND = "flex size-11 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur"; // theme-fixed: on the dark stage
+
+function barQrButton(open: () => void) {
+  return <button type="button" className={BOOK_BUTTON} onClick={open}><QrCode aria-hidden className="size-5" />Show my QR</button>;
+}
+
+function cornerQrButton(open: () => void) {
+  return <button type="button" aria-label="Show my QR" className={STAGE_ROUND} onClick={open}><QrCode aria-hidden className="size-5" /></button>;
+}
+
+/**
+ * D870: the guest's passport, the whole screen like the polaroid camera (D482): no back link,
+ * cover or title, × to the portal home. The closed portrait passport opens (D871), one page per
+ * question (D872), the name page (D874), the reveal filling in the holder page (D875), and the
+ * stamps on the page above (D877) with Show my QR and Booths underneath (D879). A passport without
+ * a test opens straight to the holder page with the name only (D881).
+ *
+ * The book sits under every dialog, sheet and the stamp reveal (all z-50) and over the portal's
+ * own bars (z-40 at most), so the QR, the Booths sheet and a stamp's arrival all play on top.
+ */
+export function PassportBook(p: {
+  slug: string;
+  token: string;
+  activityId: string;
+  eventName: string;
+  brand: string | null;
+  qr: string;
+  showQr: boolean;
+  passport: Passport;
+  test: PassportTest;
+  result: { personalityId: string; holderName: string } | null;
+  registeredName: string;
+  isOpen: boolean;
+  /** D880: stamps given before the test, played right after the reveal. */
+  afterTest: Reveal[];
+  reward: string | null;
+  about: ReactNode;
+  /** Steadies where this guest's stamps land (D877). */
+  seed: string;
+  /** "That's me": the save action, bound to this guest and passport on the server. */
+  save: (input: { picks: TestPick[]; holderName: string }) => Promise<SaveResult>;
+}) {
+  const router = useRouter();
+  const live = useLive();
+  const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const home = `/e/${p.slug}/a/${p.token}`;
+  const withResult = p.test.on ? p.result : null;
+
+  const [flow, dispatch] = useReducer(bookStep, undefined, () =>
+    bookStart({ testOn: p.test.on, questions: p.test.questions.length, hasResult: !!withResult, isOpen: p.isOpen }));
+  const [holderName, setHolderName] = useState(withResult?.holderName ?? p.registeredName);
+  const [personalityId, setPersonalityId] = useState(withResult?.personalityId ?? null);
+  const [progress, setProgress] = useState(withResult || !p.test.on ? 1 : 0);
+  const [banner, setBanner] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [released, setReleased] = useState(flow.stage === "done");
+  const [celebrate, setCelebrate] = useState(false);
+  // Stamps a booth gave mid-test (D880): state for the stamp page, a ref for the reveal's end.
+  const [waiting, setWaiting] = useState<Reveal[]>([]);
+  const waitingRef = useRef<Reveal[]>([]);
+  useEffect(() => { waitingRef.current = waiting; }, [waiting]);
+  const stageRef = useRef(flow.stage);
+  useEffect(() => { stageRef.current = flow.stage; }, [flow.stage]);
+
+  const { img, prefetch, version } = useImages();
+  const fontsVersion = useFontsVersion();
+  useEffect(() => { void loadBookFonts(); }, []);
+
+  const personality = p.test.on ? p.test.personalities.find((x) => x.id === personalityId) ?? null : null;
+
+  // D889: the next two questions' pictures load while the guest answers this one; the characters
+  // and the crest are small and load at once.
+  useEffect(() => {
+    prefetch([p.test.cover.crest, ...p.test.personalities.map((x) => x.picture)]);
+  }, [p.test, prefetch]);
+  useEffect(() => {
+    prefetch(p.test.questions.slice(flow.index, flow.index + 3).map((q) => q.image));
+  }, [flow.index, p.test.questions, prefetch]);
+
+  // What sits on the stamp page: stamps already in, minus any still waiting for their reveal.
+  const stamps: BookStamp[] = useMemo(() => {
+    const queued = new Set(live.state.queue.map((r) => r.stampId));
+    const held = released ? new Set<string>() : new Set([...p.afterTest, ...waiting].map((r) => r.stampId));
+    return p.passport.cells
+      .filter((c) => (c.stampId && c.stampedAt ? !queued.has(c.stampId) && !held.has(c.stampId) : isLanded(live.state, c.booth.id)))
+      .sort((a, b) => (a.stampedAt ? Date.parse(a.stampedAt) : Infinity) - (b.stampedAt ? Date.parse(b.stampedAt) : Infinity))
+      .map((c) => ({ id: c.booth.id, image: c.booth.stamp_image_url, name: c.booth.name }));
+  }, [p.passport, p.afterTest, waiting, live.state, released]);
+
+  const paintFlow = useMemo(
+    () => (flash && flow.stage === "questions" ? { ...flow, picks: flow.picks.map((x, i) => (i === flow.index ? flash : x)) } : flow),
+    [flow, flash],
+  );
+  const data: PageData = useMemo(() => ({
+    test: p.test, eventName: p.eventName, coverColour: coverColour(p.test, p.brand), crest: p.test.cover.crest,
+    flow: paintFlow, holderName, personality, revealProgress: progress, stamps, seed: p.seed,
+    chop: chopInk(p.brand), fonts: BOOK_FONTS, paintName: flow.stage !== "name",
+  }), [p.test, p.eventName, p.brand, p.seed, paintFlow, holderName, personality, progress, stamps, flow.stage]);
+
+  // A stamp a booth gives mid-test waits for the reveal (D880); afterwards it plays at once.
+  const onArrived = useCallback((found: Reveal[]) => {
+    if (stageRef.current === "done") { live.arrived(found); return; }
+    setWaiting((w) => [...w, ...found]);
+    const last = found[found.length - 1]?.stampedAt;
+    if (last) live.passed(last);
+    toast("Stamp collected. It's waiting on your stamp page.");
+  }, [live]);
+
+  const pick = useCallback((answerId: string) => {
+    if (flash || flow.stage !== "questions") return;
+    if (prefersReducedMotion()) { dispatch({ type: "pick", answerId }); return; }
+    setFlash(answerId);
+    setTimeout(() => { dispatch({ type: "pick", answerId }); setFlash(null); }, PICK_HOLD_MS);
+  }, [flash, flow.stage]);
+
+  // The finished holder page, then the stamps that waited play one by one (D880).
+  const completeReveal = useCallback(() => {
+    setProgress(1);
+    dispatch({ type: "revealed" });
+    setReleased(true);
+    const held = [...p.afterTest, ...waitingRef.current].sort((a, b) => Date.parse(a.stampedAt) - Date.parse(b.stampedAt));
+    setWaiting([]);
+    if (held.length) setTimeout(() => live.arrived(held), 700);
+  }, [p.afterTest, live]);
+
+  const finish = useCallback(async () => {
+    if (saving || flow.stage !== "name") return;
+    setSaving(true);
+    const picks = p.test.questions.map((q, i) => ({ questionId: q.id, answerId: flow.picks[i] ?? "" }));
+    let r: SaveResult;
+    try {
+      r = await p.save({ picks, holderName });
+    } catch {
+      r = { ok: false, reason: "busy" };
+    }
+    setSaving(false);
+    if (!r.ok) {
+      if (r.reason === "closed") dispatch({ type: "closed" });
+      else if (r.reason === "off") { toast("The personality test was switched off.", "error"); router.refresh(); }
+      else toast("Something went wrong. Try again.", "error");
+      return;
+    }
+    setPersonalityId(r.personalityId);
+    setHolderName(r.holderName);
+    setBanner(true);
+    if (prefersReducedMotion()) { completeReveal(); return; }
+    setProgress(0);
+    dispatch({ type: "reveal" });
+  }, [saving, flow, p, holderName, router, completeReveal]);
+
+  // D875: the holder page fills itself in over about 1.8 s, then `completeReveal`.
+  useEffect(() => {
+    if (flow.stage !== "revealing") return;
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / REVEAL_MS);
+      setProgress(t);
+      if (t < 1) raf = requestAnimationFrame(step); else completeReveal();
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [flow.stage, completeReveal]);
+
+  useEffect(() => {
+    if (!banner || flow.stage !== "done") return;
+    const t = setTimeout(() => setBanner(false), BANNER_MS);
+    return () => clearTimeout(t);
+  }, [banner, flow.stage]);
+
+  // Goal 10: the card filling up gets one moment with the organiser's reward message.
+  const [wasComplete, setWasComplete] = useState(p.passport.complete);
+  if (p.passport.complete !== wasComplete) {
+    setWasComplete(p.passport.complete);
+    if (p.passport.complete) setCelebrate(true);
+  }
+
+  const onTop = () => dispatch({ type: "back" });
+  const onBottom = (u: number, v: number) => {
+    if (flow.stage === "closed") dispatch({ type: "open" });
+    else if (flow.stage === "questions") {
+      const j = answerAt(u, v);
+      const a = j === null ? null : p.test.questions[flow.index]?.answers[j];
+      if (a) pick(a.id);
+    } else if (flow.stage === "name" && inBox(u, v, NAME_BUTTON)) void finish();
+  };
+
+  const qr = (variant: "bar" | "corner") => (
+    <PassportQr slug={p.slug} token={p.token} activityId={p.activityId} qr={p.qr} after={live.after}
+      paused={live.state.queue.length > 0} onArrived={onArrived} trigger={variant === "bar" ? barQrButton : cornerQrButton} />
+  );
+
+  const nameField = flow.stage === "name" ? (
+    <input
+      aria-label="Name on your passport" value={holderName} maxLength={40} autoComplete="name" enterKeyHint="done"
+      onChange={(e) => setHolderName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void finish(); }}
+      className="absolute bg-transparent text-center text-[#3B2A18] outline-none placeholder:text-[#9A7B52] focus-visible:bg-white/30" /* theme-fixed: ink on the cream page */
+      style={{
+        left: `${(NAME_FIELD.x / PAGE.w) * 100}%`, top: `${(NAME_FIELD.y / PAGE.h) * 100}%`,
+        width: `${(NAME_FIELD.w / PAGE.w) * 100}%`, height: `${(NAME_FIELD.h / PAGE.h) * 100}%`,
+        fontFamily: BOOK_FONTS.hand, fontWeight: 600,
+        // A long name shrinks to stay in the box while it is typed, as the painted page does.
+        fontSize: `${(6.4 * 18) / Math.max(18, Array.from(holderName).length)}cqw`,
+      }}
+    />
+  ) : null;
+
+  const stage = (
+    <div /* theme-fixed: the book's own dark stage, like the polaroid camera */ className="fixed inset-0 z-[45] flex h-dvh flex-col overflow-hidden overscroll-none text-white"
+      style={{ background: `radial-gradient(120% 80% at 50% 25%, ${data.coverColour} 0%, #0B0F18 85%)` }}>
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="size-11">{p.showQr && (flow.stage === "questions" || flow.stage === "name") ? qr("corner") : null}</div>
+        <button type="button" aria-label="Close passport" onClick={() => router.push(home)} className={STAGE_ROUND}>
+          <X aria-hidden className="size-5" />
+        </button>
+      </div>
+
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-4">
+        {banner && personality && (
+          <div className="flex flex-col items-center motion-safe:animate-[book-banner_400ms_ease-out]" aria-hidden>
+            <span className={`text-xs font-bold uppercase tracking-[0.3em] ${ON_STAGE}`}>You&apos;re a</span>
+            <span className="rounded-full px-5 py-1 text-2xl tracking-wide" style={{ background: personality.colour, fontFamily: BOOK_FONTS.display }}>
+              {personality.name}
+            </span>
+          </div>
+        )}
+        <FlatBook spread={spreadFor(flow)} data={data} img={img} repaint={version + fontsVersion}
+          onTop={onTop} onBottom={onBottom} overlay={nameField} />
+        {flow.stage === "closed" && <p className={`text-sm font-semibold ${ON_STAGE}`}>Tap to open your passport</p>}
+        {flow.stage === "locked" && <p className={`max-w-xs text-center text-base font-semibold ${ON_STAGE}`}>{flow.closedMessage}</p>}
+        {flow.stage === "questions" && flow.index > 0 && <p className={`text-xs ${ON_STAGE}`}>Tap the top page to go back</p>}
+        {saving && <p className={`text-sm ${ON_STAGE}`} role="status">Saving…</p>}
+      </div>
+
+      {flow.stage === "done" && (
+        <BookBar passport={p.passport} qrButton={p.showQr ? qr("bar") : null} reward={p.reward} about={p.about}
+          closedNote={!p.isOpen && !p.passport.complete ? "Stamping opens soon." : null} />
+      )}
+
+      <BookA11y flow={flow} test={p.test} personality={personality} holderName={holderName} stamps={stamps.length} saving={saving}
+        onOpen={() => dispatch({ type: "open" })} onPick={pick} onBack={onTop} onFinish={() => void finish()} />
+
+      <Dialog open={celebrate} onOpenChange={setCelebrate}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogTitle className="text-center">Passport complete!</DialogTitle>
+          <DialogDescription className="text-center">{p.reward ?? "Every stamp collected."}</DialogDescription>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
+  return inBrowser ? createPortal(stage, document.body) : stage;
+}

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { QrCode } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ const POLL_MS = 2000;
  * close it and go to the reveal. A repeat scan makes no new stamp, so the dialog just keeps
  * waiting. Polling also stops while a reveal is playing (`paused`).
  */
-export function PassportQr({ slug, token, activityId, qr, after, paused, onArrived }: {
+export function PassportQr({ slug, token, activityId, qr, after, paused, onArrived, trigger }: {
   slug: string;
   token: string;
   activityId: string;
@@ -23,6 +23,8 @@ export function PassportQr({ slug, token, activityId, qr, after, paused, onArriv
   after: RefObject<string | null>;
   paused: boolean;
   onArrived: (found: Reveal[]) => void;
+  /** D870: the book's own button (its bar, or its corner mid-test). Absent: the full-width sticky button. */
+  trigger?: (open: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -54,12 +56,14 @@ export function PassportQr({ slug, token, activityId, qr, after, paused, onArriv
 
   return (
     <>
-      <div className="sticky bottom-4 z-10 mt-4">
-        <Button size="lg" className="h-12 w-full gap-2 rounded-full text-base font-bold shadow-lg" onClick={() => setOpen(true)}>
-          <QrCode data-icon="inline-start" />
-          Show my QR
-        </Button>
-      </div>
+      {trigger ? trigger(() => setOpen(true)) : (
+        <div className="sticky bottom-4 z-10 mt-4">
+          <Button size="lg" className="h-12 w-full gap-2 rounded-full text-base font-bold shadow-lg" onClick={() => setOpen(true)}>
+            <QrCode data-icon="inline-start" />
+            Show my QR
+          </Button>
+        </div>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogTitle className="text-center">Show this to the booth</DialogTitle>

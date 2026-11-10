@@ -33,7 +33,8 @@ import { portalLang, t } from "@/features/language";
  * A scored challenge (D374) swaps the submission body for its tracker, in three tabs (D385):
  * `?tab=info`, My stats (no param; `?day=` shows another day of it) and `?tab=leaderboard`.
  *
- * A polaroid wall's page is only its full-screen camera (D482): no back link, cover or title.
+ * A polaroid wall's page is only its full-screen camera (D482): no back link, cover or title. A
+ * passport's is only its full-screen book (D870).
  */
 export async function ActivityPage({ params, searchParams }: {
   params: Promise<{ slug: string; token: string; activityId: string }>;
@@ -79,7 +80,7 @@ export async function ActivityPage({ params, searchParams }: {
           : <SubmissionBody lang={lang} entry={form} slug={slug} token={token} writing={writing === "1"} people={entries.people} selfId={attendee.id} edit={editorFor(form.form, slug, token, attendee)} proxy={proxy} />;
       }
       case "passport":
-        return <PassportBody entry={found.entry} attendeeName={attendee.name} slug={slug} token={token} qr={passportExtras!.qr} preview={passportExtras!.preview} brand={event.primary_color} />;
+        return <PassportBody entry={found.entry} attendeeId={attendee.id} attendeeName={attendee.name} eventName={event.name} slug={slug} token={token} qr={passportExtras!.qr} preview={passportExtras!.preview} brand={event.primary_color} />;
       case "polaroid":
         return <PolaroidBody entry={found.entry} slug={slug} token={token} brand={event.primary_color} />;
       case "tournament":
@@ -91,7 +92,8 @@ export async function ActivityPage({ params, searchParams }: {
     }
   }
 
-  if (found.kind === "polaroid") return body(found);
+  // D870: a passport is its full-screen book, like the polaroid camera.
+  if (found.kind === "polaroid" || found.kind === "passport") return body(found);
 
   return (
     <div className="flex flex-col">

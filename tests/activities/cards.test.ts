@@ -3,6 +3,7 @@ import { activityState } from "@/features/activities/lib/activities";
 import { activityControls } from "@/features/activities/lib/activity-requests";
 import { activityCards, findEntry } from "@/features/activities/client";
 import type { Passport } from "@/features/activities/lib/booths";
+import { readPassportTest } from "@/features/passport-test/client";
 import type { ActivityEntry, PassportEntry, PolaroidEntry, SubmissionEntry, TournamentEntry } from "@/features/activities/lib/portal-activity-entries";
 import type { SubmitReason } from "@/features/activities/lib/submissions";
 import type { Activity, ActivitySession } from "@/lib/types";
@@ -27,6 +28,8 @@ const form = (id: string, reason: SubmitReason = "ok"): SubmissionEntry => ({
 const passport = (id: string, complete: boolean): PassportEntry => ({
   activity: activity(id, { kind: "passport" }),
   passport: { cells: [], collected: complete ? 1 : 0, target: 1, remaining: complete ? 0 : 1, complete, completedAt: null } satisfies Passport,
+  test: readPassportTest(null),
+  result: null,
 });
 
 const wall = (id: string, posted = 0): PolaroidEntry => ({

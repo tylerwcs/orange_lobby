@@ -15,6 +15,11 @@ vi.mock("@/lib/db/events", () => ({ getEvent: async (id: string) => state.events
 vi.mock("@/lib/whatsapp", () => ({ sendTemplate }));
 // The activities entry now reaches the polaroid feature, whose screens load next/font (not run under vitest).
 vi.mock("@/features/polaroid", () => ({}));
+// ...and the passport book, whose pages load their own faces through next/font.
+vi.mock("next/font/google", () => {
+  const face = () => ({ style: { fontFamily: "serif" }, className: "", variable: "" });
+  return { Archivo_Black: face, DM_Sans: face, Caveat: face };
+});
 
 const { runCommitteeReminders } = await import("@/lib/committee-run");
 

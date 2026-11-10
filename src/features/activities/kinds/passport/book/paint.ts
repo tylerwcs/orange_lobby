@@ -269,8 +269,10 @@ export function paintHolder(ctx: Ctx, o: {
   }
   label(ctx, "PASSPORT HOLDER", 208, 572, "center", f);
   ctx.fillStyle = "#3B2A18"; ctx.textAlign = "center";
-  const nm = fit(ctx, o.holderName, 320, 600, f.hand, { max: 52, min: 30 });
-  ctx.fillText(nm.lines[0], 208, 622);
+  // A long name shrinks, then takes two lines rather than running off the page.
+  const nm = fit(ctx, o.holderName, 320, 600, f.hand, { max: 52, min: 30 }, 2);
+  if (nm.lines.length === 1) ctx.fillText(nm.lines[0], 208, 622);
+  else nm.lines.forEach((l, i) => ctx.fillText(l, 208, 610 + i * 34));
 
   // Section 1: traits, three ticked in turn.
   const X = 410, RIGHT = 970;

@@ -1,33 +1,47 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useTransition, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useTransition, type ReactNode, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import type { Reveal } from "../../lib/booths";
 import { isLanded, liveStart, liveStep, wantsRefresh, type LiveState } from "../../lib/passport-live";
 import { markStampsSeenAction } from "../../portal/actions";
-import { PassportQr } from "./PassportQr";
 import { StampReveal } from "./StampReveal";
 import { StampInk } from "./StampDisc";
 
 /** The live queue's state, for the slots: which booths have landed here and are not refreshed yet. */
 const Live = createContext<LiveState>(liveStart([]));
 
+/** D870: what the passport book needs from the queue - its state, a way to add reveals, and the poll cursor. */
+type LiveControls = {
+  state: LiveState;
+  arrived: (found: Reveal[]) => void;
+  after: RefObject<string | null>;
+  /** D880: a stamp the book holds back mid-test still moves the poll on, so it is not found twice. */
+  passed: (stampedAt: string) => void;
+};
+const Controls = createContext<LiveControls | null>(null);
+
+/** The live queue, for the Show my QR dialog and the book. Only inside `PassportLive`. */
+export function useLive(): LiveControls {
+  const c = useContext(Controls);
+  if (!c) throw new Error("useLive outside PassportLive");
+  return c;
+}
+
 /**
  * D852: the passport page's live part. Holds the queue of stamps still to reveal - the ones not
  * yet seen when the page loaded, then whatever the open QR dialog finds - and plays them one at a
  * time (`passport-live.ts` has the rules). Each one is marked seen as it lands; once the queue is
  * empty the grid is fetched again, and the slots hold the landed stamp until it arrives.
+ *
+ * D870: the book renders Show my QR itself (`useLive`), in its bar or its corner.
  */
-export function PassportLive({ children, slug, token, activityId, qr, initial, cursor, showButton, brand }: {
+export function PassportLive({ children, slug, token, initial, cursor, brand }: {
   children: ReactNode;
   slug: string;
   token: string;
-  activityId: string;
-  /** The attendee's QR as a data URL, made on the server like the badge's. */
-  qr: string;
   initial: Reveal[];
   /** The newest stamp the page was rendered with: the dialog waits for anything after it. */
   cursor: string | null;
-  showButton: boolean;
   /** The event's colour, for a plain chop revealed on the paper disc (D858). */
   brand: string | null;
 }) {
@@ -38,8 +52,14 @@ export function PassportLive({ children, slug, token, activityId, qr, initial, c
   const asked = useRef(false);
 
   const arrived = useCallback((found: Reveal[]) => {
-    after.current = found[found.length - 1].stampedAt;
+    if (found.length === 0) return;
+    const last = found[found.length - 1].stampedAt;
+    if (after.current === null || Date.parse(last) > Date.parse(after.current)) after.current = last;
     dispatch({ type: "arrived", reveals: found });
+  }, []);
+
+  const passed = useCallback((stampedAt: string) => {
+    if (after.current === null || Date.parse(stampedAt) > Date.parse(after.current)) after.current = stampedAt;
   }, []);
 
   const done = useCallback((r: Reveal) => {
@@ -66,11 +86,10 @@ export function PassportLive({ children, slug, token, activityId, qr, initial, c
 
   return (
     <Live.Provider value={state}>
-      {children}
-      {showButton && (
-        <PassportQr slug={slug} token={token} activityId={activityId} qr={qr} after={after} paused={state.queue.length > 0} onArrived={arrived} />
-      )}
-      <StampReveal reveal={state.queue[0] ?? null} onDone={done} brand={brand} />
+      <Controls.Provider value={{ state, arrived, after, passed }}>
+        {children}
+        <StampReveal reveal={state.queue[0] ?? null} onDone={done} brand={brand} />
+      </Controls.Provider>
     </Live.Provider>
   );
 }
