@@ -1,7 +1,8 @@
 "use client";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { QrCode, X } from "lucide-react";
 import { toast } from "@/lib/toast-store";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -18,7 +19,11 @@ import { BOOK_FONTS, loadBookFonts } from "./fonts";
 import { FlatBook } from "./FlatBook";
 import { BookA11y } from "./BookA11y";
 import { BookBar, BOOK_BUTTON } from "./BookBar";
-import { prefersReducedMotion } from "./webgl";
+import { hasWebGL, prefersReducedMotion } from "./webgl";
+import type { BookSceneApi } from "./BookScene";
+
+// D889: three.js only reaches phones that open a passport, and only after the WebGL check.
+const BookScene = dynamic(() => import("./BookScene"), { ssr: false });
 
 const REVEAL_MS = 1800;
 const PICK_HOLD_MS = 260;
@@ -91,6 +96,15 @@ export function PassportBook(p: {
   useEffect(() => { waitingRef.current = waiting; }, [waiting]);
   const stageRef = useRef(flow.stage);
   useEffect(() => { stageRef.current = flow.stage; }, [flow.stage]);
+
+  // D870, D889: the 3D book where the phone can draw it and motion is welcome; the flat book
+  // otherwise, if the 3D one fails, and while it loads.
+  const can3d = useSyncExternalStore(noSubscribe, () => hasWebGL() && !prefersReducedMotion(), () => false);
+  const [failed3d, setFailed3d] = useState(false);
+  const [ready3d, setReady3d] = useState(false);
+  const use3d = can3d && !failed3d;
+  const sceneApi = useRef<BookSceneApi | null>(null);
+  const [nameRect, setNameRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   const { img, prefetch, version } = useImages();
   const fontsVersion = useFontsVersion();
@@ -220,20 +234,28 @@ export function PassportBook(p: {
       paused={live.state.queue.length > 0} onArrived={onArrived} trigger={variant === "bar" ? barQrButton : cornerQrButton} />
   );
 
-  const nameField = flow.stage === "name" ? (
+  // D874: the name field over the name page - in page percentages on the flat book, in screen
+  // pixels from the scene's projection on the 3D one. A long name shrinks to stay in the box.
+  const shrink = 18 / Math.max(18, Array.from(holderName).length);
+  const nameInput = (place: CSSProperties) => (
     <input
       aria-label="Name on your passport" value={holderName} maxLength={40} autoComplete="name" enterKeyHint="done"
       onChange={(e) => setHolderName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void finish(); }}
+      onClick={(e) => e.stopPropagation()}
       className="absolute bg-transparent text-center text-[#3B2A18] outline-none placeholder:text-[#9A7B52] focus-visible:bg-white/30" /* theme-fixed: ink on the cream page */
-      style={{
-        left: `${(NAME_FIELD.x / PAGE.w) * 100}%`, top: `${(NAME_FIELD.y / PAGE.h) * 100}%`,
-        width: `${(NAME_FIELD.w / PAGE.w) * 100}%`, height: `${(NAME_FIELD.h / PAGE.h) * 100}%`,
-        fontFamily: BOOK_FONTS.hand, fontWeight: 600,
-        // A long name shrinks to stay in the box while it is typed, as the painted page does.
-        fontSize: `${(6.4 * 18) / Math.max(18, Array.from(holderName).length)}cqw`,
-      }}
+      style={{ fontFamily: BOOK_FONTS.hand, fontWeight: 600, ...place }}
     />
-  ) : null;
+  );
+  const flatName = flow.stage === "name" ? nameInput({
+    left: `${(NAME_FIELD.x / PAGE.w) * 100}%`, top: `${(NAME_FIELD.y / PAGE.h) * 100}%`,
+    width: `${(NAME_FIELD.w / PAGE.w) * 100}%`, height: `${(NAME_FIELD.h / PAGE.h) * 100}%`,
+    fontSize: `${6.4 * shrink}cqw`,
+  }) : null;
+  const sceneName = flow.stage === "name" && nameRect ? nameInput({
+    left: nameRect.left + (nameRect.width * NAME_FIELD.x) / PAGE.w, top: nameRect.top + (nameRect.height * NAME_FIELD.y) / PAGE.h,
+    width: (nameRect.width * NAME_FIELD.w) / PAGE.w, height: (nameRect.height * NAME_FIELD.h) / PAGE.h,
+    fontSize: nameRect.width * 0.064 * shrink,
+  }) : null;
 
   const stage = (
     <div /* theme-fixed: the book's own dark stage, like the polaroid camera */ className="fixed inset-0 z-[45] flex h-dvh flex-col overflow-hidden overscroll-none text-white"
@@ -245,21 +267,47 @@ export function PassportBook(p: {
         </button>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-4">
-        {banner && personality && (
-          <div className="flex flex-col items-center motion-safe:animate-[book-banner_400ms_ease-out]" aria-hidden>
-            <span className={`text-xs font-bold uppercase tracking-[0.3em] ${ON_STAGE}`}>You&apos;re a</span>
-            <span className="rounded-full px-5 py-1 text-2xl tracking-wide" style={{ background: personality.colour, fontFamily: BOOK_FONTS.display }}>
-              {personality.name}
-            </span>
+      <div className={`relative flex min-h-0 flex-1 flex-col items-center gap-4 px-4 ${use3d && ready3d ? "justify-between pb-2" : "justify-center"}`}>
+        {use3d && (
+          // Unseen and untouchable until its first frame: the flat book shows (and takes taps) till then.
+          <div className={`absolute inset-0 transition-opacity duration-300 ${ready3d ? "" : "pointer-events-none opacity-0"}`}
+            onClick={(e) => {
+              const h = sceneApi.current?.hit(e.clientX, e.clientY);
+              if (h?.page === "top") onTop(); else if (h) onBottom(h.u, h.v);
+            }}
+            onPointerMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              sceneApi.current?.lean(((e.clientX - r.left) / r.width - 0.5) * 2, ((e.clientY - r.top) / r.height - 0.5) * 2);
+            }}
+            onPointerLeave={() => sceneApi.current?.lean(0, 0)}>
+            <BookScene data={data} img={img} repaint={version + fontsVersion} banner={banner} api={sceneApi}
+              onNameRect={setNameRect} onReady={() => setReady3d(true)} onFail={() => setFailed3d(true)} />
+            {sceneName}
           </div>
         )}
-        <FlatBook spread={spreadFor(flow)} data={data} img={img} repaint={version + fontsVersion}
-          onTop={onTop} onBottom={onBottom} overlay={nameField} />
-        {flow.stage === "closed" && <p className={`text-sm font-semibold ${ON_STAGE}`}>Tap to open your passport</p>}
-        {flow.stage === "locked" && <p className={`max-w-xs text-center text-base font-semibold ${ON_STAGE}`}>{flow.closedMessage}</p>}
-        {flow.stage === "questions" && flow.index > 0 && <p className={`text-xs ${ON_STAGE}`}>Tap the top page to go back</p>}
-        {saving && <p className={`text-sm ${ON_STAGE}`} role="status">Saving…</p>}
+        {/* Above the 3D layer (absolute, so it would paint over plain flow): the banner's slot keeps its height there. */}
+        {(banner || (use3d && ready3d)) && (
+          <div className="pointer-events-none relative z-10 flex min-h-[60px] flex-col items-center">
+            {banner && personality && (
+              <div className="flex flex-col items-center motion-safe:animate-[book-banner_400ms_ease-out]" aria-hidden>
+                <span className={`text-xs font-bold uppercase tracking-[0.3em] ${ON_STAGE}`}>You&apos;re a</span>
+                <span className="rounded-full px-5 py-1 text-2xl tracking-wide" style={{ background: personality.colour, fontFamily: BOOK_FONTS.display }}>
+                  {personality.name}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+        {!(use3d && ready3d) && (
+          <FlatBook spread={spreadFor(flow)} data={data} img={img} repaint={version + fontsVersion}
+            onTop={onTop} onBottom={onBottom} overlay={flatName} />
+        )}
+        <div className="pointer-events-none relative z-10 flex min-h-5 flex-col items-center gap-1">
+          {flow.stage === "closed" && <p className={`text-sm font-semibold ${ON_STAGE}`}>Tap to open your passport</p>}
+          {flow.stage === "locked" && <p className={`max-w-xs text-center text-base font-semibold ${ON_STAGE}`}>{flow.closedMessage}</p>}
+          {flow.stage === "questions" && flow.index > 0 && <p className={`text-xs ${ON_STAGE}`}>Tap the top page to go back</p>}
+          {saving && <p className={`text-sm ${ON_STAGE}`} role="status">Saving…</p>}
+        </div>
       </div>
 
       {flow.stage === "done" && (

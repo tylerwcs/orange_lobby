@@ -4,6 +4,7 @@ import { answerAt, answerBox, PAGE } from "@/features/activities/kinds/passport/
 import { stampSpot } from "@/features/activities/kinds/passport/book/stamp-spots";
 import { fitText } from "@/features/activities/kinds/passport/book/fit";
 import { sceneArt, SCENE_TINTS } from "@/features/activities/kinds/passport/book/paint";
+import { curlPoints, leafPages, turnedLeaves } from "@/features/activities/kinds/passport/book/leaf";
 import { buildPassport } from "@/features/activities/lib/booths";
 import type { Booth, BoothStamp } from "@/lib/types";
 
@@ -198,5 +199,70 @@ describe("sceneArt", () => {
   it("uses a plane when no answer has an icon, and cycles the tints", () => {
     const bare = { ...q, answers: [{ ...q.answers[0], icon: null }] };
     expect(sceneArt(bare, SCENE_TINTS.length, null)).toEqual({ kind: "panel", tint: SCENE_TINTS[0], emoji: "✈️" });
+  });
+});
+
+describe("curlPoints", () => {
+  const close = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+
+  it("lies flat below the hinge when unturned", () => {
+    const pts = curlPoints(0, 1, 8, 2);
+    expect(pts).toHaveLength(9);
+    expect(pts.every((p) => close(p.z, 0))).toBe(true);
+    expect(close(pts[8].y, -2)).toBe(true);
+  });
+
+  it("lies flat above the hinge once turned", () => {
+    const pts = curlPoints(1, 1, 8, 2);
+    expect(pts.every((p) => Math.abs(p.z) < 1e-6)).toBe(true);
+    expect(close(pts[8].y, 2)).toBe(true);
+  });
+
+  it("bends mid-turn, the free edge lagging behind the way it moves", () => {
+    // A stiff board at half-turn stands straight up (tip at y = 0). Paper turning up trails its
+    // free edge behind, on the unturned side (y < 0); turning back down, on the turned side.
+    const up = curlPoints(0.5, 1, 8, 2);
+    const down = curlPoints(0.5, -1, 8, 2);
+    expect(up[8].z).toBeGreaterThan(0);
+    expect(up[8].y).toBeLessThan(0);
+    expect(down[8].y).toBeGreaterThan(0);
+    // Bent, so the tip is nearer the hinge than a stiff page's length.
+    expect(Math.hypot(up[8].y, up[8].z)).toBeLessThan(2);
+  });
+
+  it("keeps the page its own length", () => {
+    const pts = curlPoints(0.3, 1, 16, 2);
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i].y - pts[i - 1].y, pts[i].z - pts[i - 1].z);
+    expect(len).toBeCloseTo(2, 6);
+  });
+});
+
+describe("book leaves", () => {
+  const f = (stage: BookFlow["stage"], index = 0): BookFlow => ({ stage, index, test: true, picks: [], closedMessage: null });
+
+  it("puts each question on its own leaf, the next scene on its back", () => {
+    const leaves = leafPages(true, 3);
+    expect(leaves).toEqual([
+      { front: "cover", back: "scene:0" },
+      { front: "question:0", back: "scene:1" },
+      { front: "question:1", back: "scene:2" },
+      { front: "question:2", back: "sign" },
+      { front: "name", back: "stamps" },
+    ]);
+  });
+
+  it("is the cover over the holder page without a test", () => {
+    expect(leafPages(false, 0)).toEqual([{ front: "cover", back: "stamps" }]);
+  });
+
+  it("turns one leaf per question answered", () => {
+    expect(turnedLeaves(f("closed"), 5)).toBe(0);
+    expect(turnedLeaves(f("locked"), 5)).toBe(0);
+    expect(turnedLeaves(f("questions", 0), 5)).toBe(1);
+    expect(turnedLeaves(f("questions", 2), 5)).toBe(3);
+    expect(turnedLeaves(f("name"), 5)).toBe(4);
+    expect(turnedLeaves(f("revealing"), 5)).toBe(5);
+    expect(turnedLeaves(f("done"), 1)).toBe(1);
   });
 });
