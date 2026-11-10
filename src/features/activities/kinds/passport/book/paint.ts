@@ -107,18 +107,42 @@ function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number,
 
 // ---------- pages ----------
 
-/** D871, D885: the closed portrait cover - the event's name, PASSPORT in gold, the crest (the organiser's, or the globe). */
-export function paintCover(ctx: Ctx, o: { colour: string; crest: HTMLImageElement | null; eventName: string; fonts: Fonts }) {
+/**
+ * The cover's surface for the 3D book, painted to the same layout as `paintCover`: red is height
+ * (the leather's grain, the spine's crease, the gold stamped up out of it), green is roughness
+ * and blue is metal - three.js reads its bump, roughness and metalness maps from those channels.
+ * So the gold foil is raised, smooth and metal, and catches the light; the leather is matt.
+ */
+const SURFACE = { leather: "rgb(120,235,0)", gold: "rgb(255,80,255)", printed: "rgb(225,200,0)", crease: "rgb(40,245,0)" };
+
+/** D871, D885: the closed portrait cover - the event's name, PASSPORT in gold, the crest (the organiser's, or the globe). `surface`: its relief instead (above). */
+export function paintCover(ctx: Ctx, o: { colour: string; crest: HTMLImageElement | null; eventName: string; fonts: Fonts; surface?: boolean }) {
   const { w, h } = COVER_SIZE;
-  ctx.fillStyle = o.colour; ctx.fillRect(0, 0, w, h);
+  const S = !!o.surface;
+  ctx.fillStyle = S ? SURFACE.leather : o.colour; ctx.fillRect(0, 0, w, h);
   let seed = 7;
   const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 4200; i++) { ctx.fillStyle = r() > 0.5 ? "rgba(255,255,255,.035)" : "rgba(0,0,0,.08)"; ctx.fillRect(r() * w, r() * h, 2, 2); }
-  const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, "rgba(255,255,255,.08)"); g.addColorStop(1, "rgba(0,0,0,.2)");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  // The leather's grain: specks of light and shade, or bumps and dips.
+  for (let i = 0; i < 9000; i++) {
+    const up = r() > 0.5;
+    ctx.fillStyle = S ? (up ? "rgb(160,245,0)" : "rgb(80,222,0)") : up ? "rgba(255,255,255,.035)" : "rgba(0,0,0,.08)";
+    const s = 2 + Math.floor(r() * 2);
+    ctx.fillRect(r() * w, r() * h, s, s);
+  }
+  if (!S) {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, "rgba(255,255,255,.08)"); g.addColorStop(1, "rgba(0,0,0,.2)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }
+  // The crease where the cover bends at the spine (left), pressed in.
+  if (S) { ctx.fillStyle = SURFACE.crease; ctx.fillRect(40, 0, 10, h); }
+  else {
+    ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.fillRect(40, 0, 6, h);
+    ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.fillRect(48, 0, 4, h);
+  }
 
-  ctx.fillStyle = GOLD; ctx.strokeStyle = GOLD; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const ink = S ? SURFACE.gold : GOLD;
+  ctx.fillStyle = ink; ctx.strokeStyle = ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   spaced(ctx, 8);
   fit(ctx, o.eventName.toUpperCase(), w - 120, 600, o.fonts.body, { max: 26, min: 16 });
   ctx.fillText(o.eventName.toUpperCase(), w / 2, 130, w - 100);
@@ -128,7 +152,17 @@ export function paintCover(ctx: Ctx, o: { colour: string; crest: HTMLImageElemen
   if (o.crest && o.crest.naturalWidth > 0) {
     const s = Math.min(300 / o.crest.naturalWidth, 300 / o.crest.naturalHeight);
     const cw = o.crest.naturalWidth * s, ch = o.crest.naturalHeight * s;
-    ctx.drawImage(o.crest, cx - cw / 2, cy - ch / 2, cw, ch);
+    if (!S) ctx.drawImage(o.crest, cx - cw / 2, cy - ch / 2, cw, ch);
+    else {
+      // The organiser's crest is printed, not foil: raised a little where it has ink, never metal.
+      const off = document.createElement("canvas"); off.width = Math.ceil(cw); off.height = Math.ceil(ch);
+      const ox = off.getContext("2d");
+      if (ox) {
+        ox.drawImage(o.crest, 0, 0, cw, ch);
+        ox.globalCompositeOperation = "source-in"; ox.fillStyle = SURFACE.printed; ox.fillRect(0, 0, off.width, off.height);
+        ctx.drawImage(off, cx - cw / 2, cy - ch / 2);
+      }
+    }
   } else {
     ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, 130, 0, Math.PI * 2); ctx.stroke();
     ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, 104, 0, Math.PI * 2); ctx.stroke();
@@ -180,24 +214,27 @@ export function paintScene(ctx: Ctx, o: { q: TestQuestion; index: number; img: H
   hinge(ctx, false);
 }
 
-/** D872: the bottom page - the question and its four rows; the picked row green with white words, no other colour changes. */
-export function paintQuestion(ctx: Ctx, o: { q: TestQuestion; index: number; total: number; picked: string | null; fonts: Fonts }) {
+/**
+ * D872: the bottom page - the question and its four rows; the picked row green with white words,
+ * no other colour changes. No "QUESTION 1 OF 10" line: the bar above the passport counts, and the
+ * room goes to the rows.
+ */
+export function paintQuestion(ctx: Ctx, o: { q: TestQuestion; picked: string | null; fonts: Fonts }) {
   paper(ctx); hinge(ctx, true);
-  // The question sits centred in the room between the label and the first row.
+  // The question sits centred in the room between the hinge and the first row.
   const X = MARGIN + 6;
-  label(ctx, `QUESTION ${o.index + 1} OF ${o.total}`, X, LABEL_Y, "left", o.fonts);
   ctx.fillStyle = INK; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-  const q = fit(ctx, o.q.text, PAGE.w - 2 * X, 700, o.fonts.body, { max: 52, min: 34 }, 2);
-  const lineH = q.size * 1.18, mid = (LABEL_Y + 22 + answerBox(0).y) / 2;
+  const q = fit(ctx, o.q.text, PAGE.w - 2 * X, 700, o.fonts.body, { max: 54, min: 36 }, 2);
+  const lineH = q.size * 1.18, mid = (36 + answerBox(0).y - 14) / 2;
   q.lines.forEach((l, i) => ctx.fillText(l, X, mid + (i - (q.lines.length - 1) / 2) * lineH));
   o.q.answers.slice(0, 4).forEach((a, j) => {
     const b = answerBox(j as 0 | 1 | 2 | 3), on = o.picked === a.id, my = b.y + b.h / 2;
     ctx.fillStyle = on ? PICKED : "rgba(255,255,255,.6)"; rr(ctx, b.x, b.y, b.w, b.h, b.h / 2); ctx.fill();
     if (!on) { ctx.strokeStyle = "rgba(122,92,52,.4)"; ctx.lineWidth = 3; rr(ctx, b.x, b.y, b.w, b.h, b.h / 2); ctx.stroke(); }
     const textX = a.icon ? b.x + 108 : b.x + 44;
-    if (a.icon) { ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.font = `54px ${EMOJI}`; ctx.fillStyle = INK; ctx.fillText(a.icon, b.x + 32, my + 3); }
+    if (a.icon) { ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.font = `58px ${EMOJI}`; ctx.fillStyle = INK; ctx.fillText(a.icon, b.x + 32, my + 3); }
     ctx.fillStyle = on ? "#FFFFFF" : INK; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-    const t = fit(ctx, a.text, b.x + b.w - 40 - textX, 600, o.fonts.body, { max: 44, min: 30 }, 2);
+    const t = fit(ctx, a.text, b.x + b.w - 40 - textX, 600, o.fonts.body, { max: 46, min: 30 }, 2);
     if (t.lines.length === 1) ctx.fillText(t.lines[0], textX, my + 2);
     else t.lines.forEach((l, i) => ctx.fillText(l, textX, my + 2 + (i - 0.5) * (t.size + 2)));
   });

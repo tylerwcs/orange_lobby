@@ -60,6 +60,18 @@ export function pageScale(devicePxWide: number, pageW: number): number {
   return Math.min(2.5, Math.max(1, Number.isFinite(s) ? s : 1));
 }
 
+/** The cover's relief for the 3D book (`paintCover`'s surface), at the cover canvas's size and sharpness. */
+export function paintCoverSurface(canvas: HTMLCanvasElement, d: PageData, img: (url: string | null) => HTMLImageElement | null, scale = 1) {
+  const w = Math.round(COVER_SIZE.w * scale), h = Math.round(COVER_SIZE.h * scale);
+  if (canvas.width !== w) canvas.width = w;
+  if (canvas.height !== h) canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(w / COVER_SIZE.w, 0, 0, h / COVER_SIZE.h, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; ctx.filter = "none";
+  paintCover(ctx, { colour: d.coverColour, crest: img(d.crest), eventName: d.eventName, fonts: d.fonts, surface: true });
+}
+
 /**
  * Paints one page onto its canvas, `scale` times its page size so it is crisp on the screen it is
  * shown on (`pageScale`). `img` returns a loaded image for a URL, or null while it loads.
@@ -83,7 +95,7 @@ export function paintPage(key: PageKey, canvas: HTMLCanvasElement, d: PageData, 
     case "scene":
       return paintScene(ctx, { q: d.test.questions[i], index: i, img: img(d.test.questions[i]?.image ?? null), fonts });
     case "question":
-      return paintQuestion(ctx, { q: d.test.questions[i], index: i, total: d.test.questions.length, picked: d.flow.picks[i] ?? null, fonts });
+      return paintQuestion(ctx, { q: d.test.questions[i], picked: d.flow.picks[i] ?? null, fonts });
     case "sign":
       return paintSign(ctx, { fonts });
     case "name":

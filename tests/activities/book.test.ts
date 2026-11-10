@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bookStart, bookStep, heldReveals, type BookFlow } from "@/features/activities/kinds/passport/book/flow";
 import { answerAt, answerBox, PAGE } from "@/features/activities/kinds/passport/book/geometry";
-import { screenTilt, tiltLean } from "@/features/activities/kinds/passport/book/tilt";
 import { stampSpot } from "@/features/activities/kinds/passport/book/stamp-spots";
 import { fitText } from "@/features/activities/kinds/passport/book/fit";
 import { sceneArt, SCENE_TINTS } from "@/features/activities/kinds/passport/book/paint";
@@ -101,21 +100,21 @@ describe("heldReveals", () => {
 
 describe("answer rows", () => {
   it("are the four pill rows of the question page", () => {
-    expect(answerBox(0)).toEqual({ x: 50, y: 228, w: 924, h: 100 });
-    expect(answerBox(3).y).toBe(228 + 3 * 114);
+    expect(answerBox(0)).toEqual({ x: 50, y: 196, w: 924, h: 108 });
+    expect(answerBox(3).y).toBe(196 + 3 * 122);
     // The last row ends a margin above the page's edge, as the rows keep at the sides.
     expect(PAGE.h - (answerBox(3).y + answerBox(3).h)).toBe(50);
   });
 
   it("finds the row under a tap", () => {
-    expect(answerAt(0.5, 1 - (228 + 50) / PAGE.h)).toBe(0);
-    expect(answerAt(0.5, 1 - (228 + 3 * 114 + 50) / PAGE.h)).toBe(3);
+    expect(answerAt(0.5, 1 - (196 + 54) / PAGE.h)).toBe(0);
+    expect(answerAt(0.5, 1 - (196 + 3 * 122 + 54) / PAGE.h)).toBe(3);
   });
 
   it("finds nothing between rows or above them", () => {
-    expect(answerAt(0.5, 1 - 449 / PAGE.h)).toBeNull();
+    expect(answerAt(0.5, 1 - 311 / PAGE.h)).toBeNull();
     expect(answerAt(0.5, 0.95)).toBeNull();
-    expect(answerAt(0.02, 1 - 278 / PAGE.h)).toBeNull();
+    expect(answerAt(0.02, 1 - 250 / PAGE.h)).toBeNull();
   });
 });
 
@@ -273,28 +272,5 @@ describe("book leaves", () => {
     expect(turnedLeaves(f("name"), 5)).toBe(4);
     expect(turnedLeaves(f("revealing"), 5)).toBe(5);
     expect(turnedLeaves(f("done"), 1)).toBe(1);
-  });
-});
-
-describe("gyroscope tilt", () => {
-  it("reads the phone's tilt in the screen's own axes, however it is turned", () => {
-    const a = { beta: 40, gamma: 10 };
-    expect(screenTilt(a, 0)).toEqual({ x: 10, y: 40 });
-    expect(screenTilt(a, 90)).toEqual({ x: 40, y: -10 });
-    expect(screenTilt(a, 180)).toEqual({ x: -10, y: -40 });
-    expect(screenTilt(a, 270)).toEqual({ x: -40, y: 10 });
-    expect(screenTilt(a, -90)).toEqual(screenTilt(a, 270));
-  });
-
-  it("leans from how the phone is held, the passport keeping still in the room", () => {
-    const level = { x: 0, y: 45 };
-    expect(tiltLean(level, level)).toEqual({ x: 0, y: 0 });
-    // Right edge tipped away 10°: the passport's right edge comes towards you, half way.
-    expect(tiltLean({ x: 10, y: 45 }, level)).toEqual({ x: -0.5, y: 0 });
-    expect(tiltLean({ x: 0, y: 55 }, level)).toEqual({ x: 0, y: 0.5 });
-  });
-
-  it("never leans past full", () => {
-    expect(tiltLean({ x: -90, y: 180 }, { x: 0, y: 0 })).toEqual({ x: 1, y: 1 });
   });
 });

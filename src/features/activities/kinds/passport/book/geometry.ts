@@ -8,12 +8,12 @@ export type Box = { x: number; y: number; w: number; h: number };
  * the bottom one line up, with the same room at each side and at the free edge.
  */
 export const MARGIN = 50;
-/** The small label line ("PAGE 01", "QUESTION 1 OF 10") on both pages, from the free edge / the hinge. */
+/** The small label line ("PAGE 01") on the picture page, from its free edge. */
 export const LABEL_Y = 58;
 
 /** D872: the question page's four answer rows, top to bottom, in page pixels, ending a margin above the edge. */
 export function answerBox(j: 0 | 1 | 2 | 3): Box {
-  return { x: MARGIN, y: 228 + j * 114, w: PAGE.w - 2 * MARGIN, h: 100 };
+  return { x: MARGIN, y: 196 + j * 122, w: PAGE.w - 2 * MARGIN, h: 108 };
 }
 
 /** The scene picture's rounded frame on the top page (D873): the same side and edge margins as the rows. */
