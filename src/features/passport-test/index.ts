@@ -4,3 +4,4 @@ export * from "./db/results";
 export * from "./actions";
 export * from "./admin/actions";
 export { TestCard } from "./admin/TestCard";
+export { ResultsCard } from "./admin/ResultsCard";

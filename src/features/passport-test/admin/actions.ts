@@ -6,7 +6,7 @@ import { flashPath } from "@/lib/flash";
 import { deleteEventImage, nextImage, type ImageChange } from "@/lib/db/media";
 import { featureForActivityKind, requireFeature } from "@/features/catalogue";
 import type { Activity, Event } from "@/lib/types";
-import { countResults, getTestActivity, saveTest } from "../db/results";
+import { clearAllResults, clearResult, countResults, getTestActivity, saveTest } from "../db/results";
 import { readLookForm, readPersonalityForm, readQuestionForm } from "../lib/forms";
 import { lockedChange, testProblems } from "../lib/rules";
 import { MAX_PERSONALITIES, MAX_QUESTIONS, readPassportTest, type PassportTest } from "../lib/settings";
@@ -146,4 +146,20 @@ export async function saveLookAction(eventId: string, activityId: string, fd: Fo
   const look = readLookForm(f.get, f.has);
   const crest = await image(fd, "crest", test.cover.crest, ev, "passport-crest", back);
   await commit(ev, activity, test, { ...test, labels: look.labels, cover: { colour: look.colour, crest: crest.url } }, back, "Passport look saved.", [crest.stale]);
+}
+
+/** D882: one guest takes the test again (a phone handed to a friend). Their stamps stay. */
+export async function clearResultAction(eventId: string, activityId: string, attendeeId: string) {
+  const { activity, back } = await testOf(eventId, activityId);
+  await clearResult(activity.id, attendeeId);
+  revalidatePath(back);
+  redirect(flashPath(back, "Result cleared. They can take the test again."));
+}
+
+/** D887: the way out of the locks - everyone takes the test again. Stamps stay. */
+export async function clearAllResultsAction(eventId: string, activityId: string) {
+  const { activity, back } = await testOf(eventId, activityId);
+  await clearAllResults(activity.id);
+  revalidatePath(back);
+  redirect(flashPath(back, "Every result cleared. Guests take the test again."));
 }

@@ -20,7 +20,7 @@ import { COVER_HINT } from "../../admin/ActivityRows";
 import { removeWarning } from "../../row";
 import { BoothList } from "./BoothList";
 import { BoothQr } from "./BoothQr";
-import { countResults, TestCard } from "@/features/passport-test";
+import { listResults, ResultsCard, TestCard } from "@/features/passport-test";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +42,7 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
   const path = `/admin/events/${ev.id}/activities/${activity.id}`;
   const [booths, allStamps, attendees, categories, results] = await Promise.all([
     listPassportBooths(activity.id), listStampsForEvent(ev.id), listAttendees(ev.id, undefined, "wide", { includeCancelled: true }), listCategories(ev.id),
-    countResults(activity.id),
+    listResults(activity.id),
   ]);
   const boothIds = new Set(booths.map((b) => b.id));
   const stamps = allStamps.filter((s) => boothIds.has(s.booth_id));
@@ -166,7 +166,8 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
       </p>
 
       {/* D884: the personality test, after the booths it shares the passport with. */}
-      <TestCard ev={ev} activity={activity} results={results} />
+      <TestCard ev={ev} activity={activity} results={results.length} />
+      <ResultsCard ev={ev} activity={activity} results={results} names={Object.fromEntries(attendees.map((a) => [a.id, a.name]))} />
     </div>
   );
 }

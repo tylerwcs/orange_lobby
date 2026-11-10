@@ -187,6 +187,14 @@ describe("buildPassportWorkbook", () => {
     expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Operations", "Creative Studio", "Stamps", "Completed"]);
   });
 
+  it("adds the personality and the passport name when the passport has a test (D888)", () => {
+    const results = new Map([["a1", { personality: "TRAILBLAZER", holderName: "Aiman Z." }]]);
+    const ws = buildPassportWorkbook(attendees, [{ name: "Booth Passport", booths, required: null, results }], stamps).getWorksheet("Booth Passport")!;
+    expect(ws.getRow(1).values).toEqual([undefined, "Name", "Email", "Category", "Operations", "Creative Studio", "Stamps", "Completed", "Personality", "Passport name"]);
+    expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Management", "Yes", "Yes", 2, "Yes", "TRAILBLAZER", "Aiman Z."]);
+    expect(ws.getRow(3).values).toEqual([undefined, "Sarah Lim", "s@x.my", "Crew", "No", "No", 0, "No", "", ""]);
+  });
+
   it("marks who has been where, and who has finished", () => {
     const ws = buildPassportWorkbook(attendees, [{ name: "Booth Passport", booths, required: null }], stamps).getWorksheet("Booth Passport")!;
     expect(ws.getRow(2).values).toEqual([undefined, "Aiman Zulkifli", "a@x.my", "Management", "Yes", "Yes", 2, "Yes"]);
