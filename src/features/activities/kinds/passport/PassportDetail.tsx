@@ -20,6 +20,7 @@ import { COVER_HINT } from "../../admin/ActivityRows";
 import { removeWarning } from "../../row";
 import { BoothList } from "./BoothList";
 import { BoothQr } from "./BoothQr";
+import { countResults, TestCard } from "@/features/passport-test";
 import { RichTextEditor, SECTIONS_HINT } from "@/components/admin/RichTextEditor";
 import { ImageField } from "@/components/admin/ImageField";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,8 +40,9 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
  */
 export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity: Activity; qr?: string }) {
   const path = `/admin/events/${ev.id}/activities/${activity.id}`;
-  const [booths, allStamps, attendees, categories] = await Promise.all([
+  const [booths, allStamps, attendees, categories, results] = await Promise.all([
     listPassportBooths(activity.id), listStampsForEvent(ev.id), listAttendees(ev.id, undefined, "wide", { includeCancelled: true }), listCategories(ev.id),
+    countResults(activity.id),
   ]);
   const boothIds = new Set(booths.map((b) => b.id));
   const stamps = allStamps.filter((s) => boothIds.has(s.booth_id));
@@ -162,6 +164,9 @@ export async function PassportDetail({ ev, activity, qr }: { ev: Event; activity
         those stamps back and drop attendees out of &ldquo;completed&rdquo;, so Delete is disabled instead. Rename the
         booth, or lower <strong className="font-bold text-foreground">Stamps needed</strong> if it drops out mid-event.
       </p>
+
+      {/* D884: the personality test, after the booths it shares the passport with. */}
+      <TestCard ev={ev} activity={activity} results={results} />
     </div>
   );
 }

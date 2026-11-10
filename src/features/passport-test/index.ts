@@ -2,3 +2,5 @@
 export * from "./client";
 export * from "./db/results";
 export * from "./actions";
+export * from "./admin/actions";
+export { TestCard } from "./admin/TestCard";
