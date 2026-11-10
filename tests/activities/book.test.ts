@@ -87,6 +87,12 @@ describe("heldReveals", () => {
     expect(r.afterTest).toEqual([]);
   });
 
+  it("without a test, holds unseen stamps until the cover is open (review)", () => {
+    const r = heldReveals(passport, { testOn: false, hasResult: false, preview: false });
+    expect(r.now).toEqual([]);
+    expect(r.afterTest.map((x) => x.boothId)).toEqual(["b1", "b2"]);
+  });
+
   it("plays nothing in a draft preview", () => {
     expect(heldReveals(passport, { testOn: true, hasResult: false, preview: true })).toEqual({ now: [], afterTest: [] });
   });

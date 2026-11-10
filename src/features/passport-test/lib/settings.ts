@@ -17,7 +17,9 @@ const HEX = /^#[0-9a-f]{6}$/i;
 const id = (prefix: "q" | "a" | "p") => z.string().regex(new RegExp(`^${prefix}-[0-9a-f]{8}$`));
 /** Stored images are ours (https, the event-media bucket); the travel set's characters ship in /public. */
 const picture = z.union([z.url({ protocol: /^https$/ }), z.string().regex(/^\/passport\/characters\/[a-z-]+\.svg$/)]).nullable().catch(null);
-const text = (max: number) => z.string().trim().max(max).catch("");
+/** Clipped, never rejected: one over-long value must not blank itself or its neighbours on read. */
+const clipped = (max: number) => (s: string) => Array.from(s.replace(/\s+/g, " ").trim()).slice(0, max).join("").trim();
+const text = (max: number) => z.string().catch("").transform(clipped(max));
 
 /** Keeps the items that parse and drops the rest, so one damaged entry never blanks a list. */
 function listOf<T extends z.ZodType>(item: T) {
@@ -30,7 +32,7 @@ function listOf<T extends z.ZodType>(item: T) {
 const answer = z.object({
   id: id("a"),
   text: text(80),
-  icon: z.string().trim().min(1).max(16).nullable().catch(null),
+  icon: z.string().transform(clipped(16)).nullable().catch(null).transform((s) => s || null),
   personality: z.string().catch(""),
 });
 
@@ -47,7 +49,7 @@ const personality = z.object({
   name: text(40),
   colour: z.string().regex(HEX).catch("#3E7BD9"),
   picture,
-  traits: z.array(z.string().trim().max(24)).catch([]),
+  traits: z.array(z.string().catch("").transform(clipped(24))).catch([]),
   ticked: z.array(z.number().int().min(0)).catch([]),
   style: text(60),
   say: z.tuple([text(40), text(40)]).catch(["", ""]),

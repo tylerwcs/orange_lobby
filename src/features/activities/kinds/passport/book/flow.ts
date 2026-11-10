@@ -71,11 +71,14 @@ export function bookStep(f: BookFlow, a: BookAction): BookFlow {
 
 /**
  * D880: stamps a booth gave before the guest finished the test wait. They play right after the
- * reveal (`afterTest`), each in turn, instead of on top of the test pages. A draft preview plays
+ * reveal (`afterTest`), each in turn, instead of on top of the test pages. Without a test they
+ * wait for the cover to open, rather than playing over the closed passport. A draft preview plays
  * nothing on load (D847).
  */
 export function heldReveals(p: Passport, o: { testOn: boolean; hasResult: boolean; preview: boolean }): { now: Reveal[]; afterTest: Reveal[] } {
   if (o.preview) return { now: [], afterTest: [] };
   const unseen = unseenReveals(p);
-  return o.testOn && !o.hasResult ? { now: [], afterTest: unseen } : { now: unseen, afterTest: [] };
+  // Only a guest whose passport opens straight to its finished pages sees them at once; anyone
+  // else meets the closed cover first (and the test, if any), so they wait until it is open.
+  return o.testOn && o.hasResult ? { now: unseen, afterTest: [] } : { now: [], afterTest: unseen };
 }

@@ -24,6 +24,10 @@ export type BookSceneProps = {
   api: RefObject<BookSceneApi | null>;
   /** The name page's place on screen, for the name field laid over it (D874); null when not showing. */
   onNameRect: (r: { left: number; top: number; width: number; height: number } | null) => void;
+  /** The stamp page's place on screen once the passport is finished, for the reveal's landing slot (D878). */
+  onTopRect: (r: { left: number; top: number; width: number; height: number } | null) => void;
+  /** Goes up each time a stamp is pressed in: the passport dips a little (D878). */
+  press: number;
   onReady: () => void;
   onFail: () => void;
 };
@@ -46,7 +50,7 @@ export default function BookScene(props: BookSceneProps) {
   return (
     <SceneGuard onFail={props.onFail}>
       <Canvas
-        flat frameloop="always" dpr={[1, 2]}
+        flat frameloop="demand" dpr={[1, 1.5]}
         camera={{ fov: FOV, near: 0.1, far: 100, position: [0, 0, CAM_Z] }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         style={{ position: "absolute", inset: 0, touchAction: "manipulation" }}
@@ -82,9 +86,25 @@ type Leaf = {
   bent: number;
 };
 
-function Book({ data, img, repaint, banner, api, onNameRect, onReady }: BookSceneProps) {
-  const { camera, size, gl } = useThree();
-  const pages = useMemo(() => leafPages(data.test.on, data.test.questions.length), [data.test]);
+function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, onReady }: BookSceneProps) {
+  const { camera, size, gl, invalidate } = useThree();
+  // Keyed on the test's shape, not its identity: a refresh after each landed stamp brings a new
+  // object, and the scene must not be rebuilt (and its settle dropped) for that.
+  const testOn = data.test.on;
+  const questionCount = data.test.questions.length;
+  const pages = useMemo(() => leafPages(testOn, questionCount), [testOn, questionCount]);
+  const lastTop = useRef("");
+  const dip = useRef({ t0: -1 });
+  // Something changed outside the frame loop (a page, the banner, a press): draw again.
+  useEffect(() => { invalidate(); });
+  // A phone back from another app (or a resized window) must show the passport, not a blank canvas.
+  useEffect(() => {
+    const redraw = () => invalidate();
+    document.addEventListener("visibilitychange", redraw);
+    window.addEventListener("resize", redraw);
+    return () => { document.removeEventListener("visibilitychange", redraw); window.removeEventListener("resize", redraw); };
+  }, [invalidate]);
+  useEffect(() => { if (press > 0) { dip.current.t0 = performance.now(); invalidate(); } }, [press, invalidate]);
   const textures = useRef(new Map<string, Tex>());
   const ready = useRef(false);
   const lastRect = useRef("");
@@ -182,7 +202,7 @@ function Book({ data, img, repaint, banner, api, onNameRect, onReady }: BookScen
   // Taps: the top page goes back, the bottom page answers (D872); the closed cover opens.
   const ray = useMemo(() => ({ caster: new THREE.Raycaster(), ndc: new THREE.Vector2() }), []);
   useImperativeHandle(api, () => ({
-      lean: (x, y) => { lean.current.tx = x; lean.current.ty = y; },
+      lean: (x, y) => { lean.current.tx = x; lean.current.ty = y; invalidate(); },
       hit: (cx, cy) => {
         if (busy()) return null;
         const r = gl.domElement.getBoundingClientRect();
@@ -351,7 +371,8 @@ function Book({ data, img, repaint, banner, api, onNameRect, onReady }: BookScen
     l.x += (l.tx - l.x) * 0.08; l.y += (l.ty - l.y) * 0.08;
     const lift = banner && cur >= NL ? -visH * 0.07 : 0;
     p.y += (lift - p.y) * 0.08;
-    built.root.position.set(0, p.y + Math.sin(now / 700) * 0.06 * p.bob, 0);
+    const d = dip.current.t0 < 0 ? 1 : Math.min(1, (now - dip.current.t0) / 280);
+    built.root.position.set(0, p.y + Math.sin(now / 700) * 0.06 * p.bob - Math.sin(d * Math.PI) * 0.06, 0);
     built.root.scale.setScalar(p.s * fit);
     built.root.rotation.set(p.rx + l.y * 0.18 * p.lean, p.ry + l.x * 0.3 * p.lean, 0);
     // eslint-disable-next-line react-hooks/immutability -- as above: per-frame three.js mutation.
@@ -378,7 +399,34 @@ function Book({ data, img, repaint, banner, api, onNameRect, onReady }: BookScen
       onNameRect(null);
     }
 
+    // The stamp page's place (D878), once the finished passport is still.
+    if (cur >= NL && !busy()) {
+      const L = built.leaves[NL - 1];
+      const m = L.back;
+      m.updateWorldMatrix(true, false);
+      const v = new THREE.Vector3();
+      // The stamp page is the last leaf's back: a bent page above the hinge, or the cover box's back.
+      const corners = L.geo ? [[-PW / 2, 0, 0], [PW / 2, PH, 0]] : [[-W / 2, -H / 2, -0.015], [W / 2, H / 2, -0.015]];
+      const pts = corners.map(([x, y, z]) => {
+        v.set(x, y, z).applyMatrix4(m.matrixWorld).project(camera);
+        return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height];
+      });
+      const rect = { left: Math.min(pts[0][0], pts[1][0]), top: Math.min(pts[0][1], pts[1][1]), width: Math.abs(pts[1][0] - pts[0][0]), height: Math.abs(pts[1][1] - pts[0][1]) };
+      const key = [rect.left, rect.top, rect.width, rect.height].map((x) => Math.round(x)).join(",");
+      if (key !== lastTop.current) { lastTop.current = key; onTopRect(rect); }
+    } else if (lastTop.current) {
+      lastTop.current = "";
+      onTopRect(null);
+    }
+
     if (!ready.current) { ready.current = true; onReady(); }
+
+    // D889: keep drawing only while something moves - the opening, a turn, the reveal, a settle,
+    // the press, the lean easing, the closed passport's float, the banner lift.
+    const moving = tweens.current.length > 0 || busy() || !!settle.current || d < 1 || p.bob > 0
+      || Math.abs(l.tx - l.x) > 0.002 || Math.abs(l.ty - l.y) > 0.002 || Math.abs(lift - p.y) > 0.002
+      || data.flow.stage === "revealing";
+    if (moving) invalidate();
   });
 
   return <primitive object={built.root} />;

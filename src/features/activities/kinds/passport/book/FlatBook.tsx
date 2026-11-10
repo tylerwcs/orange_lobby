@@ -10,7 +10,7 @@ type Img = (url: string | null) => HTMLImageElement | null;
  * one, or the cover alone while closed - with a short crossfade for each turn (none with reduced
  * motion). Taps land as page coordinates (`u` across, `v` up, as a raycast gives them).
  */
-export function FlatBook({ spread, data, img, repaint, onTop, onBottom, overlay }: {
+export function FlatBook({ spread, data, img, repaint, onTop, onBottom, overlay, topOverlay, press = 0 }: {
   spread: { top: PageKey | null; bottom: PageKey };
   data: PageData;
   img: Img;
@@ -20,6 +20,10 @@ export function FlatBook({ spread, data, img, repaint, onTop, onBottom, overlay 
   onBottom: (u: number, v: number) => void;
   /** Laid over the bottom page in page percentages: the name field (D874). */
   overlay?: ReactNode;
+  /** Laid over the top page: the slot a revealed stamp flies to (D878). */
+  topOverlay?: ReactNode;
+  /** Goes up each time a stamp is pressed in: the book gives a small press. */
+  press?: number;
 }) {
   const key = `${spread.top ?? ""}|${spread.bottom}`;
   if (!spread.top) {
@@ -32,7 +36,10 @@ export function FlatBook({ spread, data, img, repaint, onTop, onBottom, overlay 
   }
   return (
     <div key={key} className="flex w-[min(560px,100%,calc((100dvh-200px)*0.7111))] flex-col motion-safe:animate-[book-fade_250ms_ease-out] shadow-[0_24px_48px_rgba(0,0,0,.45)]">
-      <Page pageKey={spread.top} data={data} img={img} repaint={repaint} onTap={() => onTop()} className="w-full rounded-t-[10px]" />
+      <div key={`press-${press}`} className={press ? "relative motion-safe:animate-[book-press_280ms_ease-out]" : "relative"}>
+        <Page pageKey={spread.top} data={data} img={img} repaint={repaint} onTap={() => onTop()} className="w-full rounded-t-[10px]" />
+        {topOverlay}
+      </div>
       <div className="relative @container">
         <Page pageKey={spread.bottom} data={data} img={img} repaint={repaint} onTap={onBottom} className="w-full rounded-b-[10px]" />
         {overlay}

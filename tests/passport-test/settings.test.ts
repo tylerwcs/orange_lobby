@@ -62,3 +62,18 @@ describe("travelSet", () => {
     expect(travelSet().questions[0].id).not.toBe(t.questions[0].id);
   });
 });
+
+describe("readPassportTest keeps what the admin form saved (review: emoji and long text)", () => {
+  it("keeps an 80-character answer ending in an emoji", () => {
+    const text = `${"a".repeat(79)}😀`;
+    const q = { id: "q-0000000a", scene: "", text: "Q?", image: null, answers: [{ id: "a-0000000a", text, icon: "🙂", personality: "p-0000000a" }] };
+    expect(readPassportTest({ questions: [q] }).questions[0].answers[0].text).toBe(text);
+  });
+
+  it("clips an over-long trait instead of wiping every trait", () => {
+    const p = { id: "p-0000000a", name: "A", colour: "#E8693C", picture: null, traits: ["x".repeat(30), "b", "c", "d", "e", "f"], ticked: [0, 1, 2], style: "", say: ["", ""], blurb: "" };
+    const traits = readPassportTest({ personalities: [p] }).personalities[0].traits;
+    expect(traits).toHaveLength(6);
+    expect(traits[0]).toBe("x".repeat(24));
+  });
+});

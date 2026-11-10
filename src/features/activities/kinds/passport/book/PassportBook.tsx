@@ -15,6 +15,7 @@ import { PassportQr } from "../PassportQr";
 import { bookStart, bookStep } from "./flow";
 import { answerAt, inBox, NAME_BUTTON, NAME_FIELD, PAGE } from "./geometry";
 import { spreadFor, useFontsVersion, useImages, type BookStamp, type PageData } from "./pages";
+import { stampSpot } from "./stamp-spots";
 import { BOOK_FONTS, loadBookFonts } from "./fonts";
 import { FlatBook } from "./FlatBook";
 import { BookA11y } from "./BookA11y";
@@ -28,6 +29,9 @@ const BookScene = dynamic(() => import("./BookScene"), { ssr: false });
 const REVEAL_MS = 1800;
 const PICK_HOLD_MS = 260;
 const BANNER_MS = 3500;
+const RELEASE_AFTER_REVEAL_MS = 2200;
+const RELEASE_AFTER_OPENING_MS = 450;
+const RELEASE_AFTER_OPENING_3D_MS = 2900;
 const noSubscribe = () => () => {};
 
 /** Words and round buttons on the book's stage, which is always dark whatever the theme. */
@@ -105,6 +109,7 @@ export function PassportBook(p: {
   const use3d = can3d && !failed3d;
   const sceneApi = useRef<BookSceneApi | null>(null);
   const [nameRect, setNameRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [topRect, setTopRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   const { img, prefetch, version } = useImages();
   const fontsVersion = useFontsVersion();
@@ -157,15 +162,28 @@ export function PassportBook(p: {
     setTimeout(() => { dispatch({ type: "pick", answerId }); setFlash(null); }, PICK_HOLD_MS);
   }, [flash, flow.stage]);
 
-  // The finished holder page, then the stamps that waited play one by one (D880).
+  // The finished holder page (D875). The stamps that waited play once it has been seen (below).
+  const revealed = useRef(false);
   const completeReveal = useCallback(() => {
+    revealed.current = true;
     setProgress(1);
     dispatch({ type: "revealed" });
-    setReleased(true);
-    const held = [...p.afterTest, ...waitingRef.current].sort((a, b) => Date.parse(a.stampedAt) - Date.parse(b.stampedAt));
-    setWaiting([]);
-    if (held.length) setTimeout(() => live.arrived(held), 700);
-  }, [p.afterTest, live]);
+  }, []);
+
+  // D880: stamps that waited - given before the test, or before the cover was opened - play one
+  // by one once the finished pages are on screen: after the reveal has had its moment, or after
+  // the cover's opening. Let go and queued in the same tick, so none shows on the page first.
+  useEffect(() => {
+    if (flow.stage !== "done" || released) return;
+    const wait = prefersReducedMotion() ? 0 : revealed.current ? RELEASE_AFTER_REVEAL_MS : use3d ? RELEASE_AFTER_OPENING_3D_MS : RELEASE_AFTER_OPENING_MS;
+    const t = setTimeout(() => {
+      const held = [...p.afterTest, ...waitingRef.current].sort((a, b) => Date.parse(a.stampedAt) - Date.parse(b.stampedAt));
+      setReleased(true);
+      setWaiting([]);
+      if (held.length) live.arrived(held);
+    }, wait);
+    return () => clearTimeout(t);
+  }, [flow.stage, released, p.afterTest, live, use3d]);
 
   const finish = useCallback(async () => {
     if (saving || flow.stage !== "name") return;
@@ -229,6 +247,27 @@ export function PassportBook(p: {
     } else if (flow.stage === "name" && inBox(u, v, NAME_BUTTON)) void finish();
   };
 
+  // D878: the reveal lands on the spot the next stamp takes - a hidden slot StampReveal flies to -
+  // then the passport takes a small press as the stamp is pressed in.
+  const landing = flow.stage === "done" ? live.state.queue[0] ?? null : null;
+  const spot = landing ? stampSpot(stamps.length, p.seed) : null;
+  const slot = (place: CSSProperties) => landing && spot ? (
+    <div data-booth-slot={landing.boothId} aria-hidden className="pointer-events-none absolute" style={place}>
+      <div data-slot-face data-deg={(spot.rot * 180) / Math.PI} className="absolute inset-0" />
+    </div>
+  ) : null;
+  const stampSize = spot ? 230 * spot.scale : 0;
+  const flatSlot = spot ? slot({
+    left: `${((spot.x - stampSize / 2) / PAGE.w) * 100}%`, top: `${((spot.y - stampSize / 2) / PAGE.h) * 100}%`,
+    width: `${(stampSize / PAGE.w) * 100}%`, aspectRatio: "1",
+  }) : null;
+  const sceneSlot = spot && topRect ? slot({
+    left: topRect.left + (topRect.width * (spot.x - stampSize / 2)) / PAGE.w, top: topRect.top + (topRect.height * (spot.y - stampSize / 2)) / PAGE.h,
+    width: (topRect.width * stampSize) / PAGE.w, height: (topRect.width * stampSize) / PAGE.w,
+  }) : null;
+  const [pressed, setPressed] = useState({ count: stamps.length, n: 0 });
+  if (stamps.length !== pressed.count) setPressed({ count: stamps.length, n: stamps.length > pressed.count && released ? pressed.n + 1 : pressed.n });
+
   const qr = (variant: "bar" | "corner") => (
     <PassportQr slug={p.slug} token={p.token} activityId={p.activityId} qr={p.qr} after={live.after}
       paused={live.state.queue.length > 0} onArrived={onArrived} trigger={variant === "bar" ? barQrButton : cornerQrButton} />
@@ -262,6 +301,15 @@ export function PassportBook(p: {
       style={{ background: `radial-gradient(120% 80% at 50% 25%, ${data.coverColour} 0%, #0B0F18 85%)` }}>
       <div className="flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="size-11">{p.showQr && (flow.stage === "questions" || flow.stage === "name") ? qr("corner") : null}</div>
+        {(flow.stage === "questions" || flow.stage === "name") && (
+          <div className="flex flex-1 items-center gap-3 px-4" aria-hidden>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/20" /* theme-fixed: on the book's dark stage */>
+              <div className="h-full rounded-full bg-white/90 transition-[width] duration-300" /* theme-fixed: on the book's dark stage */
+                style={{ width: `${((flow.stage === "name" ? flow.picks.length : flow.index) / Math.max(1, flow.picks.length)) * 100}%` }} />
+            </div>
+            <span className={`text-xs font-bold tabular-nums ${ON_STAGE}`}>{flow.stage === "name" ? "Name" : `${flow.index + 1}/${flow.picks.length}`}</span>
+          </div>
+        )}
         <button type="button" aria-label="Close passport" onClick={() => router.push(home)} className={STAGE_ROUND}>
           <X aria-hidden className="size-5" />
         </button>
@@ -280,9 +328,10 @@ export function PassportBook(p: {
               sceneApi.current?.lean(((e.clientX - r.left) / r.width - 0.5) * 2, ((e.clientY - r.top) / r.height - 0.5) * 2);
             }}
             onPointerLeave={() => sceneApi.current?.lean(0, 0)}>
-            <BookScene data={data} img={img} repaint={version + fontsVersion} banner={banner} api={sceneApi}
-              onNameRect={setNameRect} onReady={() => setReady3d(true)} onFail={() => setFailed3d(true)} />
+            <BookScene data={data} img={img} repaint={version + fontsVersion} banner={banner} api={sceneApi} press={pressed.n}
+              onNameRect={setNameRect} onTopRect={setTopRect} onReady={() => setReady3d(true)} onFail={() => setFailed3d(true)} />
             {sceneName}
+            {sceneSlot}
           </div>
         )}
         {/* Above the 3D layer (absolute, so it would paint over plain flow): the banner's slot keeps its height there. */}
@@ -300,12 +349,12 @@ export function PassportBook(p: {
         )}
         {!(use3d && ready3d) && (
           <FlatBook spread={spreadFor(flow)} data={data} img={img} repaint={version + fontsVersion}
-            onTop={onTop} onBottom={onBottom} overlay={flatName} />
+            onTop={onTop} onBottom={onBottom} overlay={flatName} topOverlay={flatSlot} press={pressed.n} />
         )}
         <div className="pointer-events-none relative z-10 flex min-h-5 flex-col items-center gap-1">
           {flow.stage === "closed" && <p className={`text-sm font-semibold ${ON_STAGE}`}>Tap to open your passport</p>}
           {flow.stage === "locked" && <p className={`max-w-xs text-center text-base font-semibold ${ON_STAGE}`}>{flow.closedMessage}</p>}
-          {flow.stage === "questions" && flow.index > 0 && <p className={`text-xs ${ON_STAGE}`}>Tap the top page to go back</p>}
+          {flow.stage === "questions" && <p className={`text-xs ${ON_STAGE}`}>{flow.index > 0 ? "Tap an answer. Tap the top page to go back." : "Tap an answer."}</p>}
           {saving && <p className={`text-sm ${ON_STAGE}`} role="status">Saving…</p>}
         </div>
       </div>
