@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { QrCode, X } from "lucide-react";
 import { toast } from "@/lib/toast-store";
+import { lockBodyScroll } from "@/lib/scroll-lock";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { coverColour, type PassportTest, type SaveResult, type TestPick } from "@/features/passport-test/client";
 import { isLanded } from "../../../lib/passport-live";
@@ -21,6 +22,7 @@ import { FlatBook } from "./FlatBook";
 import { BookA11y } from "./BookA11y";
 import { BookBar, BOOK_BUTTON } from "./BookBar";
 import { hasWebGL, prefersReducedMotion } from "./webgl";
+import { useDeviceTilt } from "./tilt";
 import type { BookSceneApi } from "./BookScene";
 
 // D889: three.js only reaches phones that open a passport, and only after the WebGL check.
@@ -110,6 +112,12 @@ export function PassportBook(p: {
   const sceneApi = useRef<BookSceneApi | null>(null);
   const [nameRect, setNameRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [topRect, setTopRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  // The passport moves with the phone (its gyroscope), except on the name page, which keeps still for typing.
+  const leanScene = useCallback((x: number, y: number) => sceneApi.current?.lean(x, y), []);
+  const tilt = useDeviceTilt(leanScene, use3d && ready3d && flow.stage !== "name");
+
+  // The whole screen is the passport: the portal page behind it never scrolls (as the polaroid camera, D482).
+  useEffect(() => lockBodyScroll(), []);
 
   const { img, prefetch, version } = useImages();
   const fontsVersion = useFontsVersion();
@@ -297,7 +305,9 @@ export function PassportBook(p: {
   }) : null;
 
   const stage = (
-    <div /* theme-fixed: the book's own dark stage, like the polaroid camera */ className="fixed inset-0 z-[45] flex h-dvh flex-col overflow-hidden overscroll-none text-white"
+    <div /* theme-fixed: the book's own dark stage, like the polaroid camera */ className="fixed inset-0 z-[45] flex h-dvh touch-none flex-col overflow-hidden overscroll-none text-white"
+      // iPhone asks for the motion sensor only inside a tap: the guest's first one.
+      onClickCapture={tilt.ask}
       style={{ background: `radial-gradient(120% 80% at 50% 25%, ${data.coverColour} 0%, #0B0F18 85%)` }}>
       <div className="flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="size-11">{p.showQr && (flow.stage === "questions" || flow.stage === "name") ? qr("corner") : null}</div>
@@ -324,10 +334,11 @@ export function PassportBook(p: {
               if (h?.page === "top") onTop(); else if (h) onBottom(h.u, h.v);
             }}
             onPointerMove={(e) => {
+              if (e.pointerType === "touch" && tilt.live()) return;
               const r = e.currentTarget.getBoundingClientRect();
               sceneApi.current?.lean(((e.clientX - r.left) / r.width - 0.5) * 2, ((e.clientY - r.top) / r.height - 0.5) * 2);
             }}
-            onPointerLeave={() => sceneApi.current?.lean(0, 0)}>
+            onPointerLeave={(e) => { if (!(e.pointerType === "touch" && tilt.live())) sceneApi.current?.lean(0, 0); }}>
             <BookScene data={data} img={img} repaint={version + fontsVersion} banner={banner} api={sceneApi} press={pressed.n}
               onNameRect={setNameRect} onTopRect={setTopRect} onReady={() => setReady3d(true)} onFail={() => setFailed3d(true)} />
             {sceneName}

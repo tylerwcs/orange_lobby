@@ -1,7 +1,7 @@
 import { personalityShades, type PassportTest, type Personality, type TestQuestion } from "@/features/passport-test/client";
 import { PAPER, PAPER_INK, STAMP_ART_FILTER } from "../paper";
 import { fitText } from "./fit";
-import { answerBox, NAME_BUTTON, NAME_FIELD, PAGE, SCENE_FRAME } from "./geometry";
+import { answerBox, LABEL_Y, MARGIN, NAME_BUTTON, NAME_FIELD, PAGE, SCENE_FRAME } from "./geometry";
 import { stampSpot } from "./stamp-spots";
 
 /**
@@ -152,8 +152,8 @@ export function paintCover(ctx: Ctx, o: { colour: string; crest: HTMLImageElemen
 export function paintScene(ctx: Ctx, o: { q: TestQuestion; index: number; img: HTMLImageElement | null; fonts: Fonts }) {
   const F = SCENE_FRAME;
   paper(ctx);
-  label(ctx, `PAGE ${String(o.index + 1).padStart(2, "0")}`, F.x + 6, 50, "left", o.fonts, PAPER_INK.name);
-  if (o.q.scene) label(ctx, o.q.scene.toUpperCase(), F.x + F.w - 6, 50, "right", o.fonts, PAPER_INK.name);
+  label(ctx, `PAGE ${String(o.index + 1).padStart(2, "0")}`, F.x + 6, LABEL_Y, "left", o.fonts, PAPER_INK.name);
+  if (o.q.scene) label(ctx, o.q.scene.toUpperCase(), F.x + F.w - 6, LABEL_Y, "right", o.fonts, PAPER_INK.name);
   const art = sceneArt(o.q, o.index, o.img);
   ctx.save(); rr(ctx, F.x, F.y, F.w, F.h, 22); ctx.clip();
   if (art.kind === "image") {
@@ -162,9 +162,18 @@ export function paintScene(ctx: Ctx, o: { q: TestQuestion; index: number; img: H
     g.addColorStop(0, "rgba(251,246,234,.06)"); g.addColorStop(1, "rgba(60,40,15,.12)");
     ctx.fillStyle = g; ctx.fillRect(F.x, F.y, F.w, F.h);
   } else {
+    // No picture: the tint lit from the middle, a soft disc and the icon large enough to carry
+    // the page, so it weighs as much as the question page below.
+    const cx = PAGE.w / 2, cy = F.y + F.h / 2;
     ctx.fillStyle = art.tint; ctx.fillRect(F.x, F.y, F.w, F.h);
-    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `200px ${EMOJI}`; ctx.fillStyle = INK;
-    ctx.fillText(art.emoji, PAGE.w / 2, F.y + F.h / 2);
+    const glow = ctx.createRadialGradient(cx, cy, 20, cx, cy, F.w * 0.6);
+    glow.addColorStop(0, "rgba(255,255,255,.55)"); glow.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = glow; ctx.fillRect(F.x, F.y, F.w, F.h);
+    ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.beginPath(); ctx.arc(cx, cy, 190, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(94,69,38,.18)"; ctx.lineWidth = 3; ctx.setLineDash([14, 12]);
+    ctx.beginPath(); ctx.arc(cx, cy, 214, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `250px ${EMOJI}`; ctx.fillStyle = INK;
+    ctx.fillText(art.emoji, cx, cy + 10);
   }
   ctx.restore();
   ctx.strokeStyle = "rgba(94,69,38,.35)"; ctx.lineWidth = 3; rr(ctx, F.x, F.y, F.w, F.h, 22); ctx.stroke();
@@ -174,19 +183,21 @@ export function paintScene(ctx: Ctx, o: { q: TestQuestion; index: number; img: H
 /** D872: the bottom page - the question and its four rows; the picked row green with white words, no other colour changes. */
 export function paintQuestion(ctx: Ctx, o: { q: TestQuestion; index: number; total: number; picked: string | null; fonts: Fonts }) {
   paper(ctx); hinge(ctx, true);
-  label(ctx, `QUESTION ${o.index + 1} OF ${o.total}`, 56, 66, "left", o.fonts);
+  // The question sits centred in the room between the label and the first row.
+  const X = MARGIN + 6;
+  label(ctx, `QUESTION ${o.index + 1} OF ${o.total}`, X, LABEL_Y, "left", o.fonts);
   ctx.fillStyle = INK; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-  const q = fit(ctx, o.q.text, PAGE.w - 112, 700, o.fonts.body, { max: 56, min: 36 }, 2);
-  const qy = q.lines.length === 1 ? 146 : 124;
-  q.lines.forEach((l, i) => ctx.fillText(l, 56, qy + i * (q.size + 6)));
+  const q = fit(ctx, o.q.text, PAGE.w - 2 * X, 700, o.fonts.body, { max: 52, min: 34 }, 2);
+  const lineH = q.size * 1.18, mid = (LABEL_Y + 22 + answerBox(0).y) / 2;
+  q.lines.forEach((l, i) => ctx.fillText(l, X, mid + (i - (q.lines.length - 1) / 2) * lineH));
   o.q.answers.slice(0, 4).forEach((a, j) => {
     const b = answerBox(j as 0 | 1 | 2 | 3), on = o.picked === a.id, my = b.y + b.h / 2;
-    ctx.fillStyle = on ? PICKED : "rgba(255,255,255,.6)"; rr(ctx, b.x, b.y, b.w, b.h, 52); ctx.fill();
-    if (!on) { ctx.strokeStyle = "rgba(122,92,52,.4)"; ctx.lineWidth = 3; rr(ctx, b.x, b.y, b.w, b.h, 52); ctx.stroke(); }
-    const textX = a.icon ? b.x + 112 : b.x + 44;
-    if (a.icon) { ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.font = `58px ${EMOJI}`; ctx.fillStyle = INK; ctx.fillText(a.icon, b.x + 30, my + 3); }
+    ctx.fillStyle = on ? PICKED : "rgba(255,255,255,.6)"; rr(ctx, b.x, b.y, b.w, b.h, b.h / 2); ctx.fill();
+    if (!on) { ctx.strokeStyle = "rgba(122,92,52,.4)"; ctx.lineWidth = 3; rr(ctx, b.x, b.y, b.w, b.h, b.h / 2); ctx.stroke(); }
+    const textX = a.icon ? b.x + 108 : b.x + 44;
+    if (a.icon) { ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.font = `54px ${EMOJI}`; ctx.fillStyle = INK; ctx.fillText(a.icon, b.x + 32, my + 3); }
     ctx.fillStyle = on ? "#FFFFFF" : INK; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-    const t = fit(ctx, a.text, b.x + b.w - 40 - textX, 600, o.fonts.body, { max: 46, min: 30 }, 2);
+    const t = fit(ctx, a.text, b.x + b.w - 40 - textX, 600, o.fonts.body, { max: 44, min: 30 }, 2);
     if (t.lines.length === 1) ctx.fillText(t.lines[0], textX, my + 2);
     else t.lines.forEach((l, i) => ctx.fillText(l, textX, my + 2 + (i - 0.5) * (t.size + 2)));
   });

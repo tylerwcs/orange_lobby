@@ -50,14 +50,29 @@ export function spreadFor(flow: BookFlow): { top: PageKey | null; bottom: PageKe
   }
 }
 
-/** Paints one page onto its canvas. `img` returns a loaded image for a URL, or null while it loads. */
-export function paintPage(key: PageKey, canvas: HTMLCanvasElement, d: PageData, img: (url: string | null) => HTMLImageElement | null) {
-  const { w, h } = pageSize(key);
+/**
+ * How sharp a page is painted: device pixels per page pixel where it is shown, a quarter step at
+ * a time (so a small resize repaints nothing), never below the page's own size nor above 2.5×
+ * (a phone's page is about 1.1–1.6× on a 3× screen; more only costs memory).
+ */
+export function pageScale(devicePxWide: number, pageW: number): number {
+  const s = Math.ceil((devicePxWide / pageW) * 4) / 4;
+  return Math.min(2.5, Math.max(1, Number.isFinite(s) ? s : 1));
+}
+
+/**
+ * Paints one page onto its canvas, `scale` times its page size so it is crisp on the screen it is
+ * shown on (`pageScale`). `img` returns a loaded image for a URL, or null while it loads.
+ */
+export function paintPage(key: PageKey, canvas: HTMLCanvasElement, d: PageData, img: (url: string | null) => HTMLImageElement | null, scale = 1) {
+  const size = pageSize(key);
+  const w = Math.round(size.w * scale), h = Math.round(size.h * scale);
   if (canvas.width !== w) canvas.width = w;
   if (canvas.height !== h) canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(w / size.w, 0, 0, h / size.h, 0, 0);
+  ctx.imageSmoothingQuality = "high";
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; ctx.filter = "none";
   const [kind, n] = key.split(":") as [string, string | undefined];
   const i = Number(n);

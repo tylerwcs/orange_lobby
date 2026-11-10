@@ -3,8 +3,8 @@ import { Component, useEffect, useImperativeHandle, useMemo, useRef, type ReactN
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { curlPoints, leafPages, turnedLeaves } from "./leaf";
-import { paintPage, pageSize, type PageData, type PageKey } from "./pages";
-import { drawStamp } from "./paint";
+import { pageScale, paintPage, pageSize, type PageData, type PageKey } from "./pages";
+import { COVER_SIZE, drawStamp } from "./paint";
 import { stampSpot } from "./stamp-spots";
 import { PAGE } from "./geometry";
 
@@ -50,10 +50,11 @@ export default function BookScene(props: BookSceneProps) {
   return (
     <SceneGuard onFail={props.onFail}>
       <Canvas
-        flat frameloop="demand" dpr={[1, 1.5]}
+        // The phone's own pixel ratio (up to 3x): drawn at less, the whole passport is blurred up.
+        flat frameloop="demand" dpr={[1, 3]}
         camera={{ fov: FOV, near: 0.1, far: 100, position: [0, 0, CAM_Z] }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-        style={{ position: "absolute", inset: 0, touchAction: "manipulation" }}
+        style={{ position: "absolute", inset: 0, touchAction: "none" }}
         onCreated={({ gl }) => {
           gl.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); props.onFail(); }, { once: true });
         }}
@@ -73,8 +74,8 @@ class SceneGuard extends Component<{ onFail: () => void; children: ReactNode }, 
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-type Variant = "plain" | "back" | "cover" | "boxBack";
-type Tex = { canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; sig: string };
+type Variant = "plain" | "back" | "cover";
+type Tex = { canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; sig: string; scale: number };
 type LeafAnim = { f: number; from: number; to: number; t0: number; dur: number; dir: 1 | -1 };
 type Leaf = {
   group: THREE.Group;
@@ -112,7 +113,7 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
   const turned = turnedLeaves(data.flow, pages.length);
   // A returning guest sees the finished passport at once (D882): no cover animation.
   const pose = useRef(turned > 0
-    ? { y: 0, s: 1, rx: 0, ry: 0, turn: 0, bob: 0, lean: 0.35 }
+    ? { y: 0, s: 1, rx: 0, ry: 0, turn: 0, bob: 0, lean: 0.6 }
     : { y: 0, s: 1.17, rx: -0.12, ry: 0.3, turn: Math.PI / 2, bob: 1, lean: 1 });
   const tweens = useRef<{ t0: number; dur: number; apply: (e: number) => void }[]>([]);
   const settle = useRef<{ mesh: THREE.Mesh; t0: number; skip: string } | null>(null);
@@ -136,11 +137,16 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
       const f = k < turned ? 1 : 0;
       const anim: LeafAnim = { f, from: f, to: f, t0: 0, dur: PAGE_MS, dir: 1 };
       if (k === 0) {
+        // The cover board, cover-coloured inside too, with its first page pasted inside it: the
+        // same size and place as every other page, so the first spread matches the rest.
         const frontMat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 });
-        const backMat = new THREE.MeshStandardMaterial({ roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 0.25 });
-        const box = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.03), [coverSide, coverSide, coverSide, coverSide, frontMat, backMat]);
-        box.position.set(0, -H / 2, 0.017); group.add(box);
-        return { group, front: box, back: box, geo: null, pages: p, anim, bent: -1 };
+        const box = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.03), [coverSide, coverSide, coverSide, coverSide, frontMat, coverSide]);
+        box.position.set(0, -H / 2, 0.017);
+        const inner = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH),
+          new THREE.MeshStandardMaterial({ roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 0.25, side: THREE.BackSide }));
+        inner.position.set(0, -0.01 - PH / 2, 0.0005);
+        group.add(box, inner);
+        return { group, front: box, back: inner, geo: null, pages: p, anim, bent: -1 };
       }
       const geo = new THREE.PlaneGeometry(PW, PH, 1, SEG);
       const frontMat = new THREE.MeshStandardMaterial({ roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 0.25, side: THREE.FrontSide });
@@ -184,7 +190,7 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
       tweens.current.push({ t0: now, dur: 500, apply: (e) => { p.rx = from.rx * (1 - e); p.ry = from.ry * (1 - e); p.bob = 1 - e; } });
       Object.assign(L0.anim, { from: L0.anim.f, to: 1, t0: now + 500, dur: COVER_MS, dir: 1 });
       tweens.current.push({ t0: now + 500, dur: COVER_MS, apply: (e) => { p.s = 1.17 - 0.45 * e; } });
-      tweens.current.push({ t0: now + 500 + COVER_MS + 250, dur: 900, apply: (e) => { p.turn = (Math.PI / 2) * (1 - e); p.s = 0.72 + 0.28 * e; p.lean = 1 - 0.65 * e; } });
+      tweens.current.push({ t0: now + 500 + COVER_MS + 250, dur: 900, apply: (e) => { p.turn = (Math.PI / 2) * (1 - e); p.s = 0.72 + 0.28 * e; p.lean = 1 - 0.4 * e; } });
     }
     built.leaves.forEach((L, k) => {
       if (k === 0) return;
@@ -223,20 +229,34 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
       },
   }));
 
+  // How sharp the pages are painted: as many device pixels as a page covers on this screen at
+  // rest (the cover by its long side, closed and enlarged), so the GPU never blurs them up.
+  const visH = 2 * CAM_Z * Math.tan((FOV * Math.PI) / 360);
+  const pxPerUnit = (size.height / visH) * gl.getPixelRatio();
+  const restFit = Math.min((visH * (size.width / size.height) * 0.94) / W, (visH * 0.86) / (2 * H));
+  const pageRes = pageScale(restFit * PW * pxPerUnit, pageSize("holder").w);
+  const coverRes = pageScale(restFit * 1.17 * W * pxPerUnit, COVER_SIZE.h);
+
   // Textures: only the leaves either side of the open spread hold their pages (D889).
   function texFor(key: PageKey, variant: Variant): Tex {
     const id = `${key}|${variant}`;
+    const scale = key === "cover" ? coverRes : pageRes;
     let t = textures.current.get(id);
+    // A new screen size (a turned phone): a fresh canvas at the new sharpness.
+    if (t && t.scale !== scale) { t.tex.dispose(); textures.current.delete(id); t = undefined; }
     if (!t) {
       const canvas = document.createElement("canvas");
       const { w, h } = pageSize(key);
-      canvas.width = w; canvas.height = h;
+      canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
       const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+      // The sharpest level at rest, never blended with the half-size one; the smaller levels
+      // only while the passport is small (the opening).
+      tex.minFilter = THREE.LinearMipmapNearestFilter;
       if (variant === "back") tex.flipY = false;
-      if (variant === "cover" || variant === "boxBack") { tex.center.set(0.5, 0.5); tex.rotation = variant === "cover" ? -Math.PI / 2 : Math.PI; }
-      t = { canvas, tex, sig: "" };
+      if (variant === "cover") { tex.center.set(0.5, 0.5); tex.rotation = -Math.PI / 2; }
+      t = { canvas, tex, sig: "", scale };
       textures.current.set(id, t);
     }
     return t;
@@ -262,7 +282,7 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
     if (t.sig === s) return;
     t.sig = s;
     const skip = settle.current?.skip;
-    paintPage(key, t.canvas, skip && key === "stamps" ? { ...data, stamps: data.stamps.filter((x) => x.id !== skip) } : data, img);
+    paintPage(key, t.canvas, skip && key === "stamps" ? { ...data, stamps: data.stamps.filter((x) => x.id !== skip) } : data, img, t.scale);
     t.tex.needsUpdate = true;
   }
 
@@ -289,7 +309,9 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
     const size = (320 / PAGE.w) * PW;
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
     const last = built.leaves.length - 1;
-    mesh.position.set(-PW / 2 + (PW * spot.x) / PAGE.w, PH * (1 - spot.y / PAGE.h) - 0.01, zUp(last) + 0.006);
+    // A turned page runs up from just under the hinge; the cover's pasted page from just over it.
+    const base = built.leaves[last].geo ? -0.01 : 0.01;
+    mesh.position.set(-PW / 2 + (PW * spot.x) / PAGE.w, PH * (1 - spot.y / PAGE.h) + base, zUp(last) + 0.006);
     built.book.add(mesh);
     if (settle.current) built.book.remove(settle.current.mesh);
     settle.current = { mesh, t0: performance.now(), skip: s.id };
@@ -333,12 +355,12 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
       // Pages on show (or about to be) hold their textures; the rest are plain paper.
       const mats = Array.isArray(L.front.material) ? L.front.material : [L.front.material];
       const frontMat = (k === 0 ? mats[4] : mats[0]) as THREE.MeshStandardMaterial;
-      const backMat = (k === 0 ? mats[5] : (L.back.material as THREE.MeshStandardMaterial)) as THREE.MeshStandardMaterial;
+      const backMat = L.back.material as THREE.MeshStandardMaterial;
       if (near) {
         const ft = texFor(L.pages.front, k === 0 ? "cover" : "plain"); paint(L.pages.front, ft); setMap(frontMat, ft);
-        const bt = texFor(L.pages.back, k === 0 ? "boxBack" : "back"); paint(L.pages.back, bt); setMap(backMat, bt);
+        const bt = texFor(L.pages.back, "back"); paint(L.pages.back, bt); setMap(backMat, bt);
       } else {
-        for (const [key, variant, mat] of [[L.pages.front, k === 0 ? "cover" : "plain", frontMat], [L.pages.back, k === 0 ? "boxBack" : "back", backMat]] as const) {
+        for (const [key, variant, mat] of [[L.pages.front, k === 0 ? "cover" : "plain", frontMat], [L.pages.back, "back", backMat]] as const) {
           const id = `${key}|${variant}`;
           const t = textures.current.get(id);
           if (t) { setMap(mat, null); t.tex.dispose(); textures.current.delete(id); }
@@ -405,8 +427,8 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
       const m = L.back;
       m.updateWorldMatrix(true, false);
       const v = new THREE.Vector3();
-      // The stamp page is the last leaf's back: a bent page above the hinge, or the cover box's back.
-      const corners = L.geo ? [[-PW / 2, 0, 0], [PW / 2, PH, 0]] : [[-W / 2, -H / 2, -0.015], [W / 2, H / 2, -0.015]];
+      // The stamp page is the last leaf's back: a bent page above the hinge, or the cover's pasted page.
+      const corners = L.geo ? [[-PW / 2, 0, 0], [PW / 2, PH, 0]] : [[-PW / 2, -PH / 2, 0], [PW / 2, PH / 2, 0]];
       const pts = corners.map(([x, y, z]) => {
         v.set(x, y, z).applyMatrix4(m.matrixWorld).project(camera);
         return [((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height];

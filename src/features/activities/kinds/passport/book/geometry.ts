@@ -3,13 +3,21 @@ export const PAGE = { w: 1024, h: 720 } as const;
 
 export type Box = { x: number; y: number; w: number; h: number };
 
-/** D872: the question page's four answer rows, top to bottom, in page pixels. */
+/**
+ * The margin every spread page keeps: the picture's frame on the top page and the answer rows on
+ * the bottom one line up, with the same room at each side and at the free edge.
+ */
+export const MARGIN = 50;
+/** The small label line ("PAGE 01", "QUESTION 1 OF 10") on both pages, from the free edge / the hinge. */
+export const LABEL_Y = 58;
+
+/** D872: the question page's four answer rows, top to bottom, in page pixels, ending a margin above the edge. */
 export function answerBox(j: 0 | 1 | 2 | 3): Box {
-  return { x: 50, y: 232 + j * 118, w: PAGE.w - 100, h: 104 };
+  return { x: MARGIN, y: 228 + j * 114, w: PAGE.w - 2 * MARGIN, h: 100 };
 }
 
-/** The scene picture's rounded frame on the top page (D873), about 3:2. */
-export const SCENE_FRAME: Box = { x: 44, y: 84, w: PAGE.w - 88, h: PAGE.h - 140 };
+/** The scene picture's rounded frame on the top page (D873): the same side and edge margins as the rows. */
+export const SCENE_FRAME: Box = { x: MARGIN, y: 92, w: PAGE.w - 2 * MARGIN, h: PAGE.h - 92 - MARGIN };
 
 /** Where the name field sits on the name page, for the DOM input laid over it (D874). */
 export const NAME_FIELD: Box = { x: 112, y: 300, w: PAGE.w - 224, h: 120 };

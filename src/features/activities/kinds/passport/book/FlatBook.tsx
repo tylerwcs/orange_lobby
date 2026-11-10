@@ -1,6 +1,6 @@
 "use client";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { paintPage, type PageData, type PageKey } from "./pages";
+import { pageScale, pageSize, paintPage, type PageData, type PageKey } from "./pages";
 
 type Img = (url: string | null) => HTMLImageElement | null;
 
@@ -53,7 +53,13 @@ function Page({ pageKey, data, img, repaint, onTap, className }: {
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useLayoutEffect(() => {
-    if (ref.current) paintPage(pageKey, ref.current, data, img);
+    const c = ref.current;
+    if (!c) return;
+    // As wide as the page shows on this screen, in device pixels, so it is not blurred up. The
+    // cover is sized by its height (its width follows the canvas), the spread pages by width.
+    const r = c.getBoundingClientRect(), size = pageSize(pageKey);
+    const shown = pageKey === "cover" ? (r.height * size.w) / size.h : r.width;
+    paintPage(pageKey, c, data, img, pageScale(shown * (window.devicePixelRatio || 1), size.w));
   }, [pageKey, data, img, repaint]);
   return (
     <canvas
