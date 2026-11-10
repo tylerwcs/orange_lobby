@@ -3,6 +3,7 @@ import { bookStart, bookStep, heldReveals, type BookFlow } from "@/features/acti
 import { answerAt, answerBox, PAGE } from "@/features/activities/kinds/passport/book/geometry";
 import { stampSpot } from "@/features/activities/kinds/passport/book/stamp-spots";
 import { fitText } from "@/features/activities/kinds/passport/book/fit";
+import { sceneArt, SCENE_TINTS } from "@/features/activities/kinds/passport/book/paint";
 import { buildPassport } from "@/features/activities/lib/booths";
 import type { Booth, BoothStamp } from "@/lib/types";
 
@@ -172,5 +173,30 @@ describe("fitText", () => {
   it("breaks a single word too long for the line", () => {
     const r = fitText("x".repeat(40), 200, { max: 34, min: 34 }, measure, 2);
     for (const l of r.lines) expect(measure(l, 34)).toBeLessThanOrEqual(200);
+  });
+});
+
+describe("sceneArt", () => {
+  const q = { id: "q-0000000a", scene: "Boarding", text: "Which seat?", image: null, answers: [
+    { id: "a-00000001", text: "Window", icon: "🪟", personality: "p" },
+  ] };
+  const loaded = { naturalWidth: 1600, naturalHeight: 1000 } as HTMLImageElement;
+  const failed = { naturalWidth: 0, naturalHeight: 0 } as HTMLImageElement;
+
+  it("shows the organiser's picture once it has loaded", () => {
+    expect(sceneArt(q, 0, loaded)).toEqual({ kind: "image", img: loaded });
+  });
+
+  it("falls back to a tinted panel with the first answer's icon", () => {
+    expect(sceneArt(q, 2, null)).toEqual({ kind: "panel", tint: SCENE_TINTS[2], emoji: "🪟" });
+  });
+
+  it("falls back when the picture failed to load", () => {
+    expect(sceneArt(q, 0, failed).kind).toBe("panel");
+  });
+
+  it("uses a plane when no answer has an icon, and cycles the tints", () => {
+    const bare = { ...q, answers: [{ ...q.answers[0], icon: null }] };
+    expect(sceneArt(bare, SCENE_TINTS.length, null)).toEqual({ kind: "panel", tint: SCENE_TINTS[0], emoji: "✈️" });
   });
 });
