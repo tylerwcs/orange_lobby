@@ -7,7 +7,8 @@ import type { Fonts } from "./paint";
  * passport page paints with them, and `loadBookFonts` fetches them before the first paint.
  */
 const display = Archivo_Black({ subsets: ["latin"], weight: "400", display: "swap", preload: false });
-const body = DM_Sans({ subsets: ["latin"], weight: ["500", "600", "700"], display: "swap", preload: false });
+// A variable font: no weights named, so one file serves 500-700 (a weight list breaks the Turbopack build).
+const body = DM_Sans({ subsets: ["latin"], display: "swap", preload: false });
 const hand = Caveat({ subsets: ["latin"], weight: "600", display: "swap", preload: false });
 
 export const BOOK_FONTS: Fonts = {
