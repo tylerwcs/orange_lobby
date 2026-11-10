@@ -139,13 +139,13 @@ export async function removePersonalityAction(eventId: string, activityId: strin
   await commit(ev, activity, test, { ...test, personalities: test.personalities.filter((p) => p.id !== personalityId) }, back, "Personality removed.", [gone.picture]);
 }
 
-/** D876, D885: the holder page's labels, the cover's colour and its crest. */
+/** D876, D885: the holder page's labels, the intro's words, the cover's colour and its crest. */
 export async function saveLookAction(eventId: string, activityId: string, fd: FormData) {
   const { ev, activity, test, back } = await testOf(eventId, activityId);
   const f = reader(fd);
   const look = readLookForm(f.get, f.has);
   const crest = await image(fd, "crest", test.cover.crest, ev, "passport-crest", back);
-  await commit(ev, activity, test, { ...test, labels: look.labels, cover: { colour: look.colour, crest: crest.url } }, back, "Passport look saved.", [crest.stale]);
+  await commit(ev, activity, test, { ...test, labels: look.labels, intro: look.intro, cover: { colour: look.colour, crest: crest.url } }, back, "Passport look saved.", [crest.stale]);
 }
 
 /** D882: one guest takes the test again (a phone handed to a friend). Their stamps stay. */

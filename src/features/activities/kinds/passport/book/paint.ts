@@ -1,7 +1,7 @@
 import { personalityShades, type PassportTest, type Personality, type TestQuestion } from "@/features/passport-test/client";
 import { PAPER, PAPER_INK, STAMP_ART_FILTER } from "../paper";
 import { fitText } from "./fit";
-import { answerBox, LABEL_Y, MARGIN, NAME_BUTTON, NAME_FIELD, PAGE, SCENE_FRAME } from "./geometry";
+import { answerBox, LABEL_Y, MARGIN, NAME_BUTTON, NAME_FIELD, PAGE, SCENE_FRAME, START_BUTTON } from "./geometry";
 import { stampSpot } from "./stamp-spots";
 
 /**
@@ -238,6 +238,62 @@ export function paintQuestion(ctx: Ctx, o: { q: TestQuestion; picked: string | n
     if (t.lines.length === 1) ctx.fillText(t.lines[0], textX, my + 2);
     else t.lines.forEach((l, i) => ctx.fillText(l, textX, my + 2 + (i - 0.5) * (t.size + 2)));
   });
+}
+
+/**
+ * The intro's top page, inside the cover: "WELCOME", the test's characters side by side - what
+ * the guest is about to find out which of they are - and the organiser's heading under them.
+ */
+export function paintWelcome(ctx: Ctx, o: { test: PassportTest; pictures: (HTMLImageElement | null)[]; fonts: Fonts }) {
+  const F = SCENE_FRAME;
+  paper(ctx);
+  label(ctx, "WELCOME", F.x + 6, LABEL_Y, "left", o.fonts, PAPER_INK.name);
+  ctx.save(); rr(ctx, F.x, F.y, F.w, F.h, 22); ctx.clip();
+  ctx.fillStyle = "#E9E1F2"; ctx.fillRect(F.x, F.y, F.w, F.h);
+  ctx.restore();
+  ctx.strokeStyle = "rgba(94,69,38,.35)"; ctx.lineWidth = 3; rr(ctx, F.x, F.y, F.w, F.h, 22); ctx.stroke();
+
+  // The characters in a row, as big as the row allows (portrait cards, 3:4).
+  const ps = o.test.personalities.slice(0, 8), n = Math.max(1, ps.length);
+  const pad = 40, gap = n > 5 ? 14 : 24, rowW = F.w - 2 * pad;
+  const cw = Math.min(200, (rowW - gap * (n - 1)) / n), ch = Math.min(cw * (4 / 3), 290);
+  const x0 = F.x + (F.w - (cw * n + gap * (n - 1))) / 2, y0 = F.y + 40 + (290 - ch) / 2;
+  ps.forEach((p, i) => {
+    const T = personalityShades(p.colour), x = x0 + i * (cw + gap), pic = o.pictures[i];
+    ctx.save(); rr(ctx, x, y0, cw, ch, 20); ctx.clip();
+    ctx.fillStyle = T.light; ctx.fillRect(x, y0, cw, ch);
+    if (pic && pic.naturalWidth > 0) cover(ctx, pic, x, y0, cw, ch);
+    else { ctx.fillStyle = T.accent; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = font(400, cw * 0.55, o.fonts.display); ctx.fillText(Array.from(p.name)[0] ?? "?", x + cw / 2, y0 + ch / 2); }
+    ctx.restore();
+    ctx.strokeStyle = T.dark; ctx.lineWidth = 4; rr(ctx, x, y0, cw, ch, 20); ctx.stroke();
+  });
+
+  ctx.fillStyle = INK; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const hd = fit(ctx, o.test.intro.heading, F.w - 80, 700, o.fonts.body, { max: 58, min: 38 }, 2);
+  const mid = F.y + 40 + 290 + (F.h - 40 - 290) / 2, lh = hd.size * 1.15;
+  hd.lines.forEach((l, i) => ctx.fillText(l, PAGE.w / 2, mid + (i - (hd.lines.length - 1) / 2) * lh));
+  hinge(ctx, false);
+}
+
+/** About how long a test takes: some 12 seconds a question, never under a minute. */
+export function testMinutes(questions: number): number {
+  return Math.max(1, Math.round((questions * 12) / 60));
+}
+
+/** The intro's bottom page: the organiser's line, how long it takes, and Start. */
+export function paintIntro(ctx: Ctx, o: { line: string; questions: number; fonts: Fonts }) {
+  paper(ctx); hinge(ctx, true);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = INK;
+  const ln = fit(ctx, o.line, PAGE.w - 2 * (MARGIN + 40), 600, o.fonts.body, { max: 46, min: 32 }, 3);
+  const lh = ln.size * 1.2, mid = 215;
+  ln.lines.forEach((l, i) => ctx.fillText(l, PAGE.w / 2, mid + (i - (ln.lines.length - 1) / 2) * lh));
+  const m = testMinutes(o.questions);
+  ctx.fillStyle = PAPER_INK.label; ctx.font = font(600, 30, o.fonts.body);
+  ctx.fillText(`${o.questions} questions · about ${m} minute${m === 1 ? "" : "s"}`, PAGE.w / 2, 360);
+  const B = START_BUTTON;
+  ctx.fillStyle = PICKED; rr(ctx, B.x, B.y, B.w, B.h, B.h / 2); ctx.fill();
+  ctx.fillStyle = "#FFFFFF"; ctx.font = font(700, 46, o.fonts.body); ctx.fillText("Start", PAGE.w / 2, B.y + B.h / 2 + 2);
 }
 
 /** The top page above the name page. */

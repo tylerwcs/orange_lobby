@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LABELS, newTestId, readPassportTest, travelSet, testProblems } from "@/features/passport-test/client";
+import { DEFAULT_INTRO, DEFAULT_LABELS, newTestId, readPassportTest, travelSet, testProblems } from "@/features/passport-test/client";
 
 describe("readPassportTest", () => {
   it("gives an empty, switched-off test for nothing", () => {
     expect(readPassportTest(null)).toEqual({
-      on: false, questions: [], personalities: [], labels: DEFAULT_LABELS, cover: { colour: null, crest: null },
+      on: false, questions: [], personalities: [], labels: DEFAULT_LABELS, intro: DEFAULT_INTRO, cover: { colour: null, crest: null },
     });
+  });
+
+  it("fills a blank intro with the travel set's words, keeping what the organiser wrote", () => {
+    expect(readPassportTest({ intro: { heading: "Which UOB banker are you?", line: " " } }).intro)
+      .toEqual({ heading: "Which UOB banker are you?", line: DEFAULT_INTRO.line });
+    expect(readPassportTest({ intro: "broken" }).intro).toEqual(DEFAULT_INTRO);
   });
 
   it("drops a damaged question and keeps the rest", () => {

@@ -9,7 +9,7 @@ import { lockBodyScroll } from "@/lib/scroll-lock";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { coverColour, type PassportTest, type SaveResult, type TestPick } from "@/features/passport-test/client";
 import { isLanded } from "../../../lib/passport-live";
-import type { Passport, Reveal } from "../../../lib/booths";
+import { progressLine, type Passport, type Reveal } from "../../../lib/booths";
 import { chopInk } from "../paper";
 import { useLive } from "../PassportLive";
 import { PassportQr } from "../PassportQr";
@@ -38,6 +38,17 @@ const noSubscribe = () => () => {};
 /** Words and round buttons on the book's stage, which is always dark whatever the theme. */
 const ON_STAGE = "text-white/85"; // theme-fixed: the book's own dark stage, like the polaroid camera
 const STAGE_ROUND = "flex size-11 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur"; // theme-fixed: on the dark stage
+
+/**
+ * Under the finished passport: what to do next - go round the booths with the QR - and how far
+ * along the card is. Before stamping opens, only that; once every booth is stamped, the tally.
+ */
+function doneNote(passport: Passport, isOpen: boolean, showQr: boolean): { line: string; sub: string | null } | null {
+  if (passport.target === 0) return null;
+  if (!isOpen && !passport.complete) return { line: "Stamping opens soon.", sub: null };
+  if (showQr) return { line: "Visit the booths and show your QR to collect your stamps.", sub: progressLine(passport) };
+  return { line: progressLine(passport), sub: null };
+}
 
 function barQrButton(open: () => void) {
   return <button type="button" className={BOOK_BUTTON} onClick={open}><QrCode aria-hidden className="size-5" />Show my QR</button>;
@@ -244,6 +255,8 @@ export function PassportBook(p: {
   const onTop = () => dispatch({ type: "back" });
   const onBottom = (u: number, v: number) => {
     if (flow.stage === "closed") dispatch({ type: "open" });
+    // The whole intro page starts the test: a big target for a first tap.
+    else if (flow.stage === "intro") dispatch({ type: "start" });
     else if (flow.stage === "questions") {
       const j = answerAt(u, v);
       const a = j === null ? null : p.test.questions[flow.index]?.answers[j];
@@ -304,7 +317,7 @@ export function PassportBook(p: {
     <div /* theme-fixed: the book's own dark stage, like the polaroid camera */ className="fixed inset-0 z-[45] flex h-dvh touch-none flex-col overflow-hidden overscroll-none text-white"
       style={{ background: `radial-gradient(120% 80% at 50% 25%, ${data.coverColour} 0%, #0B0F18 85%)` }}>
       <div className="flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="size-11">{p.showQr && (flow.stage === "questions" || flow.stage === "name") ? qr("corner") : null}</div>
+        <div className="size-11">{p.showQr && (flow.stage === "intro" || flow.stage === "questions" || flow.stage === "name") ? qr("corner") : null}</div>
         {(flow.stage === "questions" || flow.stage === "name") && (
           <div className="flex flex-1 items-center gap-3 px-4" aria-hidden>
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/20" /* theme-fixed: on the book's dark stage */>
@@ -357,19 +370,20 @@ export function PassportBook(p: {
         )}
         <div className="pointer-events-none relative z-10 flex min-h-5 flex-col items-center gap-1">
           {flow.stage === "closed" && <p className={`text-sm font-semibold ${ON_STAGE}`}>Tap to open your passport</p>}
+          {flow.stage === "intro" && <p className={`text-xs ${ON_STAGE}`}>Tap Start when you&apos;re ready.</p>}
           {flow.stage === "locked" && <p className={`max-w-xs text-center text-base font-semibold ${ON_STAGE}`}>{flow.closedMessage}</p>}
-          {flow.stage === "questions" && <p className={`text-xs ${ON_STAGE}`}>{flow.index > 0 ? "Tap an answer. Tap the top page to go back." : "Tap an answer."}</p>}
+          {flow.stage === "questions" && <p className={`text-xs ${ON_STAGE}`}>Tap an answer. Tap the top page to go back.</p>}
           {saving && <p className={`text-sm ${ON_STAGE}`} role="status">Saving…</p>}
         </div>
       </div>
 
       {flow.stage === "done" && (
         <BookBar passport={p.passport} qrButton={p.showQr ? qr("bar") : null} reward={p.reward} about={p.about}
-          closedNote={!p.isOpen && !p.passport.complete ? "Stamping opens soon." : null} />
+          note={doneNote(p.passport, p.isOpen, p.showQr)} />
       )}
 
       <BookA11y flow={flow} test={p.test} personality={personality} holderName={holderName} stamps={stamps.length} saving={saving}
-        onOpen={() => dispatch({ type: "open" })} onPick={pick} onBack={onTop} onFinish={() => void finish()} />
+        onOpen={() => dispatch({ type: "open" })} onStart={() => dispatch({ type: "start" })} onPick={pick} onBack={onTop} onFinish={() => void finish()} />
 
       <Dialog open={celebrate} onOpenChange={setCelebrate}>
         <DialogContent className="sm:max-w-sm">

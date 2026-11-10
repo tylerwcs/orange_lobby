@@ -13,19 +13,24 @@ export const BOOK_BUTTON = "inline-flex h-12 items-center justify-center gap-2 r
  * the card is full, and the organiser's About. The stamp page has no empty slots, so this is
  * where a guest finds where to go next.
  */
-export function BookBar({ passport, qrButton, reward, about, closedNote }: {
+export function BookBar({ passport, qrButton, reward, about, note }: {
   passport: Passport;
   /** The Show my QR button, rendered by PassportQr with the book's trigger; null when it doesn't show (`qrButtonShown`). */
   qrButton: ReactNode;
   reward: string | null;
   about: ReactNode;
-  /** Shown above the buttons while stamping hasn't opened. */
-  closedNote: string | null;
+  /** Shown above the buttons: what to do next ("Visit the booths…", "Stamping opens soon.") and how far along. */
+  note: { line: string; sub: string | null } | null;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex flex-col items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
-      {closedNote && <p className="text-sm text-white/80" /* theme-fixed: on the book's dark stage */>{closedNote}</p>}
+      {note && (
+        <div className="flex flex-col items-center gap-0.5 text-center">
+          <p className="text-sm font-semibold text-white/90" /* theme-fixed: on the book's dark stage */>{note.line}</p>
+          {note.sub && <p className="text-xs tabular-nums text-white/70" /* theme-fixed: on the book's dark stage */>{note.sub}</p>}
+        </div>
+      )}
       <div className="flex w-full max-w-[560px] gap-2">
         <div className="flex-1 [&>*]:w-full">{qrButton}</div>
         <button type="button" className={`${BOOK_BUTTON} ${qrButton ? "" : "flex-1"}`} onClick={() => setOpen(true)}>

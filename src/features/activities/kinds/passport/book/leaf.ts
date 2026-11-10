@@ -25,14 +25,15 @@ export function curlPoints(f: number, dir: 1 | -1, segments: number, length: num
 }
 
 /**
- * D871, D872: the passport's leaves, top of the stack first. The cover, then one leaf per
- * question (its question on the front, the next question's scene on the back), then the name
- * page with the stamp page on its back. The holder page is the block underneath, not a leaf.
+ * D871, D872: the passport's leaves, top of the stack first. The cover (the intro's welcome page
+ * inside it), the intro's Start page (question 1's scene on its back), then one leaf per question
+ * (its question on the front, the next question's scene on the back), then the name page with the
+ * stamp page on its back. The holder page is the block underneath, not a leaf.
  * Without a test (D881) the cover alone sits over the holder page, the stamps on its back.
  */
 export function leafPages(testOn: boolean, questions: number): { front: PageKey; back: PageKey }[] {
   if (!testOn || questions === 0) return [{ front: "cover", back: "stamps" }];
-  const out: { front: PageKey; back: PageKey }[] = [{ front: "cover", back: "scene:0" }];
+  const out: { front: PageKey; back: PageKey }[] = [{ front: "cover", back: "welcome" }, { front: "intro", back: "scene:0" }];
   for (let i = 0; i < questions; i++) out.push({ front: `question:${i}`, back: i < questions - 1 ? `scene:${i + 1}` : "sign" });
   out.push({ front: "name", back: "stamps" });
   return out;
@@ -44,8 +45,10 @@ export function turnedLeaves(flow: BookFlow, leaves: number): number {
     case "locked":
     case "closed":
       return 0;
+    case "intro":
+      return 1;
     case "questions":
-      return flow.index + 1;
+      return flow.index + 2;
     case "name":
       return leaves - 1;
     default:

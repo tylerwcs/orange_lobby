@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LABELS, readLookForm, readPersonalityForm, readQuestionForm, travelSet } from "@/features/passport-test/client";
+import { DEFAULT_INTRO, DEFAULT_LABELS, readLookForm, readPersonalityForm, readQuestionForm, travelSet } from "@/features/passport-test/client";
 
 const form = (values: Record<string, string>) => ({
   get: (n: string) => values[n] ?? "",
@@ -92,7 +92,12 @@ describe("readPersonalityForm", () => {
 describe("readLookForm", () => {
   it("reads the labels, falling back on the travel set's for a blank one", () => {
     const f = form({ label_0: "TASTE PROFILE", label_1: " ", label_2: "PERFECT FOR", cover_theme: "on", cover_colour: "#112233" });
-    expect(readLookForm(f.get, f.has)).toEqual({ labels: ["TASTE PROFILE", DEFAULT_LABELS[1], "PERFECT FOR"], colour: null });
+    expect(readLookForm(f.get, f.has)).toEqual({ labels: ["TASTE PROFILE", DEFAULT_LABELS[1], "PERFECT FOR"], intro: DEFAULT_INTRO, colour: null });
+  });
+
+  it("reads the intro's heading and line, blank as the travel set's", () => {
+    const f = form({ intro_heading: "  Which banker   are you? ", intro_line: "" });
+    expect(readLookForm(f.get, f.has).intro).toEqual({ heading: "Which banker are you?", line: DEFAULT_INTRO.line });
   });
 
   it("keeps the organiser's cover colour when not following the theme", () => {

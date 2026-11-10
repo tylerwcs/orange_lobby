@@ -19,6 +19,9 @@ export function answerBox(j: 0 | 1 | 2 | 3): Box {
 /** The scene picture's rounded frame on the top page (D873): the same side and edge margins as the rows. */
 export const SCENE_FRAME: Box = { x: MARGIN, y: 92, w: PAGE.w - 2 * MARGIN, h: PAGE.h - 92 - MARGIN };
 
+/** The Start button on the intro's bottom page (the whole page starts the test; this is what it shows). */
+export const START_BUTTON: Box = { x: 312, y: 440, w: 400, h: 110 };
+
 /** Where the name field sits on the name page, for the DOM input laid over it (D874). */
 export const NAME_FIELD: Box = { x: 112, y: 300, w: PAGE.w - 224, h: 120 };
 

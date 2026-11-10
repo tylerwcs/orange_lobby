@@ -1,4 +1,4 @@
-import { DEFAULT_LABELS, newTestId, type PassportTest, type Personality, type TestQuestion } from "./settings";
+import { DEFAULT_INTRO, DEFAULT_LABELS, newTestId, type PassportTest, type Personality, type TestQuestion } from "./settings";
 
 type Key = "trailblazer" | "navigator" | "dreamer" | "foodie";
 
@@ -57,5 +57,5 @@ export function travelSet(): PassportTest {
     answers: q.answers.map(([icon, text, who]) => ({ id: newTestId("a"), text, icon, personality: ids[who] })),
   }));
   const personalities: Personality[] = (Object.keys(PERSONALITIES) as Key[]).map((k) => ({ id: ids[k], ...PERSONALITIES[k], traits: [...PERSONALITIES[k].traits], ticked: [...PERSONALITIES[k].ticked], say: [...PERSONALITIES[k].say] }));
-  return { on: false, questions, personalities, labels: [...DEFAULT_LABELS], cover: { colour: null, crest: null } };
+  return { on: false, questions, personalities, labels: [...DEFAULT_LABELS], intro: { ...DEFAULT_INTRO }, cover: { colour: null, crest: null } };
 }

@@ -31,11 +31,17 @@ describe("bookStart", () => {
 });
 
 describe("bookStep", () => {
-  const start = bookStep(bookStart({ testOn: true, questions: 10, hasResult: false, isOpen: true }), { type: "open" });
+  const opened = bookStep(bookStart({ testOn: true, questions: 10, hasResult: false, isOpen: true }), { type: "open" });
+  const start = bookStep(opened, { type: "start" });
   const pickN = (f: BookFlow, n: number) => Array.from({ length: n }).reduce<BookFlow>((acc, _, i) => bookStep(acc, { type: "pick", answerId: `a${i}` }), f);
 
-  it("opens on the first question", () => {
+  it("opens on the intro, and Start goes to the first question", () => {
+    expect(opened.stage).toBe("intro");
     expect([start.stage, start.index]).toEqual(["questions", 0]);
+  });
+
+  it("goes back from the first question to the intro", () => {
+    expect(bookStep(start, { type: "back" })).toMatchObject({ stage: "intro" });
   });
 
   it("stores a pick and turns the page", () => {
@@ -49,7 +55,11 @@ describe("bookStep", () => {
   });
 
   it("can't close the cover again", () => {
-    expect(bookStep(start, { type: "back" })).toEqual(start);
+    expect(bookStep(opened, { type: "back" })).toEqual(opened);
+  });
+
+  it("only starts from the intro", () => {
+    expect(bookStep(pickN(start, 3), { type: "start" })).toEqual(pickN(start, 3));
   });
 
   it("goes to the name page after the last question, and back", () => {
@@ -64,7 +74,7 @@ describe("bookStep", () => {
   });
 
   it("shuts mid-test when the passport closes", () => {
-    for (const f of [pickN(start, 4), pickN(start, 10)]) {
+    for (const f of [opened, pickN(start, 4), pickN(start, 10)]) {
       expect(bookStep(f, { type: "closed" })).toMatchObject({ stage: "locked", closedMessage: "The passport has closed" });
     }
   });
@@ -252,7 +262,8 @@ describe("book leaves", () => {
   it("puts each question on its own leaf, the next scene on its back", () => {
     const leaves = leafPages(true, 3);
     expect(leaves).toEqual([
-      { front: "cover", back: "scene:0" },
+      { front: "cover", back: "welcome" },
+      { front: "intro", back: "scene:0" },
       { front: "question:0", back: "scene:1" },
       { front: "question:1", back: "scene:2" },
       { front: "question:2", back: "sign" },
@@ -264,13 +275,14 @@ describe("book leaves", () => {
     expect(leafPages(false, 0)).toEqual([{ front: "cover", back: "stamps" }]);
   });
 
-  it("turns one leaf per question answered", () => {
-    expect(turnedLeaves(f("closed"), 5)).toBe(0);
-    expect(turnedLeaves(f("locked"), 5)).toBe(0);
-    expect(turnedLeaves(f("questions", 0), 5)).toBe(1);
-    expect(turnedLeaves(f("questions", 2), 5)).toBe(3);
-    expect(turnedLeaves(f("name"), 5)).toBe(4);
-    expect(turnedLeaves(f("revealing"), 5)).toBe(5);
+  it("turns the cover for the intro, then one leaf per question answered", () => {
+    expect(turnedLeaves(f("closed"), 6)).toBe(0);
+    expect(turnedLeaves(f("locked"), 6)).toBe(0);
+    expect(turnedLeaves(f("intro"), 6)).toBe(1);
+    expect(turnedLeaves(f("questions", 0), 6)).toBe(2);
+    expect(turnedLeaves(f("questions", 2), 6)).toBe(4);
+    expect(turnedLeaves(f("name"), 6)).toBe(5);
+    expect(turnedLeaves(f("revealing"), 6)).toBe(6);
     expect(turnedLeaves(f("done"), 1)).toBe(1);
   });
 });

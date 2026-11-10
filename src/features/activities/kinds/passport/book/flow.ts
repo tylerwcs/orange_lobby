@@ -4,12 +4,13 @@ import { unseenReveals, type Passport, type Reveal } from "../../../lib/booths";
  * Where the guest is in their passport (D871–D875):
  * - `locked`: the passport is closed for stamping, so the test can't start (or it shut mid-test);
  * - `closed`: the closed portrait cover, waiting for a tap;
+ * - `intro`: the spread before question 1 - the characters to be, a line, Start;
  * - `questions`: one page per question, `index` the one showing;
  * - `name`: "This passport belongs to";
  * - `revealing`: the holder page filling itself in;
  * - `done`: the finished passport, stamps on top.
  */
-export type BookStage = "locked" | "closed" | "questions" | "name" | "revealing" | "done";
+export type BookStage = "locked" | "closed" | "intro" | "questions" | "name" | "revealing" | "done";
 
 export type BookFlow = {
   stage: BookStage;
@@ -23,6 +24,7 @@ export type BookFlow = {
 
 export type BookAction =
   | { type: "open" }
+  | { type: "start" }
   | { type: "pick"; answerId: string }
   | { type: "back" }
   | { type: "reveal" }
@@ -48,7 +50,9 @@ export function bookStep(f: BookFlow, a: BookAction): BookFlow {
   switch (a.type) {
     case "open":
       if (f.stage !== "closed") return f;
-      return { ...f, stage: f.test ? "questions" : "done", index: 0 };
+      return { ...f, stage: f.test ? "intro" : "done", index: 0 };
+    case "start":
+      return f.stage === "intro" ? { ...f, stage: "questions", index: 0 } : f;
     case "pick": {
       if (f.stage !== "questions") return f;
       const picks = f.picks.map((p, i) => (i === f.index ? a.answerId : p));
@@ -56,16 +60,17 @@ export function bookStep(f: BookFlow, a: BookAction): BookFlow {
       return { ...f, picks, stage: last ? "name" : "questions", index: last ? f.index : f.index + 1 };
     }
     case "back":
-      // D872: the top page flips back one question; the cover never closes again.
+      // D872: the top page flips back one question, the first one back to the intro; the cover
+      // never closes again.
       if (f.stage === "name") return { ...f, stage: "questions", index: f.picks.length - 1 };
-      if (f.stage === "questions" && f.index > 0) return { ...f, index: f.index - 1 };
+      if (f.stage === "questions") return f.index > 0 ? { ...f, index: f.index - 1 } : { ...f, stage: "intro" };
       return f;
     case "reveal":
       return f.stage === "name" ? { ...f, stage: "revealing" } : f;
     case "revealed":
       return f.stage === "name" || f.stage === "revealing" ? { ...f, stage: "done" } : f;
     case "closed":
-      return f.stage === "questions" || f.stage === "name" ? { ...f, stage: "locked", closedMessage: CLOSED_MID_TEST } : f;
+      return f.stage === "intro" || f.stage === "questions" || f.stage === "name" ? { ...f, stage: "locked", closedMessage: CLOSED_MID_TEST } : f;
   }
 }
 

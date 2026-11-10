@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PassportTest, Personality } from "@/features/passport-test/client";
-import { COVER_SIZE, paintCover, paintHolder, paintName, paintQuestion, paintScene, paintSign, paintStamps, type Fonts } from "./paint";
+import { COVER_SIZE, paintCover, paintHolder, paintIntro, paintName, paintQuestion, paintScene, paintSign, paintStamps, paintWelcome, type Fonts } from "./paint";
 import { PAGE } from "./geometry";
 import type { BookFlow } from "./flow";
 
@@ -9,7 +9,7 @@ import type { BookFlow } from "./flow";
  * Every page of the passport by name. The flat book shows two at a time; the 3D book (D870) holds
  * them all as textures. Both paint through `paintPage`, so they never differ.
  */
-export type PageKey = "cover" | `scene:${number}` | `question:${number}` | "sign" | "name" | "holder" | "stamps";
+export type PageKey = "cover" | "welcome" | "intro" | `scene:${number}` | `question:${number}` | "sign" | "name" | "holder" | "stamps";
 
 export type BookStamp = { id: string; image: string | null; name: string };
 
@@ -41,6 +41,8 @@ export function spreadFor(flow: BookFlow): { top: PageKey | null; bottom: PageKe
     case "locked":
     case "closed":
       return { top: null, bottom: "cover" };
+    case "intro":
+      return { top: "welcome", bottom: "intro" };
     case "questions":
       return { top: `scene:${flow.index}`, bottom: `question:${flow.index}` };
     case "name":
@@ -92,6 +94,10 @@ export function paintPage(key: PageKey, canvas: HTMLCanvasElement, d: PageData, 
   switch (kind) {
     case "cover":
       return paintCover(ctx, { colour: d.coverColour, crest: img(d.crest), eventName: d.eventName, fonts });
+    case "welcome":
+      return paintWelcome(ctx, { test: d.test, pictures: d.test.personalities.map((x) => img(x.picture)), fonts });
+    case "intro":
+      return paintIntro(ctx, { line: d.test.intro.line, questions: d.test.questions.length, fonts });
     case "scene":
       return paintScene(ctx, { q: d.test.questions[i], index: i, img: img(d.test.questions[i]?.image ?? null), fonts });
     case "question":

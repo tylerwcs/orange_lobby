@@ -8,7 +8,7 @@ import { ImageField } from "@/components/admin/ImageField";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SaveBar } from "@/components/admin/SaveBar";
-import { MAX_PERSONALITIES, MAX_QUESTIONS, MIN_PERSONALITIES, MIN_QUESTIONS, ANSWERS, TRAITS, readPassportTest, type PassportTest, type Personality, type TestQuestion } from "../lib/settings";
+import { DEFAULT_INTRO, MAX_PERSONALITIES, MAX_QUESTIONS, MIN_PERSONALITIES, MIN_QUESTIONS, ANSWERS, TRAITS, readPassportTest, type PassportTest, type Personality, type TestQuestion } from "../lib/settings";
 import { testProblems } from "../lib/rules";
 import { coverColour } from "../lib/shades";
 import {
@@ -137,6 +137,12 @@ export function TestCard({ ev, activity, results }: { ev: Event; activity: Activ
         <section className="flex flex-col gap-3 border-t pt-5">
           <h3 className="text-sm font-extrabold">Passport look</h3>
           <form action={saveLookAction.bind(null, ev.id, activity.id)} className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-[2fr_3fr]">
+              <Field label="Intro heading" name="intro_heading" defaultValue={test.intro.heading} placeholder={DEFAULT_INTRO.heading}
+                description="On the first page after the cover, under the characters." />
+              <Field label="Intro line" name="intro_line" defaultValue={test.intro.line} placeholder={DEFAULT_INTRO.line}
+                description="Above the Start button. Leave either blank for the travel set's words." />
+            </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {test.labels.map((l, i) => (
                 <Field key={i} label={`Holder page label ${i + 1}`} name={`label_${i}`} defaultValue={l} />

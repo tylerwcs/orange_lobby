@@ -10,6 +10,11 @@ export const TRAITS = 6;
 export const TICKED = 3;
 export const MAX_HOLDER_NAME = 40;
 
+/** The intro spread before question 1: its heading (top page) and one line (bottom page), the travel set's own. */
+export const DEFAULT_INTRO = { heading: "Which traveller are you?", line: "Answer a few quick questions and find out." } as const;
+export const MAX_INTRO_HEADING = 40;
+export const MAX_INTRO_LINE = 120;
+
 /** D876: the holder page's three section labels, the travel set's own. */
 export const DEFAULT_LABELS: [string, string, string] = ["KEY TRAITS", "TRAVEL STYLE", "LIKELY TO SAY"];
 
@@ -61,6 +66,9 @@ const schema = z.object({
   questions: listOf(question),
   personalities: listOf(personality),
   labels: z.tuple([text(24), text(24), text(24)]).catch(DEFAULT_LABELS),
+  // Blank (or missing, on a test saved before the intro) is the travel set's wording.
+  intro: z.object({ heading: text(MAX_INTRO_HEADING), line: text(MAX_INTRO_LINE) }).catch({ heading: "", line: "" })
+    .transform((i) => ({ heading: i.heading || DEFAULT_INTRO.heading, line: i.line || DEFAULT_INTRO.line })),
   cover: z.object({
     colour: z.string().regex(HEX).nullable().catch(null),
     crest: z.url({ protocol: /^https$/ }).nullable().catch(null),

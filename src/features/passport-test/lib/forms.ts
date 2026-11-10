@@ -1,4 +1,4 @@
-import { ANSWERS, DEFAULT_LABELS, TICKED, TRAITS, newTestId, type Personality, type TestQuestion } from "./settings";
+import { ANSWERS, DEFAULT_INTRO, DEFAULT_LABELS, MAX_INTRO_HEADING, MAX_INTRO_LINE, TICKED, TRAITS, newTestId, type Personality, type TestQuestion } from "./settings";
 
 /** A posted field, "" when it is absent. */
 type Get = (name: string) => string;
@@ -45,9 +45,18 @@ export function readPersonalityForm(get: Get, has: Has, current: Personality | n
   };
 }
 
-/** D876, D885: the holder page's three labels (blank is the travel set's) and the cover's colour (null follows the event). */
-export function readLookForm(get: Get, has: Has): { labels: [string, string, string]; colour: string | null } {
+/**
+ * D876, D885: the holder page's three labels and the intro's heading and line (blank is the travel
+ * set's), and the cover's colour (null follows the event).
+ */
+export function readLookForm(get: Get, has: Has): {
+  labels: [string, string, string]; intro: { heading: string; line: string }; colour: string | null;
+} {
   const labels = DEFAULT_LABELS.map((d, i) => clip(get(`label_${i}`), 24) || d) as [string, string, string];
+  const intro = {
+    heading: clip(get("intro_heading"), MAX_INTRO_HEADING) || DEFAULT_INTRO.heading,
+    line: clip(get("intro_line"), MAX_INTRO_LINE) || DEFAULT_INTRO.line,
+  };
   const colour = get("cover_colour").trim();
-  return { labels, colour: has("cover_theme") || !HEX.test(colour) ? null : colour.toUpperCase() };
+  return { labels, intro, colour: has("cover_theme") || !HEX.test(colour) ? null : colour.toUpperCase() };
 }
