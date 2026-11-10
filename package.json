@@ -25,7 +25,8 @@
     "check:log": "node --env-file=.env.local scripts/attendee-log-db-check.mjs",
     "check:qualifier": "node --env-file=.env.local scripts/qualifier-db-check.mjs",
     "check:superteams": "node --env-file=.env.local scripts/super-teams-db-check.mjs",
-    "check:lanes": "node --env-file=.env.local scripts/lanes-db-check.mjs"
+    "check:lanes": "node --env-file=.env.local scripts/lanes-db-check.mjs",
+    "check:passport-test": "node --env-file=.env.local scripts/passport-test-db-check.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

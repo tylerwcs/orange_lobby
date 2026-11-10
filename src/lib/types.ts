@@ -443,6 +443,8 @@ export type Activity = {
   public_token?: string | null;
   /** Polaroid kind only (D475): its settings, always read through `readPolaroidSettings`, which fills every default. */
   polaroid?: Record<string, unknown> | null;
+  /** Passport kind only (D884): its personality test, always read through `readPassportTest`, which fills every default. Null is no test. */
+  passport_test?: Record<string, unknown> | null;
   /** Tournament kind only (D641): when squads lock for the portal. Optional so fixtures need not name it. */
   squads_close_at?: string | null;
   /** Tournament kind only (D640): captains (`proxy_fields` holders) pick squads, or members join themselves. */

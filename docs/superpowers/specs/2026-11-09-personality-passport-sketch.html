@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passport 3D sketch v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Caveat:wght@600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#EEF0F4; --ink:#1B2233; --muted:#5B6476; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"DM Sans",system-ui,sans-serif; }
+  .wrap { max-width:1080px; margin:0 auto; padding:28px 16px 48px; display:grid; grid-template-columns: 1fr 400px; gap:40px; align-items:start; }
+  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; } .phone { margin:0 auto; } }
+  h1 { font-size:26px; margin:0 0 6px; }
+  .sub { color:var(--muted); margin:0 0 22px; line-height:1.5; }
+  ol { padding-left:20px; line-height:1.6; margin:0 0 18px; }
+  ol li { margin-bottom:8px; }
+  .note { background:#fff; border-radius:12px; padding:14px 16px; color:var(--muted); font-size:14px; line-height:1.5; }
+  .note b { color:var(--ink); }
+  .replay { margin-top:14px; font:600 14px "DM Sans"; background:none; border:1px solid #C9CED8; border-radius:999px; padding:8px 16px; cursor:pointer; }
+
+  .phone { position:relative; width:390px; height:800px; border-radius:44px; overflow:hidden; background:radial-gradient(120% 80% at 50% 25%, #1A2C5C 0%, #0B1533 60%, #060B1C 100%); border:10px solid #12161F; box-shadow:0 30px 60px rgba(0,0,0,.22); }
+  canvas#gl { position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:pointer; }
+  .topbar { position:absolute; top:22px; left:20px; right:20px; display:flex; align-items:center; gap:14px; color:#fff; z-index:3; transition:opacity .4s; }
+  .x { width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.12); display:grid; place-items:center; font-size:18px; }
+  .track { flex:1; height:6px; border-radius:6px; background:rgba(255,255,255,.16); overflow:hidden; }
+  .track b { display:block; height:100%; width:0; background:#F3C969; border-radius:6px; transition:width .4s cubic-bezier(.2,.8,.2,1); }
+  .count { font-size:13px; font-weight:700; color:rgba(255,255,255,.7); min-width:38px; text-align:right; }
+  .hint { position:absolute; left:0; right:0; bottom:44px; text-align:center; color:rgba(255,255,255,.7); font-size:14px; z-index:3; transition:opacity .4s; pointer-events:none; }
+
+  .namebox { position:absolute; z-index:4; display:none; flex-direction:column; align-items:stretch; justify-content:flex-end; gap:10px; padding:0 8%; }
+  .namebox input { font:600 30px "Caveat"; color:#3B2A18; background:transparent; border:none; border-bottom:2px dashed #A07A45; padding:2px 4px; outline:none; text-align:center; }
+  .namebox button { align-self:center; border:none; border-radius:999px; padding:10px 22px; font:700 14px "DM Sans"; background:#1B2233; color:#fff; cursor:pointer; }
+
+  .banner { position:absolute; top:70px; left:16px; right:16px; text-align:center; color:#fff; z-index:3; opacity:0; transform:translateY(-8px); transition:all .5s; pointer-events:none; }
+  .banner small { display:block; font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:#F3C969; }
+  .banner strong { font-family:"Archivo Black"; font-size:24px; }
+  .banner.in { opacity:1; transform:none; }
+
+  .bar { position:absolute; left:14px; right:14px; bottom:18px; display:flex; gap:10px; z-index:4; transform:translateY(140%); transition:transform .5s cubic-bezier(.2,.8,.2,1); }
+  .bar.in { transform:none; }
+  .bar button { flex:1; border:none; border-radius:999px; padding:15px 10px; font:700 15px "DM Sans"; cursor:pointer; }
+  .bar .qr { background:rgba(255,255,255,.14); color:#fff; }
+  .bar .scan { background:#F3C969; color:#1B2233; }
+  .toast { position:absolute; left:50%; bottom:84px; transform:translate(-50%,20px); background:#fff; color:#1B2233; border-radius:999px; padding:10px 16px; font-weight:700; font-size:14px; z-index:5; opacity:0; transition:all .35s; white-space:nowrap; }
+  .toast.in { opacity:1; transform:translate(-50%,0); }
+</style>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Make-your-own passport: sketch v3</h1>
+    <p class="sub">The questions are now inside the passport, one page each. Click through it in the phone.</p>
+    <ol>
+      <li><b>Open it.</b> Tap the closed passport. It opens like a book, then turns into the stacked layout.</li>
+      <li><b>One page per question.</b> The bottom page has the question and its 4 answers in rows. The top page shows that question's image (random placeholder photos here).</li>
+      <li><b>Flip.</b> Tap an answer; it turns green and the page flips up to the next question. Tap the top page to flip back one.</li>
+      <li><b>Name page.</b> The last page asks for their name, filled in from registration.</li>
+      <li><b>Reveal.</b> The final flip shows their page filling itself in: character, type, ticks, "likely to say". The stamp page is on top.</li>
+      <li><b>Stamps.</b> Press "Pretend a booth scanned me".</li>
+    </ol>
+    <div class="note"><b>Still placeholders:</b> the questions, the 4 types, the scene pictures (emoji here) and the character drawing. The organiser would supply real art per event. Page flips are stiff here; the real build would curl the paper.</div>
+    <button class="replay" onclick="location.reload()">Replay from the start</button>
+  </div>
+
+  <div class="phone" id="phone">
+    <canvas id="gl"></canvas>
+    <div class="topbar" id="topbar" style="opacity:0"><div class="x">×</div><div class="track"><b id="fill"></b></div><div class="count" id="count">1/10</div></div>
+    <div class="banner" id="banner"><small>You're a</small><strong id="btype">TRAILBLAZER</strong></div>
+    <div class="namebox" id="namebox"><input id="nm" value="CS Wong" aria-label="Your name"><button id="go">That's me</button></div>
+    <div class="hint" id="hint">Tap your passport to open it</div>
+    <div class="bar" id="bar"><button class="qr">Show my QR</button><button class="scan" id="scan">Pretend a booth scanned me</button></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+const DEBUG = null; // null | "q1" | "mid" | "name" | "final"
+
+// ---------- content ----------
+const TYPES = {
+  trailblazer: { name:"TRAILBLAZER", accent:"#E8693C", dark:"#6E2A12", light:"#FBD9C8", hair:"#2B1B14",
+    traits:["Bold","Curious","Spontaneous","Patient","Tidy","Chill"], ticked:[0,1,2],
+    style:"Exit row, then wing it", say:["“Let's just go, we'll", "figure it out there.”"] },
+  navigator: { name:"NAVIGATOR", accent:"#3E7BD9", dark:"#17325E", light:"#D3E2F8", hair:"#4A3426",
+    traits:["Organised","Calm","Curious","Spontaneous","Reliable","Loud"], ticked:[0,1,4],
+    style:"Aisle seat, first off", say:["“I've made a", "spreadsheet for this.”"] },
+  dreamer: { name:"DAYDREAMER", accent:"#B06BD6", dark:"#4A2160", light:"#EBDAF5", hair:"#C79AA8",
+    traits:["Creative","Gentle","Punctual","Curious","Loud","Thoughtful"], ticked:[0,1,5],
+    style:"Window seat, always", say:["“Wait, look at", "that sky.”"] },
+  foodie: { name:"FLAVOUR HUNTER", accent:"#D9433B", dark:"#5E1714", light:"#F8D4D0", hair:"#1E1410",
+    traits:["Adventurous","Warm","Tidy","Generous","Quiet","Curious"], ticked:[0,1,3],
+    style:"Next to the snack trolley", say:["“We're not leaving", "till we try that.”"] },
+};
+const o = (ic, label, type) => ({ ic, label, type });
+const QUESTIONS = [
+  { scene:"Before you fly", art:"💼", tint:"#DCE7F2", q:"Your out-of-office reply says…", opts:[ o("🧭","Gone exploring. Back soon!","trailblazer"), o("📎","Away. Itinerary attached.","navigator"), o("🌅","Off chasing sunsets","dreamer"), o("🍜","Out eating my way around town","foodie") ] },
+  { scene:"Boarding", art:"✈️", tint:"#E6E0F3", q:"Which seat are you taking?", opts:[ o("🪟","Window, obviously","dreamer"), o("🚶","Aisle, first one off","navigator"), o("🦵","Exit row, all the legroom","trailblazer"), o("🥨","Closest to the snack trolley","foodie") ] },
+  { scene:"Window view", art:"☁️", tint:"#D9ECEF", q:"You look out the window and see…", opts:[ o("🌃","Neon city streets","foodie"), o("🏔️","Snowy slopes","trailblazer"), o("🏖️","Sun-kissed sand","dreamer"), o("🗺️","Rivers and caves to map","navigator") ] },
+  { scene:"Arrivals", art:"🛄", tint:"#F2E6D6", q:"How are you getting from the airport?", opts:[ o("🚲","Rent a bicycle","dreamer"), o("🚌","Party bus!","trailblazer"), o("🚄","Express train, on time","navigator"), o("🛵","Vintage scooter to the food street","foodie") ] },
+  { scene:"Somewhere in the city", art:"🗺️", tint:"#E3EEDC", q:"You're lost. What's the plan?", opts:[ o("🗣️","Ask the auntie at the stall","foodie"), o("🧘","Breathe and enjoy it","dreamer"), o("🎲","Trial and error","trailblazer"), o("📱","Offline map, already saved","navigator") ] },
+  { scene:"Check-in", art:"🔑", tint:"#F3E0E4", q:"Where are you staying?", opts:[ o("🏝️","A dreamy resort","dreamer"), o("🏨","A boutique hotel I researched","navigator"), o("🛏️","A hostel full of new friends","trailblazer"), o("🏠","A homestay with a great cook","foodie") ] },
+  { scene:"The bucket list", art:"📝", tint:"#F2EBD3", q:"Top of your bucket list?", opts:[ o("🪂","Skydiving","trailblazer"), o("☕","A quiet book café","dreamer"), o("🍢","A street food crawl","foodie"), o("🏛️","Every museum in town","navigator") ] },
+  { scene:"Night market", art:"🏮", tint:"#F5DDD3", q:"At the market, what catches your eye?", opts:[ o("🗺️","A hand-drawn map","navigator"), o("🧶","Handmade crafts","dreamer"), o("🍡","Snacks I can't name","foodie"), o("🤝","Anything I can haggle for","trailblazer") ] },
+  { scene:"Last night", art:"🌙", tint:"#DCDDF2", q:"Last night of the trip. You're…", opts:[ o("🎤","Singing karaoke","trailblazer"), o("🍽️","At a fancy dinner","foodie"), o("🎆","Watching fireworks","dreamer"), o("🧳","Packed and asleep early","navigator") ] },
+  { scene:"Going home", art:"🎁", tint:"#E0EEE8", q:"Pick a souvenir to bring home", opts:[ o("💌","A postcard to myself","dreamer"), o("🌶️","A box of local spices","foodie"), o("💥","A wild story","trailblazer"), o("📌","A pin for every city","navigator") ] },
+];
+const NQ = QUESTIONS.length;
+const BOOTHS = [
+  { name:"AI LAB", shape:"circle", ink:"#1F5E45" }, { name:"ROBOTICS", shape:"rect", ink:"#7A2E5A" },
+  { name:"CYBER DOJO", shape:"tri", ink:"#1D3F7A" }, { name:"GREEN TECH", shape:"oval", ink:"#8A3B12" },
+  { name:"FINTECH ST.", shape:"rect", ink:"#1F5E45" }, { name:"VR ARENA", shape:"circle", ink:"#5B2A86" },
+];
+const S = { answers:Array(NQ).fill(null), name:"CS Wong", type:null };
+const COVER = "#1D2D50", GOLD = "#E2BE68", EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+
+// ---------- canvas drawing ----------
+const CW = 1024, CH = 720;
+function rng(seed){ let s = seed; return ()=> (s = (s*16807) % 2147483647) / 2147483647; }
+function mkCanvas(w=CW,h=CH){ const c=document.createElement("canvas"); c.width=w; c.height=h; return c; }
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+function wrap(ctx, text, maxW){ const words=text.split(" "), lines=[]; let line=""; for (const w of words){ const t = line? line+" "+w : w; if (ctx.measureText(t).width > maxW && line){ lines.push(line); line=w; } else line=t; } lines.push(line); return lines; }
+function paper(ctx, w=CW, h=CH){
+  const g = ctx.createRadialGradient(w/2,h*.4,40,w/2,h*.45,w*.8); g.addColorStop(0,"#FBF6EA"); g.addColorStop(.7,"#F5EDDA"); g.addColorStop(1,"#EFE3C8");
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle="rgba(160,122,69,.10)"; ctx.lineWidth=1.2;
+  for (let y=14;y<h;y+=18){ ctx.beginPath(); for(let x=0;x<=w;x+=8) ctx.lineTo(x, y+Math.sin(x/22)*4); ctx.stroke(); }
+}
+function hinge(ctx, atTop){ const y0 = atTop?0:CH, y1 = atTop?34:CH-34; const sh = ctx.createLinearGradient(0,y0,0,y1); sh.addColorStop(0,"rgba(90,60,20,.22)"); sh.addColorStop(1,"rgba(90,60,20,0)"); ctx.fillStyle=sh; ctx.fillRect(0,Math.min(y0,y1),CW,34); }
+function tick(ctx, x, y, s=1, col="#2E9C4A"){ ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=8*s; ctx.lineCap="round"; ctx.lineJoin="round"; ctx.beginPath(); ctx.moveTo(x+4*s,y-2*s); ctx.lineTo(x+16*s,y+14*s); ctx.lineTo(x+46*s,y-34*s); ctx.stroke(); ctx.restore(); }
+
+function drawCover(ctx){
+  const w=720, h=1024;
+  ctx.fillStyle = COVER; ctx.fillRect(0,0,w,h);
+  const r = rng(7);
+  for (let i=0;i<4200;i++){ ctx.fillStyle = r()>.5 ? "rgba(255,255,255,.035)" : "rgba(0,0,0,.08)"; ctx.fillRect(r()*w, r()*h, 2, 2); }
+  const g = ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,"rgba(255,255,255,.08)"); g.addColorStop(1,"rgba(0,0,0,.2)"); ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle = GOLD; ctx.strokeStyle = GOLD; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.letterSpacing="8px"; ctx.font='600 26px "DM Sans"'; ctx.fillText("INNOVATION HUB 2026", w/2, 130);
+  ctx.letterSpacing="14px"; ctx.font='64px "Archivo Black"'; ctx.fillText("PASSPORT", w/2+7, 220); ctx.letterSpacing="0px";
+  const cx=w/2, cy=510;
+  ctx.lineWidth=7; ctx.beginPath(); ctx.arc(cx,cy,130,0,Math.PI*2); ctx.stroke();
+  ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,cy,104,0,Math.PI*2); ctx.stroke();
+  for (const rx of [104,66,28]){ ctx.beginPath(); ctx.ellipse(cx,cy,rx,104,0,0,Math.PI*2); ctx.stroke(); }
+  for (const dy of [-60,0,60]){ const hw = Math.sqrt(104*104-dy*dy); ctx.beginPath(); ctx.moveTo(cx-hw,cy+dy); ctx.lineTo(cx+hw,cy+dy); ctx.stroke(); }
+  for (let i=0;i<14;i++){ for (const side of [-1,1]){ const a = Math.PI/2 + side*(0.35 + i*0.17); ctx.save(); ctx.translate(cx+Math.cos(a)*160, cy+Math.sin(a)*160); ctx.rotate(a + side*0.6); ctx.beginPath(); ctx.ellipse(0,0,16,6,0,0,Math.PI*2); ctx.fill(); ctx.restore(); } }
+  ctx.letterSpacing="6px"; ctx.font='600 24px "DM Sans"'; ctx.fillText("EVENT PASSPORT", w/2, 800); ctx.letterSpacing="0px";
+  ctx.lineWidth=4; rr(ctx, cx-34, 880, 68, 44, 6); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, 902, 10, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx-34,902); ctx.lineTo(cx-10,902); ctx.moveTo(cx+10,902); ctx.lineTo(cx+34,902); ctx.stroke();
+}
+// Top page: the scene for question i (seen after the leaf above has flipped, hinge at the bottom).
+// Scene images: in the real thing the organiser uploads one per question. Here: placeholder photos.
+const SCENE_IMG = QUESTIONS.map((_, i)=>{ const im = new Image(); im.crossOrigin = "anonymous"; im.src = `https://picsum.photos/seed/ecp-passport-${i+3}/1100/720`; return im; });
+const IMG = { x:44, y:84, w:CW-88, h:CH-140 };
+function drawScene(ctx, i){
+  const Q = QUESTIONS[i], im = SCENE_IMG[i];
+  paper(ctx);
+  ctx.fillStyle="#5E4526"; ctx.font='700 24px "DM Sans"'; ctx.letterSpacing="6px"; ctx.textBaseline="middle"; ctx.textAlign="left";
+  ctx.fillText(`PAGE ${String(i+1).padStart(2,"0")}`, IMG.x+6, 50); ctx.textAlign="right"; ctx.fillText(Q.scene.toUpperCase(), IMG.x+IMG.w-6, 50); ctx.letterSpacing="0px";
+  ctx.save(); rr(ctx, IMG.x, IMG.y, IMG.w, IMG.h, 22); ctx.clip();
+  if (im.complete && im.naturalWidth){
+    // cover-fit the photo into the frame
+    const s = Math.max(IMG.w/im.naturalWidth, IMG.h/im.naturalHeight), w = im.naturalWidth*s, h = im.naturalHeight*s;
+    ctx.drawImage(im, IMG.x + (IMG.w-w)/2, IMG.y + (IMG.h-h)/2, w, h);
+    const g = ctx.createLinearGradient(0, IMG.y, 0, IMG.y+IMG.h); g.addColorStop(0,"rgba(251,246,234,.06)"); g.addColorStop(1,"rgba(60,40,15,.12)"); ctx.fillStyle=g; ctx.fillRect(IMG.x, IMG.y, IMG.w, IMG.h);
+  } else {
+    ctx.fillStyle = Q.tint; ctx.fillRect(IMG.x, IMG.y, IMG.w, IMG.h);
+    ctx.textAlign="center"; ctx.font=`200px ${EMOJI}`; ctx.fillText(Q.art, CW/2, IMG.y + IMG.h/2);
+  }
+  ctx.restore();
+  ctx.strokeStyle="rgba(94,69,38,.35)"; ctx.lineWidth=3; rr(ctx, IMG.x, IMG.y, IMG.w, IMG.h, 22); ctx.stroke();
+  hinge(ctx, false);
+}
+// Bottom page: question i with four boxes to tick.
+const BOX = (j)=>({ x: 50, y: 232 + j*118, w: CW-100, h: 104 });
+function drawQuestion(ctx, i){
+  const Q = QUESTIONS[i], pick = S.answers[i];
+  paper(ctx); hinge(ctx, true);
+  ctx.fillStyle="#7A5C34"; ctx.font='700 22px "DM Sans"'; ctx.letterSpacing="5px"; ctx.textAlign="left"; ctx.textBaseline="middle";
+  ctx.fillText(`QUESTION ${i+1} OF ${NQ}`, 56, 66); ctx.letterSpacing="0px";
+  ctx.fillStyle="#2A1E10"; ctx.font='700 56px "DM Sans"';
+  let qs = 56; while (ctx.measureText(Q.q).width > CW-112 && qs > 42){ qs -= 2; ctx.font=`700 ${qs}px "DM Sans"`; }
+  ctx.fillText(Q.q, 56, 146);
+  Q.opts.forEach((op,j)=>{
+    const b = BOX(j), on = pick===j, my = b.y + b.h/2;
+    ctx.fillStyle = on ? "#2E7D46" : "rgba(255,255,255,.6)"; rr(ctx,b.x,b.y,b.w,b.h,52); ctx.fill();
+    if (!on){ ctx.strokeStyle = "rgba(122,92,52,.4)"; ctx.lineWidth = 3; rr(ctx,b.x,b.y,b.w,b.h,52); ctx.stroke(); }
+    ctx.textBaseline="middle"; ctx.font=`58px ${EMOJI}`; ctx.textAlign="left"; ctx.fillText(op.ic, b.x+30, my+3);
+    ctx.fillStyle = on ? "#fff" : "#2A1E10"; ctx.font='600 46px "DM Sans"';
+    let fs = 46; while (ctx.measureText(op.label).width > b.w-150 && fs > 34){ fs -= 2; ctx.font=`600 ${fs}px "DM Sans"`; }
+    ctx.fillText(op.label, b.x+112, my+2);
+  });
+}
+function drawSign(ctx){
+  paper(ctx);
+  ctx.fillStyle="#E9E1F2"; rr(ctx, 46, 46, CW-92, CH-120, 30); ctx.fill();
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.font=`220px ${EMOJI}`; ctx.fillText("✍️", CW/2, 300);
+  ctx.fillStyle="#3B2A18"; ctx.font='700 44px "DM Sans"'; ctx.fillText("Almost done", CW/2, 520);
+  ctx.fillStyle="#7A5C34"; ctx.font='500 30px "DM Sans"'; ctx.fillText("Sign your passport below", CW/2, 572);
+  hinge(ctx, false);
+}
+function drawNamePage(ctx){
+  paper(ctx); hinge(ctx, true);
+  ctx.fillStyle="#7A5C34"; ctx.font='700 22px "DM Sans"'; ctx.letterSpacing="5px"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("PASSPORT HOLDER", CW/2, 80); ctx.letterSpacing="0px";
+  ctx.fillStyle="#2A1E10"; ctx.font='700 50px "DM Sans"'; ctx.fillText("Is this your name?", CW/2, 170);
+  ctx.fillStyle="#7A5C34"; ctx.font='500 30px "DM Sans"'; ctx.fillText("It goes on your passport page. Change it if you like.", CW/2, 232);
+}
+function drawStampPage(ctx){
+  paper(ctx);
+  ctx.save(); ctx.translate(CW/2, CH/2); ctx.strokeStyle="rgba(160,122,69,.12)"; ctx.lineWidth=1.5;
+  for (let d=0; d<180; d+=20){ ctx.save(); ctx.rotate(d*Math.PI/180); ctx.beginPath(); ctx.ellipse(0,0,230,80,0,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+  ctx.restore();
+  ctx.fillStyle="rgba(122,92,52,.55)"; ctx.textAlign="center"; ctx.font='700 20px "DM Sans"'; ctx.letterSpacing="6px"; ctx.fillText("ENTRIES · STAMPS", CW/2, 52); ctx.letterSpacing="0px";
+  hinge(ctx, false);
+}
+function pill(ctx, x, y, text, bg, fg){
+  ctx.font='26px "Archivo Black"'; const w = ctx.measureText(text).width + 48;
+  ctx.fillStyle=bg; rr(ctx,x,y,w,50,25); ctx.fill(); ctx.fillStyle=fg; ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText(text, x+24, y+26);
+}
+function dashed(ctx, x1, x2, y, col){ ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=3; ctx.setLineDash([16,12]); ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2,y); ctx.stroke(); ctx.restore(); }
+function drawAvatar(ctx, T, key, x, y, w, h){
+  ctx.save(); rr(ctx,x,y,w,h,28); ctx.clip();
+  ctx.fillStyle=T.light; ctx.fillRect(x,y,w,h);
+  const cx=x+w/2, cy=y+h*0.46;
+  ctx.fillStyle=T.accent; ctx.beginPath(); ctx.moveTo(cx-130,y+h+10); ctx.quadraticCurveTo(cx-120,cy+90,cx,cy+80); ctx.quadraticCurveTo(cx+120,cy+90,cx+130,y+h+10); ctx.fill();
+  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(cx-40,cy+82); ctx.lineTo(cx,cy+130); ctx.lineTo(cx+40,cy+82); ctx.fill();
+  ctx.fillStyle=T.hair; ctx.beginPath(); ctx.ellipse(cx,cy-6,92,98,0,0,Math.PI*2); ctx.fill();
+  if (key==="dreamer"){ ctx.fillRect(cx-92,cy-6,184,90); }
+  ctx.fillStyle="#C98A5A"; ctx.beginPath(); ctx.ellipse(cx,cy+8,72,80,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=T.hair; ctx.beginPath(); ctx.moveTo(cx-78,cy-10); ctx.quadraticCurveTo(cx-40,cy-100,cx+30,cy-82); ctx.quadraticCurveTo(cx+70,cy-70,cx+80,cy-8); ctx.quadraticCurveTo(cx+10,cy-60,cx-78,cy-10); ctx.fill();
+  ctx.strokeStyle="#2A1A12"; ctx.lineWidth=6; ctx.lineCap="round";
+  for (const dx of [-28,28]){ ctx.beginPath(); ctx.arc(cx+dx,cy+12,13,Math.PI*1.1,Math.PI*1.9); ctx.stroke(); }
+  ctx.fillStyle="rgba(220,90,80,.35)"; for (const dx of [-44,44]){ ctx.beginPath(); ctx.ellipse(cx+dx,cy+38,14,9,0,0,Math.PI*2); ctx.fill(); }
+  ctx.beginPath(); ctx.arc(cx,cy+40,22,Math.PI*0.15,Math.PI*0.85); ctx.stroke();
+  ctx.strokeStyle=T.dark; ctx.fillStyle=T.dark;
+  if (key==="navigator"){ ctx.lineWidth=6; for (const dx of [-28,28]){ ctx.beginPath(); ctx.arc(cx+dx,cy+8,24,0,Math.PI*2); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(cx-4,cy+8); ctx.lineTo(cx+4,cy+8); ctx.stroke(); }
+  if (key==="trailblazer"){ ctx.fillStyle=T.accent; ctx.beginPath(); ctx.ellipse(cx,cy-62,86,40,0,Math.PI,0); ctx.fill(); ctx.fillRect(cx-10,cy-64,120,16); }
+  if (key==="dreamer"){ ctx.fillStyle="#F3C969"; for(let i=0;i<5;i++){ const a=i*Math.PI*2/5; ctx.beginPath(); ctx.ellipse(cx+62+Math.cos(a)*14,cy-58+Math.sin(a)*14,11,11,0,0,Math.PI*2); ctx.fill(); } ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(cx+62,cy-58,8,0,Math.PI*2); ctx.fill(); }
+  if (key==="foodie"){ ctx.fillStyle="#fff"; ctx.beginPath(); ctx.ellipse(cx,cy-82,70,34,0,0,Math.PI*2); ctx.fill(); for(const dx of [-40,0,40]){ ctx.beginPath(); ctx.arc(cx+dx,cy-104,28,0,Math.PI*2); ctx.fill(); } }
+  ctx.restore();
+  ctx.strokeStyle=T.dark; ctx.lineWidth=4; rr(ctx,x,y,w,h,28); ctx.stroke();
+}
+// The holder's page. p (0..1) lets it fill itself in during the reveal.
+function drawBio(ctx, p=1){
+  paper(ctx); hinge(ctx, true);
+  const key = S.type || "trailblazer", T = TYPES[key];
+  const a = (from, to) => Math.max(0, Math.min(1, (p-from)/(to-from)));
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle=T.dark; ctx.font='700 40px "DM Sans"'; ctx.letterSpacing="3px"; ctx.fillText("INNOVATION HUB PASSPORT", CW/2, 74); ctx.letterSpacing="0px";
+  ctx.strokeStyle="rgba(122,92,52,.4)"; ctx.lineWidth=3; ctx.setLineDash([12,10]); rr(ctx,58,122,300,360,28); ctx.stroke(); ctx.setLineDash([]);
+  ctx.globalAlpha = a(0,.3); drawAvatar(ctx, T, key, 58, 122, 300, 360); ctx.globalAlpha = 1;
+  const k = a(.25,.45);
+  if (k>0){ ctx.save(); ctx.translate(208,520); const sc = 1.6 - 0.6*k; ctx.scale(sc,sc); ctx.globalAlpha=k;
+    ctx.font='46px "Archivo Black"'; ctx.lineWidth=10; ctx.strokeStyle=T.dark; ctx.lineJoin="round"; const fit = Math.min(1, 330/ctx.measureText(T.name).width); ctx.scale(fit,1);
+    ctx.strokeText(T.name,0,0); ctx.fillStyle=T.light; ctx.fillText(T.name,0,0); ctx.restore(); }
+  ctx.fillStyle="#7A5C34"; ctx.font='700 18px "DM Sans"'; ctx.letterSpacing="3px"; ctx.fillText("PASSPORT HOLDER", 208, 572); ctx.letterSpacing="0px";
+  ctx.fillStyle="#3B2A18"; ctx.font='600 52px "Caveat"'; ctx.fillText(S.name, 208, 622);
+  const X=410;
+  pill(ctx, X, 116, "KEY TRAITS", T.dark, T.light);
+  ctx.font='500 26px "DM Sans"';
+  T.traits.forEach((t,i)=>{ const col=i%3, row=Math.floor(i/3); const bx=X+10+col*190, by=200+row*62;
+    ctx.strokeStyle="#5E4526"; ctx.lineWidth=3; ctx.strokeRect(bx,by-16,32,32);
+    ctx.fillStyle="#3B2A18"; ctx.textAlign="left"; ctx.fillText(t, bx+46, by);
+    const n = T.ticked.indexOf(i); if (n>=0 && a(.45 + n*.08, .5 + n*.08) >= 1) tick(ctx, bx, by, .85); });
+  pill(ctx, X, 340, "TRAVEL STYLE", T.dark, T.light);
+  ctx.globalAlpha = a(.7,.8); ctx.fillStyle=T.dark; ctx.font='600 44px "Caveat"'; ctx.textAlign="left"; ctx.fillText(T.style, X+8, 432); ctx.globalAlpha=1; dashed(ctx, X, 970, 458, T.accent);
+  pill(ctx, X, 486, "LIKELY TO SAY", T.dark, T.light);
+  ctx.fillStyle=T.dark; ctx.font='600 42px "Caveat"';
+  ctx.globalAlpha = a(.8,.9); ctx.fillText(T.say[0], X+8, 576); ctx.globalAlpha = a(.9,1); ctx.fillText(T.say[1], X+8, 640); ctx.globalAlpha=1;
+  dashed(ctx, X, 970, 600, T.accent); dashed(ctx, X, 970, 664, T.accent);
+}
+function drawSymbol(ctx, cx, cy, col){ ctx.save(); ctx.translate(cx,cy); ctx.fillStyle=col; ctx.rotate(-Math.PI/4); ctx.beginPath(); ctx.ellipse(0,0,84,13,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(-8,0); ctx.lineTo(22,-70); ctx.lineTo(38,-70); ctx.lineTo(26,0); ctx.lineTo(38,70); ctx.lineTo(22,70); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function drawStamp(b, n){
+  const c = mkCanvas(512,512), ctx = c.getContext("2d"); ctx.translate(256,256);
+  ctx.strokeStyle=b.ink; ctx.fillStyle=b.ink; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.lineJoin="round";
+  if (b.shape==="circle"){ ctx.lineWidth=12; ctx.beginPath(); ctx.arc(0,0,200,0,Math.PI*2); ctx.stroke(); ctx.lineWidth=5; ctx.beginPath(); ctx.arc(0,0,168,0,Math.PI*2); ctx.stroke();
+    ctx.font='64px "Archivo Black"'; ctx.fillText(b.name,0,-6, 300); ctx.font='700 30px "DM Sans"'; ctx.fillText("★ ARRIVED ★",0,62); ctx.fillText("12 NOV 2026",0,-74); }
+  if (b.shape==="rect"){ ctx.lineWidth=12; ctx.strokeRect(-220,-130,440,260); ctx.lineWidth=4; ctx.strokeRect(-196,-106,392,212);
+    ctx.font='60px "Archivo Black"'; ctx.fillText(b.name,0,-10, 360); ctx.font='700 28px "DM Sans"'; ctx.fillText("VISITED · 12.11.26",0,56);
+    for (let x=-200;x<=200;x+=40){ ctx.beginPath(); ctx.arc(x,-150,9,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x,150,9,0,Math.PI*2); ctx.fill(); } }
+  if (b.shape==="tri"){ ctx.lineWidth=12; ctx.beginPath(); ctx.moveTo(0,-220); ctx.lineTo(225,170); ctx.lineTo(-225,170); ctx.closePath(); ctx.stroke();
+    ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(0,-180); ctx.lineTo(192,148); ctx.lineTo(-192,148); ctx.closePath(); ctx.stroke();
+    ctx.font='48px "Archivo Black"'; ctx.fillText(b.name,0,92, 300); drawSymbol(ctx,0,-10,b.ink); }
+  if (b.shape==="oval"){ ctx.lineWidth=12; ctx.beginPath(); ctx.ellipse(0,0,230,150,0,0,Math.PI*2); ctx.stroke(); ctx.lineWidth=4; ctx.beginPath(); ctx.ellipse(0,0,200,122,0,0,Math.PI*2); ctx.stroke();
+    ctx.font='600 84px "Caveat"'; ctx.fillText(b.name.charAt(0)+b.name.slice(1).toLowerCase(),0,-6, 360); ctx.font='700 26px "DM Sans"'; ctx.fillText("BOOTH "+String(n+1).padStart(2,"0"),0,70); }
+  ctx.globalCompositeOperation="destination-out"; const r=rng(31+n*17);
+  for (let i=0;i<900;i++){ ctx.globalAlpha = .25 + r()*.6; ctx.beginPath(); ctx.arc(r()*512-256, r()*512-256, 1+r()*4, 0, Math.PI*2); ctx.fill(); }
+  ctx.globalAlpha=1;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// ---------- three ----------
+const phone = document.getElementById("phone"), canvas = document.getElementById("gl");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.max(2, devicePixelRatio)); renderer.setSize(phone.clientWidth, phone.clientHeight, false);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, phone.clientWidth/phone.clientHeight, 0.1, 100); camera.position.set(0,0,10.8);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x334466, 1.5));
+const keyL = new THREE.DirectionalLight(0xfff4e0, 1.5); keyL.position.set(-3,4,6); scene.add(keyL);
+
+function tex(draw, w=CW, h=CH, rot=0){ const c=mkCanvas(w,h); const ctx=c.getContext("2d"); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8; if (rot){ t.center.set(.5,.5); t.rotation=rot; } const T={ c, ctx, t, draw, redraw(...a){ draw(ctx,...a); t.needsUpdate=true; } }; return T; }
+const pageMat = (T, lit=.25) => new THREE.MeshStandardMaterial({ map:T.t, roughness:.95, emissive:0xffffff, emissiveMap:T.t, emissiveIntensity:lit });
+
+/*
+  A top-hinged booklet (pages landscape) turned 90deg so it starts as a portrait passport, spine left.
+  Leaves: 0 = cover (back: scene 1); 1..10 = question pages (back: next scene, or "sign" after the last);
+  11 = name page (back: stamp page). The fixed page underneath is the holder's page.
+*/
+const W=3.04, H=2.14, PW=W-.08, PH=H-.06, NL = NQ + 2, DZ = .004;
+const coverSide = new THREE.MeshStandardMaterial({ color:COVER, roughness:.7 });
+const paperSide = new THREE.MeshStandardMaterial({ color:0xEFE6D2, roughness:.95 });
+const holder = new THREE.Group(); scene.add(holder);
+const turn = new THREE.Group(); holder.add(turn);
+const book = new THREE.Group(); turn.add(book);
+const back = new THREE.Mesh(new THREE.BoxGeometry(W,H,.03), coverSide); back.position.set(0,-H/2,-.045); book.add(back);
+const bioT = tex(drawBio);
+const block = new THREE.Mesh(new THREE.BoxGeometry(PW,PH,.06), [paperSide,paperSide,paperSide,paperSide,pageMat(bioT),paperSide]); block.position.set(0,-H/2+.02,0); book.add(block);
+
+const leaves = [];
+for (let k=0;k<NL;k++){
+  const g = new THREE.Group(); book.add(g);
+  let frontT, backT, front, backM;
+  if (k===0){
+    frontT = tex(drawCover, 720, 1024, -Math.PI/2); backT = tex(c=>drawScene(c,0), CW, CH, Math.PI);
+    const fm = new THREE.MeshStandardMaterial({ map:frontT.t, roughness:.55, metalness:.05 });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(W,H,.03), [coverSide,coverSide,coverSide,coverSide,fm,pageMat(backT)]); box.position.set(0,-H/2,.017); g.add(box);
+    front = box; backM = box;
+  } else {
+    frontT = k<=NQ ? tex(c=>drawQuestion(c,k-1)) : tex(drawNamePage);
+    backT = k<NQ ? tex(c=>drawScene(c,k), CW, CH, Math.PI) : (k===NQ ? tex(drawSign, CW, CH, Math.PI) : tex(drawStampPage, CW, CH, Math.PI));
+    front = new THREE.Mesh(new THREE.PlaneGeometry(PW,PH), pageMat(frontT)); front.position.set(0,-H/2+.02,.0006); g.add(front);
+    backM = new THREE.Mesh(new THREE.PlaneGeometry(PW,PH), pageMat(backT)); backM.rotation.y = Math.PI; backM.position.set(0,-H/2+.02,-.0006); g.add(backM);
+  }
+  leaves.push({ g, front, back:backM, frontT, backT, f:0 });
+}
+const zDown = k => .031 + (NL-k)*DZ, zUp = k => .031 + k*DZ;
+const shC = mkCanvas(256,256), shx = shC.getContext("2d"); const sg = shx.createRadialGradient(128,128,10,128,128,128); sg.addColorStop(0,"rgba(0,0,0,.55)"); sg.addColorStop(1,"rgba(0,0,0,0)"); shx.fillStyle=sg; shx.fillRect(0,0,256,256);
+const shadow = new THREE.Mesh(new THREE.PlaneGeometry(W+1.4,H+1.2), new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(shC), transparent:true, depthWrite:false })); book.add(shadow);
+
+const B = { y:0.15, s:1.15, rx:-0.12, ry:0.3, turn:Math.PI/2, spin:0, bob:1 };
+const tilt = { x:0, y:0, tx:0, ty:0, amt:1 };
+canvas.addEventListener("pointermove", e=>{ const r=canvas.getBoundingClientRect(); tilt.tx=((e.clientX-r.left)/r.width-.5)*2; tilt.ty=((e.clientY-r.top)/r.height-.5)*2; });
+canvas.addEventListener("pointerleave", ()=>{ tilt.tx=0; tilt.ty=0; });
+
+const ease = k => k<.5 ? 4*k*k*k : 1-Math.pow(-2*k+2,3)/2;
+const easeIn = k => k*k*k;
+function tween(ms, fn, e=ease){ return new Promise(res=>{ const t0=performance.now(); const step=now=>{ const k=Math.min(1,(now-t0)/ms); fn(e(k)); k<1 ? requestAnimationFrame(step) : res(); }; requestAnimationFrame(step); }); }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+let shake = 0;
+
+function loop(t){
+  tilt.x += (tilt.tx-tilt.x)*.08; tilt.y += (tilt.ty-tilt.y)*.08;
+  holder.position.set(0, B.y + Math.sin(t/700)*0.06*B.bob, 0); holder.scale.setScalar(B.s);
+  holder.rotation.set(B.rx + tilt.y*0.18*tilt.amt, B.ry + B.spin + tilt.x*0.3*tilt.amt, 0);
+  turn.rotation.z = B.turn;
+  book.position.y = (H/2)*(1-leaves[0].f);
+  leaves.forEach((L,k)=>{ L.g.rotation.x = -Math.PI*L.f; L.g.position.z = zDown(k) + (zUp(k)-zDown(k))*L.f + Math.sin(Math.PI*L.f)*0.25; });
+  const f0 = leaves[0].f; shadow.position.set(0, -H/2 + f0*H/2, -0.5); shadow.scale.set(1, 1+f0*0.95, 1);
+  if (shake>0){ camera.position.x = (Math.random()-.5)*shake; camera.position.y = (Math.random()-.5)*shake; shake *= .85; if (shake<.002){ shake=0; camera.position.set(0,0,10.8);} }
+  renderer.render(scene,camera); requestAnimationFrame(loop);
+}
+const flip = (k, to, ms=720) => { const L = leaves[k], from = L.f; return tween(ms, e=>{ L.f = from + (to-from)*e; }); };
+
+// ---------- flow ----------
+let phase = "closed", cur = 1, busy = false;   // cur = leaf showing on the bottom
+const hint = document.getElementById("hint");
+function setHint(t){ hint.textContent = t; hint.style.opacity = t ? 1 : 0; }
+function progress(){ const q = Math.min(cur, NQ); document.getElementById("fill").style.width = `${((cur-1)/NQ)*100}%`; document.getElementById("count").textContent = cur<=NQ ? `${q}/${NQ}` : "Name"; }
+
+async function openBook(){
+  busy = true; setHint("");
+  const f = {...B};
+  await tween(500, k=>{ B.rx = f.rx*(1-k); B.ry = f.ry*(1-k); B.bob = 1-k; });
+  await Promise.all([ flip(0, 1, 1000), tween(1000, k=>{ B.s = 1.15 - 0.45*k; }) ]);
+  await sleep(250);
+  await tween(900, k=>{ B.turn = Math.PI/2*(1-k); B.s = 0.7 + 0.28*k; B.y = 0.15 + 0.05*k; });
+  tilt.amt = .35; phase = "quiz"; document.getElementById("topbar").style.opacity = 1; progress();
+  setHint("Tap an answer. Tap the top page to go back."); busy = false;
+}
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+canvas.addEventListener("click", async e=>{
+  if (busy) return;
+  if (phase==="closed") return openBook();
+  if (phase!=="quiz") return;
+  const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc, camera);
+  const bottom = leaves[cur].front, top = leaves[cur-1].back;
+  const hit = ray.intersectObjects([bottom, top])[0]; if (!hit) return;
+  if (hit.object === top){ if (cur>1){ busy=true; cur--; progress(); await flip(cur, 0); busy=false; } return; }
+  if (cur>NQ) return; // name page: HTML input handles it
+  const x = hit.uv.x*CW, y = (1-hit.uv.y)*CH;
+  const j = [0,1,2,3].find(j=>{ const b=BOX(j); return x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h; });
+  if (j===undefined) return;
+  busy = true; S.answers[cur-1] = j; leaves[cur].frontT.redraw();
+  await sleep(380); await flip(cur, 1); cur++; progress();
+  if (cur>NQ) showName();
+  busy = false;
+});
+function showName(){
+  setHint("");
+  const v = new THREE.Vector3(), r = phone.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
+  const m = leaves[NL-1].front; m.updateWorldMatrix(true,false);
+  const pts = [[-PW/2,-PH/2],[PW/2,PH/2]].map(([x,y])=>{ v.set(x,y,0).applyMatrix4(m.matrixWorld).project(camera); return [ (v.x+1)/2*cr.width, (1-v.y)/2*cr.height ]; });
+  const nb = document.getElementById("namebox");
+  const [x0,y0] = [Math.min(pts[0][0],pts[1][0]), Math.min(pts[0][1],pts[1][1])], [x1,y1] = [Math.max(pts[0][0],pts[1][0]), Math.max(pts[0][1],pts[1][1])];
+  Object.assign(nb.style, { left:`${x0}px`, top:`${y0 + (y1-y0)*.42}px`, width:`${x1-x0}px`, height:`${(y1-y0)*.5}px`, display:"flex" });
+}
+document.getElementById("go").onclick = async ()=>{
+  if (busy) return; busy = true;
+  S.name = document.getElementById("nm").value.trim() || "Guest";
+  document.getElementById("namebox").style.display = "none";
+  const pts = {}; S.answers.forEach((j,i)=>{ const t = QUESTIONS[i].opts[j].type; pts[t]=(pts[t]||0)+1; });
+  const max = Math.max(...Object.values(pts)), lastT = QUESTIONS[NQ-1].opts[S.answers[NQ-1]].type;
+  S.type = pts[lastT]===max ? lastT : Object.keys(pts).find(k=>pts[k]===max);
+  bioT.redraw(0); phase = "reveal"; document.getElementById("topbar").style.opacity = 0;
+  await flip(NL-1, 1, 900); cur = NL;
+  await tween(1800, k=>bioT.redraw(k), k=>k);
+  document.getElementById("btype").textContent = TYPES[S.type].name; document.getElementById("banner").classList.add("in");
+  await tween(600, k=>{ B.y = 0.2 - 0.32*k; });
+  document.getElementById("bar").classList.add("in"); phase = "done"; busy = false;
+};
+// ---------- stamps ----------
+let stampN = 0;
+function addStamp(n, animate){
+  const b = BOOTHS[n % BOOTHS.length];
+  const mat = new THREE.MeshBasicMaterial({ map:drawStamp(b,n), transparent:true, opacity:animate?0:.92, depthWrite:false });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);
+  const r = rng(101+n*13); r();
+  const tx = -0.85 + r()*1.7, ty = 0.55 + r()*1.0, z = zUp(NL) + .01 + n*0.001;
+  m.position.set(tx, ty, animate?1.8:z); m.rotation.z = (r()-.5)*0.9; book.add(m);
+  if (!animate) return;
+  tween(240, k=>{ m.position.z = 1.8 - (1.8-z)*k; m.scale.setScalar(1.7-0.7*k); mat.opacity = 0.2 + 0.72*k; }, easeIn).then(()=>{
+    shake = 0.06; const y0 = B.y; tween(260, k=>{ B.y = y0 - Math.sin(k*Math.PI)*0.05; }, k=>k);
+    const t = document.getElementById("toast"); t.textContent = `Stamped by ${b.name}`; t.classList.add("in"); setTimeout(()=>t.classList.remove("in"), 1600);
+  });
+}
+document.getElementById("scan").onclick = ()=> addStamp(stampN++, true);
+
+await Promise.all(['48px "Archivo Black"','600 40px "Caveat"','700 30px "DM Sans"','500 26px "DM Sans"','600 26px "DM Sans"'].map(f=>document.fonts.load(f)));
+bioT.redraw(1); leaves.forEach(L=>{ L.frontT.redraw(); L.backT.redraw(); });
+// redraw a scene page once its photo arrives (scene i is on the back of leaf i)
+SCENE_IMG.forEach((im, i)=>{ const re = ()=> leaves[i].backT.redraw(); if (im.complete && im.naturalWidth) re(); else im.addEventListener("load", re); });
+if (DEBUG){
+  leaves[0].f = 1; Object.assign(B,{ turn:0, s:0.98, y:0.2, rx:0, ry:0, bob:0 }); tilt.amt=.35; phase="quiz"; document.getElementById("topbar").style.opacity=1; setHint("");
+  if (DEBUG==="mid"){ S.answers[0]=2; S.answers[1]=0; leaves[1].frontT.redraw(); leaves[2].frontT.redraw(); leaves[1].f=1; leaves[2].f=0.55; cur=3; }
+  if (DEBUG==="name"){ for (let k=1;k<=NQ;k++){ S.answers[k-1]=2; leaves[k].frontT.redraw(); leaves[k].f=1; } cur=NL-1; progress(); requestAnimationFrame(()=>requestAnimationFrame(showName)); }
+  if (DEBUG==="final"){ for (let k=1;k<NL;k++){ leaves[k].f=1; } S.type="trailblazer"; bioT.redraw(1); cur=NL; phase="done"; B.y=-.12; document.getElementById("topbar").style.opacity=0; document.getElementById("banner").classList.add("in"); document.getElementById("bar").classList.add("in"); for (let i=0;i<4;i++) addStamp(stampN++, false); }
+  progress();
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

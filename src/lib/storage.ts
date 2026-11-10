@@ -17,7 +17,8 @@ export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 export type ImageKind =
   | "logo" | "banner" | "floor-plan" | "agenda" | "info" | "activity" | "tile-icon"
   | "game-background" | "game-video" | "game-prize" | "game-card-back"
-  | "polaroid-sticker" | "polaroid-background" | "polaroid-card" | "polaroid-logo" | "group" | "registration-banner" | "registration-footer" | "popup" | "booth-stamp";
+  | "polaroid-sticker" | "polaroid-background" | "polaroid-card" | "polaroid-logo" | "group" | "registration-banner" | "registration-footer" | "popup" | "booth-stamp"
+  | "passport-scene" | "passport-character" | "passport-crest";
 
 /**
  * The extension each accepted type is stored under. Browsers send `image/jpg` as well as
