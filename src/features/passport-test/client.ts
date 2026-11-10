@@ -7,3 +7,4 @@ export * from "./lib/settings";
 export * from "./lib/travel-set";
 export * from "./lib/rules";
 export * from "./lib/shades";
+export * from "./lib/score";
