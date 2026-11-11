@@ -6,7 +6,7 @@ import { Modal } from "@/components/admin/Modal";
 import { RowActions } from "@/components/admin/RowActions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { squadPeople, squadRows } from "../db/tournaments";
-import { gamesOf, laneComplete, lanePlaces, laneTotals } from "../lib/lanes";
+import { gamesOf, laneComplete, lanePlaces, laneTotals, staleBowlers } from "../lib/lanes";
 import { defaultPlaying, ordinal, pointsFor, type SportResults } from "../lib/results";
 import { sideRows, type Side } from "../lib/sides";
 import { drawLanesAction, saveLaneGameAction, swapBowlerAction } from "./lane-actions";
@@ -49,6 +49,8 @@ export async function LanesSport({ ev, activity, sr, names, sides }: { ev: Event
   const table = activity.place_points ?? null;
   const reset = resetSportAction.bind(null, ev.id, activity.id, sport.id);
   const seated = new Set(seats.map((s) => s.attendee_id));
+  // A bowler taken out of the squad by a remove (not a swap) keeps their seats until swapped here.
+  const stale = new Set(staleBowlers(seats, counted, sport.id));
   const bowlers = [...new Map(seats.filter((s) => s.game === games[0]?.game).map((s) => [s.attendee_id, s])).values()]
     .sort((a, b) => (names.get(a.group_id) ?? "").localeCompare(names.get(b.group_id) ?? "") || a.number - b.number);
 
@@ -84,6 +86,11 @@ export async function LanesSport({ ev, activity, sr, names, sides }: { ev: Event
           <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">No lanes yet. Draw them once the squads are in.</p>
         ) : (
           <>
+            {stale.size > 0 && (
+              <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
+                No longer in the {sport.name} squad: {[...stale].map(who).join(", ")}. Use Swap bowler under Bowlers to give their lanes to whoever bowls instead.
+              </p>
+            )}
             {scored && <p className="text-sm text-muted-foreground">The lanes are set. Reset this sport&apos;s results (⋯) to draw them again.</p>}
             <div className="flex flex-wrap gap-2">
               {drawn.map((g) => (
@@ -160,7 +167,7 @@ export async function LanesSport({ ev, activity, sr, names, sides }: { ev: Event
               const choices = attendees.filter((a) => a.group_id && side?.groupIds.includes(a.group_id) && !seated.has(a.id) && categoryMatches(activity.categories ?? null, a.category ?? null));
               return (
                 <div key={s.attendee_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <span>{who(s.attendee_id)} <span className="text-muted-foreground">· {names.get(s.group_id)}</span></span>
+                  <span>{who(s.attendee_id)} <span className="text-muted-foreground">· {names.get(s.group_id)}</span> {stale.has(s.attendee_id) && <Badge variant="warning">Not in squad</Badge>}</span>
                   <RowActions name={who(s.attendee_id)} dialog={{
                     label: "Swap bowler",
                     title: `Swap ${who(s.attendee_id)}`,

@@ -1,4 +1,5 @@
 import type { Place, SportResults } from "./results";
+import type { SquadRow } from "./squads";
 
 /**
  * D860-D867: a lane-draw sport (bowling). Every playing side's bowlers get a seat on a lane for
@@ -155,6 +156,20 @@ export function readLaneGame(seats: LaneSeat[], game: number, read: (key: string
     scores.push({ attendee_id: s.attendee_id, score: Number(text) });
   }
   return { ok: true, scores };
+}
+
+/**
+ * D864 (amended 11 Nov): a swap on the Squads tab also moves the lane seats of a drawn lane sport,
+ * when the old bowler is seated and the new one isn't - so the draw shows who actually bowls.
+ */
+export function seatFollowsSwap(sport: { format: string }, seats: LaneSeat[], outId: string, inId: string): boolean {
+  return sport.format === "lanes" && seats.some((s) => s.attendee_id === outId) && !seats.some((s) => s.attendee_id === inId);
+}
+
+/** Seated bowlers with no counted place in this sport's squad any more (removed, cancelled or moved), once each in seat order. */
+export function staleBowlers(seats: LaneSeat[], counted: SquadRow[], sportId: string): string[] {
+  const inSquad = new Set(counted.filter((r) => r.sport_id === sportId).map((r) => r.attendee_id));
+  return [...new Set(seats.map((s) => s.attendee_id))].filter((id) => !inSquad.has(id));
 }
 
 /** D864: whether this person can take a seat - not already bowling in the sport. */

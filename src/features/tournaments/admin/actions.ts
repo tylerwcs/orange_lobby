@@ -4,7 +4,8 @@ import { flashPath } from "@/lib/flash";
 import { getAttendee } from "@/lib/db/attendees";
 import type { Activity } from "@/lib/types";
 import { done, formOf, tabPath, tournament } from "./guard";
-import { hasDraw } from "../db/results";
+import { hasDraw, loadSportResults, swapLaneBowler } from "../db/results";
+import { seatFollowsSwap } from "../lib/lanes";
 import { addSquadMember, createSport, deleteSport, listSports, moveSport, removeSquadMember, updateSport } from "../db/tournaments";
 import { readSport } from "../lib/sports";
 import { nameInEvent, refusalFlash, type TournamentSport } from "../lib/squads";
@@ -108,5 +109,8 @@ export async function adminSwapPlayerAction(eventId: string, activityId: string,
     await addSquadMember({ sportId: sport.id, attendeeId: outId, actorId: null, admin: true });
     redirect(flashPath(back, refusalFlash(r, { sport: sport.name, name: inName }), "error"));
   }
+  // D864 (amended): a drawn lane sport's seats follow the swap, scores and all.
+  const seats = (await loadSportResults(cup.id, sport.id))?.seats ?? [];
+  if (seatFollowsSwap(sport, seats, outId, inId)) await swapLaneBowler(sport.id, outId, inId);
   done(eventId, cup.id, back, `Swapped ${outName} for ${inName}.`);
 }

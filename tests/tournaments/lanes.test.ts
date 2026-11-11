@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSwapIn, drawLanes, laneComplete, lanePlaces, laneScoresVisible, laneTotals, readLaneGame, swapSquadSteps, type LaneSeat } from "@/features/tournaments/lib/lanes";
+import { canSwapIn, drawLanes, laneComplete, lanePlaces, laneScoresVisible, laneTotals, readLaneGame, seatFollowsSwap, staleBowlers, swapSquadSteps, type LaneSeat } from "@/features/tournaments/lib/lanes";
 import { sportPlaces, type SportResults } from "@/features/tournaments/lib/results";
 import type { TournamentSport } from "@/features/tournaments/lib/squads";
 
@@ -145,5 +145,27 @@ describe("review fixes", () => {
     expect(readLaneGame(seats, 1, form({ "score:a": "151", "score:x": "99" }))).toEqual({ ok: true, scores: [{ attendee_id: "a", score: 151 }] });
     expect(readLaneGame(seats, 1, form({ "score:b": "301" }))).toEqual({ ok: false, error: "Scores are whole numbers from 0 to 300." });
     expect(readLaneGame(seats, 1, form({ "score:b": "9.5" }))).toEqual({ ok: false, error: "Scores are whole numbers from 0 to 300." });
+  });
+});
+
+describe("squad changes after the draw (11 Nov)", () => {
+  const seats: LaneSeat[] = [
+    { sport_id: "bw", game: 1, lane: 1, seat: 1, group_id: "A", attendee_id: "a1", number: 1, score: null },
+    { sport_id: "bw", game: 1, lane: 1, seat: 2, group_id: "B", attendee_id: "b1", number: 1, score: null },
+    { sport_id: "bw", game: 2, lane: 1, seat: 1, group_id: "A", attendee_id: "a1", number: 1, score: null },
+  ];
+  const row = (attendee_id: string, group_id: string) => ({ sport_id: "bw", group_id, attendee_id, added_by: null, added_at: "2026-11-10T00:00:00Z" });
+
+  it("a Squads-tab swap carries to the lanes when the old bowler is seated and the new one isn't", () => {
+    expect(seatFollowsSwap({ format: "lanes" }, seats, "a1", "a3")).toBe(true);
+    expect(seatFollowsSwap({ format: "lanes" }, seats, "a3", "a4")).toBe(false);
+    expect(seatFollowsSwap({ format: "lanes" }, seats, "a1", "b1")).toBe(false);
+    expect(seatFollowsSwap({ format: "pools" }, seats, "a1", "a3")).toBe(false);
+  });
+
+  it("lists seated bowlers no longer counted in the squad, once each", () => {
+    expect(staleBowlers(seats, [row("a1", "A"), row("b1", "B")], "bw")).toEqual([]);
+    expect(staleBowlers(seats, [row("b1", "B"), row("a3", "A")], "bw")).toEqual(["a1"]);
+    expect(staleBowlers(seats, [row("a1", "A"), row("b1", "B")], "other")).toEqual(["a1", "b1"]);
   });
 });
