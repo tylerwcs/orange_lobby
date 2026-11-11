@@ -12,6 +12,10 @@ import { PortalShellSkeleton } from "@/components/portal/PortalShellSkeleton";
  * whose browser does not run that script (old, locked down, script blocker) is left on the
  * skeleton - a blank page. The registration form is the one page a stranger opens cold, so it
  * is sent whole.
+ *
+ * D891: the personal pages under a/[token] have no loading.tsx of their own any more, so this
+ * is only what a link opened cold shows. Between those pages the old one stays up, pressed,
+ * until the next is ready (PageTransition, LinkPending).
  */
 export default function PortalLoading() {
   return <PortalShellSkeleton />;

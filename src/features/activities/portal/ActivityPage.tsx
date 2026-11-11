@@ -8,6 +8,10 @@ import { qrDataUrl } from "@/lib/qr";
 import { loadActivityEntries } from "../lib/portal-activity-entries";
 import { findEntry, type FoundEntry } from "../cards";
 import { ActivityCover } from "./ActivityParts";
+import { CoverMorph } from "./CoverMorph";
+import { FreshOnArrival } from "./FreshOnArrival";
+import { GOING_BACK } from "@/components/portal/PageTransition";
+import { LinkPending } from "@/components/portal/LinkPending";
 import { trackerTab } from "../lib/tracker";
 import { BookingBody } from "../kinds/booking/BookingBody";
 import { editorFor, proxyFor, SubmissionBody } from "../kinds/submission/SubmissionBody";
@@ -92,17 +96,26 @@ export async function ActivityPage({ params, searchParams }: {
     }
   }
 
+  // eslint-disable-next-line react-hooks/purity -- when this page was drawn, for FreshOnArrival (D893)
+  const renderedAt = Date.now();
   // D870: a passport is its full-screen book, like the polaroid camera.
-  if (found.kind === "polaroid" || found.kind === "passport") return body(found);
+  if (found.kind === "polaroid" || found.kind === "passport") return <>{body(found)}<FreshOnArrival renderedAt={renderedAt} /></>;
 
   return (
     <div className="flex flex-col">
-      <Link href={`${basePath}/activities`} className="mb-3 inline-flex items-center gap-1.5 self-start text-sm font-bold text-muted-foreground hover:text-foreground">
+      <Link
+        href={`${basePath}/activities`}
+        transitionTypes={GOING_BACK}
+        className="portal-press mb-3 inline-flex items-center gap-1.5 self-start text-sm font-bold text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft aria-hidden className="size-4" />{t(lang).activities.back}
+        <LinkPending />
       </Link>
-      <ActivityCover activity={activity} variant="hero" />
+      {/* D891: the card's picture grows into this one. */}
+      <CoverMorph activityId={activity.id}><ActivityCover activity={activity} variant="hero" /></CoverMorph>
       <h1 className={`py-4 text-xl font-extrabold leading-tight ${TITLE_INK}`}>{activity.name}</h1>
       {body(found)}
+      <FreshOnArrival renderedAt={renderedAt} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "./LinkPending";
 import type { LauncherItem } from "@/lib/launcher";
 import { Icon } from "@/components/ui/icon";
 import { t } from "@/features/language/client";
@@ -43,7 +44,7 @@ export function LauncherGrid({ items, layout = "grid", className = "", lang = "e
 }) {
   if (items.length === 0) return null;
   const d = t(lang);
-  const cls = "group flex flex-col items-center gap-1.5 rounded-xl px-0.5 py-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const cls = "portal-press group flex flex-col items-center gap-1.5 rounded-xl px-0.5 py-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const list = layout === "row"
     ? "-mx-4 flex snap-x scroll-px-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>li]:w-[calc((100%_+_28px)/4.5)] [&>li]:shrink-0 [&>li]:snap-start"
     : "grid grid-cols-4 gap-x-1 gap-y-3 @xl:grid-cols-6";
@@ -54,7 +55,7 @@ export function LauncherGrid({ items, layout = "grid", className = "", lang = "e
           <li key={item.id}>
             {item.external
               ? <a href={item.href} target="_blank" rel="noopener noreferrer" className={cls}><Button item={item} large={layout === "row"} waiting={d.nav.choiceWaiting} /></a>
-              : <Link href={item.href} className={cls}><Button item={item} large={layout === "row"} waiting={d.nav.choiceWaiting} /></Link>}
+              : <Link href={item.href} className={cls}><Button item={item} large={layout === "row"} waiting={d.nav.choiceWaiting} /><LinkPending /></Link>}
           </li>
         ))}
       </ul>

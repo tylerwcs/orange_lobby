@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ActivityCardItem } from "../cards";
 import { ActivityCard, cardProps } from "./ActivitiesTab";
 import { SwipeRow } from "@/components/portal/SwipeRow";
+import { LinkPending } from "@/components/portal/LinkPending";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 
@@ -26,14 +27,15 @@ export function HomeActivities({ cards, basePath, desktop = false, lang = "en" }
 }) {
   if (cards.length === 0) return null;
   const d = t(lang);
-  const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} lang={lang} className="w-full" />);
+  const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} lang={lang} className="w-full" copy={desktop ? "desktop" : "phone"} prefetch />);
   const headingId = desktop ? "home-activities-desktop" : "home-activities";
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between px-0.5">
         <h2 id={headingId} className="text-base font-extrabold">{d.home.activities}</h2>
-        <Link href={`${basePath}/activities`} className="-my-2 inline-flex min-h-11 items-center text-sm font-bold text-primary">
+        <Link href={`${basePath}/activities`} className="portal-press -my-2 inline-flex min-h-11 items-center text-sm font-bold text-primary">
           {d.home.seeAll}{cards.length > HOME_CARDS ? ` ${cards.length}` : ""} ›
+          <LinkPending />
         </Link>
       </div>
       {desktop ? (

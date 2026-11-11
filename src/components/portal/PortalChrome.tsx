@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { PageTransition, GOING_BACK } from "./PageTransition";
+import { LinkPending, NavProgressBar } from "./LinkPending";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, UserRound } from "lucide-react";
 import type { Event } from "@/lib/types";
@@ -51,9 +53,10 @@ function MeButton({ href, label }: { href: string; label: string }) {
       href={href}
       aria-label={label}
       // relative z-10: above the home link's overlay, which covers the rest of the bar.
-      className="relative z-10 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors active:bg-accent focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+      className="portal-press relative z-10 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors active:bg-accent focus-visible:ring-2 focus-visible:ring-ring md:hidden"
     >
       <UserRound aria-hidden className="size-6" strokeWidth={1.75} />
+      <LinkPending />
     </Link>
   );
 }
@@ -168,9 +171,11 @@ function Chrome({ event, basePath, personal, activities, hasInfo, draftExtra, la
               <div className="flex items-center justify-between gap-3 px-4 py-3 md:hidden">
                 <Link
                   href={basePath || "/"}
-                  className="-ml-2 flex min-h-11 items-center gap-0.5 rounded-md px-2 text-[15px] font-bold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  transitionTypes={GOING_BACK}
+                  className="portal-press -ml-2 flex min-h-11 items-center gap-0.5 rounded-md px-2 text-[15px] font-bold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <ChevronLeft aria-hidden className="size-5" />{d.nav.home}
+                  <LinkPending />
                 </Link>
                 <Mark event={event} />
               </div>
@@ -200,10 +205,11 @@ function Chrome({ event, basePath, personal, activities, hasInfo, draftExtra, la
                     key={n.href}
                     href={`${basePath}${n.href}`}
                     aria-current={active ? "page" : undefined}
-                    className={`flex min-h-11 items-center gap-2 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-accent font-bold text-primary" : "font-semibold text-muted-foreground hover:bg-accent"}`}
+                    className={`portal-press flex min-h-11 items-center gap-2 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-accent font-bold text-primary" : "font-semibold text-muted-foreground hover:bg-accent"}`}
                   >
                     <Icon name={n.icon} size={18} />{n.label}
                     {n.dot && <Owed className="-ml-0.5" label={d.nav.choiceWaiting} />}
+                    <LinkPending />
                   </Link>
                 );
               })}
@@ -214,9 +220,20 @@ function Chrome({ event, basePath, personal, activities, hasInfo, draftExtra, la
       </div>
 
       <main id="main" className={`mx-auto w-full flex-1 px-4 pb-10 pt-4 md:px-6 md:pt-6 ${shellWidth}`}>
-        {home && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
-        {children}
+        {/* D891: the personal portal's pages fade between each other; the header above stays put. */}
+        {personal ? (
+          <PageTransition>
+            {home && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
+            {children}
+          </PageTransition>
+        ) : (
+          <>
+            {home && event.banner_url && <Banner url={event.banner_url} className={bannerClass} />}
+            {children}
+          </>
+        )}
       </main>
+      {personal && <NavProgressBar />}
 
     </div>
   );
