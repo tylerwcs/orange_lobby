@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// RichSections reads picture sizes on the server (D895); richBlocks itself is pure.
+vi.mock("server-only", () => ({}));
 import { attendeeRevokeLabel } from "@/features/activities/lib/revoke";
 import { richBlocks } from "@/components/portal/RichSections";
 

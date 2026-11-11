@@ -1,5 +1,7 @@
 import type { Event } from "@/lib/types";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { loadImageDims, richTextImageUrls } from "@/lib/db/image-dims";
+import { responsiveRichImages } from "@/lib/rich-images";
 import type { PortalInfoTab } from "@/lib/info-tabs";
 import { Skeleton } from "@/components/ui/skeletons";
 import { PendingLink, PendingScope, PendingSwap, PendingSwipe } from "@/components/PendingNav";
@@ -11,6 +13,9 @@ import { portalLang, t } from "@/features/language";
  * The Info page, for both portals (D206): the section's heading, the tab strip, and the
  * chosen tab.
  */
+/** How wide an Info tab's pictures are drawn: the phone's width, then the wide shell's column (D890). */
+const INFO_SIZES = "(min-width: 1280px) 1150px, (min-width: 768px) 850px, 100vw";
+
 export async function InfoPage({ event, tabs, selected, basePath }: {
   event: Pick<Event, "info_page_title" | "language_switch">;
   tabs: PortalInfoTab[];
@@ -22,6 +27,9 @@ export async function InfoPage({ event, tabs, selected, basePath }: {
   const at = selected ? tabs.findIndex((t) => t.key === selected.key) : -1;
   const prevHref = at > 0 ? href(tabs[at - 1].key) : null;
   const nextHref = at >= 0 && at < tabs.length - 1 ? href(tabs[at + 1].key) : null;
+  // D894/D895: the tab's pictures as sized copies with their space held, lazy after the first.
+  const infoHtml = selected ? sanitizeHtml(selected.html) : "";
+  const infoDims = await loadImageDims(richTextImageUrls(infoHtml));
   return (
     <>
       <h1 className={`mb-3 text-xl font-extrabold ${TITLE_INK}`}>{event.info_page_title}</h1>
@@ -62,7 +70,7 @@ export async function InfoPage({ event, tabs, selected, basePath }: {
                 {/* D890: the column is the limit, not prose's 65ch - text, images and tables all
                     run to the same right edge (the user's call: a short text measure beside a
                     full-width picture read as unfinished). */}
-                <div className="rich-text prose prose-sm max-w-none md:prose-base" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
+                <div className="rich-text prose prose-sm max-w-none md:prose-base" dangerouslySetInnerHTML={{ __html: responsiveRichImages(infoHtml, infoDims, INFO_SIZES) }} />
               </PendingSwap>
             </PendingSwipe>
           </div>

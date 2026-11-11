@@ -1,4 +1,5 @@
 import { HomeLink } from "./HomeLink";
+import { EventImage } from "@/components/ui/event-image";
 import type { Event } from "@/lib/types";
 import { initials, formatDateRange } from "@/lib/text";
 import { TITLE_INK } from "@/lib/ink";
@@ -10,8 +11,10 @@ type HeaderEvent = Pick<Event, "name" | "logo_url" | "starts_on" | "ends_on" | "
 
 export function Mark({ event }: { event: HeaderEvent }) {
   if (event.logo_url) return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={event.logo_url} alt="" className="h-10 w-10 rounded-[10px] bg-logo-tile object-contain p-[var(--logo-pad,0px)]" />
+    // D894: a sized copy in a fixed 40px tile (an SVG logo is served as it is).
+    <span className="relative block size-10 shrink-0 overflow-hidden rounded-[10px] bg-logo-tile">
+      <EventImage src={event.logo_url} fill sizes="40px" eager className="object-contain p-[var(--logo-pad,0px)]" />
+    </span>
   );
     // The organiser's colour with a foreground computed FOR it, rather than a fixed dark
   // ink that happened to fail on some of them. This mark is the element the 8 Sep audit

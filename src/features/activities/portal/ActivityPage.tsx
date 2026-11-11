@@ -10,6 +10,7 @@ import { findEntry, type FoundEntry } from "../cards";
 import { ActivityCover } from "./ActivityParts";
 import { CoverMorph } from "./CoverMorph";
 import { FreshOnArrival } from "./FreshOnArrival";
+import { loadImageDims } from "@/lib/db/image-dims";
 import { GOING_BACK } from "@/components/portal/PageTransition";
 import { LinkPending } from "@/components/portal/LinkPending";
 import { trackerTab } from "../lib/tracker";
@@ -96,6 +97,7 @@ export async function ActivityPage({ params, searchParams }: {
     }
   }
 
+  const coverDims = await loadImageDims([activity.image_url]);
   // eslint-disable-next-line react-hooks/purity -- when this page was drawn, for FreshOnArrival (D893)
   const renderedAt = Date.now();
   // D870: a passport is its full-screen book, like the polaroid camera.
@@ -112,7 +114,7 @@ export async function ActivityPage({ params, searchParams }: {
         <LinkPending />
       </Link>
       {/* D891: the card's picture grows into this one. */}
-      <CoverMorph activityId={activity.id}><ActivityCover activity={activity} variant="hero" /></CoverMorph>
+      <CoverMorph activityId={activity.id}><ActivityCover activity={activity} variant="hero" dims={coverDims[activity.image_url ?? ""]} /></CoverMorph>
       <h1 className={`py-4 text-xl font-extrabold leading-tight ${TITLE_INK}`}>{activity.name}</h1>
       {body(found)}
       <FreshOnArrival renderedAt={renderedAt} />

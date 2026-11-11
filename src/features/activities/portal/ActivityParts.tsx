@@ -3,6 +3,7 @@ import type { CardTone, CardView } from "../lib/activity-card";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 import type { Activity } from "@/lib/types";
+import { EventImage, type ImageDims } from "@/components/ui/event-image";
 
 /**
  * The small pieces an activity is drawn from, shared by its card on the Activities tab and the
@@ -50,6 +51,15 @@ export function MetaLine({ meta }: { meta: NonNullable<CardView["meta"]> }) {
  */
 const HERO_BLEED = "-mx-4 md:mx-0 md:rounded-2xl";
 
+/*
+ * How wide each is drawn, for the srcset (D894). A card is the screen's width on a phone and at
+ * most ~560px in a desktop column; the page's cover is the screen's width, then the 896px
+ * column. On a phone both say 100vw, so the cover the card grows into (D891) is the very copy
+ * the card already downloaded.
+ */
+const CARD_SIZES = "(min-width: 768px) 560px, 100vw";
+const HERO_SIZES = "(min-width: 768px) 896px, 100vw";
+
 /**
  * The activity's picture: the organiser's image, or - when there is none - a panel in the
  * event's own brand colour carrying the activity's name, so a card never looks broken for the
@@ -60,18 +70,30 @@ const HERO_BLEED = "-mx-4 md:mx-0 md:rounded-2xl";
  * brand-colour panel is shorter than a picture would be - it repeats the name printed just
  * below it, and a tall block of flat colour is a lot of screen for that.
  */
-export function ActivityCover({ activity, variant, className = "" }: {
+export function ActivityCover({ activity, variant, dims, className = "" }: {
   activity: Pick<Activity, "name" | "image_url">;
   variant: "card" | "hero";
+  /** The picture's recorded size (D895), so the page holds the poster's space before it arrives. */
+  dims?: ImageDims | null;
   className?: string;
 }) {
-  if (activity.image_url) {
+  if (activity.image_url && variant === "card") {
+    // D894: the strip is a fixed 2:1 box, so its space is held whatever the picture's shape.
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <div className={`relative aspect-[2/1] w-full overflow-hidden bg-muted ${className}`}>
+        <EventImage src={activity.image_url} fill sizes={CARD_SIZES} className="object-cover" />
+      </div>
+    );
+  }
+  if (activity.image_url) {
+    // The page's cover is what the first screen shows: fetched first, not lazily.
+    return (
+      <EventImage
         src={activity.image_url}
-        alt=""
-        className={`${variant === "card" ? "aspect-[2/1] w-full object-cover" : `block h-auto ${HERO_BLEED} w-[calc(100%+2rem)] max-w-none md:w-full`} bg-muted ${className}`}
+        dims={dims}
+        sizes={HERO_SIZES}
+        eager
+        className={`block h-auto ${HERO_BLEED} w-[calc(100%+2rem)] max-w-none bg-muted md:w-full ${className}`}
       />
     );
   }

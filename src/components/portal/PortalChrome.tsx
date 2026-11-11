@@ -14,6 +14,7 @@ import { shownName } from "@/lib/event-name";
 import { activeNavHref, isPortalHome } from "@/lib/portal-nav";
 import type { ActivityNav } from "@/features/activities/client";
 import { Mark, PortalHeader } from "./PortalHeader";
+import { EventImage } from "@/components/ui/event-image";
 import { LangProvider, t, type Dict, type Lang } from "@/features/language/client";
 import { LangSwitch } from "@/features/language/client";
 
@@ -69,9 +70,11 @@ const Owed = ({ className, label }: { className: string; label: string }) => (
   </>
 );
 
+/** D894: the event's banner, a sized copy in its fixed 3:1 box, fetched first: it tops the home page. */
 const Banner = ({ url, className }: { url: string; className: string }) => (
-  // eslint-disable-next-line @next/next/no-img-element
-  <img src={url} alt="" className={className} />
+  <div className={`relative overflow-hidden bg-muted ${className}`}>
+    <EventImage src={url} fill sizes="(min-width: 1280px) 1200px, (min-width: 768px) 896px, 100vw" eager className="object-cover" />
+  </div>
 );
 
 /**

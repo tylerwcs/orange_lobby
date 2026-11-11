@@ -1,6 +1,8 @@
 import { sanitizeHtml } from "@/lib/sanitize";
 import { splitSections, toRichHtml } from "@/lib/rich-text";
 import { t, type Lang } from "@/features/language/client";
+import { loadImageDims, richTextImageUrls } from "@/lib/db/image-dims";
+import { responsiveRichImages } from "@/lib/rich-images";
 
 /**
  * An activity's description as the blocks its page is read in: About first, then one block per
@@ -18,15 +20,20 @@ export function richBlocks(html: string | null, lang: Lang = "en") {
   return [...(intro ? [{ title: t(lang).activities.about, html: intro }] : []), ...sections];
 }
 
-export function RichSections({ html, lang = "en" }: { html: string | null; lang?: Lang }) {
+/** How wide a description's pictures are drawn: the phone's width, then the 896px column. */
+const RICH_SIZES = "(min-width: 768px) 896px, 100vw";
+
+export async function RichSections({ html, lang = "en" }: { html: string | null; lang?: Lang }) {
   const blocks = richBlocks(html, lang);
   if (blocks.length === 0) return null;
+  // D894/D895: sized copies, their space held, lazy after the first.
+  const dims = await loadImageDims(blocks.flatMap((b) => richTextImageUrls(b.html)));
   return (
     <div className="flex flex-col">
       {blocks.map((b, i) => (
         <section key={i} className="-mx-4 border-t-8 border-divider px-4 py-5 md:mx-0 md:px-0">
           <h2 className="mb-2 text-lg font-extrabold">{b.title}</h2>
-          {b.html && <div className="rich-text prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: b.html }} />}
+          {b.html && <div className="rich-text prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: responsiveRichImages(b.html, dims, RICH_SIZES) }} />}
         </section>
       ))}
     </div>

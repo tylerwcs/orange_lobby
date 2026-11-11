@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { loadImageDims } from "@/lib/db/image-dims";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isDraftPreview, loadPortalLink, portalHasInfo } from "@/lib/portal";
@@ -111,6 +112,8 @@ export default async function PersonalLayout({ children, params }: {
     loadActivityNav(event, attendee), portalHasInfo(event.id, attendee.category), portalLang(event),
     event.status === "draft" ? null : portalPopupFor(event.id, attendee.id, attendee.category),
   ]);
+  // D895: the popup's picture holds its space, so the button under it never jumps.
+  const popupDims = popup?.image_url ? (await loadImageDims([popup.image_url]))[popup.image_url] : undefined;
   // D585: a draft shows only Coming soon, so the cancel link rides in under it. Built here on
   // the server (the chrome is a client component). D595/D596: a waiting request shows its note with
   // Withdraw instead of the link; a decline shows its note above the link. The check-in read happens
@@ -139,7 +142,7 @@ export default async function PersonalLayout({ children, params }: {
           sibling of PortalChrome for the same reason as Flash below, so it needs the language
           handed to it again: PortalChrome's provider does not reach out here. */}
       <LangProvider lang={lang}>
-        <PopupDialog popup={popup} basePath={`/e/${slug}/a/${token}`} />
+        <PopupDialog popup={popup} imageDims={popupDims} basePath={`/e/${slug}/a/${token}`} />
       </LangProvider>
       {/* This is the only part of the portal that announces results through flashPath() today
           (registration writes too, but from a page outside this layout), so it is the only

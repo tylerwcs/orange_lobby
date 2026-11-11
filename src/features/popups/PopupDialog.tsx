@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { EventImage } from "@/components/ui/event-image";
+import type { ImageDims } from "@/lib/image-src";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -20,7 +22,7 @@ const OPEN_AFTER_MS = 1500;
  * coming back on every tab. A fresh load - the WhatsApp link again, a refresh - shows it again,
  * for as long as the server still says it applies. Not on the page its button leads to.
  */
-export function PopupDialog({ popup, basePath }: { popup: PopupShown | null; basePath: string }) {
+export function PopupDialog({ popup, imageDims, basePath }: { popup: PopupShown | null; imageDims?: ImageDims; basePath: string }) {
   const d = useT().popup;
   const router = useRouter();
   const pathname = usePathname();
@@ -51,8 +53,8 @@ export function PopupDialog({ popup, basePath }: { popup: PopupShown | null; bas
         {/* D808: whole, never cropped - a poster and a square flyer both fit - and no taller than
             half the screen, so the button stays in view on a phone. Decorative: the heading says it. */}
         {popup.image_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={popup.image_url} alt="" className="mx-auto max-h-[50dvh] w-auto max-w-full rounded-lg object-contain" />
+          // D894/D895: a sized copy with its space held; eager, because the dialog is open when it shows.
+          <EventImage src={popup.image_url} dims={imageDims} sizes="(min-width: 640px) 448px, 90vw" eager className="mx-auto h-auto max-h-[50dvh] w-auto max-w-full rounded-lg object-contain" />
         )}
         <div className="flex flex-col items-center gap-3 pt-2 text-center">
           <DialogTitle className="text-lg font-extrabold leading-tight text-balance">{popup.heading}</DialogTitle>

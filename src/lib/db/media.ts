@@ -1,5 +1,5 @@
 import "server-only";
-import { resizeForWeb } from "@/lib/image-resize";
+import { readImageDims, resizeForWeb } from "@/lib/image-resize";
 import { serviceClient } from "@/lib/supabase/service";
 import {
   MEDIA_BUCKET,
@@ -45,20 +45,47 @@ export async function uploadEventImage(input: {
   eventId: string;
   kind: ImageKind;
   file: File;
-  /** D889: shrink to at most this long side, as WebP (SVG kept). Absent stores the file as is. */
+  /**
+   * D889: shrink to at most this long side, as WebP (SVG kept). D896: every upload is shrunk to
+   * UPLOAD_MAX_EDGE unless the caller asks for less; a game's LED backdrop is kept as sent.
+   */
   maxEdge?: number;
 }): Promise<string> {
   let ext = acceptImage(input.file);
   let body: Buffer | File = input.file;
   let contentType = input.file.type;
-  if (input.maxEdge) ({ body, type: contentType, ext } = await resizeForWeb(input.file, input.maxEdge));
+  const maxEdge = input.maxEdge ?? (input.kind.startsWith("game-") ? undefined : UPLOAD_MAX_EDGE);
+  if (maxEdge) ({ body, type: contentType, ext } = await resizeForWeb(input.file, maxEdge));
   const path = mediaObjectPath({ orgId: input.orgId, eventId: input.eventId, kind: input.kind, ext }, crypto.randomUUID().slice(0, 8));
   const storage = serviceClient().storage.from(MEDIA_BUCKET);
   // A year's cache is safe because a replacement is a new object name, never a new body
   // at the same one.
   const { error } = await storage.upload(path, body, { contentType, cacheControl: "31536000", upsert: false });
   if (error) throw new Error("Could not upload that image. Try again.");
+  await recordImageDims(path, body);
   return storage.getPublicUrl(path).data.publicUrl;
+}
+
+/**
+ * D896: the long side an upload is stored at. Twice the widest the portal draws a picture (a
+ * desktop activity cover, ~900 px) with room for a 2.5x phone screen; resized copies are cut
+ * from this (src/lib/image-loader.ts), so the original only has to be good enough to cut from.
+ */
+export const UPLOAD_MAX_EDGE = 2400;
+
+/**
+ * D895: notes the stored picture's own size, so the portal can reserve its space before it
+ * arrives. Best effort: a picture without a row is still shown, just without its space held, so
+ * a failure here never fails the organiser's save.
+ */
+async function recordImageDims(path: string, body: Buffer | File): Promise<void> {
+  try {
+    const dims = await readImageDims(Buffer.isBuffer(body) ? body : Buffer.from(await (body as File).arrayBuffer()));
+    if (!dims) return;
+    await serviceClient().from("image_dimensions").upsert({ path, width: dims.width, height: dims.height });
+  } catch {
+    // See above: the picture is stored; only its reserved space is lost.
+  }
 }
 
 /**

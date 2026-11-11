@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   experimental: { serverActions: { bodySizeLimit: "18mb" } },
   // D488: the tint route reads the launcher art from public/, which is not in a function's bundle by default.
   outputFileTracingIncludes: { "/portal-icons/tint/*/*": ["./public/portal-icons/*.webp"] },
+  // D894: organiser pictures are resized by Supabase, not by Vercel (src/lib/image-loader.ts).
+  images: { loader: "custom", loaderFile: "./src/lib/image-loader.ts", qualities: [75] },
 };
 
 export default nextConfig;

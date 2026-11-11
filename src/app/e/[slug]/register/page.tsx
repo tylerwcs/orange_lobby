@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarOff, UsersRound } from "lucide-react";
 import { getEventBySlug } from "@/lib/db/events";
+import { loadImageDims } from "@/lib/db/image-dims";
+import { EventImage } from "@/components/ui/event-image";
 import { RegisterForm } from "./RegisterForm";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { buttonVariants } from "@/components/ui/button";
@@ -22,6 +24,8 @@ export default async function RegisterPage({ params, searchParams }: {
   const { waitlist } = await searchParams;
   const event = await getEventBySlug(slug);
   if (!event) notFound();
+  // D895: the banner and footer hold their space, so the form never jumps as they arrive.
+  const dims = await loadImageDims([event.registration_banner_url, event.registration_footer_url]);
   const closed = !registrationOpen(event, new Date());
   // D678, D691: full (every place taken, or anyone already waiting) shows "Registration is full"
   // until they choose the waiting list. Only a full event shows the waiting-list form: once a place
@@ -37,8 +41,7 @@ export default async function RegisterPage({ params, searchParams }: {
       <PortalHeader event={event} />
       {/* D618: the organiser's banner, straight under the event bar, as wide as the column at its own height. */}
       {event.registration_banner_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={event.registration_banner_url} alt="" className="block h-auto w-full" />
+        <EventImage src={event.registration_banner_url} dims={dims[event.registration_banner_url]} sizes="(min-width: 448px) 448px, 100vw" eager className="block h-auto w-full" />
       )}
       <main className="flex-1 px-4 py-4">
         {full && !joining ? (
@@ -93,8 +96,7 @@ export default async function RegisterPage({ params, searchParams }: {
       </main>
       {/* D720: the organiser's footer image (a client's disclaimer), under every state of the page. */}
       {event.registration_footer_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={event.registration_footer_url} alt="" className="block h-auto w-full" />
+        <EventImage src={event.registration_footer_url} dims={dims[event.registration_footer_url]} sizes="(min-width: 448px) 448px, 100vw" className="block h-auto w-full" />
       )}
     </div>
   );

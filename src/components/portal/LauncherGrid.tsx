@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LinkPending } from "./LinkPending";
 import type { LauncherItem } from "@/lib/launcher";
 import { Icon } from "@/components/ui/icon";
+import { EventImage } from "@/components/ui/event-image";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 
@@ -11,8 +12,8 @@ function Button({ item, large, waiting }: { item: LauncherItem; large: boolean; 
       <span className={`relative flex items-center justify-center rounded-full bg-accent text-primary transition-transform group-active:scale-95 ${large ? "size-16" : "size-14"}`}>
         {item.image
           // A picture is drawn edge to edge: the portal's own come with their circle painted in.
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={item.image} alt="" className="size-full rounded-full object-contain" />
+          // D894: an organiser's tile is a sized copy; the portal's own icons are served as they are.
+          ? <EventImage src={item.image} fill sizes={large ? "64px" : "56px"} eager className="rounded-full object-contain" />
           : <Icon name={item.icon} size={large ? 28 : 24} />}
         {item.dot && (
           <>

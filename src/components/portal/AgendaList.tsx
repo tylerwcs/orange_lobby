@@ -6,6 +6,8 @@ import { bookedSessionId, isBookedRow } from "@/features/activities/client";
 import { CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AgendaImage } from "./AgendaImage";
+import { loadImageDims } from "@/lib/db/image-dims";
+import type { ImageDims } from "@/lib/image-src";
 import { AddToCalendar } from "./AddToCalendar";
 import { shortDate } from "@/lib/text";
 import { Skeleton } from "@/components/ui/skeletons";
@@ -21,7 +23,7 @@ const DaySkeleton = ({ label }: { label: string }) => (
   </div>
 );
 
-export function AgendaList({ items, day, days, basePath, now, dayHref, calendarHref, lang = "en" }: {
+export async function AgendaList({ items, day, days, basePath, now, dayHref, calendarHref, lang = "en" }: {
   items: AgendaItem[];
   /** D740: the list's own words and the day tabs' dates follow the portal's language. */
   lang?: Lang;
@@ -41,6 +43,8 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
   const w = t(lang).agenda;
   if (!day) return <p className="text-sm text-muted-foreground">{w.soon}</p>;
   const todays = items.filter((i) => i.day === day);
+  // D895: an image row is shown whole, so its recorded shape holds its space.
+  const dims = await loadImageDims(todays.filter((i) => i.kind === "image").map((i) => i.image_url));
   // The days either side, for a swipe across the sessions (D234).
   const at = days.findIndex((d) => d.date === day);
   const prevHref = at > 0 ? hrefForDay(days[at - 1].date) : null;
@@ -58,7 +62,7 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
       <PendingSwipe prevHref={prevHref} nextHref={nextHref} className="min-h-[50dvh] md:min-h-0" paneClassName="flex flex-col gap-3">
       <PendingSwap fallback={<DaySkeleton label={w.loadingDay} />}>
       {todays.map((i) => {
-        if (i.kind === "image") return <ImageRow key={i.id} item={i} fallbackTitle={w.imageAlt} />;
+        if (i.kind === "image") return <ImageRow key={i.id} item={i} fallbackTitle={w.imageAlt} dims={i.image_url ? dims[i.image_url] : undefined} />;
         const live = isNow(i, now.date, now.time);
         const accent = agendaAccentClass(i.color);
         // A booked session's own calendar file, when the page can address it (personal portal only).
@@ -114,11 +118,11 @@ export function AgendaList({ items, day, days, basePath, now, dayHref, calendarH
  * caption beneath. A row with no URL cannot exist (the database requires one), but rendering
  * nothing beats rendering a broken image if one ever does.
  */
-function ImageRow({ item, fallbackTitle }: { item: AgendaItem; fallbackTitle: string }) {
+function ImageRow({ item, fallbackTitle, dims }: { item: AgendaItem; fallbackTitle: string; dims?: ImageDims }) {
   if (!item.image_url) return null;
   return (
     <figure data-item-id={item.id} className="flex flex-col gap-2">
-      <AgendaImage src={item.image_url} title={item.title || fallbackTitle} variant="full" />
+      <AgendaImage src={item.image_url} title={item.title || fallbackTitle} variant="full" dims={dims} />
       {item.title && <figcaption className="px-1 text-sm text-muted-foreground">{item.title}</figcaption>}
     </figure>
   );

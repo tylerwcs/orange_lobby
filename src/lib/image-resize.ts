@@ -15,3 +15,18 @@ export async function resizeForWeb(file: File, maxEdge: number): Promise<{ body:
     .toBuffer();
   return { body, type: "image/webp", ext: "webp" };
 }
+
+/**
+ * D895: a picture's own width and height, turned the way it is shown (EXIF orientation 5-8 swap
+ * them), or null for what sharp cannot read. An SVG reads at its declared size.
+ */
+export async function readImageDims(input: Buffer): Promise<{ width: number; height: number } | null> {
+  try {
+    const meta = await sharp(input).metadata();
+    if (!meta.width || !meta.height) return null;
+    const turned = (meta.orientation ?? 1) >= 5;
+    return turned ? { width: meta.height, height: meta.width } : { width: meta.width, height: meta.height };
+  } catch {
+    return null;
+  }
+}
