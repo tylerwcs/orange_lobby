@@ -2,30 +2,34 @@ import { DEFAULT_INTRO, DEFAULT_LABELS, newTestId, type PassportTest, type Perso
 
 type Key = "trailblazer" | "navigator" | "dreamer" | "foodie";
 
-/** D886: the four travellers, as the approved sketch drew them. Pictures ship in /public. */
+/**
+ * D886: the four travellers, as the approved sketch drew them. Pictures ship in /public. Travel
+ * styles say how each one travels (11 Nov, the user's picks), not which seat they take - the seat is
+ * question 2.
+ */
 const PERSONALITIES: Record<Key, Omit<Personality, "id">> = {
   trailblazer: {
     name: "TRAILBLAZER", colour: "#E8693C", picture: "/passport/characters/trailblazer.svg",
     traits: ["Bold", "Curious", "Spontaneous", "Patient", "Tidy", "Chill"], ticked: [0, 1, 2],
-    style: "Exit row, then wing it", say: ["“Let's just go, we'll", "figure it out there.”"],
+    style: "One-way ticket, no plan B", say: ["“Let's just go, we'll", "figure it out there.”"],
     blurb: "First off the plane and already planning the next adventure.",
   },
   navigator: {
     name: "NAVIGATOR", colour: "#3E7BD9", picture: "/passport/characters/navigator.svg",
     traits: ["Organised", "Calm", "Curious", "Spontaneous", "Reliable", "Loud"], ticked: [0, 1, 4],
-    style: "Aisle seat, first off", say: ["“I've made a", "spreadsheet for this.”"],
+    style: "Three backups for every booking", say: ["“I've made a", "spreadsheet for this.”"],
     blurb: "Has the map, the backup map and the train times.",
   },
   dreamer: {
     name: "DAYDREAMER", colour: "#B06BD6", picture: "/passport/characters/daydreamer.svg",
     traits: ["Creative", "Gentle", "Punctual", "Curious", "Loud", "Thoughtful"], ticked: [0, 1, 5],
-    style: "Window seat, always", say: ["“Wait, look at", "that sky.”"],
+    style: "No rush, just the scenery", say: ["“Wait, look at", "that sky.”"],
     blurb: "Travels for the view, the light and the quiet moments.",
   },
   foodie: {
     name: "FLAVOUR HUNTER", colour: "#D9433B", picture: "/passport/characters/flavour-hunter.svg",
     traits: ["Adventurous", "Warm", "Tidy", "Generous", "Quiet", "Curious"], ticked: [0, 1, 3],
-    style: "Next to the snack trolley", say: ["“We're not leaving", "till we try that.”"],
+    style: "Eats first, sightsees after", say: ["“We're not leaving", "till we try that.”"],
     blurb: "Plans every trip around the next meal.",
   },
 };

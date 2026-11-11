@@ -32,7 +32,8 @@ export function BookBar({ passport, qrButton, reward, about, note }: {
         </div>
       )}
       <div className="flex w-full max-w-[560px] gap-2">
-        <div className="flex-1 [&>*]:w-full">{qrButton}</div>
+        {/* Without Show my QR (the card full, stamping shut), Booths takes the whole row. */}
+        {qrButton && <div className="flex-1 [&>*]:w-full">{qrButton}</div>}
         <button type="button" className={`${BOOK_BUTTON} ${qrButton ? "" : "flex-1"}`} onClick={() => setOpen(true)}>
           <Stamp aria-hidden className="size-5" />
           Booths

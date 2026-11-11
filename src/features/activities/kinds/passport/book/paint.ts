@@ -396,16 +396,22 @@ export function paintHolder(ctx: Ctx, o: {
   const st = fit(ctx, P.style, RIGHT - X - 16, 600, f.hand, { max: 44, min: 28 });
   ctx.fillText(st.lines[0], X + 8, 432); ctx.globalAlpha = 1;
   dashed(ctx, X, RIGHT, 458, T.accent);
-  // Section 3: two lines.
+  // Section 3: the saying, one sentence written across the two lines - wrapped where it runs out
+  // of room, never where the organiser's two fields happened to split it. Handwriting size first;
+  // smaller only if it would not fit two lines.
   pill(ctx, X, 486, labels[2], T.dark, T.light, f);
   ctx.fillStyle = T.dark;
-  P.say.forEach((line, i) => {
+  const said = P.say.map((x) => x.trim()).filter(Boolean).join(" ");
+  const sayW = RIGHT - X - 16;
+  let sy = fit(ctx, said, sayW, 600, f.hand, { max: 40, min: 40 }, 2);
+  if (sy.lines.length === 2 && sy.lines[1].endsWith("…") && !said.endsWith("…")) sy = fit(ctx, said, sayW, 600, f.hand, { max: 34, min: 28 }, 2);
+  sy.lines.forEach((line, i) => {
     ctx.globalAlpha = a(0.8 + i * 0.1, 0.9 + i * 0.1);
-    const s = fit(ctx, line, RIGHT - X - 16, 600, f.hand, { max: 42, min: 28 });
-    ctx.fillText(s.lines[0], X + 8, 576 + i * 64);
+    ctx.fillText(line, X + 8, 576 + i * 64);
   });
   ctx.globalAlpha = 1;
-  dashed(ctx, X, RIGHT, 600, T.accent); dashed(ctx, X, RIGHT, 664, T.accent);
+  // A line to write on for each line written; a short saying leaves no empty rule under it.
+  sy.lines.forEach((_, i) => dashed(ctx, X, RIGHT, 600 + i * 64, T.accent));
 }
 
 export type PaintStamp = { image: HTMLImageElement | null; name: string };

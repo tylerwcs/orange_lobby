@@ -215,10 +215,11 @@ function PersonalityForm({ ev, activity, test, p }: { ev: Event; activity: Activ
           ))}
         </div>
       </fieldset>
-      <Field label={sentence(test.labels[1])} name="style" defaultValue={p?.style} placeholder="Exit row, then wing it" />
+      <Field label={sentence(test.labels[1])} name="style" defaultValue={p?.style} placeholder="One-way ticket, no plan B" />
       <div className="grid gap-2">
-        <Field label={`${sentence(test.labels[2])} (line 1)`} name="say_0" defaultValue={p?.say[0]} placeholder="“Let's just go, we'll" />
-        <Field label={`${sentence(test.labels[2])} (line 2)`} name="say_1" defaultValue={p?.say[1]} placeholder="figure it out there.”" />
+        <Field label={sentence(test.labels[2])} name="say_0" defaultValue={p?.say[0]} placeholder="“Let's just go, we'll" />
+        <Field label={`${sentence(test.labels[2])} (continued)`} name="say_1" defaultValue={p?.say[1]} placeholder="figure it out there.”"
+          description="Read as one sentence: the passport wraps it onto its two lines by itself." />
       </div>
       <Field label="One line about them (optional)" name="blurb" defaultValue={p?.blurb} description="For you here in admin." />
       <SubmitButton>Save</SubmitButton>
