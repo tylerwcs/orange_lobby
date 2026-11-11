@@ -59,9 +59,10 @@ export async function InfoPage({ event, tabs, selected, basePath }: {
             )}
             <PendingSwipe prevHref={prevHref} nextHref={nextHref}>
               <PendingSwap fallback={<Skeleton className="h-40 rounded-[14px]" />}>
-                {/* D890: the column is the limit, not prose's 65ch, so images and tables fill it;
-                    running text alone keeps a reading measure. */}
-                <div className="rich-text prose prose-sm max-w-none md:prose-base md:[&>:is(p,ul,ol,h1,h2,h3,h4,blockquote)]:max-w-[68ch]" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
+                {/* D890: the column is the limit, not prose's 65ch - text, images and tables all
+                    run to the same right edge (the user's call: a short text measure beside a
+                    full-width picture read as unfinished). */}
+                <div className="rich-text prose prose-sm max-w-none md:prose-base" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
               </PendingSwap>
             </PendingSwipe>
           </div>
