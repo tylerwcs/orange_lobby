@@ -143,7 +143,12 @@ export function useImages() {
     return im.complete && im.naturalWidth > 0 ? im : null;
   }, [load]);
   const prefetch = useCallback((urls: (string | null | undefined)[]) => { for (const u of urls) if (u) load(u); }, [load]);
-  return { img, prefetch, version };
+  /** Whether an image has given up: done loading but empty (a 404, a bad file). */
+  const failed = useCallback((url: string) => {
+    const im = cache.current.get(url);
+    return !!im && im.complete && im.naturalWidth === 0;
+  }, []);
+  return { img, prefetch, failed, version };
 }
 
 /** Repaints once the web fonts land, for pages painted with the fallbacks first. */

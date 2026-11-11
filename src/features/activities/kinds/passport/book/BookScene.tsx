@@ -18,10 +18,16 @@ export type BookSceneApi = {
 export type BookSceneProps = {
   data: PageData;
   img: (url: string | null) => HTMLImageElement | null;
+  /** Whether an image has failed to load (its page shows the fallback for good). */
+  imgFailed: (url: string) => boolean;
   /** Changes whenever an image or a font lands. */
   repaint: number;
-  /** Room for the "YOU'RE A" banner above the open passport (D875). */
-  banner: boolean;
+  /**
+   * The band of the screen the passport sits in, in canvas pixels (below the banner's slot, above
+   * the hints and the bar); null fills the canvas. The canvas itself never resizes: the passport
+   * eases into a new band, so the bar arriving or the banner leaving never jolts it.
+   */
+  box: { top: number; height: number } | null;
   api: RefObject<BookSceneApi | null>;
   /** The name page's place on screen, for the name field laid over it (D874); null when not showing. */
   onNameRect: (r: { left: number; top: number; width: number; height: number } | null) => void;
@@ -132,7 +138,7 @@ type Leaf = {
   bent: number;
 };
 
-function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, onReady }: BookSceneProps) {
+function Book({ data, img, imgFailed, repaint, box, api, onNameRect, onTopRect, press, onReady }: BookSceneProps) {
   const { camera, size, gl, invalidate } = useThree();
   // Keyed on the test's shape, not its identity: a refresh after each landed stamp brings a new
   // object, and the scene must not be rebuilt (and its settle dropped) for that.
@@ -162,6 +168,8 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
     // Closed, it is turned to show its depth: the bottom edge and the pages along its open side.
     : { y: 0, s: 1.17, rx: -0.16, ry: -0.36, turn: Math.PI / 2, bob: 1, lean: 1 });
   const tweens = useRef<{ t0: number; dur: number; apply: (e: number) => void }[]>([]);
+  /** Where the passport sits and how big, eased towards the band's (`placeFor`); null until the first frame. */
+  const placed = useRef<{ fit: number; y: number } | null>(null);
   const settle = useRef<{ mesh: THREE.Mesh; t0: number; skip: string } | null>(null);
   const stampCount = useRef<number | null>(null);
 
@@ -299,7 +307,7 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
   // rest (the cover by its long side, closed and enlarged), so the GPU never blurs them up.
   const visH = 2 * CAM_Z * Math.tan((FOV * Math.PI) / 360);
   const pxPerUnit = (size.height / visH) * gl.getPixelRatio();
-  const restFit = Math.min((visH * (size.width / size.height) * 0.94) / W, (visH * 0.86) / (2 * H));
+  const restFit = placeFor(box, size).fit;
   const pageRes = pageScale(restFit * PW * pxPerUnit, pageSize("holder").w);
   const coverRes = pageScale(restFit * 1.17 * W * pxPerUnit, COVER_SIZE.h);
 
@@ -377,14 +385,19 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
     const n = data.stamps.length;
     if (stampCount.current === null || data.flow.stage !== "done") { stampCount.current = n; return; }
     if (n <= stampCount.current) { stampCount.current = n; return; }
-    stampCount.current = n;
     const s = data.stamps[n - 1];
+    // Its artwork first: settling the plain chop and swapping the artwork in a moment later flickers.
+    // `repaint` goes up when it loads (or fails, and then the chop is right), and this runs again.
+    if (s.image && !img(s.image) && !imgFailed(s.image)) return;
+    stampCount.current = n;
     const spot = stampSpot(n - 1, data.seed);
     const c = document.createElement("canvas"); c.width = c.height = 320;
     drawStamp(c.getContext("2d")!, { image: img(s.image), name: s.name }, { x: 160, y: 160, rot: spot.rot, scale: spot.scale }, data.chop, data.fonts);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     const size = (320 / PAGE.w) * PW;
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
+    // Solid from the first frame: the reveal's disc has just come down on this spot, so a fade-in
+    // would leave a gap between the two.
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 1, depthWrite: false }));
     const last = built.leaves.length - 1;
     // A turned page runs up from just under the hinge; the cover's pasted page from just over it.
     const base = built.leaves[last].geo ? -0.01 : 0.01;
@@ -392,7 +405,8 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
     built.book.add(mesh);
     if (settle.current) built.book.remove(settle.current.mesh);
     settle.current = { mesh, t0: performance.now(), skip: s.id };
-  }, [data.stamps, data.flow.stage, data.seed, data.chop, data.fonts, img, built]);
+    invalidate();
+  }, [data.stamps, data.flow.stage, data.seed, data.chop, data.fonts, img, imgFailed, built, repaint, invalidate]);
 
   // eslint-disable-next-line react-hooks/immutability -- the standard R3F pattern: the frame callback moves the memoized three.js scene instead of re-rendering; confined to book/BookScene.
   useFrame(() => {
@@ -459,27 +473,28 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
     const st = settle.current;
     if (st) {
       const k = Math.min(1, (now - st.t0) / 300);
-      st.mesh.scale.setScalar(1.15 - 0.15 * ease(k));
-      (st.mesh.material as THREE.MeshBasicMaterial).opacity = ease(k);
+      st.mesh.scale.setScalar(1.12 - 0.12 * ease(k));
       if (k >= 1) {
+        // Baked into the page from the next frame on; ask for it, or the loop stops here and the
+        // stamp is missing until something else happens to draw.
         built.book.remove(st.mesh);
         st.mesh.geometry.dispose(); (st.mesh.material as THREE.MeshBasicMaterial).map?.dispose(); (st.mesh.material as THREE.MeshBasicMaterial).dispose();
         settle.current = null;
+        invalidate();
       }
     }
 
-    // Fit the spread to the screen, wherever it is shown.
-    const persp = camera as THREE.PerspectiveCamera;
-    const visH = 2 * CAM_Z * Math.tan(((persp.fov * Math.PI) / 180) / 2);
-    const visW = visH * persp.aspect;
-    const fit = Math.min((visW * 0.94) / W, (visH * 0.86) / (2 * H));
+    // Fit the spread to its band, easing there when the band changes (the bar arriving, a turned phone).
+    const want = placeFor(box, size);
+    const at = placed.current ?? (placed.current = { ...want });
+    at.fit += (want.fit - at.fit) * 0.12; at.y += (want.y - at.y) * 0.12;
+    const settling = Math.abs(want.fit - at.fit) > 0.0005 || Math.abs(want.y - at.y) > 0.0005;
+    if (!settling) { at.fit = want.fit; at.y = want.y; }
     const l = lean.current;
     l.x += (l.tx - l.x) * 0.08; l.y += (l.ty - l.y) * 0.08;
-    const lift = banner && cur >= NL ? -visH * 0.07 : 0;
-    p.y += (lift - p.y) * 0.08;
     const d = dip.current.t0 < 0 ? 1 : Math.min(1, (now - dip.current.t0) / 280);
-    built.root.position.set(0, p.y + Math.sin(now / 700) * 0.06 * p.bob - Math.sin(d * Math.PI) * 0.06, 0);
-    built.root.scale.setScalar(p.s * fit);
+    built.root.position.set(0, at.y + Math.sin(now / 700) * 0.06 * p.bob - Math.sin(d * Math.PI) * 0.06, 0);
+    built.root.scale.setScalar(p.s * at.fit);
     built.root.rotation.set(p.rx + l.y * 0.18 * p.lean, p.ry + l.x * 0.3 * p.lean, 0);
     // eslint-disable-next-line react-hooks/immutability -- as above: per-frame three.js mutation.
     built.turn.rotation.z = p.turn;
@@ -528,14 +543,26 @@ function Book({ data, img, repaint, banner, api, onNameRect, onTopRect, press, o
     if (!ready.current) { ready.current = true; onReady(); }
 
     // D889: keep drawing only while something moves - the opening, a turn, the reveal, a settle,
-    // the press, the lean easing, the closed passport's float, the banner lift.
+    // the press, the lean easing, the closed passport's float, the passport easing into its band.
     const moving = tweens.current.length > 0 || busy() || !!settle.current || d < 1 || p.bob > 0
-      || Math.abs(l.tx - l.x) > 0.002 || Math.abs(l.ty - l.y) > 0.002 || Math.abs(lift - p.y) > 0.002
+      || Math.abs(l.tx - l.x) > 0.002 || Math.abs(l.ty - l.y) > 0.002 || settling
       || data.flow.stage === "revealing";
     if (moving) invalidate();
   });
 
   return <primitive object={built.root} />;
+}
+
+/**
+ * The passport's size and height on screen for a band of the canvas: as wide as the screen
+ * allows, as tall as the band allows, centred in the band. In world units at the book's depth.
+ */
+function placeFor(box: { top: number; height: number } | null, size: { width: number; height: number }): { fit: number; y: number } {
+  const visH = 2 * CAM_Z * Math.tan((FOV * Math.PI) / 360);
+  const perPx = visH / Math.max(1, size.height);
+  const band = box && box.height > 40 ? box : { top: 0, height: size.height };
+  const fit = Math.min((size.width * perPx * 0.94) / W, (band.height * perPx * 0.96) / (2 * H));
+  return { fit, y: -(band.top + band.height / 2 - size.height / 2) * perPx };
 }
 
 const zDown = (k: number, NL: number) => 0.031 + (NL - k) * DZ;

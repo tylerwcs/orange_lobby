@@ -126,7 +126,7 @@ export function PassportBook(p: {
   // The whole screen is the passport: the portal page behind it never scrolls (as the polaroid camera, D482).
   useEffect(() => lockBodyScroll(), []);
 
-  const { img, prefetch, version } = useImages();
+  const { img, prefetch, failed: imgFailed, version } = useImages();
   const fontsVersion = useFontsVersion();
   useEffect(() => { void loadBookFonts(); }, []);
 
@@ -134,9 +134,33 @@ export function PassportBook(p: {
 
   // D889: the next two questions' pictures load while the guest answers this one; the characters
   // and the crest are small and load at once.
+  // Every booth's stamp artwork too: a stamp that lands must settle with its artwork, not the
+  // plain chop for a moment while it loads.
   useEffect(() => {
-    prefetch([p.test.cover.crest, ...p.test.personalities.map((x) => x.picture)]);
-  }, [p.test, prefetch]);
+    prefetch([p.test.cover.crest, ...p.test.personalities.map((x) => x.picture), ...p.passport.cells.map((c) => c.booth.stamp_image_url)]);
+  }, [p.test, p.passport.cells, prefetch]);
+
+  // The band the 3D passport sits in, measured from the layout (below the banner's slot, above
+  // the hints and the bar), in the stage's own pixels - the canvas covers the whole stage.
+  const stageEl = useRef<HTMLDivElement>(null);
+  const bandRef = useRef<HTMLDivElement>(null);
+  const [band, setBand] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const s = stageEl.current, b = bandRef.current;
+    if (!s || !b) return;
+    const measure = () => {
+      const sr = s.getBoundingClientRect(), br = b.getBoundingClientRect();
+      setBand((cur) => {
+        const next = { top: Math.round(br.top - sr.top), height: Math.round(br.height) };
+        return cur && cur.top === next.top && cur.height === next.height ? cur : next;
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(s); ro.observe(b);
+    return () => ro.disconnect();
+    // The band's element exists only once the 3D book is up; the observer follows its size from there.
+  }, [use3d, ready3d]);
   useEffect(() => {
     prefetch(p.test.questions.slice(flow.index, flow.index + 3).map((q) => q.image));
   }, [flow.index, p.test.questions, prefetch]);
@@ -314,9 +338,28 @@ export function PassportBook(p: {
   }) : null;
 
   const stage = (
-    <div /* theme-fixed: the book's own dark stage, like the polaroid camera */ className="fixed inset-0 z-[45] flex h-dvh touch-none flex-col overflow-hidden overscroll-none text-white"
+    <div ref={stageEl} /* theme-fixed: the book's own dark stage, like the polaroid camera */ className="fixed inset-0 z-[45] flex h-dvh touch-none flex-col overflow-hidden overscroll-none text-white"
       style={{ background: `radial-gradient(120% 80% at 50% 25%, ${data.coverColour} 0%, #0B0F18 85%)` }}>
-      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      {use3d && (
+        // The whole stage, so it never resizes; the passport sits in `band`. Unseen and untouchable
+        // until its first frame: the flat book shows (and takes taps) till then.
+        <div className={`absolute inset-0 transition-opacity duration-300 ${ready3d ? "" : "pointer-events-none opacity-0"}`}
+          onClick={(e) => {
+            const h = sceneApi.current?.hit(e.clientX, e.clientY);
+            if (h?.page === "top") onTop(); else if (h) onBottom(h.u, h.v);
+          }}
+          onPointerMove={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            sceneApi.current?.lean(((e.clientX - r.left) / r.width - 0.5) * 2, ((e.clientY - r.top) / r.height - 0.5) * 2);
+          }}
+          onPointerLeave={() => sceneApi.current?.lean(0, 0)}>
+          <BookScene data={data} img={img} imgFailed={imgFailed} repaint={version + fontsVersion} box={band} api={sceneApi} press={pressed.n}
+            onNameRect={setNameRect} onTopRect={setTopRect} onReady={() => setReady3d(true)} onFail={() => setFailed3d(true)} />
+          {sceneName}
+          {sceneSlot}
+        </div>
+      )}
+      <div className="relative z-10 flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="size-11">{p.showQr && (flow.stage === "intro" || flow.stage === "questions" || flow.stage === "name") ? qr("corner") : null}</div>
         {(flow.stage === "questions" || flow.stage === "name") && (
           <div className="flex flex-1 items-center gap-3 px-4" aria-hidden>
@@ -332,27 +375,10 @@ export function PassportBook(p: {
         </button>
       </div>
 
-      <div className={`relative flex min-h-0 flex-1 flex-col items-center gap-4 px-4 ${use3d && ready3d ? "justify-between pb-2" : "justify-center"}`}>
-        {use3d && (
-          // Unseen and untouchable until its first frame: the flat book shows (and takes taps) till then.
-          <div className={`absolute inset-0 transition-opacity duration-300 ${ready3d ? "" : "pointer-events-none opacity-0"}`}
-            onClick={(e) => {
-              const h = sceneApi.current?.hit(e.clientX, e.clientY);
-              if (h?.page === "top") onTop(); else if (h) onBottom(h.u, h.v);
-            }}
-            onPointerMove={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              sceneApi.current?.lean(((e.clientX - r.left) / r.width - 0.5) * 2, ((e.clientY - r.top) / r.height - 0.5) * 2);
-            }}
-            onPointerLeave={() => sceneApi.current?.lean(0, 0)}>
-            <BookScene data={data} img={img} repaint={version + fontsVersion} banner={banner} api={sceneApi} press={pressed.n}
-              onNameRect={setNameRect} onTopRect={setTopRect} onReady={() => setReady3d(true)} onFail={() => setFailed3d(true)} />
-            {sceneName}
-            {sceneSlot}
-          </div>
-        )}
-        {/* Above the 3D layer (absolute, so it would paint over plain flow): the banner's slot keeps its height there. */}
-        {(banner || (use3d && ready3d)) && (
+      {/* Over the canvas but letting taps through to it; only the flat book takes its own. */}
+      <div className={`pointer-events-none relative z-10 flex min-h-0 flex-1 flex-col items-center gap-4 px-4 ${use3d && ready3d ? "pb-2" : "justify-center"}`}>
+        {/* The banner's slot keeps its height from the reveal on (and always with the 3D book), so the banner coming and going moves nothing. */}
+        {(banner || (use3d && ready3d) || flow.stage === "revealing" || flow.stage === "done") && (
           <div className="pointer-events-none relative z-10 flex min-h-[60px] flex-col items-center">
             {banner && personality && (
               <div className="flex flex-col items-center motion-safe:animate-[book-banner_400ms_ease-out]" aria-hidden>
@@ -364,10 +390,14 @@ export function PassportBook(p: {
             )}
           </div>
         )}
-        {!(use3d && ready3d) && (
-          <FlatBook spread={spreadFor(flow)} data={data} img={img} repaint={version + fontsVersion}
-            onTop={onTop} onBottom={onBottom} overlay={flatName} topOverlay={flatSlot} press={pressed.n} />
-        )}
+        {use3d && ready3d
+          ? <div ref={bandRef} aria-hidden className="min-h-0 w-full flex-1" />
+          : (
+            <div className="pointer-events-auto">
+              <FlatBook spread={spreadFor(flow)} data={data} img={img} repaint={version + fontsVersion}
+                onTop={onTop} onBottom={onBottom} overlay={flatName} topOverlay={flatSlot} press={pressed.n} />
+            </div>
+          )}
         <div className="pointer-events-none relative z-10 flex min-h-5 flex-col items-center gap-1">
           {flow.stage === "closed" && <p className={`text-sm font-semibold ${ON_STAGE}`}>Tap to open your passport</p>}
           {flow.stage === "intro" && <p className={`text-xs ${ON_STAGE}`}>Tap Start when you&apos;re ready.</p>}
@@ -377,9 +407,13 @@ export function PassportBook(p: {
         </div>
       </div>
 
-      {flow.stage === "done" && (
-        <BookBar passport={p.passport} qrButton={p.showQr ? qr("bar") : null} reward={p.reward} about={p.about}
-          note={doneNote(p.passport, p.isOpen, p.showQr)} />
+      {/* Its room is held from the reveal on, so the passport settles once into the space left above
+          it; it fades in once the passport is finished. */}
+      {(flow.stage === "revealing" || flow.stage === "done") && (
+        <div inert={flow.stage !== "done"} className={`relative z-10 transition-opacity duration-500 ${flow.stage === "done" ? "" : "opacity-0"}`}>
+          <BookBar passport={p.passport} qrButton={p.showQr ? qr("bar") : null} reward={p.reward} about={p.about}
+            note={doneNote(p.passport, p.isOpen, p.showQr)} />
+        </div>
       )}
 
       <BookA11y flow={flow} test={p.test} personality={personality} holderName={holderName} stamps={stamps.length} saving={saving}
