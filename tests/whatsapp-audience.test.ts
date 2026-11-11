@@ -32,6 +32,15 @@ describe("splitAudience", () => {
     expect(recipients[0].to).toBe("60123456789");
   });
 
+  it("reaches a registrant outside Malaysia, as the form stores them (D897)", () => {
+    const { recipients, unusable } = splitAudience(
+      [a("6", "Grace Tan", { phone: "+6591234567" }), a("7", "Budi", { phone: "6281234567890" })],
+      PHONE,
+    );
+    expect(recipients).toEqual([{ attendee: expect.objectContaining({ id: "6" }), to: "6591234567" }]);
+    expect(unusable[0].reason).toContain("+ and the country code");
+  });
+
   it("holds everyone back when the event collects no phone at all", () => {
     const fields: AttendeeField[] = [{ key: "company", label: "Company", type: "text" }];
     const { recipients, unusable } = splitAudience([a("5", "Nurul", { company: "Ecopia" })], fields);

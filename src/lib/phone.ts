@@ -149,3 +149,23 @@ export function toE164My(raw: string | null | undefined): string | null {
   if (!candidate) return null;
   return MY_E164.test(candidate) ? candidate : null;
 }
+
+/**
+ * D897: any number a WhatsApp send can reach, in the Cloud API's spelling (country code and
+ * digits, no plus). Malaysian numbers are read exactly as `toE164My` reads them. Any other
+ * country has to say so with its + and code (what the registration form stores, D675/D800) and
+ * be a real number for that country.
+ *
+ * Bare digits that are neither 0- nor 60-led (6591234567 from a sheet) are still refused: the
+ * country is a guess, and a wrong guess puts one attendee's link on a stranger's phone. The dry
+ * run names the row, and adding the + fixes it.
+ */
+export function toE164(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const my = toE164My(raw);
+  if (my) return my;
+  const t = String(raw).trim();
+  if (!t.startsWith("+") || /[^\d\s\-.()+]/.test(t) || t.indexOf("+", 1) !== -1) return null;
+  const digits = t.replace(/\D/g, "");
+  return INTERNATIONAL.test(digits) && isValidPhoneNumber(`+${digits}`) ? digits : null;
+}

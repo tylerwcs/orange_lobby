@@ -143,7 +143,7 @@ export async function updateCommitteeNumbersAction(eventId: string, formData: Fo
   const path = `/admin/events/${eventId}/settings`;
   const { numbers, bad } = parseAlertNumbers(String(formData.get("committee_alert_numbers") ?? ""));
   if (bad.length > 0) {
-    redirect(flashPath(path, `Couldn't read ${bad.map((b) => `"${b}"`).join(", ")} as a Malaysian number. Nothing was saved.`, "error"));
+    redirect(flashPath(path, `Couldn't read ${bad.map((b) => `"${b}"`).join(", ")} as a phone number (outside Malaysia, start with + and the country code). Nothing was saved.`, "error"));
   }
   await updateEvent(eventId, { committee_alert_numbers: numbers });
   revalidatePath(path);

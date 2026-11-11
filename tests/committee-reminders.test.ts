@@ -26,7 +26,10 @@ describe("parseAlertNumbers", () => {
     expect(parseAlertNumbers("012-345 6789\n\n+60 12 345 6789\n0198765432 ")).toEqual({ numbers: ["60123456789", "60198765432"], bad: [] });
   });
   it("names every line it cannot read", () => {
-    expect(parseAlertNumbers("0123456789\nabc\n+65 8123 4567")).toEqual({ numbers: ["60123456789"], bad: ["abc", "+65 8123 4567"] });
+    expect(parseAlertNumbers("0123456789\nabc\n6581234567")).toEqual({ numbers: ["60123456789"], bad: ["abc", "6581234567"] });
+  });
+  it("takes another country's number given with its + and code (D897)", () => {
+    expect(parseAlertNumbers("+65 8123 4567\n012-345 6789")).toEqual({ numbers: ["6581234567", "60123456789"], bad: [] });
   });
 });
 

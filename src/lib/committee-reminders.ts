@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { toE164My } from "@/lib/phone";
+import { toE164 } from "@/lib/phone";
 import type { ActivityChangeRequest } from "@/lib/types";
 
 /** How long a change request may wait undecided before the committee hears about it. */
@@ -24,7 +24,7 @@ export function parseAlertNumbers(text: string): { numbers: string[]; bad: strin
   const numbers: string[] = [];
   const bad: string[] = [];
   for (const line of text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
-    const n = toE164My(line);
+    const n = toE164(line);
     if (!n) bad.push(line);
     else if (!numbers.includes(n)) numbers.push(n);
   }

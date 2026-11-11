@@ -25,7 +25,7 @@ export function CommitteeTab({ ev, showAlerts }: { ev: Event; showAlerts: boolea
           <CardContent>
             <form key={ev.committee_alert_numbers.join(",")} action={updateCommitteeNumbersAction.bind(null, ev.id)} className="flex max-w-sm flex-col items-start gap-3">
               <label htmlFor="committee_alert_numbers" className="sr-only">Committee alert numbers</label>
-              <Textarea id="committee_alert_numbers" name="committee_alert_numbers" rows={4} placeholder={"012-345 6789\n019-876 5432"}
+              <Textarea id="committee_alert_numbers" name="committee_alert_numbers" rows={4} placeholder={"012-345 6789\n+65 9123 4567"}
                 defaultValue={ev.committee_alert_numbers.map((n) => `+${n}`).join("\n")} />
               <SubmitButton>Save numbers</SubmitButton>
             </form>

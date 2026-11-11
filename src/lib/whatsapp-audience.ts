@@ -1,5 +1,5 @@
 import { fieldValue } from "@/lib/attendee-values";
-import { toE164My } from "@/lib/phone";
+import { toE164 } from "@/lib/phone";
 import type { AttendeeField } from "@/lib/attendee-fields";
 
 /**
@@ -42,9 +42,9 @@ export function splitAudience<T extends AudienceAttendee>(attendees: T[], fields
       unusable.push({ attendee, reason: `No ${field.label.toLowerCase()} on file` });
       continue;
     }
-    const to = toE164My(raw);
+    const to = toE164(raw);
     // Quoted, because the fix is to go and edit that exact cell in the masterlist.
-    if (!to) unusable.push({ attendee, reason: `Could not read "${raw}" as a Malaysian number` });
+    if (!to) unusable.push({ attendee, reason: `Could not read "${raw}" as a phone number. Outside Malaysia it needs + and the country code` });
     else recipients.push({ attendee, to });
   }
   return { recipients, unusable, phoneKey: field.key };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkPhone, formatNational, joinPhone, PHONE_FORMAT_ERROR, phoneErrorFor, phoneTypingError, pickerTypingError, splitPhone, toE164My } from "@/lib/phone";
+import { checkPhone, formatNational, joinPhone, PHONE_FORMAT_ERROR, phoneErrorFor, phoneTypingError, pickerTypingError, splitPhone, toE164, toE164My } from "@/lib/phone";
 
 describe("toE164My", () => {
   it("normalises the format the masterlist actually uses", () => {
@@ -35,6 +35,34 @@ describe("toE164My", () => {
     expect(toE164My("12345")).toBeNull();
     expect(toE164My("012-345 67890123")).toBeNull();
     expect(toE164My("+65 9123 4567")).toBeNull();
+  });
+});
+
+describe("toE164 (D897, any country)", () => {
+  it("reads Malaysian numbers exactly as toE164My does", () => {
+    for (const n of ["012-345 6789", "011-5678 0046", "+60 12-345 6789", "60123456789", "03-1234 5678"]) {
+      expect(toE164(n)).toBe(toE164My(n));
+    }
+  });
+
+  it("takes another country's number given with its + and code", () => {
+    expect(toE164("+65 9123 4567")).toBe("6591234567");
+    expect(toE164("+62 812-3456-7890")).toBe("6281234567890");
+    expect(toE164("+44 7911 123456")).toBe("447911123456");
+    expect(toE164("+6591234567")).toBe("6591234567");
+  });
+
+  it("refuses bare digits it would have to guess a country for", () => {
+    expect(toE164("6591234567")).toBeNull();
+    expect(toE164("447911123456")).toBeNull();
+  });
+
+  it("refuses a + number that is not real for its country", () => {
+    expect(toE164("+65 1234")).toBeNull();
+    expect(toE164("+65 1234 5678")).toBeNull();
+    expect(toE164("+65 9123 4567 ext 2")).toBeNull();
+    expect(toE164("")).toBeNull();
+    expect(toE164(null)).toBeNull();
   });
 });
 
