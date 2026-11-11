@@ -81,7 +81,7 @@ game, scores already keyed stay on the seats, and **the swap also changes the sp
 count follow who actually bowled. Size and deadline rules don't block an admin's swap, as
 organisers can change squads at any time today. *(My call: it keeps a late change from forcing
 a redraw on the night.)* A seat whose bowler leaves the squad some other way stays as it is
-and still counts.
+and still counts. *(Amended 11 Nov, after the user swapped bowlers on the Squads tab and the lanes kept the old names: a swap on the Squads tab now moves the seats too, and the Lanes section lists any seated bowler no longer in the squad, marked "Not in squad", so the admin can give their lanes to the stand-in with Swap bowler.)*
 
 **D865 — Keying scores.** On the admin's Matches tab, Bowling shows one card per game: Lane 1–6,
 each seat a name, the side's name and a score box (whole number 0–300; blank = not keyed yet).
