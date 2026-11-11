@@ -128,7 +128,10 @@ function Chrome({ event, basePath, personal, activities, hasInfo, draftExtra, la
   const meta = [formatDateRange(event.starts_on, event.ends_on, lang), event.venue_name].filter(Boolean).join(" · ");
   const bannerClass = "mb-4 aspect-[3/1] w-full rounded-xl object-cover";
   const headerItems = nav(d, personal, hasInfo, event.info_page_title || d.nav.info, activities);
-  const shellWidth = home ? "max-w-md md:max-w-4xl xl:max-w-[1200px]" : "max-w-md md:max-w-4xl";
+  // D890: Info shares home's wide shell, so its pictures and tables are not squeezed into
+  // what the tab rail leaves of 896px.
+  const wide = home || current === "/info";
+  const shellWidth = wide ? "max-w-md md:max-w-4xl xl:max-w-[1200px]" : "max-w-md md:max-w-4xl";
 
   if (event.status === "draft") {
     return (
