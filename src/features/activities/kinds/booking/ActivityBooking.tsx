@@ -52,7 +52,8 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
 
   if (pending) {
     return (
-      <div className="rounded-[12px] bg-accent p-3 text-sm">
+      // D902: a request just sent is what its success moment glows on.
+      <div data-moment-key={`ask:${pendingId ?? pending.kind}`} className="rounded-[12px] bg-accent p-3 text-sm">
         <p className="font-bold text-accent-foreground">
           {pending.kind === "cancel"
             ? d.waitingCancel(pending.fromLabel ?? d.yourSessionLower)
@@ -82,7 +83,7 @@ export function ActivityBooking({ controls, pendingId, calendarPath, change, req
       {held.map((seat) => {
         const arrivedAt = arrivals[seat.session.id];
         return (
-          <div key={seat.session.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-success-soft px-3 py-2 text-sm text-success-strong">
+          <div key={seat.session.id} data-moment-key={`seat:${seat.session.id}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-success-soft px-3 py-2 text-sm text-success-strong">
             <span className="flex items-center gap-1.5 font-bold">
               <Icon name="check" size={16} />
               {arrivedAt ? d.checkedInAt(shortTime(arrivedAt), sessionLabel(seat.session, { lang })) : d.youreBooked(sessionLabel(seat.session, { lang }))}

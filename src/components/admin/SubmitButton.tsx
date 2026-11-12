@@ -1,8 +1,11 @@
 "use client";
+import { useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useT } from "@/features/language/client";
+import { MOMENT_BUTTON, MomentLabel, useMomentButton } from "@/features/success-moments/client";
+import { cn } from "@/lib/utils";
 
 type Variant = React.ComponentProps<typeof Button>["variant"];
 
@@ -19,15 +22,26 @@ type Variant = React.ComponentProps<typeof Button>["variant"];
  * shows its working state together. That is the honest reading: the form is submitting, and
  * which button started it does not change what the organiser should wait for.
  */
-export function SubmitButton({ children, className = "", variant = "default", formAction, ...rest }: {
+export function SubmitButton({ children, className = "", variant = "default", formAction, moment = false, ...rest }: {
   children: React.ReactNode;
   className?: string;
   variant?: Variant;
   formAction?: (formData: FormData) => void | Promise<void>;
+  /** D902: an attendee's Submit or Save - the button turns into a tick once it has worked. */
+  moment?: boolean;
 } & Pick<React.ComponentProps<typeof Button>, "size" | "aria-current">) {
   const { pending } = useFormStatus();
   // D741: in the portal, the attendee's language; anywhere without the provider (admin), English.
   const working = useT().common.working;
+  const ref = useRef<HTMLButtonElement>(null);
+  const m = useMomentButton(moment && pending, ref);
+  if (moment) {
+    return (
+      <Button ref={ref} type="submit" formAction={formAction} variant={variant} disabled={pending} aria-busy={pending} className={cn(MOMENT_BUTTON, className)} {...m.attrs} {...rest}>
+        <MomentLabel face={m.face} busy={m.busy} working={working}>{children}</MomentLabel>
+      </Button>
+    );
+  }
   return (
     <Button type="submit" formAction={formAction} variant={variant} disabled={pending} aria-busy={pending} className={className} {...rest}>
       {pending && <Spinner data-icon="inline-start" />}

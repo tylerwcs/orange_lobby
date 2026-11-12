@@ -12,10 +12,10 @@ import { shortDate } from "@/lib/text";
 import { t, useLang } from "@/features/language/client";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { HealthConsentField } from "../submission/HealthConsentField";
 import { SubmissionFields } from "../submission/SubmissionFields";
 import type { BookingAsk } from "../../lib/booking-form";
+import { MOMENT_BUTTON, MomentLabel, useMomentButton } from "@/features/success-moments/client";
 
 
 export type BookingActions = {
@@ -207,6 +207,8 @@ function BookingForm({ ask, seat, send, headerRef, onBack }: {
     return null;
   }, null);
   const when = session ? `${shortDate(session.day, lang)} · ${session.starts_at}${session.ends_at ? `–${session.ends_at}` : ""}` : "";
+  const sendButton = useRef<HTMLButtonElement>(null);
+  const m = useMomentButton(pending, sendButton);
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -230,9 +232,8 @@ function BookingForm({ ask, seat, send, headerRef, onBack }: {
         {error && <p role="alert" className="text-sm font-semibold text-destructive">{error}</p>}
         <div className="flex gap-2">
           <Button type="button" variant="outline" disabled={pending} onClick={() => onBack(null)} className="h-11 px-4 font-bold">{d.back}</Button>
-          <Button type="submit" disabled={pending} className="h-11 flex-1 font-bold">
-            {pending && <Spinner data-icon="inline-start" />}
-            {d.sendAndBook}
+          <Button ref={sendButton} type="submit" disabled={pending} aria-busy={pending} className={`${MOMENT_BUTTON} h-11 flex-1 font-bold`} {...m.attrs}>
+            <MomentLabel face={m.face} busy={m.busy} working={t(lang).common.working}>{d.sendAndBook}</MomentLabel>
           </Button>
         </div>
       </div>
@@ -283,6 +284,7 @@ function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch, onN
       ) : isBook ? (
         <form action={book.bind(null, session.id)}>
           <ConfirmButton
+            moment
             tone="default"
             triggerVariant="default"
             confirmLabel={d.book}
@@ -305,6 +307,7 @@ function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch, onN
             </>
           )}
           <ConfirmButton
+            moment
             tone="default"
             triggerVariant="default"
             confirmLabel={controls.direct ? d.moveNow : d.sendRequest}

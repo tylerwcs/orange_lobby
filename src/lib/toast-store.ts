@@ -1,6 +1,10 @@
 import type { FlashTone } from "@/lib/flash";
 
-export type Toast = { id: number; message: string; tone: FlashTone };
+/**
+ * `quiet` (D902): read out but not shown - a success moment has already said it on the page, and a
+ * screen reader still needs the words.
+ */
+export type Toast = { id: number; message: string; tone: FlashTone; quiet?: boolean };
 
 /**
  * Toasts live in a module-level store rather than React state, read through
@@ -39,9 +43,9 @@ export function dismissToast(id: number) {
   publish(toasts.filter((t) => t.id !== id));
 }
 
-export function toast(message: string, tone: FlashTone = "ok"): number {
+export function toast(message: string, tone: FlashTone = "ok", { quiet = false }: { quiet?: boolean } = {}): number {
   const id = nextId++;
-  publish([...toasts, { id, message, tone }]);
+  publish([...toasts, quiet ? { id, message, tone, quiet } : { id, message, tone }]);
   // Errors stay twice as long: they are the ones worth reading twice, and the ones a
   // reader is least likely to be looking at the corner of the screen for.
   setTimeout(() => dismissToast(id), tone === "error" ? DISMISS_AFTER * 2 : DISMISS_AFTER);

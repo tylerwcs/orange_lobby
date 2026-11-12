@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useT } from "@/features/language/client";
+import { useMomentDialog } from "@/features/success-moments/client";
 
 /**
  * D391/D398: Edit and Delete on an entry the attendee may still change. In the challenge tracker
@@ -31,6 +32,8 @@ export function EntryActions({ title, editForm, remove, variant }: {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
+  // D902: Save's tick closes this once it has drawn; it cannot be dismissed mid-save.
+  const onEditingChange = useMomentDialog(editing, setEditing);
 
   return (
     <>
@@ -56,7 +59,7 @@ export function EntryActions({ title, editForm, remove, variant }: {
         </span>
       )}
 
-      <Dialog open={editing} onOpenChange={setEditing}>
+      <Dialog open={editing} onOpenChange={onEditingChange}>
         <DialogContent className="max-h-[85vh] grid-cols-1 overflow-y-auto sm:max-w-lg">
           <div className="flex flex-col gap-1 pr-8">
             <DialogTitle className="text-lg font-extrabold">{title}</DialogTitle>

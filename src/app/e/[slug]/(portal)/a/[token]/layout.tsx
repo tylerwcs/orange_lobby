@@ -13,6 +13,7 @@ import { consentAction } from "./consent-actions";
 import { eventTermsHtml, portalAsks } from "@/lib/privacy";
 import { Toaster } from "@/components/ui/toaster";
 import { Flash } from "@/components/admin/Flash";
+import { MomentGate } from "@/features/success-moments/client";
 import { ThemeStyle } from "@/features/theme";
 import { QueueCard, resolveTokenView } from "@/features/registration-queue";
 import { portalLang } from "@/features/language";
@@ -152,6 +153,9 @@ export default async function PersonalLayout({ children, params }: {
           announcing anything for a draft event. `useSearchParams` needs a boundary it can
           suspend at; the toast stack itself is not tied to the URL and mounts outside it. */}
       <Suspense fallback={null}><Flash /></Suspense>
+      {/* D902: holds the page a Book or Submit came back with until its tick has drawn. Its own
+          boundary, so a held render never touches Flash's. */}
+      <Suspense fallback={null}><MomentGate /></Suspense>
       <Toaster />
     </>
   );

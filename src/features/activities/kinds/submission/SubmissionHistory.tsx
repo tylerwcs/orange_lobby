@@ -53,7 +53,8 @@ export function SubmissionHistory({ submissions, questions, fileHref, title, emp
         const added = addedBy?.(s) ?? null;
         const editor = edit?.(s, Object.fromEntries(rows.filter((r) => isFile(r.key)).map((r) => [r.key, r.href])));
         return (
-          <Card key={s.id}>
+          // D902: the key is what makes an entry new to a success moment - added, or edited.
+          <Card key={s.id} data-moment-key={`entry:${s.id}:${s.attendee_edited_at ?? ""}`}>
             <CardHeader>
               <CardTitle className="text-[13px] font-bold text-muted-foreground">{shortDate(s.submitted_on, lang)}</CardTitle>
               {/* D341: their history shows an edited submission's new answers, plus this note - */}

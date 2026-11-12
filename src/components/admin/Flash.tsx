@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { readFlash, stripFlash } from "@/lib/flash";
 import { toast } from "@/lib/toast-store";
+import { momentFailed, momentSucceeded, prefersReducedMotion } from "@/features/success-moments/client";
 
 /**
  * Takes the flash out of the address bar once it has been said, so a reload does not
@@ -35,12 +36,12 @@ const MAX_FRAMES = 60;
  *
  * Deliberately not cancellable: a cleanup would be called by StrictMode's remount in
  * development before the first frame fires, and the re-run would take the `announced`
- * guard and never schedule another.
+ * guard and never schedule another. `settled` runs once it is over.
  */
-function stripWhileTheRouterSettles(frame = 0) {
+function stripWhileTheRouterSettles(settled: () => void, frame = 0) {
   stripFromUrl();
-  if (frame >= MAX_FRAMES) return;
-  requestAnimationFrame(() => stripWhileTheRouterSettles(frame + 1));
+  if (frame >= MAX_FRAMES) return settled();
+  requestAnimationFrame(() => stripWhileTheRouterSettles(settled, frame + 1));
 }
 
 /**
@@ -66,8 +67,13 @@ export function Flash() {
   useEffect(() => {
     if (!key || announced.current === key) return;
     announced.current = key;
-    toast(message, tone);
-    stripWhileTheRouterSettles();
+    // D902: a success moment playing on the page is this flash's news already - read out, not
+    // shown. A refusal ends the moment and toasts as it always did.
+    const quiet = tone === "ok" ? momentSucceeded(prefersReducedMotion()) : (momentFailed(), false);
+    toast(message, tone, { quiet });
+    // Once the router has settled the same words may be news again: two identical saves in a row
+    // (two "Submitted. Thanks!") are two announcements, not one.
+    stripWhileTheRouterSettles(() => { if (announced.current === key) announced.current = null; });
   }, [key, message, tone]);
 
   return null;

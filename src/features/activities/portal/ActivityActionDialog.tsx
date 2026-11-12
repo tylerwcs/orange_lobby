@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useMomentDialog } from "@/features/success-moments/client";
 
 /**
  * The one thing an attendee does on an activity's page - book a session, or send a submission -
@@ -16,6 +17,10 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
  * back to the page, and the page keys this component by what the action changes (seats held,
  * submissions sent), so a success remounts it closed while a refusal leaves it open with the
  * toast saying why.
+ *
+ * D902: with a success moment, the new page waits while the button's tick draws (MomentGate), so
+ * this closes itself when the moment says so, before the remount; and it cannot be dismissed
+ * while the server is still working.
  */
 export function ActivityActionDialog({ label, title, description, defaultOpen = false, inline = false, children }: {
   label: string;
@@ -32,8 +37,9 @@ export function ActivityActionDialog({ label, title, description, defaultOpen = 
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const onOpenChange = useMomentDialog(open, setOpen);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       {inline ? (
         <DialogTrigger render={<button type="button" className="flex items-center gap-1 underline" />}>
           {label}

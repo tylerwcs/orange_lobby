@@ -47,7 +47,7 @@ export async function EntryTimeline({ entries, questions, metricKey, unit = "km"
         const km = `${metricKm(s, metricKey)} ${unit}`;
         const choices = entryChoices(s, questions);
         return (
-          <li key={s.id} className={`relative flex items-center gap-3 py-3 ${revoked ? "opacity-50" : ""}`}>
+          <li key={s.id} data-moment-key={`entry:${s.id}:${s.attendee_edited_at ?? ""}`} className={`relative flex items-center gap-3 rounded-xl py-3 ${revoked ? "opacity-50" : ""}`}>
             {i < entries.length - 1 && <span aria-hidden className="absolute -bottom-3 left-[21px] top-14 border-l-2 border-dashed border-border" />}
             <span aria-hidden className="flex size-11 shrink-0 items-center justify-center self-start rounded-full bg-primary/10 text-primary">
               <Footprints className="size-5" />

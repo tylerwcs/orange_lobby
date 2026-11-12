@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useT } from "@/features/language/client";
+import { MOMENT_BUTTON, MomentLabel, useMomentButton } from "@/features/success-moments/client";
+import { cn } from "@/lib/utils";
 
 /**
  * A submit guarded by a confirmation. It used to be window.confirm, which cannot be
@@ -34,7 +36,7 @@ import { useT } from "@/features/language/client";
  */
 export function ConfirmButton({
   message, children, className = "", confirmLabel = "Yes, continue", cancelLabel,
-  tone = "destructive", triggerVariant = "outline",
+  tone = "destructive", triggerVariant = "outline", moment = false,
 }: {
   message: string;
   children: React.ReactNode;
@@ -45,6 +47,8 @@ export function ConfirmButton({
   /** "destructive" paints the confirm red, for anything that removes something. */
   tone?: "default" | "destructive";
   triggerVariant?: React.ComponentProps<typeof Button>["variant"];
+  /** D902: an attendee's Book or Move - the trigger turns into a tick once it has worked. */
+  moment?: boolean;
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
   // D741: in the portal, the attendee's language; anywhere without the provider (admin), English.
@@ -54,11 +58,18 @@ export function ConfirmButton({
   // dialog used to stay up - with its confirm still live - until the redirect unmounted it,
   // and a second press submitted the form again.
   const [open, setOpen] = useState(false);
+  const m = useMomentButton(moment && pending, trigger);
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger render={<Button ref={trigger} type="button" variant={triggerVariant} className={className} disabled={pending} aria-busy={pending} />}>
-        {pending && <Spinner data-icon="inline-start" />}
-        {pending ? d.working : children}
+      <AlertDialogTrigger render={<Button ref={trigger} type="button" variant={triggerVariant} className={moment ? cn(MOMENT_BUTTON, className) : className} disabled={pending} aria-busy={pending} {...m.attrs} />}>
+        {moment ? (
+          <MomentLabel face={m.face} busy={m.busy} working={d.working}>{children}</MomentLabel>
+        ) : (
+          <>
+            {pending && <Spinner data-icon="inline-start" />}
+            {pending ? d.working : children}
+          </>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

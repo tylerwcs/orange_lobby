@@ -42,7 +42,10 @@ export function Toaster({ className }: { className?: string } = {}) {
         className,
       )}
     >
-      {toasts.map((t) => (
+      {toasts.map((t) => t.quiet ? (
+        // D902: the moment on the page said it; the live region still reads it out.
+        <p key={t.id} className="sr-only">{t.message}</p>
+      ) : (
         <div
           key={t.id}
           role={t.tone === "error" ? "alert" : undefined}

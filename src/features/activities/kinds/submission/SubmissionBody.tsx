@@ -48,7 +48,7 @@ export function editorFor(f: Activity, slug: string, token: string, attendee: Pi
           <form action={editMySubmissionAction.bind(null, slug, token, f.id, s.id)} className="flex flex-col gap-6">
             {s.attendee_id === attendee.id && <HealthConsentAsk f={f} slug={slug} token={token} id={`health-consent-${s.id}`} />}
             <SubmissionFields questions={f.questions} defaults={s.answers} fileLinks={fileLinks} />
-            <SubmitButton className="h-12 w-full text-base font-bold"><Say k="submission.save" /></SubmitButton>
+            <SubmitButton moment className="h-12 w-full text-base font-bold"><Say k="submission.save" /></SubmitButton>
           </form>
         } />
     );
@@ -141,7 +141,7 @@ function EntryForm({ f, slug, token, picker = null }: { f: Activity; slug: strin
       <PairAsk f={f} slug={slug} token={token} />
       <HealthConsentAsk f={f} slug={slug} token={token} id="health-consent" />
       {f.questions.length > 0 && <SubmissionFields questions={f.questions} />}
-      <SubmitButton className="h-12 w-full text-base font-bold"><Say k="submission.submit" /></SubmitButton>
+      <SubmitButton moment className="h-12 w-full text-base font-bold"><Say k="submission.submit" /></SubmitButton>
     </form>
   );
 }

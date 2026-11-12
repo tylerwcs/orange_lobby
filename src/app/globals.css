@@ -296,6 +296,23 @@ input, textarea { touch-action: manipulation; }
 @keyframes pt-show { to { opacity: 1; } }
 @keyframes pt-run { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 
+/* D902: success moments (src/features/success-moments). The button's tick draws itself; what the
+   moment made - a booked line, a new entry - pulses once with a ring that grows and fades. An
+   outline, not a box-shadow, so a card's own ring stays put underneath. The "You're in" page's
+   circle draws the same way as it arrives: the ring goes round, then the tick. */
+.moment-tick path { stroke-dasharray: 1; animation: moment-draw 240ms ease-out both; }
+[data-moment-landed] { animation: moment-glow 700ms ease-out; }
+.moment-ring { animation: moment-pop 340ms ease-out 120ms both; }
+.moment-ring circle, .moment-ring path { stroke-dasharray: 1; }
+.moment-ring circle { animation: moment-draw 380ms ease-out 200ms both; transform: rotate(-90deg); transform-box: fill-box; transform-origin: center; }
+.moment-ring path { animation: moment-draw 240ms ease-out 480ms both; }
+@keyframes moment-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes moment-glow {
+  from { outline: 3px solid color-mix(in oklch, var(--success) 60%, transparent); outline-offset: 0; }
+  to { outline: 3px solid color-mix(in oklch, var(--success) 0%, transparent); outline-offset: 10px; }
+}
+@keyframes moment-pop { 0% { transform: scale(.5); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

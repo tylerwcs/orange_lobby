@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, CircleCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getEventBySlug } from "@/lib/db/events";
 import { findByToken } from "@/lib/db/attendees";
 import { findEntryByToken, nextStep } from "@/features/registration-queue";
@@ -62,8 +62,12 @@ export default async function Done({ params, searchParams }: { params: Promise<{
               </>
             ) : (
               <>
-                <div aria-hidden className="flex size-20 items-center justify-center rounded-full bg-accent text-primary">
-                  <CircleCheck className="size-9" />
+                {/* D902: the circle draws itself as the page arrives - the ring, then the tick. */}
+                <div aria-hidden className="moment-ring flex size-20 items-center justify-center rounded-full bg-accent text-primary">
+                  <svg viewBox="0 0 24 24" className="size-9" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <circle pathLength={1} cx="12" cy="12" r="10" />
+                    <path pathLength={1} d="m9 12 2 2 4-4" />
+                  </svg>
                 </div>
                 <p className="text-sm text-muted-foreground text-balance whitespace-pre-line">{copy.message}</p>
               </>
