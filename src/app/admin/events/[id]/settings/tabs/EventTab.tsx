@@ -11,6 +11,7 @@ import { PreviewLinkButtons } from "@/components/admin/PreviewLinkButtons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createPreviewLinkAction, previewGeneralPortalAction, replacePreviewLinkAction, setStatusAction, turnOffPreviewLinkAction, updateEventTabAction } from "../../actions";
 import { Section } from "./Section";
+import { TrackedLinksCard, type SourceCount } from "@/features/link-tracking";
 
 const STATUSES: { value: EventStatus; label: string; what: string }[] = [
   { value: "draft", label: "Draft", what: "Attendees see “Coming soon” on every link." },
@@ -20,8 +21,8 @@ const STATUSES: { value: EventStatus; label: string; what: string }[] = [
 
 type Share = { url: string; qr: { src: string; href: string } };
 
-/** D778: the event's name, dates and Coming soon wording (saved here), its status and its two share links. */
-export function EventTab({ ev, admin, base, previewAs, portalShare, registrationShare }: {
+/** D778: the event's name, dates and Coming soon wording (saved here), its status, its two share links and tracked links (D899). */
+export function EventTab({ ev, admin, base, previewAs, portalShare, registrationShare, linkCounts }: {
   ev: Event;
   admin: boolean;
   base: string;
@@ -29,6 +30,8 @@ export function EventTab({ ev, admin, base, previewAs, portalShare, registration
   previewAs: Attendee | null;
   portalShare: Share;
   registrationShare: Share;
+  /** D899: visits and registrations by tracked-link tag. */
+  linkCounts: SourceCount[];
 }) {
   const statuses = admin ? STATUSES : STATUSES.filter((s) => s.value !== "archived");
   return (
@@ -81,6 +84,8 @@ export function EventTab({ ev, admin, base, previewAs, portalShare, registration
           </CardContent>
         </Card>
       </div>
+
+      <TrackedLinksCard url={registrationShare.url} counts={linkCounts} />
 
       {/* Keyed on its own columns only (formKey), so it resets only when what it saves changes. */}
       <form key={formKey(EVENT_TAB_COLUMNS.map((c) => ev[c]))} action={updateEventTabAction.bind(null, ev.id)} data-tab-label="Event" className="flex flex-col gap-4">

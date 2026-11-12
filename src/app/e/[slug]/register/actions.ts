@@ -12,15 +12,16 @@ import { attendeeLink } from "@/lib/links";
 import { fillFreePlaces, nextStep, notifyPortalLink, notifyRegistered, registerLanding, registerOrQueue, registrationOpen } from "@/features/registration-queue";
 import { after } from "next/server";
 import { findByToken } from "@/lib/db/attendees";
+import { countsAsRegistration, recordLinkHit } from "@/features/link-tracking";
 
 export type RegisterState = { errors?: Record<string, string>; values?: Record<string, string> };
 
 /**
  * `waitlist` is true when the form was the waiting-list one (`?waitlist=1` on a full event, D678):
  * a person it puts on the waiting list asked to be there, so their page does not say the event
- * filled up while they were registering (D695).
+ * filled up while they were registering (D695). `source` is the tracked link's tag (D899).
  */
-export async function registerAction(slug: string, waitlist: boolean, _prev: RegisterState, formData: FormData): Promise<RegisterState> {
+export async function registerAction(slug: string, waitlist: boolean, source: string | null, _prev: RegisterState, formData: FormData): Promise<RegisterState> {
   const event = await getEventBySlug(slug);
   if (!event || event.status === "archived") return { errors: { form: "Registration is not available." } };
   if (!registrationOpen(event, new Date())) return { errors: { form: "Registration is closed." } };
@@ -42,6 +43,10 @@ export async function registerAction(slug: string, waitlist: boolean, _prev: Reg
   const { outcome, token, attendeeId } = await registerOrQueue(event, result.data, { terms: hasTerms });
   // D838: their link by WhatsApp, after the response so it never slows or blocks their landing.
   if (outcome === "registered" && attendeeId && event.whatsapp_on_register) after(() => notifyPortalLink(event, attendeeId));
+  // D899: a new person through a tracked link adds one to its count, after the response and never in their way.
+  if (source && countsAsRegistration(outcome)) {
+    after(() => recordLinkHit(event.id, source, "registration").catch((e) => console.error("registerAction: link count failed", e)));
+  }
   // An active person who still had a pending entry has just had it closed, which frees the place
   // it held; the SQL does not refill it, so this does (D682). A problem here - a fill error, a
   // failed WhatsApp - never stands between the person and their link.

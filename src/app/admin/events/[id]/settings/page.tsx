@@ -15,6 +15,7 @@ import { previewLanding } from "@/lib/preview-link";
 import { getAttendee } from "@/lib/db/attendees";
 import { pinnableFields } from "@/lib/pinned-fields";
 import { getPlaces, placesLabel } from "@/features/registration-queue";
+import { sourceCounts } from "@/features/link-tracking";
 import { SETTINGS_TAB_LABELS, settingsTabs } from "./tabs";
 import { EventTab } from "./tabs/EventTab";
 import { PortalLookTab } from "./tabs/PortalLookTab";
@@ -46,8 +47,8 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
   // D502: Verification is about submissions, so it shows only when the event can run them.
   const verifying = activityKindsFor(features).includes("submission");
   const base = appBaseUrl();
-  const [{ cps, tallies, registered: total }, jar, allActivities, groups, addr, places] = await Promise.all([
-    loadDoors(ev.id), cookies(), listActivities(ev.id), listGroups(ev.id), eventAddress(ev), getPlaces(ev.id),
+  const [{ cps, tallies, registered: total }, jar, allActivities, groups, addr, places, linkCounts] = await Promise.all([
+    loadDoors(ev.id), cookies(), listActivities(ev.id), listGroups(ev.id), eventAddress(ev), getPlaces(ev.id), sourceCounts(ev.id),
   ]);
   const bookingActivities = allActivities.filter((a) => a.kind === "booking");
   const forms = allActivities.filter((a) => a.kind === "submission");
@@ -87,7 +88,7 @@ export default async function Settings({ params }: { params: Promise<{ id: strin
         )}
 
         <TabsContent value="event" keepMounted className="flex flex-col gap-4 @container">
-          <EventTab ev={ev} admin={isAdmin} base={base} previewAs={previewAs} portalShare={portalShare} registrationShare={registrationShare} />
+          <EventTab ev={ev} admin={isAdmin} base={base} previewAs={previewAs} portalShare={portalShare} registrationShare={registrationShare} linkCounts={linkCounts} />
         </TabsContent>
 
         <TabsContent value="look" keepMounted className="flex flex-col gap-4 @container">

@@ -30,8 +30,10 @@ const selectClass = "h-11 w-full rounded-lg border border-input bg-transparent p
 const INPUT_TYPE: Record<string, string> = { number: "number" };
 const INPUT_MODE: Record<string, React.HTMLAttributes<HTMLInputElement>["inputMode"]> = { number: "decimal" };
 
-export function RegisterForm({ slug, questions, termsHtml = null, waitlist = false }: {
+export function RegisterForm({ slug, questions, termsHtml = null, waitlist = false, source = null }: {
   slug: string;
+  /** D899: the tracked link's tag, counted with the registration. */
+  source?: string | null;
   /** D678: the waiting-list form on a full event. Only the heading changes; the questions, ticks and checks are the same. */
   waitlist?: boolean;
   /** The whole form in order, name and email included (`Event.registration_form`). */
@@ -39,7 +41,7 @@ export function RegisterForm({ slug, questions, termsHtml = null, waitlist = fal
   /** D540: the event's own terms, already sanitised. Null: none, and no second tick. */
   termsHtml?: string | null;
 }) {
-  const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug, waitlist), {});
+  const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction.bind(null, slug, waitlist, source), {});
   // Every field is controlled, name and email included. They used to be uncontrolled
   // with a defaultValue echoed back from the server, which React ignores on re-render: after
   // a rejected submit the value the invitee could see and the value the component believed

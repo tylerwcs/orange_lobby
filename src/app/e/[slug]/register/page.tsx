@@ -15,13 +15,16 @@ import { shortDateTime } from "@/lib/text";
 import { DEFAULT_REGISTRATION_INTRO } from "@/lib/registration";
 import { eventTermsHtml } from "@/lib/privacy";
 import { getPlaces, queueCopy, registrationOpen } from "@/features/registration-queue";
+import { cleanSource, SOURCE_PARAM, VisitBeacon } from "@/features/link-tracking";
 
 export default async function RegisterPage({ params, searchParams }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ waitlist?: string | string[] }>;
+  searchParams: Promise<{ waitlist?: string | string[]; utm_source?: string | string[] }>;
 }) {
   const { slug } = await params;
-  const { waitlist } = await searchParams;
+  const { waitlist, utm_source } = await searchParams;
+  // D899: the tag on a tracked link, counted as a visit here and as a registration when the form is sent.
+  const source = cleanSource(utm_source);
   const event = await getEventBySlug(slug);
   if (!event) notFound();
   // D895: the banner and footer hold their space, so the form never jumps as they arrive.
@@ -38,6 +41,7 @@ export default async function RegisterPage({ params, searchParams }: {
     // and the column inside keeps the phone width.
     <div className="mx-auto flex min-h-screen max-w-md flex-col">
       <ThemeStyle event={event} />
+      {source && <VisitBeacon slug={slug} source={source} />}
       <PortalHeader event={event} />
       {/* D618: the organiser's banner, straight under the event bar, as wide as the column at its own height. */}
       {event.registration_banner_url && (
@@ -55,7 +59,7 @@ export default async function RegisterPage({ params, searchParams }: {
                 <EmptyDescription className="whitespace-pre-line">{fullCopy.fullMessage}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Link href="?waitlist=1" className={buttonVariants()}>Join the waiting list</Link>
+                <Link href={source ? `?waitlist=1&${SOURCE_PARAM}=${encodeURIComponent(source)}` : "?waitlist=1"} className={buttonVariants()}>Join the waiting list</Link>
               </EmptyContent>
             </Empty>
           </>
@@ -88,7 +92,7 @@ export default async function RegisterPage({ params, searchParams }: {
             <p className="text-sm text-muted-foreground">{event.registration_intro || DEFAULT_REGISTRATION_INTRO}</p>
             <Card className="mt-4">
               <CardContent>
-                <RegisterForm slug={slug} questions={event.registration_form} termsHtml={eventTermsHtml(event)} waitlist={joining} />
+                <RegisterForm slug={slug} questions={event.registration_form} termsHtml={eventTermsHtml(event)} waitlist={joining} source={source} />
               </CardContent>
             </Card>
           </>
