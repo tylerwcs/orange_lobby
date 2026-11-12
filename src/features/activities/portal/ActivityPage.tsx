@@ -114,7 +114,7 @@ export async function ActivityPage({ params, searchParams }: {
         <LinkPending />
       </Link>
       {/* D891: the card's picture grows into this one. */}
-      <CoverMorph activityId={activity.id}><ActivityCover activity={activity} variant="hero" dims={coverDims[activity.image_url ?? ""]} /></CoverMorph>
+      <CoverMorph activityId={activity.id} side="page"><ActivityCover activity={activity} variant="hero" dims={coverDims[activity.image_url ?? ""]} /></CoverMorph>
       <h1 className={`py-4 text-xl font-extrabold leading-tight ${TITLE_INK}`}>{activity.name}</h1>
       {body(found)}
       <FreshOnArrival renderedAt={renderedAt} />

@@ -84,7 +84,7 @@ export function ActivityCard({ activity, view, href, emphasis = false, className
   const shape = `flex flex-col overflow-hidden rounded-2xl bg-card ${emphasis ? "ring-2 ring-primary" : "ring-1 ring-foreground/10"} ${className}`;
   const body = (
     <>
-      <CoverMorph activityId={activity.id} copy={copy}><ActivityCover activity={activity} variant="card" /></CoverMorph>
+      <CoverMorph activityId={activity.id} copy={copy} side="card"><ActivityCover activity={activity} variant="card" /></CoverMorph>
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <KindTag kind={activity.kind} lang={lang} />

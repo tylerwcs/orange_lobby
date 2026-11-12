@@ -52,13 +52,13 @@ export function MetaLine({ meta }: { meta: NonNullable<CardView["meta"]> }) {
 const HERO_BLEED = "-mx-4 md:mx-0 md:rounded-2xl";
 
 /*
- * How wide each is drawn, for the srcset (D894). A card is the screen's width on a phone and at
- * most ~560px in a desktop column; the page's cover is the screen's width, then the 896px
- * column. On a phone both say 100vw, so the cover the card grows into (D891) is the very copy
- * the card already downloaded.
+ * How wide each is drawn, for the srcset (D894): the screen's width on a phone, then at most the
+ * 896px column. D900: the card says the page's size even though a desktop card is narrower, so
+ * on every screen the cover the card grows into (D891) is the very copy the card already holds -
+ * a morph never starts while the page's cover is still on its way.
  */
-const CARD_SIZES = "(min-width: 768px) 560px, 100vw";
-const HERO_SIZES = "(min-width: 768px) 896px, 100vw";
+const CARD_SIZES = "(min-width: 768px) 896px, 100vw";
+const HERO_SIZES = CARD_SIZES;
 
 /**
  * The activity's picture: the organiser's image, or - when there is none - a panel in the
