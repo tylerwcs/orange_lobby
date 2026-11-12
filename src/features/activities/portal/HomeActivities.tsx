@@ -27,7 +27,7 @@ export function HomeActivities({ cards, basePath, desktop = false, lang = "en" }
 }) {
   if (cards.length === 0) return null;
   const d = t(lang);
-  const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} lang={lang} className="w-full" copy={desktop ? "desktop" : "phone"} prefetch />);
+  const shown = cards.slice(0, HOME_CARDS).map((c) => <ActivityCard key={c.activity.id} {...cardProps(c)} lang={lang} className="w-full" prefetch />);
   const headingId = desktop ? "home-activities-desktop" : "home-activities";
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">

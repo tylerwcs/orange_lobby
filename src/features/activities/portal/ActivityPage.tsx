@@ -8,7 +8,6 @@ import { qrDataUrl } from "@/lib/qr";
 import { loadActivityEntries } from "../lib/portal-activity-entries";
 import { findEntry, type FoundEntry } from "../cards";
 import { ActivityCover } from "./ActivityParts";
-import { CoverMorph } from "./CoverMorph";
 import { FreshOnArrival } from "./FreshOnArrival";
 import { loadImageDims } from "@/lib/db/image-dims";
 import { GOING_BACK } from "@/components/portal/PageTransition";
@@ -113,8 +112,7 @@ export async function ActivityPage({ params, searchParams }: {
         <ArrowLeft aria-hidden className="size-4" />{t(lang).activities.back}
         <LinkPending />
       </Link>
-      {/* D891: the card's picture grows into this one. */}
-      <CoverMorph activityId={activity.id} side="page"><ActivityCover activity={activity} variant="hero" dims={coverDims[activity.image_url ?? ""]} /></CoverMorph>
+      <ActivityCover activity={activity} variant="hero" dims={coverDims[activity.image_url ?? ""]} />
       <h1 className={`py-4 text-xl font-extrabold leading-tight ${TITLE_INK}`}>{activity.name}</h1>
       {body(found)}
       <FreshOnArrival renderedAt={renderedAt} />

@@ -4,8 +4,6 @@ import type { CardView } from "../lib/activity-card";
 import type { ActivityEntries } from "../lib/portal-activity-entries";
 import type { Activity } from "@/lib/types";
 import { ActivityCover, KindTag, MetaLine, StatusChip } from "./ActivityParts";
-import { CoverMorph } from "./CoverMorph";
-import { TO_ACTIVITY } from "@/components/portal/PageTransition";
 import { LinkPending } from "@/components/portal/LinkPending";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
@@ -64,11 +62,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  * A Coming soon card (D604) has no link and no pill: a plain block with the same outline, and
  * no press effect, because there is nothing to open yet.
  *
- * Its picture grows into the activity page's cover when it is opened (D891). `prefetch` loads
- * that page as soon as the card is on screen, so the picture grows the moment it is tapped
- * rather than after a wait - the home page's few cards only (D893).
+ * `prefetch` loads its page as soon as the card is on screen, so the page fades in the moment it
+ * is tapped rather than after a wait - the home page's few cards only (D893). D901: it opens with
+ * the same fade as every other page; the picture no longer grows from the card.
  */
-export function ActivityCard({ activity, view, href, emphasis = false, className = "", lang = "en", copy = "any", prefetch = false }: {
+export function ActivityCard({ activity, view, href, emphasis = false, className = "", lang = "en", prefetch = false }: {
   activity: Activity;
   lang?: Lang;
   view: CardView;
@@ -77,14 +75,12 @@ export function ActivityCard({ activity, view, href, emphasis = false, className
   /** Required and not yet chosen: ringed in the brand colour so it is the card the eye lands on. */
   emphasis?: boolean;
   className?: string;
-  /** Which of the home page's two copies this is; see `CoverMorph`. */
-  copy?: "phone" | "desktop" | "any";
   prefetch?: boolean;
 }) {
   const shape = `flex flex-col overflow-hidden rounded-2xl bg-card ${emphasis ? "ring-2 ring-primary" : "ring-1 ring-foreground/10"} ${className}`;
   const body = (
     <>
-      <CoverMorph activityId={activity.id} copy={copy} side="card"><ActivityCover activity={activity} variant="card" /></CoverMorph>
+      <ActivityCover activity={activity} variant="card" />
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <KindTag kind={activity.kind} lang={lang} />
@@ -109,7 +105,6 @@ export function ActivityCard({ activity, view, href, emphasis = false, className
     <Link
       href={href}
       prefetch={prefetch || undefined}
-      transitionTypes={TO_ACTIVITY}
       className={`portal-press group outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${shape}`}
     >
       {body}

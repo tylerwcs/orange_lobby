@@ -275,26 +275,14 @@ input, textarea { touch-action: manipulation; }
 
 /* Page transitions (D891, src/components/portal/PageTransition.tsx). The old page leaves fast so
    it does not compete; the new one arrives a beat later and gentler. Going back sinks instead of
-   rising. Opening an activity: its card's picture grows into the page's cover (.pt-morph-to-page, back: .pt-morph-to-card) while
-   the rest of the page arrives under it. The header is the root snapshot, which barely changes. */
+   rising. An activity opens the same way (D901). The header is the root snapshot, which barely
+   changes. */
 :root { --pt-ease: cubic-bezier(.2, .8, .2, 1); }
 ::view-transition { pointer-events: none; } /* a tap during the animation reaches the page */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 180ms; }
 ::view-transition-old(.pt-out) { animation: 120ms ease-out both pt-out; }
 ::view-transition-new(.pt-in) { animation: 240ms var(--pt-ease) 90ms both pt-rise; }
-::view-transition-new(.pt-in-late) { animation: 260ms var(--pt-ease) 110ms both pt-rise; }
 ::view-transition-new(.pt-back) { animation: 240ms var(--pt-ease) 90ms both pt-sink; }
-/* z-index: the arriving page's snapshot is stacked after the shared picture, so without this the
-   poster shrinking back into its card is drawn under the list it is landing on (D900). */
-::view-transition-group(.pt-morph-to-page), ::view-transition-group(.pt-morph-to-card) { animation-duration: 400ms; animation-timing-function: var(--pt-ease); z-index: 10; }
-/* D900: the card is a 2:1 crop of a poster the page shows whole. Only the whole poster is drawn,
-   cropped to the moving box the way the card crops it, so it starts as exactly the card and the
-   rest of the poster opens out as the box grows (and closes back in on the way back). No
-   cross-fade: two differently cropped pictures fading over each other is what looked squashed. */
-::view-transition-old(.pt-morph-to-page), ::view-transition-new(.pt-morph-to-page),
-::view-transition-old(.pt-morph-to-card), ::view-transition-new(.pt-morph-to-card) { height: 100%; object-fit: cover; animation: none; }
-::view-transition-old(.pt-morph-to-page) { opacity: 0; } /* to the page: the card's crop is hidden */
-::view-transition-new(.pt-morph-to-card) { opacity: 0; } /* back to the card: the card's crop is hidden */
 @keyframes pt-out { to { opacity: 0; } }
 @keyframes pt-rise { from { opacity: 0; transform: translateY(14px); } }
 @keyframes pt-sink { from { opacity: 0; transform: translateY(-10px); } }

@@ -54,8 +54,8 @@ const HERO_BLEED = "-mx-4 md:mx-0 md:rounded-2xl";
 /*
  * How wide each is drawn, for the srcset (D894): the screen's width on a phone, then at most the
  * 896px column. D900: the card says the page's size even though a desktop card is narrower, so
- * on every screen the cover the card grows into (D891) is the very copy the card already holds -
- * a morph never starts while the page's cover is still on its way.
+ * on every screen the page's cover is the very copy the card already holds - opening an activity
+ * shows its cover at once instead of fetching a second copy.
  */
 const CARD_SIZES = "(min-width: 768px) 896px, 100vw";
 const HERO_SIZES = CARD_SIZES;
