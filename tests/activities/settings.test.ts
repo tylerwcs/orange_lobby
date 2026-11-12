@@ -16,7 +16,14 @@ describe("readSettings (D420)", () => {
   describe("booking", () => {
     it("reads the shared policy fields", () => {
       const r = readSettings("booking", form({ name: " Workshops ", description: "", max_per_attendee: "2", categories: ["VIP", "Staff"], required: "on" }));
-      expect(r).toEqual({ ok: true, settings: { name: "Workshops", description: null, required: true, max_per_attendee: 2, categories: ["VIP", "Staff"], attendee_edit: false } });
+      expect(r).toEqual({ ok: true, settings: { name: "Workshops", description: null, required: true, max_per_attendee: 2, categories: ["VIP", "Staff"], attendee_edit: false, booking_form_id: null } });
+    });
+
+    it("reads the form asked before booking, empty as none (D898)", () => {
+      const r = readSettings("booking", form({ name: "W", booking_form_id: "f1" }));
+      expect(r.ok && r.settings.booking_form_id).toBe("f1");
+      const none = readSettings("booking", form({ name: "W", booking_form_id: "" }));
+      expect(none.ok && none.settings.booking_form_id).toBeNull();
     });
 
     it("reads whether attendees change their own booking without asking (D837)", () => {

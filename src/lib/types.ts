@@ -459,6 +459,8 @@ export type Activity = {
   super_teams?: boolean | null;
   /** Booking kind only (D836): minutes before each session its bookers get a WhatsApp reminder; null is off. */
   whatsapp_reminder_minutes?: number | null;
+  /** Booking kind only (D898): a form answered before the seat is booked, saved with it. Null is none. Optional so fixtures need not name it. */
+  booking_form_id?: string | null;
   sort_order: number;
 };
 

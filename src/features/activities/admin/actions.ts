@@ -113,6 +113,12 @@ export async function saveActivityAction(eventId: string, activityId: string, fd
   if (!read.ok) redirect(flashPath(back, read.error, "error"));
   const policy = read.settings;
   const current = await bookingOf(ev, activityId);
+  // D898: the form asked before booking must be a form in this event. Unchanged, a form that
+  // has since stopped being one is let stand rather than blocking every other edit here.
+  if (policy.booking_form_id && policy.booking_form_id !== current.booking_form_id) {
+    const form = await getActivity(policy.booking_form_id, ev.id);
+    if (!form || form.kind !== "submission") redirect(flashPath(back, "That form is not in this event.", "error"));
+  }
   let image: ImageChange = { url: current.image_url, stale: null };
   try {
     image = await nextImage(fd, "image", current.image_url, { orgId: ev.org_id, eventId: ev.id, kind: "activity" });

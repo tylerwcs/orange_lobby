@@ -3,7 +3,11 @@ import type { NewActivity } from "../../db/activities";
 import { categoryValues, type FormReader } from "../form";
 
 /** D837: `attendee_edit` on a booking is "change or cancel without asking", up to the session's start. */
-export type BookingSettings = ActivityPolicy & { attendee_edit: boolean };
+export type BookingSettings = ActivityPolicy & {
+  attendee_edit: boolean;
+  /** D898: the form asked before booking, or null. The save action checks it is a form in this event. */
+  booking_form_id: string | null;
+};
 
 /**
  * A booking's Setup form and its add form (D420). No `is_open`: see `readActivityPolicy` -
@@ -19,6 +23,7 @@ export function readBookingSettings(form: FormReader): BookingSettings {
       categories: categoryValues(form),
     }),
     attendee_edit: form.checked("attendee_edit"),
+    booking_form_id: form.text("booking_form_id") || null,
   };
 }
 

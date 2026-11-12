@@ -13,7 +13,7 @@ import { UnbookedPanel } from "./UnbookedPanel";
 import { RequestQueue } from "./RequestQueue";
 import { OpenSwitch } from "@/components/admin/OpenSwitch";
 import { ScheduleOpen } from "../../admin/ScheduleOpen";
-import { listSessions, listBookings, countBookingsBySession } from "../../db/activities";
+import { listSessions, listBookings, countBookingsBySession, listActivities } from "../../db/activities";
 import { listRequests } from "../../db/activity-requests";
 import { listAttendees, listCategories } from "@/lib/db/attendees";
 import { listCheckpoints } from "@/lib/db/checkpoints";
@@ -38,8 +38,9 @@ const input = "h-9 w-full rounded-md border border-input bg-transparent px-3 tex
 const check = "flex items-center gap-2 text-sm font-bold";
 
 export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity: Activity; tab?: string }) {
-  const [allSessions, bookings, counts, attendees, allRequests, categories] = await Promise.all([
+  const [allSessions, bookings, counts, attendees, allRequests, categories, forms] = await Promise.all([
     listSessions(ev.id), listBookings(ev.id), countBookingsBySession(ev.id), listAttendees(ev.id), listRequests(ev.id), listCategories(ev.id),
+    listActivities(ev.id, "submission"),
   ]);
   const sessions = allSessions.filter((s) => s.activity_id === activity.id);
   // D836: the reminder is a WhatsApp message, so it is offered only where WhatsApp is turned on.
@@ -164,6 +165,19 @@ export async function BookingDetail({ ev, activity, tab }: { ev: Event; activity
                     Moves and cancels happen straight away, up to the session&apos;s start time, while booking is open. Off, they ask and the committee approves.
                   </p>
                 </div>
+                {/* D898: a form answered before the seat is booked, saved with it. */}
+                {forms.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="booking_form_id" className="text-sm font-bold">Ask this form before booking (optional)</label>
+                    <select id="booking_form_id" name="booking_form_id" defaultValue={activity.booking_form_id ?? ""} className={`${input} max-w-md`}>
+                      <option value="">No form</option>
+                      {forms.map((f) => <option key={f.id} value={f.id}>{f.name}{f.is_open ? "" : " (closed)"}</option>)}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      After picking a time, attendees answer this form, and the seat is only booked once they send it. Anyone who has already answered it books straight away. The form can stay closed, so it isn&apos;t on the portal by itself.
+                    </p>
+                  </div>
+                )}
                 {/* D805: the next step after registering is chosen in Settings now; this only says where. */}
                 <p className="text-xs text-muted-foreground">
                   {ev.after_register_activity_id === activity.id ? "This is the next step after registering. " : "To offer this right after registering, choose it as the next step in "}

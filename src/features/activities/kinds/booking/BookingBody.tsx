@@ -6,7 +6,7 @@ import { ActivityBooking } from "./ActivityBooking";
 import { ActivityActionDialog } from "../../portal/ActivityActionDialog";
 import { sessionGrid } from "../../lib/session-grid";
 import { allCheckedIn } from "../../lib/booking-door";
-import { bookAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, moveAction, cancelAction } from "../../portal/actions";
+import { bookAction, bookWithAnswersAction, requestSwitchAction, requestCancelAction, withdrawRequestAction, moveAction, cancelAction } from "../../portal/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { AddToCalendar } from "@/components/portal/AddToCalendar";
 import { RichSections } from "@/components/portal/RichSections";
@@ -14,7 +14,7 @@ import { block, note, forGroups, InfoRows } from "../../portal/detail-parts";
 import { t } from "@/features/language/client";
 import type { Lang } from "@/features/language/client";
 
-export function BookingBody({ entry: { state, controls, pendingId, arrivals }, slug, token, lang = "en" }: { entry: ActivityEntry; slug: string; token: string; lang?: Lang }) {
+export function BookingBody({ entry: { state, controls, pendingId, arrivals, askFirst }, slug, token, lang = "en" }: { entry: ActivityEntry; slug: string; token: string; lang?: Lang }) {
   const { activity } = state;
   const d = t(lang).booking;
   const grid = sessionGrid(state.sessions);
@@ -49,8 +49,8 @@ export function BookingBody({ entry: { state, controls, pendingId, arrivals }, s
       description={holding ? (controls.direct ? d.pickAnotherNow : d.pickAnother) : state.mustPick ? d.chooseOne : d.pickTime}
     >
       <ActivitySessions
-        entry={{ state, controls }}
-        actions={{ book: bookAction.bind(null, slug, token), requestSwitch: move }}
+        entry={{ state, controls, askFirst }}
+        actions={{ book: bookAction.bind(null, slug, token), requestSwitch: move, bookWithAnswers: bookWithAnswersAction.bind(null, slug, token) }}
       />
     </ActivityActionDialog>
   );

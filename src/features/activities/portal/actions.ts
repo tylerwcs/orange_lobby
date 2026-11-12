@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { loadPortalAttendee, isDraftPreview } from "@/lib/portal";
 import {
-  bookSession, switchSession, cancelBooking, getActivity, listSessions, bookingsForAttendee,
+  bookSession, bookWithAnswers, switchSession, cancelBooking, getActivity, listSessions, bookingsForAttendee,
   submitAnswers, submitAnswersPair, pairPartnerIds, getSubmission, updateOwnSubmissionAnswers, deleteOwnSubmission, entriesForAttendee, type SubmitCode,
 } from "../db/activities";
 import { listPassportBooths, stampsForAttendee, markStampsSeen } from "../db/booths";
@@ -21,6 +21,7 @@ import { flashPath } from "@/lib/flash";
 import { memberTrackRefusal } from "@/features/tracks/client";
 import { sessionLabel } from "../lib/activities";
 import { sessionArrivals } from "../lib/booking-door";
+import { bookingFormFor } from "../lib/booking-form";
 import { sessionStarted } from "../lib/activity-requests";
 import { allow } from "@/lib/ratelimit";
 import { hasHealthConsent, recordHealthConsent } from "@/lib/db/health-consents";
@@ -87,6 +88,11 @@ export async function bookAction(slug: string, token: string, sessionId: string)
     ));
   }
 
+  // D898: a booking that asks a form first books only with the answers (bookWithAnswersAction).
+  // The page sends them there; this stops a stale page or a direct POST taking the seat alone.
+  const booking = await getActivity(session.activity_id, event.id);
+  if (booking && await bookingFormFor(booking, attendee)) redirect(flashPath(path, d.booking.answerFirst, "error"));
+
   const result = await bookSession(session.id, attendee.id);
   // The Activities dot lives in the portal layout's header and on the home's launcher, which a
   // redirect back to this page does not re-render. A booking is the one thing an attendee does that can settle a required
@@ -97,6 +103,60 @@ export async function bookAction(slug: string, token: string, sessionId: string)
     : flashPath(path, d.booking.refused[result], "error"));
 }
 
+
+/**
+ * D898: step 2 of a booking that asks a form first - the seat and the answers, saved together or
+ * not at all. No seat is held while the form is open, so a time that filled meanwhile is refused
+ * here like any other. A refusal is returned rather than redirected, so the answers stay on screen:
+ * `back` sends the dialog to the times (the seat was the problem), otherwise it stays on the form.
+ * Success redirects like `bookAction`.
+ */
+export async function bookWithAnswersAction(slug: string, token: string, sessionId: string, fd: FormData): Promise<{ error: string; back: boolean }> {
+  const { event, attendee } = await loadPortalAttendee(slug, token);
+  const lang = await portalLang(event);
+  const d = t(lang);
+  if (event.status === "archived") return { error: d.booking.archived, back: true };
+  // The same budget as bookAction: both spend seats.
+  if (!allow(`book:${token}`, 20, 60_000)) return { error: d.common.tooManyAttempts, back: false };
+
+  const sessions = await listSessions(event.id);
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) return { error: d.booking.refused.missing, back: true };
+  if (sessionStarted(session, nowInKL())) return { error: d.booking.refused.started, back: true };
+  const path = activityPathFor(slug, token, session.activity_id);
+
+  const requests = await requestsForAttendee(attendee.id);
+  if (requests.some((r) => r.activity_id === session.activity_id && r.status === "pending")) return { error: d.booking.pendingBlocks, back: true };
+
+  const booking = await getActivity(session.activity_id, event.id);
+  if (!booking) return { error: d.booking.refused.missing, back: true };
+  const asked = await bookingFormFor(booking, attendee);
+  // Nothing owed any more - answered in another tab, or the booking stopped asking: a plain booking.
+  if (!asked) {
+    const result = await bookSession(session.id, attendee.id);
+    if (result !== "ok") return { error: d.booking.refused[result], back: true };
+    revalidatePath(`/e/${slug}/a/${token}`, "layout");
+    redirect(flashPath(path, d.booking.booked(sessionLabel(session, { lang }))));
+  }
+
+  // D412: consent from the person it is about, before any of their health answers are stored.
+  if (asked.ask.needsConsent && !healthConsentTicked(fd)) return { error: d.submission.healthConsent, back: false };
+
+  const form = await readAnswers(asked.form, fd, {}, lang);
+  if (!form.ok) return { error: form.error, back: false };
+  if (asked.ask.needsConsent) await recordHealthConsent(attendee, asked.form.id);
+
+  const result = await saveOrDiscard(form.uploaded, () =>
+    bookWithAnswers(session.id, attendee.id, asked.form.id, form.answers, nowInKL().date, form.hashes));
+  if (result.code !== "ok") await discardUploads(form.uploaded);
+  if (result.code === "ok") {
+    // As bookAction: the layout's Activities dot may have been settled by this seat.
+    revalidatePath(`/e/${slug}/a/${token}`, "layout");
+    redirect(flashPath(path, d.booking.booked(sessionLabel(session, { lang }))));
+  }
+  if (result.step === "booking") return { error: `${d.booking.refused[result.code]} ${d.booking.answersKept}`, back: true };
+  return { error: submitMessages(d)[result.code], back: false };
+}
 
 export async function requestSwitchAction(slug: string, token: string, fromSessionId: string, fd: FormData) {
   const { event, attendee } = await loadPortalAttendee(slug, token);

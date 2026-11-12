@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { startTransition, useActionState, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { useRouter } from "next/navigation";
 import { sessionLabel, type SeatsForViewer } from "../../lib/activities";
 import { MapLink } from "../../portal/MapLink";
 import type { ActivityEntry } from "../../lib/portal-activity-entries";
@@ -9,6 +11,11 @@ import { sessionGrid, startDay } from "../../lib/session-grid";
 import { shortDate } from "@/lib/text";
 import { t, useLang } from "@/features/language/client";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { HealthConsentField } from "../submission/HealthConsentField";
+import { SubmissionFields } from "../submission/SubmissionFields";
+import type { BookingAsk } from "../../lib/booking-form";
 
 
 export type BookingActions = {
@@ -18,6 +25,8 @@ export type BookingActions = {
   /** As `requestSwitch`: a request, or the cancel itself when `controls.direct`. */
   requestCancel: (fromSessionId: string) => Promise<void>;
   withdraw: (requestId: string) => Promise<void>;
+  /** D898: step 2 of a booking that asks a form first; a refusal comes back, success redirects. */
+  bookWithAnswers?: (sessionId: string, fd: FormData) => Promise<{ error: string; back: boolean } | undefined>;
 };
 
 /** Seats left before a slot is flagged: few enough that it is worth knowing before you tap. */
@@ -39,15 +48,30 @@ const FEW = 3;
  *
  * Was the body of `ActivityList`, one row per session with its own Book button.
  */
-export function ActivitySessions({ entry: { state, controls }, actions: { book, requestSwitch } }: {
-  entry: Pick<ActivityEntry, "state" | "controls">;
-  actions: Pick<BookingActions, "book" | "requestSwitch">;
+export function ActivitySessions({ entry: { state, controls, askFirst }, actions: { book, requestSwitch, bookWithAnswers } }: {
+  entry: Pick<ActivityEntry, "state" | "controls" | "askFirst">;
+  actions: Pick<BookingActions, "book" | "requestSwitch" | "bookWithAnswers">;
 }) {
   const grid = useMemo(() => sessionGrid(state.sessions, controls.started), [state.sessions, controls.started]);
   const lang = useLang();
   const d = t(lang).booking;
   const [day, setDay] = useState(() => startDay(grid.days));
   const [picked, setPicked] = useState<string | null>(null);
+  // D898: 2 is the booking's form, for the time picked. The form stays mounted on 1, so going
+  // back for another time keeps what was typed.
+  const [step, setStep] = useState<1 | 2>(1);
+  const [notice, setNotice] = useState<string | null>(null);
+  const top = useRef<HTMLDivElement>(null);
+  const times = useRef<HTMLDivElement>(null);
+  const formTop = useRef<HTMLElement>(null);
+  const ask = askFirst && bookWithAnswers ? askFirst : null;
+  // The button pressed is hidden by the switch, and the dialog closes when focus falls out of it,
+  // so focus moves to the step now shown, in the same tick, before the browser lets it drop.
+  const goTo = (to: 1 | 2) => {
+    flushSync(() => setStep(to));
+    (to === 2 ? formTop.current : times.current)?.focus({ preventScroll: true });
+    top.current?.scrollIntoView({ block: "start" });
+  };
 
   const bookable = new Set(controls.bookable.map((s) => s.session.id));
   const switchable = new Set(controls.switchTargets.map((s) => s.session.id));
@@ -59,8 +83,12 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
   const selected = state.sessions.find((s) => s.session.id === picked && canPick(s)) ?? null;
   const current = grid.days.find((d) => d.day === day) ?? grid.days[0];
 
+  const isBook = selected ? bookable.has(selected.session.id) : false;
+
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={top} className="flex scroll-mt-4 flex-col gap-3">
+    <div ref={times} tabIndex={-1} className={step === 2 ? "hidden" : "flex flex-col gap-3 outline-none"}>
+      {notice && <p role="alert" className="rounded-[10px] bg-warning-soft px-3 py-2 text-sm font-semibold text-warning">{notice}</p>}
       {grid.days.length === 0 && <p className="text-sm text-muted-foreground">{d.noSessions}</p>}
 
       {grid.days.length > 0 && (
@@ -128,8 +156,87 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
         </section>
       ))}
 
-      {selected && <ActionBar seat={selected} showRoom={grid.location === null} showMap={grid.location_url === null} controls={controls} book={book} requestSwitch={requestSwitch} />}
+      {selected && (
+        <ActionBar
+          seat={selected} showRoom={grid.location === null} showMap={grid.location_url === null} controls={controls} book={book} requestSwitch={requestSwitch}
+          onNext={ask ? () => { setNotice(null); goTo(2); } : undefined}
+        />
+      )}
     </div>
+      {ask && bookWithAnswers && (
+        <BookingForm
+          ask={ask}
+          seat={step === 2 && selected && isBook ? selected : null}
+          send={bookWithAnswers}
+          headerRef={formTop}
+          onBack={(why) => { setNotice(why); goTo(1); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * D898: step 2 - the booking's form for the time picked, and the button that books both. Hidden,
+ * not unmounted, on step 1 (`seat` null), so the answers outlive a trip back for another time.
+ * Sent from onSubmit, not as the form's action: an action resets the form when it settles, and a
+ * refused booking must keep what was typed.
+ */
+function BookingForm({ ask, seat, send, headerRef, onBack }: {
+  ask: BookingAsk;
+  /** Focused when this step is shown (see `goTo`). */
+  headerRef: React.RefObject<HTMLElement | null>;
+  seat: SeatsForViewer | null;
+  send: NonNullable<BookingActions["bookWithAnswers"]>;
+  /** Back to the times, with the reason when the seat was refused (null when they chose to). */
+  onBack: (why: string | null) => void;
+}) {
+  const lang = useLang();
+  const d = t(lang).booking;
+  const router = useRouter();
+  const session = seat?.session;
+  // The time travels in the posted form, so the answer is always for the time on screen.
+  const [error, dispatch, pending] = useActionState(async (_prev: string | null, fd: FormData): Promise<string | null> => {
+    const r = await send(String(fd.get(":session")), fd);
+    // Success redirects to the page, which remounts this dialog closed.
+    if (!r) return null;
+    if (!r.back) return r.error;
+    // The seat counts on screen are stale: fetch fresh ones for the times.
+    router.refresh();
+    onBack(r.error);
+    return null;
+  }, null);
+  const when = session ? `${shortDate(session.day, lang)} · ${session.starts_at}${session.ends_at ? `–${session.ends_at}` : ""}` : "";
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!session) return;
+    const fd = new FormData(e.currentTarget);
+    fd.set(":session", session.id);
+    startTransition(() => dispatch(fd));
+  };
+
+  return (
+    <form onSubmit={submit} className={session ? "flex flex-col gap-4" : "hidden"}>
+      <header ref={headerRef} tabIndex={-1} className="flex flex-col gap-1 outline-none">
+        <p className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{d.stepTwo}</p>
+        <p className="text-base font-extrabold">{when}</p>
+        <p className="text-sm text-muted-foreground">{d.formIntro}</p>
+      </header>
+      {ask.descriptionHtml && <div className="rich-text prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: ask.descriptionHtml }} />}
+      {ask.needsConsent && <HealthConsentField id={`booking-consent-${ask.id}`} />}
+      <SubmissionFields questions={ask.questions} />
+      <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-1 flex flex-col gap-2 border-t border-border bg-popover px-4 py-3">
+        {error && <p role="alert" className="text-sm font-semibold text-destructive">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" disabled={pending} onClick={() => onBack(null)} className="h-11 px-4 font-bold">{d.back}</Button>
+          <Button type="submit" disabled={pending} className="h-11 flex-1 font-bold">
+            {pending && <Spinner data-icon="inline-start" />}
+            {d.sendAndBook}
+          </Button>
+        </div>
+      </div>
+    </form>
   );
 }
 
@@ -138,8 +245,10 @@ export function ActivitySessions({ entry: { state, controls }, actions: { book, 
  * otherwise, holding one already, a request to move it there. Both keep the confirmation the
  * row buttons had.
  */
-function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch }: {
+function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch, onNext }: {
   seat: SeatsForViewer;
+  /** D898: the booking asks a form first, so booking is Next to it rather than Book. */
+  onNext?: () => void;
   showRoom: boolean;
   /** The sessions' map links differ, so the page's own row has none and this one's goes here (D798). */
   showMap: boolean;
@@ -169,7 +278,9 @@ function ActionBar({ seat, showRoom, showMap, controls, book, requestSwitch }: {
         <div className="truncate text-xs text-muted-foreground">{detail}</div>
       </div>
       {showMap && <MapLink href={session.location_url} place={session.location} lang={lang} />}
-      {isBook ? (
+      {isBook && onNext ? (
+        <Button type="button" onClick={onNext} className="font-bold">{d.next}</Button>
+      ) : isBook ? (
         <form action={book.bind(null, session.id)}>
           <ConfirmButton
             tone="default"

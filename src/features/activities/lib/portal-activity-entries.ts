@@ -8,6 +8,7 @@ import { bookingArrivalsFor } from "@/lib/db/checkins";
 import { groupMembers, listGroups } from "@/lib/db/groups";
 import { listAttendeesByIds } from "@/lib/db/attendees";
 import { activityState, eligible, type ActivityState } from "./activities";
+import { bookingFormFor, type BookingAsk } from "./booking-form";
 import { activityControls, pendingFor, lastDeclinedFor, type ActivityControls } from "./activity-requests";
 import { sessionArrivals } from "./booking-door";
 import { canSubmit, isGroupForm, type SubmitState } from "./submissions";
@@ -21,7 +22,11 @@ import { nowInKL } from "@/lib/time";
 import type { Activity, ActivityKind, ActivitySubmission, Attendee, Event } from "@/lib/types";
 import { portalLang } from "@/features/language";
 
-export type ActivityEntry = { state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string> };
+export type ActivityEntry = {
+  state: ActivityState; controls: ActivityControls; pendingId: string | null; arrivals: Record<string, string>;
+  /** D898: the form to answer before a seat is booked, while this person still owes it. Optional so old fixtures compile. */
+  askFirst?: BookingAsk | null;
+};
 /** D500: `revoked` is for display only - every count reads `mine` and `group`, which hold live rows (D501). */
 export type SubmissionEntry = {
   form: Activity; state: SubmitState; mine: ActivitySubmission[]; group: GroupProgress | null; revoked: ActivitySubmission[];
@@ -106,6 +111,11 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     : [];
 
   const mineBySession = new Set(mine.map((b) => b.session_id));
+  // D898: only bookings that ask a form read it; the rest cost nothing.
+  const asks = new Map(await Promise.all(
+    activities.filter((a) => a.kind === "booking" && a.booking_form_id)
+      .map(async (a) => [a.id, (await bookingFormFor(a, attendee, submissions))?.ask ?? null] as const),
+  ));
   const bookings = activities.filter((a) => a.kind === "booking").map((activity) => {
     const state = activityState({
       activity,
@@ -118,7 +128,7 @@ export async function loadActivityEntries(event: Pick<Event, "id" | "check_in_en
     const controls = activityControls(state, pending, lastDeclinedFor(requests, activity.id), lang);
     // `PendingSummary` deliberately carries no id (it is for rendering, not addressing), so
     // the raw pending request's id travels alongside `controls` for `withdraw` to bind to.
-    return { state, controls, pendingId: pending?.id ?? null, arrivals: sessionArrivals(controls.held.map((h) => h.session), found) };
+    return { state, controls, pendingId: pending?.id ?? null, arrivals: sessionArrivals(controls.held.map((h) => h.session), found), askFirst: asks.get(activity.id) ?? null };
   });
 
   const today = nowInKL().date;

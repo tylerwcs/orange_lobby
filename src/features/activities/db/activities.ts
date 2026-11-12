@@ -56,6 +56,8 @@ export type NewActivity = {
   squad_fill?: "captains" | "self" | null;
   /** Booking kind only (D836). Left out, the column stands; `saveReminderAction` alone writes it. */
   whatsapp_reminder_minutes?: number | null;
+  /** Booking kind only (D898). Left out, the column stands. */
+  booking_form_id?: string | null;
 };
 
 export type NewSession = {
@@ -346,6 +348,24 @@ export async function bookSession(sessionId: string, attendeeId: string, ignoreO
   });
   if (error) throw error;
   return data as BookResult;
+}
+
+/** D898: which half of `book_with_answers` refused. */
+export type BookWithAnswersResult = { code: "ok"; step: "booking" } | { code: Exclude<BookResult, "ok">; step: "booking" } | { code: Exclude<SubmitCode, "ok">; step: "form" };
+
+/**
+ * D898: a seat and the booking's form, in one transaction - both saved, or neither. The form is
+ * the one the booking names; the database refuses any other with `booking`/`missing`.
+ */
+export async function bookWithAnswers(
+  sessionId: string, attendeeId: string, formId: string, answers: Record<string, string>, today: string, fileHashes: Record<string, string>,
+): Promise<BookWithAnswersResult> {
+  const { data, error } = await serviceClient().rpc("book_with_answers", {
+    p_session_id: sessionId, p_attendee_id: attendeeId, p_form_id: formId, p_answers: answers, p_today: today, p_file_hashes: fileHashes,
+  });
+  if (error) throw error;
+  const row = (data as BookWithAnswersResult[] | null)?.[0];
+  return row ?? { code: "missing", step: "booking" };
 }
 
 /**
