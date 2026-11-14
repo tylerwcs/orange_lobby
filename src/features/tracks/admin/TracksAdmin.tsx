@@ -5,9 +5,9 @@ import type { Attendee } from "@/lib/types";
 import type { TrackPair, TrackRow } from "../types";
 
 const select = "h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-/** D724: amber under the target, green at it, red over. */
-const pill = (n: number, target: number) =>
-  n > target ? "bg-destructive/10 text-destructive" : n === target ? "bg-success-soft text-success-strong" : "bg-warning-soft text-warning";
+/** D724: amber under the target, green at it, red over. D905: with no target, a plain count. */
+const pill = (n: number, target: number | null) =>
+  target === null ? "bg-muted text-muted-foreground" : n > target ? "bg-destructive/10 text-destructive" : n === target ? "bg-success-soft text-success-strong" : "bg-warning-soft text-warning";
 
 /**
  * D723: the committee's view of every team's tracks - the counts against the target, then each
@@ -24,7 +24,7 @@ export function TracksAdmin({ eventId, activityId, pair, labels, groups, members
   return (
     <section className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Track A is {labels.a}, Track B is {labels.b}. Aim for {pair.target} on each; going over is allowed. Moving someone, or taking them off a track, removes what they logged on their old track today. Captains change these from My team on their own page.
+        Track A is {labels.a}, Track B is {labels.b}. {pair.target !== null ? `Up to ${pair.target} people per team log on each track a day. ` : ""}Everyone picks their own track on their page, and captains can move their team from My team. Moving someone, or taking them off a track, removes what they logged on their old track today.{pair.skip_days > 0 ? ` Each person may take ${pair.skip_days} days off a week; a day off counts as logged for the weekly bonus.` : ""}
       </p>
       {teams.map(({ g, people }) => {
         const split = splitTracks(pair, rows, people);

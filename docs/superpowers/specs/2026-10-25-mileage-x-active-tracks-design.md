@@ -213,6 +213,42 @@ user says yes in chat.
 - **Unchanged:** `submit_answers` still checks the other activity's proxy fields, the person's
   track and the 5-a-day places; a track whose activity is closed lists nobody.
 
+### D904 — Members pick their own track (the user, 14 Nov; replaces D723's "captains place people")
+
+- The committee wants it flexible: each member chooses Track A or Track B, rather than a fixed 5 a
+  track. `set_challenge_track` (0138) lets a portal attendee place **themselves**, captain or not;
+  placing someone else still needs a captain in the same team, and the committee can still place
+  anyone from admin.
+- **On the page:** with no track, a "Pick your track" card offers both tracks (this page's track
+  filled). On a track, a quiet "Switch to Track A/B" link moves them. A switch lands on the picked
+  track's page. Switching still removes what they logged today on the track they leave (D726), so
+  the link asks first when they have.
+- Captains keep their A | B switches on My team. "No track yet" rows read "Hasn't picked yet".
+
+### D905 — No daily places (the user, 14 Nov; replaces D730's 5 a day)
+
+- `challenge_track_pairs.target` may be null: no daily cap, and My team and the admin Tracks tab show
+  plain counts instead of "4 of 5". `submit_answers` (0136) and `restore_submission` (0110) already
+  read a null target as no limit, so neither changed. ecphub's pair is set to null.
+
+### D906 — Days off: 2 a week per person (the user, 14 Nov)
+
+- `challenge_track_pairs.skip_days` (0 = off; 2 on ecphub) and `challenge_skip_days`, one row per
+  person per day. `set_skip_day` is the only way in: for themselves, today or later (nothing
+  changes after midnight), inside the challenge's dates, at most `skip_days` in a Monday-Sunday
+  week; taking a day back is allowed until that day is over.
+- **What a day off does:** it counts as logged for the pair's weekly bonus (D727) and for "on track
+  so far". It earns no points and adds nothing to Tier 1, the podium or volume. It keeps a
+  person's streak going without adding to it.
+- **On the page:** a card under the track note on My stats for the shown day: "Taking today off?"
+  with days left this week, then "Today is your day off" with Undo. Not offered on a past day, a day
+  already logged, or a pair with no days off. The week strip shows a moon on a day off not logged;
+  My team shows "Day off" and the summary counts "· n off".
+- **My calls:** days off are self-serve only (captains can't set them for others); a day off can
+  be taken on any future day, not just this week; a day off and an entry on the same day are both
+  allowed (the entry's points count, the day off is simply not needed). The committee's admin grid
+  doesn't mark days off yet.
+
 ### D727 — The combined team score
 
 - **Season total for a team:**

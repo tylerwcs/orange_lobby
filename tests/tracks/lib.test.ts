@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { firstProxyChoice, proxyGroups, goneEntryFiles, intendedTrack, placementsOn, trackFullFor, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
+import { daysOffInWeek, offDays, skipDayOffer, firstProxyChoice, proxyGroups, goneEntryFiles, intendedTrack, placementsOn, trackFullFor, isTrackCaptain, showTrackSwitch, memberTrackRefusal, otherActivityId, splitTracks, trackLabel, trackOf, trackStatus, trackTeamRows } from "@/features/tracks/lib";
 import type { TrackPair, TrackRow } from "@/features/tracks/types";
 
-const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10 };
+const PAIR: TrackPair = { id: "p", event_id: "e", a_activity_id: "A", b_activity_id: "B", target: 5, bonus: 10, skip_days: 2 };
 const row = (attendee_id: string, activity_id: string, group_id = "g1"): TrackRow => ({ pair_id: "p", attendee_id, group_id, activity_id });
 const person = (id: string, group_id: string | null = "g1", cancelled_at: string | null = null) => ({ id, group_id, cancelled_at });
 
@@ -225,5 +225,50 @@ describe("proxyGroups and firstProxyChoice (D776)", () => {
     const onlyA = proxyGroups({ pair: PAIR, rows, members, names, selfOn: null, sendable: ["A"] });
     expect(firstProxyChoice(onlyA, "B")).toBe("a1");
     expect(firstProxyChoice([{ label: "Not on a track yet", activityId: null, choices: [{ value: "n1", name: "Nik" }] }], "A")).toBeNull();
+  });
+});
+
+describe("trackFullFor with no daily places (D905)", () => {
+  it("is never full when the pair has no target", () => {
+    const logged = ["a", "b", "c", "d", "e", "f"].map((attendee_id) => ({ attendee_id, activity_id: "A" }));
+    expect(trackFullFor(logged, "A", "g", null)).toBe(false);
+  });
+});
+
+describe("days off (D906)", () => {
+  const rows = [{ attendee_id: "x", day: "2026-11-14" }, { attendee_id: "x", day: "2026-11-10" }, { attendee_id: "x", day: "2026-11-16" }, { attendee_id: "y", day: "2026-11-14" }];
+  it("answers whether a person has a day off", () => {
+    const off = offDays(rows);
+    expect([off("x", "2026-11-14"), off("x", "2026-11-15"), off("y", "2026-11-14")]).toEqual([true, false, true]);
+  });
+  it("lists one person's days off in the Monday-Sunday week of a day", () => {
+    expect(daysOffInWeek(rows, "x", "2026-11-15")).toEqual(["2026-11-10", "2026-11-14"]);
+    expect(daysOffInWeek(rows, "x", "2026-11-16")).toEqual(["2026-11-16"]);
+  });
+  const base = { allowed: 2, today: "2026-11-14", startsOn: "2026-10-26", endsOn: "2026-12-04", logged: false, mine: [] as string[] };
+  it("offers today or a later day, with the days left that week", () => {
+    expect(skipDayOffer({ ...base, day: "2026-11-14" })).toEqual({ kind: "take", left: 2 });
+    expect(skipDayOffer({ ...base, day: "2026-11-15", mine: ["2026-11-14"] })).toEqual({ kind: "take", left: 1 });
+    expect(skipDayOffer({ ...base, day: "2026-11-15", mine: ["2026-11-10", "2026-11-14"] })).toEqual({ kind: "take", left: 0 });
+  });
+  it("offers to undo a day already off", () => {
+    expect(skipDayOffer({ ...base, day: "2026-11-14", mine: ["2026-11-14"] })).toEqual({ kind: "undo", left: 1 });
+  });
+  it("offers nothing on a past day, a logged day, outside the dates, or with no days off", () => {
+    expect(skipDayOffer({ ...base, day: "2026-11-13" })).toBeNull();
+    expect(skipDayOffer({ ...base, day: "2026-11-14", logged: true })).toBeNull();
+    expect(skipDayOffer({ ...base, day: "2026-12-05" })).toBeNull();
+    expect(skipDayOffer({ ...base, day: "2026-11-14", allowed: 0 })).toBeNull();
+  });
+  it("reads a member's day off on My team as off, not missing, and counts it apart", () => {
+    const scoring = {
+      a: { metric_key: "km", daily_min: 1, starts_on: "2026-10-26", ends_on: "2026-12-04", unit: "km" },
+      b: { metric_key: "minutes", daily_min: 20, starts_on: "2026-10-26", ends_on: "2026-12-04", unit: "min" },
+    };
+    const members = [{ id: "x", name: "X", group_id: "g1", cancelled_at: null }, { id: "y", name: "Y", group_id: "g1", cancelled_at: null }];
+    const g = trackTeamRows({ pair: PAIR, members, rows: [row("x", "A"), row("y", "A")], totals: { a: new Map(), b: new Map() }, scoring,
+      day: "2026-11-14", today: "2026-11-14", selfId: "x", off: new Set(["x"]) });
+    expect(g.a.map((r) => [r.id, r.state])).toEqual([["y", "missing"], ["x", "off"]]);
+    expect([g.logged, g.off]).toEqual([0, 1]);
   });
 });

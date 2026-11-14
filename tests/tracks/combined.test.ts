@@ -20,13 +20,13 @@ const daily = (who: string, team: string, value: number, days = WEEK1) => days.m
 
 const TEAMS: Team[] = [{ id: "T1", name: "Group 01", memberIds: ["x", "y"] }, { id: "T2", name: "Group 02", memberIds: ["z"] }];
 
-function pair(a: DailyTotal[], b: DailyTotal[], opts: { teams?: Team[]; dq?: Map<string, string | null>; today?: string; adjA?: Map<string, number> } = {}) {
+function pair(a: DailyTotal[], b: DailyTotal[], opts: { teams?: Team[]; dq?: Map<string, string | null>; today?: string; adjA?: Map<string, number>; off?: (id: string, day: string) => boolean } = {}) {
   const teams = opts.teams ?? TEAMS;
   const disqualified = opts.dq ?? new Map<string, string | null>();
   const today = opts.today ?? AFTER;
   const sa = scoreChallenge({ totals: a, teams, disqualified, scoring: KM, weeks: WEEKS, today, adjustments: opts.adjA });
   const sb = scoreChallenge({ totals: b, teams, disqualified, scoring: MIN, weeks: WEEKS, today });
-  return { sa, sb, p: scorePair({ a: sa, b: sb, aScoring: KM, bScoring: MIN, teams, bonus: 10, today }) };
+  return { sa, sb, p: scorePair({ a: sa, b: sb, aScoring: KM, bScoring: MIN, teams, bonus: 10, today, off: opts.off }) };
 }
 
 describe("scorePair — the bonus across tracks (D727)", () => {
@@ -118,5 +118,25 @@ describe("scorePair — participation given by hand (D843)", () => {
     const p = scorePair({ a: sa, b: sb, aScoring: KM, bScoring: MIN, teams, bonus: 10, today: AFTER });
     expect(p.weeks[0].teams.T2).toMatchObject({ bonus: 10, adjust: 0, b: 0 });
     expect(p.standings.find((s) => s.id === "T2")).toMatchObject({ bonus: 10, adjust: 0, total: 10 });
+  });
+});
+
+describe("scorePair — days off (D906)", () => {
+  const offOn = (who: string, days: string[]) => (id: string, day: string) => id === who && days.includes(day);
+  it("counts a member's days off as logged for the bonus", () => {
+    const { p } = pair(daily("x", "T1", 1, WEEK1.slice(2)), daily("y", "T1", 20), { off: offOn("x", WEEK1.slice(0, 2)) });
+    expect(p.weeks[0].teams.T1.bonus).toBe(10);
+  });
+  it("still needs every other day logged", () => {
+    const { p } = pair(daily("x", "T1", 1, WEEK1.slice(3)), daily("y", "T1", 20), { off: offOn("x", WEEK1.slice(0, 2)) });
+    expect(p.weeks[0].teams.T1.bonus).toBe(0);
+  });
+  it("earns no points for a day off", () => {
+    const { p } = pair(daily("x", "T1", 1, WEEK1.slice(2)), [], { off: offOn("x", WEEK1.slice(0, 2)), teams: [{ id: "T1", name: "Group 01", memberIds: ["x"] }] });
+    expect(p.weeks[0].teams.T1.a).toBe(5 + 15);
+  });
+  it("keeps a member with a day off on track so far", () => {
+    const { p } = pair(daily("x", "T1", 1, WEEK1.slice(1, 2)), daily("y", "T1", 20, WEEK1.slice(0, 2)), { today: "2026-10-28", off: offOn("x", WEEK1.slice(0, 1)) });
+    expect(p.weeks[0].teams.T1.onTrack).toBe(2);
   });
 });

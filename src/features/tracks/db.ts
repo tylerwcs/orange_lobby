@@ -4,9 +4,9 @@ import { deleteSubmissionFiles } from "@/lib/db/media";
 import { nowInKL } from "@/lib/time";
 import { goneEntryFiles, type MovedEntry } from "./lib";
 import type { Activity } from "@/lib/types";
-import type { TrackHistoryRow, TrackPair, TrackRefusal, TrackRow } from "./types";
+import type { SkipDayRow, SkipRefusal, TrackHistoryRow, TrackPair, TrackRefusal, TrackRow } from "./types";
 
-const PAIR = "id, event_id, a_activity_id, b_activity_id, target, bonus";
+const PAIR = "id, event_id, a_activity_id, b_activity_id, target, bonus, skip_days";
 const ROW = "pair_id, attendee_id, group_id, activity_id";
 
 /** D721: the pair this activity is a track of, or null - which is every activity but the two tracks. */
@@ -96,4 +96,20 @@ export async function trackHistory(pairId: string): Promise<TrackHistoryRow[]> {
   const { data, error } = await serviceClient().from("challenge_track_history").select("pair_id, attendee_id, group_id, activity_id, day, at").eq("pair_id", pairId);
   if (error) throw error;
   return (data ?? []) as TrackHistoryRow[];
+}
+
+/** D906: every day off in a pair - `offDays` turns them into the scorer's question. */
+export async function skipDays(pairId: string): Promise<SkipDayRow[]> {
+  const { data, error } = await serviceClient().from("challenge_skip_days").select("attendee_id, day").eq("pair_id", pairId);
+  if (error) throw error;
+  return (data ?? []) as SkipDayRow[];
+}
+
+/** D906: one person takes a day off, or takes it back, through `set_skip_day`, which decides. */
+export async function setSkipDay(input: { pairId: string; attendeeId: string; day: string; skip: boolean }): Promise<"ok" | SkipRefusal> {
+  const { data, error } = await serviceClient().rpc("set_skip_day", {
+    p_pair_id: input.pairId, p_attendee_id: input.attendeeId, p_day: input.day, p_skip: input.skip,
+  });
+  if (error) throw error;
+  return data as "ok" | SkipRefusal;
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, ChevronLeft, ChevronRight, Flame, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Flame, Moon, X } from "lucide-react";
 import { weekLabel } from "../../../../lib/challenge";
 import { shortDate } from "@/lib/text";
 import type { Tracker } from "../../../../lib/tracker";
@@ -12,7 +12,11 @@ import type { Tracker } from "../../../../lib/tracker";
  * `scroll={false}` on every link: the page starts with the cover, so a plain link scrolled back
  * up to it on each tap, taking the reader away from the strip they were using.
  */
-export function WeekStrip({ t, href }: { t: Tracker; href: (day: string) => string }) {
+export function WeekStrip({ t, href, off = new Set<string>() }: {
+  t: Tracker; href: (day: string) => string;
+  /** D906: this person's days off - a moon on a day not logged. */
+  off?: Set<string>;
+}) {
   const nav = "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground hover:bg-border";
   return (
     <div className="flex flex-col gap-3">
@@ -37,11 +41,11 @@ export function WeekStrip({ t, href }: { t: Tracker; href: (day: string) => stri
                 href={href(d.day)}
                 scroll={false}
                 aria-current={selected ? "date" : undefined}
-                aria-label={`${shortDate(d.day)}: ${d.state === "future" ? "to come" : d.logged ? "logged" : d.state === "today" ? "not logged yet" : "missed"}`}
+                aria-label={`${shortDate(d.day)}: ${d.logged ? "logged" : off.has(d.day) ? "day off" : d.state === "future" ? "to come" : d.state === "today" ? "not logged yet" : "missed"}`}
                 className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border text-xs font-bold ${selected ? "border-primary bg-primary/5" : "border-border bg-card"}`}
               >
                 <span className={d.state === "today" ? "text-primary" : "text-muted-foreground"}>{d.label}</span>
-                <DayMark state={d.state} logged={d.logged} />
+                <DayMark state={d.state} logged={d.logged} off={off.has(d.day)} />
               </Link>
             </li>
           );
@@ -52,8 +56,9 @@ export function WeekStrip({ t, href }: { t: Tracker; href: (day: string) => stri
 }
 
 /** D374's chip states: a check when logged, today highlighted with a flame once logged, a faded ✕ when missed. */
-function DayMark({ state, logged }: { state: Tracker["days"][number]["state"]; logged: boolean }) {
+function DayMark({ state, logged, off }: { state: Tracker["days"][number]["state"]; logged: boolean; off: boolean }) {
   const dot = "flex size-7 items-center justify-center rounded-full";
+  if (off && !logged) return <span aria-hidden className={`${dot} bg-muted text-muted-foreground`}><Moon className="size-4" /></span>;
   if (state === "today") {
     return logged
       ? <span aria-hidden className={`${dot} bg-success-soft text-success-strong`}><Flame className="size-4" /></span>

@@ -1,9 +1,9 @@
 import { isYes } from "@/lib/groups";
 import { fieldValue } from "@/lib/attendee-values";
 import { isOwnSubmissionPath } from "@/lib/storage";
-import { stepPoints, unitOf } from "@/features/activities/client";
+import { mondayOf, stepPoints, unitOf } from "@/features/activities/client";
 import type { Activity, Attendee, ChallengeScoring } from "@/lib/types";
-import type { TrackHistoryRow, TrackPair, TrackRow, TrackStatus } from "./types";
+import type { SkipDayRow, TrackHistoryRow, TrackPair, TrackRow, TrackStatus } from "./types";
 
 /** The pure rules of a track pair (D722-D725). The database decides what is allowed; these decide what the page draws. */
 
@@ -47,7 +47,7 @@ export function isTrackCaptain(activities: Pick<Activity, "proxy_fields">[], att
 }
 
 /** D724: one row of My team on a track pair - the shown day on the person's OWN track. */
-export type TeamTrackRow = { id: string; name: string; self: boolean; state: "logged" | "missing" | "future" | "none"; value: number; unit: string; pts: number | null };
+export type TeamTrackRow = { id: string; name: string; self: boolean; state: "logged" | "off" | "missing" | "future" | "none"; value: number; unit: string; pts: number | null };
 
 /**
  * D724: My team on a track pair, by track. Each person reads their own track's total for the day,
@@ -63,7 +63,9 @@ export function trackTeamRows(input: {
   totals: { a: Map<string, number>; b: Map<string, number> };
   scoring: { a: ChallengeScoring; b: ChallengeScoring };
   day: string; today: string; selfId: string;
-}): { a: TeamTrackRow[]; b: TeamTrackRow[]; none: TeamTrackRow[]; logged: number } {
+  /** D906: who has `day` off - read "Day off" rather than "Not logged" when they haven't logged. */
+  off?: Set<string>;
+}): { a: TeamTrackRow[]; b: TeamTrackRow[]; none: TeamTrackRow[]; logged: number; off: number } {
   const { pair, totals, scoring } = input;
   const split = splitTracks(pair, input.rows, input.members);
   const future = input.day > input.today;
@@ -74,13 +76,13 @@ export function trackTeamRows(input: {
     const value = totals[read].get(m.id) ?? 0;
     const s = scoring[read];
     const steps = s.daily_steps ?? [];
-    const state = future ? "future" : value >= s.daily_min ? "logged" : "missing";
+    const state = value >= s.daily_min && !future ? "logged" : input.off?.has(m.id) ? "off" : future ? "future" : "missing";
     return { id: m.id, name: m.name, self: m.id === input.selfId, state, value, unit: unitOf(s), pts: steps.length ? stepPoints(value, steps) : null };
-  }).sort((x, y) => Number(x.state === "logged") - Number(y.state === "logged") || x.name.localeCompare(y.name));
+  }).sort((x, y) => Number(x.state === "logged" || x.state === "off") - Number(y.state === "logged" || y.state === "off") || x.name.localeCompare(y.name));
   const a = rowsOf("a"), b = rowsOf("b");
   const none = split.none.map((m): TeamTrackRow => ({ id: m.id, name: m.name, self: m.id === input.selfId, state: "none", value: 0, unit: "", pts: null }))
     .sort((x, y) => x.name.localeCompare(y.name));
-  return { a, b, none, logged: [...a, ...b].filter((r) => r.state === "logged").length };
+  return { a, b, none, logged: [...a, ...b].filter((r) => r.state === "logged").length, off: [...a, ...b].filter((r) => r.state === "off").length };
 }
 
 /**
@@ -129,7 +131,8 @@ export function goneEntryFiles(before: MovedEntry[], stillThere: Set<string>, at
  * have logged on it - and this attendee isn't one of them. Someone already counted may log again.
  * `logged` is the team's live entries today on the pair, one row per entry.
  */
-export function trackFullFor(logged: { attendee_id: string; activity_id: string }[], activityId: string, attendeeId: string, target: number): boolean {
+export function trackFullFor(logged: { attendee_id: string; activity_id: string }[], activityId: string, attendeeId: string, target: number | null): boolean {
+  if (target === null) return false; // D905: no daily places.
   const people = new Set(logged.filter((r) => r.activity_id === activityId).map((r) => r.attendee_id));
   return !people.has(attendeeId) && people.size >= target;
 }
@@ -195,4 +198,31 @@ export function proxyGroups(input: {
 export function firstProxyChoice(groups: ProxyGroup[], hereId: string): string | null {
   const here = groups.find((g) => g.activityId === hereId);
   return here?.choices[0]?.value ?? groups.find((g) => g.activityId !== null)?.choices[0]?.value ?? null;
+}
+
+/** D906: whether a person has a day off - the question `scorePair` asks of each day. */
+export function offDays(rows: SkipDayRow[]): (attendeeId: string, day: string) => boolean {
+  const keys = new Set(rows.map((r) => `${r.attendee_id}|${r.day}`));
+  return (attendeeId, day) => keys.has(`${attendeeId}|${day}`);
+}
+
+/** D906: one person's days off in the Monday-Sunday week holding `day`, in date order. */
+export function daysOffInWeek(rows: SkipDayRow[], attendeeId: string, day: string): string[] {
+  const monday = mondayOf(day);
+  return rows.filter((r) => r.attendee_id === attendeeId && mondayOf(r.day) === monday).map((r) => r.day).sort();
+}
+
+/**
+ * D906: what My stats offers for the shown day - "take" it off (with days left this week), "undo"
+ * one already off, or nothing: no days off on this pair, a day gone (nothing changes after
+ * midnight), a day outside the challenge, or a day already logged with no day off to undo.
+ */
+export function skipDayOffer(input: { allowed: number; day: string; today: string; startsOn: string; endsOn: string; logged: boolean; mine: string[] }):
+  { kind: "take"; left: number } | { kind: "undo"; left: number } | null {
+  const { allowed, day } = input;
+  if (allowed <= 0 || day < input.today || day < input.startsOn || day > input.endsOn) return null;
+  const left = Math.max(0, allowed - input.mine.length);
+  if (input.mine.includes(day)) return { kind: "undo", left };
+  if (input.logged) return null;
+  return { kind: "take", left };
 }

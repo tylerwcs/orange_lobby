@@ -274,7 +274,7 @@ export const en = {
       missing: "This submission is no longer available.",
       closed: "Submissions for this are closed.",
       ineligible: "This is not open to your group.",
-      notrack: "You're not on a track yet. Ask your captain to put you on one.",
+      notrack: "You're not on a track yet. Pick one on this page first.",
       othertrack: "This entry belongs to the other track. Submit it there instead.",
       trackfull: "Your team's places on this track are all taken today. Try again tomorrow.",
       limit: "Submission done. There is nothing more to send.",

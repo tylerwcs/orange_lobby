@@ -271,7 +271,7 @@ export const ms = {
       missing: "Penghantaran ini tidak lagi tersedia.",
       closed: "Penghantaran untuk ini sudah ditutup.",
       ineligible: "Ini tidak dibuka untuk kumpulan anda.",
-      notrack: "Anda belum berada dalam mana-mana trek. Minta kapten anda meletakkan anda dalam satu trek.",
+      notrack: "Anda belum berada dalam mana-mana trek. Pilih satu di halaman ini dahulu.",
       othertrack: "Penghantaran ini milik trek yang satu lagi. Hantar di sana.",
       trackfull: "Tempat pasukan anda dalam trek ini sudah penuh hari ini. Cuba lagi esok.",
       limit: "Sudah dihantar. Tiada lagi yang perlu dihantar.",

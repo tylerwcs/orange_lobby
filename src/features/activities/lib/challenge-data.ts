@@ -7,7 +7,7 @@ import { listAttendees } from "@/lib/db/attendees";
 import type { Activity, Attendee, Event, EventGroup } from "@/lib/types";
 import { listAdjustments } from "@/features/adjustments";
 import { adjustmentTotals, weekAdjustmentTotals } from "@/lib/adjustments";
-import { mergeDisqualified, otherActivityId, pairActivities, pairForActivity, sameCalendar, scorePair, type PairScore, type TrackPair } from "@/features/tracks";
+import { mergeDisqualified, offDays, otherActivityId, pairActivities, pairForActivity, sameCalendar, scorePair, skipDays, type PairScore, type TrackPair } from "@/features/tracks";
 
 /**
  * D375: the one read behind every leaderboard - the portal's team table and My team, the admin
@@ -64,7 +64,8 @@ export async function loadPairScore(event: Pick<Event, "id" | "starts_on">, pair
   const both = await pairActivities(pair);
   if (!both || !both[0].scoring || !both[1].scoring) return { ok: false, reason: "Both tracks need to be scored challenges." };
   if (!sameCalendar(both[0].scoring, both[1].scoring)) return { ok: false, reason: "The two tracks must have the same dates and week numbering." };
-  const [a, b] = await Promise.all([loadChallenge(event, both[0], today), loadChallenge(event, both[1], today)]);
-  const score = scorePair({ a: a.score, b: b.score, aScoring: both[0].scoring, bScoring: both[1].scoring, teams: a.teams, bonus: pair.bonus, today });
+  const [a, b, off] = await Promise.all([loadChallenge(event, both[0], today), loadChallenge(event, both[1], today), skipDays(pair.id)]);
+  // D906: days off count as logged for the bonus.
+  const score = scorePair({ a: a.score, b: b.score, aScoring: both[0].scoring, bScoring: both[1].scoring, teams: a.teams, bonus: pair.bonus, today, off: offDays(off) });
   return { ok: true, score, a, b, activities: both };
 }

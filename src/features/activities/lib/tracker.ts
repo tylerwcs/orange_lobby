@@ -69,6 +69,8 @@ export function buildTracker(input: {
   requested: string | null;
   /** D734: on a track pair, the other track and this person's entries on it - a day logged there counts here too. */
   other?: { scoring: ChallengeScoring; entries: ActivitySubmission[] };
+  /** D906: this person's days off - they keep the streak going without adding to it. */
+  off?: Set<string>;
 }): Tracker | null {
   const { scoring, entries, today, other } = input;
   const weeks = challengeWeeks(scoring, input.eventStartsOn);
@@ -109,7 +111,8 @@ export function buildTracker(input: {
   // D374: the streak ends today, or yesterday while today is still to be logged - an evening
   // walker should not see their streak read 0 every morning.
   let streak = 0;
-  for (let d = logged(today) ? today : addDays(today, -1); inChallenge(scoring, d) && logged(d); d = addDays(d, -1)) streak++;
+  const keeps = (d: string) => logged(d) || !!input.off?.has(d);
+  for (let d = keeps(today) ? today : addDays(today, -1); inChallenge(scoring, d) && keeps(d); d = addDays(d, -1)) if (logged(d)) streak++;
 
   return {
     week,

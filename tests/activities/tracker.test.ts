@@ -217,3 +217,17 @@ describe("buildTracker across a track pair (D734)", () => {
     expect(pair([], [], "2026-10-07").dayTrack).toBe("this");
   });
 });
+
+describe("buildTracker — days off (D906)", () => {
+  it("keeps the streak going over a day off without adding it", () => {
+    const entries = [e("2026-10-05", "1"), e("2026-10-07", "1")];
+    const t = buildTracker({ scoring: S, eventStartsOn: "2026-09-28", entries, today: "2026-10-07", requested: null, off: new Set(["2026-10-06"]) })!;
+    expect(t.streak).toBe(2);
+    expect(build(entries, "2026-10-07").streak).toBe(1);
+  });
+  it("counts from yesterday's run when today is a day off", () => {
+    const entries = [e("2026-10-05", "1"), e("2026-10-06", "1")];
+    const t = buildTracker({ scoring: S, eventStartsOn: "2026-09-28", entries, today: "2026-10-07", requested: null, off: new Set(["2026-10-07"]) })!;
+    expect(t.streak).toBe(2);
+  });
+});

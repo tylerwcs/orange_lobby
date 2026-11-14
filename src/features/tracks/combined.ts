@@ -41,10 +41,14 @@ function rankOf<T>(items: T[], value: (x: T) => number, item: T): number {
   return 1 + items.filter((o) => value(o) > value(item)).length;
 }
 
-export function scorePair(input: { a: ChallengeScore; b: ChallengeScore; aScoring: ChallengeScoring; bScoring: ChallengeScoring; teams: Team[]; bonus: number; today: string }): PairScore {
+export function scorePair(input: {
+  a: ChallengeScore; b: ChallengeScore; aScoring: ChallengeScoring; bScoring: ChallengeScoring; teams: Team[]; bonus: number; today: string;
+  /** D906: a person's day off counts as logged for the bonus (and for "on track"), never for points. */
+  off?: (attendeeId: string, day: string) => boolean;
+}): PairScore {
   const { a, b, aScoring, bScoring, teams, today } = input;
-  // A day counts on either track: 1 km on A, or 20 minutes on B.
-  const logged = (id: string, day: string) => a.personKm(id, day) >= aScoring.daily_min || b.personKm(id, day) >= bScoring.daily_min;
+  // A day counts on either track: 1 km on A, or 20 minutes on B - or as a day off (D906).
+  const logged = (id: string, day: string) => a.personKm(id, day) >= aScoring.daily_min || b.personKm(id, day) >= bScoring.daily_min || !!input.off?.(id, day);
 
   const weeks = a.weeks.map((wa, i): PairWeek => {
     const wb = b.weeks[i];

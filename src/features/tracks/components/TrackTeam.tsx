@@ -8,9 +8,9 @@ import type { TrackPair } from "../types";
 
 type Groups = ReturnType<typeof trackTeamRows>;
 
-/** D724: amber under the target, green at it, red over - shown, never enforced. */
-const pill = (n: number, target: number) =>
-  n > target ? "bg-destructive/10 text-destructive" : n === target ? "bg-success-soft text-success-strong" : "bg-warning-soft text-warning";
+/** D724: amber under the target, green at it, red over. D905: with no target, a plain count. */
+const pill = (n: number, target: number | null) =>
+  target === null ? "bg-muted text-muted-foreground" : n > target ? "bg-destructive/10 text-destructive" : n === target ? "bg-success-soft text-success-strong" : "bg-warning-soft text-warning";
 
 /**
  * D724: My team on a track pair, in place of `MyTeam` - the same closed <details> at the foot of
@@ -35,12 +35,13 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
   const when = day === today ? "today" : `on ${shortDate(day)}`;
   const summary = day > today
     ? (today < startsOn ? `Starts ${shortDate(startsOn)}` : `${shortDate(day)} is still to come`)
-    : `${groups.logged} of ${members} logged ${when} · A ${groups.a.length} · B ${groups.b.length}`;
+    : `${groups.logged} of ${members} logged ${when}${groups.off ? ` · ${groups.off} off` : ""} · A ${groups.a.length} · B ${groups.b.length}`;
 
   const row = (r: TeamTrackRow, side: "a" | "b" | null) => (
     <li key={r.id} className="flex min-h-11 items-center gap-3 border-b border-border px-3 py-2 text-sm last:border-b-0">
       <span className="min-w-0 flex-1 truncate">{r.name}{r.self ? " (you)" : ""}</span>
-      {r.state === "none" ? <span className="text-muted-foreground">{captain ? "Can't submit yet" : "Ask your captain"}</span>
+      {r.state === "none" ? <span className="text-muted-foreground">Hasn&apos;t picked yet</span>
+        : r.state === "off" ? <span className="text-muted-foreground">Day off</span>
         : r.state === "future" ? <span className="text-muted-foreground"><span aria-hidden>–</span><span className="sr-only">Not yet</span></span>
           : r.state === "logged" ? <span className="tabular-nums text-muted-foreground">{r.value} {r.unit}{r.pts !== null ? ` · ${r.pts} pts` : ""}</span>
             : <span className="font-bold text-warning">Not logged</span>}
@@ -67,7 +68,7 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
       <div className="flex items-center justify-between px-1">
         <span className="text-xs font-extrabold">{title}</span>
         <span className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${side ? pill(rows.length, pair.target) : "bg-warning-soft text-warning"}`}>
-          {side ? `${rows.length} of ${pair.target}` : rows.length}
+          {side && pair.target !== null ? `${rows.length} of ${pair.target}` : rows.length}
         </span>
       </div>
       {rows.length > 0 && <ul className="flex flex-col overflow-hidden rounded-lg border border-border">{rows.map((r) => row(r, side))}</ul>}
@@ -87,7 +88,7 @@ export function TrackTeam({ teamName, groups, pair, labels, captain, day, today,
         {bonus?.week.void && <p className="rounded-lg bg-muted px-3 py-2 text-sm font-bold">This week is void: a member was disqualified.</p>}
         {bonus && !bonus.week.void && bonus.current && (
           <p className="rounded-lg bg-muted px-3 py-2 text-sm">
-            <span className="font-bold">{bonus.week.onTrack} of {bonus.week.members}</span> logged every day so far this week, on either track. Everyone logging every day earns +{bonus.points}.
+            <span className="font-bold">{bonus.week.onTrack} of {bonus.week.members}</span> logged every day so far this week, on either track. Everyone logging every day earns +{bonus.points}.{pair.skip_days > 0 ? ` Days off count as logged (${pair.skip_days} each a week).` : ""}
           </p>
         )}
         {bonus && !bonus.week.void && bonus.past && (

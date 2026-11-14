@@ -171,7 +171,7 @@ describe("activityCards — Coming soon (D605)", () => {
 });
 
 describe("activityCards on a track pair (D724)", () => {
-  const pair = { id: "p", event_id: "e", a_activity_id: "mileage", b_activity_id: "active", target: 5, bonus: 10 };
+  const pair = { id: "p", event_id: "e", a_activity_id: "mileage", b_activity_id: "active", target: 5, bonus: 10, skip_days: 0 };
   const tracked = (id: string, status: "this" | "other" | "none"): SubmissionEntry => ({
     ...form(id, status === "this" ? "ok" : status === "other" ? "othertrack" : "notrack"),
     form: activity(id, { kind: "submission", pinned: true, sort_order: id === "mileage" ? 1 : 2 }),

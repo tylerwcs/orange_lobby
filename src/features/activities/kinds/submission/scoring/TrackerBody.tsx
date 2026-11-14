@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { type SubmissionEntry, type SubmissionTrack } from "../../../lib/portal-activity-entries";
 import { type EditEntry } from "../SubmissionHistory";
 import { ActivityActionDialog } from "../../../portal/ActivityActionDialog";
@@ -23,7 +22,8 @@ import { unitOf, weekLabel } from "../../../lib/challenge";
 import { note } from "../../../portal/detail-parts";
 import { type Proxy, addedByLine, canAdd, SubmitForm, AddedForGroup } from "../SubmissionBody";
 import { getActivity } from "../../../db/activities";
-import { isTrackCaptain, pairWeekStandings, placementsOn, sameCalendar, scorePair, setMyTeamTrackAction, trackHistory, trackOf, trackRows, trackTeamRows, TrackTeam } from "@/features/tracks";
+import { daysOffInWeek, isTrackCaptain, MyTrack, offDays, pairWeekStandings, pickMyTrackAction, placementsOn, sameCalendar, scorePair, setMyTeamTrackAction, setSkipDayAction, SkipDay, skipDayOffer, skipDays, trackHistory, trackOf, trackRows, trackTeamRows, TrackTeam, type SkipDayRow } from "@/features/tracks";
+import { shortDate } from "@/lib/text";
 import type { Activity } from "@/lib/types";
 
 /**
@@ -78,14 +78,17 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
 }) {
   const scoring = f.scoring!;
   const today = nowInKL().date;
-  const [all, challenge, other, otherEntries] = await Promise.all([
+  const [all, challenge, other, otherEntries, offRows] = await Promise.all([
     entriesForAttendee(f.id, attendeeId),
     teamId ? loadChallenge({ id: f.event_id, starts_on: eventStartsOn }, f, today) : Promise.resolve(null),
     // D734: on a track pair, the other track and this person's entries on it, so My stats counts both.
     track ? getActivity(track.other.id, f.event_id) : Promise.resolve(null),
     track ? entriesForAttendee(track.other.id, attendeeId) : Promise.resolve([]),
+    // D906: the pair's days off - this person's for the strip and the card, everyone's for the bonus.
+    track && track.pair.skip_days > 0 ? skipDays(track.pair.id) : Promise.resolve([] as SkipDayRow[]),
   ]);
-  const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day,
+  const myOff = new Set(offRows.filter((r) => r.attendee_id === attendeeId).map((r) => r.day));
+  const t = buildTracker({ scoring, eventStartsOn, entries: all, today, requested: day, off: myOff,
     ...(other?.scoring ? { other: { scoring: other.scoring, entries: otherEntries } } : {}) });
   // A day logged on the other track reads in that track's unit and questions, and is edited on its own page.
   const dayForm = t?.dayTrack === "other" && other?.scoring ? other : f;
@@ -93,17 +96,24 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
   // D724: on a track pair, My team is the team by track, each person on their own track's number.
   const [addedBy, pairTeam] = await Promise.all([
     addedByLine(f.event_id, t?.entries ?? []),
-    t && challenge && myTeam && track && other ? loadTrackTeam(f, track, challenge, other, { teamId: myTeam.id, selfId: attendeeId, day: t.selected, today, eventStartsOn, week: t.week.number }) : Promise.resolve(null),
+    t && challenge && myTeam && track && other ? loadTrackTeam(f, track, challenge, other, { teamId: myTeam.id, selfId: attendeeId, day: t.selected, today, eventStartsOn, week: t.week.number, offRows }) : Promise.resolve(null),
   ]);
   const workouts = t ? t.entries.filter((e) => e.status === "submitted").length : 0;
   const shownWeek = t && challenge ? challenge.score.weeks.find((w) => w.week.number === t.week.number) : undefined;
+  // D906: the shown day's day-off card, on a pair with days off.
+  const offer = t && track ? skipDayOffer({ allowed: track.pair.skip_days, day: t.selected, today, startsOn: scoring.starts_on, endsOn: scoring.ends_on,
+    logged: t.days.find((d) => d.day === t.selected)?.logged ?? false, mine: daysOffInWeek(offRows.filter((r) => r.attendee_id === attendeeId), attendeeId, t.selected) }) : null;
+  // D904: whether they logged today on the track they're on - a switch would remove it.
+  const loggedToday = (track?.status === "this" ? all : track?.status === "other" ? otherEntries : []).some((e) => e.submitted_on === today && e.status === "submitted");
+  const sides = track ? { here: { side: (f.id === track.pair.a_activity_id ? "a" : "b") as "a" | "b", label: track.label, name: f.name },
+    other: { side: (f.id === track.pair.a_activity_id ? "b" : "a") as "a" | "b", label: track.other.label, name: track.other.name } } : null;
   return (
     <>
       <section className="flex flex-col gap-4 py-5">
         {t ? (
           <>
             {/* No `tab` param on a day's link: a day belongs to My stats, the tab without one. */}
-            <WeekStrip t={t} href={(d) => (d === today ? path : `${path}?day=${d}`)} />
+            <WeekStrip t={t} off={myOff} href={(d) => (d === today ? path : `${path}?day=${d}`)} />
             <DayRing t={t} unit={unitOf(dayForm.scoring!)} />
             <div className="flex items-baseline justify-between">
               <h2 className="text-lg font-extrabold">{t.isToday ? "Today's entries" : "Entries"}</h2>
@@ -113,7 +123,15 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
               empty={t.isToday ? "Nothing logged yet today." : "Nothing logged this day."} edit={dayForm === f ? edit : undefined} addedBy={addedBy} />
             {dayForm !== f && <p className={note}>Logged on {dayForm.name}, before your track changed.</p>}
             {t.isToday && <AddedForGroup f={f} slug={slug} token={token} proxy={proxy} edit={edit} />}
-            {track && <TrackNote track={track} href={`/e/${slug}/a/${token}/activities/${track.other.id}`} />}
+            {track && sides && (
+              <MyTrack status={track.status} here={sides.here} other={sides.other} otherHref={`/e/${slug}/a/${token}/activities/${track.other.id}`}
+                loggedToday={loggedToday} fullTarget={track.status === "this" && track.full ? track.pair.target : null}
+                pick={(side) => pickMyTrackAction.bind(null, slug, token, f.id, side)} />
+            )}
+            {offer && track && (
+              <SkipDay offer={offer} when={t.isToday ? "today" : shortDate(t.selected)} allowed={track.pair.skip_days} bonus={track.pair.bonus}
+                action={(skip) => setSkipDayAction.bind(null, slug, token, f.id, t.selected, skip)} />
+            )}
             {pairTeam && myTeam && (
               <TrackTeam teamName={myTeam.name} groups={pairTeam.groups} pair={track!.pair} labels={pairTeam.labels} captain={pairTeam.captain} bonus={pairTeam.bonus} loggedToday={pairTeam.loggedToday}
                 day={t.selected} today={today} startsOn={scoring.starts_on} changing={changingTracks}
@@ -156,7 +174,7 @@ async function TrackerStats({ entry: { form: f, state, track }, slug, token, pat
  * whether this attendee is a captain of the pair.
  */
 async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awaited<ReturnType<typeof loadChallenge>>, other: Activity,
-  at: { teamId: string; selfId: string; day: string; today: string; eventStartsOn: string | null; week: number }) {
+  at: { teamId: string; selfId: string; day: string; today: string; eventStartsOn: string | null; week: number; offRows: SkipDayRow[] }) {
   const { pair } = track;
   const [rows, history] = await Promise.all([trackRows(pair.id), at.day === at.today ? Promise.resolve([]) : trackHistory(pair.id)]);
   if (!other.scoring) return null;
@@ -174,12 +192,13 @@ async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awa
   });
   // D727: the +10 asks about both tracks, so it comes from the pair's score, for the week on show.
   const pairWeek = pair.bonus > 0 && sameCalendar(a.scoring!, b.scoring!)
-    ? scorePair({ a: ca.score, b: cb.score, aScoring: a.scoring!, bScoring: b.scoring!, teams: challenge.teams, bonus: pair.bonus, today: at.today }).weeks.find((w) => w.week.number === at.week)
+    ? scorePair({ a: ca.score, b: cb.score, aScoring: a.scoring!, bScoring: b.scoring!, teams: challenge.teams, bonus: pair.bonus, today: at.today, off: offDays(at.offRows) }).weeks.find((w) => w.week.number === at.week)
     : undefined;
   const days = pairWeek?.week.days ?? [];
   return {
     // D734: today is the team as it stands; another day is the team as it stood then.
-    groups: trackTeamRows({ pair, members, rows: at.day === at.today ? rows : placementsOn(history, at.day, loggedOn(at.day)), totals: { a: dayOf(ca), b: dayOf(cb) }, scoring: { a: a.scoring!, b: b.scoring! }, day: at.day, today: at.today, selfId: at.selfId }),
+    groups: trackTeamRows({ pair, members, rows: at.day === at.today ? rows : placementsOn(history, at.day, loggedOn(at.day)), totals: { a: dayOf(ca), b: dayOf(cb) }, scoring: { a: a.scoring!, b: b.scoring! }, day: at.day, today: at.today, selfId: at.selfId,
+      off: new Set(at.offRows.filter((r) => r.day === at.day).map((r) => r.attendee_id)) }),
     labels: { a: a.name, b: b.name },
     captain: !!self && isTrackCaptain([a, b], self),
     // D726: who logged today on their own track, so the captain's switch can warn before a move removes it.
@@ -191,20 +210,6 @@ async function loadTrackTeam(f: Activity, track: SubmissionTrack, challenge: Awa
       ? { week: pairWeek.teams[at.teamId], points: pair.bonus, current: days[0] < at.today && at.today <= days[days.length - 1], past: days[days.length - 1] < at.today }
       : null,
   };
-}
-
-/** D724/D725: which track this attendee is on, above My team - and, off this track, where to submit instead of the Add button. */
-function TrackNote({ track, href }: { track: SubmissionTrack; href: string }) {
-  if (track.status === "none") return <p className={note}>Your captain hasn&apos;t put you on a track yet.</p>;
-  if (track.status === "this" && track.full) {
-    return <p className={note}>You&apos;re on {track.label}, but your team&apos;s {track.pair.target} places on it are taken today. Try again tomorrow.</p>;
-  }
-  if (track.status === "this") return <p className={note}>You&apos;re on {track.label} — this is your track.</p>;
-  return (
-    <p className={note}>
-      You&apos;re on {track.other.label} — <Link href={href} className="font-bold underline underline-offset-2">submit under {track.other.name}</Link>.
-    </p>
-  );
 }
 
 /** D517: what the Leaderboard's rosters may show - the event's shared fields, of which only tags survive (D512). */
