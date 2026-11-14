@@ -1,0 +1,507 @@
+<title>ECP Hub Screen Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Manrope:wght@400;500;700&display=swap">
+<style>
+/* Layout: a board of phone frames grouped by journey stage; the page is quiet so the screens carry the colour. */
+:root{--page:#F1F2F5;--ink:#111827;--sub:#5B6472;--rule:#DDE0E6;--chip:#FFFFFF;--accent:#E8662A;
+  --font:"Noto Sans JP",system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#0B111C;--ink:#F3F4F6;--sub:#9CA3AF;--rule:#273142;--chip:#1A2332;--accent:#FF8142;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0B111C;--ink:#F3F4F6;--sub:#9CA3AF;--rule:#273142;--chip:#1A2332;--accent:#FF8142;color-scheme:dark}
+body{background:var(--page);color:var(--ink);font-family:var(--font);padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1320px;margin:0 auto}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:8px}
+h1{font-size:26px;line-height:1.2;margin:0;font-weight:700;text-wrap:balance}
+.lede{color:var(--sub);font-size:14px;margin:6px 0 0;max-width:62ch;line-height:1.6}
+.sw{display:flex;background:var(--chip);border:1px solid var(--rule);border-radius:12px;padding:4px}
+.sw button{font:inherit;font-size:13px;font-weight:500;border:0;background:transparent;color:var(--sub);padding:8px 16px;border-radius:9px;cursor:pointer}
+.sw button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.sw button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:36px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:28px 20px;justify-items:center}
+figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:10px;max-width:100%}
+figcaption{font-size:13px;color:var(--sub);font-weight:500}
+
+/* The mock's own tokens: Evenline light and dark, switched by the control above. */
+.board{--bg:#F9FAFB;--card:#FFFFFF;--line:#ECEEF2;--tx:#111827;--mu:#6B7280;--pr:#FF8142;--soft:#FFF1E7;--okb:#E3F6EC;--okt:#14693A;--shadow:0 12px 32px rgba(17,24,39,.10)}
+.board[data-m="dark"]{--bg:#111827;--card:#1F2937;--line:#2D3748;--tx:#FFFFFF;--mu:#9CA3AF;--pr:#FF8142;--soft:#33291F;--okb:#123524;--okt:#8FE0B4;--shadow:0 12px 32px rgba(0,0,0,.4)}
+.board{font-family:Manrope,system-ui,-apple-system,"Segoe UI",sans-serif}
+.board[data-f="noto"]{font-family:"Noto Sans JP",system-ui,-apple-system,"Segoe UI",sans-serif}
+.ph{width:300px;max-width:100%;height:640px;border-radius:34px;background:var(--bg);color:var(--tx);position:relative;overflow:hidden;border:1px solid var(--line);font-size:13px;line-height:1.45;box-shadow:var(--shadow)}
+.ph svg{width:18px;height:18px;stroke-width:1.9;vertical-align:-3.5px;flex:none}
+.pad{padding:0 18px}
+.ab{display:flex;align-items:center;justify-content:space-between;padding:22px 18px 12px;font-weight:700;font-size:15px}
+.ab .g{display:flex;gap:14px;align-items:center}
+.ab svg{width:21px;height:21px}
+.bar{position:absolute;left:0;right:0;bottom:0;height:66px;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center}
+.bar span{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--mu);font-weight:500}
+.bar svg{width:21px;height:21px}
+.on{color:var(--pr)!important}
+.hd{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 9px;font-weight:700;font-size:15px}
+.hd em{font-style:normal;font-size:12px;font-weight:500;color:var(--mu)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px}
+.cv{border-radius:13px;position:relative;overflow:hidden;color:#fff;display:flex;align-items:center;justify-content:center}
+.cv>svg{width:42px;height:42px;stroke-width:1.4;opacity:.95;position:relative}
+.cv:before,.cv:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.17)}
+.cv:before{width:180px;height:180px;right:-60px;top:-80px}
+.cv:after{width:120px;height:120px;left:-30px;bottom:-70px}
+.dt{position:absolute;top:8px;left:8px;background:var(--card);color:var(--tx);border-radius:9px;padding:3px 8px;font-size:10px;text-align:center;line-height:1.2;z-index:1}
+.dt b{display:block;font-size:13px}
+.meta{color:var(--mu);font-size:11.5px}
+.tt{font-weight:700;font-size:15px;margin:2px 0 8px;line-height:1.3}
+.ft{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pl{background:var(--soft);color:var(--pr);border-radius:9px;padding:6px 13px;font-size:12px;font-weight:700;white-space:nowrap}
+.pl.s{background:var(--pr);color:#fff}
+.bt{background:var(--pr);color:#fff;border-radius:14px;padding:13px 18px;text-align:center;font-weight:700;font-size:14px;white-space:nowrap}
+.bt.o{background:transparent;color:var(--pr);box-shadow:inset 0 0 0 1.5px var(--pr)}
+.tl{width:40px;height:40px;border-radius:12px;background:var(--soft);color:var(--pr);display:flex;align-items:center;justify-content:center;flex:none}
+.rw{display:flex;gap:12px;align-items:center}
+.rw>div:not(.tl):not(.av){flex:1;min-width:0}
+.b{font-weight:700}
+.mu{color:var(--mu);font-size:12px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.tabs{display:flex;border-bottom:1px solid var(--line);font-weight:700;margin-bottom:14px}
+.tabs span{flex:1;text-align:center;padding:10px 0;color:var(--mu);white-space:nowrap}
+.tabs .on{box-shadow:inset 0 -2px 0 var(--pr)}
+.chips{display:flex;gap:7px;overflow:hidden}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 13px;font-size:12px;color:var(--mu);white-space:nowrap;font-weight:500}
+.chip.s{background:var(--pr);border-color:var(--pr);color:#fff}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.slot{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:9px 0;text-align:center;font-size:12px;font-weight:500}
+.slot.s{border-color:var(--pr);color:var(--pr);background:var(--soft)}
+.slot.x{color:var(--mu);text-decoration:line-through;border-style:dashed}
+.fd{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px 13px;display:flex;gap:9px;align-items:center;margin:5px 0 12px}
+.fd.f{border-color:var(--pr)}
+.fd svg{color:var(--mu)}
+.ok{background:var(--okb);color:var(--okt);border-radius:9px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.cta{position:absolute;left:0;right:0;bottom:0;height:78px;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;padding:0 18px;gap:12px}
+.cta .bt:only-child{flex:1}
+.sheet{background:var(--bg);border-radius:26px 26px 0 0;margin-top:-24px;position:relative;padding:20px 18px 0}
+.hero{border-radius:0}
+.rb{position:absolute;top:20px;width:38px;height:38px;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;z-index:1}
+.tag{position:absolute;left:18px;bottom:36px;background:#111827;color:#fff;border-radius:9px;padding:4px 11px;font-size:11px;font-weight:500;z-index:1}
+.h1{font-weight:700;font-size:19px;line-height:1.3;margin-bottom:12px}
+.av{width:38px;height:38px;border-radius:50%;background:var(--soft);color:var(--pr);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:16px;padding:11px 0;text-align:center;background:var(--card)}
+.stat b{display:block;font-size:16px}
+.stat span{color:var(--mu);font-size:11.5px}
+.prog{height:8px;border-radius:4px;background:var(--soft)}
+.prog i{display:block;height:8px;border-radius:4px;background:var(--pr)}
+.wk{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;color:var(--mu);font-size:11.5px}
+.wk i{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:5px auto 0;box-sizing:border-box;font-style:normal}
+.wk i svg{width:15px;height:15px}
+.wk .d{background:var(--pr);color:#fff}.wk .r{background:var(--soft)}.wk .t{border:1.5px solid var(--pr)}.wk .e{border:1.5px dashed var(--line)}
+.stamps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px 8px;text-align:center;color:var(--mu);font-size:10.5px}
+.stamps i{aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:3px;font-style:normal}
+.stamps .d{background:var(--pr);color:#fff}.stamps .e{border:1.5px dashed var(--line);color:var(--mu)}
+.pol{background:#fff;border-radius:7px;padding:6px 6px 20px;box-shadow:0 2px 8px rgba(17,24,39,.12)}
+.pol div{aspect-ratio:1;border-radius:3px}
+.qr{display:grid;background:#fff;padding:8px;border-radius:12px}
+.qr i{background:#111827}
+.qr i.o{background:transparent}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.kv:first-child{border-top:0}
+.tg{width:38px;height:22px;border-radius:11px;background:var(--pr);position:relative;flex:none}
+.tg:after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.tg.off{background:var(--line)}.tg.off:after{right:auto;left:3px}
+.ctr{text-align:center}
+.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.abt.open .clamp{-webkit-line-clamp:unset;display:block}
+.pics{display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.pics>:first-child{grid-column:1/-1}
+.abt.open .pics,.abt.show .pics{display:grid}
+.pics .cv>svg{width:30px;height:30px}
+.dk .pics{grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.dk .pics>:first-child{grid-column:auto}
+.dk .pics .cv{height:130px!important}
+.more{font:inherit;font-size:12.5px;font-weight:700;color:var(--pr);background:none;border:0;padding:6px 0 0;cursor:pointer}
+.more:focus-visible{outline:2px solid var(--pr);outline-offset:2px;border-radius:4px}
+.dim{position:absolute;inset:0;background:rgba(10,14,22,.55)}
+.bs{position:absolute;left:0;right:0;bottom:0;background:var(--bg);border-radius:26px 26px 0 0;padding:10px 18px 96px}
+.bs:before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+/* Desktop frames: drawn at 1160px and scaled down to fit the column. */
+.dgrid{display:flex;flex-direction:column;gap:34px}
+figure.dfig{width:100%;align-items:stretch}
+figure.dfig figcaption{text-align:center}
+.dwrap{width:100%;overflow:hidden}
+.dk{width:1160px;transform-origin:0 0;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:18px;overflow:hidden;font-size:13px;line-height:1.45;box-sizing:border-box}
+.dk svg{width:18px;height:18px;stroke-width:1.9;vertical-align:-3.5px;flex:none}
+.dk .cv>svg{width:52px;height:52px;stroke-width:1.4}
+.nav{display:flex;align-items:center;gap:24px;padding:13px 32px;background:var(--card);border-bottom:1px solid var(--line)}
+.nav .lk{display:flex;gap:6px;font-weight:500;color:var(--mu);font-size:13.5px;margin:0 auto}
+.nav .lk span{padding:8px 16px;border-radius:10px}
+.nav .lk .on{background:var(--soft);font-weight:700}
+.dbody{width:1040px;margin:0 auto;padding:26px 0 36px}
+.cols{display:grid;gap:22px;align-items:start}
+.dh{font-weight:700;font-size:22px;margin:0 0 16px}
+.dk .hd:first-child{margin-top:0}
+.vt{display:flex;flex-direction:column;gap:4px}
+.vt span{padding:10px 12px;border-radius:10px;font-weight:500;color:var(--mu)}
+.vt .on{background:var(--soft);font-weight:700}
+/* Admin: sidebar shell, capped content, table-style lists, sticky save bar. */
+.ad{display:grid;grid-template-columns:226px 1fr;min-height:660px}
+.sb{background:var(--card);border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:14px}
+.sb .gl{font-size:11px;color:var(--mu);font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:0 10px;margin-bottom:4px}
+.sb .it{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:10px;color:var(--mu);font-weight:500}
+.sb .it.on{background:var(--soft);font-weight:700}
+.am{padding:26px 30px 30px;display:flex;flex-direction:column;min-width:0}
+.ac{width:100%;max-width:860px;margin:0 auto;flex:1}
+.ah{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px}
+.sbt{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:9px 14px;font-weight:700;font-size:13px;display:inline-flex;gap:7px;align-items:center;white-space:nowrap}
+.sbt.p{background:var(--pr);border-color:var(--pr);color:#fff}
+.tr{display:grid;align-items:center;gap:14px;padding:11px 16px;border-top:1px solid var(--line)}
+.tr.h{border-top:0;color:var(--mu);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding-block:10px}
+.tr>div{min-width:0}
+.dk .tr .cv{border-radius:11px}
+.dk .tr .cv>svg{width:20px;height:20px}
+.gy{background:var(--line);color:var(--mu);border-radius:9px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.sv{margin:22px -30px -30px;padding:14px 30px;background:var(--card);border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.sw2{width:26px;height:26px;border-radius:50%;flex:none}
+.cam{position:absolute;inset:0;background:#0B111C;color:#fff}
+.cam .ab svg{color:#fff}
+.vf{width:200px;height:200px;margin:54px auto 22px;position:relative}
+.vf i{position:absolute;width:34px;height:34px;border:4px solid #FF8142}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>ECP Hub screens in the Evenline direction</h1>
+      <p class="lede">The first direction as the base: navy and white surfaces, one orange accent, a five-item bottom bar. Activities use the large cover card throughout. Events, people and activities here are invented samples.</p>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+    <div class="sw" role="group" aria-label="Mockup font">
+      <button id="f-manrope" type="button" aria-pressed="true">Manrope</button>
+      <button id="f-noto" type="button" aria-pressed="false">Noto Sans JP</button>
+    </div>
+    <div class="sw" role="group" aria-label="Mockup theme">
+      <button id="m-light" type="button" aria-pressed="true">Light</button>
+      <button id="m-dark" type="button" aria-pressed="false">Dark</button>
+    </div>
+    </div>
+  </header>
+  <div class="board" id="board" data-m="light"></div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+const I=n=>`<i data-lucide="${n}"></i>`;
+const C={key:['#6D5DFB','#3B2FB8'],yoga:['#FFB36B','#FF6F61'],coffee:['#B98558','#6A4330'],walk:['#5AA9FF','#3B5BDB'],step:['#34C6A0','#0E8F7A'],cup:['#FF7EB3','#D6336C'],quiz:['#9B8CFF','#5B3FD6'],trail:['#6C7BFF','#3D3BAA'],wall:['#FFC857','#F08A24'],draw:['#FF8A5B','#E8453C'],venue:['#4FB6C9','#22728A']};
+const cv=(c,i,h,d,x='',cls='')=>`<div class="cv ${cls}" style="height:${h}px;background:linear-gradient(135deg,${C[c][0]},${C[c][1]})">${d?`<span class="dt"><b>${d[0]}</b>${d[1]}</span>`:''}${I(i)}${x}</div>`;
+const bar=a=>`<div class="bar">${[['house','Home'],['calendar','Agenda'],['layout-grid','Activities'],['info','Info'],['user-round','Me']].map(([i,l])=>`<span class="${l===a?'on':''}">${I(i)}${l}</span>`).join('')}</div>`;
+const ab=(t,r='',l='arrow-left')=>`<div class="ab">${I(l)}<span>${t}</span><span class="g">${r||'<span style="width:21px"></span>'}</span></div>`;
+const hd=(t,l='')=>`<div class="hd"><span>${t}</span><em>${l}</em></div>`;
+const big=o=>`<div class="card" style="${o.w?`width:${o.w}px;flex:none`:''}">${cv(o.c,o.i,o.h||104,o.d)}<div class="meta" style="margin-top:9px">${o.m}</div><div class="tt">${o.t}</div><div class="ft"><span class="meta">${I(o.pi||'map-pin')} ${o.p}</span><span class="pl ${o.s?'s':''}">${o.a}</span></div></div>`;
+const fact=(i,t,s,r='')=>`<div class="rw"><div class="tl">${I(i)}</div><div><div class="b">${t}</div><div class="mu">${s}</div></div>${r}</div>`;
+const row=(l,t,s,r='')=>`<div class="card rw" style="padding:10px 12px">${l}<div><div class="b">${t}</div><div class="mu">${s}</div></div>${r}</div>`;
+const tile=i=>`<div class="tl">${I(i)}</div>`;
+const av=t=>`<div class="av">${t}</div>`;
+const chev=`<span style="color:var(--mu)">${I('chevron-right')}</span>`;
+const hero=(c,i,tag,r='share-2')=>`${cv(c,i,170,null,`<span class="rb" style="left:18px">${I('arrow-left')}</span><span class="rb" style="right:18px">${I(r)}</span><span class="tag">${tag}</span>`,'hero')}`;
+const cta=(a,b,btn)=>`<div class="cta">${a?`<div><div class="b" style="font-size:15px">${a}</div><div class="mu">${b}</div></div>`:''}<div class="bt">${btn}</div></div>`;
+const tabs=(a,on)=>`<div class="tabs">${a.map(t=>`<span class="${t===on?'on':''}">${t}</span>`).join('')}</div>`;
+const chips=(a)=>`<div class="chips">${a.map((t,i)=>`<span class="chip ${i?'':'s'}">${t}</span>`).join('')}</div>`;
+const qr=px=>{let s='';for(let y=0;y<21;y++)for(let x=0;x<21;x++){const f=(a,b)=>x>=a&&x<a+7&&y>=b&&y<b+7,g=(a,b)=>{const dx=x-a,dy=y-b;return dx==0||dx==6||dy==0||dy==6||(dx>1&&dx<5&&dy>1&&dy<5)};let on=f(0,0)?g(0,0):f(14,0)?g(14,0):f(0,14)?g(0,14):((x*7+y*13+x*y*3)%5<2);if((x==7&&y<8)||(y==7&&x<8)||(x==13&&y<8)||(y==7&&x>12)||(y==13&&x<8)||(x==7&&y>12))on=false;s+=`<i class="${on?'':'o'}"></i>`}return `<div class="qr" style="width:${px}px;height:${px}px;grid-template-columns:repeat(21,1fr);box-sizing:border-box">${s}</div>`};
+const lang=`<span style="font-size:12px;font-weight:500;color:var(--mu)"><b class="on">EN</b> | BM</span>`;
+const ticket=(sz)=>`<div style="border:2px solid var(--pr);border-radius:18px;background:var(--card);padding:12px" class="rw">${qr(sz)}<div><div class="b">Your event pass</div><div class="mu">Table 14, room 1208</div><div style="margin-top:7px"><span class="ok">${I('check')} Checked in 8:42 am</span></div></div></div>`;
+const lbr=(n,i,t,p,me)=>`<div class="card rw" style="padding:9px 12px;${me?'border-color:var(--pr)':''}"><span class="b ${n<4?'on':''}" style="width:16px;text-align:center;${n<4?'':'color:var(--mu)'}">${n}</span>${av(i)}<div class="b">${t}</div><span class="b">${p}</span></div>`;
+
+const abt=(t,p='',k='')=>{const l=p?'Read more and see photos':'Read more';return `<div class="abt ${k}"><div class="mu clamp" style="font-size:13px">${t}</div>${p?`<div class="pics">${p}</div>`:''}<button class="more" type="button" data-more data-l="${l}">${k==='open'?'Show less':l}</button></div>`};
+const yt=`Start the day with a gentle 45-minute flow on the east deck, led by a local instructor as the sun comes up over the strait. All levels are welcome and no experience is needed. Mats, towels and water are provided, so come as you are in comfortable clothes. Sessions run in small groups of twelve. If it rains we move to the Garden Room on level 1, and you'll get a WhatsApp message 30 minutes before your slot either way.`;
+const yp=cv('yoga','sunrise',120)+cv('walk','waves',76)+cv('step','flower-2',76);
+const about=abt(yt,yp);
+const dnav=a=>`<div class="nav"><div class="rw" style="gap:10px;flex:none"><div class="av" style="background:var(--pr);color:#fff;border-radius:11px">MS</div><div><div class="b">Momentum Summit 2027</div><div class="mu">12 to 14 March, Penang</div></div></div><div class="lk">${['Home','Agenda','Activities','Info'].map(t=>`<span class="${t===a?'on':''}">${t}</span>`).join('')}</div><div class="rw" style="gap:16px;flex:none">${lang}<span style="color:var(--mu)">${I('bell')}</span><div class="av" style="${a==='Me'?'box-shadow:0 0 0 2px var(--pr)':''}">MT</div></div></div>`;
+const ses=(a,b,t,p,r='')=>`<div class="card rw" style="padding:11px 12px"><div style="flex:none!important;width:44px;text-align:center"><div class="b">${a}</div><div class="mu">${b}</div></div><div><div class="b">${t}</div><div class="meta">${I('map-pin')} ${p}</div></div>${r}</div>`;
+const A={step:{c:'step',i:'footprints',h:120,m:'All week, day 2',t:'Step challenge',p:'Team Coral',pi:'users',a:'Log'},wall:{c:'wall',i:'image',h:120,m:'All week',t:'Photo wall',p:'Foyer',a:'Post'},draw:{c:'draw',i:'gift',h:120,m:'Tonight, 8:00 pm',t:'Lucky draw',p:'Main stage',a:'Watch'},trail:{c:'trail',i:'map',h:120,m:'6 of 10 stamps',t:'Booth trail',p:'Foyer',a:'Open'},yoga:{c:'yoga',i:'sun',h:120,d:['13','Mar'],m:'Fri, 6:45 am',t:'Sunrise yoga on the pier',p:'The pier',a:'Book',s:1},coffee:{c:'coffee',i:'coffee',h:120,d:['13','Mar'],m:'Fri, 3:00 pm',t:'Coffee tasting lab',p:'Cafe Nine',a:'Book'},walk:{c:'walk',i:'camera',h:120,d:['14','Mar'],m:'Sat, 5:30 pm',t:'Old town photo walk',p:'Lobby',a:'Book'},cup:{c:'cup',i:'trophy',h:120,d:['14','Mar'],m:'Sat, 2:00 pm',t:'Rooftop futsal cup',p:'Rooftop court',a:'View'}};
+const side=(a,ev)=>{const it=(i,l,x='')=>`<span class="it ${l===a?'on':''}">${I(i)}<span style="flex:1">${l}</span>${x}</span>`;return `<aside class="sb"><div class="rw" style="gap:9px;padding:0 6px"><div class="av" style="width:30px;height:30px;border-radius:9px;background:var(--pr);color:#fff;font-size:11px">EH</div><div class="b" style="font-size:15px">ECP Hub</div><span style="color:var(--mu)">${I('panel-left')}</span></div>${ev?`<div class="rw" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px"><div><div class="b">Momentum Summit 2027</div><span class="ok" style="display:inline-block;margin-top:4px;padding:1px 8px">Live</span></div>${chev}</div><div><div class="gl">Onsite</div>${it('house','Overview')}${it('users','Attendees','<span class="pl" style="padding:1px 7px;font-size:11px">3</span>')}${it('layers','Groups')}${it('star','Games')}${it('scan-line','Scanner',`<span style="color:var(--mu)">${I('arrow-up-right')}</span>`)}</div><div><div class="gl">Portal</div>${it('calendar','Agenda')}${it('info','Info page')}${it('megaphone','Announcements')}${it('bell','Popups')}${it('layout-grid','Modules')}${it('flag','Activities')}</div><div><div class="gl">Event</div>${it('message-circle','WhatsApp')}${it('settings','Settings')}${it('file-down','Exports')}</div>`:`<div><div class="gl">Events</div>${it('layers','All events')}${it('layout-grid','Features')}</div>`}<span class="it" style="margin-top:auto">${I('log-out')}<span>admin@ecphub.example</span></span></aside>`};
+const adm=(a,body,o={})=>`<div class="ad">${side(a,!o.noev)}<main class="am"><div class="ac" style="${o.wide?'max-width:none':''}">${body}</div>${o.save||''}</main></div>`;
+const ah=(t,s,acts='')=>`<div class="ah"><div><div class="dh" style="margin:0">${t}</div><div class="mu" style="font-size:13px">${s}</div></div><div style="display:flex;gap:8px;flex:none">${acts}</div></div>`;
+const sbt=(t,p,i)=>`<span class="sbt ${p?'p':''}">${i?I(i):''}${t}</span>`;
+const th=(c,i)=>`<div style="width:44px;flex:none!important">${cv(c,i,44)}</div>`;
+const dots=`<span style="color:var(--mu)">${I('ellipsis')}</span>`;
+const tr=(cols,cells,h)=>`<div class="tr ${h?'h':''}" style="grid-template-columns:${cols}">${cells.map(c=>`<div>${c}</div>`).join('')}</div>`;
+const nm=(l,t,s)=>`<div class="rw">${l}<div><div class="b">${t}</div><div class="mu">${s}</div></div></div>`;
+const gy=t=>`<span class="gy">${t}</span>`,okp=t=>`<span class="ok">${t}</span>`,plt=t=>`<span class="pl" style="padding:4px 10px;font-size:11px">${t}</span>`;
+const pbar=(p,t)=>`<div class="prog"><i style="width:${p}%"></i></div><div class="mu" style="margin-top:4px">${t}</div>`;
+const kpi=(l,n,s)=>`<div class="card" style="padding:16px"><div class="mu">${l}</div><div class="b" style="font-size:26px;line-height:1.3">${n}</div><div class="mu">${s}</div></div>`;
+const fld=(l,v,x='')=>`<div style="${x}"><div class="mu" style="margin-bottom:5px">${l}</div><div class="fd" style="margin:0">${v}</div></div>`;
+const tcard=x=>`<div class="card" style="padding:0;overflow:hidden">${x}</div>`;
+const EC='1fr 130px 130px 24px',AC='1.7fr 110px 90px 60px 170px 24px',VC='1.4fr 230px 110px 50px 24px',SC='100px 1fr 80px 24px',GC='90px 1fr 110px 24px',RC='24px 1.5fr 90px 90px 110px 24px',MC='1.5fr 120px 80px 24px',NC='1fr 100px 90px 24px',OC='20px 1.5fr 130px 50px 24px',WC='1.4fr 180px 70px 50px 24px',XC='1fr 90px 140px 4px';
+const G=[
+['Desktop',[
+['Home, desktop',`${dnav('Home')}<div class="dbody"><div class="cols" style="grid-template-columns:290px 1fr 290px">
+<div class="stack" style="gap:16px"><div class="card" style="padding:16px"><div class="rw"><div class="av" style="background:var(--pr);color:#fff;width:44px;height:44px">MT</div><div><div class="b" style="font-size:15px">Hello, Maya</div><div class="mu">Marketing, Team Coral</div></div></div><div style="display:flex;justify-content:center;margin:14px 0 10px">${qr(150)}</div><div class="ctr" style="margin-bottom:12px"><span class="ok">${I('check')} Checked in 8:42 am</span></div><div class="stat" style="background:transparent"><div><b>14</b><span>Table</span></div><div><b>1208</b><span>Room</span></div><div><b>B</b><span>Shuttle</span></div></div></div>
+<div>${hd('Announcements','See all')}<div class="stack" style="gap:8px">${row(tile('megaphone'),'Shuttles leave at 8:15 am','10 min ago')}${row(tile('utensils'),'Lunch moved to the terrace','Today, 7:40 am')}${row(tile('camera'),'Photo wall is open','Yesterday')}</div></div></div>
+<div>${hd('Up next','See agenda')}<div class="card">${cv('key','mic',170,['12','Mar'])}<div class="ft" style="margin-top:10px;padding:0 4px 2px"><div><div class="b" style="font-size:16px">Opening keynote: the year ahead</div><div class="meta">${I('map-pin')} Harbour Hall, 9:00 am</div></div><span class="pl">In 25 min</span></div></div>
+${hd('For you to do','See all')}<div class="cols" style="grid-template-columns:1fr 1fr;gap:14px">${big(A.yoga)}${big(A.step)}</div></div>
+<div class="stack" style="gap:16px"><div>${hd('Today','Thu, 12 Mar')}<div class="stack" style="gap:8px">${ses('9:00','am','Opening keynote','Harbour Hall')}${ses('10:30','am','Story selling','Room Jade')}${ses('2:00','pm','Futsal cup','Rooftop court')}${ses('7:00','pm','Gala dinner','Table 14')}</div></div>
+<div>${hd('Your team','Board')}${lbr(2,'CO','Team Coral','1,240',1)}</div></div></div></div>`],
+['Activities, desktop',`${dnav('Activities')}<div class="dbody"><div class="ft" style="margin-bottom:18px"><div class="dh" style="margin:0">Activities</div><div class="fd" style="margin:0;width:260px;color:var(--mu)">${I('search')}Search activities</div></div>${chips(['All','Bookings','Challenges','Tournaments','Games','Photo walls'])}
+${hd('Open now','See all')}<div class="cols" style="grid-template-columns:repeat(4,1fr);gap:16px">${big(A.step)}${big(A.wall)}${big(A.draw)}${big(A.trail)}</div>
+${hd('Coming up','See all')}<div class="cols" style="grid-template-columns:repeat(4,1fr);gap:16px">${big(A.yoga)}${big(A.coffee)}${big(A.walk)}${big(A.cup)}</div></div>`],
+['Activity, desktop',`${dnav('Activities')}<div class="dbody"><div class="mu" style="margin-bottom:14px;font-size:13px">${I('arrow-left')} Activities</div><div class="cols" style="grid-template-columns:1fr 340px;gap:28px">
+<div>${cv('yoga','sun',290,null,'<span class="tag" style="bottom:16px">Booking</span>')}<div class="dh" style="font-size:26px;margin:20px 0 0">Sunrise yoga on the pier</div>
+<div class="cols" style="grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">${fact('calendar','Friday, 13 March','45 minutes, mats provided')}${fact('map-pin','The pier, east deck','5 min walk from the lobby')}${fact('users','Small groups','Twelve people a session')}${fact('cloud-rain','If it rains','Garden Room, level 1')}</div>
+${hd('About')}${abt(yt,yp,'show')}</div>
+<div class="card" style="padding:18px"><div class="b" style="font-size:20px">18 mats left</div><div class="mu" style="margin-bottom:14px">6 sessions on Friday, 13 March</div>
+<div class="stack" style="gap:12px;margin-bottom:16px">${fact('clock','First session 6:00 am','Last one 6:15 pm')}${fact('map-pin','The pier, east deck','<span class="on b">Open map</span>')}</div>
+<div class="bt">Book slot</div><div class="mu ctr" style="margin-top:10px">Change or cancel until your slot starts</div></div></div></div>`],
+['Agenda, desktop',`${dnav('Agenda')}<div class="dbody"><div class="cols" style="grid-template-columns:210px 1fr 290px">
+<div class="card" style="padding:10px"><div class="vt">${[['Thu, 12 Mar','5 sessions',1],['Fri, 13 Mar','7 sessions'],['Sat, 14 Mar','6 sessions']].map(d=>`<span class="${d[2]?'on':''}">${d[0]}<br><small class="mu" style="font-weight:400">${d[1]}</small></span>`).join('')}</div></div>
+<div><div class="ft" style="margin-bottom:14px"><div class="dh" style="margin:0">Thursday, 12 March</div><div style="display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:4px;text-align:center;font-size:12px;width:230px"><div class="b" style="background:var(--soft);color:var(--pr);border-radius:10px;padding:7px">All sessions</div><div style="padding:7px;color:var(--mu)">My sessions</div></div></div>
+<div class="stack">${ses('9:00','am','Opening keynote: the year ahead','Harbour Hall','<span class="pl">Next</span>')}${ses('10:30','am','Workshop: story selling','Room Jade, yours','<span class="ok">Yours</span>')}${ses('12:30','pm','Lunch','Terrace')}${ses('2:00','pm','Futsal cup, round 1','Rooftop court')}${ses('7:00','pm','Gala dinner','Harbour Hall, table 14')}</div></div>
+<div>${hd('My sessions','2 today')}<div class="stack" style="gap:8px">${row(tile('presentation'),'Story selling','10:30 am, Room Jade')}${row(tile('trophy'),'Futsal cup','2:00 pm, rooftop court')}</div><div class="bt o" style="margin-top:14px">${I('calendar-plus')} Add all to calendar</div></div></div></div>`],
+['Info, desktop',`${dnav('Info')}<div class="dbody"><div class="cols" style="grid-template-columns:210px 1fr">
+<div class="card" style="padding:10px"><div class="vt"><span class="on">Venue</span><span>Getting there</span><span>Dress code</span><span>Contacts</span></div></div>
+<div><div class="dh">Venue</div><div class="card" style="margin-bottom:16px">${cv('venue','building-2',210)}<div class="ft" style="margin-top:10px;padding:0 4px 2px"><div><div class="b" style="font-size:16px">Harbour Hall, level 2</div><div class="meta">${I('map-pin')} Straits Quay hotel, Penang</div></div><span class="pl">Open map</span></div></div>
+<div class="cols" style="grid-template-columns:1fr 1fr;gap:10px"><div class="card" style="padding:12px 13px"><div class="ft"><span class="b">Parking</span><span class="on">${I('chevron-up')}</span></div><div class="mu" style="margin-top:8px;padding-top:9px;border-top:1px solid var(--line);font-size:12.5px">Basement 2 and 3. Show your pass at the concierge for the flat day rate.</div></div>
+<div class="stack" style="gap:10px">${['Wi-Fi','Prayer room','First aid'].map(t=>`<div class="card ft" style="padding:12px 13px"><span class="b">${t}</span><span style="color:var(--mu)">${I('chevron-down')}</span></div>`).join('')}</div></div></div></div></div>`],
+['Me, desktop',`${dnav('Me')}<div class="dbody"><div class="cols" style="grid-template-columns:330px 1fr;gap:28px">
+<div class="card ctr" style="padding:22px 18px"><div class="av" style="width:74px;height:74px;margin:0 auto;font-size:22px;background:var(--pr);color:#fff;box-shadow:0 0 0 4px var(--line)">MT</div><div class="b" style="font-size:18px;margin-top:10px">Maya Tan</div><div class="mu">Marketing, Team Coral</div>
+<div class="stat" style="margin:14px 0;background:transparent"><div><b>214</b><span>Points</span></div><div><b>6 of 10</b><span>Stamps</span></div><div><b>2nd</b><span>Team rank</span></div></div><div style="text-align:left">${ticket(86)}</div></div>
+<div><div class="tabs" style="max-width:360px">${['Bookings','Stamps','About'].map((t,i)=>`<span class="${i?'':'on'}">${t}</span>`).join('')}</div>
+<div class="cols" style="grid-template-columns:repeat(3,1fr);gap:14px">${big({...A.yoga,a:'Booked',s:0})}${big({...A.coffee,a:'Booked'})}${big({...A.cup,a:'Squad'})}</div>
+${hd('Your details','Edit')}<div class="card" style="padding:4px 14px"><div class="cols" style="grid-template-columns:1fr 1fr;gap:0 28px">${[['Mobile','+60 12 345 6789'],['Work email','maya@company.com'],['Meal preference','Vegetarian'],['Room','1208, twin share']].map(k=>`<div class="kv" style="border-top:0"><span class="mu" style="font-size:13px">${k[0]}</span><span class="b">${k[1]}</span></div>`).join('')}</div></div></div></div></div>`]
+],1],
+['Admin',[
+['All events',adm('All events',ah('Events','Every event you run on ECP Hub',sbt('New event',1,'plus'))+tcard(tr(EC,['Event','Status','Attendees',''],1)
++tr(EC,[nm(th('key','sparkles'),'Momentum Summit 2027','12 to 14 Mar, Penang'),okp('Live'),'<span class="b">486</span> of 500',dots])
++tr(EC,[nm(th('cup','trophy'),'Partner Awards Night','22 May, Kuala Lumpur'),gy('Draft'),'<span class="mu">Not open</span>',dots])
++tr(EC,[nm(th('step','heart-pulse'),'Wellness Week','6 to 10 Apr, online and on site'),plt('Opens 1 Apr'),'<span class="b">212</span> invited',dots])
++tr(EC,[nm(th('venue','building-2'),'Leadership Offsite','18 Jan, Langkawi'),gy('Ended'),'<span class="b">64</span> of 64',dots])),{noev:1})],
+['Overview',adm('Overview',ah('Overview','Momentum Summit 2027, 12 to 14 March',sbt('View portal',0,'arrow-up-right')+sbt('Send announcement',1,'megaphone'))
++`<div class="cols" style="grid-template-columns:repeat(4,1fr);gap:14px">${kpi('Registered','486','of 500 places')}${kpi('Checked in','412','85% of registered')}${kpi('Waiting list','23','3 need approval')}${kpi('Bookings','1,204','across 7 activities')}</div>
+<div class="cols" style="grid-template-columns:1.25fr 1fr;gap:16px;margin-top:16px"><div class="card" style="padding:16px">${hd('Check-in today','Live')}<div class="stack" style="gap:14px">${[['Main door',85,'412 of 486'],['Shuttle B',80,'96 of 120'],['Gala dinner',0,'Opens 6:30 pm']].map(d=>`<div><div class="ft" style="margin-bottom:6px"><span class="b">${d[0]}</span><span class="mu">${d[2]}</span></div><div class="prog"><i style="width:${d[1]}%"></i></div></div>`).join('')}</div></div>
+<div>${hd('Needs you','3 items')}<div class="stack" style="gap:8px">${row(tile('user-check'),'3 attendees to approve','Waiting list, oldest 2 hours ago',chev)}${row(tile('footprints'),'12 step entries to check','Step challenge, day 2',chev)}${row(tile('gift'),'Lucky draw at 8:00 pm','Round 1 is ready to start',chev)}</div></div></div>`)],
+['Attendees',adm('Attendees',ah('Attendees','486 registered, 23 on the waiting list',sbt('Import',0,'upload')+sbt('Export',0,'file-down')+sbt('Add attendee',1,'plus'))
++`<div class="ft" style="margin-bottom:14px"><div class="fd" style="margin:0;width:300px;color:var(--mu)">${I('search')}Search by name, email or mobile</div>${chips(['All 486','Checked in 412','Not yet 74','Waiting 23'])}</div>`
++tcard(tr(AC,['Name','Category','Group','Table','Status',''],1)+[['MT','Maya Tan','maya@company.example','Marketing','Coral','14',okp('Checked in 8:42 am')],['JR','Jared Rao','jared@company.example','Sales','Coral','14',okp('Checked in 8:39 am')],['NS','Nurul Syafiqah','nurul@company.example','Finance','Indigo','9',gy('Not yet')],['WC','Wei Chen','wei@company.example','Product','Jade','22',okp('Checked in 8:51 am')],['PN','Priya Nair','priya@company.example','Sales','Amber','3',plt('Needs approval')],['DL','Daniel Lim','daniel@company.example','Guest','None','31',plt('Waiting list')],['AZ','Aiman Zulkifli','aiman@company.example','Crew','None','1',gy('Not yet')]].map(a=>tr(AC,[nm(av(a[0]),a[1],a[2]),a[3],a[4],a[5],a[6],dots])).join('')),{wide:1})],
+['Activities',adm('Activities',ah('Activities','What attendees can book, join and play',sbt('New activity',1,'chevron-down'))
++tcard(tr(VC,['Activity','Taken up','Status','Open',''],1)+[['yoga','sun','Sunrise yoga on the pier','Sessions, 6 slots',75,'54 of 72 mats',okp('Open'),1],['coffee','coffee','Coffee tasting lab','Sessions, 3 slots',100,'36 of 36 seats',gy('Full'),1],['step','footprints','Step challenge','Submission, by team',64,'318 entries, 12 to check',okp('Open'),1],['cup','trophy','Rooftop futsal cup','Tournament, 8 teams',40,'4 of 10 matches played',okp('Open'),1],['trail','map','Booth trail','Passport, 10 booths',58,'281 started, 96 complete',okp('Open'),1],['draw','gift','Lucky draw','Game, 4 rounds',0,'Starts 8:00 pm',plt('Scheduled'),0]].map(a=>tr(VC,[nm(th(a[0],a[1]),a[2],a[3]),pbar(a[4],a[5]),a[6],`<span class="tg ${a[7]?'':'off'}" style="display:block"></span>`,dots])).join('')))],
+['Activity, admin',adm('Activities',`<div class="mu" style="margin-bottom:12px;font-size:13px">${I('arrow-left')} Activities</div>`+ah('Sunrise yoga on the pier','Sessions, Friday 13 March, the pier',sbt('Preview',0,'eye')+sbt('New session',1,'plus'))
++`<div style="max-width:440px">${tabs(['Sessions','Bookings','Details','Reminders'],'Sessions')}</div><div class="cols" style="grid-template-columns:1fr 280px;gap:16px">`
++tcard(tr(SC,['Time','Seats','Waiting',''],1)+[['6:00 am',75,'9 of 12','None'],['6:45 am',100,'12 of 12, full','5'],['7:30 am',100,'12 of 12, full','2'],['8:15 am',50,'6 of 12','None'],['5:30 pm',67,'8 of 12','None'],['6:15 pm',58,'7 of 12','None']].map(s=>tr(SC,[`<span class="b">${s[0]}</span>`,pbar(s[1],s[2]),s[3],dots])).join(''))
++`<div class="card">${cv('yoga','sun',110)}<div style="padding:12px 4px 2px"><div class="b" style="font-size:18px">54 of 72 booked</div><div class="mu" style="margin-bottom:8px">7 on waiting lists</div>${[['Open for booking',1],['Change without asking',1],['Ask a form first',0],['Reminder 30 min before',1]].map(k=>`<div class="kv"><span>${k[0]}</span><span class="tg ${k[1]?'':'off'}"></span></div>`).join('')}</div></div></div>`)],
+['Agenda, admin',adm('Agenda',ah('Agenda','What is on, day by day',sbt('',0,'settings')+sbt('New session',1,'plus'))
++`<div style="max-width:440px">${tabs(['Thu 12 Mar','Fri 13 Mar','Sat 14 Mar','Add day'],'Thu 12 Mar')}</div>`
++tcard(tr(GC,['Time','Session','Category',''],1)+[['9:00 am','Opening keynote: the year ahead','Harbour Hall, Renuka Krishnan','Plenary'],['10:30 am','Workshop: story selling','Room Jade, breakout for Sales','Breakout'],['12:30 pm','Lunch','Terrace','Meals'],['2:00 pm','Futsal cup, round 1','Rooftop court','Activity'],['7:00 pm','Gala dinner','Harbour Hall, seated by table','Plenary']].map(s=>tr(GC,[`<span class="b">${s[0]}</span>`,`<div class="b">${s[1]}</div><div class="mu">${s[2]}</div>`,gy(s[3]),dots])).join('')))],
+['Settings',adm('Settings',ah('Settings','Details, registration and how the portal looks')
++`<div style="max-width:520px">${tabs(['Details','Registration','Look','Address','Team'],'Details')}</div>
+<div class="card" style="padding:18px"><div class="cols" style="grid-template-columns:200px 200px 1fr;gap:16px">${fld('Event name','Momentum Summit 2027','grid-column:1/3')}<span></span>${fld('Starts','12 Mar 2027')}${fld('Ends','14 Mar 2027')}<span></span>${fld('Venue','Straits Quay hotel, Penang','grid-column:1/3')}<span></span>
+<div style="grid-column:1/-1;max-width:520px"><div class="mu" style="margin-bottom:5px">Coming soon message</div><div class="fd" style="margin:0;align-items:flex-start;min-height:64px">The agenda and activities open on 1 March. Check back closer to the event.</div></div></div></div>
+<div class="card" style="padding:18px;margin-top:16px"><div class="b" style="font-size:15px">Portal colour</div><div class="mu" style="margin-bottom:12px">Used for buttons, links and highlights in the attendee portal</div><div class="rw" style="gap:10px">${['#FF8142','#3B5BDB','#0E8F7A','#D6336C','#5B3FD6','#111827'].map((c,i)=>`<span class="sw2" style="background:${c};${i?'':'box-shadow:0 0 0 2px var(--card),0 0 0 4px '+c}"></span>`).join('')}<span class="fd" style="margin:0 0 0 8px;width:120px">#FF8142</span></div></div>`,{save:`<div class="sv"><span class="mu" style="font-size:13px">You have unsaved changes</span><span style="flex:1"></span>${sbt('Discard')}${sbt('Save changes',1)}</div>`})],
+['Groups',adm('Groups',ah('Groups','8 groups, 486 members',sbt('',0,'settings')+sbt('Add points',0,'plus')+sbt('New group',1,'plus'))
++`<div style="max-width:380px">${tabs(['Groups','Leaderboard','Points log'],'Groups')}</div>`
++tcard(tr(RC,['#','Group','Members','Points','This week',''],1)+[[1,'IN','Team Indigo','Captain: Hana Yusof',61,'1,610','+420'],[2,'CO','Team Coral','Captain: Jared Rao',12,'1,240','+310'],[3,'JA','Team Jade','Captain: Wei Chen',60,'1,105','+280'],[4,'AM','Team Amber','Captain: Priya Nair',62,'960','+190'],[5,'SL','Team Slate','No captain yet',59,'910','+240'],[6,'TE','Team Teal','Captain: Omar Faruq',61,'880','+175']].map(g=>tr(RC,[`<span class="b ${g[0]<4?'on':''}">${g[0]}</span>`,nm(av(g[1]),g[2],g[3]),g[4],`<span class="b">${g[5]}</span>`,okp(g[6]),dots])).join('')))],
+['Group',adm('Groups',`<div class="mu" style="margin-bottom:12px;font-size:13px">${I('arrow-left')} Groups</div>`+ah('Team Coral','12 members, captain Jared Rao',sbt('Add points',0,'plus')+sbt('Add member',1,'user-plus'))
++`<div class="cols" style="grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">${kpi('Points','1,240','310 this week')}${kpi('Rank','2nd','of 8 groups')}${kpi('Entries','38','2 waiting for a check')}</div><div class="cols" style="grid-template-columns:1fr 290px;gap:16px">`
++tcard(tr(MC,['Member','Category','Points',''],1)+[['JR','Jared Rao','Captain','Sales','302'],['MT','Maya Tan','Joined 2 Mar','Marketing','214'],['NS','Nurul Syafiqah','Joined 2 Mar','Finance','188'],['WC','Wei Chen','Joined 3 Mar','Product','176'],['PN','Priya Nair','Joined 4 Mar','Sales','160']].map(m=>tr(MC,[nm(av(m[0]),m[1],m[2]),m[3],`<span class="b">${m[4]}</span>`,dots])).join(''))
++`<div>${hd('Points log','See all')}<div class="stack" style="gap:8px">${row(tile('plus'),'+100, bowling bonus','Today 9:10 am, by you')}${row(tile('minus'),'-20, late entry','Yesterday, by Sara Lee')}${row(tile('plus'),'+50, best team photo','Wed, by you')}</div></div></div>`)],
+['Games',adm('Games',ah('Games','Live games for the big screen and phones',sbt('New game',1,'chevron-down'))
++tcard(tr(EC,['Game','Status','Players',''],1)
++tr(EC,[nm(th('draw','gift'),'Lucky draw','Draw, 4 rounds, checked-in attendees only'),plt('Tonight 8:00 pm'),'<span class="b">412</span> in the draw',dots])
++tr(EC,[nm(th('quiz','brain'),'Trivia night','Quiz, 20 questions, by team'),gy('Draft'),'<span class="mu">Not open</span>',dots])
++tr(EC,[nm(th('walk','keyboard'),'Type racer','Typing game, solo'),okp('Live'),'<span class="b">86</span> playing',dots])
++tr(EC,[nm(th('wall','grid-3x3'),'Table bingo','Bingo, one card a table'),gy('Ended'),'<span class="b">40</span> tables',dots])))],
+['Game control',adm('Games',`<div class="mu" style="margin-bottom:12px;font-size:13px">${I('arrow-left')} Games</div>`+ah('Lucky draw','Round 2 of 4, weekend hotel stay',sbt('Open big screen',0,'arrow-up-right')+sbt('Draw a winner',1,'sparkles'))
++`<div class="cols" style="grid-template-columns:1fr 290px;gap:16px"><div><div class="chips" style="margin-bottom:12px"><span class="chip">${I('check')} Round 1</span><span class="chip s">Round 2, live</span><span class="chip">Round 3</span><span class="chip">Round 4</span></div>
+${cv('draw','gift',270,null,'<span style="position:absolute;z-index:1;font-size:64px;font-weight:700;letter-spacing:.12em">0417</span><span class="tag" style="bottom:14px;left:14px">Big screen preview</span>')}
+<div class="card" style="margin-top:14px;padding:4px 14px"><div class="kv"><span>Only checked-in attendees can win</span><span class="tg"></span></div><div class="kv"><span>A person can win once</span><span class="tg"></span></div></div></div>
+<div>${hd('Winners','3 so far')}<div class="stack" style="gap:8px">${row(av('DL'),'0932, Daniel Lim','Round 1, wireless earbuds')}${row(av('PN'),'0158, Priya Nair','Round 1, dining voucher')}${row(av('FA'),'0644, Farah Aziz','Round 1, dining voucher')}</div>${hd('In the draw')}<div class="card" style="padding:14px"><div class="b" style="font-size:22px">409</div><div class="mu">412 checked in, 3 already won</div></div></div></div>`)],
+['Info page',adm('Info page',ah('Info page','What attendees read under Info',sbt('',0,'settings')+sbt('New tab',1,'plus'))
++`<div style="max-width:460px">${tabs(['Venue','Getting there','Dress code','Contacts'],'Venue')}</div>
+<div class="card" style="padding:0"><div class="rw" style="gap:16px;padding:11px 16px;border-bottom:1px solid var(--line);color:var(--mu)">${['heading','bold','italic','list','link','image','chevrons-up-down'].map(I).join('')}<span style="flex:1"></span><span class="mu">Dropdown</span></div>
+<div style="padding:18px;max-width:600px"><div class="b" style="font-size:17px">Harbour Hall, level 2</div><div style="margin:6px 0 12px;font-size:13px">The summit runs across level 2 and level 5 of the Straits Quay hotel. Registration opens at 7:30 am in the foyer.</div>
+${cv('venue','building-2',150)}<div class="stack" style="gap:8px;margin-top:12px"><div style="border:1px solid var(--line);border-radius:12px;padding:11px 13px"><div class="ft"><span class="b">Parking</span><span class="on">${I('chevron-up')}</span></div><div class="mu" style="margin-top:8px;font-size:12.5px">Basement 2 and 3. Show your pass at the concierge for the flat day rate.</div></div><div class="ft" style="border:1px solid var(--line);border-radius:12px;padding:11px 13px"><span class="b">Wi-Fi</span><span style="color:var(--mu)">${I('chevron-down')}</span></div></div></div></div>`,{save:`<div class="sv"><span class="mu" style="font-size:13px">You have unsaved changes</span><span style="flex:1"></span>${sbt('Discard')}${sbt('Save changes',1)}</div>`})],
+['Announcements',adm('Announcements',ah('Announcements',"Short messages on every attendee's home page",sbt('New announcement',1,'plus'))
++`<div class="cols" style="grid-template-columns:1fr 300px;gap:16px">`+tcard(tr(NC,['Message','For','Sent',''],1)+[['Shuttles leave at 8:15 am','Meet at the hotel lobby. The last shuttle leaves at 8:30 am.','Everyone','10 min ago',1],['Lunch moved to the terrace','Same time, 12:30 pm.','Everyone','7:40 am'],['Photo wall is open','Find it in the foyer all week.','Everyone','Yesterday'],['Sales breakout room change','Story selling is now in Room Jade.','Sales','Yesterday'],['Dress code for the gala','Smart, with a touch of coral.','Everyone','Wed']].map(a=>tr(NC,[`<div class="b">${a[4]?`<span class="on">${I('pin')}</span> `:''}${a[0]}</div><div class="mu" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a[1]}</div>`,gy(a[2]),`<span class="mu">${a[3]}</span>`,dots])).join(''))
++`<div class="card" style="padding:16px"><div class="b" style="font-size:15px;margin-bottom:12px">New announcement</div><div class="stack" style="gap:12px">${fld('Title','Gala doors open at 6:30 pm')}<div><div class="mu" style="margin-bottom:5px">Message</div><div class="fd f" style="margin:0;align-items:flex-start;min-height:70px">Find your table number on your pass.</div></div>${fld('For',`<span style="flex:1">Everyone</span>${I('chevron-down')}`)}</div>
+<div class="kv" style="margin-top:8px;border-top:0"><span>Pin to the top</span><span class="tg off"></span></div><div class="kv"><span>Also send by WhatsApp</span><span class="tg"></span></div><div class="bt" style="margin-top:10px">Publish</div></div></div>`)],
+['Popups',adm('Popups',ah('Popups','A message that opens over the portal once',sbt('New popup',1,'plus'))
++tcard(tr(VC,['Popup','Seen by','Status','On',''],1)+[['yoga','sun','Book your sunrise yoga slot','Everyone, with a Book button',71,'344 of 486 attendees',okp('Showing'),1],['key','mic','Keynote starts in 30 minutes','Everyone, today only',100,'Shown to 412',gy('Finished'),0],['coffee','coffee','Coffee lab has seats left','Marketing and Product',0,'Starts Fri 1:00 pm',plt('Scheduled'),1],['cup','trophy','Pick your futsal squad','Team captains',38,'3 of 8 captains',okp('Showing'),1]].map(a=>tr(VC,[nm(th(a[0],a[1]),a[2],a[3]),pbar(a[4],a[5]),a[6],`<span class="tg ${a[7]?'':'off'}" style="display:block"></span>`,dots])).join('')))],
+['Modules',adm('Modules',ah('Modules','Extra tiles on the attendee home page',sbt('New module',1,'chevron-down'))
++tcard(tr(OC,['','Module','Shown to','On',''],1)+[['armchair','Seating plan','Table finder, from the attendee list','Everyone',1],['images','Photo gallery','Daily uploads from the photographer','Everyone',1],['bus','Shuttle times','Page with text and a map link','Everyone',1],['file-text','Sales playbook','Link, opens a PDF','Sales',1],['message-square-heart','Feedback form','Form, 6 questions','Everyone',0]].map(m=>tr(OC,[`<span style="color:var(--mu)">${I('grip-vertical')}</span>`,nm(tile(m[0]),m[1],m[2]),gy(m[3]),`<span class="tg ${m[4]?'':'off'}" style="display:block"></span>`,dots])).join('')))],
+['WhatsApp',adm('WhatsApp',ah('WhatsApp','Messages sent to attendees',sbt('Message log',0,'list')+sbt('Send a message',1,'send'))
++`<div class="cols" style="grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">${kpi('Sent today','1,286','since midnight')}${kpi('Delivered','98%','1,262 messages')}${kpi('Failed','14','10 wrong numbers')}</div>`
++tcard(tr(WC,['Automatic message','Template','Sent','On',''],1)+[['Registration confirmed','When someone registers','registration_done','486',1],['Event link','Sent with the confirmation','event_portal','486',1],['Session reminder','30 minutes before a booked session','session_reminder','742',1],['Waiting list place','When a place opens up','queue_offer','31',1],['Booking approved','When the committee approves','booking_approved','27',0]].map(w=>tr(WC,[`<div class="b">${w[0]}</div><div class="mu">${w[1]}</div>`,gy(w[2]),`<span class="b">${w[3]}</span>`,`<span class="tg ${w[4]?'':'off'}" style="display:block"></span>`,dots])).join('')))],
+['Exports',adm('Exports',ah('Exports','Download event data as spreadsheets')
++tcard(tr(XC,['File','Rows','',''],1)+[['users','Attendees','Details, answers, group, check-in status','486'],['scan-line','Check-ins','Every scan, by door and time','1,044'],['calendar-check','Bookings','Sessions booked, changed and cancelled','1,204'],['footprints','Challenge entries','Entries, proof links and who checked them','318'],['trophy','Tournament results','Fixtures, scores and the final table','10'],['clipboard-list','Survey answers','Door survey and feedback form','402']].map(x=>tr(XC,[nm(tile(x[0]),x[1],x[2]),`<span class="b">${x[3]}</span>`,sbt('Download',0,'file-down'),''])).join('')))],
+['Features',adm('Features',ah('Features','What each event can switch on')
++`<div class="cols" style="grid-template-columns:repeat(3,1fr);gap:14px">${[['flag','Activities','Bookings, challenges, tournaments, passports and photo walls','4 events'],['star','Games','Draws, quizzes and typing games for the big screen','2 events'],['bell','Popups','One-off messages over the portal','3 events'],['message-circle','WhatsApp','Confirmations, reminders and waiting-list offers','4 events'],['languages','Languages','An EN and BM switch in the portal','1 event'],['globe','Event address','Your own web address for an event','2 events']].map(f=>`<div class="card" style="padding:16px"><div class="ft">${tile(f[0])}<span class="tg"></span></div><div class="b" style="font-size:15px;margin-top:12px">${f[1]}</div><div class="mu" style="margin:2px 0 10px">${f[2]}</div>${gy('Used by '+f[3])}</div>`).join('')}</div>`,{noev:1})]
+],1],
+['Admin on a phone',[
+['Overview, phone',`<div class="ab">${I('menu')}<span>Overview</span><span class="g"><div class="av" style="width:30px;height:30px;font-size:11px">CS</div></span></div><div class="pad">
+<div class="card rw" style="padding:10px 12px;margin-bottom:12px"><div><div class="b">Momentum Summit 2027</div><div class="mu">12 to 14 March, Penang</div></div>${okp('Live')}</div>
+<div class="cols" style="grid-template-columns:1fr 1fr;gap:10px">${kpi('Registered','486','of 500')}${kpi('Checked in','412','85%')}${kpi('Waiting list','23','3 to approve')}${kpi('Bookings','1,204','7 activities')}</div>
+${hd('Needs you','3 items')}<div class="stack" style="gap:8px">${row(tile('user-check'),'3 attendees to approve','Oldest 2 hours ago',chev)}${row(tile('footprints'),'12 step entries to check','Step challenge, day 2',chev)}</div></div>
+<div class="cta"><div class="bt o" style="flex:1">${I('scan-line')} Scanner</div><div class="bt" style="flex:1">${I('megaphone')} Announce</div></div>`],
+['Attendees, phone',`<div class="ab">${I('menu')}<span>Attendees</span><span class="g">${I('plus')}</span></div><div class="pad">
+<div class="fd" style="margin:0 0 10px;color:var(--mu)">${I('search')}Search by name or mobile</div>${chips(['All 486','Checked in','Not yet','Waiting'])}
+<div class="stack" style="gap:8px;margin-top:12px">${[['MT','Maya Tan','Marketing, table 14',okp('In')],['JR','Jared Rao','Sales, table 14',okp('In')],['NS','Nurul Syafiqah','Finance, table 9',gy('Not yet')],['PN','Priya Nair','Sales, table 3',plt('Approve')],['DL','Daniel Lim','Guest, table 31',plt('Waiting')],['WC','Wei Chen','Product, table 22',okp('In')],['AZ','Aiman Zulkifli','Crew, table 1',gy('Not yet')]].map(a=>row(av(a[0]),a[1],a[2],a[3])).join('')}</div></div>`],
+['Approve, phone',`<div class="ab">${I('arrow-left')}<span>Attendee</span><span class="g">${I('ellipsis')}</span></div><div class="pad"><div class="ctr"><div class="av" style="width:68px;height:68px;margin:0 auto;font-size:20px">PN</div><div class="b" style="font-size:18px;margin-top:8px">Priya Nair</div><div class="mu">Registered today, 7:12 am</div><div style="margin-top:8px">${plt('Needs approval')}</div></div>
+<div class="card" style="padding:4px 14px;margin-top:14px">${[['Mobile','+60 12 998 1234'],['Category','Sales'],['Group','Team Amber'],['Meal','No beef'],['Queue place','2 of 23']].map(k=>`<div class="kv"><span class="mu" style="font-size:13px">${k[0]}</span><span class="b">${k[1]}</span></div>`).join('')}</div>
+<div class="mu ctr" style="margin-top:12px">Approving sends her the event link by WhatsApp.</div></div>
+<div class="cta"><div class="bt o" style="flex:1">Decline</div><div class="bt" style="flex:1">Approve</div></div>`]
+]],
+['Getting in',[
+['Registration',`${ab('Register',lang)}<div class="pad">${cv('key','sparkles',92,null,'<span style="position:absolute;left:14px;bottom:12px;z-index:1;text-align:left"><b style="font-size:15px;display:block">Momentum Summit 2027</b><span style="font-size:11.5px">12 to 14 March, Penang</span></span>')}
+<div class="mu" style="margin-top:14px">Full name</div><div class="fd">${I('user')}Maya Tan</div>
+<div class="mu">Mobile number</div><div class="fd f"><span class="b">+60</span>${I('chevron-down')}<span style="width:1px;height:16px;background:var(--line)"></span>12 345 67</div>
+<div class="mu">Work email</div><div class="fd" style="color:var(--mu)">${I('mail')}name@company.com</div>
+<div class="mu">Meal preference</div><div class="fd"><span style="flex:1">Vegetarian</span>${I('chevron-down')}</div>
+<div class="rw" style="align-items:flex-start;gap:9px"><span style="width:19px;height:19px;border-radius:6px;background:var(--pr);color:#fff;display:flex;align-items:center;justify-content:center;flex:none"><i data-lucide="check" style="width:13px;height:13px"></i></span><span class="mu">I agree to the event terms and the privacy policy.</span></div></div>
+<div class="cta"><div class="bt">Register</div></div>`],
+['Registered',`<div class="pad ctr" style="padding-top:54px"><div style="width:84px;height:84px;border-radius:50%;background:var(--soft);color:var(--pr);display:inline-flex;align-items:center;justify-content:center"><i data-lucide="check" style="width:40px;height:40px"></i></div>
+<div class="h1" style="margin:16px 0 6px;font-size:21px">You're in, Maya</div><div class="mu" style="font-size:13px">We've sent your event link by WhatsApp. Keep it handy for the door.</div></div>
+<div class="pad" style="margin-top:20px">${hd('One more step')}${big({c:'yoga',i:'sun',h:92,d:['13','Mar'],m:'Fri, 13 Mar, 6:45 am',t:'Sunrise yoga on the pier',p:'18 mats left',pi:'users',a:'Book',s:1})}</div>
+<div class="cta"><div class="bt o">Open my event page</div></div>`],
+['Coming soon',`<div class="pad ctr" style="padding-top:120px"><div style="width:72px;height:72px;border-radius:20px;background:var(--pr);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:20px">MS</div>
+<div class="h1" style="margin:18px 0 4px;font-size:20px">Momentum Summit 2027</div><div class="mu">12 to 14 March, Penang</div>
+<div class="card" style="margin-top:28px;padding:18px"><div class="b" style="font-size:15px">Coming soon</div><div class="mu" style="margin-top:4px;font-size:13px">The agenda and activities open on 1 March. Check back closer to the event.</div></div></div>`]
+]],
+['Home and agenda',[
+['Home',`<div class="ab" style="font-weight:400"><div class="rw" style="gap:10px"><div class="av" style="background:var(--pr);color:#fff">MT</div><div><div class="mu">Momentum Summit 2027</div><div class="b" style="font-size:15px">Hello, Maya</div></div></div><span class="g">${I('qr-code')}${I('bell')}</span></div>
+<div class="pad">${row(tile('megaphone'),'Shuttles leave at 8:15 am','Announcement, 10 min ago',chev)}
+${hd('Up next','See agenda')}<div class="card">${cv('key','mic',96,['12','Mar'])}<div class="ft" style="margin-top:9px"><div><div class="b" style="font-size:15px">Opening keynote</div><div class="meta">${I('map-pin')} Harbour Hall, 9:00 am</div></div><span class="pl">In 25 min</span></div></div>
+${hd('For you to do','See all')}<div style="display:flex;gap:12px;width:520px">${big({w:214,c:'yoga',i:'sun',h:84,d:['13','Mar'],m:'Fri, 6:45 am',t:'Sunrise yoga',p:'The pier',a:'Book',s:1})}${big({w:214,c:'step',i:'footprints',h:84,m:'All week',t:'Step challenge',p:'Team Coral',pi:'users',a:'Log'})}</div></div>${bar('Home')}`],
+['Announcements',`${ab('Announcements',I('check-check'))}<div class="pad stack">
+<div class="card" style="border-color:var(--pr);padding:12px"><div class="ft"><span class="pl" style="padding:3px 9px;font-size:11px">Pinned</span><span class="mu">10 min ago</span></div><div class="b" style="margin-top:8px;font-size:14px">Shuttles leave at 8:15 am</div><div class="mu" style="font-size:13px;margin-top:2px">Meet at the hotel lobby. The last shuttle leaves at 8:30 am sharp.</div></div>
+${row(tile('utensils'),'Lunch moved to the terrace','Today, 7:40 am')}
+${row(tile('camera'),'Photo wall is open','Yesterday, 6:15 pm')}
+${row(tile('gift'),'Lucky draw starts at 8:00 pm','Yesterday, 4:02 pm')}
+${row(tile('wifi'),'Venue Wi-Fi details','Wed, 11:30 am')}
+${row(tile('shirt'),'Dress code for the gala','Wed, 9:00 am')}</div>${bar('Home')}`],
+['Agenda',`${ab('Agenda',I('search'))}<div class="pad"><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">${[['12','Thu',1],['13','Fri'],['14','Sat'],['15','Sun'],['16','Mon']].map(d=>`<div class="slot ${d[2]?'':''}" style="${d[2]?'background:var(--pr);border-color:var(--pr);color:#fff':''}"><b style="display:block;font-size:14px">${d[0]}</b>${d[1]}</div>`).join('')}</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:4px;margin:14px 0;text-align:center;font-size:12px"><div class="b" style="background:var(--soft);color:var(--pr);border-radius:10px;padding:8px">All sessions</div><div style="padding:8px;color:var(--mu)">My sessions</div></div>
+<div class="stack">${[['9:00','am','Opening keynote','Harbour Hall','<span class="pl">Next</span>'],['10:30','am','Workshop: story selling','Room Jade, yours','<span style="color:var(--mu)">'+I('calendar-plus')+'</span>'],['12:30','pm','Lunch','Terrace',''],['2:00','pm','Futsal cup, round 1','Rooftop court',''],['7:00','pm','Gala dinner','Harbour Hall, table 14','']].map(s=>`<div class="card rw" style="padding:11px 12px"><div style="flex:none!important;width:44px;text-align:center"><div class="b">${s[0]}</div><div class="mu">${s[1]}</div></div><div><div class="b">${s[2]}</div><div class="meta">${I('map-pin')} ${s[3]}</div></div>${s[4]}</div>`).join('')}</div></div>${bar('Agenda')}`],
+['Session',`${hero('key','mic','Keynote','calendar-plus')}<div class="sheet"><div class="h1">Opening keynote: the year ahead</div>
+<div class="stack" style="gap:12px">${fact('calendar','Thursday, 12 March','9:00 am to 10:00 am')}${fact('map-pin','Harbour Hall, level 2','Doors open 8:30 am','<span class="pl">Map</span>')}</div>
+${hd('About')}${abt('Where the company is heading in 2027, the three bets behind the plan, and what they mean for each team. Renuka opens the summit with last year in numbers, then walks through the plan for each region and takes questions from the floor for the last fifteen minutes.')}
+${hd('Speaker')}${row(av('RK'),'Renuka Krishnan','Chief executive')}</div>
+${cta('9:00 am','Thu, 12 Mar','Add to calendar')}`]
+]],
+['Activities',[
+['Activities',`${ab('Activities',I('search'))}<div class="pad">${chips(['All','Bookings','Challenges','Games'])}
+${hd('Open now','See all')}<div style="display:flex;gap:12px;width:520px">${big({w:214,c:'step',i:'footprints',h:84,m:'All week, day 2',t:'Step challenge',p:'Team Coral',pi:'users',a:'Log'})}${big({w:214,c:'wall',i:'image',h:84,m:'All week',t:'Photo wall',p:'Foyer',a:'Post'})}</div>
+${hd('Coming up','See all')}<div style="display:flex;gap:12px;width:520px">${big({w:214,c:'yoga',i:'sun',h:84,d:['13','Mar'],m:'Fri, 6:45 am',t:'Sunrise yoga',p:'The pier',a:'Book',s:1})}${big({w:214,c:'coffee',i:'coffee',h:84,d:['13','Mar'],m:'Fri, 3:00 pm',t:'Coffee tasting lab',p:'Cafe Nine',a:'Book'})}</div></div>${bar('Activities')}`],
+['Activities, see all',`${ab('Coming up',I('sliders-horizontal'))}<div class="pad stack">
+${big({c:'yoga',i:'sun',h:112,d:['13','Mar'],m:'Fri, 13 Mar, 6:45 am',t:'Sunrise yoga on the pier',p:'The pier',a:'Book',s:1})}
+${big({c:'coffee',i:'coffee',h:112,d:['13','Mar'],m:'Fri, 13 Mar, 3:00 pm',t:'Coffee tasting lab',p:'Cafe Nine',a:'Booked'})}
+${big({c:'walk',i:'camera',h:112,d:['14','Mar'],m:'Sat, 14 Mar, 5:30 pm',t:'Old town photo walk',p:'Lobby',a:'Book'})}</div>${bar('Activities')}`],
+['Booking',`${hero('yoga','sun','Booking')}<div class="sheet"><div class="h1">Sunrise yoga on the pier</div>
+<div class="stack" style="gap:12px">${fact('calendar','Friday, 13 March','45 minutes, mats provided')}${fact('map-pin','The pier, east deck','5 min walk from the lobby','<span class="pl">Map</span>')}</div>
+${hd('About')}${about}</div>${cta('18 mats left','6 sessions on Friday','Book slot')}`],
+['About, opened',`${ab('Sunrise yoga on the pier',I('share-2'))}<div class="pad"><div class="hd" style="margin-top:4px"><span>About</span></div>${abt(yt,yp,'open')}</div>${cta('18 mats left','6 sessions on Friday','Book slot')}`],
+['Slot picker',`${hero('yoga','sun','Booking')}<div class="dim"></div><div class="bs"><div class="ft"><span class="b" style="font-size:16px">Pick a slot</span><span style="color:var(--mu)">${I('x')}</span></div>
+<div class="chips" style="margin:12px 0 2px"><span class="chip s">Fri 13 Mar</span><span class="chip">Sat 14 Mar</span></div>
+${hd('Morning','18 mats left')}<div class="slots"><div class="slot">6:00 am</div><div class="slot s">6:45 am</div><div class="slot x">7:30 am</div><div class="slot">8:15 am</div></div>
+${hd('Evening')}<div class="slots"><div class="slot">5:30 pm</div><div class="slot">6:15 pm</div></div></div>${cta('6:45 am','Fri, 13 Mar','Confirm')}`],
+['Booked',`${hero('yoga','sun','Booked')}<div class="sheet"><div class="h1">Sunrise yoga on the pier</div>
+<div class="rw" style="background:var(--okb);color:var(--okt);border-radius:14px;padding:11px 13px">${I('circle-check')}<div><div class="b">You're booked for 6:45 am</div><div style="font-size:12px">Friday, 13 March</div></div></div>
+<div class="stack" style="gap:12px;margin-top:14px">${fact('map-pin','The pier, east deck','5 min walk from the lobby','<span class="pl">Map</span>')}</div>
+${hd('About')}${about}</div>${cta('6:45 am','In 2 days','Add to calendar')}`],
+['Challenge',`${hero('step','footprints','Challenge')}<div class="sheet"><div class="h1">Step challenge</div>
+<div class="stack" style="gap:12px">${fact('calendar','12 to 14 March','Day 2 closes at midnight')}${fact('users','Team Coral','2nd of 8 teams','<span class="pl">Board</span>')}</div>
+${hd('About')}${abt('Walk, run or dance your way to 10,000 steps a day across the three days of the summit. Log your count each evening with a screenshot from your watch or phone. Every step counts towards your team, and the top three teams are called up at the gala dinner on Saturday.')}
+${hd('Today','6,420 of 10,000')}<div class="prog"><i style="width:64%"></i></div></div>${cta('6,420 steps','Today so far','Log steps')}`],
+['Submit an entry',`${ab('Log steps',I('x'),'arrow-left')}<div class="pad">
+<div class="mu">Day</div><div class="fd">${I('calendar')}<span style="flex:1">Friday, 13 March</span>${I('chevron-down')}</div>
+<div class="mu">Steps</div><div class="fd f">${I('footprints')}<span class="b" style="font-size:16px">6,420</span></div>
+<div class="mu">Proof photo</div><div style="border:1.5px dashed var(--line);border-radius:16px;padding:22px 12px;text-align:center;margin:5px 0 12px;background:var(--card)"><div class="tl" style="margin:0 auto 8px">${I('upload')}</div><div class="b">Add a screenshot</div><div class="mu">From your watch or phone</div></div>
+<div class="mu">Note (optional)</div><div class="fd" style="color:var(--mu);align-items:flex-start;min-height:54px">Morning walk along the pier</div>
+<div class="rw" style="gap:9px">${tile('users')}<div><div class="b">Counts for Team Coral</div><div class="mu">Checked by the committee</div></div></div></div><div class="cta"><div class="bt">Submit entry</div></div>`],
+['Entry sent',`<div class="pad ctr" style="padding-top:90px"><div style="width:96px;height:96px;border-radius:50%;background:var(--pr);color:#fff;display:inline-flex;align-items:center;justify-content:center"><i data-lucide="check" style="width:46px;height:46px"></i></div>
+<div class="h1" style="margin:20px 0 6px;font-size:21px">Entry sent</div><div class="mu" style="font-size:13px">6,420 steps logged for Friday. The committee will check it shortly.</div>
+<div class="stat" style="margin-top:24px"><div><b>14,870</b><span>Your steps</span></div><div><b>2nd</b><span>Team rank</span></div><div><b>1 day</b><span>Streak</span></div></div></div>
+<div class="cta"><div class="bt o" style="flex:1">See leaderboard</div><div class="bt" style="flex:1">Done</div></div>`],
+['Tournament',`${hero('cup','trophy','Tournament')}<div class="sheet"><div class="h1">Rooftop futsal cup</div>${fact('calendar','13 to 14 March','Rooftop court, level 9','<span class="pl">Map</span>')}${hd('About')}${abt('Eight teams, five a side, two days on the rooftop court. Each team plays three group matches of ten minutes, and the top four go through to the semi-finals on Saturday afternoon. Squads are picked by your team captain and lock an hour before the first match.')}<div style="height:6px"></div>${tabs(['Fixtures','Table','Squads'],'Fixtures')}
+<div class="card" style="padding:14px"><div class="ft"><span class="pl" style="padding:3px 9px;font-size:11px">Your next match</span><span class="mu">2:00 pm, court 1</span></div>
+<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;text-align:center;margin-top:12px"><div>${av('CO').replace('class="av"','class="av" style="margin:0 auto 5px"')}<div class="b">Coral</div></div><div class="b" style="font-size:18px;color:var(--mu)">vs</div><div>${av('IN').replace('class="av"','class="av" style="margin:0 auto 5px"')}<div class="b">Indigo</div></div></div></div></div>${cta('2nd place','4 points','See the table')}`],
+['Stamp trail',`${hero('trail','map','Passport')}<div class="sheet"><div class="h1">Booth trail</div>
+${fact('map-pin','10 booths to visit','Foyer and level 2 walkway','<span class="pl">Booths</span>')}
+${hd('About')}${abt('Visit the ten partner booths in the foyer and on the level 2 walkway, and scan the code at each one to collect its stamp. Collect all ten before Saturday at 6:00 pm and you are entered in the lucky draw at the gala dinner. Booth staff can help if a code will not scan.')}
+${hd('Your stamps','6 of 10')}
+<div class="stamps">${[['rocket','Launch',1],['lightbulb','Ideas',1],['leaf','Green',1],['smartphone','Digital',1],['heart','Care',1],['coins','Finance',1],['lock','People'],['lock','Safety'],['lock','Brand'],['lock','Service']].map(s=>`<div><i class="${s[2]?'d':'e'}">${I(s[0])}</i>${s[1]}</div>`).join('')}</div></div>${cta('6 of 10','4 to go','Scan a code')}`],
+['Stamp collected',`<div class="pad ctr" style="padding-top:70px"><div style="width:150px;height:150px;border-radius:50%;border:3px dashed var(--pr);display:inline-flex;align-items:center;justify-content:center"><div style="width:118px;height:118px;border-radius:50%;background:var(--pr);color:#fff;display:flex;align-items:center;justify-content:center"><i data-lucide="users" style="width:52px;height:52px;stroke-width:1.5"></i></div></div>
+<div class="mu" style="margin-top:22px">Stamp 7 of 10</div><div class="h1" style="font-size:21px;margin:2px 0 6px">People booth</div><div class="mu" style="font-size:13px">Three more and you're in the lucky draw.</div>
+<div class="prog" style="margin:22px 30px 0"><i style="width:70%"></i></div></div>
+<div class="cta"><div class="bt o" style="flex:1">See my stamps</div><div class="bt" style="flex:1">Scan next</div></div>`],
+['Photo wall',`${ab('Photo wall',I('info'))}<div class="pad">${chips(['Everyone','Mine','My team'])}${hd('128 photos','Just now')}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${[['#85B7EB','#3B5BDB'],['#FFB36B','#FF6F61'],['#34C6A0','#0E8F7A'],['#FF7EB3','#D6336C'],['#FFC857','#F08A24'],['#9B8CFF','#5B3FD6']].map((c,i)=>`<div class="pol" style="transform:rotate(${[-2,1.5,1,-1.5,2,-1][i]}deg)"><div style="background:linear-gradient(135deg,${c[0]},${c[1]})"></div></div>`).join('')}</div></div>
+<div class="cta"><div class="bt">${I('camera')} Take a photo</div></div>`],
+['Live game',`${hero('draw','gift','Live now')}<div class="sheet"><div class="h1">Lucky draw</div>
+${fact('clock','Tonight, 8:00 pm','Main stage, Harbour Hall')}
+${hd('About')}${abt('Four rounds tonight on the main stage, with prizes from dining vouchers to a weekend hotel stay. Your number is drawn at random and winners are shown here and on the big screen. You need to be in the hall to claim a prize, so keep this page open during the draw.')}
+<div style="margin-top:14px;border:2px solid var(--pr);border-radius:18px;background:var(--card);padding:14px;text-align:center"><div class="mu">Your number</div><div class="b on" style="font-size:34px;letter-spacing:.12em;line-height:1.2">0417</div></div></div>${cta('Drawing now','On the main stage','Watch the draw')}`],
+['Nothing yet',`${ab('Activities',I('search'))}<div class="pad">${chips(['All','Bookings','Challenges','Games'])}</div>
+<div class="pad ctr" style="padding-top:90px"><div style="width:96px;height:96px;border-radius:28px;background:var(--soft);color:var(--pr);display:inline-flex;align-items:center;justify-content:center"><i data-lucide="calendar-clock" style="width:44px;height:44px;stroke-width:1.5"></i></div>
+<div class="h1" style="margin:18px 0 6px">Activities open on 1 March</div><div class="mu" style="font-size:13px">You'll get a WhatsApp message when booking starts.</div></div>${bar('Activities')}`]
+]],
+['Info and groups',[
+['Info',`${ab('Info',I('search'))}<div class="pad"><div class="tabs" style="gap:18px;overflow:hidden"><span class="on" style="flex:none">Venue</span><span style="flex:none">Getting there</span><span style="flex:none">Dress code</span><span style="flex:none">Contacts</span></div>
+<div class="card" style="margin-bottom:12px">${cv('venue','building-2',96)}<div class="ft" style="margin-top:9px"><div><div class="b" style="font-size:15px">Harbour Hall, level 2</div><div class="meta">${I('map-pin')} Straits Quay hotel</div></div><span class="pl">Open map</span></div></div>
+<div class="stack" style="gap:8px"><div class="card" style="padding:12px 13px"><div class="ft"><span class="b">Parking</span><span class="on">${I('chevron-up')}</span></div><div class="mu" style="margin-top:8px;padding-top:9px;border-top:1px solid var(--line);font-size:12.5px">Basement 2 and 3. Show your pass at the concierge for the flat day rate.</div></div>
+${['Wi-Fi','Prayer room','First aid'].map(t=>`<div class="card ft" style="padding:12px 13px"><span class="b">${t}</span><span style="color:var(--mu)">${I('chevron-down')}</span></div>`).join('')}</div></div>${bar('Info')}`],
+['Contacts',`${ab('Info',I('search'))}<div class="pad"><div class="tabs" style="gap:18px;overflow:hidden"><span style="flex:none">Venue</span><span style="flex:none">Getting there</span><span style="flex:none">Dress code</span><span class="on" style="flex:none">Contacts</span></div>
+<div class="stack">${row(av('HD'),'Help desk','Foyer, 7:30 am to 9:00 pm','<span class="pl">Chat</span>')}${row(av('AZ'),'Aiman Zulkifli','Transport and shuttles','<span class="pl">Chat</span>')}${row(av('SL'),'Sara Lee','Rooms and check-in','<span class="pl">Chat</span>')}${row(tile('shield-plus'),'First aid','Level 1, beside the lifts',chev)}${row(tile('search'),'Lost and found','Ask at the help desk',chev)}</div></div>${bar('Info')}`],
+['Leaderboard',`${ab('Groups',I('search'))}<div class="pad">${tabs(['Leaderboard','My group','All groups'],'Leaderboard')}
+<div class="rw" style="border:2px solid var(--pr);border-radius:18px;padding:12px;background:var(--card);margin-bottom:6px"><div class="av" style="width:46px;height:46px;background:var(--pr);color:#fff;font-size:13px">2nd</div><div><div class="b">Team Coral</div><div class="mu">Your group, 12 members</div></div><div style="flex:none!important;text-align:right"><div class="b" style="font-size:15px">1,240</div><div class="mu">points</div></div></div>
+${hd('This week','<span class="pl" style="padding:3px 9px;font-size:11px">Day 2</span>')}<div class="stack" style="gap:8px">${lbr(1,'IN','Team Indigo','1,610')}${lbr(2,'CO','Team Coral','1,240',1)}${lbr(3,'JA','Team Jade','1,105')}${lbr(4,'AM','Team Amber','960')}${lbr(5,'SL','Team Slate','910')}</div></div>${bar('Me')}`],
+['My group',`${ab('Groups',I('search'))}<div class="pad">${tabs(['Leaderboard','My group','All groups'],'My group')}
+<div class="ctr"><div class="av" style="width:60px;height:60px;margin:0 auto;font-size:17px;background:var(--pr);color:#fff">CO</div><div class="b" style="font-size:17px;margin-top:6px">Team Coral</div><div class="mu">12 members</div></div>
+<div class="stat" style="margin:12px 0 4px"><div><b>1,240</b><span>Points</span></div><div><b>2nd</b><span>Rank</span></div><div><b>38</b><span>Entries</span></div></div>
+${hd('Members','See all')}<div class="stack" style="gap:8px">${row(av('MT'),'Maya Tan (you)','Marketing','<span class="b">214</span>')}${row(av('JR'),'Jared Rao','Captain, Sales','<span class="b">302</span>')}${row(av('NS'),'Nurul Syafiqah','Finance','<span class="b">188</span>')}${row(av('WC'),'Wei Chen','Product','<span class="b">176</span>')}</div></div>${bar('Me')}`]
+]],
+['Me',[
+['Me',`${ab('Me',I('settings'))}<div class="ctr"><div class="av" style="width:74px;height:74px;margin:0 auto;font-size:22px;background:var(--pr);color:#fff;box-shadow:0 0 0 4px var(--line)">MT</div><div class="b" style="font-size:18px;margin-top:10px">Maya Tan</div><div class="mu">Marketing, Team Coral</div></div>
+<div class="stat" style="margin:14px 22px 16px"><div><b>214</b><span>Points</span></div><div><b>6 of 10</b><span>Stamps</span></div><div><b>2nd</b><span>Team rank</span></div></div>
+<div style="background:var(--card);border-radius:28px 28px 0 0;padding:6px 18px 0;height:400px;border-top:1px solid var(--line)">${tabs(['Pass','Bookings','About'],'Pass')}${ticket(86)}</div>${bar('Me')}`],
+['Me, bookings',`${ab('Me',I('settings'))}<div class="ctr"><div class="av" style="width:74px;height:74px;margin:0 auto;font-size:22px;background:var(--pr);color:#fff;box-shadow:0 0 0 4px var(--line)">MT</div><div class="b" style="font-size:18px;margin-top:10px">Maya Tan</div><div class="mu">Marketing, Team Coral</div></div>
+<div class="stat" style="margin:14px 22px 16px"><div><b>214</b><span>Points</span></div><div><b>6 of 10</b><span>Stamps</span></div><div><b>2nd</b><span>Team rank</span></div></div>
+<div style="background:var(--card);border-radius:28px 28px 0 0;padding:6px 18px 0;height:400px;border-top:1px solid var(--line)">${tabs(['Pass','Bookings','About'],'Bookings')}<div class="stack">
+${[['yoga','sun',['13','Mar'],'Sunrise yoga on the pier','6:45 am, the pier'],['coffee','coffee',['13','Mar'],'Coffee tasting lab','3:00 pm, Cafe Nine']].map(b=>`<div class="rw" style="background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:9px"><div style="flex:none!important;width:74px">${cv(b[0],b[1],74,b[2])}</div><div><div class="b">${b[3]}</div><div class="meta" style="margin:3px 0 7px">${I('clock')} ${b[4]}</div><span class="ok">Booked</span></div></div>`).join('')}</div></div>${bar('Me')}`],
+['My pass',`${ab('My pass',I('sun'))}<div class="pad"><div style="background:var(--pr);border-radius:24px;padding:14px;color:#fff">${cv('key','sparkles',78)}
+<div style="background:var(--card);color:var(--tx);border-radius:16px;margin-top:12px;padding:16px;text-align:center"><div class="b" style="font-size:17px">Maya Tan</div><div class="mu">Marketing, Team Coral</div>
+<div style="border-top:1.5px dashed var(--line);margin:14px -16px;position:relative"></div>
+<div style="display:flex;justify-content:center">${qr(168)}</div>
+<div class="stat" style="margin-top:14px;border:0;padding:0;background:transparent"><div><b>14</b><span>Table</span></div><div><b>1208</b><span>Room</span></div><div><b>B</b><span>Shuttle</span></div></div></div></div>
+<div class="ctr mu" style="margin-top:12px">${I('sun')} Turn your brightness up at the door</div></div>${bar('Me')}`],
+['Settings',`${ab('Settings')}<div class="pad">${hd('Preferences')}<div class="stack" style="gap:8px">
+${row(tile('globe'),'Language','English',lang)}${row(tile('bell'),'WhatsApp reminders','30 minutes before sessions','<span class="tg"></span>')}${row(tile('moon'),'Dark mode','Follows your phone','<span class="tg off"></span>')}</div>
+${hd('Your registration')}<div class="stack" style="gap:8px">${row(tile('user'),'Your details','Name, mobile, meal preference',chev)}${row(tile('file-text'),'Event terms','Agreed on 2 March',chev)}${row(tile('smartphone'),'Add to home screen','Open the event like an app',chev)}${row(tile('log-out'),'Cancel registration','Open until 10 March',chev)}</div></div>${bar('Me')}`],
+['Your details',`${ab('Your details',I('pencil'))}<div class="pad"><div class="card" style="padding:4px 14px">
+${[['Full name','Maya Tan'],['Mobile','+60 12 345 6789'],['Work email','maya@company.com'],['Department','Marketing'],['Meal preference','Vegetarian'],['T-shirt size','M'],['Shuttle','Hotel lobby, B'],['Room','1208, twin share']].map(k=>`<div class="kv"><span class="mu" style="font-size:13px">${k[0]}</span><span class="b" style="text-align:right">${k[1]}</span></div>`).join('')}</div>
+<div class="mu ctr" style="margin-top:14px">Something wrong? The help desk can update it for you.</div></div>${bar('Me')}`]
+]],
+['Crew scanner',[
+['Scanner',`<div class="cam"><div class="ab">${I('x')}<span class="chip" style="background:#1F2937;border-color:#374151;color:#fff">Main door ${I('chevron-down')}</span>${I('flashlight')}</div>
+<div class="ctr" style="color:#9CA3AF;font-size:12px"><b style="color:#fff;font-size:22px;display:block">412 of 486</b>checked in</div>
+<div class="vf"><i style="left:0;top:0;border-right:0;border-bottom:0;border-radius:14px 0 0 0"></i><i style="right:0;top:0;border-left:0;border-bottom:0;border-radius:0 14px 0 0"></i><i style="left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 14px"></i><i style="right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 14px 0"></i></div>
+<div class="ctr" style="color:#9CA3AF">Point the camera at an attendee's pass</div>
+<div style="position:absolute;left:18px;right:18px;bottom:22px"><div class="bt" style="background:#1F2937">${I('search')} Find by name</div></div></div>`],
+['Checked in',`<div class="cam"><div class="ab">${I('x')}<span class="chip" style="background:#1F2937;border-color:#374151;color:#fff">Main door ${I('chevron-down')}</span>${I('flashlight')}</div></div><div class="dim"></div>
+<div class="bs ctr"><div style="width:76px;height:76px;border-radius:50%;background:var(--okb);color:var(--okt);display:inline-flex;align-items:center;justify-content:center"><i data-lucide="check" style="width:38px;height:38px"></i></div>
+<div class="b" style="font-size:20px;margin-top:10px">Maya Tan</div><div class="mu">Marketing, Team Coral</div>
+<div style="margin:10px 0 14px"><span class="ok">Checked in 8:42 am, Main door</span></div>
+<div class="stat"><div><b>14</b><span>Table</span></div><div><b>1208</b><span>Room</span></div><div><b>B</b><span>Shuttle</span></div></div>
+<div class="card rw" style="margin-top:12px;padding:10px 12px;text-align:left">${tile('utensils')}<div><div class="b">Vegetarian meal</div><div class="mu">Hand over a green wristband</div></div></div></div>
+<div class="cta"><div class="bt o" style="flex:1">Undo</div><div class="bt" style="flex:1">Scan next</div></div>`],
+['Already in',`<div class="cam"><div class="ab">${I('x')}<span class="chip" style="background:#1F2937;border-color:#374151;color:#fff">Main door ${I('chevron-down')}</span>${I('flashlight')}</div></div><div class="dim"></div>
+<div class="bs ctr"><div style="width:76px;height:76px;border-radius:50%;background:var(--soft);color:var(--pr);display:inline-flex;align-items:center;justify-content:center"><i data-lucide="triangle-alert" style="width:36px;height:36px"></i></div>
+<div class="b" style="font-size:20px;margin-top:10px">Already checked in</div><div class="mu" style="font-size:13px">Jared Rao came through Main door at 8:39 am.</div>
+<div class="card rw" style="margin-top:14px;padding:10px 12px;text-align:left">${av('JR')}<div><div class="b">Jared Rao</div><div class="mu">Sales, Team Coral, table 14</div></div></div></div>
+<div class="cta"><div class="bt">Scan next</div></div>`]
+]]
+];
+document.getElementById('board').innerHTML=G.map(([t,s,k])=>k?`<h2>${t}</h2><div class="dgrid">${s.map(([n,h])=>`<figure class="dfig"><div class="dwrap"><div class="dk">${h}</div></div><figcaption>${n}</figcaption></figure>`).join('')}</div>`:`<h2>${t}</h2><div class="grid">${s.map(([n,h])=>`<figure><div class="ph">${h}</div><figcaption>${n}</figcaption></figure>`).join('')}</div>`).join('');
+if(window.lucide)lucide.createIcons();
+const fit=()=>document.querySelectorAll('.dwrap').forEach(w=>{const d=w.firstElementChild,s=Math.min(1,w.clientWidth/1160);d.style.transform=`scale(${s})`;w.style.height=Math.ceil(d.offsetHeight*s)+'px'});
+fit();addEventListener('resize',fit);addEventListener('load',fit);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+document.addEventListener('click',e=>{const m=e.target.closest('[data-more]');if(!m)return;const o=m.closest('.abt').classList.toggle('open');m.textContent=o?'Show less':m.dataset.l;fit()});
+const b=document.getElementById('board'),L=document.getElementById('m-light'),D=document.getElementById('m-dark');
+const set=m=>{b.dataset.m=m;L.setAttribute('aria-pressed',m==='light');D.setAttribute('aria-pressed',m==='dark');try{localStorage.setItem('mock-theme',m)}catch(e){}};
+L.onclick=()=>set('light');D.onclick=()=>set('dark');
+const FM=document.getElementById('f-manrope'),FN=document.getElementById('f-noto');
+const setF=f=>{b.dataset.f=f;FM.setAttribute('aria-pressed',f==='manrope');FN.setAttribute('aria-pressed',f==='noto');fit();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit)};
+FM.onclick=()=>setF('manrope');FN.onclick=()=>setF('noto');
+try{const m=localStorage.getItem('mock-theme');if(m==='dark')set('dark')}catch(e){}
+</script>
