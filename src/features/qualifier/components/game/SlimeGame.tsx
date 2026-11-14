@@ -41,6 +41,8 @@ export type SlimeGameProps = {
    * there is no Play again here: the next run is chosen on the page, with what is left today.
    */
   kind?: RunKind | null;
+  /** The event has no practice runs (D913): a counted attempt is just "an attempt", not "official". */
+  solo?: boolean;
   /** Starts a run on the server. May reject; a rejection reads as a failed start. */
   start: () => Promise<StartAnswer>;
   /** Sends the finished run. Rejects on a network failure (or a server error): the run is kept and sent again. */
@@ -212,7 +214,7 @@ const viewportSnapshot = () => {
  *
  * No pause: a hidden tab stops the frames, and the engine catches up on the next one.
  */
-export function SlimeGame({ token, kind = null, start, submit, onDone, onScored, onExit, ref }: SlimeGameProps) {
+export function SlimeGame({ token, kind = null, solo = false, start, submit, onDone, onScored, onExit, ref }: SlimeGameProps) {
   const [stage, setStage] = useState<Stage>(() => (hasWebGL() ? { kind: "loading" } : { kind: "nogl" }));
   const [hud, setHud] = useState<HudState>(EMPTY_HUD);
   const [count, setCount] = useState(3);
@@ -632,7 +634,7 @@ export function SlimeGame({ token, kind = null, start, submit, onDone, onScored,
             </p>
           )}
           {(stage.kind === "loading" || stage.kind === "title") && (
-            <Title loading={stage.kind === "loading"} kind={kind} onStart={() => void begin()} onExit={onExit} />
+            <Title loading={stage.kind === "loading"} kind={kind} solo={solo} onStart={() => void begin()} onExit={onExit} />
           )}
           {stage.kind === "starting" && <Notice><Loader label="Getting ready…" /></Notice>}
           {playing && sceneFailed && <Notice>{SCENE_FAILED}</Notice>}
@@ -674,7 +676,7 @@ export function SlimeGame({ token, kind = null, start, submit, onDone, onScored,
 }
 
 /** The title screen: the game's name over the meadow, and Start once the scene has loaded. */
-function Title({ loading, kind, onStart, onExit }: { loading: boolean; kind: RunKind | null; onStart: () => void; onExit: () => void }) {
+function Title({ loading, kind, solo, onStart, onExit }: { loading: boolean; kind: RunKind | null; solo: boolean; onStart: () => void; onExit: () => void }) {
   return (
     <div className="pointer-events-auto flex flex-col items-center gap-5 animate-in fade-in zoom-in-95 duration-500">
       <h1 className="font-game text-6xl leading-none tracking-tight sm:text-8xl"
@@ -689,8 +691,8 @@ function Title({ loading, kind, onStart, onExit }: { loading: boolean; kind: Run
       </p>
       {kind && (
         <p className="max-w-xs rounded-2xl bg-background/85 px-4 py-2 font-sans text-base text-foreground shadow-sm backdrop-blur-sm">
-          <strong className="block font-game text-xl">{kind === "practice" ? "Practice run" : "Official attempt"}</strong>
-          {kind === "practice" ? "It doesn’t count." : "It counts for the leaderboard."} It is used as soon as you press Start.
+          <strong className="block font-game text-xl">{kind === "practice" ? "Practice run" : solo ? "One of today’s attempts" : "Official attempt"}</strong>
+          {kind === "practice" ? "It doesn’t count." : solo ? "Your best one counts." : "It counts for the leaderboard."} It is used as soon as you press Start.
         </p>
       )}
       {loading ? (

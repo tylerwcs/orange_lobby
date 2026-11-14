@@ -31,11 +31,11 @@ export function SettingsCard({ settings, action }: { settings: QualifierSettings
               placeholder="Staff, Committee" description="Separate with commas. People in these categories can't play. Leave blank to include everyone." />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Practice runs a day" name="practice_per_day" defaultValue={settings?.practice_per_day?.toString() ?? ""}
-                placeholder="No limit" description="Practice runs never count. Leave blank for no limit." />
+                placeholder="None" description="Practice runs never count. Leave blank for no practice runs." />
               <Field label="Official attempts a day" name="official_per_day" defaultValue={settings?.official_per_day?.toString() ?? ""}
-                placeholder="No limit" description="Only official attempts go on the leaderboard. Leave blank for no limit." />
+                placeholder="No limit" description="The best one goes on the leaderboard. Leave blank for no limit." />
             </div>
-            <p className="text-sm text-muted-foreground">With both left blank there is one kind of run, and every run counts. An attempt is used as soon as it starts; the count starts again at midnight.</p>
+            <p className="text-sm text-muted-foreground">For &quot;3 attempts a day, the best one counts&quot;, put 3 in official attempts and leave practice blank. An attempt is used as soon as it starts; the count starts again at midnight.</p>
             <Field label="Play hours" name="play_hours" defaultValue={formatPlayHours(settings?.play_hours ?? null)}
               placeholder="00:00-10:00, 12:00-14:00, 19:00-24:00"
               description="Malaysia time, 24-hour, every day. Outside these hours the game won't start. Leave blank to allow any time." />

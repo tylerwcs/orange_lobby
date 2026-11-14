@@ -127,8 +127,9 @@ function refusedText(reason: SubmitReason): string {
  *   (on the device and, by abandoning it, on the server). If it can't be sent, the start says so,
  *   and after DISCARD_AFTER_TRIES failed tries offers to discard it. One kept past any submit
  *   window is dropped (`expired`): the server could only answer "late".
- * - **Practice and official (D909).** An event with daily limits (D907) offers two buttons, each
- *   with what is left today; the choice rides to the server with the start, which alone decides.
+ * - **Practice and official (D909).** An event with practice runs (D907) offers two buttons, each
+ *   with what is left today; one that only limits its runs (D913) keeps the one Play button, with
+ *   what is left on it; the choice rides to the server with the start, which alone decides.
  *   An attempt is used when the run starts (on the game's Start, after its title screen), so
  *   Enter never opens the game here: an official attempt is always a deliberate tap. Outside the
  *   play hours (D908) the buttons give way to when the game opens again, by the clock.
@@ -156,7 +157,9 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
   const hours = hoursState(view.playHours, now);
   const shut = open && !hours.open ? opensAgain(hours.opensAt, now) : null;
   const canPlay = open && shut === null;
-  const kinds = view.limits.practice !== null || view.limits.official !== null;
+  const kinds = (view.limits.practice ?? 0) > 0;
+  /** One kind of run, so many a day (D913): one Play button that counts down. */
+  const capped = !kinds && view.limits.official !== null;
   const left = leftToday(view, now);
   // What each button may start now: the page's guess; the server decides (D907).
   const canPractice = canPlay && left.practice !== 0;
@@ -276,7 +279,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
   const play = useCallback((kind: RunKind = "official") => {
     if (gameOn.current || !(kind === "practice" ? canPractice : canOfficial)) return;
     gameOn.current = true;
-    runKindRef.current = kinds ? kind : null;
+    runKindRef.current = kinds ? kind : capped ? "official" : null;
     setRunKind(runKindRef.current);
     primeSound();
     markHowtoSeen();
@@ -293,7 +296,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
         // Refused: the overlay fills the window and the run carries on.
       }
     }
-  }, [canPractice, canOfficial, kinds]);
+  }, [canPractice, canOfficial, kinds, capped]);
 
   // While Play is on offer, fetch the scene's chunk and the slime model when the browser is idle.
   const onReady = stage.kind === "ready" && canPlay;
@@ -368,7 +371,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
           ) : (
             <Ready view={view} line={line} closes={view.closesAt && open ? closesIn(Date.parse(view.closesAt), now) : null}
               closing={view.closesAt && canPlay ? closingNote(Date.parse(view.closesAt), now) : null}
-              howto={!howtoDone} notice={notice} kinds={kinds}>
+              howto={!howtoDone} notice={notice}>
               {actions(false)}
             </Ready>
           )}
@@ -378,7 +381,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       {phase !== "unset" && phase !== "before" && <Board view={view} phase={phase} now={now} />}
 
       {stage.kind === "playing" && (
-        <SlimeGame key={stage.key} ref={overlay} token={token} kind={runKind} start={start} submit={submit} onDone={onDone} onScored={onScored} onExit={onExit} />
+        <SlimeGame key={stage.key} ref={overlay} token={token} kind={runKind} solo={!kinds} start={start} submit={submit} onDone={onDone} onScored={onScored} onExit={onExit} />
       )}
     </div>
   );
@@ -407,15 +410,19 @@ function PlayActions({ kinds, canPlay, left, shut, again, onPlay }: {
   if (!kinds) {
     return (
       <>
-        <Button className={again ? "h-14 w-full max-w-xs font-game text-2xl" : "h-16 w-full max-w-xs font-game text-3xl"} onClick={() => onPlay()}>
+        <Button disabled={left.official === 0} onClick={() => onPlay()}
+          className={`w-full max-w-xs flex-col gap-0 font-game leading-tight ${again ? "h-14 text-2xl" : "h-16 text-3xl"}`}>
           {again ? "Play again" : "Play"}
+          {leftNote(left.official) && (
+            <span className="font-sans text-xs font-bold tabular-nums opacity-80" suppressHydrationWarning>{leftNote(left.official)}</span>
+          )}
         </Button>
-        <p className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</p>
+        {left.official !== 0 && <p className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</p>}
       </>
     );
   }
   const button = (kind: RunKind, label: string, variant: "default" | "outline") => {
-    const note = leftNote(kind, left[kind]);
+    const note = leftNote(left[kind]);
     return (
       <Button variant={variant} disabled={left[kind] === 0} className="h-16 w-full flex-col gap-0 font-game text-2xl leading-tight"
         onClick={() => onPlay(kind)}>
@@ -432,9 +439,9 @@ function PlayActions({ kinds, canPlay, left, shut, again, onPlay }: {
   );
 }
 
-function Ready({ view, line, closes, closing, howto, notice, kinds, children }: {
+function Ready({ view, line, closes, closing, howto, notice, children }: {
   view: QualifierView; line: string; closes: string | null; closing: string | null; howto: boolean; notice: string | null;
-  kinds: boolean; children: React.ReactNode;
+  children: React.ReactNode;
 }) {
   const { best, rank, total } = view.me;
   const rules = ruleLines(view);
@@ -456,7 +463,7 @@ function Ready({ view, line, closes, closing, howto, notice, kinds, children }: 
       {howto && (
         <div className="text-sm text-muted-foreground">
           <p>Type a slime&apos;s word to pop it before it bites. You have 3 minutes, and the last boss is the final slime.</p>
-          {!kinds && <p>Play as often as you like — your best run counts.</p>}
+          {rules.length === 0 && <p>Play as often as you like — your best run counts.</p>}
         </div>
       )}
       {notice && <p role="status" className="text-sm font-bold">{notice}</p>}

@@ -9,7 +9,10 @@ export type QualifierSettings = {
   closes_at: string | null;
   excluded_categories: string[];
   confirmed_at: string | null;
-  /** Runs of each kind one attendee may start in a Malaysia day (D907). Null: no limit. */
+  /**
+   * Runs of each kind one attendee may start in a Malaysia day (D907). official_per_day null: no
+   * limit. practice_per_day null or 0: no practice runs at all (D913).
+   */
   practice_per_day: number | null;
   official_per_day: number | null;
   /** The hours of the Malaysia day a run may start in (D908). Null: any time. */
@@ -17,11 +20,12 @@ export type QualifierSettings = {
 };
 
 /**
- * Whether the event offers two kinds of run (D907): it does once either daily number is set.
- * With neither, every run is official and the page keeps its single Play button.
+ * Whether the event offers practice runs beside the official ones (D907, D913): only when it
+ * allows some a day. Without them every run is official and the page keeps one Play button,
+ * limited to official_per_day a day when that is set ("3 attempts a day, the best one counts").
  */
-export const hasKinds = (s: Pick<QualifierSettings, "practice_per_day" | "official_per_day"> | null): boolean =>
-  !!s && (s.practice_per_day !== null || s.official_per_day !== null);
+export const hasKinds = (s: Pick<QualifierSettings, "practice_per_day"> | null): boolean =>
+  !!s && (s.practice_per_day ?? 0) > 0;
 
 export type Phase = "unset" | "before" | "open" | "closed";
 

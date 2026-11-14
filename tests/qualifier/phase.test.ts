@@ -15,12 +15,13 @@ const s: QualifierSettings = {
 };
 
 describe("hasKinds (D907)", () => {
-  it("offers practice and official once either daily number is set", () => {
+  it("offers practice runs only when the event allows some a day (D913)", () => {
     expect(hasKinds(null)).toBe(false);
     expect(hasKinds(s)).toBe(false);
     expect(hasKinds({ ...s, practice_per_day: 3 })).toBe(true);
-    expect(hasKinds({ ...s, official_per_day: 1 })).toBe(true);
-    expect(hasKinds({ ...s, practice_per_day: 0 })).toBe(true);
+    const capped: QualifierSettings = { ...s, official_per_day: 3 };
+    expect(hasKinds(capped)).toBe(false);
+    expect(hasKinds({ ...s, practice_per_day: 0 })).toBe(false);
   });
 });
 const t = opens + 1000;

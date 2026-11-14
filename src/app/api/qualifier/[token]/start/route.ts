@@ -16,7 +16,7 @@ const hoursError = (opensAt: number) => `The game is closed right now. It opens 
  * Starting abandons the player's live run. Who may play, the window and the play hours (D908)
  * are checked here so the refusal can say why; the database checks them again, and it alone
  * counts today's runs (D907).
- * The body may name the `kind` of run. An event with no daily limits has only official runs,
+ * The body may name the `kind` of run. An event with no practice runs (D913) has only official runs,
  * whatever is asked; so has a page loaded before this shipped, which sends no body.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
 function refusedText(
   refused: "closed" | "ineligible" | "hours" | "limit", kind: RunKind,
-  settings: { official_per_day: number | null; play_hours: number[] | null } | null,
+  settings: { practice_per_day: number | null; official_per_day: number | null; play_hours: number[] | null } | null,
 ): string {
   switch (refused) {
     case "closed": return "The game isn't open right now.";
@@ -61,6 +61,6 @@ function refusedText(
     }
     case "limit":
       if (kind === "practice") return "You've used today's practice runs.";
-      return (settings?.official_per_day ?? 1) > 1 ? "You've used today's official attempts." : "You've used today's official attempt.";
+      return `You've used today's ${hasKinds(settings) ? "official " : ""}${(settings?.official_per_day ?? 1) > 1 ? "attempts" : "attempt"}.`;
   }
 }

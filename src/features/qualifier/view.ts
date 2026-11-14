@@ -46,7 +46,7 @@ export type QualifierView = {
   ineligible: Ineligible | null;
   me: { best: number | null; rank: number | null; total: number; runs: number };
   board: { top: BoardEntry[]; around: BoardEntry[] };
-  /** Runs of each kind allowed a day (D907). Both null: one kind of run, the old single Play. */
+  /** Runs of each kind allowed a day (D907). No practice (null or 0): one kind of run, one Play (D913). */
   limits: { practice: number | null; official: number | null };
   /** What this attendee has started on `day` (the Malaysia date this was read on). */
   used: { day: string; practice: number; official: number };

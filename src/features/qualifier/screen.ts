@@ -103,28 +103,31 @@ export function usedAfterStart(used: Used, kind: RunKind, now: number): Used {
 }
 
 /** The small line on a kind's button: what is left today. Null when there is no limit. */
-export function leftNote(kind: RunKind, left: number | null): string | null {
+export function leftNote(left: number | null): string | null {
   if (left === null) return null;
-  if (left === 0) return kind === "practice" ? "None left today" : "Used today";
+  if (left === 0) return "None left today";
   return `${left} left today`;
 }
 
 /**
- * The rules under the buttons, from the settings the event actually set. An event with no
- * daily limits has no kinds to explain: only its hours, when it has any.
+ * The rules under the buttons, from the settings the event actually set: practice and official
+ * where it has practice runs, a plain "3 attempts a day" where it only limits the runs (D913),
+ * and its hours, when it has any.
  */
 export function ruleLines(v: { limits: Limits; playHours: PlayHours }): string[] {
   const { practice, official } = v.limits;
-  const kinds = practice !== null || official !== null;
+  const kinds = (practice ?? 0) > 0;
   const lines: string[] = [];
   if (kinds) {
-    if (practice === null) lines.push("Practice: as often as you like. Practice runs don't count.");
-    else if (practice > 0) lines.push(`Practice: up to ${practice} ${practice === 1 ? "run" : "runs"} a day. They don't count.`);
+    lines.push(`Practice: up to ${practice} ${practice === 1 ? "run" : "runs"} a day. They don't count.`);
     if (official === null) lines.push("Official: as often as you like. Your best official attempt goes on the leaderboard.");
-    else if (official > 0) lines.push(`Official: ${official} ${official === 1 ? "attempt" : "attempts"} a day. Only official attempts go on the leaderboard.`);
+    else lines.push(`Official: ${official} ${official === 1 ? "attempt" : "attempts"} a day. Only official attempts go on the leaderboard.`);
+  } else if (official !== null) {
+    // One kind of run, so many a day (D913).
+    lines.push(official === 1 ? "1 attempt a day." : `${official} attempts a day. Your best one goes on the leaderboard.`);
   }
   if (v.playHours && v.playHours.length >= 2) lines.push(`Play ${hoursText(v.playHours)} only.`);
-  if (kinds) lines.push("An attempt is used as soon as you press Start.");
+  if (kinds || official !== null) lines.push("An attempt is used as soon as you press Start.");
   return lines;
 }
 

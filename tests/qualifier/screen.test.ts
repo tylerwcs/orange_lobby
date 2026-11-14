@@ -142,11 +142,9 @@ describe("practice and official runs (D909)", () => {
     expect(usedAfterStart(used, "practice", at("2026-11-16T16:00:00.000Z"))).toEqual({ day: "2026-11-17", practice: 1, official: 0 });
   });
   it("leftNote says what is left", () => {
-    expect(leftNote("practice", 2)).toBe("2 left today");
-    expect(leftNote("practice", 0)).toBe("None left today");
-    expect(leftNote("official", 1)).toBe("1 left today");
-    expect(leftNote("official", 0)).toBe("Used today");
-    expect(leftNote("official", null)).toBeNull();
+    expect(leftNote(2)).toBe("2 left today");
+    expect(leftNote(0)).toBe("None left today");
+    expect(leftNote(null)).toBeNull();
   });
   it("ruleLines lists only what the event set", () => {
     expect(ruleLines({ limits, playHours: [0, 600, 720, 840, 1140, 1440] })).toEqual([
@@ -157,9 +155,13 @@ describe("practice and official runs (D909)", () => {
     ]);
     expect(ruleLines({ limits: { practice: null, official: null }, playHours: [720, 840] })).toEqual(["Play 12:00 pm – 2:00 pm only."]);
     expect(ruleLines({ limits: { practice: null, official: null }, playHours: null })).toEqual([]);
-    expect(ruleLines({ limits: { practice: null, official: 2 }, playHours: null })).toEqual([
-      "Practice: as often as you like. Practice runs don't count.",
-      "Official: 2 attempts a day. Only official attempts go on the leaderboard.",
+    expect(ruleLines({ limits: { practice: null, official: 3 }, playHours: null })).toEqual([
+      "3 attempts a day. Your best one goes on the leaderboard.",
+      "An attempt is used as soon as you press Start.",
+    ]);
+    expect(ruleLines({ limits: { practice: 0, official: 1 }, playHours: [720, 840] })).toEqual([
+      "1 attempt a day.",
+      "Play 12:00 pm – 2:00 pm only.",
       "An attempt is used as soon as you press Start.",
     ]);
   });
