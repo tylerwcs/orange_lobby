@@ -13,7 +13,8 @@ const duration = (ms: number) => {
 const STATUS: Record<string, string> = { done: "Finished", live: "Not finished", abandoned: "Abandoned" };
 
 /**
- * An attendee's runs, newest first (D775, D795): when it started, its state, the replayed
+ * An attendee's runs, newest first (D775, D795): when it started, whether it was a practice run
+ * (D907: those never count towards the best), its state, the replayed
  * score, how long it lasted, slimes popped, bosses beaten, the fastest 10 s of typing (letters
  * per second × 12, about words per minute) and the device, with a badge for text that arrived
  * as an insert (swipe typing, a keyboard's suggestion). A finished run can be disqualified, or
@@ -32,6 +33,7 @@ export function RunsTable({ runs, locked, actionFor }: {
       <TableHeader>
         <TableRow>
           <TableHead>Started</TableHead>
+          <TableHead>Type</TableHead>
           <TableHead>Status</TableHead>
           <TableHead className="text-right">Score</TableHead>
           <TableHead className="text-right">Duration</TableHead>
@@ -50,6 +52,7 @@ export function RunsTable({ runs, locked, actionFor }: {
           return (
             <TableRow key={r.id}>
               <TableCell className="whitespace-nowrap">{shortDateTime(r.starts_at)}</TableCell>
+              <TableCell>{r.kind === "practice" ? <Badge variant="outline">Practice</Badge> : "Official"}</TableCell>
               <TableCell>
                 <span className="flex flex-wrap gap-1">
                   <Badge variant="outline">{STATUS[r.status] ?? r.status}</Badge>

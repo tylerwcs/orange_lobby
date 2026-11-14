@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireEventAccess } from "@/lib/access";
 import { requireFeature } from "@/features/catalogue";
-import { addSlime, GAME_NAME, removeSlime, saveSettings, setDisqualified, slimeAdminPath } from "@/features/qualifier";
+import { addSlime, GAME_NAME, parsePerDay, parsePlayHours, removeSlime, saveSettings, setDisqualified, slimeAdminPath } from "@/features/qualifier";
 import { parseCategories } from "@/lib/agenda";
 import { flashPath } from "@/lib/flash";
 import { localInputToIso } from "@/lib/time";
@@ -29,7 +29,8 @@ export async function removeSlimeAction(eventId: string) {
 }
 
 /**
- * Saves Slime Splat's window and the left-out categories (D770, D797). The database raises,
+ * Saves Slime Splat's window, the left-out categories, the runs a day and the play hours (D770,
+ * D797, D910). A blank runs-a-day or play-hours field is "no limit". The database raises,
  * rather than answering, when the window is back to front, so that is checked here first. Both
  * ends are optional: a half-set or empty window is simply "Not scheduled". `locked` is only left
  * over from the old finalist snapshot: an event that confirmed one keeps its settings.
@@ -46,9 +47,18 @@ export async function saveSlimeSettingsAction(eventId: string, fd: FormData) {
   if ((opens && !opens_at) || (closes && !closes_at)) redirect(flashPath(back, "That date isn't valid.", "error"));
   if (opens_at && closes_at && Date.parse(closes_at) <= Date.parse(opens_at)) redirect(flashPath(back, "Close must be after open", "error"));
 
+  const practice_per_day = parsePerDay(text(fd, "practice_per_day"));
+  const official_per_day = parsePerDay(text(fd, "official_per_day"));
+  if (practice_per_day === "invalid" || official_per_day === "invalid") {
+    redirect(flashPath(back, "Runs a day must be a whole number from 0 to 99.", "error"));
+  }
+  const play_hours = parsePlayHours(text(fd, "play_hours"));
+  if (play_hours === "invalid") redirect(flashPath(back, "Play hours should look like 12:00-14:00, 19:00-24:00.", "error"));
+
   const result = await saveSettings(ev, {
     opens_at, closes_at,
     excluded_categories: parseCategories(text(fd, "excluded_categories")) ?? [],
+    practice_per_day, official_per_day, play_hours,
   });
   if (result === "locked") redirect(flashPath(back, "These settings are locked.", "error"));
   revalidatePath(back);

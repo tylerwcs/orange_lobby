@@ -14,6 +14,7 @@ import { FIRE_HOT, LABEL_INK, SKY, SLIMES, STAR, TITLE_INK, WARN, css } from "..
 import { clearPending, savePending, settle } from "../../game/pending";
 import { hasWebGL, qualityOf } from "../../game/quality";
 import type { RunResult } from "../../game/replay";
+import type { RunKind } from "../../hours";
 import { COMBO_MAX_MULT, RUN_CAP_MS, multiplier } from "../../game/rules";
 import { isMuted, playMusic, primeSound, setMusicFire, setMuted, sfx, stopMusic } from "../../game/sound";
 import { encodeTimeline, type Entry, type SubmitBody, type SubmitReason } from "../../game/timeline";
@@ -34,6 +35,12 @@ export type SubmitAnswer = { ok: true; score: number; prevBest: number | null; v
 export type SlimeGameProps = {
   /** The attendee's token: the key the unsent run is kept under on this device. */
   token: string;
+  /**
+   * The kind of run this game is (D909), where the event has kinds; null where every run is
+   * official. The title says which, a practice result says it doesn't count, and with kinds
+   * there is no Play again here: the next run is chosen on the page, with what is left today.
+   */
+  kind?: RunKind | null;
   /** Starts a run on the server. May reject; a rejection reads as a failed start. */
   start: () => Promise<StartAnswer>;
   /** Sends the finished run. Rejects on a network failure (or a server error): the run is kept and sent again. */
@@ -205,7 +212,7 @@ const viewportSnapshot = () => {
  *
  * No pause: a hidden tab stops the frames, and the engine catches up on the next one.
  */
-export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref }: SlimeGameProps) {
+export function SlimeGame({ token, kind = null, start, submit, onDone, onScored, onExit, ref }: SlimeGameProps) {
   const [stage, setStage] = useState<Stage>(() => (hasWebGL() ? { kind: "loading" } : { kind: "nogl" }));
   const [hud, setHud] = useState<HudState>(EMPTY_HUD);
   const [count, setCount] = useState(3);
@@ -245,8 +252,8 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
   const misses = useRef(0);
   const hit = useRef<Hit>({ points: 0, n: 0 });
   const doneAt = useRef(0);
-  const latest = useRef({ token, start, submit, onDone, onScored });
-  useEffect(() => { latest.current = { token, start, submit, onDone, onScored }; }, [token, start, submit, onDone, onScored]);
+  const latest = useRef({ token, kind, start, submit, onDone, onScored });
+  useEffect(() => { latest.current = { token, kind, start, submit, onDone, onScored }; }, [token, kind, start, submit, onDone, onScored]);
 
   useEffect(() => {
     alive.current = true;
@@ -414,7 +421,7 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
   }, [stage.kind, load]);
 
   // Enter starts from the title screen and the results, as on the ready screen (a held key's repeats don't).
-  const enterStarts = stage.kind === "title" || stage.kind === "done";
+  const enterStarts = stage.kind === "title" || (stage.kind === "done" && kind === null);
   useEffect(() => {
     if (!enterStarts) return;
     const onKey = (e: KeyboardEvent) => {
@@ -467,8 +474,10 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
         doneAt.current = performance.now();
         const { me, phase } = answer.view;
         setStage({
-          kind: "done", answer, local, stats, newBest: isNewBest(answer.score, answer.prevBest),
-          line: placeLine({ best: me.best, rank: me.rank, total: me.total, phase }),
+          kind: "done", answer, local, stats,
+          // A practice run never moves the best or the place (D907).
+          newBest: latest.current.kind !== "practice" && isNewBest(answer.score, answer.prevBest),
+          line: latest.current.kind === "practice" ? "Not on the leaderboard" : placeLine({ best: me.best, rank: me.rank, total: me.total, phase }),
         });
         return;
       }
@@ -623,7 +632,7 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
             </p>
           )}
           {(stage.kind === "loading" || stage.kind === "title") && (
-            <Title loading={stage.kind === "loading"} onStart={() => void begin()} onExit={onExit} />
+            <Title loading={stage.kind === "loading"} kind={kind} onStart={() => void begin()} onExit={onExit} />
           )}
           {stage.kind === "starting" && <Notice><Loader label="Getting ready…" /></Notice>}
           {playing && sceneFailed && <Notice>{SCENE_FAILED}</Notice>}
@@ -638,7 +647,8 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
           )}
           {stage.kind === "done" && (
             <Results score={stage.answer.score} newBest={stage.newBest} line={stage.line} stats={stage.stats}
-              onPlayAgain={() => { input.current?.focus(); void begin(); }}
+              practice={kind === "practice"}
+              onPlayAgain={kind === null ? () => { input.current?.focus(); void begin(); } : null}
               onBack={() => latest.current.onDone(stage.answer, stage.local)} />
           )}
           {stage.kind === "nogl" && (
@@ -664,7 +674,7 @@ export function SlimeGame({ token, start, submit, onDone, onScored, onExit, ref 
 }
 
 /** The title screen: the game's name over the meadow, and Start once the scene has loaded. */
-function Title({ loading, onStart, onExit }: { loading: boolean; onStart: () => void; onExit: () => void }) {
+function Title({ loading, kind, onStart, onExit }: { loading: boolean; kind: RunKind | null; onStart: () => void; onExit: () => void }) {
   return (
     <div className="pointer-events-auto flex flex-col items-center gap-5 animate-in fade-in zoom-in-95 duration-500">
       <h1 className="font-game text-6xl leading-none tracking-tight sm:text-8xl"
@@ -677,6 +687,12 @@ function Title({ loading, onStart, onExit }: { loading: boolean; onStart: () => 
       <p className="max-w-xs rounded-2xl bg-background/85 px-4 py-2 font-sans text-base text-foreground shadow-sm backdrop-blur-sm">
         Type a slime&apos;s word to pop it before it bites. You have 3 minutes, and the last boss is the final slime.
       </p>
+      {kind && (
+        <p className="max-w-xs rounded-2xl bg-background/85 px-4 py-2 font-sans text-base text-foreground shadow-sm backdrop-blur-sm">
+          <strong className="block font-game text-xl">{kind === "practice" ? "Practice run" : "Official attempt"}</strong>
+          {kind === "practice" ? "It doesn’t count." : "It counts for the leaderboard."} It is used as soon as you press Start.
+        </p>
+      )}
       {loading ? (
         <div className="rounded-2xl bg-background/85 px-6 py-4 shadow-sm backdrop-blur-sm">
           <Loader label="Loading the meadow…" />

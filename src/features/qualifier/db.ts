@@ -1,6 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
 import type { QualifierSettings } from "./phase";
+import type { RunKind } from "./hours";
 import { COUNTDOWN_MS } from "./game/rules";
 import type { RunResult } from "./game/replay";
 import type { Device, Review, Timeline } from "./game/timeline";
@@ -17,6 +18,10 @@ const iso = (v: unknown): string => new Date(v as string).toISOString();
 const isoOrNull = (v: unknown): string | null => (v == null ? null : iso(v));
 const numOrNull = (v: unknown): number | null => (v == null ? null : Number(v));
 const deviceOf = (v: unknown): Device => (v === "touch" || v === "keyboard" ? v : "unknown");
+const kindOf = (v: unknown): RunKind => (v === "practice" ? "practice" : "official");
+/** Stored hours: pairs of whole minutes, or null (also for anything that isn't). */
+const hoursOf = (v: unknown): number[] | null =>
+  Array.isArray(v) && v.length >= 2 && v.length % 2 === 0 && v.every((n) => Number.isInteger(n)) ? (v as number[]) : null;
 
 /** An RPC's text answer, checked against the codes it may return. */
 function codeOf<T extends string>(fn: string, data: unknown, codes: readonly T[]): T {
@@ -28,7 +33,7 @@ function codeOf<T extends string>(fn: string, data: unknown, codes: readonly T[]
 
 export async function getSettings(eventId: string): Promise<QualifierSettings | null> {
   const { data, error } = await serviceClient().from("qualifier_settings")
-    .select("opens_at, closes_at, excluded_categories, confirmed_at").eq("event_id", eventId).maybeSingle();
+    .select("opens_at, closes_at, excluded_categories, confirmed_at, practice_per_day, official_per_day, play_hours").eq("event_id", eventId).maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return {
@@ -36,11 +41,14 @@ export async function getSettings(eventId: string): Promise<QualifierSettings | 
     closes_at: isoOrNull(data.closes_at),
     excluded_categories: Array.isArray(data.excluded_categories) ? (data.excluded_categories as string[]) : [],
     confirmed_at: isoOrNull(data.confirmed_at),
+    practice_per_day: numOrNull(data.practice_per_day),
+    official_per_day: numOrNull(data.official_per_day),
+    play_hours: hoursOf(data.play_hours),
   };
 }
 
 /**
- * The window and the left-out categories. `locked` once the finalists are confirmed. Only
+ * The window, the left-out categories, the daily limits and the play hours (D907, D908). `locked` once the finalists are confirmed. Only
  * `ev.id` is sent: the RPC takes org_id from the event row itself, never from the caller.
  * Throws when `closes_at` is not after `opens_at` (a table check), so validate first.
  */
@@ -51,6 +59,7 @@ export async function saveSettings(
   const { data, error } = await serviceClient().rpc("qualifier_save_settings", {
     p_event_id: ev.id, p_opens_at: s.opens_at, p_closes_at: s.closes_at,
     p_excluded: s.excluded_categories,
+    p_practice_per_day: s.practice_per_day, p_official_per_day: s.official_per_day, p_play_hours: s.play_hours,
   });
   if (error) throw error;
   return codeOf("qualifier_save_settings", data, ["ok", "locked"] as const);
@@ -62,7 +71,9 @@ export async function saveSettings(
  */
 export async function addSlime(ev: { id: string; org_id: string }): Promise<void> {
   if (await getSettings(ev.id)) return;
-  await saveSettings(ev, { opens_at: null, closes_at: null, excluded_categories: [] });
+  await saveSettings(ev, {
+    opens_at: null, closes_at: null, excluded_categories: [], practice_per_day: null, official_per_day: null, play_hours: null,
+  });
 }
 
 /**
@@ -79,27 +90,29 @@ export async function removeSlime(eventId: string): Promise<void> {
 /**
  * Starts a run on the server's clock from `seed` (the game's whole random sequence): it begins
  * when the countdown ends (`startsAt`). Starting abandons the attendee's live run. Refused
- * outside the window or after the confirm (`closed`), and for someone who may not play (`ineligible`).
+ * outside the window or after the confirm (`closed`), for someone who may not play (`ineligible`),
+ * outside the play hours (`hours`) and once today's runs of this `kind` are used (`limit`); a
+ * refused start leaves the live run alone (D907, D908).
  */
 export async function startRun(
-  eventId: string, attendeeId: string, seed: number,
-): Promise<{ runId: string; startsAt: string } | { refused: "closed" | "ineligible" }> {
+  eventId: string, attendeeId: string, seed: number, kind: RunKind,
+): Promise<{ runId: string; startsAt: string } | { refused: "closed" | "ineligible" | "hours" | "limit" }> {
   const { data, error } = await serviceClient().rpc("qualifier_start", {
-    p_event_id: eventId, p_attendee_id: attendeeId, p_seed: seed, p_countdown_ms: COUNTDOWN_MS,
+    p_event_id: eventId, p_attendee_id: attendeeId, p_seed: seed, p_countdown_ms: COUNTDOWN_MS, p_kind: kind,
   });
   if (error) throw error;
   const row = (data as Row[] | null)?.[0];
   if (!row) throw new Error("qualifier_start answered no row");
-  if (row.refused != null) return { refused: codeOf("qualifier_start", row.refused, ["closed", "ineligible"] as const) };
+  if (row.refused != null) return { refused: codeOf("qualifier_start", row.refused, ["closed", "ineligible", "hours", "limit"] as const) };
   return { runId: row.run_id as string, startsAt: iso(row.starts_at) };
 }
 
 /** One of this attendee's runs, with its seed. Null when it is not theirs. */
 export async function getRun(runId: string, attendeeId: string): Promise<{
-  id: string; event_id: string; seed: number; starts_at: string; status: string;
+  id: string; event_id: string; seed: number; starts_at: string; status: string; kind: RunKind;
 } | null> {
   const { data, error } = await serviceClient().from("qualifier_runs")
-    .select("id, event_id, seed, starts_at, status").eq("id", runId).eq("attendee_id", attendeeId).maybeSingle();
+    .select("id, event_id, seed, starts_at, status, kind").eq("id", runId).eq("attendee_id", attendeeId).maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return {
@@ -108,7 +121,22 @@ export async function getRun(runId: string, attendeeId: string): Promise<{
     seed: Number(data.seed),
     starts_at: iso(data.starts_at),
     status: data.status as string,
+    kind: kindOf(data.kind),
   };
+}
+
+/**
+ * How many runs of each kind this attendee has started since `sinceIso` (the Malaysia midnight,
+ * for today's counts, D907). By starts_at, as the database's own count; every status counts,
+ * since an attempt is used when it starts. The page's numbers only: qualifier_start decides.
+ */
+export async function usedSince(eventId: string, attendeeId: string, sinceIso: string): Promise<{ practice: number; official: number }> {
+  const { data, error } = await serviceClient().from("qualifier_runs")
+    .select("kind").eq("event_id", eventId).eq("attendee_id", attendeeId).gte("starts_at", sinceIso);
+  if (error) throw error;
+  const used = { practice: 0, official: 0 };
+  for (const r of (data ?? []) as Row[]) used[kindOf(r.kind)] += 1;
+  return used;
 }
 
 /**
@@ -136,7 +164,7 @@ export async function submitRun(
 }
 
 export type RunRow = {
-  id: string; starts_at: string; status: string; score: number | null; ended_ms: number | null;
+  id: string; starts_at: string; status: string; kind: RunKind; score: number | null; ended_ms: number | null;
   popped: number | null; bosses: number | null; peak_cps: number | null; device: Device;
   multi_inserts: number; flagged: boolean; disqualified_at: string | null;
 };
@@ -144,13 +172,14 @@ export type RunRow = {
 /** An attendee's runs, newest first, for the admin. */
 export async function listRuns(eventId: string, attendeeId: string): Promise<RunRow[]> {
   const { data, error } = await serviceClient().from("qualifier_runs")
-    .select("id, starts_at, status, score, ended_ms, popped, bosses, peak_cps, device, multi_inserts, flagged, disqualified_at")
+    .select("id, starts_at, status, kind, score, ended_ms, popped, bosses, peak_cps, device, multi_inserts, flagged, disqualified_at")
     .eq("event_id", eventId).eq("attendee_id", attendeeId).order("starts_at", { ascending: false });
   if (error) throw error;
   return ((data ?? []) as Row[]).map((r) => ({
     id: r.id as string,
     starts_at: iso(r.starts_at),
     status: r.status as string,
+    kind: kindOf(r.kind),
     score: numOrNull(r.score),
     ended_ms: numOrNull(r.ended_ms),
     popped: numOrNull(r.popped),

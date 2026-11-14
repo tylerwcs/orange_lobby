@@ -2,6 +2,7 @@
 // clock-driven phase. Pure, so the copy and its edge cases are tested without rendering.
 import type { BoardEntry } from "./board";
 import type { Phase } from "./phase";
+import { hoursText, klClock, klDay, type PlayHours, type RunKind } from "./hours";
 
 /**
  * The phase the page should show now. The server's phase is read once at load; the window's
@@ -78,3 +79,54 @@ export function boardLayout(top: readonly BoardEntry[], around: readonly BoardEn
   }
   return items;
 }
+
+// ---- Practice and official runs, and the play hours (D907, D908, D909). ----
+
+type Limits = { practice: number | null; official: number | null };
+type Used = { day: string; practice: number; official: number };
+
+/**
+ * What is left today of each kind; null is unlimited. `used` was counted on `used.day`: once
+ * the Malaysia day has moved on (a page left open past midnight) nothing is used yet.
+ */
+export function leftToday(v: { limits: Limits; used: Used }, now: number): Limits {
+  const fresh = klDay(now) !== v.used.day;
+  const left = (limit: number | null, used: number) => (limit === null ? null : Math.max(0, limit - (fresh ? 0 : used)));
+  return { practice: left(v.limits.practice, v.used.practice), official: left(v.limits.official, v.used.official) };
+}
+
+/** The counts after a run of `kind` started at `now`: an attempt is used when it starts. */
+export function usedAfterStart(used: Used, kind: RunKind, now: number): Used {
+  const day = klDay(now);
+  const base = used.day === day ? used : { day, practice: 0, official: 0 };
+  return { ...base, [kind]: base[kind] + 1 };
+}
+
+/** The small line on a kind's button: what is left today. Null when there is no limit. */
+export function leftNote(kind: RunKind, left: number | null): string | null {
+  if (left === null) return null;
+  if (left === 0) return kind === "practice" ? "None left today" : "Used today";
+  return `${left} left today`;
+}
+
+/**
+ * The rules under the buttons, from the settings the event actually set. An event with no
+ * daily limits has no kinds to explain: only its hours, when it has any.
+ */
+export function ruleLines(v: { limits: Limits; playHours: PlayHours }): string[] {
+  const { practice, official } = v.limits;
+  const kinds = practice !== null || official !== null;
+  const lines: string[] = [];
+  if (kinds) {
+    if (practice === null) lines.push("Practice: as often as you like. Practice runs don't count.");
+    else if (practice > 0) lines.push(`Practice: up to ${practice} ${practice === 1 ? "run" : "runs"} a day. They don't count.`);
+    if (official === null) lines.push("Official: as often as you like. Your best official attempt goes on the leaderboard.");
+    else if (official > 0) lines.push(`Official: ${official} ${official === 1 ? "attempt" : "attempts"} a day. Only official attempts go on the leaderboard.`);
+  }
+  if (v.playHours && v.playHours.length >= 2) lines.push(`Play ${hoursText(v.playHours)} only.`);
+  if (kinds) lines.push("An attempt is used as soon as you press Start.");
+  return lines;
+}
+
+/** Outside the play hours: when a run may start again, in the words the start route uses. */
+export const opensAgain = (opensAt: number): string => `Opens again at ${klClock(opensAt)}`;

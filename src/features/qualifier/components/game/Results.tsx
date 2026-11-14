@@ -37,10 +37,11 @@ const COUNT_MS = 1200;
  * The results, over the meadow at dusk (D816): how the run ended, the score counting up, "New
  * best!", where the player stands, and four stats (slimes popped, best combo, accuracy, words a
  * minute). **Play again** starts the next run straight away (Enter too); **Back** returns to the
- * Games page.
+ * Games page. Where the event has practice and official runs (D909) there is no Play again
+ * (`onPlayAgain` null): the next run is chosen on the page; a `practice` run says it is one.
  */
-export function Results({ score, newBest, line, stats, onPlayAgain, onBack }: {
-  score: number; newBest: boolean; line: string; stats: RunStats; onPlayAgain(): void; onBack(): void;
+export function Results({ score, newBest, line, stats, practice = false, onPlayAgain, onBack }: {
+  score: number; newBest: boolean; line: string; stats: RunStats; practice?: boolean; onPlayAgain: (() => void) | null; onBack(): void;
 }) {
   const [shown, setShown] = useState(0);
   const raf = useRef(0);
@@ -74,6 +75,7 @@ export function Results({ score, newBest, line, stats, onPlayAgain, onBack }: {
         {stats.cleared ? "You beat the boss!" : "Time’s up!"}
       </p>
       <div className="flex flex-col items-center gap-1">
+        {practice && <p className="font-game text-2xl leading-tight text-primary">Practice run</p>}
         {newBest && <p className="font-game text-2xl leading-tight text-primary motion-safe:animate-bounce">New best!</p>}
         <p className="font-game text-6xl leading-none tabular-nums sm:text-7xl" aria-label={`${points(score)} points`}>
           {points(shown)}<span className="ml-2 text-xl text-muted-foreground">points</span>
@@ -93,9 +95,15 @@ export function Results({ score, newBest, line, stats, onPlayAgain, onBack }: {
         ))}
       </dl>
       <div className="flex w-full flex-col items-center gap-2">
-        <Button type="button" className="h-14 w-full max-w-xs rounded-full font-game text-2xl shadow-md" onClick={onPlayAgain}>Play again</Button>
-        <span className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</span>
-        <Button type="button" variant="ghost" onClick={onBack}>Back to Games</Button>
+        {onPlayAgain ? (
+          <>
+            <Button type="button" className="h-14 w-full max-w-xs rounded-full font-game text-2xl shadow-md" onClick={onPlayAgain}>Play again</Button>
+            <span className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</span>
+            <Button type="button" variant="ghost" onClick={onBack}>Back to Games</Button>
+          </>
+        ) : (
+          <Button type="button" className="h-14 w-full max-w-xs rounded-full font-game text-2xl shadow-md" onClick={onBack}>Back to Games</Button>
+        )}
       </div>
     </div>
   );

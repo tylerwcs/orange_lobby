@@ -7,6 +7,7 @@
 export * from "./words";
 export * from "./paths";
 export * from "./phase";
+export * from "./hours";
 export * from "./board";
 export * from "./input";
 export * from "./screen";

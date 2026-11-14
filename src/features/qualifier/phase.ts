@@ -2,13 +2,26 @@
 // the play page and the server actions all read the same clock the same way.
 import { categoryParts } from "@/lib/agenda";
 import { shortDateTime } from "@/lib/text";
+import type { PlayHours } from "./hours";
 
 export type QualifierSettings = {
   opens_at: string | null;
   closes_at: string | null;
   excluded_categories: string[];
   confirmed_at: string | null;
+  /** Runs of each kind one attendee may start in a Malaysia day (D907). Null: no limit. */
+  practice_per_day: number | null;
+  official_per_day: number | null;
+  /** The hours of the Malaysia day a run may start in (D908). Null: any time. */
+  play_hours: PlayHours;
 };
+
+/**
+ * Whether the event offers two kinds of run (D907): it does once either daily number is set.
+ * With neither, every run is official and the page keeps its single Play button.
+ */
+export const hasKinds = (s: Pick<QualifierSettings, "practice_per_day" | "official_per_day"> | null): boolean =>
+  !!s && (s.practice_per_day !== null || s.official_per_day !== null);
 
 export type Phase = "unset" | "before" | "open" | "closed";
 

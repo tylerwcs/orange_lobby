@@ -17,7 +17,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * end, not after the cap plus grace).
  * Answers `{ ok: false, reason }` for a run that cannot count (`invalid` for a body that isn't a
  * timeline or a timeline no hand could type), and on success the score, the best before it and
- * the page's fresh view.
+ * the page's fresh view. A practice run (D907) is checked and stored the same way; the database
+ * leaves it out of the best, so the view comes back with the board as it was.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

@@ -6,7 +6,8 @@ import { clockOffset } from "@/lib/poll";
 import { useServerNow } from "@/lib/use-poll";
 import { shortDateTime } from "@/lib/text";
 import type { QualifierView } from "../view";
-import { closesIn, closingNote, isNewBest, livePhase, placeLine, points, untilText } from "../screen";
+import { closesIn, closingNote, isNewBest, leftNote, leftToday, livePhase, opensAgain, placeLine, points, ruleLines, untilText, usedAfterStart } from "../screen";
+import { hoursState, type RunKind } from "../hours";
 import { GAME_NAME } from "../paths";
 import { qualifierFont } from "../font";
 import { DISCARD_AFTER_TRIES, clearPending, expired, loadPending, savePending, settle } from "../game/pending";
@@ -19,7 +20,7 @@ import { Board } from "./Board";
 type Stage =
   | { kind: "ready" }
   | { kind: "playing"; key: number } // SlimeGame is mounted: the run, then its submit
-  | { kind: "result"; score: number; prevBest: number | null }
+  | { kind: "result"; score: number; prevBest: number | null; practice: boolean }
   | { kind: "failed"; message: string };
 
 const START_ERROR = "Couldn't start a run. Check your connection and try again.";
@@ -126,6 +127,11 @@ function refusedText(reason: SubmitReason): string {
  *   (on the device and, by abandoning it, on the server). If it can't be sent, the start says so,
  *   and after DISCARD_AFTER_TRIES failed tries offers to discard it. One kept past any submit
  *   window is dropped (`expired`): the server could only answer "late".
+ * - **Practice and official (D909).** An event with daily limits (D907) offers two buttons, each
+ *   with what is left today; the choice rides to the server with the start, which alone decides.
+ *   An attempt is used when the run starts (on the game's Start, after its title screen), so
+ *   Enter never opens the game here: an official attempt is always a deliberate tap. Outside the
+ *   play hours (D908) the buttons give way to when the game opens again, by the clock.
  */
 export function QualifierClient({ token, initial }: { token: string; initial: QualifierView }) {
   const [view, setView] = useState(initial);
@@ -137,13 +143,21 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
   /** A SlimeGame is mounted (playing or sending): nothing else sends a run. */
   const gameOn = useRef(false);
   const runKey = useRef(0);
+  /** The kind of the mounted game's run; null where the event has no kinds (every run official). */
+  const [runKind, setRunKind] = useState<RunKind | null>(null);
+  const runKindRef = useRef<RunKind | null>(null);
   const resultAt = useRef(0);
   const flushing = useRef<Promise<"none" | "sent" | "failed"> | null>(null);
 
   const playing = stage.kind === "playing";
   const now = useServerNow(offset, 1000, !playing);
   const phase = livePhase(view.phase, view.opensAt, view.closesAt, now);
-  const canPlay = phase === "open";
+  const open = phase === "open";
+  const hours = hoursState(view.playHours, now);
+  const canPlay = open && hours.open;
+  const kinds = view.limits.practice !== null || view.limits.official !== null;
+  const left = leftToday(view, now);
+  const { practice: leftPractice, official: leftOfficial } = left;
 
   /** Sends the kept run, if any. One send at a time: a second caller waits for the first. */
   const flushPending = useCallback((): Promise<"none" | "sent" | "failed"> => {
@@ -210,13 +224,18 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       return { error: PENDING_STUCK, discard: (loadPending(storage(), token)?.tries ?? 0) >= DISCARD_AFTER_TRIES };
     }
     const sent = Date.now();
-    const res = await fetch(`/api/qualifier/${token}/start`, { method: "POST" });
+    const kind = runKindRef.current;
+    const res = await fetch(`/api/qualifier/${token}/start`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: kind ?? "official" }),
+    });
     const body = (await res.json().catch(() => null)) as
       | { runId?: unknown; startsAt: string; serverNow: number; seed: number; error?: string }
       | null;
     const received = Date.now();
     if (!res.ok || !body || typeof body.runId !== "string") return { error: body?.error ?? START_ERROR };
     setOffset(clockOffset(sent, received, body.serverNow));
+    // The attempt is used now, whatever becomes of the run.
+    if (kind) setView((v) => ({ ...v, used: usedAfterStart(v.used, kind, body.serverNow) }));
     return { runId: body.runId, startsAt: body.startsAt, seed: body.seed, serverNow: body.serverNow - (sent - called) / 2 };
   }, [token, flushPending]);
 
@@ -227,7 +246,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     resultAt.current = performance.now();
     if (answer.ok) {
       setView(answer.view);
-      setStage({ kind: "result", score: answer.score, prevBest: answer.prevBest });
+      setStage({ kind: "result", score: answer.score, prevBest: answer.prevBest, practice: runKindRef.current === "practice" });
     } else {
       setStage({ kind: "failed", message: refusedText(answer.reason) });
     }
@@ -243,9 +262,12 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     setStage({ kind: "ready" });
   }, [token]);
 
-  const play = useCallback(() => {
+  const play = useCallback((kind: RunKind = "official") => {
     if (gameOn.current || !canPlay) return;
+    if (kinds && (kind === "practice" ? leftPractice : leftOfficial) === 0) return;
     gameOn.current = true;
+    runKindRef.current = kinds ? kind : null;
+    setRunKind(runKindRef.current);
     primeSound();
     markHowtoSeen();
     setNotice(null);
@@ -261,7 +283,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
         // Refused: the overlay fills the window and the run carries on.
       }
     }
-  }, [canPlay]);
+  }, [canPlay, kinds, leftPractice, leftOfficial]);
 
   // While Play is on offer, fetch the scene's chunk and the slime model when the browser is idle.
   const onReady = stage.kind === "ready" && canPlay;
@@ -281,8 +303,9 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     return () => clearTimeout(id);
   }, [onReady]);
 
-  // Enter plays (again) from the ready, result and failed screens.
+  // Enter plays (again) from the ready, result and failed screens, where there is one kind of run.
   useEffect(() => {
+    if (kinds) return;
     const onKey = (e: KeyboardEvent) => {
       // A held key repeats: only a fresh press plays.
       if (e.key !== "Enter" || e.repeat || e.isComposing || e.defaultPrevented || gameOn.current || !canPlay) return;
@@ -295,10 +318,14 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [canPlay, play]);
+  }, [canPlay, kinds, play]);
 
   const line = placeLine({ best: view.me.best, rank: view.me.rank, total: view.me.total, phase });
-  const showCockpit = canPlay || stage.kind !== "ready";
+  const showCockpit = open || stage.kind !== "ready";
+  const actions = (again: boolean) => (
+    <PlayActions kinds={kinds} canPlay={canPlay} left={left} again={again} onPlay={play}
+      shut={open && !hours.open ? opensAgain(hours.opensAt) : null} />
+  );
 
   return (
     <div className={`${qualifierFont.variable} flex flex-col gap-6`}>
@@ -319,17 +346,21 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       {showCockpit && (
         <div className="rounded-3xl bg-card p-4 text-card-foreground shadow-sm">
           {stage.kind === "result" ? (
-            <ResultCard score={stage.score} best={view.me.best} line={line} canPlay={canPlay} onPlayAgain={play}
-              newBest={isNewBest(stage.score, stage.prevBest)} />
+            <ResultCard score={stage.score} best={view.me.best} line={line} practice={stage.practice}
+              newBest={!stage.practice && isNewBest(stage.score, stage.prevBest)}>
+              {actions(true)}
+            </ResultCard>
           ) : stage.kind === "failed" ? (
             <div className="flex flex-col items-center gap-4 py-4 text-center">
               <p role="alert" className="font-game text-2xl leading-tight">{stage.message}</p>
-              {canPlay && <Button className="h-14 w-full max-w-xs font-game text-2xl" onClick={play}>Play again</Button>}
+              {actions(true)}
             </div>
           ) : (
-            <Ready view={view} line={line} closes={view.closesAt && canPlay ? closesIn(Date.parse(view.closesAt), now) : null}
+            <Ready view={view} line={line} closes={view.closesAt && open ? closesIn(Date.parse(view.closesAt), now) : null}
               closing={view.closesAt && canPlay ? closingNote(Date.parse(view.closesAt), now) : null}
-              howto={!howtoDone} notice={notice} canPlay={canPlay} onPlay={play} />
+              howto={!howtoDone} notice={notice} kinds={kinds}>
+              {actions(false)}
+            </Ready>
           )}
         </div>
       )}
@@ -337,7 +368,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       {phase !== "unset" && phase !== "before" && <Board view={view} phase={phase} now={now} />}
 
       {stage.kind === "playing" && (
-        <SlimeGame key={stage.key} ref={overlay} token={token} start={start} submit={submit} onDone={onDone} onScored={onScored} onExit={onExit} />
+        <SlimeGame key={stage.key} ref={overlay} token={token} kind={runKind} start={start} submit={submit} onDone={onDone} onScored={onScored} onExit={onExit} />
       )}
     </div>
   );
@@ -352,11 +383,51 @@ function Notice({ title, children }: { title: string; children?: React.ReactNode
   );
 }
 
-function Ready({ view, line, closes, closing, howto, notice, canPlay, onPlay }: {
+/**
+ * The way into a run (D909). One kind of run: Play, as ever. Two: a button each, with what is
+ * left today, off once that is nothing. `shut` (outside the play hours, D908) replaces them
+ * with when the game opens again.
+ */
+function PlayActions({ kinds, canPlay, left, shut, again, onPlay }: {
+  kinds: boolean; canPlay: boolean; left: { practice: number | null; official: number | null };
+  shut: string | null; again: boolean; onPlay(kind?: RunKind): void;
+}) {
+  if (shut) return <p role="status" className="font-game text-2xl leading-tight" suppressHydrationWarning>{shut}</p>;
+  if (!canPlay) return null;
+  if (!kinds) {
+    return (
+      <>
+        <Button className={again ? "h-14 w-full max-w-xs font-game text-2xl" : "h-16 w-full max-w-xs font-game text-3xl"} onClick={() => onPlay()}>
+          {again ? "Play again" : "Play"}
+        </Button>
+        <p className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</p>
+      </>
+    );
+  }
+  const button = (kind: RunKind, label: string, variant: "default" | "outline") => {
+    const note = leftNote(kind, left[kind]);
+    return (
+      <Button variant={variant} disabled={left[kind] === 0} className="h-16 w-full flex-col gap-0 font-game text-2xl leading-tight"
+        onClick={() => onPlay(kind)}>
+        {label}
+        {note && <span className="font-sans text-xs font-bold tabular-nums opacity-80" suppressHydrationWarning>{note}</span>}
+      </Button>
+    );
+  };
+  return (
+    <div className="flex w-full max-w-xs flex-col gap-2">
+      {button("practice", "Practice", "outline")}
+      {button("official", "Official attempt", "default")}
+    </div>
+  );
+}
+
+function Ready({ view, line, closes, closing, howto, notice, kinds, children }: {
   view: QualifierView; line: string; closes: string | null; closing: string | null; howto: boolean; notice: string | null;
-  canPlay: boolean; onPlay(): void;
+  kinds: boolean; children: React.ReactNode;
 }) {
   const { best, rank, total } = view.me;
+  const rules = ruleLines(view);
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <dl className="grid w-full grid-cols-2 gap-3">
@@ -375,12 +446,16 @@ function Ready({ view, line, closes, closing, howto, notice, canPlay, onPlay }: 
       {howto && (
         <div className="text-sm text-muted-foreground">
           <p>Type a slime&apos;s word to pop it before it bites. You have 3 minutes, and the last boss is the final slime.</p>
-          <p>Play as often as you like — your best run counts.</p>
+          {!kinds && <p>Play as often as you like — your best run counts.</p>}
         </div>
       )}
       {notice && <p role="status" className="text-sm font-bold">{notice}</p>}
-      {canPlay && <Button className="h-16 w-full max-w-xs font-game text-3xl" onClick={onPlay}>Play</Button>}
-      {canPlay && <p className="hidden text-xs text-muted-foreground pointer-fine:block">or press Enter</p>}
+      {children}
+      {rules.length > 0 && (
+        <ul className="flex w-full max-w-xs flex-col gap-1 text-left text-sm text-muted-foreground">
+          {rules.map((r) => <li key={r}>{r}</li>)}
+        </ul>
+      )}
     </div>
   );
 }

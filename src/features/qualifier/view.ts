@@ -2,7 +2,8 @@ import "server-only";
 import type { PlayContext } from "@/features/games";
 import { tagsFor } from "@/features/games/client";
 import { createMemo } from "@/lib/memo";
-import { boardSize, getPlayer, getSettings, listBoard, rankOf, type BoardRow } from "./db";
+import { boardSize, getPlayer, getSettings, listBoard, rankOf, usedSince, type BoardRow } from "./db";
+import { klDay, klDayStart, type PlayHours } from "./hours";
 import { BOARD_TOP, aroundWindow, boardSlices, needsFreshSlice, type BoardEntry } from "./board";
 import { ineligibility, phaseOf, type Ineligible, type Phase, type QualifierSettings } from "./phase";
 
@@ -45,6 +46,12 @@ export type QualifierView = {
   ineligible: Ineligible | null;
   me: { best: number | null; rank: number | null; total: number; runs: number };
   board: { top: BoardEntry[]; around: BoardEntry[] };
+  /** Runs of each kind allowed a day (D907). Both null: one kind of run, the old single Play. */
+  limits: { practice: number | null; official: number | null };
+  /** What this attendee has started on `day` (the Malaysia date this was read on). */
+  used: { day: string; practice: number; official: number };
+  /** The hours of the Malaysia day a run may start in (D908). Null: any time. */
+  playHours: PlayHours;
 };
 
 /**
@@ -59,11 +66,15 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
   const phase = phaseOf(settings, now);
   const ineligible = ineligibility({ ...attendee, cancelled_at: attendee.cancelled_at ?? null }, event.preview_attendee_id, settings?.excluded_categories ?? []);
 
-  const [player, rank, board0] = await Promise.all([
+  const limits = { practice: settings?.practice_per_day ?? null, official: settings?.official_per_day ?? null };
+  const counted = limits.practice !== null || limits.official !== null;
+  const [player, rank, board0, used] = await Promise.all([
     getPlayer(event.id, attendee.id),
     // Someone who may not play is off the board whatever their old runs say.
     ineligible ? Promise.resolve(null) : known ? Promise.resolve(known.rank) : rankOf(event.id, attendee.id),
     boardFor(event.id),
+    // Only an event with daily limits needs today's counts.
+    counted ? usedSince(event.id, attendee.id, new Date(klDayStart(now)).toISOString()) : Promise.resolve({ practice: 0, official: 0 }),
   ]);
   let board = board0;
   const aroundRank = rank !== null && rank > BOARD_TOP ? rank : null;
@@ -94,5 +105,8 @@ export async function qualifierView(ctx: PlayContext, now: number, known?: { ran
     ineligible,
     me: { best: player?.best_score ?? null, rank, total: board.total, runs: player?.runs_played ?? 0 },
     board: boardSlices(entries, rank),
+    limits,
+    used: { day: klDay(now), ...used },
+    playHours: settings?.play_hours ?? null,
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ineligibility, phaseOf, phaseSubtitle, type QualifierSettings } from "@/features/qualifier/phase";
+import { hasKinds, ineligibility, phaseOf, phaseSubtitle, type QualifierSettings } from "@/features/qualifier/phase";
 
 const iso = "2026-11-05T10:00:00+08:00";
 const opens = Date.parse("2026-11-02T09:00:00+08:00");
@@ -9,7 +9,20 @@ const s: QualifierSettings = {
   closes_at: "2026-11-04T18:00:00+08:00",
   excluded_categories: [],
   confirmed_at: null,
+  practice_per_day: null,
+  official_per_day: null,
+  play_hours: null,
 };
+
+describe("hasKinds (D907)", () => {
+  it("offers practice and official once either daily number is set", () => {
+    expect(hasKinds(null)).toBe(false);
+    expect(hasKinds(s)).toBe(false);
+    expect(hasKinds({ ...s, practice_per_day: 3 })).toBe(true);
+    expect(hasKinds({ ...s, official_per_day: 1 })).toBe(true);
+    expect(hasKinds({ ...s, practice_per_day: 0 })).toBe(true);
+  });
+});
 const t = opens + 1000;
 const a = { id: "a1", category: "KOM" as string | null, cancelled_at: null as string | null };
 
