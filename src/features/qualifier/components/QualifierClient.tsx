@@ -154,10 +154,13 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
   const phase = livePhase(view.phase, view.opensAt, view.closesAt, now);
   const open = phase === "open";
   const hours = hoursState(view.playHours, now);
-  const canPlay = open && hours.open;
+  const shut = open && !hours.open ? opensAgain(hours.opensAt) : null;
+  const canPlay = open && shut === null;
   const kinds = view.limits.practice !== null || view.limits.official !== null;
   const left = leftToday(view, now);
-  const { practice: leftPractice, official: leftOfficial } = left;
+  // What each button may start now: the page's guess; the server decides (D907).
+  const canPractice = canPlay && left.practice !== 0;
+  const canOfficial = canPlay && left.official !== 0;
 
   /** Sends the kept run, if any. One send at a time: a second caller waits for the first. */
   const flushPending = useCallback((): Promise<"none" | "sent" | "failed"> => {
@@ -263,8 +266,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
   }, [token]);
 
   const play = useCallback((kind: RunKind = "official") => {
-    if (gameOn.current || !canPlay) return;
-    if (kinds && (kind === "practice" ? leftPractice : leftOfficial) === 0) return;
+    if (gameOn.current || !(kind === "practice" ? canPractice : canOfficial)) return;
     gameOn.current = true;
     runKindRef.current = kinds ? kind : null;
     setRunKind(runKindRef.current);
@@ -283,7 +285,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
         // Refused: the overlay fills the window and the run carries on.
       }
     }
-  }, [canPlay, kinds, leftPractice, leftOfficial]);
+  }, [canPractice, canOfficial, kinds]);
 
   // While Play is on offer, fetch the scene's chunk and the slime model when the browser is idle.
   const onReady = stage.kind === "ready" && canPlay;
@@ -324,7 +326,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
   const showCockpit = open || stage.kind !== "ready";
   const actions = (again: boolean) => (
     <PlayActions kinds={kinds} canPlay={canPlay} left={left} again={again} onPlay={play}
-      shut={open && !hours.open ? opensAgain(hours.opensAt) : null} />
+      shut={shut} />
   );
 
   return (
