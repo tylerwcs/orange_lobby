@@ -154,7 +154,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
   const phase = livePhase(view.phase, view.opensAt, view.closesAt, now);
   const open = phase === "open";
   const hours = hoursState(view.playHours, now);
-  const shut = open && !hours.open ? opensAgain(hours.opensAt) : null;
+  const shut = open && !hours.open ? opensAgain(hours.opensAt, now) : null;
   const canPlay = open && shut === null;
   const kinds = view.limits.practice !== null || view.limits.official !== null;
   const left = leftToday(view, now);

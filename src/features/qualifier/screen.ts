@@ -2,7 +2,7 @@
 // clock-driven phase. Pure, so the copy and its edge cases are tested without rendering.
 import type { BoardEntry } from "./board";
 import type { Phase } from "./phase";
-import { hoursText, klClock, klDay, type PlayHours, type RunKind } from "./hours";
+import { hoursText, klDay, whenOpens, type PlayHours, type RunKind } from "./hours";
 
 /**
  * The phase the page should show now. The server's phase is read once at load; the window's
@@ -129,4 +129,4 @@ export function ruleLines(v: { limits: Limits; playHours: PlayHours }): string[]
 }
 
 /** Outside the play hours: when a run may start again, in the words the start route uses. */
-export const opensAgain = (opensAt: number): string => `Opens again at ${klClock(opensAt)}`;
+export const opensAgain = (opensAt: number, now: number): string => `Opens again at ${whenOpens(opensAt, now)}`;

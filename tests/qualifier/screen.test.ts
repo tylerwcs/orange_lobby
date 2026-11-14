@@ -164,6 +164,7 @@ describe("practice and official runs (D909)", () => {
     ]);
   });
   it("opensAgain names the time", () => {
-    expect(opensAgain(noon)).toBe("Opens again at 12:00 pm");
+    expect(opensAgain(noon, noon - 3_600_000)).toBe("Opens again at 12:00 pm");
+    expect(opensAgain(noon, noon - 20 * 3_600_000)).toBe("Opens again at 12:00 pm tomorrow");
   });
 });

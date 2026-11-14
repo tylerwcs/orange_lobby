@@ -86,6 +86,10 @@ export function hoursState(h: PlayHours, now: number): { open: true } | { open: 
   return { open: false, opensAt: day + DAY + h[0] * MIN };
 }
 
+/** When the game next opens, for a sentence: "12:00 pm", or "12:00 pm tomorrow" once that is past midnight. */
+export const whenOpens = (opensAt: number, now: number): string =>
+  `${klClock(opensAt)}${klDay(opensAt) === klDay(now) ? "" : " tomorrow"}`;
+
 /** A runs-a-day field: blank is null (no limit), a whole number 0 to 99, anything else "invalid". */
 export function parsePerDay(text: string): number | null | "invalid" {
   const t = text.trim();

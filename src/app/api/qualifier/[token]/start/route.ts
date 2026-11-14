@@ -1,13 +1,13 @@
 import { randomInt } from "node:crypto";
 import { playContext } from "@/features/games";
-import { hasKinds, hoursState, ineligibility, klClock, phaseOf, settingsFor, startRun, type RunKind } from "@/features/qualifier";
+import { hasKinds, hoursState, ineligibility, phaseOf, settingsFor, startRun, whenOpens, type RunKind } from "@/features/qualifier";
 import { json } from "@/lib/http";
 import { allow } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
 /** "It opens again at 12:00 pm." The same words the page prints (screen.ts) when the hours shut. */
-const hoursError = (opensAt: number) => `The game is closed right now. It opens again at ${klClock(opensAt)}.`;
+const hoursError = (opensAt: number) => `The game is closed right now. It opens again at ${whenOpens(opensAt, Date.now())}.`;
 
 /**
  * Starts a slime run (D771, D795). The server picks the seed, which fixes every slime, word and
