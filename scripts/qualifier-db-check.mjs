@@ -85,10 +85,15 @@ try {
   must(await db.from("events").update({ preview_attendee_id: pre }).eq("id", event.id));
 
   // --- Helpers ---
-  const save = (opensMs, closesMs) => db.rpc("qualifier_save_settings", {
+  // `limits` (D907, D908): { practice, official, hours }; left out, the three are saved null.
+  const save = (opensMs, closesMs, limits = null) => db.rpc("qualifier_save_settings", {
     p_event_id: event.id, p_opens_at: new Date(opensMs).toISOString(),
     p_closes_at: new Date(closesMs).toISOString(), p_excluded: EXCLUDED,
+    ...(limits ? { p_practice_per_day: limits.practice ?? null, p_official_per_day: limits.official ?? null, p_play_hours: limits.hours ?? null } : {}),
   });
+  const startKind = async (attendeeId, kind) => must(await db.rpc("qualifier_start", {
+    p_event_id: event.id, p_attendee_id: attendeeId, p_seed: nextSeed++, p_countdown_ms: COUNTDOWN_MS, p_kind: kind,
+  }))[0];
   // The database's clock, as an offset from this machine's: each start answers starts_at =
   // now() + COUNTDOWN_MS, taken as of the middle of its round trip (off by half of it at most).
   let clockOffset = 0;
@@ -252,6 +257,48 @@ try {
   const benRuns = must(await db.from("qualifier_runs").select("id").eq("attendee_id", ben));
   check("someone moved into a left-out category leaves the board, runs kept",
     !ids(rows).includes(ben) && (await rank(ben)) === null && (await size()) === sizeBefore - 1 && benRuns.length === 1, `runs ${benRuns.length}`);
+
+  // 5b. Practice and official runs, daily limits and play hours (D907, D908; 0139). P11 has one
+  // official run today (620). Run within a minute of Malaysia midnight these can miscount.
+  check("a start with the old four arguments is an official run", (await runRow(r2.run_id)).kind === "official");
+  const lim = P[10];
+  const w0 = Date.now();
+  check("saving daily limits answers ok", must(await save(w0 - HOUR, w0 + HOUR, { practice: 3, official: 2 })) === "ok");
+  const pair = await Promise.all([startKind(lim, "official"), startKind(lim, "official")]);
+  check("two official starts at once for the last attempt: one run, one 'limit'",
+    pair.filter((r) => r.run_id).length === 1 && pair.filter((r) => r.refused === "limit").length === 1, JSON.stringify(pair));
+  const lastOfficial = pair.find((r) => r.run_id);
+  check("a further official start is refused 'limit'", (await startKind(lim, "official")).refused === "limit");
+  check("a refused start leaves the live run live", (await runRow(lastOfficial.run_id)).status === "live");
+  const practice = [];
+  for (let i = 0; i < 3; i += 1) practice.push(await startKind(lim, "practice"));
+  check("three practice starts are allowed once the official attempts are used", practice.every((r) => typeof r.run_id === "string"), JSON.stringify(practice));
+  check("the practice run is stored as practice", (await runRow(practice[2].run_id)).kind === "practice");
+  check("a fourth practice start is refused 'limit'", (await startKind(lim, "practice")).refused === "limit");
+  check("a used attempt stays used when the run is abandoned", (await runRow(lastOfficial.run_id)).status === "abandoned");
+  const limBefore = await player(lim);
+  await backdate(practice[2], 70_000);
+  check("a practice run's submit answers 'ok'", (await submit(practice[2].run_id, lim, 99_999)) === "ok");
+  const limAfter = await player(lim);
+  check("a practice score never becomes the best", limAfter.best_score === 620 && limAfter.best_run_id === limBefore.best_run_id, `best ${limAfter.best_score}`);
+  check("runs_played counts the practice run", limAfter.runs_played === limBefore.runs_played + 1);
+  check("the board is unchanged by the practice run", JSON.stringify(ids(await board())) === JSON.stringify(ids(rows)));
+  // Hours: a window of the Malaysia day that leaves the database's now out, then one that holds it.
+  const klMinute = Math.floor(((dbNow() + 8 * HOUR) % (24 * HOUR)) / MIN);
+  const shut = klMinute < 720 ? [780, 1440] : [0, 600];
+  must(await save(w0 - HOUR, w0 + HOUR, { hours: shut }));
+  const outside = await startKind(P[9], "official");
+  check("a start outside the play hours is refused 'hours'", outside.refused === "hours" && outside.run_id === null, JSON.stringify(outside));
+  must(await save(w0 - HOUR, w0 + HOUR, { hours: [0, 600, 600, 1440] }));
+  const inside = await startKind(P[9], "official");
+  check("a start inside the play hours returns a run", typeof inside.run_id === "string", JSON.stringify(inside));
+  await backdate(inside, 70_000);
+  check("that run is submitted", (await submit(inside.run_id, P[9], 1)) === "ok");
+  const badHours = await save(w0 - HOUR, w0 + HOUR, { hours: [0, 600, 720] });
+  check("hours that aren't pairs are refused by the table", badHours.error != null);
+  check("clearing the limits answers ok", must(await save(w0 - HOUR, w0 + HOUR)) === "ok");
+  const cleared = must(await db.from("qualifier_settings").select("practice_per_day, official_per_day, play_hours").eq("event_id", event.id).single());
+  check("a save without limits stores none", cleared.practice_per_day === null && cleared.official_per_day === null && cleared.play_hours === null);
 
   // 6. Started before the close, submitted after it. The window closes 10 s before now; rc is
   // then backdated to 70 s ago, so it started before closes_at (as long as fewer than 60 s pass

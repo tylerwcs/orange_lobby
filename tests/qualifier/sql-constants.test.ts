@@ -24,3 +24,21 @@ describe("0124 SQL literals mirror rules.ts", () => {
     expect(sql).toContain("p_ended_ms - 2000");
   });
 });
+
+// Migration 0139 (D907, D908) keeps two things the code leans on: the Malaysia day and minute
+// (hours.ts does the same sums at UTC+8), and defaults that let a caller leave the kind out.
+const limits = readFileSync("supabase/migrations/0139_slime_attempt_limits.sql", "utf8");
+
+describe("0139 SQL mirrors hours.ts and db.ts", () => {
+  it("days and hours are Malaysia's", () => {
+    expect(limits.match(/at time zone 'Asia\/Kuala_Lumpur'/g)).toHaveLength(3);
+  });
+  it("a start without a kind is official, and only official runs make the best", () => {
+    expect(limits).toContain("p_kind text default 'official'");
+    expect(limits).toContain("and r.kind = 'official'");
+  });
+  it("the old signatures are dropped, so a named call can't be ambiguous", () => {
+    expect(limits).toContain("drop function public.qualifier_start(uuid, uuid, int, int);");
+    expect(limits).toContain("drop function public.qualifier_save_settings(uuid, timestamptz, timestamptz, text[]);");
+  });
+});
