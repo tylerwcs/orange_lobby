@@ -4,12 +4,21 @@
 // is simply not kept, and nothing here ever throws.
 import { RUN_CAP_MS, SUBMIT_GRACE_MS } from "./rules";
 import { parseSubmitBody, type SubmitBody, type SubmitReason } from "./timeline";
+import type { RunKind } from "../hours";
 
 /** `savedAt`: Date.now() when the run was first kept (0 for one kept before it was recorded). */
-export type Pending = { runId: string; body: SubmitBody; tries: number; savedAt: number };
+/** `kind`: what the run was, where the event has practice and official runs (D909); absent where it has not. */
+export type Pending = { runId: string; body: SubmitBody; tries: number; savedAt: number; kind?: RunKind };
 
 /** Failed tries after which the player may discard a kept run that can't get through. */
 export const DISCARD_AFTER_TRIES = 3;
+
+/**
+ * Whether a kept run that can't get through may be discarded to play on. Never an official
+ * attempt (D909): discarding it loses the day's score with the attempt already used, so the
+ * player waits for it to send (or to lapse, `expired`) instead.
+ */
+export const mayDiscard = (p: Pending | null): boolean => !!p && p.tries >= DISCARD_AFTER_TRIES && p.kind !== "official";
 
 const keyOf = (token: string) => `qualifier-pending:${token}`;
 
@@ -30,11 +39,11 @@ export function loadPending(store: Storage | null, token: string): Pending | nul
     if (!raw) return null;
     const v: unknown = JSON.parse(raw);
     if (typeof v !== "object" || v === null) return null;
-    const { runId, body, tries, savedAt = 0 } = v as Record<string, unknown>;
+    const { runId, body, tries, savedAt = 0, kind } = v as Record<string, unknown>;
     const parsed = parseSubmitBody(body);
     if (typeof runId !== "string" || !parsed || parsed.runId !== runId) return null;
     if (!isCount(tries) || !isCount(savedAt)) return null;
-    return { runId, body: parsed, tries, savedAt };
+    return { runId, body: parsed, tries, savedAt, ...(kind === "practice" || kind === "official" ? { kind } : {}) };
   } catch {
     return null;
   }

@@ -14,6 +14,7 @@ describe("parsePlayHours (D908)", () => {
   });
   it("blank means any time", () => {
     expect(parsePlayHours("  ")).toBeNull();
+    expect(parsePlayHours("00:00-24:00")).toBeNull();
   });
   it("refuses what isn't ascending, separate pairs inside one day", () => {
     for (const bad of ["10:00-09:00", "12:00-14:00, 13:00-15:00", "25:00-26:00", "noon", "10:00-10:00",

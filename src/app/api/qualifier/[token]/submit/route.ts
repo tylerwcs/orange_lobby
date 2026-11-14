@@ -48,5 +48,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   const rank = await rankOf(event.id, attendee.id);
   const view = await qualifierView(ctx, Date.now(), { rank });
-  return json({ ok: true, score: result.score, prevBest, view });
+  return json({ ok: true, score: result.score, prevBest, view, kind: run.kind });
 }

@@ -49,6 +49,8 @@ export function parsePlayHours(text: string): PlayHours | "invalid" {
     if (to > DAY_MIN || from >= to || from < (out.at(-1) ?? 0)) return "invalid";
     out.push(from, to);
   }
+  // The whole day is no restriction at all.
+  if (out.length === 2 && out[0] === 0 && out[1] === DAY_MIN) return null;
   return out;
 }
 

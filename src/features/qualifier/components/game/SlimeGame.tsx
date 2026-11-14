@@ -30,7 +30,7 @@ const SlimeScene = dynamic(loadScene, { ssr: false });
 /** `discard`: the error is a kept run that keeps failing to send, which the player may discard. */
 export type StartAnswer = { runId: string; startsAt: string; serverNow: number; seed: number } | { error: string; discard?: boolean };
 /** `view` is the qualifier page's refreshed view, with this run on the board. */
-export type SubmitAnswer = { ok: true; score: number; prevBest: number | null; view: QualifierView } | { ok: false; reason: SubmitReason };
+export type SubmitAnswer = { ok: true; score: number; prevBest: number | null; view: QualifierView; kind?: RunKind } | { ok: false; reason: SubmitReason };
 
 export type SlimeGameProps = {
   /** The attendee's token: the key the unsent run is kept under on this device. */
@@ -450,7 +450,7 @@ export function SlimeGame({ token, kind = null, start, submit, onDone, onScored,
     const store = storage();
     const savedAt = Date.now();
     let tries = 0;
-    savePending(store, tok, { runId: body.runId, body, tries, savedAt });
+    savePending(store, tok, { runId: body.runId, body, tries, savedAt, ...(latest.current.kind ? { kind: latest.current.kind } : {}) });
     setStage({ kind: "sending", offline: false, tries, ...ending });
     while (alive.current) {
       let answer: SubmitAnswer | null = null;
@@ -482,7 +482,7 @@ export function SlimeGame({ token, kind = null, start, submit, onDone, onScored,
         return;
       }
       tries += 1;
-      savePending(store, tok, { runId: body.runId, body, tries, savedAt });
+      savePending(store, tok, { runId: body.runId, body, tries, savedAt, ...(latest.current.kind ? { kind: latest.current.kind } : {}) });
       if (!alive.current) return;
       setStage({ kind: "sending", offline: said === "network", tries, ...ending });
       await pause(said === "early" ? EARLY_RETRY_MS : backoff(tries));

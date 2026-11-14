@@ -10,7 +10,7 @@ import { closesIn, closingNote, isNewBest, leftNote, leftToday, livePhase, opens
 import { hoursState, type RunKind } from "../hours";
 import { GAME_NAME } from "../paths";
 import { qualifierFont } from "../font";
-import { DISCARD_AFTER_TRIES, clearPending, expired, loadPending, savePending, settle } from "../game/pending";
+import { clearPending, expired, loadPending, mayDiscard, savePending, settle } from "../game/pending";
 import { primeSound } from "../game/sound";
 import type { SubmitBody, SubmitReason } from "../game/timeline";
 import { SlimeGame, type StartAnswer, type SubmitAnswer } from "./game/SlimeGame";
@@ -189,7 +189,9 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       if (still()) clearPending(store, token);
       if (answer.ok) {
         setView(answer.view);
-        setNotice(`Your last run was sent: ${points(answer.score)} points.`);
+        setNotice(answer.kind === "practice"
+          ? `Your last practice run was sent: ${points(answer.score)} points. It doesn't count.`
+          : `Your last run was sent: ${points(answer.score)} points.`);
       } else if (answer.reason !== "done") {
         setNotice(`Your last run didn't count. ${refusedText(answer.reason)}`);
       } else {
@@ -224,7 +226,7 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
     const called = Date.now();
     if ((await flushPending()) === "failed") {
       // After a few failed tries the player may give the kept run up and play (SlimeGame clears it).
-      return { error: PENDING_STUCK, discard: (loadPending(storage(), token)?.tries ?? 0) >= DISCARD_AFTER_TRIES };
+      return { error: PENDING_STUCK, discard: mayDiscard(loadPending(storage(), token)) };
     }
     const sent = Date.now();
     const kind = runKindRef.current;
@@ -232,13 +234,19 @@ export function QualifierClient({ token, initial }: { token: string; initial: Qu
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: kind ?? "official" }),
     });
     const body = (await res.json().catch(() => null)) as
-      | { runId?: unknown; startsAt: string; serverNow: number; seed: number; error?: string }
+      | { runId?: unknown; startsAt: string; serverNow: number; seed: number; error?: string; refused?: string }
       | null;
     const received = Date.now();
-    if (!res.ok || !body || typeof body.runId !== "string") return { error: body?.error ?? START_ERROR };
+    if (!res.ok || !body || typeof body.runId !== "string") {
+      // Used up elsewhere (another tab or device): the button says so from now on.
+      if (kind && body?.refused === "limit") {
+        setView((v) => ({ ...v, used: { ...usedAfterStart(v.used, kind, Date.now()), [kind]: v.limits[kind] ?? 0 } }));
+      }
+      return { error: body?.error ?? START_ERROR };
+    }
     setOffset(clockOffset(sent, received, body.serverNow));
-    // The attempt is used now, whatever becomes of the run.
-    if (kind) setView((v) => ({ ...v, used: usedAfterStart(v.used, kind, body.serverNow) }));
+    // The attempt is used now, whatever becomes of the run, on the day its countdown ends (as the database counts).
+    if (kind) setView((v) => ({ ...v, used: usedAfterStart(v.used, kind, Date.parse(body.startsAt)) }));
     return { runId: body.runId, startsAt: body.startsAt, seed: body.seed, serverNow: body.serverNow - (sent - called) / 2 };
   }, [token, flushPending]);
 

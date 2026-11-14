@@ -98,3 +98,18 @@ describe("settle", () => {
     expect(settle("network")).toBe("retry");
   });
 });
+
+import { DISCARD_AFTER_TRIES, mayDiscard } from "@/features/qualifier/game/pending";
+
+describe("a kept run's kind (D909)", () => {
+  const body = { runId: "r1", keys: "a", times: [5], device: "keyboard" } as unknown as Pending["body"];
+  const kept = (over: Partial<Pending>): Pending => ({ runId: "r1", body, tries: DISCARD_AFTER_TRIES, savedAt: 1, ...over });
+
+  it("an official attempt is never offered for discard", () => {
+    expect(mayDiscard(kept({ kind: "official" }))).toBe(false);
+    expect(mayDiscard(kept({ kind: "practice" }))).toBe(true);
+    expect(mayDiscard(kept({}))).toBe(true);
+    expect(mayDiscard(kept({ tries: DISCARD_AFTER_TRIES - 1 }))).toBe(false);
+    expect(mayDiscard(null)).toBe(false);
+  });
+});
